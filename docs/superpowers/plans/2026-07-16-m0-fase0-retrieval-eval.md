@@ -17,13 +17,13 @@
 - El gate numérico se commitea ANTES del primer cambio de config (pre-registro; cambiarlo después invalida el experimento).
 - Candidatos EXACTOS: `jinaai/jina-embeddings-v2-base-es` (con `semantic_embedding_dimensions: 768` — sin ese campo el provider revienta: hardcodea 384) y `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` (384, drop-in). **PROHIBIDO** usar familia E5 o bge-m3 en este experimento (E5 exige prefijos query:/passage: que el stack no pone; bge-m3 no existe en fastembed 0.8.0). Nombre HF completo en config.
 - `~/.basic-memory/config.json` se snapshotea antes de tocarlo y se restaura al estado ganador (o baseline) al cierre. Es config VIVA del sistema de Paul.
-- Todo artefacto vive en `evals/retrieval-fase0/` de agent-develop (migrará a exo en M1a con `git mv`).
+- Todo artefacto vive en `evals/retrieval-fase0/` del repo exo. Excepción: el doc de pre-registro de métrica D (`docs/superpowers/evals/2026-07-09-reflex-v2-baseline.md`) vive en agent-develop (es de reflex) — su append de desviación se commitea ALLÍ, en commit propio.
 - Gates de tareas: consultor Fable independiente con verdict-artifact commiteado (spec §8). Línea roja: nada destructivo/externo sin Paul.
 
 ## File Structure
 
 ```
-agent-develop/evals/retrieval-fase0/
+exo/evals/retrieval-fase0/
 ├── snapshot/
 │   ├── reflex-retrieval-log.jsonl    # copia congelada del log
 │   └── config-baseline.json          # copia de ~/.basic-memory/config.json
@@ -52,9 +52,9 @@ agent-develop/evals/retrieval-fase0/
 - [ ] **Step 1: Snapshot del log y la config (antes de nada)**
 
 ```bash
-mkdir -p ~/Documentos/proyectos/agent-develop/evals/retrieval-fase0/{snapshot,harness,results,verdict}
-cp ~/.claude/reflex-retrieval-log.jsonl ~/Documentos/proyectos/agent-develop/evals/retrieval-fase0/snapshot/
-cp ~/.basic-memory/config.json ~/Documentos/proyectos/agent-develop/evals/retrieval-fase0/snapshot/config-baseline.json
+mkdir -p ~/Documentos/proyectos/exo/evals/retrieval-fase0/{snapshot,harness,results,verdict}
+cp ~/.claude/reflex-retrieval-log.jsonl ~/Documentos/proyectos/exo/evals/retrieval-fase0/snapshot/
+cp ~/.basic-memory/config.json ~/Documentos/proyectos/exo/evals/retrieval-fase0/snapshot/config-baseline.json
 ```
 
 - [ ] **Step 2: Verificar la interfaz real del CLI**
@@ -78,8 +78,8 @@ Expected: JSON/texto con resultados que incluyen permalink, type y score. Anotar
 - [ ] **Step 4: Commit**
 
 ```bash
-git -C ~/Documentos/proyectos/agent-develop add evals/retrieval-fase0/snapshot
-git -C ~/Documentos/proyectos/agent-develop commit -m "eval(m0): snapshot de log/config + interfaz CLI verificada"
+git -C ~/Documentos/proyectos/exo add evals/retrieval-fase0/snapshot
+git -C ~/Documentos/proyectos/exo commit -m "eval(m0): snapshot de log/config + interfaz CLI verificada"
 ```
 
 ---
@@ -96,7 +96,7 @@ git -C ~/Documentos/proyectos/agent-develop commit -m "eval(m0): snapshot de log
 - [ ] **Step 1: Extraer las queries únicas del log**
 
 ```bash
-cd ~/Documentos/proyectos/agent-develop/evals/retrieval-fase0
+cd ~/Documentos/proyectos/exo/evals/retrieval-fase0
 jq -r 'select(.tool=="mcp__basic-memory__search_notes") | .target' snapshot/reflex-retrieval-log.jsonl \
   | sort -u | jq -R '{query: ., source: "log"}' > queries.jsonl
 wc -l queries.jsonl
@@ -124,8 +124,8 @@ Añadir al ledger de la campaña (o al informe de cierre si no hay ledger): "Pau
 - [ ] **Step 4: Commit**
 
 ```bash
-git -C ~/Documentos/proyectos/agent-develop add evals/retrieval-fase0/queries.jsonl
-git -C ~/Documentos/proyectos/agent-develop commit -m "eval(m0): 46 queries reales + casos duros conceptuales del consultor"
+git -C ~/Documentos/proyectos/exo add evals/retrieval-fase0/queries.jsonl
+git -C ~/Documentos/proyectos/exo commit -m "eval(m0): 46 queries reales + casos duros conceptuales del consultor"
 ```
 
 ---
@@ -146,7 +146,7 @@ Despachar un subagente **sonnet** con este brief: "Para cada línea de `evals/re
 - [ ] **Step 2: Validar el schema**
 
 ```bash
-cd ~/Documentos/proyectos/agent-develop/evals/retrieval-fase0
+cd ~/Documentos/proyectos/exo/evals/retrieval-fase0
 python3 - <<'EOF'
 import json
 rows = [json.loads(l) for l in open("eval.jsonl")]
@@ -167,8 +167,8 @@ Consultor Fable fresco (no el autor de los casos duros): "Muestrea 15 etiquetas 
 - [ ] **Step 4: Commit**
 
 ```bash
-git -C ~/Documentos/proyectos/agent-develop add evals/retrieval-fase0/eval.jsonl evals/retrieval-fase0/verdict/labels.md
-git -C ~/Documentos/proyectos/agent-develop commit -m "eval(m0): ground truth etiquetado + verdict de labels"
+git -C ~/Documentos/proyectos/exo add evals/retrieval-fase0/eval.jsonl evals/retrieval-fase0/verdict/labels.md
+git -C ~/Documentos/proyectos/exo commit -m "eval(m0): ground truth etiquetado + verdict de labels"
 ```
 
 ---
@@ -228,7 +228,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: Smoke test con una query**
 
 ```bash
-cd ~/Documentos/proyectos/agent-develop/evals/retrieval-fase0
+cd ~/Documentos/proyectos/exo/evals/retrieval-fase0
 python3 - <<'EOF'
 # smoke: una búsqueda directa con la CMD del harness
 import subprocess, json
@@ -253,8 +253,8 @@ Expected: `filas = |eval.jsonl| × 3` (~156). Duración ~10-15 min (3.5s/llamada
 - [ ] **Step 4: Commit**
 
 ```bash
-git -C ~/Documentos/proyectos/agent-develop add evals/retrieval-fase0/harness/replay.py evals/retrieval-fase0/results/baseline.jsonl
-git -C ~/Documentos/proyectos/agent-develop commit -m "eval(m0): harness de replay + brazo baseline capturado"
+git -C ~/Documentos/proyectos/exo add evals/retrieval-fase0/harness/replay.py evals/retrieval-fase0/results/baseline.jsonl
+git -C ~/Documentos/proyectos/exo commit -m "eval(m0): harness de replay + brazo baseline capturado"
 ```
 
 ---
@@ -341,7 +341,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: Correr sobre baseline y verificar salida**
 
 ```bash
-cd ~/Documentos/proyectos/agent-develop/evals/retrieval-fase0
+cd ~/Documentos/proyectos/exo/evals/retrieval-fase0
 python3 harness/analyze.py baseline && cat results/metrics-baseline.md
 ```
 
@@ -350,8 +350,8 @@ Expected: métricas por search_type, lista de observation-hit queries (debe ser 
 - [ ] **Step 3: Commit**
 
 ```bash
-git -C ~/Documentos/proyectos/agent-develop add evals/retrieval-fase0/harness/analyze.py evals/retrieval-fase0/results/metrics-baseline.md
-git -C ~/Documentos/proyectos/agent-develop commit -m "eval(m0): análisis + baseline medido (estratificación observation-hits incluida)"
+git -C ~/Documentos/proyectos/exo add evals/retrieval-fase0/harness/analyze.py evals/retrieval-fase0/results/metrics-baseline.md
+git -C ~/Documentos/proyectos/exo commit -m "eval(m0): análisis + baseline medido (estratificación observation-hits incluida)"
 ```
 
 ---
@@ -387,7 +387,7 @@ cada brazo en su mejor threshold del sweep (mismo procedimiento para todos los b
 
 - [ ] **Step 2: Append de desviación al pre-registro de métrica D**
 
-Añadir al final de `docs/superpowers/evals/2026-07-09-reflex-v2-baseline.md`:
+Añadir al final de `~/Documentos/proyectos/agent-develop/docs/superpowers/evals/2026-07-09-reflex-v2-baseline.md` (repo agent-develop):
 
 ```markdown
 ## Desviación registrada 2026-07-16 (M0 Fase 0 del framework exo)
@@ -401,8 +401,10 @@ reflex-retrieval-log.jsonl en evals/retrieval-fase0/snapshot/.
 - [ ] **Step 3: Commit (esto sella el pre-registro)**
 
 ```bash
-git -C ~/Documentos/proyectos/agent-develop add evals/retrieval-fase0/gate.md docs/superpowers/evals/2026-07-09-reflex-v2-baseline.md
-git -C ~/Documentos/proyectos/agent-develop commit -m "eval(m0): gate pre-registrado + desviación documentada en pre-registro de métrica D"
+git -C ~/Documentos/proyectos/exo add evals/retrieval-fase0/gate.md
+git -C ~/Documentos/proyectos/exo commit -m "eval(m0): gate numérico pre-registrado (sellado antes de tocar config)"
+git -C ~/Documentos/proyectos/agent-develop add docs/superpowers/evals/2026-07-09-reflex-v2-baseline.md
+git -C ~/Documentos/proyectos/agent-develop commit -m "docs(evals): desviación M0 registrada en pre-registro de métrica D"
 ```
 
 ---
@@ -450,7 +452,7 @@ Expected: ≥1 resultado con score (no vacío ni error).
 - [ ] **Step 3: Replay + métricas del brazo**
 
 ```bash
-cd ~/Documentos/proyectos/agent-develop/evals/retrieval-fase0
+cd ~/Documentos/proyectos/exo/evals/retrieval-fase0
 python3 harness/replay.py jina-es
 python3 harness/analyze.py jina-es baseline && cat results/metrics-jina-es.md
 ```
@@ -464,8 +466,8 @@ Config: `semantic_embedding_model = "sentence-transformers/paraphrase-multilingu
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C ~/Documentos/proyectos/agent-develop add evals/retrieval-fase0/results/
-git -C ~/Documentos/proyectos/agent-develop commit -m "eval(m0): brazos jina-es y minilm medidos (pareada vs baseline)"
+git -C ~/Documentos/proyectos/exo add evals/retrieval-fase0/results/
+git -C ~/Documentos/proyectos/exo commit -m "eval(m0): brazos jina-es y minilm medidos (pareada vs baseline)"
 ```
 
 ---
@@ -490,7 +492,7 @@ Consultor **fable** fresco (no participó en tasks previas). Brief: "Adjudica el
 Si ganó un candidato: dejar su config aplicada (ya lo está si fue el último brazo, si no re-aplicar con el snippet de Task 7 Step 1). Si ninguno ganó: restaurar baseline:
 
 ```bash
-cp ~/Documentos/proyectos/agent-develop/evals/retrieval-fase0/snapshot/config-baseline.json ~/.basic-memory/config.json
+cp ~/Documentos/proyectos/exo/evals/retrieval-fase0/snapshot/config-baseline.json ~/.basic-memory/config.json
 basic-memory sync 2>&1 | tail -3
 ```
 
@@ -503,8 +505,8 @@ En `docs/superpowers/specs/2026-07-16-framework-unificado-design.md` §10, reemp
 - [ ] **Step 4: Commit final + documentar en KB**
 
 ```bash
-git -C ~/Documentos/proyectos/agent-develop add evals/retrieval-fase0/verdict/ docs/superpowers/specs/2026-07-16-framework-unificado-design.md
-git -C ~/Documentos/proyectos/agent-develop commit -m "eval(m0): verdict fable — lenguaje del engine y urgencia de M2 adjudicados"
+git -C ~/Documentos/proyectos/exo add evals/retrieval-fase0/verdict/ docs/superpowers/specs/2026-07-16-framework-unificado-design.md
+git -C ~/Documentos/proyectos/exo commit -m "eval(m0): verdict fable — lenguaje del engine y urgencia de M2 adjudicados"
 ```
 
 Cerrar con `/documenta` (sesión con decisiones: M0 ejecutado, resultado del gate, lenguaje firmado) — append a la bitácora del frente, delta al canon si cambia doctrina.
