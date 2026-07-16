@@ -1,0 +1,5 @@
+# Datos personales crudos: snapshots de logs de sesión quedan LOCAL-ONLY.
+# Antes de cualquier remote público, pasar privacy-pass a evals/ (spec §6.6, espíritu clean-room).
+evals/retrieval-fase0/snapshot/reflex-retrieval-log.jsonl
+# Scratch de orquestación SDD (briefs/reports/ledger)
+.superpowers/
