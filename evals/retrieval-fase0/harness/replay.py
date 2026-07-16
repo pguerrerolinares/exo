@@ -28,13 +28,16 @@ DIFIERE del brief original — estas resoluciones mandan):
   c) El threshold semántico NO se puede pasar por CLI (no hay
      --min-similarity). replay.py edita ~/.basic-memory/config.json al
      arrancar, pone `semantic_min_similarity` a 0.0 (guardando el valor
-     previo) para capturar scores completos sin recortar, y lo RESTAURA
-     al terminar (try/finally, también si el run peta). El sweep de
-     threshold se hace offline en analyze.py (Task 5) sobre estos scores.
+     previo en el sidecar ANTES de tocar config.json, y escribiendo
+     config.json de forma atómica vía tmp+os.replace) para capturar scores
+     completos sin recortar, y lo RESTAURA al terminar (try/finally,
+     también si el run peta). El sweep de threshold se hace offline en
+     analyze.py (Task 5) sobre estos scores.
   d) Los nombres de campo reales en la salida JSON son `score`/`type`/
      `permalink` (ya coinciden con lo que este script extrae).
 """
 import json
+import os
 import subprocess
 import sys
 import time
@@ -47,6 +50,11 @@ CONFIG_PATH = Path.home() / ".basic-memory" / "config.json"
 # con la config ya en 0.0 y se relanza, re-leer config.json capturaría 0.0
 # como "previous" (bug) en vez del valor real pre-run. Este fichero es la
 # fuente de verdad del valor a restaurar mientras haya un run en curso.
+# INVARIANTE: el sidecar se escribe ANTES de tocar config.json (nunca al
+# revés) — así un crash entre "leer previous" y "escribir sidecar" deja
+# config.json intacto (aún en su valor original), y un crash después de
+# escribir el sidecar pero antes de escribir 0.0 en config.json también es
+# seguro: el siguiente resume ve el sidecar y reintenta poner 0.0.
 MIN_SIMILARITY_BACKUP = BASE / "harness" / ".min_similarity_backup.json"
 
 CMD_BASE = ["basic-memory", "tool", "search-notes", "--project", "kb-demo",
@@ -61,21 +69,34 @@ SEARCH_TYPE_FLAGS = {
 SEARCH_TYPES = ["hybrid", "text", "vector"]
 
 
-def set_min_similarity(value):
-    """Edita semantic_min_similarity en config.json. Devuelve el valor previo."""
+def read_min_similarity():
+    """Lee semantic_min_similarity de config.json sin tocarlo."""
+    with open(CONFIG_PATH) as f:
+        return json.load(f).get("semantic_min_similarity")
+
+
+def write_min_similarity(value):
+    """Escribe semantic_min_similarity en config.json de forma ATÓMICA:
+    config REAL de Paul (no solo la del eval) — un kill a mitad de un
+    open("w") directo la truncaría a medio escribir. Escribe a un .tmp y
+    hace os.replace() (atómico a nivel de filesystem: nunca deja el fichero
+    a medias, o queda el viejo completo o el nuevo completo)."""
     with open(CONFIG_PATH) as f:
         config = json.load(f)
-    previous = config.get("semantic_min_similarity")
     config["semantic_min_similarity"] = value
-    with open(CONFIG_PATH, "w") as f:
+    tmp_path = CONFIG_PATH.with_name(CONFIG_PATH.name + ".tmp")
+    with open(tmp_path, "w") as f:
         json.dump(config, f, indent=2)
         f.write("\n")
-    return previous
+    os.replace(tmp_path, CONFIG_PATH)
 
 
 def search(query, stype):
     cmd = CMD_BASE + SEARCH_TYPE_FLAGS[stype] + [query]
-    out = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    try:
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    except subprocess.TimeoutExpired:
+        return {"error": "timeout"}
     if out.returncode != 0:
         return {"error": out.stderr[-500:]}
     data = json.loads(out.stdout)
@@ -136,16 +157,21 @@ if __name__ == "__main__":
         # anterior); el valor real a restaurar es el del sidecar, no el que
         # esté ahora mismo en config.json.
         previous_min_similarity = json.loads(MIN_SIMILARITY_BACKUP.read_text())["semantic_min_similarity"]
-        set_min_similarity(0.0)  # asegura 0.0 (no-op si ya lo estaba)
+        write_min_similarity(0.0)  # asegura 0.0 (no-op si ya lo estaba)
         print(f"Resume: previous recuperado de {MIN_SIMILARITY_BACKUP}: {previous_min_similarity}",
               file=sys.stderr)
     else:
-        previous_min_similarity = set_min_similarity(0.0)
+        # Orden crítico: sidecar ANTES de tocar config.json. Si el proceso
+        # muere entre estas dos líneas, config.json queda intacto (aún en su
+        # valor original) — nunca en el estado "0.0 sin sidecar" que rompía
+        # el resume.
+        previous_min_similarity = read_min_similarity()
         MIN_SIMILARITY_BACKUP.write_text(json.dumps({"semantic_min_similarity": previous_min_similarity}))
+        write_min_similarity(0.0)
     try:
         main(sys.argv[1])
     finally:
-        restored = set_min_similarity(previous_min_similarity)
+        write_min_similarity(previous_min_similarity)
         if MIN_SIMILARITY_BACKUP.exists():
             MIN_SIMILARITY_BACKUP.unlink()
-        print(f"config.json restaurado: semantic_min_similarity={restored}", file=sys.stderr)
+        print(f"config.json restaurado: semantic_min_similarity={previous_min_similarity}", file=sys.stderr)
