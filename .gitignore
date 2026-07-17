@@ -7,3 +7,4 @@ evals/retrieval-fase0/snapshot/reflex-retrieval-log.jsonl
 .superpowers/fabrica/*
 !.superpowers/fabrica/config.md
 __pycache__/
+engine/target/
