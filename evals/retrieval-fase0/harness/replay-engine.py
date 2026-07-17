@@ -3,29 +3,37 @@
 replay.py — replay.py NO se generaliza ni se toca (spec M2 §4: está acoplado
 al baile de config.json del CLI de basic-memory, que el engine no necesita).
 
-Uso: replay-engine.py <arm> --db <ruta> [--tipo fts|vector] [--exo <binario>] [--limite 5]
+Uso: replay-engine.py <arm> --db <ruta> [--tipo fts|vector|hybrid]
+     [--exo <binario>] [--limite 5] [--min-similitud F] [--bonus F]
+     [--escala-fts F]
 
 `--db` es obligatorio (D6: ningún default persistente — la ruta del índice
 la decide quien invoca, no el script). `--exo` por defecto resuelve al
 binario release del propio repo; `exo` NUNCA se asume en $PATH (no está
 instalado — instalar es M5b). `--tipo` (default "fts") se reenvía tal cual
 a `exo search --type <tipo>`; `<arm>` (nombre del fichero de salida) es
-independiente del tipo — así "engine-fts" y "engine-vector" (M2-06) son la
-misma pieza de código con distinto flag, sin generalizar replay.py.
+independiente del tipo — así "engine-fts", "engine-vector" (M2-06) y
+"engine-hybrid" (M2-07) son la misma pieza de código con distinto flag, sin
+generalizar replay.py.
 
 MAPEO VINCULANTE (brief m2-05, extendido en m2-06): el envelope del engine
 declara `search_type: "fts"` para el arm FTS (contrato §4.1, sellado, no se
 toca); este script lo reetiqueta a "text" en la fila jsonl porque
 `analyze.py` hardcodea `["hybrid", "text", "vector"]` (L60) y los resultados
-reales de basic-memory usan "text" para FTS. El arm vector NO necesita
-remapeo: el engine ya declara `search_type: "vector"` literal, que es
-exactamente la clave que `analyze.py` espera — SEARCH_TYPE_MAP.get() con
-fallback al valor original lo deja pasar sin tocar. El mapeo vive SOLO aquí
-— nunca en el engine (que fijaría "fts" para siempre) ni en analyze.py (su
-docstring prohíbe tocar nada salvo norm(), y esto no es un permalink).
+reales de basic-memory usan "text" para FTS. Los arms vector e hybrid NO
+necesitan remapeo: el engine ya declara `search_type: "vector"`/`"hybrid"`
+literal, exactamente las claves que `analyze.py` espera —
+SEARCH_TYPE_MAP.get() con fallback al valor original los deja pasar sin
+tocar. El mapeo vive SOLO aquí — nunca en el engine (que fijaría "fts" para
+siempre) ni en analyze.py (su docstring prohíbe tocar nada salvo norm(), y
+esto no es un permalink).
 
-Hybrid no existe aún (M2-07): el punto de extensión queda declarado, sin
-implementar.
+`--min-similitud`/`--bonus`/`--escala-fts` (M2-07, spec fusión §5.2.2) se
+reenvían a `exo search` SOLO si se pasaron (Option-like: `None` por defecto
+en el script → el flag ni se añade al comando, y `exo` cae a sus propios
+defaults/config, D6). `--min-similitud` sirve tanto al arm vector como al
+hybrid; `--bonus`/`--escala-fts` son propios del arm hybrid (sin efecto en
+fts/vector, ignorados por `exo search` si se pasan de todas formas).
 """
 import argparse
 import json
@@ -45,11 +53,17 @@ BASE = Path(__file__).resolve().parent.parent  # evals/retrieval-fase0/ (mismo p
 # contra el binario compilado en esta sesión.
 EXO_DEFAULT = BASE.parent.parent / "engine" / "target" / "release" / "exo"
 
-SEARCH_TYPE_MAP = {"fts": "text"}  # vector ya sale "vector" del engine; hybrid: M2-07
+SEARCH_TYPE_MAP = {"fts": "text"}  # vector/hybrid ya salen "vector"/"hybrid" literal del engine
 
 
-def search(exo_bin, db, query, limite, tipo):
+def search(exo_bin, db, query, limite, tipo, min_similitud=None, bonus=None, escala_fts=None):
     cmd = [str(exo_bin), "search", "--db", str(db), "--limite", str(limite), "--type", tipo, "--json", query]
+    if min_similitud is not None:
+        cmd += ["--min-similitud", str(min_similitud)]
+    if bonus is not None:
+        cmd += ["--bonus", str(bonus)]
+    if escala_fts is not None:
+        cmd += ["--escala-fts", str(escala_fts)]
     try:
         out = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
     except subprocess.TimeoutExpired:
@@ -65,9 +79,12 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("arm", help="nombre del arm (fichero de salida: results/<arm>.jsonl)")
     ap.add_argument("--db", required=True, help="fichero SQLite del índice del engine")
-    ap.add_argument("--tipo", default="fts", choices=["fts", "vector"], help="--type reenviado a exo search (default fts)")
+    ap.add_argument("--tipo", default="fts", choices=["fts", "vector", "hybrid"], help="--type reenviado a exo search (default fts)")
     ap.add_argument("--exo", default=str(EXO_DEFAULT), help="binario exo (default: release del repo)")
     ap.add_argument("--limite", type=int, default=5, help="resultados por query (default 5, hit@5)")
+    ap.add_argument("--min-similitud", type=float, default=None, help="--min-similitud reenviado a exo search (default: omitido, cae a config/CLI)")
+    ap.add_argument("--bonus", type=float, default=None, help="--bonus reenviado a exo search --type hybrid (default: omitido, cae al provisional del binario)")
+    ap.add_argument("--escala-fts", type=float, default=None, help="--escala-fts (β) reenviado a exo search --type hybrid (default: omitido, cae al provisional del binario)")
     args = ap.parse_args()
 
     exo_bin = Path(args.exo)
@@ -80,7 +97,16 @@ def main():
 
     with open(outpath, "w") as f:
         for i, row in enumerate(rows):
-            res = search(exo_bin, args.db, row["query"], args.limite, args.tipo)
+            res = search(
+                exo_bin,
+                args.db,
+                row["query"],
+                args.limite,
+                args.tipo,
+                min_similitud=args.min_similitud,
+                bonus=args.bonus,
+                escala_fts=args.escala_fts,
+            )
             if "error" in res:
                 fila = {"query": row["query"], "search_type": args.tipo, "error": res["error"]}
             else:

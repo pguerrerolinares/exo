@@ -1,4 +1,4 @@
-use exo::buscador::{busca, busca_vector};
+use exo::buscador::{busca, busca_hybrid, busca_vector};
 use exo::indexer::indexa;
 use std::path::Path;
 use std::process::Command;
@@ -177,4 +177,81 @@ fn busca_vector_sobre_db_sin_vectores_da_cero_resultados() {
     let resultado = busca_vector(&db, "cualquier cosa", 10, None).unwrap();
     assert_eq!(resultado.search_type, "vector");
     assert_eq!(resultado.results, Vec::new());
+}
+
+/// Test contractual 4 (spec fusión §7): admisión por unión (D-f2) — una
+/// query sin NINGÚN resultado FTS ("palabra-que-no-existe-en-ningun-lado",
+/// mismo string que `query_sin_hits_es_exito_con_resultados_vacios`) no debe
+/// perder los candidatos vectoriales; con `min_similitud: Some(0.0)`
+/// explícito (B3 — jamás `None` en un test) se garantiza que el canal
+/// vector exhaustivo admita candidatos incluso para una query sin relación
+/// semántica clara con el fixture. Verifica que `busca_hybrid` no gatea la
+/// entrada por FTS.
+#[test]
+fn fusion_gate_fts_no_pierde_hit_semantico() {
+    let (_kb, _db_dir, db) = db_indexada();
+
+    let fts = busca(&db, "palabra-que-no-existe-en-ningun-lado", 50).unwrap();
+    assert_eq!(fts.results, Vec::new(), "precondición: FTS vacío para esta query");
+
+    let hybrid = busca_hybrid(
+        &db,
+        "palabra-que-no-existe-en-ningun-lado",
+        10,
+        Some(0.0),
+        0.2,
+        0.8,
+    )
+    .unwrap();
+
+    assert!(
+        !hybrid.results.is_empty(),
+        "el canal vector no debería perderse por FTS vacío: {:?}",
+        hybrid.results
+    );
+}
+
+/// Test contractual 9: `v < umbral` ⇒ la entidad pierde el candidato vector
+/// pero conserva el FTS si lo tiene (D-f3, threshold pre-fusión sobre v).
+/// Umbral inalcanzable (1.5 > 1.0 teórico, mismo patrón que
+/// `busca_vector_threshold_alto_filtra_todo`) vacía el canal vector entero;
+/// la query "bitácora" sí tiene candidato FTS, así que debe sobrevivir con
+/// `score == f` (canal vector ausente = 0).
+#[test]
+fn threshold_filtra_vector_pre_fusion() {
+    let (_kb, _db_dir, db) = db_indexada();
+
+    let hybrid = busca_hybrid(&db, "bitácora", 10, Some(1.5), 0.2, 0.8).unwrap();
+
+    assert!(
+        hybrid
+            .results
+            .iter()
+            .any(|r| r.permalink == "kb-demo/log/agent-develop-bitacora"),
+        "el candidato FTS debe sobrevivir aunque el vector quede filtrado: {:?}",
+        hybrid.results
+    );
+}
+
+/// Test contractual 11: envelope de `busca_hybrid` — `search_type: "hybrid"`
+/// literal, forma del contrato §4.1 intacta (`{permalink, type: "entity",
+/// score}`).
+#[test]
+fn busqueda_hybrid_envelope() {
+    let (_kb, _db_dir, db) = db_indexada();
+
+    let resultado = busca_hybrid(&db, "buscable", 10, Some(0.0), 0.2, 0.8).unwrap();
+    assert_eq!(resultado.search_type, "hybrid");
+    assert!(!resultado.results.is_empty());
+
+    let valor = serde_json::to_value(&resultado).unwrap();
+    let obj = valor.as_object().unwrap();
+    assert!(obj.contains_key("query"));
+    assert!(obj.contains_key("search_type"));
+    assert!(obj.contains_key("elapsed_s"));
+    assert!(obj.contains_key("results"));
+    let primero = &obj["results"][0];
+    assert!(primero.get("permalink").is_some());
+    assert!(primero.get("type").is_some());
+    assert!(primero.get("score").is_some());
 }

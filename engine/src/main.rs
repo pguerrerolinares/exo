@@ -1,12 +1,21 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use exo::{
-    buscador::{busca, busca_vector},
+    buscador::{busca, busca_hybrid, busca_vector},
     envelope,
     indexer::indexa,
     kb_desde_config,
 };
 use std::path::PathBuf;
+
+/// Defaults provisionales del arm hybrid (M2-07, blindspot B1): centro del
+/// grid del sweep bonus{0,0.1,0.2,0.3,0.5}×β{0.6,0.8,1.0} — §5.1 de la spec
+/// de fusión. Cubren SOLO el uso de `exo search --type hybrid` sin
+/// `--bonus`/`--escala-fts` (el sweep siempre pasa ambos flags explícitos,
+/// así que estos provisionales no afectan su resultado). El paso de sellado
+/// (§5.2.6) reemplaza estos valores por los ganadores del sweep.
+const BONUS_PROVISIONAL: f64 = 0.2;
+const ESCALA_FTS_PROVISIONAL: f64 = 0.8;
 
 #[derive(Parser)]
 #[command(name = "exo", version, about = "engine del framework exo (E1: read)")]
@@ -40,12 +49,12 @@ struct ArgsIndex {
     json: bool,
 }
 
-/// `search_type` del contrato §4.1 ("fts | vector | hybrid" — hybrid es
-/// M2-07, aún no implementado aquí).
+/// `search_type` del contrato §4.1 ("fts | vector | hybrid").
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
 enum TipoBusqueda {
     Fts,
     Vector,
+    Hybrid,
 }
 
 #[derive(clap::Args)]
@@ -58,15 +67,28 @@ struct ArgsSearch {
     /// explícito; flags > config).
     #[arg(long, default_value_t = 10)]
     limite: usize,
-    /// Tipo de búsqueda (M2-06: fts|vector; hybrid llega en M2-07). Default
-    /// `fts`: comportamiento actual intacto si no se pasa el flag.
+    /// Tipo de búsqueda (fts|vector|hybrid, M2-07). Default `fts`:
+    /// comportamiento actual intacto si no se pasa el flag.
     #[arg(long, value_enum, default_value_t = TipoBusqueda::Fts)]
     r#type: TipoBusqueda,
-    /// Umbral de similitud coseno del arm vector. Opcional: si se omite,
-    /// cae a `semantic_min_similarity` de la config RO de basic-memory
-    /// (D6, precedencia flags > config). Sin efecto en `--type fts`.
+    /// Umbral de similitud coseno del arm vector/hybrid. Opcional: si se
+    /// omite, cae a `semantic_min_similarity` de la config RO de
+    /// basic-memory (D6, precedencia flags > config). Sin efecto en
+    /// `--type fts`.
     #[arg(long)]
     min_similitud: Option<f64>,
+    /// Peso del canal débil en la fórmula de fusión (`bonus·min(v,f)`,
+    /// spec fusión §4.4). Solo para `--type hybrid`: sweep/override (M2-07,
+    /// B1); si se omite, cae al provisional `BONUS_PROVISIONAL` hasta el
+    /// sellado del sweep.
+    #[arg(long)]
+    bonus: Option<f64>,
+    /// Anclaje β de la normalización BM25 por-query (spec fusión §4.3,
+    /// D-f1). Solo para `--type hybrid`: sweep/override (M2-07, B1); si se
+    /// omite, cae al provisional `ESCALA_FTS_PROVISIONAL` hasta el sellado
+    /// del sweep.
+    #[arg(long)]
+    escala_fts: Option<f64>,
     /// Emite el resultado como envelope JSON (spec §4) en stdout.
     #[arg(long)]
     json: bool,
@@ -96,6 +118,14 @@ fn busca_cmd(args: ArgsSearch) -> Result<()> {
         TipoBusqueda::Vector => {
             busca_vector(&args.db, &args.query, args.limite, args.min_similitud)?
         }
+        TipoBusqueda::Hybrid => busca_hybrid(
+            &args.db,
+            &args.query,
+            args.limite,
+            args.min_similitud,
+            args.bonus.unwrap_or(BONUS_PROVISIONAL),
+            args.escala_fts.unwrap_or(ESCALA_FTS_PROVISIONAL),
+        )?,
     };
 
     if args.json {
