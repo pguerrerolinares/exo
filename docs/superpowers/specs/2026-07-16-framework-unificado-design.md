@@ -202,7 +202,7 @@ El desarrollo se ejecuta con campañas del skill `paul-profile:fabrica` sobre el
 
 ## 10. Decisiones abiertas (a firmar con datos, no hoy)
 
-1. **Lenguaje del engine** — output de M0 (criterio pre-acordado en §4.5).
+1. ~~Lenguaje del engine~~ — **FIRMADO 2026-07-17 por verdict M0 (`evals/retrieval-fase0/verdict/m0-verdict.md`): RUST** — semántica load-bearing (criterio 2 real: 26/55 queries solo recuperables por vía semántica; FTS puro 18/55). Corolario del mismo verdict: jina-es GANA el gate (7/0), config aplicada (jina-es/768/threshold 0.35 — el 0.55 heredado habría sido dañino con el modelo nuevo), y **M2 baja a estrangulamiento tranquilo** (arranca en hueco real post-universidad/cge P2).
 2. ~~Nombre del framework/monorepo~~ — **FIRMADO 2026-07-16: `exo`** (exocortex).
 3. **archive/ en el ranking** — post-E1, con datos del side-by-side.
 4. **Marketplace: rename vs repo nuevo** — en M1b (preferencia actual: rename por los redirects).
