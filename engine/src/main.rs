@@ -8,14 +8,20 @@ use exo::{
 };
 use std::path::PathBuf;
 
-/// Defaults provisionales del arm hybrid (M2-07, blindspot B1): centro del
-/// grid del sweep bonus{0,0.1,0.2,0.3,0.5}×β{0.6,0.8,1.0} — §5.1 de la spec
-/// de fusión. Cubren SOLO el uso de `exo search --type hybrid` sin
-/// `--bonus`/`--escala-fts` (el sweep siempre pasa ambos flags explícitos,
-/// así que estos provisionales no afectan su resultado). El paso de sellado
-/// (§5.2.6) reemplaza estos valores por los ganadores del sweep.
-const BONUS_PROVISIONAL: f64 = 0.2;
-const ESCALA_FTS_PROVISIONAL: f64 = 0.8;
+/// Defaults SELLADOS del arm hybrid (M2-07, §5.2.6 de la spec de fusión):
+/// ganadores del sweep 15+1 corridas (grid bonus{0,0.1,0.2,0.3,0.5}×
+/// β{0.6,0.8,1.0} + diagnóstica A, `reports/m2-07-impl-report.md`) —
+/// selección pre-registrada §5.2.4 (max hit@5=49/55 → 4 celdas empatadas en
+/// β=0.6 → menor bonus=0.0), confirmada nativa (§5.2.5, `--min-similitud
+/// 0.40` da 49/55 idéntico al post-hoc). Cubren SOLO el uso de `exo search
+/// --type hybrid` sin `--bonus`/`--escala-fts` explícitos; el sweep siempre
+/// pasó ambos flags, así que estos valores no afectaron su resultado. El
+/// threshold ganador (0.40) NO se sella aquí como constante — D-f3/§4.6: el
+/// valor difiere del 0.35 de config y config es RO hasta M5a, así que se
+/// pasa por `--min-similitud 0.40` explícito en corridas/consumidores hasta
+/// entonces (documentado en el verdict, no hardcodeado en el binario).
+const BONUS_SELLADO: f64 = 0.0;
+const ESCALA_FTS_SELLADA: f64 = 0.6;
 
 #[derive(Parser)]
 #[command(name = "exo", version, about = "engine del framework exo (E1: read)")]
@@ -78,15 +84,15 @@ struct ArgsSearch {
     #[arg(long)]
     min_similitud: Option<f64>,
     /// Peso del canal débil en la fórmula de fusión (`bonus·min(v,f)`,
-    /// spec fusión §4.4). Solo para `--type hybrid`: sweep/override (M2-07,
-    /// B1); si se omite, cae al provisional `BONUS_PROVISIONAL` hasta el
-    /// sellado del sweep.
+    /// spec fusión §4.4). Solo para `--type hybrid`: override puntual del
+    /// sellado (M2-07, §5.2.6); si se omite, cae al default sellado
+    /// `BONUS_SELLADO`.
     #[arg(long)]
     bonus: Option<f64>,
     /// Anclaje β de la normalización BM25 por-query (spec fusión §4.3,
-    /// D-f1). Solo para `--type hybrid`: sweep/override (M2-07, B1); si se
-    /// omite, cae al provisional `ESCALA_FTS_PROVISIONAL` hasta el sellado
-    /// del sweep.
+    /// D-f1). Solo para `--type hybrid`: override puntual del sellado
+    /// (M2-07, §5.2.6); si se omite, cae al default sellado
+    /// `ESCALA_FTS_SELLADA`.
     #[arg(long)]
     escala_fts: Option<f64>,
     /// Emite el resultado como envelope JSON (spec §4) en stdout.
@@ -123,8 +129,8 @@ fn busca_cmd(args: ArgsSearch) -> Result<()> {
             &args.query,
             args.limite,
             args.min_similitud,
-            args.bonus.unwrap_or(BONUS_PROVISIONAL),
-            args.escala_fts.unwrap_or(ESCALA_FTS_PROVISIONAL),
+            args.bonus.unwrap_or(BONUS_SELLADO),
+            args.escala_fts.unwrap_or(ESCALA_FTS_SELLADA),
         )?,
     };
 
