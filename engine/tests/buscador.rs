@@ -1,4 +1,4 @@
-use exo::buscador::busca;
+use exo::buscador::{busca, busca_vector};
 use exo::indexer::indexa;
 use std::path::Path;
 use std::process::Command;
@@ -123,4 +123,58 @@ fn db_inexistente_da_error_claro() {
     let err = busca(&db, "algo", 10).expect_err("debe fallar, no crear una DB vacía");
     assert!(!db.exists(), "no debe crear el fichero como side-effect del error");
     assert!(format!("{err:#}").contains("no-existe.db"));
+}
+
+/// M2-06 Task 3: `busca_vector` sobre una DB poblada devuelve entidades
+/// (`type: "entity"`) ordenadas por score descendente, y encuentra la nota
+/// cuyo contenido es semánticamente (y aquí también literalmente) más
+/// cercano a la query.
+#[test]
+fn busca_vector_con_db_poblada_devuelve_entidades_ordenadas() {
+    let (_kb, _db_dir, db) = db_indexada();
+
+    let resultado = busca_vector(&db, "la bitácora de agent-develop", 10, None).unwrap();
+
+    assert_eq!(resultado.search_type, "vector");
+    assert!(!resultado.results.is_empty(), "esperaba al menos un resultado sobre threshold");
+    for r in &resultado.results {
+        assert_eq!(r.tipo, "entity");
+    }
+    for ventana in resultado.results.windows(2) {
+        assert!(ventana[0].score >= ventana[1].score, "{:?}", resultado.results);
+    }
+    assert!(
+        resultado.results.iter().any(|r| r.permalink == "kb-demo/log/agent-develop-bitacora"),
+        "la nota de la bitácora debería aparecer sobre threshold: {:?}",
+        resultado.results
+    );
+}
+
+/// Un threshold inalcanzable (por encima del máximo teórico de similitud
+/// coseno, 1.0) filtra todo — verifica que el filtro por
+/// `semantic_min_similarity`/`--min-similitud` realmente se aplica.
+#[test]
+fn busca_vector_threshold_alto_filtra_todo() {
+    let (_kb, _db_dir, db) = db_indexada();
+
+    let resultado = busca_vector(&db, "la bitácora de agent-develop", 10, Some(1.5)).unwrap();
+
+    assert_eq!(resultado.results, Vec::new());
+}
+
+/// DB con schema creado pero sin ninguna nota indexada (0 filas en
+/// `vectores`): éxito con `results: []`, no error (Task 3, declarado —
+/// paridad con el contrato de `busca` FTS: "sin hits = éxito").
+#[test]
+fn busca_vector_sobre_db_sin_vectores_da_cero_resultados() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = dir.path().join("vacia.db");
+    {
+        let conn = exo::abre_db(&db).unwrap();
+        exo::schema::crea_schema(&conn).unwrap();
+    }
+
+    let resultado = busca_vector(&db, "cualquier cosa", 10, None).unwrap();
+    assert_eq!(resultado.search_type, "vector");
+    assert_eq!(resultado.results, Vec::new());
 }

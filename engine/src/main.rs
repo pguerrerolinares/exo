@@ -1,6 +1,11 @@
 use anyhow::{Context, Result};
-use clap::{Parser, Subcommand};
-use exo::{buscador::busca, envelope, indexer::indexa, kb_desde_config};
+use clap::{Parser, Subcommand, ValueEnum};
+use exo::{
+    buscador::{busca, busca_vector},
+    envelope,
+    indexer::indexa,
+    kb_desde_config,
+};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -35,6 +40,14 @@ struct ArgsIndex {
     json: bool,
 }
 
+/// `search_type` del contrato §4.1 ("fts | vector | hybrid" — hybrid es
+/// M2-07, aún no implementado aquí).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+enum TipoBusqueda {
+    Fts,
+    Vector,
+}
+
 #[derive(clap::Args)]
 struct ArgsSearch {
     /// Fichero SQLite del índice. Obligatorio, sin default (D6: un default
@@ -45,6 +58,15 @@ struct ArgsSearch {
     /// explícito; flags > config).
     #[arg(long, default_value_t = 10)]
     limite: usize,
+    /// Tipo de búsqueda (M2-06: fts|vector; hybrid llega en M2-07). Default
+    /// `fts`: comportamiento actual intacto si no se pasa el flag.
+    #[arg(long, value_enum, default_value_t = TipoBusqueda::Fts)]
+    r#type: TipoBusqueda,
+    /// Umbral de similitud coseno del arm vector. Opcional: si se omite,
+    /// cae a `semantic_min_similarity` de la config RO de basic-memory
+    /// (D6, precedencia flags > config). Sin efecto en `--type fts`.
+    #[arg(long)]
+    min_similitud: Option<f64>,
     /// Emite el resultado como envelope JSON (spec §4) en stdout.
     #[arg(long)]
     json: bool,
@@ -69,7 +91,12 @@ fn ejecuta() -> Result<()> {
 }
 
 fn busca_cmd(args: ArgsSearch) -> Result<()> {
-    let resultado = busca(&args.db, &args.query, args.limite)?;
+    let resultado = match args.r#type {
+        TipoBusqueda::Fts => busca(&args.db, &args.query, args.limite)?,
+        TipoBusqueda::Vector => {
+            busca_vector(&args.db, &args.query, args.limite, args.min_similitud)?
+        }
+    };
 
     if args.json {
         envelope::emite("search", serde_json::to_value(&resultado)?);
