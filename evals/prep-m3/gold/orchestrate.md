@@ -4,7 +4,7 @@ Fuentes (tabla framework §5.2):
 - SDD = `~/.claude/plugins/cache/claude-plugins-official/superpowers/6.1.1/skills/subagent-driven-development/SKILL.md` (418 líneas)
 - EP = `.../skills/executing-plans/SKILL.md` (70 líneas)
 - DPA = `.../skills/dispatching-parallel-agents/SKILL.md` (185 líneas)
-- OP = `~/.claude/plugins/cache/agent-develop/paul-profile/0.5.0/skills/orchestrate-personal/SKILL.md` (135 líneas) — de aquí solo: cost pyramid, memory packet, blindspot pass, reviewer-dispatch escalado al riesgo del diff (framework §5.2)
+- OP = `~/.claude/plugins/cache/agent-develop/paul-profile/0.5.0/skills/orchestrate-personal/SKILL.md` (135 líneas) — de aquí, como mínimo, lo nombrado en framework §5.2 (cost pyramid, memory packet, blindspot pass, reviewer-dispatch escalado al riesgo del diff); además se absorben los movimientos de OP que morirían con ella en el cutover (ver §Movimientos — orchestrate-personal abajo)
 
 Uso: ver `evals/prep-m3/README.md`.
 
@@ -30,6 +30,9 @@ Uso: ver `evals/prep-m3/README.md`.
 - [ ] Finding plan-mandated o en conflicto con el plan ⇒ decisión del humano: presentar finding + texto del plan, no obedecer ni descartar en silencio — SDD líneas 198-202
 - [ ] Todo fix dispatch re-corre los tests que cubren su cambio y lo reporta; el re-review se despacha solo con tests+comando+output presentes — SDD líneas 208-213
 - [ ] Findings del review final ⇒ UN solo fix subagent con la lista completa, no un fixer por finding — SDD líneas 214-217
+- [ ] Al construir el prompt del reviewer: no añadir directivas open-ended ("check all uses", "run race tests if useful") sin razón concreta task-specific — SDD líneas 164-165
+- [ ] Al construir el prompt del reviewer: no pedirle re-correr tests que el implementer ya corrió sobre el mismo código (su reporte ya lleva la evidencia) — SDD líneas 166-167
+- [ ] El review final whole-branch también recibe package, generado con `MERGE_BASE` (el commit de arranque de la rama, vía `git merge-base main HEAD`), para que el reviewer final lea un fichero en vez de re-derivar el diff con git — SDD líneas 203-207
 - [ ] Ledger durable en fichero (no solo todos en memoria): al cerrar cada tarea, línea `Task N: complete (commits …)`; tras compaction/resume, el ledger y `git log` mandan sobre el recuerdo; jamás re-despachar una tarea que el ledger marca completa — SDD líneas 246-264 + 388-389
 - [ ] Nunca empezar implementación en main/master sin consentimiento explícito del usuario — SDD línea 370
 - [ ] Nunca despachar múltiples implementers en paralelo sobre el mismo estado (conflictos) — SDD línea 373
@@ -59,11 +62,12 @@ Uso: ver `evals/prep-m3/README.md`.
 - [ ] Pre-flight recon: verificar las refs del plan (líneas, firmas, símbolos) contra el código real antes de Task 1 — OP líneas 102-105
 - [ ] El controller filtra el review y DECIDE el fix; el reviewer detecta, no manda; fixes doc/comment baratos se aplican inline; finding que contradice el plan se escala — OP líneas 113-116
 - [ ] Autonomous runs: backlog secuencial; NUNCA push/deploy desatendido (commit local y batch a review); skip de items que requieren decisión del dueño, explicando por qué; documentar toda decisión que normalmente se habría preguntado — OP líneas 118-127
+- [ ] Investigate, don't stop: cuando un número no cuadra, recon antes de racionalizarlo — así se encuentra el bug pre-existente en vez de culpar a la propia rama (y se evita convertir un miss real en un pass) — OP líneas 110-112
 
 ## DESCARTES (corpus negativo)
 
 - Digraphs dot (SDD líneas 21-37 y 47-83; DPA líneas 18-34): prosa — framework §5.2 "se tira la prosa".
-- Example Workflow transcript completo (SDD líneas 272-333) y Real Example/Real-World Impact (DPA líneas 136-186): prosa de ejemplo.
+- Example Workflow transcript completo (SDD líneas 272-333) y Real Example/Real-World Impact (DPA líneas 136-161 + 163-168 + 178-185; deja fuera §Verification 170-176, que es movimiento conservado arriba): prosa de ejemplo.
 - Secciones Advantages/Efficiency/Quality/Cost (SDD líneas 335-365): prosa justificativa.
 - executing-plans como skill/modo separado con su announce (EP líneas 12-14) y su nota "Superpowers works much better with subagents": la bifurcación muere con la fusión — tabla framework §5.2.
 - Referencias a `superpowers:using-git-worktrees`, `superpowers:finishing-a-development-branch`, `superpowers:requesting-code-review` como skills (SDD líneas 406-418; EP líneas 65-70): no migradas — framework §5.2 "0 referencias vivas"; el template del review final se absorbe como `orchestrate/reviewer-prompt.md` (spec prep-M3 §5.3).

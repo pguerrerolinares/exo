@@ -19,7 +19,7 @@ Uso: ver `evals/prep-m3/README.md`.
 - [ ] Fase 1 · revisar cambios recientes (git diff, commits, deps, config, entorno) — SD líneas 66-70
 - [ ] Fase 1 · en sistemas multi-componente: instrumentar cada boundary (qué entra/qué sale/config propagada) y correr UNA vez para ver DÓNDE rompe, antes de proponer fixes — SD líneas 72-108
 - [ ] Fase 1 · trazar el data flow hacia atrás hasta el origen del valor malo; fix en la fuente, no en el síntoma — SD líneas 110-120 + root-cause-tracing.md (§Overview: "Trace backward through the call chain until you find the original trigger")
-- [ ] Fase 2 · comparar contra ejemplos que funcionan: localizar código similar working, leer la referencia COMPLETA, listar todas las diferencias sin descartar "eso no puede importar" — SD líneas 122-143
+- [ ] Fase 2 · comparar contra ejemplos que funcionan: localizar código similar working, leer la referencia COMPLETA, listar todas las diferencias sin descartar "eso no puede importar"; entender las dependencias — qué otros componentes necesita, qué config/entorno, qué asunciones hace — SD líneas 122-143
 - [ ] Fase 3 · hipótesis única y explícita ("creo que X porque Y"), test mínimo de una variable, verificar antes de seguir; si falla ⇒ NUEVA hipótesis, no apilar fixes; decir "no entiendo X" en vez de fingir — SD líneas 145-168
 - [ ] Fase 4 · failing test que reproduce el bug ANTES del fix (vía `process:tdd`), UN fix al root cause (sin "while I'm here"), verificar que resuelve y nada más se rompe — SD líneas 170-191
 - [ ] 3+ fixes fallidos ⇒ parar y cuestionar la arquitectura (cada fix revela acoplamiento nuevo en otro sitio = patrón, no hipótesis fallida); discutir con el humano antes de más fixes — SD líneas 192-213
@@ -46,3 +46,5 @@ Uso: ver `evals/prep-m3/README.md`.
 - Digraphs dot (SD y los tres .md de técnicas): prosa/formato.
 - Párrafo de validación con citas a agent-solve-it y literatura (RF líneas 13-15): justificación, no movimiento; el porqué personal vive en la KB (framework §3).
 - Ficheros de creación/test del directorio fuente (`CREATION-LOG.md`, `test-academic.md`, `test-pressure-*.md`, `find-polluter.sh`, `condition-based-waiting-example.ts`): artefactos de desarrollo de la skill original, no contenido de la skill.
+- "Red Flags - STOP and Follow Process" (SD líneas 215-232): tabla de racionalización; su contenido operativo ya vive en los ítems de hipótesis única (Fase 3) y 3+ fixes fallidos (arriba) — framework §5.2 "se tira la prosa … y los gates dogmáticos".
+- Nota "Fuente canónica de esta doctrina … si esta skill y la nota divergen, manda la nota" (RF línea 17): la doctrina genérica vive ahora en la skill/reference files, no en la KB — framework §5.1 ("la carne va ahí, NO en la KB"); los deltas personales siguen en la KB vía overlay (spec prep-M3 §3.4). Espejo del descarte equivalente de OP línea 13 en orchestrate.md.

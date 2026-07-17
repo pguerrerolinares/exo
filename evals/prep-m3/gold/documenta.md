@@ -20,6 +20,7 @@ Uso: ver `evals/prep-m3/README.md`.
 - [ ] Commit scoped al cerrar: SOLO los ficheros que esta invocación escribió (nunca `git add -A`), `git -C` (nunca `cd`), NUNCA push — líneas 58-63
 - [ ] Retry ante `.git/index.lock` (~2s, una vez); si sigue bloqueado, reportar para commit manual; no forzar borrando el lock — línea 65
 - [ ] Resumen final: qué notas se crearon/editaron, dónde quedaron, hash del commit — línea 69
+- [ ] No crear "una nota por sesión" cuando el proyecto tiene bitácora (previene la regresión al patrón viejo); el directorio de sesiones sueltas queda solo para trabajo sin proyecto — línea 48 (despersonalizado del nombre de directorio de la instancia, `sesiones/` — framework §3/§5.1)
 
 ## DESCARTES (corpus negativo)
 
