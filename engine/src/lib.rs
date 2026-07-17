@@ -1,16 +1,63 @@
 use anyhow::{Context, Result};
 use rusqlite::Connection;
+use std::path::Path;
+use std::sync::Once;
 
-/// Conexión en memoria con sqlite-vec registrado como auto-extension.
-/// M2-03 reutiliza este mismo camino para la DB del índice.
-pub fn abre_db_en_memoria() -> Result<Connection> {
-    unsafe {
+pub mod envelope;
+pub mod indexer;
+pub mod nota;
+pub mod schema;
+pub mod walker;
+
+static REG: Once = Once::new();
+
+/// Registra sqlite-vec como auto-extension exactamente una vez por proceso
+/// (deferred de campaña 1, review opus m2-01: `sqlite3_auto_extension` es
+/// acumulativo — registrar dos veces duplica el extension point).
+fn registra_vec() {
+    REG.call_once(|| unsafe {
         // Registro estático de sqlite-vec (patrón documentado del crate sqlite-vec).
         rusqlite::ffi::sqlite3_auto_extension(Some(std::mem::transmute(
             sqlite_vec::sqlite3_vec_init as *const (),
         )));
-    }
+    });
+}
+
+/// Conexión en memoria con sqlite-vec registrado como auto-extension.
+pub fn abre_db_en_memoria() -> Result<Connection> {
+    registra_vec();
     Connection::open_in_memory().context("abrir sqlite en memoria")
+}
+
+/// Conexión a un fichero de DB en disco (mismo registro de sqlite-vec que
+/// `abre_db_en_memoria`). Usada por `exo index`/`exo rebuild` (M2-03).
+pub fn abre_db(ruta: &Path) -> Result<Connection> {
+    registra_vec();
+    Connection::open(ruta).with_context(|| format!("abrir sqlite en {}", ruta.display()))
+}
+
+/// Raíz de la KB desde `projects.kb-demo.path` en `~/.basic-memory/config.json`
+/// (RO, D6; precedencia flags > config la resuelve el llamador con `--kb`).
+/// Sin fallback inventado: si el fichero no existe, no es legible, o le
+/// falta la clave, error claro y `Result::Err` (exit ≠0 en el CLI) —
+/// aclaración vinculante m2-03.
+pub fn kb_desde_config() -> Result<std::path::PathBuf> {
+    let ruta = dirs::home_dir()
+        .context("sin HOME: no se puede localizar ~/.basic-memory/config.json")?
+        .join(".basic-memory/config.json");
+    let contenido = std::fs::read_to_string(&ruta)
+        .with_context(|| format!("leer config RO de basic-memory en {}", ruta.display()))?;
+    let cfg: serde_json::Value = serde_json::from_str(&contenido)
+        .with_context(|| format!("{} no es JSON válido", ruta.display()))?;
+    let path = cfg
+        .get("projects")
+        .and_then(|p| p.get("kb-demo"))
+        .and_then(|p| p.get("path"))
+        .and_then(|p| p.as_str())
+        .with_context(|| {
+            format!("projects.kb-demo.path ausente en {}", ruta.display())
+        })?;
+    Ok(std::path::PathBuf::from(path))
 }
 
 /// Lee ~/.basic-memory/config.json (RO, D6), inicializa fastembed con el modelo
