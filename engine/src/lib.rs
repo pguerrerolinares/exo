@@ -1,16 +1,35 @@
 use anyhow::{Context, Result};
 use rusqlite::Connection;
+use std::path::Path;
+use std::sync::Once;
 
-/// Conexión en memoria con sqlite-vec registrado como auto-extension.
-/// M2-03 reutiliza este mismo camino para la DB del índice.
-pub fn abre_db_en_memoria() -> Result<Connection> {
-    unsafe {
+pub mod schema;
+
+static REG: Once = Once::new();
+
+/// Registra sqlite-vec como auto-extension exactamente una vez por proceso
+/// (deferred de campaña 1, review opus m2-01: `sqlite3_auto_extension` es
+/// acumulativo — registrar dos veces duplica el extension point).
+fn registra_vec() {
+    REG.call_once(|| unsafe {
         // Registro estático de sqlite-vec (patrón documentado del crate sqlite-vec).
         rusqlite::ffi::sqlite3_auto_extension(Some(std::mem::transmute(
             sqlite_vec::sqlite3_vec_init as *const (),
         )));
-    }
+    });
+}
+
+/// Conexión en memoria con sqlite-vec registrado como auto-extension.
+pub fn abre_db_en_memoria() -> Result<Connection> {
+    registra_vec();
     Connection::open_in_memory().context("abrir sqlite en memoria")
+}
+
+/// Conexión a un fichero de DB en disco (mismo registro de sqlite-vec que
+/// `abre_db_en_memoria`). Usada por `exo index`/`exo rebuild` (M2-03).
+pub fn abre_db(ruta: &Path) -> Result<Connection> {
+    registra_vec();
+    Connection::open(ruta).with_context(|| format!("abrir sqlite en {}", ruta.display()))
 }
 
 /// Lee ~/.basic-memory/config.json (RO, D6), inicializa fastembed con el modelo
