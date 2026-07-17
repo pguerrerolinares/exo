@@ -13,6 +13,33 @@ whole-branch es SIEMPRE el modelo top, una vez por rama.
 
 **Dispatch:** subagente genérico con `model` explícito (elegido arriba).
 
+## Cómo construir este prompt (guía para el orquestador — SDD líneas 159-217)
+
+Antes de llenar los placeholders de abajo:
+
+- **Global constraints verbatim.** Copia el bloque de `[GLOBAL_CONSTRAINTS]`
+  literal de la sección Global Constraints del plan o de la spec — valores
+  y formatos exactos, relaciones exactas entre componentes. El resto del
+  template ya trae las reglas de proceso (YAGNI, higiene de tests, método
+  de review); este bloque es solo lo que el proyecto concreto exige.
+- **Sin directivas open-ended sin razón task-specific.** No añadas "check
+  all uses" o "run race tests if useful" salvo que tengas un motivo
+  concreto para ESTA tarea.
+- **No pidas re-correr tests que el implementer ya corrió** sobre el mismo
+  código — su report ya trae la evidencia.
+- **Nunca pre-juzgues findings.** Prohibido escribir "do not flag", "at
+  most Minor" o "the plan chose" en el prompt — si crees que un finding
+  sería un falso positivo, deja que el reviewer lo levante y se adjudica
+  en el review loop, no lo silencies de antemano.
+- **Package con el BASE registrado ANTES del dispatch del implementer —
+  nunca `HEAD~1`** (trunca tareas multi-commit). Genera el package con
+  `scripts/review-package BASE HEAD` y pasa el path que imprime como
+  `[DIFF_FILE]`.
+- **Review final whole-branch:** mismo template, pero `[BASE_SHA]` =
+  `MERGE_BASE` (`git merge-base main HEAD`) para que el reviewer final lea
+  un fichero en vez de re-derivar el diff de la rama con git, y `model` =
+  el tier top, una vez por rama.
+
 ```
 Subagent (general-purpose):
   description: "Review Task N (spec + quality)"
