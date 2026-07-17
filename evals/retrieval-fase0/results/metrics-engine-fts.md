@@ -1,0 +1,72 @@
+# metrics — engine-fts (hit@5, 55 queries etiquetadas)
+
+- **hybrid**: 0/55
+- **text**: 28/55
+- **vector**: 0/55
+- queries con observation-hit en top-5 (hybrid): 0 → []
+
+## sweep de threshold (hybrid, filtro por score)
+- thr=0.35: 0/55
+- thr=0.4: 0/55
+- thr=0.45: 0/55
+- thr=0.5: 0/55
+- thr=0.55: 0/55
+- thr=0.6: 0/55
+- thr=0.65: 0/55
+
+## atribución de misses (hybrid, thr=None)
+- MISS `"cgg (code-graph-go)"` → text=HIT vector=miss [fusion-miss]
+- MISS `Backlog frentes abiertos` → text=miss vector=miss [both-miss]
+- MISS `Bun Rust reescritura prior-art` → text=miss vector=miss [both-miss]
+- MISS `Frente 9 lighthouses Fase 4 divergencia core split thin-core` → text=miss vector=miss [both-miss]
+- MISS `G1 bucket inferencia tipos cge 55,7` → text=HIT vector=miss [fusion-miss]
+- MISS `KC7 Desbloqueo Prisma` → text=HIT vector=miss [fusion-miss]
+- MISS `MadeInHeaven M3 burn-conversion ablación W_REBANK faros cont` → text=HIT vector=miss [fusion-miss]
+- MISS `SDD spec-driven development repo nuevo scaffold React` → text=miss vector=miss [both-miss]
+- MISS `agent-develop bitácora` → text=miss vector=miss [both-miss]
+- MISS `agent-solve-it bitacora` → text=HIT vector=miss [fusion-miss]
+- MISS `agent-solve-it copiloto Solve It recon` → text=HIT vector=miss [fusion-miss]
+- MISS `ai-news plataforma noticias` → text=HIT vector=miss [fusion-miss]
+- MISS `ai-news-bitacora` → text=HIT vector=miss [fusion-miss]
+- MISS `al diseñar componentes visuales reutilizables, cómo decidir ` → text=miss vector=miss [both-miss]
+- MISS `aquel torneo de programación de juegos donde mi jugador que ` → text=miss vector=miss [both-miss]
+- MISS `backlog frentes abiertos cge ORM` → text=HIT vector=miss [fusion-miss]
+- MISS `basic-memory limitaciones dolores contrato memoria v2` → text=miss vector=miss [both-miss]
+- MISS `blog notas publicar contenido web pguerrero divulgación post` → text=miss vector=miss [both-miss]
+- MISS `cambio tres líneas en una fuente y se me reprocesa la base d` → text=miss vector=miss [both-miss]
+- MISS `cge bitácora` → text=miss vector=miss [both-miss]
+- MISS `cge evaluación head-to-head cgeo benchmark harness metodolog` → text=miss vector=miss [both-miss]
+- MISS `cge motor code-graph bitácora backlog frentes` → text=HIT vector=miss [fusion-miss]
+- MISS `cmm codebase-memory-mcp comparación eval` → text=miss vector=miss [both-miss]
+- MISS `cmm codebase-memory-mcp head to head cgeo benchmark` → text=HIT vector=miss [fusion-miss]
+- MISS `cmm seam roto h2h onyx bug /api handler` → text=miss vector=miss [both-miss]
+- MISS `codebase-memory-mcp cmm bugs` → text=HIT vector=miss [fusion-miss]
+- MISS `consolida bug kbx detectado` → text=miss vector=miss [both-miss]
+- MISS `coste workflows multi-agente tokens lección` → text=miss vector=miss [both-miss]
+- MISS `criterios para saber cuándo tirar a la basura una solución c` → text=miss vector=miss [both-miss]
+- MISS `el prototipo de app de inversión que enseña una pantalla dis` → text=miss vector=miss [both-miss]
+- MISS `esa utilidad de terminal de solo lectura que da a las sesion` → text=miss vector=miss [both-miss]
+- MISS `extractor de rutas mock.patch 0-FP gate P0` → text=HIT vector=miss [fusion-miss]
+- MISS `fabrica campaign harness config gate merge asíncrono roadmap` → text=HIT vector=miss [fusion-miss]
+- MISS `fabrica campaña` → text=miss vector=miss [both-miss]
+- MISS `fabrica gate merge kill-criteria worktree main-guard ventana` → text=HIT vector=miss [fusion-miss]
+- MISS `fabrica roadmap campana lighthouses diversidad bots Fase 3` → text=miss vector=miss [both-miss]
+- MISS `cliente-c` → text=HIT vector=miss [fusion-miss]
+- MISS `fábrica campañas agent-develop harness A-thin` → text=HIT vector=miss [fusion-miss]
+- MISS `kbx` → text=HIT vector=miss [fusion-miss]
+- MISS `kbx bitacora` → text=HIT vector=miss [fusion-miss]
+- MISS `kbx explorador determinista` → text=HIT vector=miss [fusion-miss]
+- MISS `la herramienta que revisa si una web es usable por personas ` → text=miss vector=miss [both-miss]
+- MISS `la idea de que programar ya no es escribir código sino redac` → text=miss vector=miss [both-miss]
+- MISS `lighthouses bot amortización triángulos energía planner` → text=HIT vector=miss [fusion-miss]
+- MISS `lighthouses contest bot Horus MadeInHeaven Pegasus e33` → text=HIT vector=miss [fusion-miss]
+- MISS `lighthouses universidad bot contest` → text=HIT vector=miss [fusion-miss]
+- MISS `pguerrero-music` → text=HIT vector=miss [fusion-miss]
+- MISS `pguerrero-music-bitacora` → text=HIT vector=miss [fusion-miss]
+- MISS `portfolio-game canvas físicas motor plataformas` → text=miss vector=miss [both-miss]
+- MISS `reflex capa de reflejos plugin destilado canónico` → text=miss vector=miss [both-miss]
+- MISS `reflex cristalización efímero durable prior-art` → text=HIT vector=miss [fusion-miss]
+- MISS `reflex recall SessionStart hook basic-memory latencia` → text=HIT vector=miss [fusion-miss]
+- MISS `solve-it recon reto cripto concurso autosolver` → text=HIT vector=miss [fusion-miss]
+- MISS `un generador de informes de investigación que además te marc` → text=miss vector=miss [both-miss]
+- MISS `¿en qué punto de un flujo de procesamiento compensa meter in` → text=miss vector=miss [both-miss]
