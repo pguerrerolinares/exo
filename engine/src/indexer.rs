@@ -2,9 +2,12 @@ use crate::abre_db;
 use crate::aristas::{reindexa_aristas_de_nota, resuelve_destinos};
 use crate::nota::parsea_nota;
 use crate::schema::crea_schema;
+use crate::trozos::trocea;
+use crate::vectores;
 use crate::walker::walk_kb;
+use crate::con_embedder_de_proceso;
 use anyhow::{Context, Result};
-use rusqlite::params;
+use rusqlite::{params, Connection};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -57,8 +60,13 @@ pub struct Resumen {
 /// `git_epoch`, `mtime` es SOLO detección de cambio).
 ///
 /// `aristas` se puebla desde los `[[wikilinks]]` del cuerpo de cada nota
-/// (M2-04); `trozos`/`vectores` se crean por `crea_schema` pero llegan en
-/// M2-06 (chunks+vectores).
+/// (M2-04); `trozos`/`vectores` se pueblan aquí (M2-06): cada nota
+/// (re)indexada se trocea (`trozos::trocea`, spec §2.1) y sus trozos se
+/// embeben en batch, con `vectores.rowid = trozos.id` (§2). El embedder de
+/// fastembed se inicializa perezosamente y una única vez por PROCESO
+/// (`con_embedder_de_proceso`, no una variable local a esta función) para
+/// que un `exo index` sin cambios no pague la carga del modelo (§3,
+/// coherente con el skip por mtime).
 pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
     let conn = abre_db(db_ruta)?;
     crea_schema(&conn)?;
@@ -119,6 +127,9 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
         reindexa_aristas_de_nota(&conn, &n.permalink, &n.cuerpo)
             .with_context(|| format!("reindexar aristas de {}", n.permalink))?;
 
+        reindexa_trozos_de_nota(&conn, &n.permalink, &n.cuerpo)
+            .with_context(|| format!("reindexar trozos/vectores de {}", n.permalink))?;
+
         indexadas += 1;
     }
 
@@ -135,7 +146,8 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
                 params![permalink],
             )?;
             conn.execute("DELETE FROM aristas WHERE origen = ?1", params![permalink])?;
-            conn.execute("DELETE FROM trozos WHERE permalink = ?1", params![permalink])?;
+            borra_trozos_y_vectores_de_nota(&conn, &permalink)
+                .with_context(|| format!("borrar trozos/vectores de {permalink}"))?;
             conn.execute("DELETE FROM notas WHERE permalink = ?1", params![permalink])?;
             borradas += 1;
         }
@@ -151,6 +163,54 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
         saltadas,
         borradas,
     })
+}
+
+/// Borra los `trozos` de `permalink` y sus `vectores` correspondientes
+/// (`vectores.rowid = trozos.id`, §2). Usado tanto al reindexar una nota
+/// cambiada (reparse ⇒ reindex completo, spec §3 paso 2) como al borrar una
+/// nota cuya `ruta` ya no aparece en el walk (deferred del gate m2-03 que
+/// se ejecuta aquí: la cascada de m2-03 solo llegaba a `trozos`).
+fn borra_trozos_y_vectores_de_nota(conn: &Connection, permalink: &str) -> Result<()> {
+    let ids: Vec<i64> = {
+        let mut stmt = conn.prepare("SELECT id FROM trozos WHERE permalink = ?1")?;
+        stmt.query_map(params![permalink], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?
+    };
+    for id in ids {
+        vectores::borra(conn, id).with_context(|| format!("borrar vector rowid={id}"))?;
+    }
+    conn.execute("DELETE FROM trozos WHERE permalink = ?1", params![permalink])
+        .with_context(|| format!("borrar trozos de {permalink}"))?;
+    Ok(())
+}
+
+/// Reindexa `trozos`+`vectores` de una nota: borra lo previo (idempotente
+/// ante re-ejecución), trocea `cuerpo` (spec §2.1) y embebe en batch. Nota
+/// sin trozos (cuerpo vacío) jamás toca el embedder de proceso — ni lo
+/// inicializa si aún no lo estaba (Task 2 del brief: "solo si hay algo que
+/// embeber").
+fn reindexa_trozos_de_nota(conn: &Connection, permalink: &str, cuerpo: &str) -> Result<()> {
+    borra_trozos_y_vectores_de_nota(conn, permalink)?;
+
+    let textos = trocea(cuerpo);
+    if textos.is_empty() {
+        return Ok(());
+    }
+
+    let vectores_embebidos = con_embedder_de_proceso(|embedder| embedder.embebe_batch(&textos))
+        .with_context(|| format!("embed batch de {} trozos de {permalink}", textos.len()))?;
+
+    for (orden, (texto, vector)) in textos.iter().zip(vectores_embebidos.iter()).enumerate() {
+        conn.execute(
+            "INSERT INTO trozos (permalink, orden, texto) VALUES (?1, ?2, ?3)",
+            params![permalink, orden as i64, texto],
+        )
+        .with_context(|| format!("insertar trozo {orden} de {permalink}"))?;
+        let id = conn.last_insert_rowid();
+        vectores::inserta(conn, id, vector)
+            .with_context(|| format!("insertar vector del trozo id={id}"))?;
+    }
+    Ok(())
 }
 
 fn ruta_relativa(kb: &Path, ruta_abs: &Path) -> Result<String> {

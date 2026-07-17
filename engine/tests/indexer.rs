@@ -62,6 +62,41 @@ fn permalinks(db: &Path) -> BTreeSet<String> {
         .unwrap()
 }
 
+fn cuenta_trozos(db: &Path, permalink: &str) -> i64 {
+    let conn = exo::abre_db(db).unwrap();
+    conn.query_row(
+        "SELECT count(*) FROM trozos WHERE permalink = ?1",
+        rusqlite::params![permalink],
+        |r| r.get(0),
+    )
+    .unwrap()
+}
+
+fn cuenta_vectores(db: &Path) -> i64 {
+    let conn = exo::abre_db(db).unwrap();
+    conn.query_row("SELECT count(*) FROM vectores", [], |r| r.get(0)).unwrap()
+}
+
+fn ids_de_trozos(db: &Path, permalink: &str) -> BTreeSet<i64> {
+    let conn = exo::abre_db(db).unwrap();
+    let mut stmt = conn
+        .prepare("SELECT id FROM trozos WHERE permalink = ?1 ORDER BY id")
+        .unwrap();
+    stmt.query_map(rusqlite::params![permalink], |r| r.get(0))
+        .unwrap()
+        .collect::<rusqlite::Result<_>>()
+        .unwrap()
+}
+
+fn rowids_de_vectores(db: &Path) -> BTreeSet<i64> {
+    let conn = exo::abre_db(db).unwrap();
+    let mut stmt = conn.prepare("SELECT rowid FROM vectores ORDER BY rowid").unwrap();
+    stmt.query_map([], |r| r.get(0))
+        .unwrap()
+        .collect::<rusqlite::Result<_>>()
+        .unwrap()
+}
+
 #[test]
 fn index_puebla_notas_y_fts() {
     let kb = kb_fixture();
@@ -247,4 +282,110 @@ fn rebuild_doble_da_el_mismo_conteo_de_aristas() {
 
     assert_eq!(primera, segunda);
     assert_eq!(primera, 2);
+}
+
+/// M2-06 Task 2: indexar puebla `trozos` (uno por nota corta de la fixture,
+/// cuerpos < 900 chars) y `vectores` con `rowid = trozos.id` exactamente
+/// (§2, no negociable).
+#[test]
+fn index_puebla_trozos_y_vectores_con_rowid_igual_a_trozo_id() {
+    let kb = kb_fixture();
+    let (_db_dir, db) = db_temporal();
+
+    indexa(kb.path(), &db).unwrap();
+
+    assert_eq!(cuenta_trozos(&db, "kb-demo/a"), 1);
+    assert_eq!(cuenta_trozos(&db, "kb-demo/b"), 1);
+    assert_eq!(cuenta_trozos(&db, "kb-demo/c"), 1);
+    assert_eq!(cuenta_vectores(&db), 3);
+
+    let ids_a = ids_de_trozos(&db, "kb-demo/a");
+    let rowids = rowids_de_vectores(&db);
+    assert!(
+        ids_a.is_subset(&rowids),
+        "el id de cada trozo de A debe existir como rowid en vectores: {ids_a:?} ⊄ {rowids:?}"
+    );
+}
+
+/// M2-06 Task 2: reindexar una nota cambiada reemplaza sus trozos/vectores
+/// (reparse ⇒ reindex completo, spec §3), no los acumula.
+#[test]
+fn reindexar_nota_cambiada_reemplaza_trozos_y_vectores() {
+    let kb = kb_fixture();
+    let (_db_dir, db) = db_temporal();
+
+    indexa(kb.path(), &db).unwrap();
+    let ids_antes = ids_de_trozos(&db, "kb-demo/a");
+    assert_eq!(ids_antes.len(), 1);
+
+    std::thread::sleep(std::time::Duration::from_millis(10));
+    crea_nota(kb.path(), "a.md", "kb-demo/a", "Nota A", "contenido alfa completamente distinto ahora");
+    indexa(kb.path(), &db).unwrap();
+
+    let ids_despues = ids_de_trozos(&db, "kb-demo/a");
+    assert_eq!(ids_despues.len(), 1, "sigue siendo 1 trozo (cuerpo corto), no 2 acumulados");
+    assert_ne!(ids_antes, ids_despues, "el reindex debe generar filas nuevas, no reusar las viejas");
+
+    // ningún vector huérfano del id viejo
+    let rowids = rowids_de_vectores(&db);
+    for id_viejo in &ids_antes {
+        assert!(!rowids.contains(id_viejo), "vector huérfano del trozo viejo id={id_viejo}");
+    }
+}
+
+/// M2-06 Task 2 (deferred del gate m2-03): borrar una nota borra también
+/// sus `vectores`, no solo sus `trozos` — la cascada de m2-03 se quedaba
+/// corta porque `vectores` estaba vacía entonces.
+#[test]
+fn borrar_nota_borra_tambien_sus_vectores() {
+    let kb = kb_fixture();
+    let (_db_dir, db) = db_temporal();
+
+    indexa(kb.path(), &db).unwrap();
+    let ids_b = ids_de_trozos(&db, "kb-demo/b");
+    assert_eq!(ids_b.len(), 1);
+    assert!(rowids_de_vectores(&db).is_superset(&ids_b));
+
+    std::fs::remove_file(kb.path().join("b.md")).unwrap();
+    let resumen = indexa(kb.path(), &db).unwrap();
+    assert_eq!(resumen.borradas, 1);
+
+    assert_eq!(cuenta_trozos(&db, "kb-demo/b"), 0);
+    let rowids_despues = rowids_de_vectores(&db);
+    for id_b in &ids_b {
+        assert!(!rowids_despues.contains(id_b), "vector de la nota borrada debe desaparecer, id={id_b}");
+    }
+    assert_eq!(cuenta_vectores(&db), 2, "quedan solo los vectores de a y c");
+}
+
+/// Nota con cuerpo vacío: 0 trozos, 0 vectores, y el indexado no debe
+/// romperse (chunker de trozos.rs ya cubre "nota vacía → 0 trozos" a nivel
+/// unitario; este test es el enganche end-to-end vía el indexer).
+#[test]
+fn nota_con_cuerpo_vacio_no_genera_trozos() {
+    let kb = kb_fixture();
+    crea_nota(kb.path(), "vacia.md", "kb-demo/vacia", "Vacía", "");
+    let (_db_dir, db) = db_temporal();
+
+    let resumen = indexa(kb.path(), &db).unwrap();
+    assert_eq!(resumen.indexadas, 4);
+    assert_eq!(cuenta_trozos(&db, "kb-demo/vacia"), 0);
+}
+
+/// M2-06 oráculo #2: rebuild real es idempotente también para trozos/vectores
+/// (mismos counts en dos rebuilds seguidos), no solo para notas/aristas.
+#[test]
+fn rebuild_doble_da_el_mismo_conteo_de_trozos_y_vectores() {
+    let kb = kb_fixture();
+    let (_db_dir, db) = db_temporal();
+
+    indexa(kb.path(), &db).unwrap();
+    let primera = cuenta_vectores(&db);
+
+    std::fs::remove_file(&db).unwrap(); // simula `exo rebuild`
+    indexa(kb.path(), &db).unwrap();
+    let segunda = cuenta_vectores(&db);
+
+    assert_eq!(primera, segunda);
+    assert_eq!(primera, 3);
 }
