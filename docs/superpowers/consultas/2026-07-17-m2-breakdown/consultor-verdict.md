@@ -87,4 +87,4 @@ No hay: ninguna adjudicación toca línea roja (nada destructivo, nada externo �
 
 ---
 
-*Firma pendiente de Paul (delegación declarada en sesión 2026-07-17: "yo firmo sus decisiones").*
+*FIRMADO por Paul en sesión 2026-07-17 ("firmo, continua") — delegación declarada en la misma sesión: "yo firmo sus decisiones".*
