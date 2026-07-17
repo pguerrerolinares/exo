@@ -1,5 +1,9 @@
 # Datos personales crudos: snapshots de logs de sesión quedan LOCAL-ONLY.
 # Antes de cualquier remote público, pasar privacy-pass a evals/ (spec §6.6, espíritu clean-room).
 evals/retrieval-fase0/snapshot/reflex-retrieval-log.jsonl
-# Scratch de orquestación SDD (briefs/reports/ledger)
-.superpowers/
+# Scratch de orquestación SDD (briefs/reports/ledger) — pero el config de fábrica SÍ se versiona (contrato)
+.superpowers/*
+!.superpowers/fabrica/
+.superpowers/fabrica/*
+!.superpowers/fabrica/config.md
+__pycache__/
