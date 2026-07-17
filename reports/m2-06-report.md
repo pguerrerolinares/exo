@@ -303,3 +303,5 @@ exit=0
 - `kb-demo/core/doctrina-agentes`
 - `kb-demo/log/exo-bitacora`
 - `kb-demo/learnings/desarrollo-agentico`
+
+GATE: MERGED (consultor fable, 2026-07-17T22:56:04+02:00, verdict=evals/e1-read/verdict/gate-m2-06.md@312da73)
