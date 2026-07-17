@@ -493,6 +493,7 @@ dependencies = [
  "dirs",
  "fastembed",
  "hf-hub",
+ "regex",
  "rusqlite",
  "serde",
  "serde_json",

@@ -1,4 +1,5 @@
 use crate::abre_db;
+use crate::aristas::{reindexa_aristas_de_nota, resuelve_destinos};
 use crate::nota::parsea_nota;
 use crate::schema::crea_schema;
 use crate::walker::walk_kb;
@@ -55,8 +56,9 @@ pub struct Resumen {
 /// en cada reindex (regla 2: la recencia consumida por ranking/recall es
 /// `git_epoch`, `mtime` es SOLO detección de cambio).
 ///
-/// `aristas`/`trozos`/`vectores` se crean por `crea_schema` pero NO se
-/// pueblan aquí — llegan en M2-04 (aristas) y M2-06 (chunks+vectores).
+/// `aristas` se puebla desde los `[[wikilinks]]` del cuerpo de cada nota
+/// (M2-04); `trozos`/`vectores` se crean por `crea_schema` pero llegan en
+/// M2-06 (chunks+vectores).
 pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
     let conn = abre_db(db_ruta)?;
     crea_schema(&conn)?;
@@ -114,6 +116,9 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
         )
         .with_context(|| format!("insertar notas_fts de {}", n.permalink))?;
 
+        reindexa_aristas_de_nota(&conn, &n.permalink, &n.cuerpo)
+            .with_context(|| format!("reindexar aristas de {}", n.permalink))?;
+
         indexadas += 1;
     }
 
@@ -135,6 +140,11 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
             borradas += 1;
         }
     }
+
+    // Pase final sobre TODA la tabla `aristas` (§diseño M2-04 punto 2): barato
+    // sobre las ~115 notas de la KB, y hace que un link roto se cure solo en
+    // cuanto la nota destino aparezca en un index/rebuild posterior.
+    resuelve_destinos(&conn).context("resolver destino_permalink de aristas")?;
 
     Ok(Resumen {
         indexadas,
