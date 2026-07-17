@@ -50,3 +50,5 @@ Ninguna que exigiera escalar (0 > umbral de ~5). La única ambigüedad real del 
 - `docs(m2-07): design spec de la fusión hybrid — clean-room desde §4.2, sweep declarado`
 - `docs(m2-07): gate pre-registrado de E1 en evals/e1-read/gate.md`
 - `docs(m2-07): reporte del spec-writer`
+
+GATE: MERGED (consultor fable, 2026-07-17T23:49:21+02:00, verdict=evals/e1-read/verdict/gate-m2-07-spec.md@9f68518)
