@@ -5,6 +5,7 @@ use std::sync::Once;
 
 pub mod nota;
 pub mod schema;
+pub mod walker;
 
 static REG: Once = Once::new();
 
