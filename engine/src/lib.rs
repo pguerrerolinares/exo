@@ -4,6 +4,7 @@ use std::path::Path;
 use std::sync::Once;
 
 pub mod aristas;
+pub mod buscador;
 pub mod envelope;
 pub mod indexer;
 pub mod nota;
