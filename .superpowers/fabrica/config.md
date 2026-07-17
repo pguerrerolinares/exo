@@ -80,8 +80,17 @@ M0 Fase 0 ──→ M1a repo ──→ M2 E1-read ──→ M4 E2-write ──�
      skill es superficie irreversible interna nombrada en spec §8 → pasa
      SIEMPRE por el régimen de gates (§Ejecución de gates), nunca por clase
      pre-autorizada.
-  3. **M2 — E1 read**: bloqueado por `GATE-HUECO-M2` (ver más abajo). No se
-     empieza aunque el selector lo alcance en orden.
+  3. **M2 — E1 read**: `GATE-HUECO-M2` ABIERTO por Paul 2026-07-17 (commit
+     `45faf41`). ADJUDICABLE. Fuente de items: spec
+     `docs/superpowers/specs/2026-07-17-m2-e1-read-design.md` §3 (M2-01..09,
+     lanes y oráculos adjudicados por consultor fable, veredicto FIRMADO en
+     `docs/superpowers/consultas/2026-07-17-m2-breakdown/consultor-verdict.md`).
+     **Campaña 1 (D5): SOLO M2-01 + M2-02**; M2-03 arranca únicamente si el
+     gate de 02 cierra esa misma noche. Plan ejecutable:
+     `docs/superpowers/plans/2026-07-17-m2-campana1-scaffold-spec-indexer.md`.
+     (Nota de reconciliación: los items 1 y 2 de M1a arriba están MERGEADOS a
+     fecha 2026-07-17 — higiene KB y prep-M3 135/135, ver git log; git es la
+     verdad, no re-adjudicar.)
 - **M1b, M3 (cutover real), M6**: bloqueados por `GATE-CALENDARIO-D` (ver
   más abajo). No se seleccionan bajo ninguna circunstancia antes de esa fecha
   Y de que la métrica D esté efectivamente cerrada.
@@ -127,10 +136,16 @@ M0 Fase 0 ──→ M1a repo ──→ M2 E1-read ──→ M4 E2-write ──�
   Correr en paralelo con el ítem 2 si hay executors libres.
 - **Prep-M3 skills de process**: diseño, secuencial, fable en cabeza (redacción
   + review adversarial de cada skill contra su checklist de paridad).
-- **M2 (cuando se abra)**: el eval set de M0 rutea gran parte a mecánica
-  (side-by-side medible por comando, spec §8). Piezas de diseño dentro de M2:
-  indexer (gold = paridad de permalinks/corpus), fusión/calibración de search
-  (gold = eval set de M0). No detallar más hasta que `hueco_m2_abierto: sí`.
+- **M2 (ABIERTO 2026-07-17)**: routing por item fijado en la spec de M2 §3
+  (tabla M2-01..09, veredicto D2 firmado): lane diseño = M2-02+M2-03 (par con
+  UN gate fable) y M2-07 (fusión clean-room); el resto mecánica. Merges
+  mecánicos adyacentes (04+05, 06) pueden agrupar gate si el ledger lo pide
+  (trade-off D2). Oráculos de la campaña 1: `cargo build --release
+  --manifest-path engine/Cargo.toml && cargo test --manifest-path
+  engine/Cargo.toml` (+ smoke `-- --ignored` del embedding, citar duración del
+  primer embed) para M2-01; para M2-02 el oráculo es el gate fable sobre
+  spec-indexer + gold sellado (`evals/e1-read/harness/corpus-parity.py
+  --capture-bm`, probe RO, dotdirs_dentro=0 obligatorio).
 
 ## Oráculos (comando literal + qué prueba)
 - **KB doctor** (higiene M1a): `kbx doctor --kb ~/Documentos/proyectos/kb-demo`
@@ -169,7 +184,11 @@ M0 Fase 0 ──→ M1a repo ──→ M2 E1-read ──→ M4 E2-write ──�
   construir aún (spec §4.2, decisión explícita de no adelantarse).
 
 ## Presupuesto (unidades spec §7: dispatches por modelo + horas de reloj)
-- **reserva fable**: ≤ 6 dispatches/noche; ≤ 20% del cap semanal de Paul.
+- **reserva fable**: ≤ 8 dispatches/noche para las campañas de M2 (subida
+  6→8 adjudicada en veredicto D5, firmado por Paul 2026-07-17 — es la señal
+  pre-anunciada abajo tras el ratio 60% de M1a); ≤ 20% del cap semanal de
+  Paul, intacto. Si con 8 el ratio gates/reserva sigue >50% tras dos noches:
+  consolidar items (agrupar merges mecánicos), NO volver a subir en caliente.
   **Ajuste explícito por el régimen de gates nuevo**: cada gate (merge o
   superficie irreversible) ahora consume UN dispatch fable adicional (el
   consultor delegado, §Ejecución de gates) que antes no existía como dispatch
