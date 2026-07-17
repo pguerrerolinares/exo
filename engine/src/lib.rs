@@ -3,6 +3,7 @@ use rusqlite::Connection;
 use std::path::Path;
 use std::sync::Once;
 
+pub mod aristas;
 pub mod envelope;
 pub mod indexer;
 pub mod nota;
