@@ -111,7 +111,8 @@ M0 Fase 0 ──→ M1a repo ──→ M2 E1-read ──→ M4 E2-write ──�
 - **Bloquea**: M2 (E1 read) completo.
 - **Condición de apertura**: NO es calculable por la fábrica — es una decisión
   de agenda de Paul ("hueco real entre una LAN party y cge P2"). Flag físico
-  en este config: `hueco_m2_abierto: no`. Mientras diga `no`, la fábrica no
+  en este config: `hueco_m2_abierto: sí, 2026-07-17` (abierto por Paul en
+  sesión interactiva 2026-07-17). Mientras diga `no`, la fábrica no
   empieza M2 aunque M0 esté cerrado (ya lo está) y no haya gate de calendario D
   activo para M2 (M2 no está en la lista de items D-gateados).
 - Paul abre la ventana editando esta línea a `hueco_m2_abierto: sí, <fecha>` en
