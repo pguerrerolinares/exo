@@ -268,3 +268,5 @@ commiteados en `evals/retrieval-fase0/results/`, mismo patrón que M2-05/M2-06
 tocados. Sin apertura de basic-memory. Sin renegociar los números del gate — la
 selección siguió el orden pre-registrado §5.2.4 al pie de la letra, incluido el
 resultado poco intuitivo `bonus=0.0`. Sin merge/push a `main`; todo en `m2-07-impl`.
+
+GATE: MERGED (consultor fable, 2026-07-18T01:04:30+02:00, verdict=evals/e1-read/verdict/gate-m2-07-impl.md@4c5ea4b)
