@@ -262,3 +262,28 @@ Recorrido de los 7 SKILL.md + 8 reference files + 3 scripts buscando contenido n
 ## Consecuencia
 
 Un fix de una línea en `documenta` (± las dos explicitaciones recomendadas en orchestrate) y re-gate. El cap de retries (§9.2: 2 por eval) no está consumido para documenta. El resto de la rama queda verificado y no necesita re-verificación completa en el re-gate: bastará re-correr el checklist de documenta + re-grep de descartes sobre el diff del fix.
+
+---
+
+# ADDENDUM — Re-gate tras el fix `fc51e09`
+
+- **Fecha**: 2026-07-17 (mismo consultor, re-gate acotado según la consecuencia prescrita arriba).
+- **Alcance verificado**: `git show fc51e09` completo — UN fichero (`plugins/process/skills/documenta/SKILL.md`), 2 inserciones / 1 borrado (parte la línea 32 y añade la cláusula). Nada más tocado; working tree limpio. El resto de la rama es byte-idéntico a lo ya verificado (134/135 + paridad crítica + scope + descartes de las otras 6 skills siguen válidos sin re-verificar).
+
+## Re-ejecución del gold de documenta: 16/16 PRESENTES
+
+- **Ítem 6 (gold L13), el bloqueante**: ahora COMPLETO. `documenta/SKILL.md` L30-33: *"Backlog: cerrados `[ ]`→`[x]` en UNA línea sin duplicar el detalle — solo estado abierto + cola corta de recién-cerrado; **el barrido de `[x]` viejos es de la consolidación (/consolida), no de documenta**."* Las tres cláusulas del checkbox presentes; la formulación nombra `/consolida` igual que el gold (referencia textual, no activación — /consolida sigue en reflex, nada se instala ni enlaza).
+- **Los otros 15 ítems**: re-verificados sobre el fichero post-fix (los números de línea corren +1 a partir de L33): extraer L13-17 ✓; targets L20-23 ✓; degradación L22-26 ✓; regla de oro L27-28 ✓; delta+append L28-30 ✓; transversal/perfil L33-35 ✓; nota nueva SOLO L35-36 ✓; no "nota por sesión" L36-37 ✓; frontmatter L41 ✓; search-before-write L42 ✓; append preferido L42-44 ✓; títulos L44-45 ✓; commit scoped/`git -C`/nunca push/mensaje `docs(kb)` L49-51 ✓; retry index.lock L51-53 ✓; resumen final L53-54 ✓.
+- **Body**: 39 no-blank (era 38; +1 por la cláusula) — en rango ~30-50. ✓
+
+## DESCARTES de documenta re-verificados por ausencia
+
+Grep post-fix sobre `documenta/`: sin gramática `- [categoria]`/`tipo_relacion` como estructura, sin `mcp__*` hardcodeado, sin trailer Co-Authored-By, sin `sesiones/`. Único match de `basic-memory`: L8 "vía engine — hoy kbx/basic-memory/filesystem" — es la formulación que la spec §3.4/framework §5.1 exige literalmente, no el hardcode de tools MCP que el descarte prohíbe; ya estaba en la versión gateada y fc51e09 no la toca. **0 descartes resucitados.**
+
+## Qué busqué para objetar (re-gate)
+
+Que el fix introdujera algo más que la cláusula (diff completo leído: no), que rompiera el rango del body (39: no), que la mención a `/consolida` fuera una activación o dependencia nueva (es texto, el plugin no gana hooks/skills/refs instalables), y que el line-shift dejara algún ítem vecino cortado (releído el fichero entero: no).
+
+## VEREDICTO FINAL: MERGED
+
+**Paridad 135/135, 0 movimientos nuevos sin cita, 0 descartes resucitados.** Criterio de cierre de spec §10 y README cumplido. Desviación orchestrate 54 no-blank: aceptada (adjudicación arriba, sin cambios). Las dos recomendaciones no bloqueantes de orchestrate quedan como mejora futura opcional, no condición.
