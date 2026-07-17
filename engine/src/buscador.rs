@@ -221,3 +221,212 @@ pub fn busca_vector(
         results,
     })
 }
+
+/// Normalización BM25 por-query con anclaje β (spec fusión §4.3, D-f1):
+/// `f(e) = β · f_raw(e) / f_max(q)`, `f_max(q) = max f_raw` sobre los
+/// candidatos FTS de la query. Monótona (preserva el orden FTS) y acotada a
+/// `(0, β]` — el top-1 de la query vale exactamente β. Degenerados: lista
+/// vacía o `f_max == 0` (bm25 devolviendo 0, teóricamente posible) → canal
+/// FTS descartado entero para la query (mapa vacío, sin dividir por 0), NO
+/// un mapa con ceros — así `fusiona` los trata igual que "sin candidato FTS"
+/// (B2, helper puro testeable sin DB).
+fn normaliza_fts(candidatos_fts: &[(String, f64)], beta: f64) -> HashMap<String, f64> {
+    let f_max = candidatos_fts
+        .iter()
+        .map(|(_, f_raw)| *f_raw)
+        .fold(0.0_f64, f64::max);
+
+    if f_max == 0.0 {
+        return HashMap::new();
+    }
+
+    candidatos_fts
+        .iter()
+        .map(|(permalink, f_raw)| (permalink.clone(), beta * f_raw / f_max))
+        .collect()
+}
+
+/// Fusión por UNIÓN (spec fusión §4.4/§4.5, D-f2), clave `(entity,
+/// permalink)`: `score(e) = max(v,f) + bonus·min(v,f)`, canal ausente = 0.
+/// Admite la entidad si aparece en CUALQUIERA de los dos mapas (gate FTS =
+/// lectura B, el gate lo realiza el término `bonus·min`, no la admisión).
+/// Orden por score fusionado desc, truncado a `limite` DESPUÉS de fusionar
+/// (mismo contrato que `busca`/`busca_vector`) — helper puro (B2), sin DB.
+fn fusiona(
+    v_por_entidad: &HashMap<String, f64>,
+    f_por_entidad: &HashMap<String, f64>,
+    bonus: f64,
+    limite: usize,
+) -> Vec<Resultado> {
+    let claves: std::collections::HashSet<&String> =
+        v_por_entidad.keys().chain(f_por_entidad.keys()).collect();
+
+    let mut resultados: Vec<Resultado> = claves
+        .into_iter()
+        .map(|permalink| {
+            let v = *v_por_entidad.get(permalink).unwrap_or(&0.0);
+            let f = *f_por_entidad.get(permalink).unwrap_or(&0.0);
+            Resultado {
+                permalink: permalink.clone(),
+                tipo: "entity".to_string(),
+                score: v.max(f) + bonus * v.min(f),
+            }
+        })
+        .collect();
+
+    resultados.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    resultados.truncate(limite);
+    resultados
+}
+
+/// Fusión hybrid FTS+vector (`exo search --type hybrid`, M2-07, spec
+/// `2026-07-17-fusion-design.md` §4). Candidatos FTS: hasta **K_c = 50**
+/// (constante de implementación, NO parámetro del sweep — §4.2, insensible
+/// mientras K_c ≫ `limite`) vía `busca()` (ya no trunca a `limite` porque se
+/// le pide K_c directamente, sin refactor necesario). Candidatos vector:
+/// exhaustivo con threshold pre-fusión sobre `v` (D-f3), vía `busca_vector`
+/// con un límite efectivamente sin techo (mismo threshold/precedencia
+/// flags>config que el arm vector puro). Normalización BM25 por-query con
+/// anclaje β (`escala_fts`) vía `normaliza_fts`; fusión por unión (D-f2) vía
+/// `fusiona`. Orden por score fusionado desc, truncado a `limite` DESPUÉS de
+/// fusionar (§4.4).
+pub fn busca_hybrid(
+    db_ruta: &Path,
+    query: &str,
+    limite: usize,
+    min_similitud: Option<f64>,
+    bonus: f64,
+    escala_fts: f64,
+) -> Result<Busqueda> {
+    if !db_ruta.exists() {
+        anyhow::bail!("DB no encontrada: {}", db_ruta.display());
+    }
+
+    let inicio = Instant::now();
+
+    const K_C: usize = 50;
+    let fts = busca(db_ruta, query, K_C)?;
+    let candidatos_fts: Vec<(String, f64)> = fts
+        .results
+        .into_iter()
+        .map(|r| (r.permalink, r.score))
+        .collect();
+    let f_por_entidad = normaliza_fts(&candidatos_fts, escala_fts);
+
+    let vector = busca_vector(db_ruta, query, usize::MAX, min_similitud)?;
+    let v_por_entidad: HashMap<String, f64> = vector
+        .results
+        .into_iter()
+        .map(|r| (r.permalink, r.score))
+        .collect();
+
+    let results = fusiona(&v_por_entidad, &f_por_entidad, bonus, limite);
+
+    Ok(Busqueda {
+        query: query.to_string(),
+        search_type: "hybrid".to_string(),
+        elapsed_s: inicio.elapsed().as_secs_f64(),
+        results,
+    })
+}
+
+#[cfg(test)]
+mod tests_fusion {
+    use super::*;
+
+    fn mapa(pares: &[(&str, f64)]) -> HashMap<String, f64> {
+        pares.iter().map(|(k, s)| (k.to_string(), *s)).collect()
+    }
+
+    /// Test contractual 1 (spec §7): con v, f y bonus conocidos, score exacto.
+    #[test]
+    fn fusion_formula_ambos_canales() {
+        let v = mapa(&[("a", 0.6)]);
+        let f = mapa(&[("a", 0.4)]);
+        let resultados = fusiona(&v, &f, 0.25, 10);
+        assert_eq!(resultados.len(), 1);
+        assert_eq!(resultados[0].permalink, "a");
+        let esperado = 0.6_f64.max(0.4) + 0.25 * 0.6_f64.min(0.4);
+        assert!((resultados[0].score - esperado).abs() < 1e-12);
+    }
+
+    /// Test contractual 2: candidato solo-vector entra con score == v.
+    #[test]
+    fn fusion_conserva_candidato_solo_vector() {
+        let v = mapa(&[("a", 0.6)]);
+        let f = HashMap::new();
+        let resultados = fusiona(&v, &f, 0.2, 10);
+        assert_eq!(resultados.len(), 1);
+        assert_eq!(resultados[0].permalink, "a");
+        assert_eq!(resultados[0].score, 0.6);
+    }
+
+    /// Test contractual 3: dual del anterior, candidato solo-FTS, score == f.
+    #[test]
+    fn fusion_conserva_candidato_solo_fts() {
+        let v = HashMap::new();
+        let f = mapa(&[("a", 0.4)]);
+        let resultados = fusiona(&v, &f, 0.2, 10);
+        assert_eq!(resultados.len(), 1);
+        assert_eq!(resultados[0].permalink, "a");
+        assert_eq!(resultados[0].score, 0.4);
+    }
+
+    /// Test contractual 5: la misma entidad en ambos canales produce UNA
+    /// fila fusionada, no dos (clave = permalink, D-f2).
+    #[test]
+    fn fusion_clave_entidad_una_fila_por_permalink() {
+        let v = mapa(&[("a", 0.6)]);
+        let f = mapa(&[("a", 0.4)]);
+        let resultados = fusiona(&v, &f, 0.2, 10);
+        assert_eq!(resultados.len(), 1, "{:?}", resultados);
+    }
+
+    /// Test contractual 6: la normalización preserva el orden FTS y acota a
+    /// (0, β]; el top-1 de la query vale exactamente β.
+    #[test]
+    fn normalizacion_bm25_monotona() {
+        let candidatos = vec![
+            ("top".to_string(), 10.0),
+            ("segundo".to_string(), 5.0),
+            ("tercero".to_string(), 1.0),
+        ];
+        let f = normaliza_fts(&candidatos, 0.8);
+        assert_eq!(f["top"], 0.8);
+        assert!(f["top"] > f["segundo"], "{:?}", f);
+        assert!(f["segundo"] > f["tercero"], "{:?}", f);
+        for val in f.values() {
+            assert!(*val > 0.0 && *val <= 0.8, "{val} fuera de (0, β]");
+        }
+    }
+
+    /// Test contractual 7: f_max == 0 descarta el canal FTS sin dividir por 0.
+    #[test]
+    fn normalizacion_bm25_query_sin_fmax() {
+        let candidatos = vec![("a".to_string(), 0.0), ("b".to_string(), 0.0)];
+        let f = normaliza_fts(&candidatos, 0.8);
+        assert!(f.is_empty(), "{:?}", f);
+    }
+
+    /// Test contractual 8: bonus = 0 ⇒ score == max(v,f).
+    #[test]
+    fn fusion_bonus_cero_es_max() {
+        let v = mapa(&[("a", 0.6)]);
+        let f = mapa(&[("a", 0.9)]);
+        let resultados = fusiona(&v, &f, 0.0, 10);
+        assert_eq!(resultados.len(), 1);
+        assert_eq!(resultados[0].score, 0.9);
+    }
+
+    /// Test contractual 10: orden por score fusionado desc, truncado a
+    /// `limite` DESPUÉS de fusionar.
+    #[test]
+    fn fusion_orden_desc_truncado_post_fusion() {
+        let v = mapa(&[("a", 0.9), ("b", 0.5), ("c", 0.1)]);
+        let f = HashMap::new();
+        let resultados = fusiona(&v, &f, 0.2, 2);
+        assert_eq!(resultados.len(), 2, "{:?}", resultados);
+        assert_eq!(resultados[0].permalink, "a");
+        assert_eq!(resultados[1].permalink, "b");
+    }
+}
