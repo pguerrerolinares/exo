@@ -3,6 +3,7 @@ use rusqlite::Connection;
 use std::path::Path;
 use std::sync::Once;
 
+pub mod nota;
 pub mod schema;
 
 static REG: Once = Once::new();
