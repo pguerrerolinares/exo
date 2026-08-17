@@ -249,10 +249,53 @@ se mueve, luego el canary no puede driftar por M4.
 
 El acoplamiento real de kbx sigue intacto y pendiente: consume `entity`,
 `observation`, `relation`, `search_index` y `project`, mientras el índice de
-exo tiene `notas`, `aristas`, `trozos`, `notas_fts` y `vectores`. Mapean dos de
-cinco y con forma distinta; falta en exo lo que sostiene el trinquete
-(`entity.size`, que comen `kbx budget` y `kbx ratchet`). **Eso es M6-04**, no
-M4, y es trabajo de ingeniería con decisión de diseño propia.
+exo tiene `notas`, `aristas`, `trozos`, `notas_fts` y `vectores`. **Eso es
+M6-04**, no M4, y es trabajo de ingeniería con decisión de diseño propia.
+
+Corrección sobre el alcance de ese trabajo, verificada en el código de kbx —
+importa porque reduce el riesgo del cutover:
+
+- **El pre-commit de la KB sobrevive intacto al repunte.** `kbx ratchet` no
+  abre el índice en absoluto, y `kbx budget` solo lo usa para el fallback de
+  `project.path` cuando no se le pasa `--kb` explícito (`budget.go:60-63`,
+  literal: *"it never reads entity/relation rows"*). El hook los llama con
+  rutas explícitas, así que el guard que protege la KB **no depende** de
+  M6-04. Quien consume `entity.size` es `targets` (`targets.go:83`), y se
+  resuelve con un `stat()`.
+- **Lo que de verdad falta en el índice de exo es `tier`**, hoy en
+  `entity_metadata` de basic-memory: `targets` lo devuelve por candidata y
+  `/documenta` enruta por él. Exo no indexa frontmatter. Se resuelve con una
+  columna en `notas` o leyéndolo del fichero en caliente — patrón que `stale`
+  ya usa.
+- **`observation` muere gratis**: ningún comando de kbx la consulta hoy
+  (cero `SELECT` fuera de fixtures). El canary sobre-declara.
+- **`project` no tiene equivalente** y no es opcional: `/consolida` llama a
+  `kbx budget --json` y `kbx doctor --json` **sin** `--kb`.
+
+## 10. Cobertura que este cutover deja ciega (hallazgo del barrido)
+
+Nada se rompe porque exo escriba markdown con basic-memory vivo — verificado
+por ambos lados: exo no abre `memory.db`, y el watcher de bm absorbe incluso
+los renames atómicos. Pero **dos guardrails dejan de ver el camino nuevo**, que
+es un fallo silencioso por definición:
+
+1. **El reflejo search-before-write** (`hooks.json:31` de reflex 0.13.0)
+   matchea `mcp__basic-memory__write_note`. Una escritura vía `exo write` es un
+   Bash: el reflejo no la cubre. **Mitigado por diseño**: `exo write new` hace
+   el search-before-write nativo (dup-gate, M4-02), así que la garantía se
+   mueve del hook al engine en vez de perderse. Queda declarado, no supuesto.
+2. **El retrieval-logger** (`hooks.json:40`) solo registra lecturas MCP. Desde
+   el cutover del recall (M6-02) y este de escritura, las lecturas vía
+   `exo search`/`exo recall` **desaparecen de la telemetría**. La medición del
+   hot-path queda sesgada **desde hoy**, no en M5b — y es justo la telemetría
+   que justificó el scope de M5a-01 (qué tools del MCP merecen sucesor).
+   Acción: portar el logger al camino de exo, o declarar que la medición se
+   cierra aquí y M5a-01 se congela con los datos ya recogidos.
+
+**El fallback de `/documenta` a basic-memory tiene fecha de caducidad**: es
+sano hoy, pero post-desinstalación degradaría a tools inexistentes. Se retira
+en **M5a-03**, cuando el MCP quede apagado. Anotado también en el propio
+fichero del comando.
 
 **Verificación exigida al cierre** (sustituye al cambio de código):
 `kbx doctor --check-schema` verde DESPUÉS de que exo haya escrito en la KB real
