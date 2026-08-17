@@ -6,6 +6,7 @@ use std::sync::{Mutex, Once};
 pub mod aristas;
 pub mod buscador;
 pub mod envelope;
+pub mod escritor;
 pub mod indexer;
 pub mod nota;
 pub mod recall;

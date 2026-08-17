@@ -3,6 +3,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use exo::{
     buscador::{busca, busca_hybrid, busca_vector},
     envelope,
+    escritor::{escribe_append, escribe_nueva},
     indexer::indexa,
     kb_desde_config,
     recall::{recall_arranque, recall_consulta, renderiza, resuelve_rutas_absolutas},
@@ -40,11 +41,78 @@ enum Comando {
     Rebuild(ArgsIndex),
     /// Búsqueda FTS5 mínima sobre `notas_fts` (spec §4.1, m2-05).
     Search(ArgsSearch),
+    /// Escribe en la KB (M4/E2): nota nueva o append a bitácora. File-first,
+    /// sin commit y sin indexar — eso es del agente y del recall siguiente.
+    #[command(subcommand)]
+    Write(ComandoWrite),
     /// Sirve contenido de la KB para arranque (`tier: core` + recientes) o
     /// consulta (`busca_hybrid`) — sucesor de `basic-memory-recall.sh` y
     /// `compose-inject.sh` de reflex (M2-08, M6). NO conoce reflex ni
     /// perfiles de agentes: eso lo compone el consumidor.
     Recall(ArgsRecall),
+}
+
+#[derive(Subcommand)]
+enum ComandoWrite {
+    /// Crea una nota nueva con frontmatter completo y permalink derivado del
+    /// título. Rechaza (exit 3) si hay candidatas duplicadas, salvo `--force`.
+    New(ArgsWriteNew),
+    /// Anexa al final de una bitácora sin releerla. Rechaza (exit 3) si el
+    /// destino no es `tier: log`, salvo `--force`.
+    Append(ArgsWriteAppend),
+}
+
+#[derive(clap::Args)]
+struct ArgsWriteNew {
+    /// Fichero SQLite del índice (mismo contrato D6 que el resto). Lo usa el
+    /// dup-gate; con `--force` no se consulta.
+    #[arg(long)]
+    db: PathBuf,
+    /// Raíz de la KB. Default: config RO de basic-memory (hasta M5a).
+    #[arg(long)]
+    kb: Option<PathBuf>,
+    /// Directorio destino dentro de la KB (`projects`, `log`, `research`…).
+    #[arg(long)]
+    dir: String,
+    /// Título de la nota. De él salen el nombre de fichero y el slug del
+    /// permalink.
+    #[arg(long)]
+    titulo: String,
+    /// Fichero con el cuerpo (`-` = stdin). El contenido NO viaja por argv:
+    /// el agente lo escribe con su tool `Write` y aquí solo se referencia,
+    /// que es lo que evita el escaping frágil de heredocs.
+    #[arg(long)]
+    from: String,
+    /// `tier` del frontmatter (core|stable|log).
+    #[arg(long)]
+    tier: Option<String>,
+    /// Salta el dup-gate de similitud. JAMÁS salta una colisión de fichero.
+    #[arg(long)]
+    force: bool,
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(clap::Args)]
+struct ArgsWriteAppend {
+    #[arg(long)]
+    db: PathBuf,
+    #[arg(long)]
+    kb: Option<PathBuf>,
+    /// Fichero con el texto a anexar (`-` = stdin).
+    #[arg(long)]
+    from: String,
+    /// Crea la bitácora si no existe (documenta.md la pide con `tier: log`).
+    #[arg(long)]
+    crea: bool,
+    /// Anexa aunque el destino no sea `tier: log`. Queda registrado en el
+    /// envelope (`forzado: true`) para que la excepción sea auditable.
+    #[arg(long)]
+    force: bool,
+    #[arg(long)]
+    json: bool,
+    /// Permalink de la nota destino (p.ej. `kb-demo/log/exo-bitacora`).
+    permalink: String,
 }
 
 #[derive(clap::Args)]
@@ -167,6 +235,14 @@ struct ArgsRecall {
 
 fn main() {
     if let Err(e) = ejecuta() {
+        // Un gate rechazado NO es un error del sistema: es una decisión que se
+        // le devuelve al llamador (nota duplicada, append al canon). Sale con
+        // 3 para que el consumidor lo distinga de un fallo real por exit code
+        // —jamás parseando `data`— y pueda reintentar con `--force`.
+        if let Some(rechazo) = e.downcast_ref::<exo::escritor::Rechazo>() {
+            eprintln!("rechazado: {rechazo}");
+            std::process::exit(3);
+        }
         eprintln!("error: {e:#}");
         std::process::exit(1);
     }
@@ -179,6 +255,126 @@ fn ejecuta() -> Result<()> {
         Comando::Rebuild(args) => corre("rebuild", args, true),
         Comando::Search(args) => busca_cmd(args),
         Comando::Recall(args) => recall_cmd(args),
+        Comando::Write(sub) => match sub {
+            ComandoWrite::New(args) => write_new_cmd(args),
+            ComandoWrite::Append(args) => write_append_cmd(args),
+        },
+    }
+}
+
+/// Lee el contenido de `--from`: ruta de fichero, o stdin si es `-`.
+fn lee_from(from: &str) -> Result<String> {
+    if from == "-" {
+        let mut buf = String::new();
+        std::io::Read::read_to_string(&mut std::io::stdin(), &mut buf)
+            .context("leer el cuerpo desde stdin")?;
+        return Ok(buf);
+    }
+    std::fs::read_to_string(from).with_context(|| format!("leer el cuerpo desde {from}"))
+}
+
+/// `exo write new`: dup-gate con `busca_hybrid` (salvo `--force`) y creación
+/// de la nota. El gate corre ANTES de tocar el disco.
+fn write_new_cmd(args: ArgsWriteNew) -> Result<()> {
+    let kb = match args.kb {
+        Some(p) => p,
+        None => kb_desde_config().context("resolver raíz de la KB (--kb ausente)")?,
+    };
+    let cuerpo = lee_from(&args.from)?;
+
+    // El nombre del proyecto es el primer segmento del permalink de la KB
+    // (`kb-demo/projects/…`). Sale del directorio raíz, NO hardcodeado:
+    // requisito C11 del plan (no cerrar la puerta a otras instancias).
+    let proyecto = kb
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .context("la raíz de la KB no tiene nombre de directorio")?;
+
+    // Dup-gate por solape de slug, NO por retrieval: ver `solape_slug`.
+    // Barato y determinista — no carga el modelo de embeddings, así que el
+    // cierre de sesión no paga segundos por esta comprobación.
+    let candidatas: Vec<(String, f64)> = if args.force {
+        Vec::new()
+    } else {
+        let indexados = exo::buscador::permalinks(&args.db)
+            .context("dup-gate: leer permalinks del índice")?;
+        exo::escritor::dup_candidatas(&exo::escritor::slug(&args.titulo), &indexados)
+    };
+
+    let esc = escribe_nueva(
+        &kb,
+        &proyecto,
+        &args.dir,
+        &args.titulo,
+        &cuerpo,
+        args.tier.as_deref(),
+        &candidatas,
+        args.force,
+    )?;
+
+    emite_escritura(esc, args.json);
+    Ok(())
+}
+
+/// `exo write append`: resuelve permalink→ruta contra el índice y anexa. Con
+/// `--crea`, una bitácora que no existe se crea en vez de fallar.
+fn write_append_cmd(args: ArgsWriteAppend) -> Result<()> {
+    let kb = match args.kb {
+        Some(p) => p,
+        None => kb_desde_config().context("resolver raíz de la KB (--kb ausente)")?,
+    };
+    let texto = lee_from(&args.from)?;
+
+    let ruta_rel = match exo::buscador::ruta_de(&args.db, &args.permalink)? {
+        Some(r) => r,
+        None if args.crea => {
+            // Sin fila en el índice: o la bitácora no existe, o el índice está
+            // rancio. Derivar la ruta del permalink es correcto SOLO para
+            // crearla (`log/<slug>.md`); para una nota ya existente el slug no
+            // es invertible y por eso jamás se adivina.
+            let (dir, slug_nota) = args
+                .permalink
+                .rsplit_once('/')
+                .map(|(izq, slug)| (izq.rsplit_once('/').map_or(izq, |(_, d)| d), slug))
+                .context("permalink sin forma <proyecto>/<dir>/<slug>")?;
+            let rel = format!("{dir}/{slug_nota}.md");
+
+            if !kb.join(&rel).exists() {
+                let proyecto = kb
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .context("la raíz de la KB no tiene nombre de directorio")?;
+                escribe_nueva(&kb, &proyecto, dir, slug_nota, "", Some("log"), &[], false)
+                    .context("crear la bitácora con --crea")?;
+                eprintln!("write: bitácora creada en {rel}");
+            }
+            rel
+        }
+        None => anyhow::bail!(
+            "{} no está en el índice: comprueba el permalink, o usa --crea si la bitácora aún no existe",
+            args.permalink
+        ),
+    };
+
+    let esc = escribe_append(&kb, &ruta_rel, &texto, args.force)?;
+    emite_escritura(esc, args.json);
+    Ok(())
+}
+
+/// Salida común de `write`: envelope v1 por stdout con `--json`, o una línea
+/// humana con la ruta absoluta —lo que `/documenta` necesita para su commit
+/// scoped— por stdout sin él.
+fn emite_escritura(esc: exo::escritor::Escritura, json: bool) {
+    if esc.forzado {
+        eprintln!("aviso: escritura forzada (--force); queda registrada en el envelope");
+    }
+    if json {
+        envelope::emite(
+            "write",
+            serde_json::to_value(&esc).expect("Escritura es serializable"),
+        );
+    } else {
+        println!("{}", esc.ruta_abs);
     }
 }
 
