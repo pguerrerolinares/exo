@@ -51,6 +51,12 @@ pub struct Resumen {
     pub indexadas: usize,
     pub saltadas: usize,
     pub borradas: usize,
+    /// Trozos que pasaron por el modelo en esta corrida (M6-01b). Campo
+    /// aditivo del envelope: no sube `SCHEMA_VERSION` (envelope.rs).
+    pub trozos_embebidos: usize,
+    /// Trozos cuyo texto no cambió y reutilizaron su embedding almacenado.
+    /// Es la métrica que dice si el cache está sirviendo de algo.
+    pub trozos_reusados: usize,
 }
 
 /// Pipeline de `exo index`/`exo rebuild` (spec §3): walk de `kb` → por nota,
@@ -81,6 +87,8 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
 
     let mut indexadas = 0usize;
     let mut saltadas = 0usize;
+    let mut trozos_embebidos = 0usize;
+    let mut trozos_reusados = 0usize;
     let mut vistas: HashSet<String> = HashSet::new();
 
     for ruta_abs in &rutas_absolutas {
@@ -127,8 +135,10 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
         reindexa_aristas_de_nota(&conn, &n.permalink, &n.cuerpo)
             .with_context(|| format!("reindexar aristas de {}", n.permalink))?;
 
-        reindexa_trozos_de_nota(&conn, &n.permalink, &n.cuerpo)
+        let (embebidos, reusados) = reindexa_trozos_de_nota(&conn, &n.permalink, &n.cuerpo)
             .with_context(|| format!("reindexar trozos/vectores de {}", n.permalink))?;
+        trozos_embebidos += embebidos;
+        trozos_reusados += reusados;
 
         indexadas += 1;
     }
@@ -162,6 +172,8 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
         indexadas,
         saltadas,
         borradas,
+        trozos_embebidos,
+        trozos_reusados,
     })
 }
 
@@ -189,18 +201,72 @@ fn borra_trozos_y_vectores_de_nota(conn: &Connection, permalink: &str) -> Result
 /// sin trozos (cuerpo vacío) jamás toca el embedder de proceso — ni lo
 /// inicializa si aún no lo estaba (Task 2 del brief: "solo si hay algo que
 /// embeber").
-fn reindexa_trozos_de_nota(conn: &Connection, permalink: &str, cuerpo: &str) -> Result<()> {
+fn reindexa_trozos_de_nota(
+    conn: &Connection,
+    permalink: &str,
+    cuerpo: &str,
+) -> Result<(usize, usize)> {
+    // Cache de embeddings por CONTENIDO del trozo (M6-01b): se leen los
+    // vectores previos ANTES de borrarlos, indexados por su texto. Un trozo
+    // cuyo texto no cambió reutiliza su vector en vez de volver a pasar por
+    // el modelo — patrón estándar (LlamaIndex guarda un hash por nodo en su
+    // docstore y solo re-procesa lo que cambió). Medido en esta máquina:
+    // ~1 s de carga del runtime + ~0,25 s por trozo, así que editar una
+    // línea de una nota de 9 trozos pasa de 3,4 s a ~1,3 s; y una nota
+    // reindexada por un cambio de frontmatter no paga NADA.
+    //
+    // La clave es el texto exacto, no la posición: insertar un párrafo al
+    // principio desplaza todos los `orden` pero conserva los textos, así que
+    // el cache sigue acertando donde un cache por (permalink, orden) fallaría
+    // entero.
+    let previos = embeddings_por_texto(conn, permalink)?;
+
     borra_trozos_y_vectores_de_nota(conn, permalink)?;
 
     let textos = trocea(cuerpo);
     if textos.is_empty() {
-        return Ok(());
+        return Ok((0, 0));
     }
 
-    let vectores_embebidos = con_embedder_de_proceso(|embedder| embedder.embebe_batch(&textos))
-        .with_context(|| format!("embed batch de {} trozos de {permalink}", textos.len()))?;
+    let pendientes: Vec<String> = {
+        let mut vistos = HashSet::new();
+        textos
+            .iter()
+            .filter(|t| !previos.contains_key(*t))
+            .filter(|t| vistos.insert((*t).clone())) // un texto repetido se embebe una vez
+            .cloned()
+            .collect()
+    };
 
-    for (orden, (texto, vector)) in textos.iter().zip(vectores_embebidos.iter()).enumerate() {
+    let recien_embebidos: HashMap<String, Vec<f32>> = if pendientes.is_empty() {
+        // Ni una llamada al embedder: ni siquiera se inicializa el modelo si
+        // no lo estaba (la propiedad de m2-06 se conserva).
+        HashMap::new()
+    } else {
+        let vectores_nuevos =
+            con_embedder_de_proceso(|embedder| embedder.embebe_batch(&pendientes))
+                .with_context(|| {
+                    format!("embed batch de {} trozos de {permalink}", pendientes.len())
+                })?;
+        pendientes.iter().cloned().zip(vectores_nuevos).collect()
+    };
+
+    let mut embebidos = 0usize;
+    let mut reusados = 0usize;
+
+    for (orden, texto) in textos.iter().enumerate() {
+        let vector = match previos.get(texto) {
+            Some(v) => {
+                reusados += 1;
+                v
+            }
+            None => {
+                embebidos += 1;
+                recien_embebidos
+                    .get(texto)
+                    .with_context(|| format!("embedding ausente del trozo {orden} de {permalink}"))?
+            }
+        };
         conn.execute(
             "INSERT INTO trozos (permalink, orden, texto) VALUES (?1, ?2, ?3)",
             params![permalink, orden as i64, texto],
@@ -210,7 +276,33 @@ fn reindexa_trozos_de_nota(conn: &Connection, permalink: &str, cuerpo: &str) -> 
         vectores::inserta(conn, id, vector)
             .with_context(|| format!("insertar vector del trozo id={id}"))?;
     }
-    Ok(())
+
+    // `embebidos` cuenta trozos escritos con vector nuevo; si un mismo texto
+    // se repite en la nota, el modelo lo vio una vez pero aquí suma varias.
+    // Se prefiere así: la métrica responde "cuántos trozos NO se pudieron
+    // reutilizar", que es la que interesa.
+    Ok((embebidos, reusados))
+}
+
+/// Embeddings de los trozos actuales de `permalink`, indexados por su texto.
+/// Se llama ANTES de borrar. Un trozo sin vector legible (blob corrupto,
+/// fila ausente) simplemente no entra en el mapa: se re-embeberá, que es el
+/// comportamiento seguro.
+fn embeddings_por_texto(conn: &Connection, permalink: &str) -> Result<HashMap<String, Vec<f32>>> {
+    let filas: Vec<(i64, String)> = {
+        let mut stmt = conn.prepare("SELECT id, texto FROM trozos WHERE permalink = ?1")?;
+        stmt.query_map(params![permalink], |r| Ok((r.get(0)?, r.get(1)?)))?
+            .collect::<rusqlite::Result<_>>()
+            .with_context(|| format!("leer trozos previos de {permalink}"))?
+    };
+
+    let mut mapa = HashMap::with_capacity(filas.len());
+    for (id, texto) in filas {
+        if let Some(v) = vectores::lee(conn, id)? {
+            mapa.insert(texto, v);
+        }
+    }
+    Ok(mapa)
 }
 
 fn ruta_relativa(kb: &Path, ruta_abs: &Path) -> Result<String> {

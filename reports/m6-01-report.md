@@ -70,6 +70,102 @@ un reindexado completo que se comió un timeout de 10 minutos. El error de
 método dio el dato del peor caso, que es el que motiva la decisión de arriba.
 La medición buena se repitió con `cp -a`.
 
+## M6-01b — Cache de embeddings por contenido del trozo
+
+Añadido tras la investigación que pidió Paul (dos agentes en paralelo:
+literatura académica e ingeniería real, 2026-08-17). Ambos frentes señalaron
+la misma pieza como "hazla pase lo que pase".
+
+### Por qué, con el dato que lo motiva
+
+La medición inicial decía "3,4 s de coste fijo por cargar el ONNX". Era
+incompleto. Midiendo con una nota mínima:
+
+| Nota tocada | Trozos | Tiempo |
+|---|---|---|
+| Mínima | 1 | 1,12 s |
+| `core-index.md` | 9 | 3,40 s |
+
+O sea: **~1 s de carga del runtime + ~0,25 s por trozo**. El embebido no era
+ruido, era la mayor parte. Y se estaba re-embebiendo la nota ENTERA aunque
+solo cambiara una línea.
+
+### Qué se implementó
+
+Al reindexar una nota se leen sus vectores previos ANTES de borrarlos,
+indexados **por el texto del trozo**. Un trozo cuyo texto no cambió reutiliza
+su embedding; solo los trozos nuevos pasan por el modelo. Si no hay ninguno
+nuevo, el modelo ni se inicializa.
+
+La clave es el contenido, no la posición: insertar un párrafo al principio
+desplaza todos los `orden` pero conserva los textos, así que el cache sigue
+acertando donde uno indexado por `(permalink, orden)` fallaría entero.
+
+Sin tocar el schema: los textos ya estaban en `trozos` y los vectores se leen
+de `vectores` por `rowid` (verificado: 3072 bytes = 768 × f32). El `Resumen`
+gana dos campos aditivos (`trozos_embebidos`, `trozos_reusados`), que no
+suben `SCHEMA_VERSION` por contrato del envelope.
+
+### Efecto medido (KB real, 138 notas)
+
+| Caso | Antes | Después | Contabilidad |
+|---|---|---|---|
+| Editar una línea de una nota de 9 trozos | 3,40 s | **1,50 s** | 2 embebidos / 8 reusados |
+| Tocar solo el frontmatter (cuerpo intacto) | 3,40 s | **0,38 s** | **0 embebidos** / 9 reusados |
+
+En el segundo caso el modelo no llega a cargarse.
+
+3 tests nuevos: contabilidad con cuerpo intacto, contabilidad editando un solo
+trozo, y que el vector reutilizado sea idéntico byte a byte (reutilizar no
+puede corromper ni desplazar lo guardado). Suite: **93/93 verdes**.
+
+### Procedencia de la decisión
+
+- **LlamaIndex `IngestionPipeline`** guarda un hash por nodo en su docstore y
+  solo re-procesa lo cambiado (`DocstoreStrategy.UPSERTS`) — es el patrón
+  estándar del ecosistema RAG. LanceDB documenta lo mismo para contextual
+  retrieval.
+- La literatura confirma el patrón (Regmi & Pun, "GPT Semantic Cache",
+  arXiv:2411.05276) pero advierte de que **no ataca el coste fijo de carga**:
+  ahí sigue el ~1 s. Cierto, y por eso el reparto arranque/cierre de M6-02
+  sigue siendo necesario.
+
+### Lo que se DESCARTA, con razón escrita
+
+- **Daemon o servidor de embeddings** (TEI, infinity, ollama con
+  `KEEP_ALIVE=-1`): eliminan el cold-start, pero se amortizan con tráfico
+  sostenido. Aquí son ~2 invocaciones por sesión: es la herramienta
+  equivocada, y reintroduce justo la complejidad operativa que el diseño
+  evita. Nota incómoda que conviene tener presente: **ningún sistema del
+  estudio evita el daemon de verdad** — Smart Connections y obsidian-copilot
+  re-embeben por nota en <1 s porque viven dentro de Obsidian, un proceso YA
+  persistente; y basic-memory, al que sustituimos, usa `sync --watch`. No
+  tenemos ese lujo, así que la salida es no necesitar frescura síncrona, no
+  conseguirla más barata.
+- **Warm-pool con idle-timeout** (patrón ServerlessLLM, OSDI 2024): es la
+  única idea de la literatura que ataca el coste fijo sin daemon permanente.
+  Se descarta para este volumen por la misma razón que el daemon.
+- **mmap / page cache**: medido y refutado empíricamente. Tres cargas
+  consecutivas del modelo dieron 3,39 / 3,52 / 3,47 s — la page cache no
+  amortiza nada, porque el coste es inicializar el runtime ONNX, no leer el
+  fichero.
+- **Cuantizar el modelo** (fastembed-rs sirve variantes `Q`): mejora barata y
+  ortogonal, ~1-2 s estimados en vez de 3,4 s en el peor caso. **No se hace
+  ahora** — con el cache y el reparto arranque/cierre el dolor ya no está en
+  el camino crítico. Queda anotado por si algún día hace falta embeber
+  síncrono.
+
+### El dato que cierra el diseño
+
+La pregunta que la investigación decía que solo Paul podía responder —¿se
+editan notas fuera de sesión de agente?— se contestó midiendo su repo:
+**232 de 244 commits de los últimos 60 días (95%) llevan marca de Claude**.
+La KB se escribe dentro de sesión, casi siempre por `/documenta`.
+
+Por tanto el reparto arranque/cierre cubre el 95% de los casos, y el 5%
+restante queda con una obsolescencia máxima de una sesión — con `--refresca`
+disponible como red manual para quien no quiera esperar.
+
 ## Lo que NO entra en este item
 
 El cutover en sí (M6-02..05: reapuntar el hook de recall, reescribir el

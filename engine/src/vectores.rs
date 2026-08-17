@@ -5,7 +5,7 @@
 //! nota 1). `rowid` de `vectores` = `trozos.id` (§2, no negociable).
 
 use anyhow::{Context, Result};
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 
 /// Serializa un embedding a blob de f32 little-endian nativo — la forma que
 /// `vector_from_value` de sqlite-vec 0.1.9 acepta directamente como
@@ -26,6 +26,29 @@ pub fn inserta(conn: &Connection, rowid: i64, embedding: &[f32]) -> Result<()> {
     )
     .with_context(|| format!("insertar vector rowid={rowid}"))?;
     Ok(())
+}
+
+/// Lee el embedding almacenado en `rowid`, o `None` si esa fila no existe.
+/// Inversa exacta de `serializa` (f32 little-endian). La usa el cache de
+/// embeddings del indexer (M6-01b) para reutilizar el vector de un trozo
+/// cuyo texto no cambió, en vez de volver a pagar el modelo. Un blob cuya
+/// longitud no sea múltiplo de 4 se trata como ausente en vez de producir un
+/// vector truncado: un embedding a medias envenenaría el KNN en silencio, y
+/// re-embeber es siempre recuperable.
+pub fn lee(conn: &Connection, rowid: i64) -> Result<Option<Vec<f32>>> {
+    let blob: Option<Vec<u8>> = conn
+        .query_row(
+            "SELECT embedding FROM vectores WHERE rowid = ?1",
+            params![rowid],
+            |r| r.get(0),
+        )
+        .optional()
+        .with_context(|| format!("leer vector rowid={rowid}"))?;
+    Ok(blob.filter(|b| b.len() % 4 == 0).map(|b| {
+        b.chunks_exact(4)
+            .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+            .collect()
+    }))
 }
 
 /// Borra el vector de `rowid` dado (cascada de borrado extendida a
