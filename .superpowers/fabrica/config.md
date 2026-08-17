@@ -45,7 +45,43 @@ M0 Fase 0 ──→ M1a repo ──→ M2 E1-read ──→ M4 E2-write ──�
                       M7 templates (diferible)
 ```
 
-**Estado a fecha de este config (2026-07-17)**:
+## ACTUALIZACIÓN 2026-08-17 — fase de cierre (manda sobre todo lo de abajo)
+
+Decisión de Paul en sesión 2026-08-17: **el proyecto se cierra hasta M5b**
+(desinstalación de basic-memory), con régimen ligero. Plan de campañas:
+`docs/superpowers/plans/2026-08-17-cierre-exo-m2-a-m5b.md` — es la **fuente de
+selección de items** de aquí en adelante; la spec §7 sigue siendo la fuente de
+criterio, pero el orden ejecutable lo fija el plan (C5→C10, con M6 adelantado
+sobre M4 por razón escrita en el plan).
+
+**Estado real (git es la verdad, 2026-08-17)**: M0 cerrado · M1a completo ·
+M2-01..07 mergeados y pusheados (`main` == `origin/main` en `1c824b5`) ·
+`exo index/rebuild/search --type fts|vector|hybrid` vivos, 72 tests verdes ·
+hybrid sellado `bonus=0.0 / β=0.6 / thr=0.40`, 49/55 diagnóstico. Falta M2-08
+(`exo recall`) y M2-09 (corrida final) para cerrar E1.
+
+**Cambios de régimen (vinculantes para orquestador y consultores):**
+- **Sin métricas nuevas, sin pre-registros nuevos, sin ventanas de observación.**
+  Ningún item se selecciona ni se bloquea por producir un número.
+- **El gate de M2-09 es INFORMATIVO, no bloqueante.** Se corre (el harness ya
+  existe), se anota en el reporte, y un resultado peor no para la campaña.
+- **`GATE-CALENDARIO-D`: CERRADO**, no derogado. Su condición literal era
+  "fecha ≥ 2026-07-23 Y métrica D medida y cerrada"; D se corrió el 2026-08-02
+  con verdict NO-PASS firmado
+  (`agent-develop/docs/superpowers/evals/2026-08-02-reflex-v2-verdict.md`).
+  M1b/M3/M6 quedan adjudicables sin override. El NO-PASS no bloquea exo: su
+  causa raíz (transporte orquestador→subagente) se atacó en reflex/A1.
+- **`GATE-HUECO-M2`: abierto desde 2026-07-17**, sigue abierto.
+- **M7 (templates) fuera de plan** — sin consumidor, se reabre si aparece un tercero.
+- **Se mantienen** intactos: veto AGPL, permalinks jamás regenerados, gates de
+  merge por consultor fable delegado, línea roja de acciones destructivas o
+  externas a Paul, y **M5b gated por M6 completo y probado** (único gate duro
+  que sobrevive: sin M6 mueren en silencio recall, matchers de hooks y kbx).
+
+---
+
+**Estado a fecha de redacción original de este config (2026-07-17)** — histórico,
+reconciliar contra el bloque de arriba:
 - **M0 — CERRADO.** Verdict firmado (`evals/retrieval-fase0/verdict/m0-verdict.md`,
   commit `f80393a`/`dc74d26` en rama `m0-fase0`): jina-es/768/threshold-0.35 en
   producción, Rust firmado como lenguaje del engine (spec §10 decisión 1).
@@ -97,7 +133,11 @@ M0 Fase 0 ──→ M1a repo ──→ M2 E1-read ──→ M4 E2-write ──�
 - **M4, M5a, M5b, M7**: no adjudicables aún (dependen transitivamente de M2/M3/M6
   no iniciados); quedan `encolado` sin acción.
 
-### GATE-CALENDARIO-D (pre-registro de la métrica D, spec §7 + §2 decisión 6)
+### GATE-CALENDARIO-D — **CERRADO 2026-08-02** (histórico, ya no bloquea)
+> Condición cumplida: fecha superada Y métrica D medida y cerrada (verdict
+> NO-PASS 2026-08-02). M1b/M3/M6 son adjudicables. Texto original abajo.
+
+(pre-registro de la métrica D, spec §7 + §2 decisión 6)
 - **Bloquea**: M1b (rename/registro del marketplace), M3 cutover real (paso 2
   del checklist §5.3 en adelante), M6 (guardrails + cutover del hook de recall),
   y **cualquier cambio que altere marketplace/skills/recall del agente**
