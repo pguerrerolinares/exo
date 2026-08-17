@@ -65,6 +65,23 @@ pub fn kb_desde_config() -> Result<std::path::PathBuf> {
     Ok(std::path::PathBuf::from(path))
 }
 
+/// Refresco del índice ANTES de servir un recall (M6-01, "índice fresco sin
+/// daemon"). basic-memory mantenía el índice al día con un watch en segundo
+/// plano; exo indexa **al invocar** (spec §4.2: "incremental por mtime/git al
+/// invocar, sin daemon salvo que duela"), así que sin esto el hook de recall
+/// de M6 serviría un bloque de una KB rancia — el fallo silencioso que este
+/// milestone viene a evitar.
+///
+/// Es `indexer::indexa` sin adornos: existe como función propia para que el
+/// contrato quede nombrado y testeado por separado del CLI. Coste real: si
+/// nada cambió, un `stat` por fichero y ninguna carga del modelo ONNX (el
+/// embedder es perezoso, `con_embedder_de_proceso` solo se inicializa cuando
+/// hay texto nuevo que embeber). Si la DB no existe, la construye —
+/// bootstrap de máquina limpia.
+pub fn refresca_indice(kb: &Path, db: &Path) -> Result<indexer::Resumen> {
+    indexer::indexa(kb, db)
+}
+
 /// Config de embeddings leída de `~/.basic-memory/config.json` (RO, D6):
 /// modelo fastembed + dims declaradas. Separada de `Embedder` porque el
 /// indexer necesita `dims` (p.ej. para decidir si hay algo que embeber)

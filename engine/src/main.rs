@@ -139,6 +139,12 @@ struct ArgsRecall {
     /// omite (D6, mismo contrato que `search`).
     #[arg(long)]
     min_similitud: Option<f64>,
+    /// Refresca el índice (indexado incremental) ANTES de servir, para no
+    /// devolver un bloque de una KB rancia (M6-01, "índice fresco sin
+    /// daemon"). Barato cuando nada cambió: un `stat` por fichero y ninguna
+    /// carga del modelo. Si la DB no existe, la construye (bootstrap).
+    #[arg(long)]
+    refresca: bool,
     /// Emite el resultado como envelope JSON (spec §4) en stdout. Sin este
     /// flag, imprime un bloque de texto plano (el que consumirá el hook).
     #[arg(long)]
@@ -173,6 +179,19 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
         Some(p) => p,
         None => kb_desde_config().context("resolver raíz de la KB (--kb ausente)")?,
     };
+
+    if args.refresca {
+        // El resumen va a stderr: stdout es exclusivo del envelope/bloque
+        // (contrato §4), y el hook consume stdout tal cual.
+        let resumen = exo::refresca_indice(&kb, &args.db)
+            .context("refrescar el índice antes del recall (--refresca)")?;
+        if resumen.indexadas > 0 || resumen.borradas > 0 {
+            eprintln!(
+                "refresca: indexadas={} borradas={} saltadas={}",
+                resumen.indexadas, resumen.borradas, resumen.saltadas
+            );
+        }
+    }
 
     let bruto = match &args.query {
         None => recall_arranque(&args.db, &kb, args.limite)?,
