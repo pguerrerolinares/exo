@@ -271,3 +271,22 @@ madre §4.4-E2 ("doctor verifica que el índice absorbió lo esperado").
 | M4-06 reapuntar `/documenta` | Hecho | Con degradación visible a basic-memory |
 | — `ruta` en `search --json` | **Añadido** | No estaba en el plan; sin él el camino de edición nace cojo |
 | — guard anti-Delta en `append` | **Añadido** | La defensa de mayor ROI según el forense |
+
+### 9.1 `/consolida` no se toca, y por qué
+
+M4-06 dice "reapuntar `/documenta` **y `/consolida`**". Se reapunta el primero
+y se deja el segundo, deliberadamente:
+
+1. **`/consolida` no escribe por el MCP.** Todo su diagnóstico va por `kbx`
+   (`rotate`, `budget`, `doctor`, `stale`, `diff-since`) y sus escrituras las
+   hace declarando "mismo contrato que `/documenta` v2" — o sea, **hereda** el
+   cambio sin que haya que editarlo.
+2. **Vive en el marketplace** (`agent-develop`, plugin `reflex`). Modificarlo
+   es publicar, y publicar es acción externa reservada a Paul. Además su
+   migración al monorepo ya tiene item propio: M6-03.
+3. Lo que sí le afectará de verdad es el cambio de fuente de datos de `kbx`
+   (M6-04), no el write-path.
+
+Cuando se toque, el cambio es de una línea: los appends a `log/<slug>-bitacora`
+y a `log/backlog-diario` pasan a `exo write append`, que es justo el patrón
+para el que se construyó.
