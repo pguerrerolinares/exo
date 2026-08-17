@@ -5,6 +5,7 @@ use exo::{
     envelope,
     indexer::indexa,
     kb_desde_config,
+    recall::{recall_arranque, recall_consulta, renderiza, resuelve_rutas_absolutas},
 };
 use std::path::PathBuf;
 
@@ -39,6 +40,11 @@ enum Comando {
     Rebuild(ArgsIndex),
     /// Búsqueda FTS5 mínima sobre `notas_fts` (spec §4.1, m2-05).
     Search(ArgsSearch),
+    /// Sirve contenido de la KB para arranque (`tier: core` + recientes) o
+    /// consulta (`busca_hybrid`) — sucesor de `basic-memory-recall.sh` y
+    /// `compose-inject.sh` de reflex (M2-08, M6). NO conoce reflex ni
+    /// perfiles de agentes: eso lo compone el consumidor.
+    Recall(ArgsRecall),
 }
 
 #[derive(clap::Args)]
@@ -102,6 +108,43 @@ struct ArgsSearch {
     query: String,
 }
 
+#[derive(clap::Args)]
+struct ArgsRecall {
+    /// Fichero SQLite del índice. Obligatorio, sin default (D6, mismo
+    /// contrato que `index`/`search`).
+    #[arg(long)]
+    db: PathBuf,
+    /// Raíz de la KB. Por defecto, `projects.kb-demo.path` de
+    /// `~/.basic-memory/config.json` (RO). `exo recall` la necesita aunque
+    /// solo lea del índice: `notas.ruta` es relativa, y modo arranque
+    /// también relee `tier` del `.md` en disco (no está en el índice).
+    #[arg(long)]
+    kb: Option<PathBuf>,
+    /// Texto de la consulta. Ausente ⇒ modo arranque (`tier: core` +
+    /// recientes por git); presente ⇒ modo consulta (`busca_hybrid`).
+    #[arg(long)]
+    query: Option<String>,
+    /// Máximo de notas. En modo arranque, tope del bloque de "recientes"
+    /// (los `tier: core` siempre entran todos); en modo consulta, tope de
+    /// `busca_hybrid`. Default 5 (contrato del brief para modo consulta;
+    /// mismo flag, mismo default en ambos modos).
+    #[arg(long, default_value_t = 5)]
+    limite: usize,
+    /// Presupuesto de bytes del bloque de salida (texto o `--json`), trunca
+    /// por líneas ENTERAS. Default 2048 (brief).
+    #[arg(long, default_value_t = 2048)]
+    cap_bytes: usize,
+    /// Umbral de similitud coseno del arm vector de `busca_hybrid` (modo
+    /// consulta). Sin efecto en modo arranque. Default de config si se
+    /// omite (D6, mismo contrato que `search`).
+    #[arg(long)]
+    min_similitud: Option<f64>,
+    /// Emite el resultado como envelope JSON (spec §4) en stdout. Sin este
+    /// flag, imprime un bloque de texto plano (el que consumirá el hook).
+    #[arg(long)]
+    json: bool,
+}
+
 fn main() {
     if let Err(e) = ejecuta() {
         eprintln!("error: {e:#}");
@@ -115,7 +158,60 @@ fn ejecuta() -> Result<()> {
         Comando::Index(args) => corre("index", args, false),
         Comando::Rebuild(args) => corre("rebuild", args, true),
         Comando::Search(args) => busca_cmd(args),
+        Comando::Recall(args) => recall_cmd(args),
     }
+}
+
+/// `exo recall`: resuelve `--kb`, delega en `recall_arranque`/`recall_consulta`
+/// según haya o no `--query`, aplica el cap de bytes (`renderiza`, único
+/// punto que decide qué notas entran) y emite. Exit codes (brief, "el
+/// consumidor gatea por exit code, jamás por campos de `data`"): 0 = hay
+/// bloque (aunque venga truncado); recall vacío (cero notas tras el cap) =
+/// `bail!` = exit 1, sin tabla de códigos nueva.
+fn recall_cmd(args: ArgsRecall) -> Result<()> {
+    let kb = match args.kb {
+        Some(p) => p,
+        None => kb_desde_config().context("resolver raíz de la KB (--kb ausente)")?,
+    };
+
+    let bruto = match &args.query {
+        None => recall_arranque(&args.db, &kb, args.limite)?,
+        Some(q) => {
+            let mut bruto = recall_consulta(
+                &args.db,
+                q,
+                args.limite,
+                args.min_similitud,
+                BONUS_SELLADO,
+                ESCALA_FTS_SELLADA,
+            )?;
+            resuelve_rutas_absolutas(&mut bruto, &kb);
+            bruto
+        }
+    };
+
+    let resultado = renderiza(bruto, args.cap_bytes);
+
+    if resultado.recall.notas.is_empty() {
+        anyhow::bail!(
+            "recall vacío (modo {}): sin notas para el bloque, no se emite nada",
+            resultado.recall.modo
+        );
+    }
+
+    if resultado.recall.truncado {
+        eprintln!(
+            "aviso: recall truncado por --cap-bytes={} ({} líneas descartadas)",
+            args.cap_bytes, resultado.lineas_perdidas
+        );
+    }
+
+    if args.json {
+        envelope::emite("recall", serde_json::to_value(&resultado.recall)?);
+    } else {
+        print!("{}", resultado.texto);
+    }
+    Ok(())
 }
 
 fn busca_cmd(args: ArgsSearch) -> Result<()> {
