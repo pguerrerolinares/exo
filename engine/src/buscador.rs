@@ -1,7 +1,7 @@
 use crate::abre_db;
 use crate::con_embedder_de_proceso;
 use anyhow::{Context, Result};
-use rusqlite::params;
+use rusqlite::{OptionalExtension, params};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::Path;
@@ -18,6 +18,16 @@ pub struct Resultado {
     pub tipo: String,
     /// Escala informativa, no contractual (spec §4.1 literal).
     pub score: f64,
+    /// Ruta relativa a la raíz de la KB (M4 §2). **Campo aditivo**: no sube
+    /// `SCHEMA_VERSION` (envelope §4).
+    ///
+    /// Existe porque la ruta NO es derivable del permalink: el slug come
+    /// acentos, espacios y em-dashes (`kb-demo/projects/exo-framework-…`
+    /// vive en `projects/exo — framework unificado de trabajo agéntico.md`) y
+    /// eso no se invierte. Sin este campo, cuando muera basic-memory el agente
+    /// no tiene forma de localizar el fichero que va a editar con `Edit`.
+    /// `None` solo si el permalink no está en `notas` (índice rancio).
+    pub ruta: Option<String>,
 }
 
 /// `data` del envelope de `exo search`, forma EXACTA del contrato §4.1.
@@ -27,6 +37,63 @@ pub struct Busqueda {
     pub search_type: String,
     pub elapsed_s: f64,
     pub results: Vec<Resultado>,
+}
+
+/// Rellena `ruta` en los resultados a partir de `notas` (M4 §2). Un único
+/// punto para las tres búsquedas: se llama justo antes de devolver, cuando la
+/// lista ya está ordenada y truncada, así que consulta como mucho `limite`
+/// filas. Un permalink ausente de `notas` deja `None` (índice rancio) en vez
+/// de fallar: la ruta es un campo aditivo, no puede tumbar una búsqueda.
+fn enriquece_rutas(conn: &rusqlite::Connection, results: &mut [Resultado]) -> Result<()> {
+    if results.is_empty() {
+        return Ok(());
+    }
+    let mut stmt = conn
+        .prepare("SELECT ruta FROM notas WHERE permalink = ?1")
+        .context("preparar consulta de ruta por permalink")?;
+
+    for r in results.iter_mut() {
+        r.ruta = stmt
+            .query_row(params![r.permalink], |fila| fila.get::<_, String>(0))
+            .optional()
+            .with_context(|| format!("resolver ruta de {}", r.permalink))?;
+    }
+    Ok(())
+}
+
+/// Todos los permalinks indexados. Lo usa el dup-gate del write-path, que
+/// compara slugs sin tocar el modelo de embeddings.
+pub fn permalinks(db_ruta: &Path) -> Result<Vec<String>> {
+    if !db_ruta.exists() {
+        anyhow::bail!("DB no encontrada: {}", db_ruta.display());
+    }
+    let conn = abre_db(db_ruta)?;
+    let mut stmt = conn
+        .prepare("SELECT permalink FROM notas")
+        .context("preparar consulta de permalinks")?;
+    let filas = stmt
+        .query_map([], |f| f.get::<_, String>(0))
+        .context("leer permalinks")?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .context("materializar permalinks")?;
+    Ok(filas)
+}
+
+/// Ruta relativa de un permalink concreto, o `None` si no está indexado.
+/// La usa el write-path para localizar el fichero de una bitácora sin tener
+/// que invertir el slug (que no es invertible).
+pub fn ruta_de(db_ruta: &Path, permalink: &str) -> Result<Option<String>> {
+    if !db_ruta.exists() {
+        anyhow::bail!("DB no encontrada: {}", db_ruta.display());
+    }
+    let conn = abre_db(db_ruta)?;
+    conn.query_row(
+        "SELECT ruta FROM notas WHERE permalink = ?1",
+        params![permalink],
+        |fila| fila.get::<_, String>(0),
+    )
+    .optional()
+    .with_context(|| format!("resolver ruta de {permalink}"))
 }
 
 /// Prepara la query cruda para FTS5 (interpretación adjudicada en el brief
@@ -82,12 +149,16 @@ pub fn busca(db_ruta: &Path, query: &str, limite: usize) -> Result<Busqueda> {
                 permalink: r.get(0)?,
                 tipo: "entity".to_string(),
                 score: r.get(1)?,
+                ruta: None,
             })
         })
         .with_context(|| format!("ejecutar MATCH FTS5 para query preparada: {fts_query}"))?
         .collect::<rusqlite::Result<Vec<_>>>()
         .context("leer resultados FTS5")?
     };
+
+    let mut results = results;
+    enriquece_rutas(&conn, &mut results)?;
 
     Ok(Busqueda {
         query: query.to_string(),
@@ -217,9 +288,13 @@ pub fn busca_vector(
                 permalink,
                 tipo: "entity".to_string(),
                 score,
+                ruta: None,
             })
             .collect()
     };
+
+    let mut results = results;
+    enriquece_rutas(&conn, &mut results)?;
 
     Ok(Busqueda {
         query: query.to_string(),
@@ -277,6 +352,7 @@ fn fusiona(
                 permalink: permalink.clone(),
                 tipo: "entity".to_string(),
                 score: v.max(f) + bonus * v.min(f),
+                ruta: None,
             }
         })
         .collect();
@@ -335,7 +411,10 @@ pub fn busca_hybrid(
         .map(|r| (r.permalink, r.score))
         .collect();
 
-    let results = fusiona(&v_por_entidad, &f_por_entidad, bonus, limite);
+    let mut results = fusiona(&v_por_entidad, &f_por_entidad, bonus, limite);
+    // Conexión propia: los dos arms de arriba ya cerraron las suyas, y aquí
+    // solo quedan `limite` filas que resolver.
+    enriquece_rutas(&abre_db(db_ruta)?, &mut results)?;
 
     Ok(Busqueda {
         query: query.to_string(),
