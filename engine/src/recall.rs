@@ -268,6 +268,124 @@ pub fn recall_arranque(db_ruta: &Path, kb: &Path, limite: usize) -> Result<Recal
     })
 }
 
+/// Modo arranque en versión **contenido** (M6-02): en vez de una línea por
+/// nota, vuelca el CUERPO de las notas `tier: core` y luego lista las
+/// recientes por permalink.
+///
+/// Existe porque el hook que esto sustituye (`basic-memory-recall.sh`) no
+/// inyectaba rutas: inyectaba el cuerpo del core-index (contrato de memoria +
+/// doctrina compacta + mapa de cores) más un digest de actividad. Servir solo
+/// rutas habría sido una regresión silenciosa — el agente perdería la
+/// doctrina en todas las sesiones sin que nadie lo notara.
+///
+/// El cap se aplica por **líneas enteras** igual que en `aplica_cap`, y el
+/// bloque resultante nunca lo supera: el consumidor tiene un presupuesto duro
+/// (hoy 6.144 bytes en el guard de `compose_base`) y pasarse hace caer el
+/// arranque al FALLBACK, que es justo lo que se quiere evitar.
+///
+/// Error (exit ≠0 en el CLI) si no hay nada que servir: el hook necesita
+/// distinguir "sin bloque" por código de salida para caer a su fallback, en
+/// vez de inyectar un bloque vacío.
+/// `nota`: permalink concreto cuyo cuerpo se quiere. `None` ⇒ todas las
+/// `tier: core`.
+///
+/// Por qué existe este parámetro: la KB real tiene varias notas `core` y una
+/// de ellas (el backlog) ocupa 20 KB, así que "vuelca todos los cores" agota
+/// el presupuesto con la primera por orden alfabético y deja fuera
+/// justamente el core-index, que es lo que el hook inyecta hoy. Quién es "la
+/// nota de arranque" es una decisión del CONSUMIDOR, no del engine — el
+/// engine no debe hornear el nombre de ninguna nota concreta.
+pub fn recall_arranque_contenido(
+    db_ruta: &Path,
+    kb: &Path,
+    limite: usize,
+    cap_bytes: usize,
+    nota: Option<&str>,
+) -> Result<String> {
+    let bruto = recall_arranque(db_ruta, kb, limite)?;
+
+    // Una nota pedida por permalink se busca en TODO el índice, no solo
+    // entre las que `recall_arranque` seleccionó: si no, solo se podrían
+    // pedir cores o notas que ya estuvieran entre las recientes.
+    let pedida: Option<NotaRecall> = match nota {
+        Some(permalink) => {
+            let conn = abre_db(db_ruta)?;
+            let Some((ruta_rel, titulo)) = fila_notas(&conn, permalink)? else {
+                anyhow::bail!(
+                    "la nota pedida no está en el índice: {permalink} \
+                     (¿permalink mal escrito, o índice sin refrescar?)"
+                );
+            };
+            Some(NotaRecall {
+                permalink: permalink.to_string(),
+                ruta: kb.join(ruta_rel).display().to_string(),
+                titulo,
+                tier: None,
+                score: None,
+                snippet: None,
+            })
+        }
+        None => None,
+    };
+
+    let elegidas: Vec<&NotaRecall> = match &pedida {
+        Some(n) => vec![n],
+        None => bruto
+            .notas
+            .iter()
+            .filter(|n| n.tier.as_deref() == Some("core"))
+            .collect(),
+    };
+
+    let mut lineas: Vec<String> = vec![CABECERA.to_string()];
+
+    for nota in elegidas {
+        lineas.push(String::new());
+        lineas.push(format!("# {} ({})", nota.titulo, nota.ruta));
+        match cuerpo_de(Path::new(&nota.ruta)) {
+            Some(cuerpo) => lineas.extend(cuerpo.lines().map(str::to_string)),
+            // Una nota core ilegible no aborta el arranque: se anota y se
+            // sigue con el resto del bloque.
+            None => lineas.push("(cuerpo no legible en disco)".to_string()),
+        }
+    }
+
+    let recientes: Vec<&NotaRecall> = bruto
+        .notas
+        .iter()
+        .filter(|n| n.tier.as_deref() != Some("core"))
+        .collect();
+    if !recientes.is_empty() {
+        lineas.push(String::new());
+        lineas.push("--- Actividad reciente (por git; read_note para el detalle) ---".to_string());
+        for nota in recientes {
+            lineas.push(format!("{} — {}", nota.permalink, nota.titulo));
+        }
+    }
+
+    // Mismo truncado por líneas enteras y en BYTES que el resto del módulo.
+    let mut bloque = String::new();
+    for linea in lineas {
+        let coste = linea.len() + 1;
+        if bloque.len() + coste > cap_bytes {
+            break;
+        }
+        bloque.push_str(&linea);
+        bloque.push('\n');
+    }
+
+    if bloque.trim().is_empty() || bloque.trim() == CABECERA {
+        anyhow::bail!("recall de arranque vacío: sin notas core ni recientes que servir");
+    }
+    Ok(bloque)
+}
+
+/// Cuerpo de una nota en disco (sin frontmatter), o `None` si no se puede
+/// leer o parsear.
+fn cuerpo_de(ruta: &Path) -> Option<String> {
+    parsea_nota(ruta).ok().flatten().map(|n| n.cuerpo)
+}
+
 /// Lee SOLO el `tier` del frontmatter de `ruta` (releído del `.md` en
 /// disco). `None` en cualquier fallo (fichero movido/borrado tras indexar,
 /// frontmatter ilegible, sin `tier:`) — nunca aborta el recall completo por

@@ -139,6 +139,20 @@ struct ArgsRecall {
     /// omite (D6, mismo contrato que `search`).
     #[arg(long)]
     min_similitud: Option<f64>,
+    /// Modo arranque en versión CONTENIDO: vuelca el cuerpo de las notas
+    /// `tier: core` + lista de recientes, en vez de una línea por nota. Es
+    /// lo que consume el hook de SessionStart (paridad con el
+    /// `basic-memory-recall.sh` que sustituye, que inyectaba el cuerpo del
+    /// core-index, no sus rutas). Incompatible con `--query`.
+    #[arg(long)]
+    contenido: bool,
+    /// Permalink de la nota cuyo cuerpo se quiere en `--contenido` (p.ej.
+    /// `core/core-index`). Sin este flag, `--contenido` vuelca TODAS las
+    /// `tier: core` — que en una KB con un core grande agota el presupuesto
+    /// con la primera. Qué nota es "la de arranque" lo decide el consumidor,
+    /// no el engine.
+    #[arg(long)]
+    nota: Option<String>,
     /// Refresca el índice (indexado incremental) ANTES de servir, para no
     /// devolver un bloque de una KB rancia (M6-01, "índice fresco sin
     /// daemon"). Barato cuando nada cambió: un `stat` por fichero y ninguna
@@ -191,6 +205,23 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
                 resumen.indexadas, resumen.borradas, resumen.saltadas
             );
         }
+    }
+
+    if args.contenido {
+        if args.query.is_some() {
+            anyhow::bail!("--contenido es del modo arranque: no se combina con --query");
+        }
+        // Camino del hook: bloque de texto a stdout y fuera. No pasa por el
+        // envelope ni por `aplica_cap` (trae su propio truncado por líneas).
+        let bloque = exo::recall::recall_arranque_contenido(
+            &args.db,
+            &kb,
+            args.limite,
+            args.cap_bytes,
+            args.nota.as_deref(),
+        )?;
+        print!("{bloque}");
+        return Ok(());
     }
 
     let bruto = match &args.query {
