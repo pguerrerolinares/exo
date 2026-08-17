@@ -166,6 +166,79 @@ Por tanto el reparto arranque/cierre cubre el 95% de los casos, y el 5%
 restante queda con una obsolescencia máxima de una sesión — con `--refresca`
 disponible como red manual para quien no quiera esperar.
 
+## M6-02 — Cutover del hook de recall (hecho, pendiente de instalar)
+
+Autorizado por Paul en sesión ("dale con el cutover").
+
+### La regresión que se evitó por comprobar antes de tocar
+
+El hook `basic-memory-recall.sh` NO inyecta rutas: inyecta el **cuerpo** de
+`core/core-index` (contrato de memoria + doctrina compacta + mapa de cores) más
+un digest de actividad reciente. `exo recall` servía **rutas**. Un cutover
+directo habría dejado al agente sin doctrina en todas las sesiones a cambio de
+una lista de ficheros — y sin ningún síntoma visible.
+
+De ahí salió `exo recall --contenido` (y `--nota`, tras descubrir que "vuelca
+todos los cores" agota el presupuesto con el backlog de 20 KB y deja fuera
+justo el core-index).
+
+### Qué cambia
+
+| | Antes | Ahora |
+|---|---|---|
+| SessionStart | `basic-memory-recall.sh --cached` | `exo-recall.sh` |
+| Latencia del bloque | 0,03 s con cache caliente · **6,6 s** en fallo | **~10 ms** |
+| Indexado | watch de basic-memory | `exo-index.sh` en el hook **Stop** |
+| Cache con TTL + refresco en background | 90 líneas | **eliminado** |
+
+El cache existía para tapar los 6,6 s del arranque del CLI de Python. Con
+SQLite a 10 ms sobra, y con él se van sus modos de fallo: cache rancio,
+refresco que muere con el process group, escritura a medias.
+
+### Lo que se conserva deliberadamente
+
+- `exit 0` siempre: el arranque no se rompe jamás.
+- Fallback embebido con **evento greppable por razón**
+  (`no-engine` / `no-index` / `empty` / `no-contract`). La degradación
+  silenciosa de este canal ya mordió una vez (F3.1) y no se repite.
+- Guard del contrato de memoria: un bloque que no contiene "Contrato de
+  memoria" no es el core-index, y vale más el fallback conocido que un bloque
+  plausible pero falso.
+- Reafirmación de reflejos tras compactación.
+- Seams por entorno (`EXO_BIN`, `EXO_INDEX`, `EXO_RECALL_NOTA`, `EXO_RECALL_CAP`):
+  permiten probar sin tocar la instalación y, para otra persona, apuntar a SU
+  KB sin editar el script.
+
+El texto del FALLBACK se reescribió: mandaba al agente a basic-memory, un MCP
+en retirada.
+
+De regalo, un bug conocido arreglado: el pin post-compactación ahora acepta
+`verify-before-done` y `verify-before-commit`. La discrepancia entre el id que
+se loguea y el que se matcheaba lo tenía muerto (anotado en la foto as-is del
+2026-08-02, sin arreglar hasta hoy).
+
+### Verificación en vivo (hecha, con el índice y la KB reales)
+
+- Bloque servido: **4531 bytes**, con el core-index íntegro y la actividad
+  reciente por permalink. `exit 0`.
+- `EXO_BIN=/no/existe` → fallback activado, y el texto ya no menciona
+  basic-memory.
+- `EXO_INDEX=/no/existe.db` → fallback activado.
+- Ambos casos dejaron su evento `recall-fallback` en `reflex-log.jsonl`.
+- `exo-index.sh` → indexa detached y escribe su envelope en
+  `~/.claude/exo-index.log`; el cierre no espera.
+
+### Estado de instalación
+
+Instalado en la máquina: binario `exo` en `~/.local/bin/exo` e índice de
+producción en `~/.exo/index.db` (138 notas, al día en 10 ms).
+
+**El plugin NO está actualizado**: vive la 0.12.0; el cutover es la 0.13.0 en
+la rama `m6-cutover-recall` de agent-develop, sin mergear ni pushear. Hasta
+que Paul haga merge + push + `/plugin update`, el arranque sigue usando el
+camino viejo. Rollback = reinstalar 0.12.0; el script antiguo sigue en el repo
+intacto.
+
 ## Lo que NO entra en este item
 
 El cutover en sí (M6-02..05: reapuntar el hook de recall, reescribir el
