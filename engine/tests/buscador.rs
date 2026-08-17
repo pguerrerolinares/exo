@@ -1,5 +1,6 @@
 use exo::buscador::{busca, busca_hybrid, busca_vector};
 use exo::indexer::indexa;
+use rusqlite::params;
 use std::path::Path;
 use std::process::Command;
 
@@ -254,4 +255,62 @@ fn busqueda_hybrid_envelope() {
     assert!(primero.get("permalink").is_some());
     assert!(primero.get("type").is_some());
     assert!(primero.get("score").is_some());
+}
+
+/// DB con 3 entidades que comparten el MISMO embedding (unitario, componentes
+/// 0/1 iguales para las tres) — garantiza empate EXACTO de similitud coseno
+/// contra cualquier query, sin depender de azares del modelo real. Inserta
+/// las notas en el orden dado (M2-09a: el desempate debe ser independiente
+/// del orden de llegada de las filas).
+fn db_con_entidades_empatadas(orden: [&str; 3]) -> (tempfile::TempDir, std::path::PathBuf) {
+    let dir = tempfile::tempdir().unwrap();
+    let db = dir.path().join("empate.db");
+    let conn = exo::abre_db(&db).unwrap();
+    exo::schema::crea_schema(&conn).unwrap();
+
+    let mut vector_unitario = vec![0.0f32; 768];
+    let raiz_media = std::f32::consts::FRAC_1_SQRT_2;
+    vector_unitario[0] = raiz_media;
+    vector_unitario[1] = raiz_media;
+
+    for (i, permalink) in orden.into_iter().enumerate() {
+        let id = i as i64 + 1;
+        conn.execute(
+            "INSERT INTO notas (permalink, ruta, titulo, tipo, mtime, git_epoch)
+             VALUES (?1, ?1, ?1, NULL, 0.0, NULL)",
+            params![permalink],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO trozos (id, permalink, orden, texto) VALUES (?1, ?2, 0, 'trozo')",
+            params![id, permalink],
+        )
+        .unwrap();
+        exo::vectores::inserta(&conn, id, &vector_unitario).unwrap();
+    }
+    (dir, db)
+}
+
+/// M2-09a: `busca_vector` desempata por permalink ascendente cuando el score
+/// empata exactamente. `--min-similitud -2.0` (por debajo del mínimo teórico
+/// de coseno, -1.0) garantiza que el filtro de umbral nunca descarte las
+/// tres entidades empatadas, sin importar el signo real de la similitud
+/// contra la query embebida.
+#[test]
+fn busca_vector_desempate_determinista_por_permalink() {
+    let (_d1, db1) = db_con_entidades_empatadas(["z", "x", "y"]);
+    let (_d2, db2) = db_con_entidades_empatadas(["y", "z", "x"]);
+
+    let r1 = busca_vector(&db1, "cualquier query", 10, Some(-2.0)).unwrap();
+    let r2 = busca_vector(&db2, "cualquier query", 10, Some(-2.0)).unwrap();
+
+    for r in [&r1, &r2] {
+        let permalinks: Vec<&str> = r.results.iter().map(|res| res.permalink.as_str()).collect();
+        assert_eq!(
+            permalinks,
+            vec!["x", "y", "z"],
+            "empate triple debe desempatar por permalink ascendente: {:?}",
+            r.results
+        );
+    }
 }
