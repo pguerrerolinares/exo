@@ -112,8 +112,6 @@ pub struct ResultadoCap {
 /// completas; en cuanto una línea no cabe, el proceso para (ni esa nota
 /// parcial ni ninguna posterior aparecen).
 fn aplica_cap(modo: &str, query: Option<String>, notas: Vec<NotaRecall>, cap_bytes: usize) -> ResultadoCap {
-    let con_snippet = notas.iter().any(|n| n.snippet.is_some());
-
     let unidades: Vec<Unidad> = notas
         .into_iter()
         .map(|n| {
@@ -125,7 +123,6 @@ fn aplica_cap(modo: &str, query: Option<String>, notas: Vec<NotaRecall>, cap_byt
             Unidad { nota: n, lineas }
         })
         .collect();
-    let _ = con_snippet; // documental: confirma la forma de `lineas` arriba
 
     let mut texto = String::new();
     let mut bytes_usados = 0usize;
@@ -412,7 +409,7 @@ mod tests {
     #[test]
     fn aplica_cap_corta_por_lineas_enteras_y_para() {
         let notas = vec![nota("a", "/kb/a.md", "A", None), nota("b", "/kb/b.md", "B", None)];
-        let linea_a = format!("- /kb/a.md — A\n");
+        let linea_a = "- /kb/a.md — A\n".to_string();
         let cabecera = format!("{CABECERA}\n");
         let cap = cabecera.len() + linea_a.len(); // exacto para cabecera+a, no para b
 
