@@ -156,6 +156,36 @@ pub fn solape_slug(a: &str, b: &str) -> f64 {
     interseccion / union
 }
 
+/// Nombre de fichero de una nota a partir de su título. La barra colapsa a
+/// guion, **replicando lo que hace basic-memory en producción**: la nota
+/// `pguerrero.me — Hub personal / portfolio con Lab explorable de LLMs` vive
+/// en el fichero `…Hub personal - portfolio…md`, con el `title` del
+/// frontmatter intacto. Sin esto, un título con barra crearía un
+/// subdirectorio accidental — hay un caso real en la KB.
+fn nombre_fichero(titulo: &str) -> String {
+    titulo.replace(['/', '\\'], "-")
+}
+
+/// Rechaza segmentos de ruta que escaparían del árbol de la KB. Es una línea
+/// roja dura: el write-path solo escribe DENTRO de la KB, y un `..` en
+/// `--dir` o `--titulo` la atravesaría (verificado en el gate). No es un gate
+/// saltable con `--force`: es un error.
+fn verifica_segmento(valor: &str, flag: &str) -> Result<()> {
+    if valor.split(['/', '\\']).any(|seg| seg == ".." || seg == ".") {
+        anyhow::bail!(
+            "{flag} contiene un segmento de ruta relativo ({valor:?}): el write-path \
+             solo escribe dentro de la KB"
+        );
+    }
+    if valor.starts_with('/') || valor.starts_with('\\') {
+        anyhow::bail!("{flag} no puede ser una ruta absoluta ({valor:?})");
+    }
+    if valor.trim().is_empty() {
+        anyhow::bail!("{flag} no puede estar vacío");
+    }
+    Ok(())
+}
+
 /// Candidatas duplicadas de un slug nuevo contra los permalinks ya indexados.
 /// El llamador pasa la lista de permalinks; este módulo no conoce el índice.
 pub fn dup_candidatas(slug_nuevo: &str, permalinks: &[String]) -> Vec<(String, f64)> {
@@ -191,6 +221,7 @@ pub fn escribe_nueva(
     cuerpo: &str,
     tier: Option<&str>,
     dup_candidatas: &[(String, f64)],
+    forzado: bool,
 ) -> Result<Escritura> {
     if !dup_candidatas.is_empty() {
         return Err(Rechazo::Duplicada {
@@ -205,8 +236,11 @@ pub fn escribe_nueva(
         .into());
     }
 
+    verifica_segmento(dir, "--dir")?;
+    verifica_segmento(titulo, "--titulo")?;
+
     let permalink = format!("{proyecto}/{dir}/{}", slug(titulo));
-    let ruta_rel = format!("{dir}/{titulo}.md");
+    let ruta_rel = format!("{dir}/{}.md", nombre_fichero(titulo));
     let ruta_abs = kb.join(&ruta_rel);
 
     if ruta_abs.exists() {
@@ -230,7 +264,7 @@ pub fn escribe_nueva(
         ruta_abs: ruta_abs.display().to_string(),
         creada: true,
         frontmatter_completado: completado,
-        forzado: false,
+        forzado,
     })
 }
 

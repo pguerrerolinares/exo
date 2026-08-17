@@ -72,6 +72,7 @@ fn nueva_genera_frontmatter_completo_y_ruta_correcta() {
         "cuerpo de la nota\n",
         Some("stable"),
         &[],
+        false,
     )
     .unwrap();
 
@@ -103,6 +104,7 @@ fn nueva_respeta_el_frontmatter_que_ya_trae_el_cuerpo() {
         "---\ntags:\n- uno\n- dos\ntype: research\n---\ncuerpo\n",
         Some("log"),
         &[],
+        false,
     )
     .unwrap();
 
@@ -130,6 +132,7 @@ fn nueva_jamas_pisa_una_nota_existente() {
         "nuevo\n",
         None,
         &[],
+        false,
     )
     .unwrap_err();
 
@@ -151,6 +154,7 @@ fn nueva_con_candidatas_duplicadas_rechaza_sin_escribir() {
         "cuerpo\n",
         None,
         &[("kb-demo/projects/tema-repe".into(), 0.9)],
+        false,
     )
     .unwrap_err();
 
@@ -282,4 +286,85 @@ fn solape_es_simetrico_y_acotado() {
     assert_eq!(solape_slug("a", "b"), 0.0);
     assert_eq!(solape_slug("", "a"), 0.0);
     assert_eq!(solape_slug("a-b-c", "c-b-a"), solape_slug("c-b-a", "a-b-c"));
+}
+
+// -------------------------------------------- hallazgos altos del gate M4
+
+#[test]
+fn titulo_con_barra_no_crea_subdirectorio() {
+    // Caso REAL de la KB: el título lleva `/` y basic-memory lo colapsa a `-`
+    // en el nombre de fichero, conservando el title literal en el frontmatter.
+    let kb = kb_falsa();
+    let esc = escribe_nueva(
+        kb.path(),
+        "kb-demo",
+        "projects",
+        "pguerrero.me — Hub personal / portfolio",
+        "cuerpo\n",
+        None,
+        &[],
+        false,
+    )
+    .unwrap();
+
+    assert_eq!(
+        esc.ruta_rel,
+        "projects/pguerrero.me — Hub personal - portfolio.md",
+        "la barra colapsa a guion, como hace bm en producción"
+    );
+    assert!(
+        kb.path().join(&esc.ruta_rel).is_file(),
+        "debe ser un fichero, nunca un subdirectorio accidental"
+    );
+    let escrito = std::fs::read_to_string(kb.path().join(&esc.ruta_rel)).unwrap();
+    assert!(
+        escrito.contains("title: pguerrero.me — Hub personal / portfolio\n"),
+        "el title del frontmatter conserva la barra literal"
+    );
+}
+
+#[test]
+fn jamas_se_escribe_fuera_de_la_kb() {
+    let kb = kb_falsa();
+    for (dir, titulo) in [
+        ("../fuera", "nota"),
+        ("projects", "../../etc/passwd"),
+        ("/etc", "nota"),
+        ("projects/../..", "nota"),
+    ] {
+        let err = escribe_nueva(
+            kb.path(),
+            "kb-demo",
+            dir,
+            titulo,
+            "cuerpo\n",
+            None,
+            &[],
+            true, // ni siquiera --force lo permite: no es un gate, es error
+        )
+        .unwrap_err();
+        assert!(
+            !err.is::<Rechazo>(),
+            "traversal es error duro, no gate saltable: {dir}/{titulo}"
+        );
+    }
+    assert!(!kb.path().parent().unwrap().join("fuera").exists());
+}
+
+#[test]
+fn new_forzado_queda_registrado_en_el_envelope() {
+    // §7.3: una vía de excepción sin rastro es peor que no tenerla.
+    let kb = kb_falsa();
+    let esc = escribe_nueva(
+        kb.path(),
+        "kb-demo",
+        "projects",
+        "Forzada",
+        "cuerpo\n",
+        None,
+        &[],
+        true,
+    )
+    .unwrap();
+    assert!(esc.forzado, "--force debe ser auditable en el envelope");
 }

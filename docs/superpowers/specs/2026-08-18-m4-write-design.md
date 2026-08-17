@@ -105,8 +105,11 @@ exo write append --db <db> [--kb <kb>] <permalink> --from <fichero|->
                  [--crea] [--json]
 ```
 
-- Resuelve permalink→ruta contra el índice. Si falla (índice rancio), fallback
-  a walk+parse — milisegundos, sin cargar el modelo.
+- Resuelve permalink→ruta contra el índice. **Sin fallback a walk+parse en v1**
+  (deuda declarada, no implementada): si el permalink no está indexado, el
+  comando falla con un mensaje que apunta a `--crea`. Con el índice refrescado
+  en cada arranque de sesión (M6-01), un miss significa casi siempre que la
+  nota no existe.
 - Garantiza separador `\n\n` y hace **un único `write()` con `O_APPEND`**. No
   lee ni reescribe el resto del fichero.
 - `--crea`: si la bitácora no existe, la crea con frontmatter de log.
@@ -201,7 +204,13 @@ definición: el canon se edita como delta, la bitácora se anexa.
   al canon con `Edit`, el guard que lo caza es el check de `doctor` "un core
   jamás recibe appends fechados" (spec madre §6.4), no el write-path.
 
-### 7.2 El presupuesto avisa, no rechaza
+### 7.2 El presupuesto avisa, no rechaza — NO IMPLEMENTADO en v1
+
+> **Estado real:** esta sección describe el diseño acordado, **no lo que el
+> código hace hoy**. `exo write` no calcula presupuesto todavía. Se deja así a
+> propósito: el pre-commit de la KB ya bloquea y mordió el primer día, con lo
+> que el riesgo está cubierto; el aviso previo es comodidad, no protección.
+> Queda como deuda declarada, no como funcionalidad prometida.
 
 El pre-commit de la KB (`kbx ratchet --staged` + `kbx budget`) ya bloquea, y
 mordió el primer día que se activó. Duplicar ese bloqueo en el write violaría

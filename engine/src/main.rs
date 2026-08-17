@@ -89,9 +89,6 @@ struct ArgsWriteNew {
     /// Salta el dup-gate de similitud. JAMÁS salta una colisión de fichero.
     #[arg(long)]
     force: bool,
-    /// Umbral de similitud del dup-gate. Default: el de config.
-    #[arg(long)]
-    min_similitud: Option<f64>,
     #[arg(long)]
     json: bool,
 }
@@ -312,6 +309,7 @@ fn write_new_cmd(args: ArgsWriteNew) -> Result<()> {
         &cuerpo,
         args.tier.as_deref(),
         &candidatas,
+        args.force,
     )?;
 
     emite_escritura(esc, args.json);
@@ -346,7 +344,7 @@ fn write_append_cmd(args: ArgsWriteAppend) -> Result<()> {
                     .file_name()
                     .map(|n| n.to_string_lossy().into_owned())
                     .context("la raíz de la KB no tiene nombre de directorio")?;
-                escribe_nueva(&kb, &proyecto, dir, slug_nota, "", Some("log"), &[])
+                escribe_nueva(&kb, &proyecto, dir, slug_nota, "", Some("log"), &[], false)
                     .context("crear la bitácora con --crea")?;
                 eprintln!("write: bitácora creada en {rel}");
             }
