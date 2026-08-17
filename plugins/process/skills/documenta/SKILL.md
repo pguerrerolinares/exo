@@ -5,8 +5,8 @@ description: Extrae decisiones, opiniones, aprendizajes y patrones de la sesión
 
 # documenta
 
-Cierra la sesión escribiendo a la KB (vía engine — hoy kbx/basic-memory/
-filesystem, hasta que exista un engine dedicado).
+Cierra la sesión escribiendo a la KB vía `exo write` (M4). Degradación con
+aviso visible si el engine no está: `kbx`/filesystem, nunca bloquear el cierre.
 
 ## Paso 1 · Extrae
 
@@ -17,11 +17,14 @@ aprendizajes técnicos durables, patrones recurrentes. Descarta lo efímero
 
 ## Paso 2 · Orienta barato, luego enruta
 
-Probe del engine antes de rutear (p.ej. `kbx targets <topic> --json`):
-permalink/tier/headings/snippet por candidata; elige "nota X, sección Y"
-y lee SOLO la ganadora antes de escribir. Degradación con aviso visible:
-si el engine falla, cae a búsqueda por texto y añade una línea visible al
-resumen final (`<engine> unavailable → fallback`) — nunca bloquees el
+Probe del engine antes de rutear: `exo search --db <db> --type hybrid --json
+"<topic>"` devuelve por candidata `permalink`, `score` y **`ruta`**. Elige
+"nota X, sección Y" y lee SOLO la ganadora antes de escribir. La `ruta` es
+imprescindible: el permalink NO es invertible (el slug come acentos, espacios
+y em-dashes), así que sin ella no puedes localizar el fichero. `kbx targets`
+sigue sirviendo para ver headings sin body mientras exista. Degradación con
+aviso visible: si el engine falla, cae a búsqueda por texto y añade una línea
+al resumen final (`<engine> unavailable → fallback`) — nunca bloquees el
 cierre por esto.
 
 Regla de oro (tabla destino completa en `routing.md`): **canon como
@@ -36,19 +39,49 @@ doctrina; decisión o patrón sobre el propio dueño ⇒ su nota de perfil
 standalone, o decisión que merece nota canónica propia. No crees "una
 nota por sesión" cuando el proyecto ya tiene bitácora.
 
-## Paso 3 · Reglas de escritura
+## Paso 3 · Cómo se escribe cada cosa
 
-Frontmatter obligatorio en todo lo escrito: `tags` + `tier`.
-Search-before-write antes de crear cualquier nota. Edita, no dupliques;
-prefiere `append` sobre find_replace/replace_section — tolera mejor la
-edición concurrente desde otra sesión. Títulos consistentes: el title es
-el id de los wikilinks `[[...]]` — reusa el exacto al enlazar.
+Tres caminos según el destino. El criterio es quién tiene ya el fichero en
+contexto:
+
+| Destino | Herramienta | Por qué |
+|---|---|---|
+| **Bitácora** (`tier: log`) | `exo write append --from <fichero> <permalink>` | Escribe sin leer: las bitácoras pesan decenas de KB y cargarlas enteras en cada cierre es el coste que este camino evita |
+| **Canon** (delta a nota core/stable) | `Edit` sobre la `ruta` que dio `search` | Ya has leído la ganadora para escribir el delta; `Edit` opera sobre texto exacto y no parsea headings |
+| **Nota nueva** | `exo write new --dir <d> --titulo <t> --from <f>` | Genera permalink, slug, ruta y frontmatter completo; el permalink jamás se improvisa |
+
+El cuerpo va **en un fichero** (`--from`), que escribes antes con `Write`.
+Nunca por heredoc: el escaping de comillas, backticks y `$` es la fuente de
+error más tonta y frecuente de este camino.
+
+**Los dos rechazos, y qué significan.** Salen con exit 3 (distinto de un error
+real, que es 1):
+
+- *append a nota que no es `tier: log`* → estás a punto de anexar al canon.
+  Eso es el anti-patrón que más caro ha salido en esta KB. Edita la sección
+  que ya existe con `Edit`, o manda la entrada a la bitácora del frente. Solo
+  `--force` si de verdad es una excepción consciente: queda registrada.
+- *nota duplicada* → ya existe una canónica con slug muy parecido. Edítala en
+  vez de crear otra; `--force` si de verdad es un tema nuevo.
+
+Frontmatter obligatorio en lo que escribas a mano: `tags` + `tier`. `exo write
+new` lo auto-completa y **nunca rechaza** por frontmatter — un cierre de sesión
+no puede fallar por metadatos. Títulos consistentes: el title es el id de los
+wikilinks `[[...]]` — reusa el exacto al enlazar.
 
 ## Paso 4 · Commit scoped y resumen
 
 Commitea SOLO los ficheros que esta invocación escribió o editó — nunca
-`git add -A`. `git -C <repo>` (nunca `cd`). NUNCA push. Mensaje: `docs(kb):
-documenta <resumen corto>`. Ante `.git/index.lock`: espera ~2s, reintenta
-una vez; si sigue bloqueado, reporta para commit manual — no fuerces
-borrando el lock. Resumen final: qué notas se crearon o editaron, dónde
-quedaron, y el hash del commit.
+`git add -A`. Las rutas salen del campo `ruta_abs` de cada envelope de
+`exo write` y de los `Edit` que hiciste; exo **no commitea**, a propósito.
+`git -C <repo>` (nunca `cd`). NUNCA push. Mensaje: `docs(kb): documenta
+<resumen corto>`. Ante `.git/index.lock`: espera ~2s, reintenta una vez; si
+sigue bloqueado, reporta para commit manual — no fuerces borrando el lock.
+
+Si el pre-commit de la KB rechaza por presupuesto, **el rechazo no se
+negocia**: no subas `kbx_budget_max`, no recortes la nota, no uses
+`--no-verify`. Parte la nota (lo fechado a la bitácora), o rota su cola fría.
+Un commit sin hacer se arregla en un minuto; una nota mutilada, no.
+
+Resumen final: qué notas se crearon o editaron, dónde quedaron, y el hash del
+commit.
