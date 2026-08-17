@@ -38,7 +38,18 @@ pub fn abre_db_en_memoria() -> Result<Connection> {
 /// `abre_db_en_memoria`). Usada por `exo index`/`exo rebuild` (M2-03).
 pub fn abre_db(ruta: &Path) -> Result<Connection> {
     registra_vec();
-    Connection::open(ruta).with_context(|| format!("abrir sqlite en {}", ruta.display()))
+    let conn =
+        Connection::open(ruta).with_context(|| format!("abrir sqlite en {}", ruta.display()))?;
+    // Espera si otra invocación tiene la DB tomada en vez de fallar en el
+    // acto (hallazgo del gate M6): con el indexado en el hook de cierre y el
+    // recall en el de arranque, dos procesos pueden solaparse. Sin esto, el
+    // recall devuelve SQLITE_BUSY, el hook cae al fallback y Paul pierde el
+    // mapa de la KB esa sesión por una carrera de milisegundos. 5 s es de
+    // sobra para un indexado incremental y sigue muy por debajo del timeout
+    // que el harness da a un hook.
+    conn.busy_timeout(std::time::Duration::from_secs(5))
+        .context("fijar busy_timeout")?;
+    Ok(conn)
 }
 
 /// Raíz de la KB desde `projects.kb-demo.path` en `~/.basic-memory/config.json`
@@ -63,6 +74,23 @@ pub fn kb_desde_config() -> Result<std::path::PathBuf> {
             format!("projects.kb-demo.path ausente en {}", ruta.display())
         })?;
     Ok(std::path::PathBuf::from(path))
+}
+
+/// Refresco del índice ANTES de servir un recall (M6-01, "índice fresco sin
+/// daemon"). basic-memory mantenía el índice al día con un watch en segundo
+/// plano; exo indexa **al invocar** (spec §4.2: "incremental por mtime/git al
+/// invocar, sin daemon salvo que duela"), así que sin esto el hook de recall
+/// de M6 serviría un bloque de una KB rancia — el fallo silencioso que este
+/// milestone viene a evitar.
+///
+/// Es `indexer::indexa` sin adornos: existe como función propia para que el
+/// contrato quede nombrado y testeado por separado del CLI. Coste real: si
+/// nada cambió, un `stat` por fichero y ninguna carga del modelo ONNX (el
+/// embedder es perezoso, `con_embedder_de_proceso` solo se inicializa cuando
+/// hay texto nuevo que embeber). Si la DB no existe, la construye —
+/// bootstrap de máquina limpia.
+pub fn refresca_indice(kb: &Path, db: &Path) -> Result<indexer::Resumen> {
+    indexer::indexa(kb, db)
 }
 
 /// Config de embeddings leída de `~/.basic-memory/config.json` (RO, D6):
