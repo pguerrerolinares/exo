@@ -38,7 +38,18 @@ pub fn abre_db_en_memoria() -> Result<Connection> {
 /// `abre_db_en_memoria`). Usada por `exo index`/`exo rebuild` (M2-03).
 pub fn abre_db(ruta: &Path) -> Result<Connection> {
     registra_vec();
-    Connection::open(ruta).with_context(|| format!("abrir sqlite en {}", ruta.display()))
+    let conn =
+        Connection::open(ruta).with_context(|| format!("abrir sqlite en {}", ruta.display()))?;
+    // Espera si otra invocación tiene la DB tomada en vez de fallar en el
+    // acto (hallazgo del gate M6): con el indexado en el hook de cierre y el
+    // recall en el de arranque, dos procesos pueden solaparse. Sin esto, el
+    // recall devuelve SQLITE_BUSY, el hook cae al fallback y Paul pierde el
+    // mapa de la KB esa sesión por una carrera de milisegundos. 5 s es de
+    // sobra para un indexado incremental y sigue muy por debajo del timeout
+    // que el harness da a un hook.
+    conn.busy_timeout(std::time::Duration::from_secs(5))
+        .context("fijar busy_timeout")?;
+    Ok(conn)
 }
 
 /// Raíz de la KB desde `projects.kb-demo.path` en `~/.basic-memory/config.json`

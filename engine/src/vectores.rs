@@ -44,7 +44,13 @@ pub fn lee(conn: &Connection, rowid: i64) -> Result<Option<Vec<f32>>> {
         )
         .optional()
         .with_context(|| format!("leer vector rowid={rowid}"))?;
-    Ok(blob.filter(|b| b.len() % 4 == 0).map(|b| {
+    // 768 dims × 4 bytes: se comprueba la longitud EXACTA, no solo que sea
+    // múltiplo de 4 (hallazgo del gate M6). Un blob de otra dimensión
+    // —modelo cambiado, fila de otra época— pasaría el filtro de %4 y
+    // envenenaría el KNN con un vector de tamaño equivocado. Tratarlo como
+    // ausente hace que se re-embeba, que es siempre recuperable.
+    const BYTES_ESPERADOS: usize = 768 * 4;
+    Ok(blob.filter(|b| b.len() == BYTES_ESPERADOS).map(|b| {
         b.chunks_exact(4)
             .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
             .collect()

@@ -364,7 +364,13 @@ pub fn recall_arranque_contenido(
     }
 
     // Mismo truncado por líneas enteras y en BYTES que el resto del módulo.
+    // El aviso a stderr NO es cosmético: el script viejo caía a su fallback
+    // con un evento `oversize` cuando el core-index no cabía, y perder ese
+    // rastro reintroduce la degradación silenciosa que F3.1 arregló — el
+    // bloque llegaría cortado y nadie se enteraría (hallazgo del gate M6).
+    let total = lineas.len();
     let mut bloque = String::new();
+    let mut escritas = 0usize;
     for linea in lineas {
         let coste = linea.len() + 1;
         if bloque.len() + coste > cap_bytes {
@@ -372,6 +378,14 @@ pub fn recall_arranque_contenido(
         }
         bloque.push_str(&linea);
         bloque.push('\n');
+        escritas += 1;
+    }
+    if escritas < total {
+        eprintln!(
+            "aviso: bloque de arranque truncado por --cap-bytes={cap_bytes} \
+             ({} líneas descartadas de {total})",
+            total - escritas
+        );
     }
 
     if bloque.trim().is_empty() || bloque.trim() == CABECERA {
