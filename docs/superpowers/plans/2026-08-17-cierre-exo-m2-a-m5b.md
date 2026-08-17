@@ -39,8 +39,11 @@ y lo que se mantiene, explícito para que ningún consultor lo reabra:
 - El NO-PASS de D y M **no bloquea nada de exo**. Diagnóstico ya escrito: era
   cobertura de transporte, no eficacia del engine. El fix vive en reflex (A1,
   ya desplegado).
-- M7 (templates para terceros): **fuera del plan**. Sin consumidor, YAGNI.
-  Se reabre el día que exista un tercero.
+- M7 (templates para terceros) en su forma original —"KB esqueleto +
+  profile.md comentado"—: **fuera del plan**. Sin consumidor, YAGNI.
+  **Reabierto el 2026-08-17 con otra forma**: ver campaña C11 (bootstrap de
+  instancia). Lo que se descarta es el esqueleto vacío, no el problema de
+  arranque en frío.
 
 **Se MANTIENE (líneas rojas de verdad):**
 - **Veto AGPL**: jamás código ni vendorizado de basic-memory. Diseño sí.
@@ -190,6 +193,63 @@ Checklist antes de desinstalar:
 
 Entonces: desinstalar basic-memory. **Lo ejecuta Paul** — acción destructiva,
 línea roja no delegable.
+
+---
+
+---
+
+## Campaña 11 — Bootstrap de instancia (arranque en frío del USUARIO)
+
+Abierta por Paul el 2026-08-17: *"este producto de base, el que se lo instale
+no tendrá nada que indexar"*.
+
+**El problema**: exo es un motor de retrieval sobre una KB. Con la KB vacía no
+recupera nada, así que el día 1 no vale para nada y el usuario no llega nunca
+al día 30 en el que tendría notas. La instancia de Paul lleva 138 notas
+acumuladas a mano durante meses; ese privilegio no lo tiene quien lo instale.
+
+**La idea**: sembrar la KB desde lo que el usuario YA tiene en su máquina por
+usar Claude Code o Codex. Dos capas, deliberadamente separadas por coste y por
+riesgo:
+
+| | Fuente | Quién lo hace | Coste | Riesgo |
+|---|---|---|---|---|
+| **Semilla determinista** | `~/.claude/CLAUDE.md` (o `~/.codex/AGENTS.md`), `settings.json`, comandos y plugins instalados, inventario de `~/.claude/projects/` (qué repos toca y cuánto) | el engine, sin LLM | ms | bajo: son ficheros que el usuario escribió a propósito |
+| **Destilado de transcripts** | los `.jsonl` de sesiones | una skill de la capa thin, con LLM, escribiendo vía `exo write` (M4) | tokens del usuario | **alto**: los transcripts llevan rutas, secretos pegados, conversación privada |
+
+**Decisiones de diseño propuestas** (a firmar cuando se abra la campaña):
+
+1. La semilla determinista es automática en la instalación; el destilado de
+   transcripts es **opt-in explícito y con revisión del usuario antes de
+   escribir** — jamás un import silencioso de su historial.
+2. El engine no llama a ningún LLM. Sigue siendo un binario determinista; el
+   destilado vive en la capa thin, que es donde ya hay un modelo.
+3. Todo queda local. Ninguna parte del bootstrap manda nada fuera.
+4. La semilla debe producir notas markdown normales, con `permalink` y
+   frontmatter — no un formato especial: lo que entra en la KB es KB.
+
+**Dependencia**: el destilado necesita `exo write` (C7/M4). La semilla
+determinista no depende de nada y podría ir ya.
+
+**Decidido por Paul (2026-08-17)**: *"de momento es solo mío, pero en el
+futuro intentaré que pueda usarlo más gente"*. Traducción operativa:
+
+- **Se construye**: la semilla determinista. Le sirve a Paul hoy (cambiar de
+  máquina, reconstruir su instancia) y es la mitad barata del bootstrap
+  futuro. Entra como item cuando C7 (M4 write) esté hecho, o antes si se hace
+  escribiendo ficheros directamente.
+- **No se construye ahora**: el destilado de transcripts con LLM. Queda
+  especificado aquí y se retoma si algún día hay usuarios.
+- **Requisito transversal desde YA** (barato ahora, caro después): no cerrar
+  la puerta a terceros con hardcodes de la instancia personal. Hoy hay uno
+  real y localizado: `engine/src/lib.rs:59` resuelve la KB con
+  `projects["kb-demo"]` literal, así que en la máquina de otro el engine
+  no encuentra su KB. **Se arregla en C9/M5a**, que es donde nace la config
+  propia de exo: el nombre del proyecto pasa a ser config, con la lectura RO
+  de basic-memory como fallback mientras dure el side-by-side. Los scripts de
+  reflex tienen el mismo patrón (`basic-memory-recall.sh`, `a1-freeze-watch.sh`
+  con una ruta absoluta a `/home/paul/...`), y se barren en C6/M6-02 al
+  reapuntarlos.
 
 ---
 
