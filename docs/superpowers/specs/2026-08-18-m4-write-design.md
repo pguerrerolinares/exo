@@ -234,6 +234,40 @@ excepción muere por ruido y se lo acaba desactivando entero.
 - **Verificación de contenido**: los 3 casos de hechos incorrectos escritos
   como ciertos son juicio puro. Ningún CLI los caza.
 
-<!-- HUECO PENDIENTE DEL CONSULTOR C (dependencias):
-     §8 — qué de kbx/hooks hay que tocar en el mismo commit (canary M4-05)
-     §9 — plan de items M4-01..M4-06 revisado -->
+## 8. El canary de kbx (M4-05): no-op en esta campaña, verificado
+
+El plan exige "canary de kbx en el mismo commit" porque `/consolida` falla
+fuerte ante `schema_drift` por diseño, y un cutover de índice que no actualice
+la lista `consumed` mata la primera consolidación posterior.
+
+**Aquí no aplica, y conviene dejar escrito por qué** para que nadie lo reabra:
+`kbx doctor --check-schema` valida el subconjunto que kbx consume de
+`~/.basic-memory/memory.db`. El write-path de exo **no toca esa DB**: escribe
+markdown en el árbol de la KB, y el watch de basic-memory lo absorbe y
+actualiza su propio índice (modo file-first, spec madre §4.4-E2). El schema no
+se mueve, luego el canary no puede driftar por M4.
+
+El acoplamiento real de kbx sigue intacto y pendiente: consume `entity`,
+`observation`, `relation`, `search_index` y `project`, mientras el índice de
+exo tiene `notas`, `aristas`, `trozos`, `notas_fts` y `vectores`. Mapean dos de
+cinco y con forma distinta; falta en exo lo que sostiene el trinquete
+(`entity.size`, que comen `kbx budget` y `kbx ratchet`). **Eso es M6-04**, no
+M4, y es trabajo de ingeniería con decisión de diseño propia.
+
+**Verificación exigida al cierre** (sustituye al cambio de código):
+`kbx doctor --check-schema` verde DESPUÉS de que exo haya escrito en la KB real
+y basic-memory lo haya absorbido. Es además la comprobación que pide la spec
+madre §4.4-E2 ("doctor verifica que el índice absorbió lo esperado").
+
+## 9. Items de la campaña, revisados
+
+| Item | Estado | Nota |
+|---|---|---|
+| M4-01 `exo write` v1 | **Recortado**: `new` + `append` | `replace_section` fuera: se lo queda `Edit` |
+| M4-02 search-before-write | Hecho, **recalibrado** | Solape de slug, no retrieval semántico |
+| M4-03 validación que auto-completa | Hecho | Nunca rechaza por frontmatter |
+| M4-04 veto RO por defecto | Hecho | Escribir exige el subcomando `write` explícito |
+| M4-05 canary de kbx | **No-op justificado** | Se cierra con verificación, no con código (§8) |
+| M4-06 reapuntar `/documenta` | Hecho | Con degradación visible a basic-memory |
+| — `ruta` en `search --json` | **Añadido** | No estaba en el plan; sin él el camino de edición nace cojo |
+| — guard anti-Delta en `append` | **Añadido** | La defensa de mayor ROI según el forense |
