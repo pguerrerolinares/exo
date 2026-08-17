@@ -8,6 +8,7 @@ pub mod buscador;
 pub mod envelope;
 pub mod indexer;
 pub mod nota;
+pub mod recall;
 pub mod schema;
 pub mod trozos;
 pub mod vectores;

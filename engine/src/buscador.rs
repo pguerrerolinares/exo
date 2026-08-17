@@ -201,7 +201,14 @@ pub fn busca_vector(
         }
 
         let mut entidades: Vec<(String, f64)> = mejor_por_entidad.into_iter().collect();
-        entidades.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        // Desempate determinista por permalink ascendente (M2-09a): sin él,
+        // `sort_by` (estable) preserva el orden de iteración del `HashMap`
+        // de origen, que no es reproducible entre corridas.
+        entidades.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.0.cmp(&b.0))
+        });
         entidades.truncate(limite);
 
         entidades
@@ -274,7 +281,15 @@ fn fusiona(
         })
         .collect();
 
-    resultados.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    // Desempate determinista por permalink ascendente (M2-09a): misma razón
+    // que en `busca_vector` — el `HashSet` de claves de arriba no garantiza
+    // orden reproducible entre corridas cuando el score fusionado empata.
+    resultados.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.permalink.cmp(&b.permalink))
+    });
     resultados.truncate(limite);
     resultados
 }
@@ -428,5 +443,36 @@ mod tests_fusion {
         assert_eq!(resultados.len(), 2, "{:?}", resultados);
         assert_eq!(resultados[0].permalink, "a");
         assert_eq!(resultados[1].permalink, "b");
+    }
+
+    /// M2-09a: desempate determinista por permalink ascendente cuando el
+    /// score fusionado empata (2/56 queries del corpus tienen empates
+    /// reales — no es hipotético). Cinco claves con score idéntico,
+    /// insertadas en dos órdenes distintos: el orden de salida debe ser
+    /// SIEMPRE alfabético por permalink, sin importar el orden de llegada
+    /// (antes del fix, `sort_by` con `partial_cmp` puro es un sort estable
+    /// que preserva el orden de iteración del `HashSet` interno de
+    /// `fusiona`, no reproducible).
+    #[test]
+    fn fusion_desempate_determinista_por_permalink() {
+        fn mapa_empatado(orden: [&str; 5], score: f64) -> HashMap<String, f64> {
+            orden.into_iter().map(|k| (k.to_string(), score)).collect()
+        }
+
+        let f_vacio = HashMap::new();
+        let v1 = mapa_empatado(["e", "c", "a", "d", "b"], 0.5);
+        let r1 = fusiona(&v1, &f_vacio, 0.2, 10);
+
+        let v2 = mapa_empatado(["b", "d", "a", "c", "e"], 0.5);
+        let r2 = fusiona(&v2, &f_vacio, 0.2, 10);
+
+        for r in [&r1, &r2] {
+            let permalinks: Vec<&str> = r.iter().map(|res| res.permalink.as_str()).collect();
+            assert_eq!(
+                permalinks,
+                vec!["a", "b", "c", "d", "e"],
+                "empate quíntuple debe desempatar por permalink ascendente: {r:?}"
+            );
+        }
     }
 }

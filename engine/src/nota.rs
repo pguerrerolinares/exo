@@ -10,16 +10,22 @@ pub struct Nota {
     pub titulo: String,
     pub tipo: Option<String>,
     pub cuerpo: String,
+    /// `tier` del frontmatter (p.ej. `core`). Campo aditivo (M2-08 recall):
+    /// el índice NO lo persiste (no hay columna nueva en `schema.rs` —
+    /// forzaría un rebuild de las DB existentes), así que `exo recall` en
+    /// modo arranque lo relee del `.md` en disco vía este mismo parser.
+    pub tier: Option<String>,
 }
 
 /// Frontmatter YAML, deserializado laxo: campos ausentes o de más no rompen
-/// el parseo (notas reales llevan más claves que estas tres).
+/// el parseo (notas reales llevan más claves que estas cuatro).
 #[derive(Debug, Default, Deserialize)]
 struct FrontmatterLaxo {
     permalink: Option<String>,
     title: Option<String>,
     #[serde(rename = "type")]
     tipo: Option<String>,
+    tier: Option<String>,
 }
 
 /// Parsea una nota `.md`: frontmatter YAML delimitado por `---` al inicio +
@@ -51,6 +57,7 @@ pub fn parsea_nota(ruta: &Path) -> Result<Option<Nota>> {
         titulo,
         tipo: fm.tipo,
         cuerpo,
+        tier: fm.tier,
     }))
 }
 
