@@ -15,7 +15,13 @@ BASE = Path(__file__).resolve().parent.parent
 GOLD = BASE / "gold" / "corpus-bm.json"
 PROYECTO = "kb-demo"
 # Umbral de parada del brief M2-02: conteo de referencia §6.2 ±10%.
-REF_ENTIDADES, TOLERANCIA = 117, 12
+# Actualizado en M2-09 (2026-08-17): la referencia 117 era la del corpus de
+# julio; la KB ha crecido a 138 notas .md (143 entidades en bm menos las 5
+# no-markdown que el engine excluye por diseño, §6.2). Este umbral NO es el
+# gate — es un guard contra sellar un gold de un índice a medias; el gate es
+# la paridad de permalinks = ∅. Se sube porque el corpus creció de verdad,
+# no para hacer pasar nada.
+REF_ENTIDADES, TOLERANCIA = 138, 14
 
 def ro(path):
     return sqlite3.connect(f"file:{path}?mode=ro", uri=True)
