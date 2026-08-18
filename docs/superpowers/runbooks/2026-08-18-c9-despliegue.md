@@ -57,11 +57,15 @@ estos tres checks sí pueden fallar:
 ls ~/.claude/plugins/cache/exo/reflex/
 # Esperado: aparece 0.14.0 (prueba positiva de que el refetch ocurrió)
 
-ls ~/.claude/plugins/cache/exo/reflex/*/scripts/ | grep -c search-before-write
-# Esperado: 0 — ese fichero solo existe en la copia vieja
+ls ~/.claude/plugins/cache/exo/reflex/0.14.0/scripts/ | grep -c search-before-write
+# Esperado: 0 — ese fichero solo existe en la copia vieja.
+# OJO: hay que scopear a 0.14.0. Con el glob `*/scripts/` el check devuelve 1
+# porque 0.13.1 sigue en cache — y debe seguir: es la vía de rollback.
 
-grep -o '"gitCommitSha":"[^"]*"' ~/.claude/plugins/installed_plugins.json | head
-# Esperado: un SHA del repo exo, no de exo-plugins
+python3 -c "import json,os; d=json.load(open(os.path.expanduser('~/.claude/plugins/installed_plugins.json'))); print(d['plugins']['reflex@exo'])"
+# Esperado: installPath .../reflex/0.14.0 y un gitCommitSha del repo exo, no de exo-plugins
+# (`grep -o '"gitCommitSha":"[^"]*"'` NO sirve: el JSON está pretty-printed,
+#  con espacio tras los dos puntos, y el patrón devuelve vacío siempre.)
 ```
 
 Y **reiniciar sesión**: debe arrancar con su bloque de recall. Un subagente
