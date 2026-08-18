@@ -8,7 +8,7 @@
 >
 > **Estado**: las decisiones de §2 (definición de terminado) y §3.1/§3.2 (M5a-01
 > fuera, M6-06 dentro) las tomó Paul en la sesión de brainstorm del 2026-08-18.
-> El documento queda pendiente de su revisión.
+> **APROBADA por Paul el 2026-08-18.**
 >
 > **Revisado por consultor fable el 2026-08-18: FIRMA-CON-CAMBIOS**
 > (`consultas/2026-08-18-cierre-regimen/consultor-cierre.md`). Los siete cambios
