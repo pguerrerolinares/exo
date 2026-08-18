@@ -14,10 +14,14 @@ Framework de trabajo agéntico con memoria persistente. Tres capas:
 
 ## Capa thin: el plugin `process`
 
-`plugins/process/` es la capa de skills, servida por el marketplace declarado en
-`.claude-plugin/marketplace.json` de este mismo repo (id de plugin: `process@exo`).
-Siete skills: brainstorm · plan · orchestrate · tdd · debug · verify · documenta.
-Sustituye a `superpowers` y a `paul-profile:orchestrate-personal` en el uso diario.
+`plugins/process/` es la capa de skills. Siete: brainstorm · plan · orchestrate ·
+tdd · debug · verify · documenta. Sustituye a `superpowers` y a
+`paul-profile:orchestrate-personal` en el uso diario.
+
+Este repo es la **fuente de verdad** del plugin (co-evoluciona con el engine y con
+sus evals de paridad en `evals/prep-m3/`), pero **no lo publica**: el catálogo vive
+en el marketplace `exo` (repo `exo-plugins`, antes `agent-develop`), que lo sirve
+por `git-subdir` apuntando aquí. Id de plugin: `process@exo`.
 
 ## Atribución
 
