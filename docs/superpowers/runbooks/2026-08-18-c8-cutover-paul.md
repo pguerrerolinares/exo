@@ -14,8 +14,24 @@
 >   plugins duplicados, cerrada desactivando el trío viejo acto seguido.
 > - **`git-subdir` contra un repo privado funciona**: `process@exo` bajó sus 7
 >   skills desde `pguerrerolinares/exo.git`. Era el riesgo abierto nº3 del gate.
-> - **Fase 7 (borrar la caché vieja) queda pendiente** a propósito: los hooks de la
->   sesión que ejecutó el cutover cuelgan de esa caché. Se hace tras reiniciar.
+> - **Fase 7: hecha** en sesión nueva (2026-08-18, tarde). Paul borró
+>   `cache/agent-develop`; con ella se fueron las huérfanas del plan (reflex
+>   0.6.0/0.8.0/0.11.0/0.12.0 y paul-profile 0.2.1). `cache/exo` queda con una
+>   sola versión por plugin. Las de `superpowers 6.x` (6.1.1/6.2.0/6.3.0) siguen
+>   en pie: el rollback vive.
+> - **Probe M3-02: verde.** Un `reflex:executor` real despachado post-cutover
+>   emitió `type=reflex:executor perfil=reducido bytes=997` en
+>   `~/.claude/reflex-log.jsonl`. El transporte de inyección sobrevivió al cambio
+>   de marketplace — era el único fallo-sin-síntoma que quedaba abierto.
+> - **Extra fuera de plan**: enterrada también la huérfana `understand-anything`
+>   (plugin disabled desde marzo; 232 MB entre caché y marketplace, clon limpio de
+>   `Lum1104/Understand-Anything`, reinstalable). Sus dos entradas salieron de
+>   `~/.claude/settings.json`. `plugins/cache` y `plugins/marketplaces` quedan con
+>   `claude-plugins-official` y `exo`, nada más.
+>
+> **A partir de aquí el rollback ya no es sin pérdida**: la caché vieja no existe,
+> así que volver atrás exige reinstalar desde `pguerrerolinares/exo-plugins`. El
+> rollback de skills (encender superpowers, apagar `process@exo`) sigue intacto.
 >
 > Lo que sigue queda como registro de lo planeado y como base del rollback.
 
@@ -173,7 +189,7 @@ claude plugin list | grep -E "@exo|superpowers"
 
 Y una sesión-fábrica de humo: `fabrica` debe resolver su motor sin `Unknown skill`.
 
-## Fase 7 — Limpieza (solo tras Fase 6 verde)
+## Fase 7 — Limpieza (solo tras Fase 6 verde) — **EJECUTADA**
 
 ```bash
 rm -rf ~/.claude/plugins/cache/agent-develop
@@ -187,7 +203,10 @@ Entierra de paso las cachés huérfanas que arrastraba el plan (reflex
 
 ## Rollback
 
-Mientras la Fase 7 no se haya ejecutado, el rollback es completo y sin pérdida.
+La Fase 7 está ejecutada, así que el rollback **ya no es sin pérdida**: la caché
+de `agent-develop` no existe y hay que reinstalar desde `pguerrerolinares/exo-plugins`
+(el repo y sus redirects siguen en pie, y el punto de no retorno se respeta: nadie
+ha creado un repo nuevo llamado `agent-develop`).
 
 **Solo el cutover de skills** (el marketplace se queda como está):
 
