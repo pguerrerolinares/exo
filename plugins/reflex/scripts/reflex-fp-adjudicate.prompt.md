@@ -39,12 +39,6 @@ qué hizo el agente justo después del aviso (¿lo aplicó? ¿lo ignoró con raz
     GRAVE (corrompe un comando, no solo avisa): cualquier FP → endurecer el matcher
     o retirar la escalada, sin esperar al umbral del 20%.
 
-- **`search-before-write` (#3)** — dispara en el 1er `write_note` de la sesión.
-  - **TP**: se escribió una nota genuinamente nueva sin un search previo en la sesión
-    (riesgo real de duplicar la nota canónica).
-  - **FP**: ya hubo un `search_notes`/`search` antes en la sesión, o la nota era
-    claramente única, o el write venía de `/documenta` que ya había validado.
-
 - **`stuck-loop` (#7)** — dispara en `Bash` cuando el mismo comando falla con el mismo
   error (fingerprint) 3 veces en la sesión.
   - **TP**: el agente estaba **atascado de verdad** — reintentando lo mismo (o variando
