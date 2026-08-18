@@ -16,6 +16,13 @@ esac; done
 [ -n "$TYPE" ] || exit 1
 PERFIL="$(jq -r --arg t "$TYPE" '.[$t] // ._default // empty' "$PROFILES" 2>/dev/null)" || exit 1
 [ -n "$PERFIL" ] || exit 1
+# Seam (M6-03c): resuelve KB en orden --kb explícito (ya en $KB arriba) >
+# $EXO_KB > fallback a basic-memory/config.json. Mismo patrón que exo-recall.sh
+# (seams por variable de entorno con default). El default de hoy NO cambia:
+# esto abre la costura para que C10 corte el fallback sin reabrir reflex.
+if [ -z "$KB" ]; then
+  KB="${EXO_KB:-}"
+fi
 if [ -z "$KB" ]; then
   KB="$(jq -r '.projects["kb-demo"].path // .projects["kb-demo"] // empty' \
         "$HOME/.basic-memory/config.json" 2>/dev/null)" || KB=""
