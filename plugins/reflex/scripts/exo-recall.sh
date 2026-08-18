@@ -93,7 +93,6 @@ if [ "$SOURCE" = "compact" ] && [ -n "$SID" ] && [ -f "$HOME/.claude/reflex-log.
       case "$id" in
         git-c|git-c-rewrite) PIN="${PIN}- nunca \`cd X && git ...\`: usa \`git -C X\`.\n" ;;
         verify-before-done|verify-before-commit) PIN="${PIN}- verifica (corre el cambio) antes de afirmar exito.\n" ;;
-        search-before-write) PIN="${PIN}- busca en la KB antes de escribir nota nueva.\n" ;;
       esac
     done
     if [ -n "$PIN" ]; then
