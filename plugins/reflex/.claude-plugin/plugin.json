@@ -1,0 +1,20 @@
+{
+  "name": "reflex",
+  "description": "Paul's reflex layer — deterministic guardrails (PreToolUse/SessionStart/Stop/SubagentStart hooks) that activate procedural knowledge at the point of action, plus a role agent that carries doctrine straight into the system prompt. Active hooks: clean-orchestrator (#6, warn via additionalContext), git -C (#2 — silent auto-rewrite of `cd && git` to `git -C` for read-only git via updatedInput/allow), recall served by the `exo` engine on SessionStart (exo-recall.sh, ~10ms from SQLite) plus documenta-remind + `exo index` on Stop (indexing runs at session close, never in the startup hot path), and KB context injected into subagents on SubagentStart (subagent-inject.sh). The KB's own dup-gate on `exo write new` (blocking, exit 3, `--force` to skip) now guards against duplicate notes at the write path itself. zero-residuo (git add -A/.), verify-before-done (commits without a recent green test) and the git-C warn fallback are now log-only sensors — measurement channel, no agent-facing warning, feeding the false-positive tooling. New: the `executor` role agent (dispatched as reflex:executor) carries the executor doctrine (verify-before-done, git -C, explicit git add, notes-to-file) directly in its system prompt with `model` pinned to sonnet. Plus the recon-first and consolida skills (KB budget check, promotion to core). Abstain-by-default.",
+  "version": "0.14.0",
+  "keywords": [
+    "hooks",
+    "reflex",
+    "guardrails",
+    "orchestration",
+    "executor",
+    "log-only",
+    "sensors",
+    "memory",
+    "trigger"
+  ],
+  "author": {
+    "name": "Paul Guerrero",
+    "email": "pguerrerolinares@gmail.com"
+  }
+}
