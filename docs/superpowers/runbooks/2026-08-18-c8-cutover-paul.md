@@ -1,5 +1,24 @@
 # C8 — runbook del cutover: lo que ejecuta Paul
 
+> ## EJECUTADO el 2026-08-18. Estado: **cutover completo y verificado.**
+>
+> - **Fases 1, 2, 3, 4a, 4b, 5, 6: hechas.** El rename del repo lo ejecutó Paul;
+>   el resto, el orquestador bajo `OVERRIDE` registrado en el ledger.
+> - Verificación final en sesión fresca:
+>   `PROCESS: brainstorm, debug, documenta, orchestrate, plan, tdd, verify` ·
+>   `SUPERPOWERS: NINGUNA`.
+> - **Fase 3 se ejecutó en orden INVERTIDO** respecto a lo escrito abajo: alta del
+>   catálogo nuevo primero, installs, y baja del viejo al final. Los dos catálogos
+>   tienen nombres distintos (`agent-develop` y `exo`), así que coexisten y no hay
+>   ningún instante sin plugins resueltos. A cambio hay una ventana breve de
+>   plugins duplicados, cerrada desactivando el trío viejo acto seguido.
+> - **`git-subdir` contra un repo privado funciona**: `process@exo` bajó sus 7
+>   skills desde `pguerrerolinares/exo.git`. Era el riesgo abierto nº3 del gate.
+> - **Fase 7 (borrar la caché vieja) queda pendiente** a propósito: los hooks de la
+>   sesión que ejecutó el cutover cuelgan de esa caché. Se hace tras reiniciar.
+>
+> Lo que sigue queda como registro de lo planeado y como base del rollback.
+
 > Todo lo que sigue es **acción externa o de entorno vivo**: pushes, rename del
 > repo y escritura de `~/.claude/settings.json`. Ninguna la ejecuta la fábrica
 > (config §Ejecución de gates, línea roja). El trabajo de repo ya está hecho y
