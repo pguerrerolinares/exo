@@ -1,6 +1,6 @@
 ---
 name: recon-first
-description: Use when stuck on a hard problem, hitting the same error repeatedly, or before grinding solo on something unfamiliar/time-boxed. The "look before you leap" move — retrieve and verify assumptions before computing. Triggered by the reflex `stuck-loop` hook, or invoke directly when you notice you're spinning.
+description: Use when stuck on a hard problem, hitting the same error repeatedly, or before grinding solo on something unfamiliar/time-boxed. The "look before you leap" move — retrieve and verify assumptions before computing. Invoke directly when you notice you're spinning.
 ---
 
 # recon-first
