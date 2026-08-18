@@ -5,8 +5,30 @@ Framework de trabajo agéntico con memoria persistente. Tres capas:
 → **thick** (KB markdown+frontmatter ≈OKF).
 
 - Spec de diseño: `docs/superpowers/specs/2026-07-16-framework-unificado-design.md`
-- Audit trail de consultorías: `docs/superpowers/consultas/2026-07-16-framework/`
+- Audit trail de consultorías: `docs/superpowers/consultas/`
 - Plan de cierre (M2-08 → M5b): `docs/superpowers/plans/2026-08-17-cierre-exo-m2-a-m5b.md`
-- Estado: M0/M1a cerrados, M2 (E1 read) al 7/9 — `exo index/rebuild/search --type fts|vector|hybrid`
-  funcionando sobre la KB real. Falta `exo recall` (M2-08) y la corrida final (M2-09).
-  El marketplace vivo sigue siendo agent-develop hasta M1b.
+- Estado: M0, M1a y M2 (E1 read) cerrados · M4 (E2 write) cerrado — `exo write new|append`
+  escribe la KB y `/documenta` ya va por el engine · M6-01/02 hechos: `exo recall` sirve
+  el arranque de cada sesión. Restan M6-03/04/05, M5a (MCP propio) y M5b (desinstalar
+  basic-memory).
+
+## Capa thin: el plugin `process`
+
+`plugins/process/` es la capa de skills. Siete: brainstorm · plan · orchestrate ·
+tdd · debug · verify · documenta. Sustituye a `superpowers` y a
+`paul-profile:orchestrate-personal` en el uso diario.
+
+Este repo es la **fuente de verdad** del plugin (co-evoluciona con el engine y con
+sus evals de paridad en `evals/prep-m3/`), pero **no lo publica**: el catálogo vive
+en el marketplace `exo` (repo `exo-plugins`, antes `agent-develop`), que lo sirve
+por `git-subdir` apuntando aquí. Id de plugin: `process@exo`.
+
+## Atribución
+
+`process` destila el catálogo de [`obra/superpowers`](https://github.com/obra/superpowers)
+— **MIT, © 2025 Jesse Vincent** — más doctrina propia. La copia literal de la licencia
+está en `plugins/process/LICENSES/superpowers.LICENSE`, y el reparto skill a skill
+(qué absorbe de superpowers y qué es fuente propia) en `plugins/process/README.md`.
+
+El engine **no** contiene ni vendoriza código de basic-memory (AGPL-3.0-or-later):
+el diseño se estudió, el código no se copió. Veto explícito en la spec madre.
