@@ -1,0 +1,8 @@
+{
+  "reflex:executor": "reducido",
+  "general-purpose": "ejecucion",
+  "claude": "ejecucion",
+  "Explore": "divergente",
+  "Plan": "divergente",
+  "_default": "doctrina"
+}
