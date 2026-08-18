@@ -126,9 +126,14 @@ desenchufado: es exactamente el fallo sin síntoma que M3-02 existe para evitar.
 
 ## Fase 5 — Retirar el cron residual
 
-El cron diario hashea `orchestrate-personal`, que ya no existe: sin esto
-appendea «FREEZE ROTO» espurio cada mañana. **No uses `crontab -r`** — borra el
-crontab entero; el residuo es una sola línea:
+**Esta fase no depende de ninguna anterior, y conviene hacerla el mismo día del
+merge, aunque el resto del cutover se posponga.** El cron apunta al *working
+tree* del repo (`.../agent-develop/plugins/reflex/scripts/a1-freeze-watch.sh`),
+no a la caché: en cuanto el merge aterriza en `master`, el fichero desaparece y
+el cron de las 09:07 falla con ENOENT cada mañana hasta que se retire.
+
+El cron hashea `orchestrate-personal`, que ya no existe. **No uses `crontab -r`**
+— borra el crontab entero; el residuo es una sola línea:
 
 ```bash
 crontab -l | grep -v "a1-freeze-watch" | crontab -

@@ -176,6 +176,12 @@ orden del cutover.
    error. Si algún movimiento de 6.2/6.3 duele, se añade entonces.
 5. `kb-demo/projects/agent-develop.md` (líneas 86, 128) queda desactualizada
    sobre el layering. Se arregla por flujo normal de `/documenta`, no aquí.
+6. **Deuda de proceso, señalada por el gate**: la medición «en producción» de §5
+   se hizo contra `~/.exo/index.db`, el índice real, que `exo recall --contenido`
+   relee del disco. Eso dejó el índice sirviendo el bullet desde la rama antes de
+   que la rama estuviera mergeada — medir mutó lo medido. Converge con el merge y
+   aquí no tuvo consecuencia, pero el patrón correcto es medir contra una DB
+   efímera, o reindexar la base tras medir.
 
 ## 9. Desviaciones respecto al plan §Campaña 8
 
