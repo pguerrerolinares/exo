@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Stop hook: recordatorio no bloqueante para documentar la sesion en basic-memory.
-# Solo recuerda una vez por sesion (sentinel) y solo si hubo trabajo real (umbral de transcript).
+# Stop hook: recordatorio no bloqueante para documentar la sesion via /documenta
+# (engine exo). Solo recuerda una vez por sesion (sentinel) y solo si hubo
+# trabajo real (umbral de transcript).
 set -uo pipefail
 
 INPUT="$(cat)"
@@ -11,7 +12,7 @@ TRANSCRIPT="$(printf '%s' "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/nu
 # Sin session_id no podemos deduplicar; salimos sin molestar.
 [ -z "$SESSION_ID" ] && exit 0
 
-SENTINEL="/tmp/claude-bm-reminded-${SESSION_ID}"
+SENTINEL="/tmp/claude-documenta-reminded-${SESSION_ID}"
 
 # Ya recordado en esta sesion -> nada.
 [ -f "$SENTINEL" ] && exit 0
@@ -32,6 +33,6 @@ fi
 
 # Supera umbral y no hay sentinel: marcamos y recordamos una sola vez.
 touch "$SENTINEL" 2>/dev/null
-printf '%s\n' '{"systemMessage":"💾 ¿Cierras sesión? Usa /documenta para guardar decisiones y aprendizajes en basic-memory."}'
+printf '%s\n' '{"systemMessage":"💾 ¿Cierras sesión? Usa /documenta para guardar decisiones y aprendizajes en la KB."}'
 
 exit 0

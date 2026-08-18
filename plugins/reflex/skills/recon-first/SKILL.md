@@ -14,7 +14,7 @@ es *insistir más fuerte* — es **parar a recoger información**.
 > literatura ("Look Before You Leap": explorar antes de actuar mata loops y triplica la
 > auto-recuperación de errores, aunque suba poco el rendimiento bruto).
 
-> Fuente canónica de esta doctrina: nota [[doctrina-agentes]] en basic-memory (kb-demo). Si esta skill y la nota divergen, manda la nota; actualiza la skill.
+> Fuente canónica de esta doctrina: nota [[doctrina-agentes]] en la KB (proyecto `kb-demo`, engine `exo`). Si esta skill y la nota divergen, manda la nota; actualiza la skill.
 
 ## Cuándo aplica (gate de dificultad)
 

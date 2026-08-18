@@ -3,7 +3,7 @@
 Capa de **reflejos** de Paul: guardrails deterministas que activan conocimiento
 procedural **en el punto de acción**, no como prosa pasiva esperando recall. Es la
 mitad **TRIGGER/enforcement** de `paul-profile/orchestrate-personal` (que es la mitad
-PUSH/prosa). Diseño completo en basic-memory: nota *"Cerebro portable + capa de reflejos — design spec"* (proyecto `kb-demo`).
+PUSH/prosa). Diseño completo en la KB: nota *"Cerebro portable + capa de reflejos — design spec"* (proyecto `kb-demo`, engine `exo`).
 
 ## Invariantes de todo reflejo
 
@@ -22,13 +22,12 @@ PUSH/prosa). Diseño completo en basic-memory: nota *"Cerebro portable + capa de
 | cost-pyramid (#1) | `PreToolUse:Workflow` | avisa si un workflow lanza fan-out ≥2 sin `model:` por fase | por-ocurrencia; calla si hay `model:` o fan-out <2 |
 | clean-orchestrator (#6) | `PreToolUse:WebSearch\|WebFetch` | recuerda delegar research a subagentes | **parent-only** (guarda `agent_id`) + 1×/sesión |
 | git-c (#2) | `PreToolUse:Bash` | **reescribe** `cd <path> && git <read-only>` → `git -C <path> …` (`updatedInput`+allow, log `git-c-rewrite`); el resto de matches conserva el warn | rewrite solo si: comando entero = `cd PATH && git REST`, PATH literal sin quotes/vars/`..` (cd lógico vs chdir físico divergen con symlinks) ni relativo bajo `CDPATH`, REST sin metacaracteres ni globs, subcomando en allowlist read-only (status/log/diff/show/…) |
-| search-before-write (#3) | `PreToolUse:mcp__basic-memory__write_note` | recuerda buscar antes de crear nota nueva | 1×/sesión |
 | stuck-loop (#7) | `PreToolUse:Bash` | escanea el transcript JSONL de la sesión buscando el mismo comando con `is_error:true`; si ya falló ≥2× nudgea ANTES de malgastar otro intento — más robusto que PostToolUse, que no dispara ante tool-errors | `transcript_path` presente + ≥2 priors fallidos del mismo comando normalizado, 1× por comando/sesión (sentinel) |
 | test-run-tracker | `PostToolUse:Bash` | tracker silencioso: guarda `{last_test_exit, last_test_ts}` en `/tmp/claude-reflex-testrun-<sid>.json` cuando el comando es un test-runner | no dispara, solo actualiza estado; silencio total si no hay exit_code |
 | verify-before-done | `PreToolUse:Bash` | avisa antes de `git commit` si no hay test verde reciente (< 30 min) en la sesión; filtra commits de solo docs | escape hatch `--no-verify`; calla en commits solo-docs; calla si test verde reciente |
 | zero-residuo | `PreToolUse:Bash` | avisa ante `git add -A`/`--all`/`.` (arrastra residuo); sugiere añadir ficheros explícitamente | calla en `git add <ficheros>` explícito; por-ocurrencia |
-| basic-memory-recall | `SessionStart` | inyecta instrucción de memoria + digest 7d + modo orquestador limpio | — (PUSH) |
-| basic-memory-remind | `Stop` | recuerda `/documenta` al cerrar | 1×/sesión + umbral de transcript |
+| exo-recall | `SessionStart` | inyecta instrucción de memoria + digest 7d + modo orquestador limpio, servido por el engine `exo` (SQLite, ~10ms) | — (PUSH) |
+| documenta-remind | `Stop` | recuerda `/documenta` al cerrar | 1×/sesión + umbral de transcript |
 
 ## Medición de falsos positivos
 
