@@ -372,6 +372,62 @@ fn nota_con_cuerpo_vacio_no_genera_trozos() {
     assert_eq!(cuenta_trozos(&db, "kb-demo/vacia"), 0);
 }
 
+fn mtime_de_nota(db: &Path, permalink: &str) -> f64 {
+    let conn = exo::abre_db(db).unwrap();
+    conn.query_row(
+        "SELECT mtime FROM notas WHERE permalink = ?1",
+        rusqlite::params![permalink],
+        |r| r.get(0),
+    )
+    .unwrap()
+}
+
+#[test]
+fn un_fallo_a_mitad_no_deja_la_nota_fuera_del_indice() {
+    let kb = kb_fixture();
+    let (_tmp, db) = db_temporal();
+    indexa(kb.path(), &db).unwrap();
+
+    let permalink = permalinks(&db).iter().next().unwrap().clone();
+    let ruta = {
+        let conn = exo::abre_db(&db).unwrap();
+        conn.query_row(
+            "SELECT ruta FROM notas WHERE permalink = ?1",
+            rusqlite::params![permalink],
+            |r| r.get::<_, String>(0),
+        )
+        .unwrap()
+    };
+    let mtime_antes = mtime_de_nota(&db, &permalink);
+
+    // el contenido cambia -> la siguiente corrida DEBE reindexar esta nota
+    std::fs::write(
+        kb.path().join(&ruta),
+        format!("---\npermalink: {permalink}\ntitle: T\n---\ncuerpo distinto\n"),
+    )
+    .unwrap();
+
+    // fallo inyectado en el paso posterior al upsert de `notas`
+    {
+        let conn = exo::abre_db(&db).unwrap();
+        conn.execute_batch(
+            "CREATE TRIGGER falla_trozos BEFORE INSERT ON trozos
+             BEGIN SELECT RAISE(ABORT, 'fallo inyectado'); END;",
+        )
+        .unwrap();
+    }
+
+    assert!(indexa(kb.path(), &db).is_err(), "se esperaba fallo al embeber");
+
+    // Sin transaccion por nota, el mtime nuevo ya esta commiteado y la nota
+    // queda fuera del indice PARA SIEMPRE: la corrida siguiente la salta.
+    assert_eq!(
+        mtime_de_nota(&db, &permalink),
+        mtime_antes,
+        "el mtime avanzo pese al fallo: la nota queda fuera del indice para siempre"
+    );
+}
+
 /// M2-06 oráculo #2: rebuild real es idempotente también para trozos/vectores
 /// (mismos counts en dos rebuilds seguidos), no solo para notas/aristas.
 #[test]

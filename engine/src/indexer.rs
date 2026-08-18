@@ -111,7 +111,19 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
 
         let git_epoch = git_epoch_de(kb, Path::new(&ruta_rel));
 
-        conn.execute(
+        // Transacción por nota (M6, hallazgo del gate): sin esto, el upsert
+        // de `notas` (mtime fresco) quedaba commiteado ANTES de embeber los
+        // trozos. Un fallo a mitad (embed, lock, kill) dejaba la nota con
+        // mtime nuevo y vectores viejos/ausentes, y la corrida siguiente la
+        // saltaba para siempre (`existentes.get(&ruta_rel) == Some(&mtime)`
+        // arriba). `unchecked_transaction` no exige `&mut Connection` (aquí
+        // `conn` es inmutable) y hace rollback en `Drop` si no se commitea,
+        // que es justo lo que queremos ante el `?` de cualquier paso
+        // intermedio. `Transaction` derefa a `Connection`: las funciones que
+        // reciben `&Connection` aceptan `&tx` sin cambios de firma.
+        let tx = conn.unchecked_transaction()?;
+
+        tx.execute(
             "INSERT INTO notas (permalink, ruta, titulo, tipo, mtime, git_epoch)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)
              ON CONFLICT(permalink) DO UPDATE SET
@@ -121,24 +133,27 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
         )
         .with_context(|| format!("upsert de notas para {}", n.permalink))?;
 
-        conn.execute(
+        tx.execute(
             "DELETE FROM notas_fts WHERE permalink = ?1",
             params![n.permalink],
         )
         .with_context(|| format!("limpiar notas_fts previo de {}", n.permalink))?;
-        conn.execute(
+        tx.execute(
             "INSERT INTO notas_fts (titulo, cuerpo, permalink) VALUES (?1, ?2, ?3)",
             params![n.titulo, n.cuerpo, n.permalink],
         )
         .with_context(|| format!("insertar notas_fts de {}", n.permalink))?;
 
-        reindexa_aristas_de_nota(&conn, &n.permalink, &n.cuerpo)
+        reindexa_aristas_de_nota(&tx, &n.permalink, &n.cuerpo)
             .with_context(|| format!("reindexar aristas de {}", n.permalink))?;
 
-        let (embebidos, reusados) = reindexa_trozos_de_nota(&conn, &n.permalink, &n.cuerpo)
+        let (embebidos, reusados) = reindexa_trozos_de_nota(&tx, &n.permalink, &n.cuerpo)
             .with_context(|| format!("reindexar trozos/vectores de {}", n.permalink))?;
         trozos_embebidos += embebidos;
         trozos_reusados += reusados;
+
+        tx.commit()
+            .with_context(|| format!("commit de la nota {}", n.permalink))?;
 
         indexadas += 1;
     }
