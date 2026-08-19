@@ -6,6 +6,14 @@ use rusqlite::Connection;
 /// (veto AGPL: ni una línea de su código, solo forma de schema — de dominio público).
 /// Idempotente: `CREATE TABLE IF NOT EXISTS` / `CREATE VIRTUAL TABLE IF NOT EXISTS`.
 /// Aristas/trozos/vectores se crean aquí pero se pueblan en M2-04/M2-06.
+///
+/// `meta` (M6-04 §2.1) guarda PROCEDENCIA del índice, no config: `kb_root` es
+/// "de qué KB salió este índice", no "qué KB debo usar" (eso será la config
+/// propia de exo, C10). La consume kbx para resolver la raíz sin `--kb`
+/// explícito, sustituyendo al `project.path` de basic-memory.
+///
+/// kbx consume `notas`, `aristas`, `notas_fts` y `meta`: tocar esas cuatro
+/// mira antes el canary de kbx (`internal/index/schema.go`).
 pub fn crea_schema(conn: &Connection) -> Result<()> {
     conn.execute_batch(
         "
@@ -37,6 +45,11 @@ pub fn crea_schema(conn: &Connection) -> Result<()> {
           orden     INTEGER NOT NULL,
           texto     TEXT NOT NULL,
           UNIQUE (permalink, orden)
+        );
+
+        CREATE TABLE IF NOT EXISTS meta (
+          clave TEXT PRIMARY KEY,
+          valor TEXT NOT NULL
         );
 
         CREATE VIRTUAL TABLE IF NOT EXISTS vectores USING vec0(embedding float[768]);

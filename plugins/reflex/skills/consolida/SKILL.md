@@ -83,7 +83,9 @@ sí solo).
 
 **Falla-fuerte:** si el binario no está o el schema-canary rompe (lo verás como
 un `schema_drift` en `doctor`, ver abajo), **para** con un mensaje accionable
-(`kbx no está → make install`, `schema drift → rebuild`). No degrades a mano:
+(`kbx no está → make install`, "schema drift → el binario kbx y el binario exo
+están desincronizados: reinstala el que vaya atrasado (`make install` en kbx,
+`cargo build --release` + copia en exo) y vuelve a correr"). No degrades a mano:
 /consolida es offline y deliberado, el fallo ruidoso es correcto.
 
 ### 1b. Gate de deriva + priorización

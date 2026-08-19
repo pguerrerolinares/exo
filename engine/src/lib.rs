@@ -36,7 +36,11 @@ pub fn abre_db_en_memoria() -> Result<Connection> {
 }
 
 /// Conexión a un fichero de DB en disco (mismo registro de sqlite-vec que
-/// `abre_db_en_memoria`). Usada por `exo index`/`exo rebuild` (M2-03).
+/// `abre_db_en_memoria`). Usada tanto por los caminos de escritura (`exo
+/// index`/`exo rebuild`, M2-03) como por todos los de lectura (`exo search`,
+/// `exo recall`): el `bail!` de más abajo si la conversión a WAL no consigue
+/// el lock es, por tanto, un fallo duro que también puede darse al leer, no
+/// solo al indexar (M6-04).
 pub fn abre_db(ruta: &Path) -> Result<Connection> {
     registra_vec();
     let conn =
@@ -50,6 +54,24 @@ pub fn abre_db(ruta: &Path) -> Result<Connection> {
     // que el harness da a un hook.
     conn.busy_timeout(std::time::Duration::from_secs(5))
         .context("fijar busy_timeout")?;
+    // journal_mode=WAL (M6-04 §2.2). Persistente en el fichero: basta con
+    // fijarlo, no hay que repetirlo por conexión, pero fijarlo en cada
+    // apertura es idempotente y cubre el bootstrap de una DB nueva.
+    //
+    // La razón no es el pre-commit de la KB (ese camino no abre la DB): es que
+    // kbx mantiene cursores de lectura abiertos mientras lee ficheros y
+    // shellea git por fila (`targets.go:118-146`, `doctor.go:170-190`). En
+    // journal `delete` un lector así bloquea al escritor, y el busy_timeout de
+    // arriba protege al lector, no al indexer. WAL deja convivir a ambos.
+    //
+    // `PRAGMA journal_mode` devuelve fila, así que va por query_row: un
+    // `execute` fallaría con "Execute returned results".
+    let modo: String = conn
+        .query_row("PRAGMA journal_mode=WAL", [], |r| r.get(0))
+        .context("fijar journal_mode=WAL")?;
+    if modo != "wal" {
+        anyhow::bail!("journal_mode quedó en {modo}, se esperaba wal");
+    }
     Ok(conn)
 }
 

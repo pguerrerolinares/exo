@@ -445,3 +445,48 @@ fn rebuild_doble_da_el_mismo_conteo_de_trozos_y_vectores() {
     assert_eq!(primera, segunda);
     assert_eq!(primera, 3);
 }
+
+#[test]
+fn indexa_escribe_kb_root_en_meta() {
+    let kb = tempfile::tempdir().expect("tempdir kb");
+    std::fs::write(
+        kb.path().join("nota.md"),
+        "---\ntitle: nota\npermalink: kb/nota\n---\n\n# nota\n",
+    )
+    .expect("escribir nota");
+
+    let dbdir = tempfile::tempdir().expect("tempdir db");
+    let db = dbdir.path().join("indice.db");
+
+    exo::indexer::indexa(kb.path(), &db).expect("indexa");
+
+    let conn = exo::abre_db(&db).expect("abrir db");
+    let valor: String = conn
+        .query_row("SELECT valor FROM meta WHERE clave='kb_root'", [], |r| r.get(0))
+        .expect("leer meta.kb_root");
+
+    let esperado = std::fs::canonicalize(kb.path()).expect("canonicalizar kb");
+    assert_eq!(valor, esperado.to_string_lossy());
+}
+
+#[test]
+fn indexa_dos_veces_no_duplica_kb_root() {
+    let kb = tempfile::tempdir().expect("tempdir kb");
+    std::fs::write(
+        kb.path().join("nota.md"),
+        "---\ntitle: nota\npermalink: kb/nota\n---\n\n# nota\n",
+    )
+    .expect("escribir nota");
+
+    let dbdir = tempfile::tempdir().expect("tempdir db");
+    let db = dbdir.path().join("indice.db");
+
+    exo::indexer::indexa(kb.path(), &db).expect("primera corrida");
+    exo::indexer::indexa(kb.path(), &db).expect("segunda corrida");
+
+    let conn = exo::abre_db(&db).expect("abrir db");
+    let filas: i64 = conn
+        .query_row("SELECT COUNT(*) FROM meta WHERE clave='kb_root'", [], |r| r.get(0))
+        .expect("contar");
+    assert_eq!(filas, 1, "kb_root debe ser upsert, no insert repetido");
+}

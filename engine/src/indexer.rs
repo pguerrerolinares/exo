@@ -77,6 +77,19 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
     let conn = abre_db(db_ruta)?;
     crea_schema(&conn)?;
 
+    // meta.kb_root: procedencia del índice (M6-04 §2.1). Se escribe en cada
+    // corrida por upsert — si la KB se mueve, el índice siguiente lo refleja.
+    // Canónica y absoluta: kbx la usa como raíz para abrir ficheros, y una
+    // ruta relativa dependería del cwd del proceso que llame a kbx.
+    let kb_abs = std::fs::canonicalize(kb)
+        .with_context(|| format!("canonicalizar raíz de KB {}", kb.display()))?;
+    conn.execute(
+        "INSERT INTO meta (clave, valor) VALUES ('kb_root', ?1)
+         ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor",
+        params![kb_abs.to_string_lossy()],
+    )
+    .context("escribir meta.kb_root")?;
+
     let rutas_absolutas = walk_kb(kb)?;
 
     let existentes: HashMap<String, f64> = {
