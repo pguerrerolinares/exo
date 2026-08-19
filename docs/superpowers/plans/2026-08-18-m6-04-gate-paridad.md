@@ -14,6 +14,25 @@ producido por la rama `m6-04` del engine (con WAL + tabla `meta`, Tasks 1-3).
 Ningún índice vivo se tocó: `~/.exo/index.db` y `~/.basic-memory/memory.db`
 se copiaron a `/tmp/m6-04/` y todo el trabajo se hizo sobre las copias.
 
+**Nota posterior — esta evidencia es de una configuración superada.** Los
+tres gates de este informe (`doctor`, `stale`, `targets`) se corrieron con el
+filtro `note_type='note'`/`tipo='note'` todavía activo en las tres queries de
+kbx, tal como lo fija el pre-registro de Task 1. La Task 10, que corrió
+**después** de este informe, retiró ese filtro de las tres queries
+(`internal/targets/targets.go`, `internal/stale/stale.go`,
+`internal/doctor/doctor.go`) para que kbx vea la KB entera. Eso cambia lo que
+`doctor`/`stale` ven: **23 findings más** de los que este informe midió (57
+notas más para `targets`, de las cuales 23 caen fuera de los directorios que
+`doctor`/`stale` recorrían) — cifras exactas en
+`docs/superpowers/runbooks/2026-08-18-m6-04-cutover.md` (Paso 4) y en el
+detalle completo de la medición en `.superpowers/sdd/m604-task-10-report.md`.
+Un lector que solo lea este informe concluiría "kbx doctor nuevo == kbx
+doctor viejo, 7 huérfanos en los dos"; eso ya no es cierto tras Task 10 — es
+falso por esos 23 findings. Los tres veredictos "PASA" de más abajo siguen
+siendo válidos como gate de paridad del port (compararon exactamente lo que
+el pre-registro pedía comparar en el momento en que se pre-registró), pero no
+son evidencia de paridad de comportamiento post-Task 10.
+
 ---
 
 ## Paso 1-3: retiro del fixture de basic-memory
@@ -192,7 +211,14 @@ GATE: PASA
 
 **Veredicto: PASA.** Conjuntos de grado-0 idénticos (2 = 2), sin diferencias.
 El ranking por grado no se comparó (por diseño: exo extrae 573 aristas,
-basic-memory 674).
+basic-memory 674). Esa diferencia de extracción, ~15%, se decidió aceptar sin
+cerrarla en este port: el spec (§5, `2026-08-18-m6-04-kbx-al-indice-design.md`)
+la documentó **antes** de escribir código, porque el criterio de paridad de
+M6-04 es estructural (que `doctor`/`stale` vean el mismo conjunto de
+huérfanos y de grado-0), no un conteo de aristas byte a byte — cerrar esa
+brecha exigiría reimplementar la semántica de extracción de enlaces de
+basic-memory, que está fuera del alcance de portar `kbx` a un índice que ya
+existe. No es un bug tapado; es un límite de alcance escrito antes de medir.
 
 ---
 

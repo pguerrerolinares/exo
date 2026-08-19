@@ -36,7 +36,11 @@ pub fn abre_db_en_memoria() -> Result<Connection> {
 }
 
 /// Conexión a un fichero de DB en disco (mismo registro de sqlite-vec que
-/// `abre_db_en_memoria`). Usada por `exo index`/`exo rebuild` (M2-03).
+/// `abre_db_en_memoria`). Usada tanto por los caminos de escritura (`exo
+/// index`/`exo rebuild`, M2-03) como por todos los de lectura (`exo search`,
+/// `exo recall`): el `bail!` de más abajo si la conversión a WAL no consigue
+/// el lock es, por tanto, un fallo duro que también puede darse al leer, no
+/// solo al indexar (M6-04).
 pub fn abre_db(ruta: &Path) -> Result<Connection> {
     registra_vec();
     let conn =
