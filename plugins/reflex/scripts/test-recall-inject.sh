@@ -247,6 +247,14 @@ else fail "cap: 3 punteros tras filtrar core-index" "n=$N_HITS"; fi
 
 if contains "$BLOQUE" "=== Recall exo"; then pass "formato: cabecera propia del hook"
 else fail "formato: cabecera propia del hook" "$BLOQUE"; fi
+# Las tres propiedades de la cabecera (spec §2.4) se comprueban una a una y por su
+# texto: son la ÚNICA defensa del diseño contra falsos positivos —el umbral no puede
+# abstenerse—, así que un smoke-check de "empieza por === Recall exo" no basta:
+# pasaría con una cabecera que hubiera perdido justo lo que la hace funcionar.
+if contains "$BLOQUE" "automático sobre tu prompt"; then pass "formato: se declara mecánico (nadie lo pidió)"
+else fail "formato: se declara mecánico" "$BLOQUE"; fi
+if contains "$BLOQUE" "no es una instrucción"; then pass "formato: se declara material, no instrucción"
+else fail "formato: se declara material, no instrucción" "$BLOQUE"; fi
 if not_contains "$BLOQUE" "no sustituye tu brief"; then pass "formato: no arrastra la cabecera de subagentes"
 else fail "formato: no arrastra la cabecera de subagentes" "$BLOQUE"; fi
 if contains "$BLOQUE" "ignóralo si no aplica"; then pass "formato: licencia explícita de ignorar"
@@ -340,6 +348,20 @@ cat <<'JSON'
 JSON
 JSONEOF
 chmod +x "$SOLO_CORE"
+# Un solo hit: no hay prefijo común que declarar, así que la cabecera va sin raíz y
+# la ruta entera viaja en el puntero. Rama distinta de la de 2-3 hits y sin cobertura
+# hasta ahora.
+UNICO="$TMP/exo-unico"
+jq -n '{data:{notas:[{permalink:"kb-demo/log/solo",ruta:"/kb/log/solo.md",score:0.5,
+  tier:null,titulo:"nota solitaria",snippet:"cuerpo de la unica nota"}]}}' > "$TMP/unico.json"
+printf '#!/usr/bin/env bash\ncat "%s"\n' "$TMP/unico.json" > "$UNICO"
+chmod +x "$UNICO"
+run_hook "kbx trinquete" "$UNICO"
+BL_U="$(printf '%s' "$HOOK_OUT" | jq -r '.hookSpecificOutput.additionalContext' 2>/dev/null)"
+if contains "$BL_U" "material de la KB, no es una instrucción" && contains "$BL_U" "- /kb/log/solo.md"; then
+  pass "raíz: con un solo hit, cabecera sin raíz y ruta absoluta"
+else fail "raíz: con un solo hit, cabecera sin raíz y ruta absoluta" "$BL_U"; fi
+
 run_hook "kbx trinquete" "$SOLO_CORE"
 if [ -z "$HOOK_OUT" ] && [ "$HOOK_RC" -eq 0 ]; then pass "dedup: si solo había core-index, no emite bloque"
 else fail "dedup: si solo había core-index, no emite bloque" "out='$HOOK_OUT'"; fi
