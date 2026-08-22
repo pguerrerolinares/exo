@@ -94,10 +94,20 @@ entrada:
    que la doc oficial **no dice** si el evento dispara. Se neutraliza por diseño en
    vez de apostar por comportamiento no documentado.
 2. **Skip si empieza por `/` o `!`** — comandos al harness, no prompts.
-3. **Skip si TODOS los tokens normalizados** (minúsculas, sin acentos, sin
-   puntuación) están en una **lista cerrada de ~50 entradas** (stopwords de
-   función + acks + verbos de git/sesión) o son numéricos.
+3. **Skip si TODOS los tokens normalizados** están en una **lista cerrada de 127
+   entradas** (stopwords de función + acks + verbos de git/sesión) o son numéricos.
+   Tokenización por whitespace. Normalizar es NFD + minúsculas + strip de acentos y
+   **conservando `/`, `.` y `-`** (`re.sub(r'[^a-z0-9/.-]','',token)`): quitar toda
+   la puntuación construiría un gate distinto del medido.
 4. **Si queda un solo token con contenido ⇒ dispara.**
+
+**La lista y la función de normalización no se reescriben: se traducen.** El
+artefacto original que produjo los números está commiteado en
+`consultas/2026-08-22-m6-06/gate-artefacto.py`, y es normativo. Todos los números de
+esta sección son propiedades de *esa lista exacta* — el propio test 1 (§5) solo pasa
+porque `pushea`, `dos` y `repos` están en ella. Una lista reescrita de memoria
+heredaría los claims sin heredar lo que los hizo ciertos, y §0 retiró la maquinaria
+para volver a medirlos.
 
 El gate por longitud (<4 tokens / <25 bytes) que se consideró primero **se retira**.
 Salta 73 de 272 turnos, de los cuales solo ~6-8 tienen señal KB — su falso negativo
@@ -116,7 +126,9 @@ más que el hit-rate:
 Trade-off declarado: tasa de disparo **71% → 86%** (+~1,8 turnos/día pagando ~1 s y
 ≤1 KB de ruido, del que solo ~1 de cada 13 rescatados trae señal útil *hoy*), a
 cambio de **FN topical = 0**. La lista cerrada es el nuevo punto de mantenimiento,
-con modo de fallo benigno: un token fuera de lista causa ruido, nunca silencio.
+con modo de fallo benigno: un token fuera de lista causa ruido, nunca silencio. (El
+86% se midió sin las reglas 1-2, que solo pueden bajarlo y no pueden silenciar
+ningún topical.)
 
 ### 2.2 Búsqueda — hybrid, siempre, tras el gate
 
@@ -132,10 +144,11 @@ timeout 5 exo recall --db "$EXO_INDEX" --query "$PROMPT" \
   cuesta +0–80 ms (el runtime ONNX se comparte) y cierra la ventana intra-sesión: el
   indexer corre en `Stop`, así que sin él un prompt sobre lo que `/documenta` acaba
   de escribir no lo encontraría hasta la sesión siguiente. **Con DB ausente**,
-  `--refresca` dispararía un bootstrap de **minutos** bajo un timeout de 30 s, sobre
-  un indexer que **aún no es transaccional** (el fix H1 del 18-ago sigue pendiente):
-  un kill a mitad puede dejar una nota fuera del índice para siempre. Sin DB:
-  abstención logueada, nunca bootstrap.
+  `--refresca` dispararía un bootstrap de **minutos** bajo un timeout de 30 s: un
+  kill a mitad de un turno no es forma de construir un índice. Sin DB: abstención
+  logueada, nunca bootstrap. (El agravante original de esta regla —"el indexer no es
+  transaccional"— **ya no aplica**: `db5e0ae` metió transacción por nota y es
+  ancestro de HEAD. La regla se mantiene por el timeout, que basta solo.)
 - **Motor**: no hay alternativa viva. FTS-AND no encuentra nada (§1), FTS-OR exige
   bifurcar el engine y revalidar las 56 queries en dos modos, el escalonado está
   invertido de fábrica, y el proceso residente es un subsistema nuevo con lifecycle
@@ -221,8 +234,9 @@ UserPromptSubmit ──> recall-inject.sh
    ├─ (3) exo recall --query --min-similitud 0.40 --limite 3 [--refresca]
    │        ├─ exit 0 con hits ─> filtrar core-index ─> componer cabecera propia
    │        │                                        └─> log emitted ─> stdout JSON
-   │        ├─ exit 1 "recall vacío" ─> log empty ───> exit 0, sin bloque
-   │        └─ otro / timeout ───────> log error ────> exit 0, sin bloque
+   │        ├─ exit 1 + stderr ~ "recall vacío" ────> log empty ─> exit 0, sin bloque
+   │        ├─ exit 1 sin esa marca ───────────────> log error ─> exit 0, sin bloque
+   │        └─ timeout (5 s) ─────────────> log timeout-guard ─> exit 0, sin bloque
    ▼
 hookSpecificOutput.additionalContext  ──>  el modelo lo ve junto al prompt
 ```
@@ -239,11 +253,22 @@ dura* que la de reflex, no la estándar: **nada de `set -e`**, toda tubería con
 ausente, DB ausente, `jq` roto, engine que revienta, timeout — termina en exit 0 sin
 bloque.
 
-**P2 — La abstención natural no es degradación.** `exo recall --query` sale con
-**exit 1** cuando ningún hit supera el umbral (caso real medido: *"sella la KB y
-pushea"* → 0 hits ≥0.40). Es hybrid absteniéndose, que es lo correcto. El hook mapea
-ese exit 1 a `reason=empty`, **nunca a error**: si no, cada acierto por abstención
-gritaría que algo se rompió, y el log dejaría de significar nada.
+**P2 — La abstención natural no es degradación, pero el exit code NO la distingue.**
+`exo recall --query` sale con **exit 1** cuando ningún hit supera el umbral (medido:
+*"sella la KB y pushea"* → 0 hits ≥0.40). El problema es que el engine sale con
+**exit 1 para cualquier error** (`main.rs:246`: solo el `Rechazo` de write usa 3), así
+que la abstención es indistinguible por código de una DB corrupta, un ONNX roto o un
+lock. Medido: `--db /nope/x.db` da exit 1 igual que la abstención.
+
+El distinguidor está en **stderr**, y es estable:
+
+- exit 1 **y** stderr contiene `recall vacío` ⇒ `reason=empty`. Abstención correcta.
+- exit 1 **sin** esa marca ⇒ `reason=error`. Es un fallo.
+
+Gatear solo por código sería un hook donde el engine roto loguea `empty` para
+siempre: exactamente la degradación con forma válida que P3 jura impedir, y encima
+mataría la única pregunta que §2.5 existe para responder — distinguir *"el gate se
+abstiene"* de *"esto lleva un mes sin funcionar"*.
 
 **P3 — Toda degradación deja rastro.** Ley 1 de [[Fallo silencioso]]: cada rama de
 fallo emite su `degraded` con razón greppable. El precedente es directo — el
@@ -258,6 +283,12 @@ y exit 0 sin bloque. Así el modo de fallo es suyo, es rápido y es greppable. E
 ausente, que P5 prohíbe.
 
 **P5 — Nunca bootstrap desde el hook.** `--refresca` solo con DB existente (§2.2).
+
+**P6 — Nada se escapa por stdout.** En `UserPromptSubmit`, el stdout plano de un
+hook que sale con 0 **se inyecta como contexto** (es la excepción documentada del
+evento, junto a `SessionStart`). Un `echo` de debug olvidado o un stderr mal
+redirigido no ensucia un log: entra en el turno como si fuera material de la KB.
+Todo lo que no sea el JSON final va a stderr o a `/dev/null`.
 
 ---
 
@@ -276,7 +307,9 @@ la instalación real:
    2b. **P4**: binario falso que duerme 30 s ⇒ el hook vuelve en ~5 s con
    `reason=timeout-guard` y exit 0. Testeable precisamente porque el timeout es
    suyo y no del harness.
-3. **P2**: binario falso con exit 1 ⇒ `reason=empty`, no `error`, y sin bloque.
+3. **P2, las dos ramas**: binario falso con exit 1 **y** `recall vacío` en stderr ⇒
+   `reason=empty`; exit 1 con cualquier otro stderr ⇒ `reason=error`. Sin bloque en
+   ambos casos. Es el test que impide que un engine roto se disfrace de abstención.
 4. **P5**: DB ausente ⇒ no aparece `--refresca` en la invocación, y sale
    `reason=no-index`.
 5. **Flag sellado**: la invocación real contiene `--min-similitud 0.40`. Es un test
@@ -284,8 +317,10 @@ la instalación real:
 6. **Formato**: con salida sintética de 3 hits, el bloque lleva la cabecera propia
    (no la de subagentes), la línea de licencia de ignorar, ≤1024 B, y **no** contiene
    `core/core-index`.
-7. **Salida**: el stdout es JSON válido con
-   `hookSpecificOutput.hookEventName == "UserPromptSubmit"`.
+7. **Salida y P6**: el stdout es JSON válido con
+   `hookSpecificOutput.hookEventName == "UserPromptSubmit"` **y nada más** — ni una
+   línea suelta antes o después. En este evento el stdout plano se inyecta como
+   contexto, así que un `echo` perdido entra en el turno de Paul.
 
 Y la verificación end-to-end en vivo, que es la que cierra el item: escribir `M6-06`
 a secas en una sesión real y ver llegar sus notas.
@@ -304,7 +339,16 @@ No son riesgos residuales: son costes conocidos, medidos y firmados.
   Sin umbral que separe (§1), la defensa es formato + ≤1 KB. El riesgo real no es el
   coste en tokens sino **que Paul deje de mirarlos** y el hook se vuelva papel
   pintado; si eso pasa, el dolor es la señal de reapertura.
-- **Una lista cerrada de ~50 stopwords** como punto de mantenimiento nuevo.
+- **Una lista cerrada de 127 stopwords** como punto de mantenimiento nuevo.
+- **El hook pasa a ser escritor en ~86% de los turnos** (por `--refresca`). Con
+  sesiones paralelas y el indexer de `Stop` habrá contención: el engine tiene
+  `busy_timeout` de 5 s y journal `delete`, así que un lector puede bloquear al
+  escritor. Peor caso: ese turno paga el timeout-guard o loguea `error` — visible,
+  acotado, y nunca `empty` gracias a P2.
+- **Prompts gigantes**: pegar un traceback de 8 KB cuesta ~1,4 s (el embedder trunca;
+  30 KB da lo mismo) y devuelve punteros genéricos dentro del cap. Por encima de
+  ~128 KB de argumento el exec falla con E2BIG ⇒ `reason=error`, exit 0. Medido y
+  benigno: no se trunca la query en el hook.
 - **La ventana no cubierta**: "afirmo algo a mitad de mi propio razonamiento, sin
   prompt de por medio". Ningún hook razonable la ataja; §3.2 ya la aceptaba.
 
