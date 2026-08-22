@@ -720,11 +720,19 @@ que este diseño tiene."
 
 **Files:**
 - Modify: `plugins/reflex/hooks/hooks.json`
+- Modify: `plugins/reflex/.claude-plugin/plugin.json` (bump de versión)
 
 **Interfaces:**
 - Consumes: `plugins/reflex/scripts/recall-inject.sh` (ejecutable, contrato de la
   Task 3).
 - Produces: nada para tareas posteriores. Es la última.
+
+**Por qué el bump va en esta tarea y no "luego"** (decisión de Paul, pre-flight del
+2026-08-22): el `reflex` que corre en las sesiones de Paul es una **copia cacheada**
+en `~/.claude/plugins/cache/exo/reflex`, no un symlink al repo. Sin subir la versión,
+`claude plugin update` no traería el hook nuevo y el Step 4 —el criterio de cierre de
+la spec— no se podría ejecutar. El item quedaría "hecho en repo, invisible en la
+máquina", que es la forma exacta de fallo silencioso que esta campaña vino a evitar.
 
 - [ ] **Step 1: Verificar que hoy no hay nada registrado**
 
@@ -754,7 +762,18 @@ al mismo nivel que `"SessionStart"`:
     ],
 ```
 
-- [ ] **Step 3: Verificar el JSON y la suite completa de reflex**
+- [ ] **Step 3: Bump de versión del plugin**
+
+En `plugins/reflex/.claude-plugin/plugin.json`, subir `version` de `0.14.0` a
+`0.15.0`. Sin esto el hook no llega a la instalación viva (ver arriba).
+
+```bash
+jq -r '.version' plugins/reflex/.claude-plugin/plugin.json
+```
+
+Expected: `0.15.0`.
+
+- [ ] **Step 4: Verificar el JSON y la suite completa de reflex**
 
 ```bash
 jq -e '.hooks.UserPromptSubmit[0].hooks[0].command' plugins/reflex/hooks/hooks.json
@@ -762,15 +781,19 @@ plugins/reflex/scripts/test-recall-inject.sh
 plugins/reflex/scripts/test-reflex-baseline.sh
 ```
 
-Expected: el `command` sale por pantalla; ambas suites en verde. Si
-`test-reflex-baseline.sh` valida el conjunto de eventos registrados, actualízalo
-para incluir `UserPromptSubmit` — es cambio esperado, no un fallo.
+Expected: el `command` sale por pantalla; ambas suites en verde. (Verificado en el
+pre-flight: `test-reflex-baseline.sh` **no** valida el conjunto de eventos de
+`hooks.json`, así que no hay que tocarlo. No lo busques.)
 
-- [ ] **Step 4: Verificación end-to-end en vivo (la que cierra el item)**
+- [ ] **Step 5: Verificación end-to-end en vivo (la que cierra el item)**
 
-Esto lo ejecuta Paul, no el agente: requiere una sesión real de Claude Code.
+Esto lo ejecuta Paul, no el agente: requiere `claude plugin update` y una sesión
+real de Claude Code.
 
 ```bash
+# 0. Traer el plugin 0.15.0 a la instalación viva:
+claude plugin update exo
+
 # 1. Con el plugin recargado, en una sesión NUEVA, escribir literalmente:
 M6-06
 
@@ -785,13 +808,15 @@ Expected: (1) el turno trae punteros a notas de M6-06 sin que nadie los pidiera 
 **este es el criterio de cierre de la spec**; (2) un evento `emitted` con `n_hits`
 entre 1 y 3 y `bytes` ≤1024; (3) el contador no sube tras el ack.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add plugins/reflex/hooks/hooks.json
+git add plugins/reflex/hooks/hooks.json plugins/reflex/.claude-plugin/plugin.json
 git commit -m "feat(m6-06): enchufa el recall en el punto de uso
 
-Registra recall-inject.sh en UserPromptSubmit. Con esto M6 cierra entero y M5b
+Registra recall-inject.sh en UserPromptSubmit y sube reflex a 0.15.0: el plugin
+vivo es una copia cacheada, así que sin bump el hook se quedaría en el repo y el
+criterio de cierre no se podría verificar. Con esto M6 cierra entero y M5b
 —desinstalar basic-memory— deja de estar bloqueado.
 
 Rollback: quitar esta clave de hooks.json. Nada más se ha tocado."
