@@ -122,9 +122,13 @@ if [ ! -f "$EXO_INDEX" ]; then
 fi
 
 # --- Búsqueda ----------------------------------------------------------------
-# Pide 4 y capa a 1400 para que quede margen: el filtro de core-index (Task 3)
-# puede quitar uno, y con `--limite 3 --cap-bytes 1024` nos quedaríamos en 2
-# punteros. El cap real de 1024 sobre el bloque final lo aplica el hook.
+# Pide 4 y capa el FETCH a 4000: es el cap con el que el engine puede truncar su
+# propia respuesta ANTES de que el hook filtre nada, y no es el mismo número que
+# el cap de INYECCIÓN (1024, más abajo, lo aplica el hook sobre el bloque final).
+# Medido sobre el índice real con --cap-bytes 1400: 3 de 10 queries salían
+# truncadas y una entregaba 2 punteros en vez de 3 porque el repuesto (el hit
+# que sustituye al core-index filtrado) desaparecía antes de llegar al hook. Con
+# 4000 o más, cero truncados sobre la misma muestra.
 EXO_INJECT_TIMEOUT="${EXO_INJECT_TIMEOUT:-5}"
 ERR_TMP="$(mktemp)" || ERR_TMP=""
 
@@ -134,7 +138,7 @@ ERR_TMP="$(mktemp)" || ERR_TMP=""
 # llevan valores que controlamos nosotros, así que no la necesitan.
 SALIDA="$(timeout "$EXO_INJECT_TIMEOUT" "$EXO_BIN" recall \
             --db "$EXO_INDEX" --query="$PROMPT" \
-            --min-similitud 0.40 --limite 4 --cap-bytes 1400 \
+            --min-similitud 0.40 --limite 4 --cap-bytes 4000 \
             --refresca --json 2>"${ERR_TMP:-/dev/null}")"
 RC=$?
 
@@ -166,6 +170,23 @@ fi
 
 [ -n "$SALIDA" ] || { log_ri "degraded" "reason=empty"; exit 0; }
 
+# Un rc=0 con salida que no es el envelope esperado NO es una abstención: es el
+# engine hablando otro idioma (cambio de schema, salida corrupta). Etiquetarlo
+# `empty` lo haría invisible, porque `empty` es el caso normal — exactamente el
+# disfraz que P2 impide en la rama de exit 1.
+if ! printf '%s' "$SALIDA" | jq -e 'has("data") and (.data | has("notas"))' >/dev/null 2>&1; then
+  log_ri "degraded" "reason=error err=envelope-ilegible"
+  exit 0
+fi
+
+# Si el engine recortó su propia respuesta (cap de fetch, arriba), el hit de
+# repuesto puede haber desaparecido y saldrían menos punteros sin que nadie
+# pudiera saberlo. No es un fallo del hook, así que no degrada nada: solo deja
+# rastro para poder correlacionarlo si alguna vez se ve un bloque corto.
+if [ "$(printf '%s' "$SALIDA" | jq -r '.data.truncado // false' 2>/dev/null)" = "true" ]; then
+  log_ri "degraded" "reason=fetch-truncado"
+fi
+
 # --- Composición del bloque --------------------------------------------------
 # Toda la composición vive en jq y no en bash por una razón medida: aquí se
 # cuentan BYTES sobre texto con acentos y guiones largos, y `${#var}` de bash
@@ -174,13 +195,15 @@ fi
 EXO_INJECT_CAP="${EXO_INJECT_CAP:-1024}"
 FOOTER='(puede no venir al caso: ignóralo si no aplica)'
 
-# Composición del bloque de M6-06, entera en jq.
-#
-# En jq y no en bash porque aquí se cuentan BYTES sobre texto con acentos y
-# guiones largos: `${#var}` de bash cuenta caracteres y descuadra el presupuesto.
-# `utf8bytelength` cuenta lo que el cap mide de verdad.
-#
-# Entrada: el JSON de `exo recall --json`. Salida: las líneas del bloque.
+# Compartidos entre el jq de composición y el cálculo de PERMALINKS más abajo:
+# el filtro de core-index y el límite de punteros no pueden vivir duplicados en
+# dos sitios que haya que cambiar juntos.
+EXO_EXCLUIR="${EXO_EXCLUIR:-kb-demo/core/core-index}"
+EXO_MAX_HITS="${EXO_MAX_HITS:-3}"
+
+# Composición del bloque, entera en jq (ver comentario de arriba sobre bytes vs
+# caracteres). Entrada: el JSON de `exo recall --json`. Salida: las líneas del
+# bloque.
 # --arg cap: presupuesto total del bloque en bytes.
 # --arg footer: la línea final (se descuenta del presupuesto).
 read -r -d '' JQ_COMPONE <<'JQEOF' || true
@@ -208,16 +231,21 @@ def laxo: ascii_downcase
 def pela_header:
   if startswith("#") then (sub("^#.*?  +"; "")) else . end;
 
+# El presupuesto está en BYTES pero `.[0:n]` corta por CODEPOINTS: en castellano
+# cada acento pesa 2 bytes y un guion largo 3, así que cortar a `n` caracteres
+# devuelve hasta el doble de bytes y revienta el cap (medido: 129 B para un
+# presupuesto de 120). Se recorta a ojo y luego se ajusta carácter a carácter
+# hasta que la cuenta de bytes cuadre. Los 3 bytes de la elipsis van descontados.
 def recorta($n):
   if utf8bytelength <= $n then .
   else
-    # Recorte a frontera de palabra, sobre bytes.
-    (.[0:$n] | if (index(" ") != null) then sub(" [^ ]*$"; "") else . end) + "…"
+    ( .[0:($n-3)] | until(utf8bytelength <= ($n-3); .[0:(length-1)]) )
+    | (if (index(" ") != null) then sub(" [^ ]*$"; "") else . end) + "…"
   end;
 
 ( .data.notas
-  | map(select(.permalink != "kb-demo/core/core-index"))
-  | .[0:3]
+  | map(select(.permalink != $excluir))
+  | .[0:$max]
   | map({ ruta: (.ruta | sane), titulo: (.titulo | sane), snippet: (.snippet | sane) })
 ) as $hits
 | ($hits | map(.ruta | split("/") | .[:-1])) as $dirs
@@ -250,6 +278,7 @@ JQEOF
 
 BLOQUE="$(printf '%s' "$SALIDA" \
           | jq -r --arg cap "$EXO_INJECT_CAP" --arg footer "$FOOTER" \
+                   --arg excluir "$EXO_EXCLUIR" --argjson max "$EXO_MAX_HITS" \
               "$JQ_COMPONE" 2>/dev/null)" || BLOQUE=""
 
 # Sin hits utilizables (todo era core-index, o jq no pudo con el JSON): no se
@@ -261,12 +290,29 @@ fi
 
 N="$(printf '%s' "$BLOQUE" | grep -c '^- ')"
 BYTES="$(printf '%s' "$BLOQUE" | wc -c)"
-PERMALINKS="$(printf '%s' "$SALIDA" | jq -r '[.data.notas[].permalink] | join(",")' 2>/dev/null)" || PERMALINKS=""
+# Los permalinks del log son los EMITIDOS, no los que devolvió el engine: este
+# evento es el que leería un v2 de dedup entre turnos, y deduplicar contra notas
+# que el modelo nunca vio sería peor que no deduplicar. Mismo criterio que la
+# composición del bloque: $excluir y $max, no un literal ni un slice aparte.
+PERMALINKS="$(printf '%s' "$SALIDA" \
+  | jq -r --arg excluir "$EXO_EXCLUIR" --argjson max "$EXO_MAX_HITS" \
+      '[.data.notas[] | select(.permalink != $excluir)][0:$max]
+       | map(.permalink) | join(",")' 2>/dev/null)" || PERMALINKS=""
+
+# El log de "emitted" solo puede ser verdad si el JSON final se construyó bien:
+# `log_ri "emitted"` se emitía antes del jq de cierre, que acababa en `|| true`.
+# Si ese jq fallara, el log diría "emitted" y al modelo no le llegaría nada. Se
+# captura la salida primero y se decide el log después de verla.
+JSON_OUT="$(printf '%s' "$BLOQUE" \
+  | jq -Rs '{hookSpecificOutput:{hookEventName:"UserPromptSubmit",additionalContext:.}}' \
+  2>/dev/null)" || JSON_OUT=""
+if [ -z "$JSON_OUT" ]; then
+  log_ri "degraded" "reason=error err=json-final"
+  exit 0
+fi
 
 log_ri "emitted" "n_hits=$N bytes=$BYTES permalinks=$PERMALINKS"
 
 # ÚNICA escritura a stdout del script entero (P6).
-printf '%s' "$BLOQUE" \
-  | jq -Rs '{hookSpecificOutput:{hookEventName:"UserPromptSubmit",additionalContext:.}}' \
-  2>/dev/null || true
+printf '%s' "$JSON_OUT"
 exit 0

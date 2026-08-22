@@ -12,6 +12,11 @@ trap 'rm -rf "$TMP"' EXIT
 # Aislamiento global: ningún test escribe en el log real de reflex.
 export REFLEX_LOG_FILE="$TMP/reflex-log.jsonl"
 
+# Mismo seam que usa el hook para el cap de inyección. Se fija aquí explícito
+# (en vez de dejar que cada assert repita "1024" en paralelo al default del
+# script) para que un cambio de cap solo se toque en un sitio.
+export EXO_INJECT_CAP="${EXO_INJECT_CAP:-1024}"
+
 PASS=0
 FAIL=0
 pass() { printf '[PASS] %s\n' "$1"; PASS=$((PASS+1)); }
@@ -109,8 +114,8 @@ for modo in "exit 2" "kill -TERM \$\$" "printf 'basura no-json'"; do
   printf '#!/usr/bin/env bash\n%s\n' "$modo" > "$BAD"
   chmod +x "$BAD"
   run_hook "M6-06" "$BAD"
-  if [ "$HOOK_RC" -eq 0 ]; then pass "P1: exit 0 con binario '$modo'"
-  else fail "P1: exit 0 con binario '$modo'" "rc=$HOOK_RC"; fi
+  if [ "$HOOK_RC" -eq 0 ] && [ -z "$HOOK_OUT" ]; then pass "P1: exit 0 sin bloque con binario '$modo'"
+  else fail "P1: exit 0 sin bloque con binario '$modo'" "rc=$HOOK_RC out='$HOOK_OUT'"; fi
 done
 
 # Binario ausente: exit 0, sin bloque, y degradación logueada.
@@ -209,6 +214,20 @@ else fail "P4: timeout propio corta" "rc=$HOOK_RC elapsed=${ELAPSED}s"; fi
 if grep -q 'reason=timeout-guard' "$REFLEX_LOG_FILE" 2>/dev/null; then pass "P4: loguea timeout-guard"
 else fail "P4: loguea timeout-guard" "$(cat "$REFLEX_LOG_FILE" 2>/dev/null)"; fi
 
+# ------------------------------------------------ T2: P2 (envelope-ilegible) ---
+# rc=0 con una salida que NO es el envelope esperado no es una abstención: es el
+# engine hablando otro idioma (cambio de schema, salida corrupta). Etiquetarlo
+# `empty` lo haría invisible, porque `empty` es el caso normal — el mismo disfraz
+# que P2 ya prohíbe en la rama de exit 1.
+RARO="$TMP/exo-raro"
+printf '#!/usr/bin/env bash\nprintf %s "{\\"schema_version\\":2,\\"data\\":{\\"resultados\\":[]}}"\n' "" > "$RARO"
+chmod +x "$RARO"
+: > "$REFLEX_LOG_FILE"
+run_hook "kbx trinquete" "$RARO"
+if grep -q 'envelope-ilegible' "$REFLEX_LOG_FILE" 2>/dev/null && [ "$HOOK_RC" -eq 0 ]; then
+  pass "P2: envelope ilegible con rc=0 loguea error, no empty"
+else fail "P2: envelope ilegible con rc=0 loguea error" "$(cat "$REFLEX_LOG_FILE" 2>/dev/null)"; fi
+
 # ------------------------------------------- T3: composición del bloque ---
 # Binario falso que devuelve 4 notas, una de ellas core-index (que YA se
 # inyecta entera en el arranque y aquí sobra).
@@ -261,11 +280,19 @@ if contains "$BLOQUE" "ignóralo si no aplica"; then pass "formato: licencia exp
 else fail "formato: licencia explícita de ignorar" "$BLOQUE"; fi
 
 BYTES="$(printf '%s' "$BLOQUE" | wc -c)"
-if [ "$BYTES" -le 1024 ]; then pass "cap: bloque ≤1024 B ($BYTES)"
-else fail "cap: bloque ≤1024 B" "$BYTES"; fi
+if [ "$BYTES" -le "$EXO_INJECT_CAP" ]; then pass "cap: bloque ≤${EXO_INJECT_CAP} B ($BYTES)"
+else fail "cap: bloque ≤${EXO_INJECT_CAP} B" "$BYTES"; fi
 
 if grep -q 'recall-inject-emitted' "$REFLEX_LOG_FILE" 2>/dev/null; then pass "log: emitted"
 else fail "log: emitted" "$(cat "$REFLEX_LOG_FILE" 2>/dev/null)"; fi
+
+# El log de permalinks debe reflejar lo EMITIDO (post-filtro, post-slice), no el
+# JSON crudo del engine: es el estado que leería un v2 de dedup entre turnos, y
+# deduplicar contra notas que el modelo nunca vio sería peor que no deduplicar.
+PL="$(jq -r 'select(.reflex=="recall-inject-emitted") | .payload' "$REFLEX_LOG_FILE" 2>/dev/null | tail -1)"
+if not_contains "$PL" "core-index" && [ "$(printf '%s' "$PL" | tr ',' '\n' | grep -c 'kb-demo')" -eq 3 ]; then
+  pass "log: permalinks registra los 3 emitidos, no los 4 del engine"
+else fail "log: permalinks registra los emitidos" "payload='$PL'"; fi
 
 # Fixture con snippets del tamaño que devuelve el engine de verdad (~200 B).
 # El anterior usaba 900 B y hacía que no cupiera NI UN hit: el bloque salía vacío
@@ -283,14 +310,56 @@ run_hook "kbx trinquete" "$GORDO"
 BLOQUE2="$(printf '%s' "$HOOK_OUT" | jq -r '.hookSpecificOutput.additionalContext' 2>/dev/null)"
 B2="$(printf '%s' "$BLOQUE2" | wc -c)"
 N2="$(printf '%s' "$BLOQUE2" | grep -c '^- ' || true)"
-if [ "$B2" -le 1024 ] && [ "$N2" -eq 3 ]; then
-  pass "cap: 3 hits grandes caben enteros y el bloque respeta 1024 B ($B2)"
+if [ "$B2" -le "$EXO_INJECT_CAP" ] && [ "$N2" -eq 3 ]; then
+  pass "cap: 3 hits grandes caben enteros y el bloque respeta ${EXO_INJECT_CAP} B ($B2)"
 else
-  fail "cap: 3 hits grandes caben enteros bajo 1024 B" "bytes=$B2 punteros=$N2"
+  fail "cap: 3 hits grandes caben enteros bajo ${EXO_INJECT_CAP} B" "bytes=$B2 punteros=$N2"
 fi
 # Y que el recorte no parta palabras por la mitad.
 if not_contains "$BLOQUE2" "palabr…" ; then pass "cap: recorta a frontera de palabra"
 else fail "cap: recorta a frontera de palabra" "cortó dentro de una palabra"; fi
+
+# F2: mutation testing encontró que dos invariantes de la spec se pueden borrar
+# del código y la suite entera sigue en verde (`recorta` → identidad, y el
+# `.[0:3]` del cap de punteros). Los fixtures de arriba no los ejercen: GORDO
+# usa snippets que caben enteros y CUATRO nunca supera el presupuesto por hit.
+# Estos dos SÍ muerden.
+
+# Recorte por hit: fixture con snippets MÁS GRANDES que el presupuesto derivado
+# (~240 B). Con snippets realistas de 200 B no hay nada que recortar y el test no
+# ejerce nada — que es justo lo que pasaba antes.
+RECORTE="$TMP/exo-recorte"
+jq -n '{data:{notas:[range(1;4) as $i | {
+  permalink:("kb-demo/log/r"+($i|tostring)),
+  ruta:("/kb/log/recorte-"+($i|tostring)+".md"), score:0.5, tier:null,
+  titulo:("recorte "+($i|tostring)),
+  snippet:(("análisis técnico — decisión sellada según medición práctica; "*8))}]}}' \
+  > "$TMP/recorte.json"
+printf '#!/usr/bin/env bash\ncat "%s"\n' "$TMP/recorte.json" > "$RECORTE"
+chmod +x "$RECORTE"
+run_hook "kbx trinquete" "$RECORTE"
+BL_R="$(printf '%s' "$HOOK_OUT" | jq -r '.hookSpecificOutput.additionalContext' 2>/dev/null)"
+BR="$(printf '%s' "$BL_R" | wc -c)"
+if [ "$BR" -le "$EXO_INJECT_CAP" ] && [ "$BR" -gt 0 ]; then pass "recorte: snippets largos respetan el cap en BYTES ($BR)"
+else fail "recorte: snippets largos respetan el cap en BYTES" "bytes=$BR"; fi
+if contains "$BL_R" "…"; then pass "recorte: el recorte por hit se activa de verdad"
+else fail "recorte: el recorte por hit se activa de verdad" "sin elipsis: no recortó nada"; fi
+
+# ≤3 punteros: cuatro notas y NINGUNA es core-index, así que el slice es lo único
+# que impide que salgan cuatro. El fixture CUATRO no lo prueba (4 − 1 core-index = 3
+# con slice y sin él).
+CINCO="$TMP/exo-cuatro-sin-core"
+jq -n '{data:{notas:[range(1;5) as $i | {
+  permalink:("kb-demo/log/n"+($i|tostring)),
+  ruta:("/kb/log/nota-"+($i|tostring)+".md"), score:0.5, tier:null,
+  titulo:("nota "+($i|tostring)), snippet:("cuerpo de la nota "+($i|tostring))}]}}' \
+  > "$TMP/cuatro-sin-core.json"
+printf '#!/usr/bin/env bash\ncat "%s"\n' "$TMP/cuatro-sin-core.json" > "$CINCO"
+chmod +x "$CINCO"
+run_hook "kbx trinquete" "$CINCO"
+N_C="$(printf '%s' "$HOOK_OUT" | jq -r '.hookSpecificOutput.additionalContext' 2>/dev/null | grep -c '^- ' || true)"
+if [ "$N_C" -eq 3 ]; then pass "cap: 4 notas sin core-index se cortan a 3 punteros"
+else fail "cap: 4 notas sin core-index se cortan a 3 punteros" "n=$N_C"; fi
 
 # --------------------------------------------- T3: composición sin grasa ---
 # La raíz de la KB se declara UNA vez en la cabecera y los hits van relativos.
