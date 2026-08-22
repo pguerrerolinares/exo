@@ -486,6 +486,170 @@ terminar si el proceso funcionaba.
 
 ---
 
+## 10. Ronda 4 — el rechazo de Paul, el 78×, y la defensa que queda en pie
+
+Paul rechazó la v1 ("consolida ya lo hemos realizado varias veces y siempre
+muerde") y su corrección de vacaciones baja mi factor de contención de 180× a
+78× por día activo. Respuestas, tras re-medir:
+
+### 10.1 El A/B sobrevive a 78×, pero con la atribución aún más estrecha
+
+Acepto el re-cálculo (mi propia cautela de "5× menos actividad" era el doble de
+corta). Y añado una descomposición que lo afila: el "40 B/día activo en el
+muro" es un **neto** que compensa el append del 4-ago (+1.863 B en el único
+día que se escribió la nota) con la poda del triaje del 17. El bruto de
+escritura en el muro fue ~1,9 KB/día activo — **el muro no disuade la
+escritura; lo que contiene el stock es la poda**. La contención es del ciclo
+completo (techo+triaje+consolida), y eso es exactamente "consolida desahoga,
+no estabiliza": techo en el stock, no en el flujo.
+
+Barra de confianza sobre R2 (pre-commit) en régimen de uso normal: **casi
+nula como estadística** — 4-5 días de calendario, 1-2 activos, n=2 mordiscos
+en un mismo cierre. Todo lo que sé de R2: en su único día activo convirtió
+brecha-diferida-13-días en rotación-inmediata+IOU. Anécdota consistente con
+el diseño, no prueba. El corolario del orquestador lo firmo: el sistema lleva
+un mes sin carga; la vuelta de Paul ES el experimento.
+
+### 10.2 Divergencia de medición con el addendum §4 — resuelta: es la fase de la sierra
+
+Mi reproducción (canon = tier core+stable, paths con `core.quotepath=off`) no
+daba el "canon plano": valle-11-jul→hoy = **+122 KB**. La resolución, medida:
+
+| baseline 11-jul | persistentes → hoy | notas nuevas |
+|---|---|---|
+| **pico** (pre-consolida, `acf9159`) | **+12.029 B** — y las ~37 no-imán **bajan −22 KB netos**; suben 4 imanes (+34 KB) | +63 KB (9 notas) |
+| **valle** (post-consolida, `91dd86d`) | +69.501 B | +52,6 KB (7) |
+
+El "+8.671 de doctrina" del addendum cuadra exacto con baseline pico. Ambas
+medidas son verdad: pico-a-hoy responde "¿el stock está acotado ciclo a
+ciclo?" (sí — y mejor que plano: la mayoría de notas está POR DEBAJO de su
+pico de julio); valle-a-hoy mide la amplitud de la sierra (~60-70 KB). Aviso
+para la síntesis: **cualquier número de crecimiento del canon depende de en
+qué fase de la sierra se ancle la baseline** — quien mida desde la otra fase
+"refutará" el plano sin refutar nada. Y la producción nueva real (~50-60 KB
+en 6 semanas) va mayormente a notas nuevas, no a engordar las viejas.
+
+### 10.3 P1, literal: la v1 NO resuelve el bucle — y no debe venderse como si lo hiciera
+
+Con producción de doctrina sostenida y stock acotado, morder periódicamente es
+aritmética, no un defecto: las tres opciones existen y están medidas en este
+expediente — stock sin límite (R0: 3.108 B/día activo, notas de 89 KB),
+producción cero (las vacaciones: único período sin mordiscos), o bucle. La v1
+cambia tres cosas del bucle, y solo esas: **coste por ciclo** (cirugía al
+cierre → cita con /consolida, aire garantizado al sellar), **frecuencia en el
+caso normal** (de "cada delta a nota a ras" — cinco notas a <350 B — a "cada
+2-5 semanas por nota caliente"), y **calidad de la poda** (evicción nombrada).
+No cambia la tasa de reposición. La frase honesta para Paul: *"sí, muerde;
+con la v1 muerde menos veces, más barato y en mejor momento — y el no-morder
+tiene dos precios medidos: notas de 89 KB o no aprender nada nuevo"*. En su
+analogía: es un GC generacional — pedir que nunca colecte es pedir heap
+infinito o programa parado; el tuning solo decide si la pausa es
+stop-the-world en mitad del request (hoy) o compactación programada (v1). Y
+el dato de 10.2 (persistentes bajo su pico de julio, stock acotado con churn)
+es la spec fundacional cumplida: el sistema hace lo que prometió; lo que
+estaba mal era el precio del ciclo.
+
+### 10.4 Factorización de las notas-imán como acción principal: sin objeción, con dos riesgos nombrados
+
+La contradicción landscape ("títulos mal factorizados") vs diagnóstico ("notas
+coherentes de temas grandes"), resuelta mirando las notas: **ambos tienen razón
+en subconjuntos distintos**. Los headings de doctrina-agentes son ~10
+capítulos-concepto autónomos (Contrato de memoria, Orquestador limpio,
+Recon-first, Cost pyramid, Transporte mecánico, Completitud del brief,
+Consulta adversarial, Régimen de gates, Verificación independiente, Mutation
+testing) y la nota ya tiene una sección "Capítulos que viven en nota propia" —
+se está partiendo orgánicamente y trae su propio índice. Nota-área de libro:
+landscape acierta aquí. Pragmatismo-y-pivots es más dudosa: 3 secciones
+sustantivas (un destilado de campaña, un criterio, un for-agents) — da para
+2-3 piezas, no 10. Los otros 8 waivers (5 proyectos, perfil, Backlog) tienen
+contorno natural: diagnóstico acierta ahí. No es "el 22% mal factorizado":
+son **dos imanes con título-área**, uno claro y otro parcial.
+
+Sin objeción a elevarlo a acción principal — es "pártela, no la mutiles"
+aplicada donde el flujo se concentra. Dos riesgos que la propuesta revisada
+debe nombrar:
+
+1. **Routing del próximo delta.** Hoy hay una puerta única para aprendizajes
+   de agentes. Con ~10 notas-concepto, cada /documenta elige entre 10 destinos
+   más la tentación de nota nueva ("casi nunca", dice el contrato). Mitigación
+   barata y necesaria: doctrina-agentes queda como **nota-índice corta** (el
+   patrón que su "Capítulos que viven en nota propia" ya inaugura) — puerta
+   única para el routing, contenido repartido. Sin índice, la partición
+   convierte fricción-de-espacio en fricción-de-routing.
+2. **La venta.** Partir no baja la tasa: los +8,7 KB/6 semanas de doctrina se
+   repartirán y las 2-3 hijas calientes de cada época volverán a acercarse a
+   su techo — en meses, no en días, pero volverá a morder. Si la revisada dice
+   "el fix del bucle es partir", el ciclo siguiente desmiente la promesa. La
+   formulación honesta: "reparte el flujo y baja frecuencia y coste del
+   mordisco en el punto caliente; el bucle sigue siendo el diseño" (10.3).
+
+Sobre retrieval: el riesgo va en dirección contraria a la temida — la
+agregación es por nota (entity), diez entidades más específicas mejoran el
+matching y abaratan la apertura (2-3 KB vs 20). Lo que sí se pierde es
+adyacencia (abrir doctrina daba el sistema doctrinal entero de una vez);
+wikilinks + nota-índice la cubren.
+
+### 10.5 El criterio de Fase 2, en unidades activas (P3 del addendum)
+
+Propuesta concreta, observable en commits y sin métricas nuevas: contar
+**eventos, no calendario** — "si en los próximos N cierres /documenta que
+toquen notas canónicas (observable: commits `docs(kb)` que modifican
+core/stable) hay ≥2 con rotación forzada o IOU para hacer sitio a un delta, la
+banda gana su código". N=10 cierres cubre ~3-5 semanas de uso real y unas
+vacaciones no lo dan por cumplido: sin cierres no corre el reloj.
+
+---
+
+## 11. Ronda 5 — firma de la v2 de dos patas
+
+El orquestador retiró "canon plano" y "concentración 99,8%" (error de método:
+prefijos fijos sobre KB reorganizada) y corrigió a: KB entera +163%, 21/27
+notas con techo crecen, top-3 = 53%. Me refuerza (hay crecimiento real que
+contener), con un matiz que dejo para la reconciliación de números canónicos:
+**KB entera +163% incluye log/ y archive/, que crecen POR DISEÑO** — cada
+rotación y split mueve bytes del canon hacia allí; ese número mide producción
+total, no descontrol. El número que decide política de canon es el de canon, y
+mi pico-a-pico (+12 KB persistentes/6 semanas) sigue pendiente de reconciliar
+con el 21/27 bajo convención declarada.
+
+**Firmo la estructura de dos patas sin jerarquía única**: (a) el ciclo v1 para
+el crecimiento distribuido — es la tesis del GC generacional de §10.3; (b)
+factorización solo para doctrina-agentes y desarrollo-agentico, con los dos
+riesgos de §10.4 nombrados (nota-índice como puerta única de routing; no
+venderla como fix del bucle). El gradiente de headings de arqueología (perfil
+0% nuevos → su remedio es el ciclo, no partir; doctrina 80% cajón) confirma
+por nota la resolución de §10.4.
+
+**Adenda — el número canónico final del A/B: ~9-21×.** El 78× también cayó
+(el anclaje del orquestador cogía el último commit del 3-ago, 26.840, DESPUÉS
+del rebote del propio día: la serie real es 24.131→26.113→26.840, **+2.709 B
+repuestos en horas** por dos /documenta de esa misma tarde). Mi A/B ha bajado
+tres veces — 180× → 78× → ~9-21× — siempre en la misma dirección, y cada
+corrección retiró una asimetría de anclaje que favorecía mi tesis: lo firmo
+tal cual. Queda contención real de UN orden de magnitud, neta, y atribuible al
+ciclo (poda), no a disuasión del muro. Lo que el rebote-en-horas mueve en la
+v2: confirma que **el ciclo es la pata permanente y la factorización un alivio
+puntual de los imanes** — a este ritmo de reposición, las hijas calientes
+volverán a su techo pronto, así que el peso estructural de la propuesta debe
+caer en la pata (a); la (b) compra alivio y mejor factorización, no tiempo.
+También valida preferir el disparador primera-mordida del diagnóstico sin
+umbral: con reposición así de rápida, la evidencia llega sola en cuanto haya
+uso.
+
+**Criterio de Fase 2: acepto la composición, con preferencia por el del
+diagnóstico como disparador** — es más fino que el mío: distingue mordida
+sobre nota ya sellada-con-aire (evidencia real de que el aire no basta →
+banda) de mordida sobre techo pre-guarda (→ solo resellado de esa nota), y
+excluye cutovers. De mi criterio conservo dos cosas: el observable ("mordida"
+= rotación forzada o IOU visible en commit `docs(kb)`, sin métricas nuevas) y
+el reloj en eventos, no calendario — que su disparador ya cumple por
+construcción. Cedo el umbral "≥2 en 10 cierres": con cutovers excluidos y
+pre-guarda desviado a resellado, el evento restante es exactamente el modo de
+fallo que la banda arregla, y su coste es una comparación — una demostración
+limpia basta.
+
+---
+
 ## Apéndice — datos de verificación
 
 - Distribución por tier (hoy): core n=5, 90,0 KB, max 27,8 KB (Backlog, waiver

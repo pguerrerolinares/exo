@@ -524,6 +524,374 @@ rondas 1 y 2: cero hooks ni corridas manuales documentadas 07-11→17-ago, y
 las dos notas con 0 B de cambio en 19 días no tuvieron ningún mecanismo que
 las hubiera frenado si alguien las hubiera tocado.
 
+## Adenda — Ronda 4 (verificación del addendum de Paul + 2 descomposiciones + P3)
+
+### 1a. Las cuatro podas — confirmadas, con una corrección de horario
+
+Las cuatro filas de la tabla del addendum se verifican contra `git log` con sus
+tamaños exactos: 9-jul (10.772→7.469→9.282 en ~1,5 días), 11-jul (→8.493, no
+vuelve a superar 11.965 hasta el 18-jul, y sigue hasta 45.788 el 2-ago),
+3-ago (45.788→24.131, −21.657 exacto; 28.703 al día siguiente, `9238ade`
+02:16 del 4-ago, 14h después de `b3df97c` 12:05 del 3-ago — "al día siguiente"
+es correcto), y hoy (26.999→19.783→19.967). **Corrección de horario en la fila
+de hoy**: `5da6c59` (19.783) es de **02:38** y `d886505` (19.967) de **09:07**
+— ambas antes de mediodía. No es "por la mañana → por la tarde", son **6h29m
+dentro de la misma madrugada/mañana**. No cambia el argumento (recuperación
+inmediata, mismo día), pero el detalle horario estaba mal etiquetado.
+
+### 1b. Normalización por día activo — el factor 78× no se reproduce con datos de doctrina-agentes sola
+
+Días activos medidos por mí (commits reales, KB completa, mismo criterio en
+las dos ventanas): **13** (no 12) entre 11-jul y 2-ago, y **5** (no 4) entre
+3-ago y 19-ago. La cuenta de 12 cuadra si se excluye el propio día de la poda
+(11-jul) del conteo de "días de recuperación" — defendible. La de 4 no me
+cuadra con ningún criterio que haya probado (KB sola, KB+kbx+exo+agent-develop
+combinadas: mismo resultado, 5 días).
+
+**Más importante: no puedo reproducir el "10 B/día calendario en el muro"
+usando la serie de `doctrina-agentes` sola.** Con los datos de esta misma
+auditoría (ronda 1-2): (24.131→26.999)/16 días calendario (3-ago→19-ago) =
+**~179 B/día**, no 10. Usando solo el tramo bajo enforcement real
+(17-ago→19-ago, 26.840→26.999) = **~80 B/día**, tampoco 10. El "factor 78×"
+depende por completo de qué numerador se use para "en el muro", y ese
+numerador no sale de la trayectoria de `doctrina-agentes` que yo puedo
+reconstruir. Con mis propios números (80-179 B/día calendario "en el muro"
+frente a 1.695-3.108 "sin muro"), el factor real está entre **~9× y ~21×**,
+no 78×. Pido al orquestador que enseñe el cálculo exacto de esa cifra —
+puede que use un agregado de varias notas en vez de doctrina-agentes sola, lo
+cual sería legítimo pero hay que decirlo, porque cambia mucho la conclusión.
+
+### 1c/1d. Canon plano y concentración — NO reproducibles con mi metodología; discrepancia material
+
+Repliqué el cálculo (script en mi scratchpad: sumar bytes de todo fichero
+`.md` con `tier: core` o `tier: stable`, excluyendo `archive/`, `docs/`,
+`.superpowers/`, igual que `kbx budget`) en dos pares de commits:
+
+- **3-jul (`f931c7a`, mismo día que la tiering inicial) → hoy**: 363.640 B
+  (29 notas) → 313.340 B (28 notas). Esto **no** es plano — es una caída del
+  14%, y el nivel absoluto es 35% más alto que los 269.947 B del addendum.
+  Sospecho que su baseline usa un snapshot post-`f05485a` (5-jul, "retier
+  research→log 3 design docs fechados"), que retira de `stable` un documento
+  de diseño de 40.917 B (`research/2026-06-26-cerebro-portable...`) que en
+  `f931c7a` todavía contaba como `stable` — eso explicaría gran parte de los
+  ~50-90 KB de diferencia, pero no lo he confirmado con su commit exacto.
+- **11-jul (`91dd86d`) → hoy**: 234.441 B → 313.340 B, **delta +78.899 B**, no
+  +40.960. Y el reparto por nota **no coincide con las "seis" del addendum**:
+  mis seis mayores crecimientos reales son `agent-solve-it` (+12.720),
+  `doctrina-agentes` (+11.474), **`desarrollo-agentico` (+10.697)**, **`Paul -
+  perfil de trabajo` (+9.853)**, `evidencia-y-divulgacion` (+8.867, nota
+  nueva), `pragmatismo-y-pivots` (+7.118). **`lighthouses-bot`, que el
+  addendum cuenta entre los seis "proyectos activos", solo creció +827 B en
+  ese mismo tramo** — no pertenece a ningún top-6 razonable.
+
+**No puedo confirmar "el canon no crece" ni la lista exacta de seis notas tal
+como está en el addendum.** La lectura cualitativa (crecimiento muy
+concentrado, cola larga casi plana) sí se sostiene con mis números — pero con
+un total de crecimiento y una lista de notas distintos. Y el hallazgo nuevo es
+importante para P2: **`desarrollo-agentico` (+10.697) y `Paul - perfil de
+trabajo` (+9.853) crecen tanto o más que `pragmatismo-y-pivots` (+7.118)**, y
+ninguna de las dos está en la lista de "sanas" ni en la de "problemáticas" del
+addendum — quedaron fuera del análisis. Antes de fijar P2 en dos notas, valdría
+la pena correr el mismo test de headings sobre esas dos también.
+
+### 2. Descomposición de headings — doctrina-agentes vs pragmatismo-y-pivots (11-jul → hoy)
+
+Diff real por sección (`## heading`), bytes UTF-8, script en scratchpad:
+
+**`core/doctrina-agentes.md`** (+11.474 B total): **5 secciones nuevas que no
+existían el 11-jul** — "Transporte mecánico" (+1.258, sustituye a "Memory
+packet", −437), "Régimen de gates delegado" (+1.696), "Verificación
+independiente" (+3.778), "Mutation testing como validación del padre"
+(+1.844), "Capítulos que viven en nota propia" (+603) — **suman +9.179 B, el
+80% del crecimiento total**, en temas sin relación entre sí (gates delegados,
+metodología de review, testing, meta-organización de la propia KB). El
+crecimiento de secciones YA existentes (Contrato de memoria, Orquestador
+limpio, Completitud del brief, etc.) suma solo +2.497 B (22%). **Es
+mayoritariamente TEMAS NUEVOS — comportamiento de nota-área**, confirma la
+lectura de `landscape`.
+
+**`learnings/pragmatismo-y-pivots.md`** (+7.118 B total): una sección vieja y
+fechada, "Delta 2026-07-11 (campaña lighthouses)" (1.570 B, narrativa cruda),
+**desaparece y se reescribe como sección destilada sin fecha**, "Descartar con
+disciplina: lo que enseñó la campaña lighthouses" (6.698 B) — mismo material,
+mismo tema, 4,3× más desarrollado: esto es **profundización**, no tema nuevo.
+Solo una sección es genuinamente nueva y ajena a esa campaña: "Cuándo parar de
+auditar y empezar a implementar" (+867 B, 12% del crecimiento). El resto del
+crecimiento (+1.074 B) es expansión de "Observations", ya existente. **Es
+mayoritariamente PROFUNDIZACIÓN de un tema ya presente (destilar un delta
+fechado en doctrina madura) — comportamiento de nota joven convergiendo**,
+confirma la lectura de `diagnóstico`.
+
+**Con estos números, la contradicción entre `landscape` y `diagnóstico` se
+resuelve por nota, no en abstracto: ambos tenían razón, sobre notas
+distintas.** `doctrina-agentes` es el caso "landscape" (título que admite
+cualquier cosa, y de hecho recibe cualquier cosa); `pragmatismo-y-pivots` es
+el caso "diagnóstico" (tema cohesionado, madurando). Aplicar el test del
+título de la Fase 1 punto 3 a las dos por igual trataría igual a dos
+comportamientos que mi diff muestra que son distintos — partir
+`doctrina-agentes` por tema tiene soporte directo en los datos;
+`pragmatismo-y-pivots` no lo necesita (o necesita, como mucho, separar la
+sección nueva de "cuándo parar de auditar", que es pequeña). Dado el hallazgo
+del punto 1d, recomiendo correr el mismo diff sobre `desarrollo-agentico` y
+`Paul - perfil de trabajo` antes de cerrar P2 — ambas crecieron más que
+pragmatismo-y-pivots y no se han mirado.
+
+### 3. Unidad de uso real para la Fase 2 — recomiendo "commits que tocan canon (core/stable)"
+
+Probé tres candidatas contra la ventana 3-ago→hoy:
+
+| Unidad | Cómo se mide | Eventos 3-ago→hoy |
+|---|---|---|
+| Días con ≥1 commit | `git log --format=%ad --date=short \| sort -u` | 6 |
+| Commits `docs(kb):` (proxy /documenta) | grep del prefijo — es una convención real: 169 de ~200 commits desde julio la usan | 16 |
+| **Commits que tocan ≥1 nota `core`/`stable`** | `git show --name-only` + tier del frontmatter, mismo método usado en toda esta auditoría | **16** |
+
+Recomiendo **"commits que tocan canon"**: coincide con el proxy de
+`docs(kb):` en esta ventana (misma cuenta, 16, buena validación cruzada), pero
+a diferencia del prefijo de commit no depende de que nadie mantenga la
+disciplina del mensaje — mide directamente si se escribió en un fichero que el
+gate de presupuesto vigila, que es lo que la Fase 2 quiere capturar. "Días
+activos" es demasiado grueso: el 3-ago hubo 3 commits tocando canon en un
+solo día activo.
+
+**Calibración**: conté los commits-que-tocan-canon en el hueco natural entre
+dos consolidas reales anteriores (12-jul→3-ago, el propio gap que el addendum
+usa como referencia de "cadencia"): **54 commits**. "Dos pasadas de consolida
+en intención" son, por tanto, del orden de **~108 commits-que-tocan-canon**
+para calibrar el listón donde debería estar. La ventana actual (3-ago→hoy,
+19 días de calendario) lleva solo **16** — el 30% de una sola pasada
+histórica, ni de lejos las dos que pide el criterio. Esto cuantifica
+exactamente lo que dice la objeción de Paul: el sistema lleva desde el 3-ago
+sin acumular ni una cuarta parte de la exposición real que ya vivió una vez
+entre dos consolidas normales.
+
+## Adenda — Ronda 5 (encargo: mismo diff de headings sobre desarrollo-agentico y perfil)
+
+Mismo método que en la Ronda 4 (11-jul `91dd86d` → hoy, secciones `## `, bytes
+UTF-8).
+
+### `learnings/desarrollo-agentico.md` (+10.471 B) — mixto, tira hacia área pero menos que doctrina-agentes
+
+**4 secciones nuevas, +6.754 B (64,5% del crecimiento)**: "Delegar la
+adjudicación (gates + remedios) con guardrail de cita" (+2.299), "Negativos,
+controles y potencia" (+2.054), "Esperar procesos largos y subagentes idle"
+(+1.947), "Observations" (+454, cabecera nueva). **Crecimiento en secciones ya
+existentes: +3.717 B (35,5%)**, casi todo (+2.726 de los 3.717) concentrado en
+una sola sección, "Documentación ≠ enforcement", que se multiplicó ×5,75
+(574→3.300 B) — coincide con la propia bitácora del 3-ago llamándola "la
+doctrina más repetida del año".
+
+**Matiz importante frente al mecanismo puro de doctrina-agentes**: los 4
+temas nuevos no son ajenos al título de la nota ("Desarrollar con agentes de
+IA — La meta-habilidad") — son todos prácticas de trabajar con agentes
+(delegar juicio, medir potencia estadística, esperar procesos, catalogar
+observaciones sueltas), a diferencia de "Mutation testing" o "Capítulos que
+viven en nota propia" en doctrina-agentes, que son más tangenciales a "fuente
+única de doctrina de trabajo con agentes". **Confirma la adjudicación de
+factorización que ya tenía (landscape + diagnóstico), pero con matiz: es más
+"tema amplio que necesita subdivisión temática" que "cajón de sastre sin
+relación"** — el IOU de demanda suprimida que menciona el coordinador es
+coherente con este patrón: la nota sigue recibiendo material nuevo relevante
+a su título porque el título es ancho, no porque no tenga tema.
+
+### `Paul - perfil de trabajo.md` (+9.853 B) — 100% profundización, cero headings nuevos
+
+**Las 8 cabeceras son idénticas el 11-jul y hoy** ("Quién es", "Cómo piensa y
+decide", "Cómo trabaja como ingeniero", "Cómo quiere que trabajes con él",
+"Cómo comunica y argumenta", "Instrucción técnica operativa", "Observations",
+"Relations") — ni una nueva, ni una borrada. **El 100% del crecimiento
+(+9.853 B) es expansión de secciones que ya existían el 11-jul**: "Cómo
+comunica y argumenta" ×6,6 (496→3.265, +2.769), "Cómo quiere que trabajes con
+él" ×2,8 (1.335→3.720, +2.385), "Cómo trabaja como ingeniero" ×2,6
+(1.156→2.989, +1.833), "Quién es" ×3,8 (376→1.412, +1.036), "Observations"
++1.030, "Relations" +778.
+
+**Esto es el caso más limpio de la muestra: cero ambigüedad.** No entra en la
+factorización — no hay temas nuevos que separar, la estructura de 6 semanas
+atrás sigue siendo la estructura de hoy, y el crecimiento es maduración
+normal del contenido bajo cada epígrafe. Resuelve la pregunta que nadie había
+contestado: los +9.853 B no son un misterio ni un artefacto de endpoint —
+son la nota "entidad que converge" haciendo exactamente eso, converger,
+añadiendo detalle a una forma ya correcta. Confirma sin matices la
+adjudicación de `landscape` y `diagnóstico`.
+
+### Con las cuatro notas juntas — un gradiente, no una dicotomía
+
+| Nota | % crecimiento en headings nuevos | Lectura |
+|---|---|---|
+| `Paul - perfil de trabajo.md` | 0% | Profundización pura — no toca |
+| `learnings/pragmatismo-y-pivots.md` | ~12% (y el 88% es 1 delta fechado destilado) | Profundización — no toca |
+| `learnings/desarrollo-agentico.md` | ~65%, pero temas afines al título | Factorización — ya adjudicada, confirma |
+| `core/doctrina-agentes.md` | ~80%, temas dispares entre sí | Factorización — la más urgente |
+
+No hay una línea binaria "converge / es área" — hay un gradiente medible por
+%-en-headings-nuevos, y las cuatro notas caen en los dos extremos con
+claridad (0-12% vs 65-80%), sin casos ambiguos en el medio. Eso hace el test
+del título (Fase 1, punto 3) barato de aplicar con este criterio numérico
+como guía, no solo como juicio cualitativo al momento del split.
+
+## Adenda — Ronda 6 (reconciliación pico-vs-valle, y el pico-a-pico real)
+
+### 1. La hipótesis de la sierra en la baseline — CONFIRMADA con precisión
+
+Mi baseline era `91dd86d` (11-jul 23:34, el **valle**: justo después de la
+consolida bootstrap de ese mismo día). Sumaba deltas netos por nota, que
+matemáticamente siempre coinciden con el delta total (no hay una versión
+"bruta" distinta de sumar per-nota: la suma de netos = neto del total,
+siempre). Repetí el cálculo con baseline en el **pico** (`acf9159`, 11-jul
+16:46, *antes* de la consolida de esa noche): **delta total = +40.422 B** —
+a 538 B (1,3%) del +40.960 del addendum. **Confirmado**: la diferencia entre
+mi +78.899 y su +40.960 es enteramente de fase (valle vs pico), no de método
+neto/bruto.
+
+### 2. Verdicto de convención — pico-a-pico sí, pero el pico-a-pico *correcto* es entre ciclos completos, no "pico de hace 6 semanas vs hoy a medio ciclo"
+
+Firmo que pico-a-pico es la medida correcta para "¿está acotado el stock?" —
+pero con una corrección: comparar un pico de hace 6 semanas contra "hoy"
+mezcla un pico real con un punto intermedio de otro ciclo (hoy, tras el split
+de esta madrugada, no es un pico ni un valle, es el arranque de un ciclo
+nuevo). La prueba que responde de verdad a "¿el techo del ciclo sube o baja
+de una vuelta a la siguiente?" es comparar el **pico justo antes de una
+consolida con el pico justo antes de la siguiente** — dos cimas consecutivas,
+no cima-y-medio-valle.
+
+Hice esa comparación con los dos ciclos completos más recientes: el pico justo
+antes de la consolida del 03-ago (`35ca248`, padre de `b3df97c`) y el pico
+justo antes de la de hoy (`85b57e2`, padre de `5da6c59`):
+
+**453.261 B (27 notas) → 310.994 B (27 notas) — una CAÍDA de −142.267 B
+(−31,4%) entre picos consecutivos.**
+
+Esto es más favorable a "el sistema funciona" que cualquier otra lectura de
+esta auditoría: el pico del ciclo más reciente es un tercio más bajo que el
+del ciclo anterior — coherente con que el trinquete solo baja techos y con
+que cada split reduce de verdad el máximo alcanzable la vuelta siguiente. **Con
+una salvedad real**: son solo 2 picos (n=2), y el primero (453K) es en gran
+parte deuda histórica de la era sin ningún gate (todo julio creció sin freno):
+que el segundo pico sea menor no prueba todavía una amplitud de ciclo estable
+— prueba que la purga de agosto fue real. Hace falta un tercer pico (la
+próxima consolida) para saber si el sistema se está asentando en ~300K o si
+sigue bajando o si empieza a repuntar.
+
+### 3. Con pico-a-pico real, ¿quién sobrevive como imán? — Ninguno de los candidatos, y eso reordena el marco
+
+Repetí el desglose por nota entre los dos picos de ciclo completo (no entre
+pico-y-hoy):
+
+| Nota | Pico 03-ago | Pico hoy | Δ pico-a-pico |
+|---|---|---|---|
+| `agent-solve-it.md` | 89.189 | 18.848 | **−70.341** |
+| `lighthouses-bot.md` | 60.360 | 15.904 | **−44.456** |
+| `doctrina-agentes.md` | 45.788 | 26.999 | **−18.789** |
+| `pragmatismo-y-pivots.md` | 21.448 | 14.323 | **−7.125** |
+| `Paul - perfil de trabajo.md` | 24.353 | 17.991 | **−6.362** |
+| `agent-develop.md` | 16.614 | 15.696 | −918 |
+| `desarrollo-agentico.md` | 19.452 | 18.951 | −501 |
+| ~19 notas más | — | — | **0** (bit a bit idénticas) |
+| `core-index.md` | 3.145 | 4.721 | +1.576 (estructural, esperable) |
+| `pguerrero-music.md` | 12.279 | 15.680 | +3.401 |
+| research/estado-del-arte | 5.958 | 7.206 | +1.248 |
+
+**Bajo esta convención, ni `perfil` ni `desarrollo-agentico` sobreviven como
+imanes — y tampoco `doctrina-agentes` ni `pragmatismo-y-pivots`.** Los seis
+"grandes crecedores" de las rondas 4-5 (medidos desde un pico o valle de hace
+6 semanas hasta hoy) **todos netean negativo entre los dos ciclos completos
+más recientes**. Los +8-11 KB que parecían growth real eran, en su mayoría, la
+mitad ascendente de un ciclo que termina más abajo de donde empezó. Casi
+toda la KB (19 de ~27 notas) es **bit a bit idéntica** entre los dos picos —
+cero movimiento, ni siquiera de amplitud.
+
+**Esto no invalida el diff de headings de las rondas 4-5** — la forma del
+crecimiento (temas nuevos dispersos vs profundización de uno existente) sigue
+siendo el criterio correcto para decidir SI una nota debería partirse **cuando
+vuelva a tocar techo dentro de su ciclo actual**. Pero cambia la urgencia: con
+picos cayendo un 31% de un ciclo al siguiente, el argumento de "hay que
+partir ya `doctrina-agentes` por el título" pierde parte de su fuerza
+temporal — el propio ciclo ya se está encogiendo sin necesidad de aplicar el
+test del título todavía. Sigue siendo el caso más claro de nota-área de los
+cuatro (ronda 4-5), pero no es una emergencia de volumen: es una emergencia
+de forma, si acaso.
+
+**Sobre `perfil` específicamente**: la pregunta del coordinador sobre si el
+diff de headings seguía siendo urgente queda resuelta por partida doble.
+Forma (ronda 5): 0% headings nuevos, profundización pura. Magnitud
+(esta ronda): −6.362 pico-a-pico, **no es un imán, es parte del mismo patrón
+de ciclo que las demás**. Las dos vías de evidencia convergen en "no toca":
+era la única nota grande sin explicar, y ya está explicada en las dos
+dimensiones que importan.
+
+### 4. Sobre "40 B/día neto vs ~1,9 KB/día bruto en el muro" — la cifra de 1.863 está mal etiquetada, la conclusión se sostiene igual
+
+El "+1.863 del 4-ago" que cita el abogado no es un *append* — es el tamaño
+exacto de la poda del triaje del **17-ago** (28.703→26.840 = −1.863),
+verificado en la ronda 2 de esta auditoría. No hay un append de esa magnitud
+el 4-ago en mis datos (ese día el salto fue +4.572, de la poda del 3-ago a la
+brecha del 4-ago). El número está mal fechado/etiquetado, pero **la
+conclusión que sostiene —"el muro no disuade la escritura, lo que contiene
+el stock es la poda, la contención es el ciclo completo, no el dique"— es
+exactamente lo que muestran los picos del punto 2**: dentro de un ciclo el
+muro no frena nada (la nota crece hasta tocarlo, ronda 1-2), y lo que de
+verdad baja el máximo es la poda que cierra el ciclo. Firmo la conclusión, no
+el número que la ilustra.
+
+## Bloque final — números canónicos (cierre factual)
+
+Última palabra factual del expediente. Convención declarada en cada número;
+donde no reconcilia con el abogado/orquestador, lo digo explícito y queda "en
+disputa" en vez de fusionarlo.
+
+**1. Crecimiento del canon, 6 semanas (11-jul → hoy) — dos preguntas, dos
+convenciones, dos números, ninguna sustituye a la otra:**
+
+- *"¿Cuánto trabajo de contención ha hecho falta?"* → **valle-a-hoy: +78.899 B**
+  (baseline `91dd86d`, 11-jul 23:34, justo tras la consolida bootstrap de esa
+  noche). Es la medida correcta para esta pregunta porque cuenta TODO lo que
+  hubo que volver a contener desde el último punto en que alguien lo dejó
+  limpio — incluye el ciclo de julio entero sin gate.
+- *"¿Está acotado el stock?"* → **firmo pico-a-pico entre ciclos completos de
+  consolida, no pico-hace-6-semanas-contra-hoy.** Con esa convención: **pico
+  antes de la consolida del 3-ago (453.261 B) → pico antes de la de hoy
+  (310.994 B) = −142.267 B (−31,4%)**. El canon **no solo no crece
+  pico-a-pico: se está reduciendo** entre los dos ciclos completos más
+  recientes. Salvedad que debe viajar con el número: n=2, y el primer pico
+  incluye la deuda histórica de julio sin gate — hace falta un tercer ciclo
+  para saber si esto es una amplitud estable o una purga de una sola vez.
+
+**2. Distribución (11-jul pico `acf9159` → hoy)**: **21 de 30** notas
+crecen (28 persistentes desde el pico + 2 nuevas), 5 planas, 4 decrecen — el
+"21" reconcilia exacto; el denominador "27" del orquestador no lo reproduzco
+(a mí me sale 28 o 30 según se cuenten las 2 notas nuevas), diferencia menor,
+no bloqueante. **Top-3 = 47-65% según denominador** (65,1% del neto total
++40.422; 47,0% de la suma bruta de todo lo que creció, +55.940) — el "53%"
+del orquestador cae dentro de ese rango pero no lo reproduzco exacto con
+ninguna de mis dos convenciones. Confirmo la concentración fuerte; el "53%"
+puntual queda como aproximado, no verificado al byte.
+
+**3. Factor del muro — CANÓNICO: ~9-21× (neto).** Confirmado por el propio
+orquestador: su 78× anclaba en el último commit del día 3-ago (26.840, ya
+recuperado 2.709 B desde el mínimo post-poda de 24.131 en horas), no en el
+mínimo real. Mi ancla en el mínimo (24.131) es la correcta para "cuánto
+contiene el muro la escritura" — con eso, calendario da 179 B/día (todo el
+tramo 3→19-ago) u 80 B/día (solo el tramo bajo enforcement real, 17→19-ago),
+frente a 1.695-3.108 B/día sin muro → **factor 9-21×**, no 78× ni 180×. Sobre
+neto-vs-bruto: no tengo una cifra "bruta" separada de la neta para el muro en
+mi propia serie (mis números YA son la trayectoria bruta real, medida en cada
+commit) — el ~1,9 KB/día "bruto" del abogado no lo puedo verificar porque no
+reconstruyo de dónde sale (ver ronda 6, el "1.863" que lo alimentaba estaba
+mal fechado). Mi 9-21× es la cifra con la que puedo responder por cada
+número que la compone.
+
+**4. El régimen nuevo no está probado — CANÓNICO, con una corrección
+retenida**: **16 commits-que-tocan-canon** en la ventana 3-ago→hoy, frente a
+**54** en el hueco natural anterior entre dos consolidas reales (12-jul→3-ago)
+— el 30% de una sola pasada histórica, lejos de las dos que pide el criterio
+de Fase 2. Sobre "4 días activos": mantengo mi corrección de la ronda 2/3, no
+retractada — cuento **5** días activos (no 4) en la ventana 3-ago→19-ago
+(3,4,17,18,19 de agosto), verificado con `git log` sobre los cuatro repos
+relevantes (kb-demo/kbx/exo/agent-develop, mismo resultado). Diferencia
+de 1 día, no cambia la conclusión (el régimen nuevo lleva poquísima exposición
+real), pero el número exacto es 5.
+
 ## Notas metodológicas
 
 - Bytes = `wc -c` sobre el fichero en disco, la misma métrica que usa

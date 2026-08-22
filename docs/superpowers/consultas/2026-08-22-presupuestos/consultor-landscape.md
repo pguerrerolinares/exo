@@ -618,6 +618,187 @@ prescrito al disparar.
   directos). Context Rot queda como riesgo teórico secundario. Ambos
   argumentos prescriben el mismo fix.
 
+## 6.8 Ronda 4: re-adjudicación de pragmatismo-y-pivots, y volumen vs continente
+
+Tras el rechazo de Paul ("consolida ya lo hemos realizado varias veces y
+siempre muerde") y el addendum del orquestador (canon plano 7 semanas, 99,8%
+del crecimiento en 6 notas), el coordinador pidió tres cosas. Con arqueología
+git propia sobre `pragmatismo-y-pivots`:
+
+### Re-adjudicación de pragmatismo-y-pivots: PASA, y ahora sé por qué
+
+Serie medida (git, `learnings/pragmatismo-y-pivots.md`):
+
+| fecha | bytes | evento |
+|---|---|---|
+| 11-jul | 7.205 | 1 delta episódico apilado (campaña lighthouses arranca) |
+| 18-jul | 21.448 | +14,2 KB en una semana: 5 `/documenta` de campaña apilando deltas |
+| 3-ago | 14.323 | `/consolida` destila los deltas en 2 secciones temáticas |
+| 22-ago | 14.323 | **19 días a CERO bytes** |
+
+El +8.773 del addendum (11-jul→hoy) es un artefacto del endpoint: cae justo
+antes del pico episódico. La descomposición real es +14.243 de episodio
+−7.125 de destilado +0 desde entonces. **La nota no está creciendo: digirió
+una campaña y convergió.** Compárese con `doctrina-agentes`: podada el 3-ago,
+repuso 4,5 KB en un día activo y mordió dos veces hoy. Misma poda, dinámica
+opuesta.
+
+Lo que esto refina del test (el coordinador tenía razón en separar cohesión
+de convergencia — mi §6.6 adjudicó lo primero y solo la historia muestra lo
+segundo): **el título-área es condición de susceptibilidad, no sentencia.**
+Una nota-área puede crecer sin límite; si duele o no lo decide la tasa de
+flujo del dominio que el título reclama. `pragmatismo` es área sobre un
+dominio templado (el carácter de Paul: los episodios lo *refinan*, no lo
+amplían — converge como el perfil). `doctrina-agentes` y
+`desarrollo-agentico` son áreas sobre el dominio más caliente de la KB —
+trabajar con agentes es lo que Paul hace todo el día, y cada sesión genera
+doctrina nueva que ambos títulos reclaman. Veredicto revisado: pragmatismo
+PASA por dinámica demostrada (con la cautela de que agosto tuvo ~4 días
+activos: poca exposición), NO entra en la factorización, y queda marcada
+susceptible — está a 677 B de su techo y otra campaña la llevará al muro; su
+remedio probado es el ciclo delta→destilado que ya funcionó en ella, con
+resellado con aire.
+
+De propina, el caso da el argumento más limpio del expediente:
+**pragmatismo (episodio→destilado→plana) es el diseño funcionando;
+doctrina-agentes (poda→reposición al día siguiente, 4 veces) es un
+continente incapaz de retener su destilado.** El sistema no está roto en
+general: está roto exactamente donde el título no puede converger.
+
+### P2 — volumen o continente: continente, y la factorización es LA acción
+
+El dato que lo decide no es teoría mía: **las ~44 notas del canon fuera de
+las 6 que crecen sumaron +77 bytes en 7 semanas.** La KB entera ya converge
+— salvo el continente donde cae el flujo doctrinal del dominio agentes. El
+problema no es de volumen (el canon está plano); es que dos títulos-área se
+disputan un flujo que ninguno puede cerrar.
+
+Sostengo por tanto que la factorización pasa de accesoria a principal, con
+alcance exacto de **2 notas**: `doctrina-agentes` (partición ya escrita en
+sus 10 headings-concepto; queda como índice) y `desarrollo-agentico` (hechos
+del harness → nota propia; benchmarks/epistemología → nota propia o junto a
+evidencia-y-divulgacion; SDD ya es concepto con nombre). Pragmatismo NO
+(véase arriba). La distinción lazy/campaña es efectivamente vacía para esas
+dos: a 33 y 49 B del techo, el tripwire ya está disparado — "lazy" ejecuta
+mañana lo que una campaña hoy.
+
+**Predicción del marco sobre la tasa de reposición post-split** (separando
+evidencia de opinión):
+
+1. Las notas-concepto resultantes convergen individualmente: una afirmación
+   bien formulada se termina, y el refinamiento posterior sustituye en vez
+   de añadir. Evidencia local directa: las 44 notas de +77 B — el régimen
+   convergente ya existe en toda nota que no es área. Evidencia externa: las
+   fichas de Luhmann (90.000, ninguna "gorda"; el crecimiento fue siempre
+   extensivo — más fichas — no intensivo).
+2. El flujo doctrinal NO desaparece (~3,1 KB/día activo en campaña, medido
+   por el orquestador): se redistribuye. Refinamientos de conceptos
+   existentes → sustitución en la nota-concepto (delta neto ≈0); conceptos
+   genuinamente nuevos → **notas nuevas** — exactamente el patrón que el
+   addendum ya clasifica como crecimiento sano (`evidencia-y-divulgacion`,
+   `foss-jam-kit`). El problema reaparece solo como conteo de notas, que ni
+   el presupuesto ni el retrieval penalizan.
+3. Lo que sí crecerá y hay que vigilar (concesión): los índices —
+   doctrina-agentes-como-índice y el core-index ganan ~1 línea por concepto
+   nuevo (~100 B frente a los 1-3 KB del inline). Y más notas pequeñas dan
+   más candidatos al hook de punteros; los punteros son justamente el
+   mecanismo diseñado para eso, pero es el sitio donde mirar si algo se
+   degrada.
+4. Falsable: si tras el split las notas-concepto engordan o el índice repone
+   al día siguiente como hoy lo hace el continente, mi marco está mal y el
+   problema era volumen. Se observa en commits, sin métricas nuevas.
+
+### P1 — literal: la propuesta v1 NO resuelve el bucle
+
+Lo retrasa y mejora la calidad de la poda. La guarda del 15% compra 2-5
+semanas de aire por resellado; la evicción nombrada hace mejores podas; la
+semántica del mordisco evita mutilaciones. Ninguna toca la tasa de
+reposición, porque la tasa es flujo doctrinal real de un dominio vivo — un
+gate no legisla cuánto aprende Paul por día. Lo único de la v1 que ataca el
+bucle es el par 3+7 SI la primera aplicación se ejecuta como split
+factorizador. Mi voto SÍ se mantiene **con reorden narrativo**: la acción
+principal es la factorización de las 2 notas (3+7 fusionados y explícitos:
+la próxima `/consolida` no desahoga — parte por tema con el test del
+título); guarda, evicción y semántica (1, 2, 6) pasan a "reducen fricción
+mientras tanto"; 4 y 5 quedan igual. Si la síntesis vendiera la v1 sin ese
+reorden como "resuelve el bucle", mi voto sería NO — sería vender desahogo
+como solución, que es literalmente la queja original de Paul.
+
+Sobre P3 del addendum (de pasada): la unidad activa observable sin métricas
+nuevas es el número de `/documenta` que tocan canon — commits `docs(kb)` en
+la KB. "Dos pasadas de /consolida" → "N sesiones de /documenta con canon
+tocado" (p.ej. 10) deja el criterio inmune a vacaciones.
+
+## 6.9 Ronda 5: revisión de firma tras la retirada de dos cifras del addendum
+
+El orquestador retiró como falsas dos cifras del addendum (error de método:
+prefijos de carpeta fijos sobre una KB reorganizada entremedias): "el canon
+no crece" (la KB entera pasó de 570.910 a 1.498.996 B) y la concentración
+99,8% (real: sobre notas con techo presentes en ambas fechas, **21 de 27
+crecen** y el top-3 concentra el **53%**). Además la arqueología completó el
+diff por headings: perfil **0%** headings nuevos, pragmatismo **12%**,
+desarrollo **65%** (afines al título), doctrina **80%**.
+
+### Qué cae de lo mío y qué sobrevive
+
+**Cae**: mi argumento decisivo de §6.8 — "las ~44 notas fuera de las 6
+sumaron +77 B: el régimen convergente ya existe en toda nota que no es
+área". Ese dato era artefacto. Con 21/27 creciendo, el crecimiento
+distribuido es real, y la jerarquía "factorización primero, v1 como
+fricción-mientras-tanto" se apoyaba en la concentración retirada. **Retiro
+"factorización como LA acción principal".**
+
+**Sobrevive, reforzado**: el test del título como *clasificador*. Predijo
+perfil (nota-entidad: 0% headings nuevos, puro engorde de secciones
+existentes — confirmación estructural) y pragmatismo (episódica: 12%; y el
++7.118 del addendum corregido es exactamente el 14.323−7.205 de mi serie de
+§6.8 — mi arqueología queda confirmada aritméticamente, la nota está plana
+desde el 3-ago). El gradiente 0/12/65/80 separa sin zona gris las dos
+poblaciones que mi test distinguía cualitativamente.
+
+**Y aparece el dato que decide la estructura de la v2**: `perfil` es la
+prueba de que **una nota puede converger por título y morder igual** (0%
+headings nuevos, #4 en crecimiento, a 9 B del techo). Para ella la
+factorización no ofrece nada — mi propio test dice "no se parte". Su único
+remedio es el ciclo v1: evicción con juicio (qué párrafo ya no paga su
+sitio → bitácora) + resellado con aire. Existe por tanto una clase de notas
+donde la v1 es EL remedio, no un paliativo.
+
+### Voto revisado: SÍ a la v2 de dos patas, sin jerarquía única
+
+La estructura de dos patas no es un compromiso — es lo que mi marco siempre
+decía si se le quita el dato falso: *cada nota recibe el remedio que su
+diagnóstico indica*. El test nunca prescribió partir todo; prescribió partir
+lo que lo falla. Perfil lo pasa → no se parte → necesita la v1. Doctrina
+(80%) y desarrollo (65%) lo fallan → factorización. El clasificador entre
+patas es el test del título, ahora operacionalizado con el criterio numérico
+del orquestador — **% del crecimiento en headings nuevos**, computado en git
+al disparar el tripwire (cero métricas continuas nuevas). Cautela contra el
+fetichismo del umbral: son 4 puntos de datos; sugiero >50% candidata a
+partir, <25% expansión→evicción, entremedias juicio del LLM de `/consolida`,
+y el número se revisa con los casos que vengan.
+
+Dos condiciones del voto, ambas ya aceptadas en rondas previas:
+1. **Venta honesta intacta**: ninguna pata cambia la tasa de reposición —
+   la v2 gestiona el crecimiento, no legisla cuánto aprende Paul por día.
+2. **Semántica del mordisco** (punto 6 de la v1) intacta en ambas patas:
+   la salida es evictar/partir/rotar con juicio, nunca recortar el delta.
+
+Honestidad sobre mi predicción post-split (§6.8): sigue en pie y falsable
+para las 2 imanes, pero su evidencia local más fuerte era el dato retirado;
+ahora descansa más en el marco externo (Luhmann: crecimiento extensivo, no
+intensivo) y en el caso pragmatismo. Lo señalo para que la síntesis no la
+cite con más peso del que tiene.
+
+Caso de prueba inmediato que propongo vigilar: **perfil está a 9 B del
+techo**. Es el primer espécimen de la pata v1 pura (converge por título, no
+hay nada que partir). Si el ciclo evicción-con-juicio + aire no puede
+manejarlo sin mutilar, la pata v1 de la v2 cojea y hay que volver a mirar.
+Y del +163% de la KB entera: bitácoras y archive crecen por diseño
+(append-only — el régimen extensivo de Luhmann); ese número no es patología,
+y no debe usarse en la síntesis como si lo fuera. El dato relevante para
+presupuestos es el 21/27.
+
 ## Fuentes
 
 Papers (verificados en arXiv/editor hoy):

@@ -390,6 +390,150 @@ retrieval con la semántica de tiers ya declarada; excluir del todo haría el
 archivo invisible a la vía automática (inyección de punteros) cuando lo superado
 marcado sigue valiendo como precedente. Downrank por defecto, exclusión no.
 
+## 11. Ronda 4 — el rechazo de Paul, y las tres preguntas del addendum
+
+(Sobre el mensaje cruzado: mi voto anterior ya respondía — firmé la v1 tal como
+está, banda en Fase 2, sin discrepancia. Queda confirmado y ahora superado por
+esta ronda.)
+
+### P1 — ¿La v1 resuelve el bucle o lo retrasa? Respuesta literal
+
+**Lo retrasa y lo abarata; no lo resuelve.** La v1 arregla el MOMENTO de la poda
+(consolida, no cierre de sesión), el CRITERIO (valor, no orden de llegada) y el
+NACIMIENTO de los techos (aire garantizado). No toca la tasa de reposición: la
+cámara se rellena al ritmo de producción de doctrina de Paul, que es exógeno, y
+ninguna guarda debe tocarlo — reducir la producción sería el único "arreglo" peor
+que el problema. **El bucle en las notas-área es permanente mientras sigan siendo
+área.** Mi propio modelo de bomba lo decía: una bomba se llena y se vacía; eso no
+es avería, es funcionamiento. Lo que la v1 compra es que cada ciclo cueste menos
+(sin Tetris de cierre, sin IOUs) y pode mejor. Dicho tal cual, sin venta.
+
+La única palanca de toda la propuesta que toca DÓNDE aterriza la producción (no
+cuánta hay) es la factorización: tras partir, lo nuevo cae en capítulos con aire
+o crea capítulo nuevo (nota nueva = 0% de su presupuesto), y el cajón queda como
+spine-índice. La reposición no desaparece: **se desconcentra**. El dato del
+addendum lo explica al revés: el 99,8% del crecimiento cae en 6 notas porque los
+cajones concentran — todo el flujo choca contra los mismos 2 techos al 99%.
+Honestidad también aquí: el spine sigue recibiendo primero (doctrina recreció
+184 B la misma tarde de su split), así que el bucle persiste post-factorización,
+pero su amplitud baja de oscilaciones de 7–21 KB a 1–3 KB, y las mordidas de
+write-path desaparecen mientras el spine conserve aire.
+
+### P2 (y el punto 2 del coordinador) — pragmatismo-y-pivots, medido
+
+Descompuse el +8.773 por secciones H2 en tres fechas (script en scratchpad):
+
+- **07-11**: 7.205 B — For agents (3.509) + un "Delta 2026-07-11 (campaña
+  lighthouses)" de 1.654 B.
+- **08-03**: 14.323 B — el delta se convirtió en "Descartar con disciplina: lo
+  que enseñó lighthouses (destilado)" (6.779 B) + "Cuándo parar de auditar"
+  (919 B) + Observations ×2. **Todo el crecimiento es UN bolo: la pasada de
+  consolida del 03-ago destilando una campaña.**
+- **08-22**: 14.323 B — **idéntica al byte**. 19 días, cero cambios, con 677 B
+  de aire disponible (no es supresión: doctrina tenía 33 B y mordió; esta tenía
+  sitio y nadie lo usó). Y el test más fino: hoy hubo doctrina de decisión
+  fresca buscando casa (la regla de los caps) y fue a doctrina-agentes /
+  desarrollo-agentico, **no aquí**.
+
+Mi criterio pre-registrado ("≥2 H2 nuevos ligados a campañas → área encubierta")
+se cumple formalmente, así que concedo la mitad del dictamen: **el título es
+cajón** (siempre cabrá una lección de pragmatismo más). Pero la mitad dinámica
+falla: la demanda no es perpetua sino **episódica** — un bolo por campaña con
+descartes, congelación entre bolos. Eso pide una tercera clase en la taxonomía:
+
+- **Área activa** (doctrina-agentes, desarrollo-agentico): demanda continua,
+  3.108 B/día activo sin muro, 4 podas / 4 recuperaciones. **Factorizar YA.**
+- **Área latente** (pragmatismo-y-pivots): título-cajón + demanda episódica.
+  **Watchlist con trigger**: no partirla hoy (sería campaña de refactor sin
+  presión, contra el propio punto 3 de la v1); al próximo mordisco, el split es
+  por tema — "Descartar con disciplina" ya es un capítulo-afirmación listo.
+- **Convergentes** (el resto): sin cambio.
+
+Las notas a partir ya son **2, no 3**. La contradicción con landscape queda
+resuelta por el dato, no por reparto: tenía razón en el título, yo en la
+dinámica, y la clase "latente" captura ambas mitades.
+
+### P2 de fondo — ¿volumen o continente? Firmo la reordenación
+
+**Continente.** El canon lleva 7 semanas plano (269.947→268.560 B) y el
+crecimiento está concentrado en cajones — es un problema de dónde aterriza, no
+de cuánto hay. Firmo la jerarquía invertida: **acción principal = factorizar
+doctrina-agentes y desarrollo-agentico** (la partición de doctrina ya está
+escrita en sus headings; el IOU desambigua desarrollo-agentico y la primera
+aplicación lo salda); guarda + banda quedan como gestión de fricción mientras
+tanto y para las notas que no son área. Es lo que mi §8 ya decía ("para un área
+genuina, banda+evicción no basta: piden factorización continua") elevado de
+nota al pie a titular. Condición heredada de la guarda: los capítulos nuevos
+nacen con techo honesto (≥15% de aire al sellar).
+
+### P3 — el criterio de Fase 2, reescrito sin calendario
+
+Mi criterio original ("dos pasadas de consolida") era de tiempo de calendario y
+las vacaciones lo rompen — concedido. Propuesta de reemplazo, más simple aún,
+por eventos y sin ventana: **la primera mordida en caso normal (rotación forzada
+o IOU para hacer caber un delta) ocurrida DESPUÉS de la primera /consolida
+post-guarda dispara Fase 2.** Sin contar días ni pasadas: con aire ≥15%
+garantizado por la guarda, cualquier mordida en caso normal es la demostración
+empírica de que el headroom no basta — que es exactamente lo que la banda
+necesita demostrar para ganar su código. Observable en commits (la mordida deja
+rastro: rotación o IOU en el diff), cero métricas nuevas, y las vacaciones no lo
+tocan: sin uso no hay mordidas ni disparo, con uso el primer fallo dispara.
+
+## 12. Ronda 5 — voto revisado tras la retirada de las dos cifras
+
+Mi firma de "factorización primero" se apoyaba en el dato retirado (99,8% del
+crecimiento en 6 notas). Con el dato corregido — top-3 concentra 53%, 21 de 27
+notas con techo crecen — el argumento de la desconcentración compra menos de lo
+que afirmé: la factorización ataca ~2 de los 5 mayores imanes, y el crecimiento
+distribuido que la corrección revela es real y solo lo opera el ciclo v1. Lo
+digo sin rodeo: **retiro la jerarquía "factorización primero". Voto: dos patas
+sin jerarquía única.**
+
+El caso perfil es el que me obliga y lo reconozco como tal: 0% de headings
+nuevos en 6 semanas (estructura convergente por título y por dinámica), y aun
+así #4 en crecimiento (+9.853) hasta quedarse a 9 B del muro. Una nota puede
+converger estructuralmente y clavar el techo por puro volumen de engorde. Su
+remedio no es partir: es exactamente la pata v1 — poda por valor de las
+secciones infladas + resellar con aire. Mi taxonomía de ronda 4 (área
+activa/latente/convergente) clasificaba bien la ESTRUCTURA pero asumía que
+"convergente" implicaba "sin fricción", y perfil lo refuta.
+
+**Qué opera cada pata:**
+
+- **Pata A — ciclo v1** (guarda de sellado, evicción editorial por valor,
+  resellado con aire): el crecimiento distribuido (21/27) y las convergentes
+  pegadas al techo — perfil como caso tipo, más las 4 notas a nominal al
+  98–99%. También los proyectos activos sanos (solve-it +12.720: no se opera,
+  converge al cierre; a lo sumo reseal con aire si molesta).
+- **Pata B — factorización por tema**: los imanes-área. Doctrina-agentes es el
+  caso puro (80% de headings sin relación al título: cajón). Desarrollo-agentico
+  entra como caso más suave y con motivo distinto del que yo daba: el gradiente
+  (65% nuevos pero AFINES al título) dice que no es cajón sino tema amplio
+  subdividiéndose — su split correcto es por GÉNERO (meta-habilidad narrativa vs
+  referencia técnica del harness, la mezcla que señalé en ronda 1), y el IOU
+  pendiente lo mantiene en "ya". Pragmatismo (12%) queda en watchlist, como
+  estaba.
+
+**El gradiente de headings de arqueología es, de propina, el instrumento de
+triaje que faltaba** — barato y sin métricas nuevas (se calcula con git al abrir
+consolida): ~0% nuevos → pata A (engorde: podar por valor + resellar);
+alto % nuevos y afines → mirar mezcla de géneros, split por género si la hay;
+alto % sin relación → cajón, pata B. Con eso la elección de pata por nota deja
+de ser juicio de gusto.
+
+**Orden real de ejecución: no hay orden — hay UNA pasada.** La próxima
+/consolida hace las dos patas juntas: parte doctrina (por tema) y desarrollo
+(por género), salda el IOU de la regla de los caps, poda y resella perfil con
+aire (≥1,15·S ≈ techo ~20.700), y resella con aire lo que esté en banda. La
+jerarquía que descarto es la conceptual; la secuencia operativa es una sesión.
+
+Sin cambios: el trigger de Fase 2 por eventos (§11-P3) no depende de las cifras
+retiradas y se mantiene. Y una nota de método para el acta: la cifra retirada
+"+163% la KB entera" tampoco debe sustituir a la retirada — KB entera incluye
+log/ y archive/, que crecen por diseño (append); la serie relevante para este
+expediente sigue siendo el canon con techo, donde el dato firme es 21/27
+creciendo con top-3 al 53%.
+
 ## Datos de verificación
 
 - Spec fundacional: `kb-demo/docs/superpowers/specs/2026-07-03-memoria-v2-design.md`
