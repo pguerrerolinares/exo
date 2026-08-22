@@ -121,4 +121,43 @@ if [ ! -f "$EXO_INDEX" ]; then
   exit 0
 fi
 
+# --- Búsqueda ----------------------------------------------------------------
+# Pide 4 y capa a 1400 para que quede margen: el filtro de core-index (Task 3)
+# puede quitar uno, y con `--limite 3 --cap-bytes 1024` nos quedaríamos en 2
+# punteros. El cap real de 1024 sobre el bloque final lo aplica el hook.
+EXO_INJECT_TIMEOUT="${EXO_INJECT_TIMEOUT:-5}"
+ERR_TMP="$(mktemp)" || ERR_TMP=""
+
+SALIDA="$(timeout "$EXO_INJECT_TIMEOUT" "$EXO_BIN" recall \
+            --db "$EXO_INDEX" --query "$PROMPT" \
+            --min-similitud 0.40 --limite 4 --cap-bytes 1400 \
+            --refresca --json 2>"${ERR_TMP:-/dev/null}")"
+RC=$?
+
+ERR=""
+[ -n "$ERR_TMP" ] && ERR="$(head -c 300 "$ERR_TMP" 2>/dev/null)" && rm -f "$ERR_TMP"
+
+if [ "$RC" -eq 124 ]; then
+  # `timeout` usa 124. Que el guard sea nuestro y no del harness es lo que hace
+  # este caso visible: un timeout del harness no dejaría rastro en el log.
+  log_ri "degraded" "reason=timeout-guard t=${EXO_INJECT_TIMEOUT}s"
+  exit 0
+fi
+
+if [ "$RC" -ne 0 ]; then
+  # El engine sale con 1 para CUALQUIER error (main.rs:246): la abstención por
+  # "ningún hit sobre el umbral" es indistinguible por código de una DB
+  # corrupta o un ONNX roto. El distinguidor está en stderr y es estable.
+  # Gatear solo por código sería un hook donde el engine roto loguea `empty`
+  # para siempre — con forma de abstención correcta, que es la peor forma de
+  # romperse.
+  case "$ERR" in
+    *"recall vacío"*) log_ri "degraded" "reason=empty" ;;
+    *) log_ri "degraded" "reason=error rc=$RC err=$(printf '%s' "$ERR" | tr -d '\n' | cut -c1-120)" ;;
+  esac
+  exit 0
+fi
+
+[ -n "$SALIDA" ] || { log_ri "degraded" "reason=empty"; exit 0; }
+
 exit 0

@@ -103,10 +103,6 @@ if ! grep -q 'no-engine' "$REFLEX_LOG_FILE" 2>/dev/null; then
 else fail "F2: 'SÍ, DALE' calla también bajo LC_ALL=C" "la normalización depende del locale"; fi
 
 # --------------------------------------------------- T1: P1 (nunca rompe) ---
-# OJO: hoy estos tres casos son VACUOS — la Task 1 solo hace `[ -x "$EXO_BIN" ]`,
-# nunca ejecuta el binario, así que pasan con cualquier fichero ejecutable. Se
-# vuelven reales en la Task 2, que es la que invoca el engine. Se dejan puestos
-# para que esa tarea nazca con la red ya montada.
 # Binario que sale con 2, que revienta, que escupe basura: exit 0 y sin bloque.
 for modo in "exit 2" "kill -TERM \$\$" "printf 'basura no-json'"; do
   BAD="$TMP/exo-bad"
@@ -130,6 +126,76 @@ else fail "log: no-engine" "sin evento en $REFLEX_LOG_FILE"; fi
 run_hook "dale"
 if [ -z "$HOOK_OUT" ]; then pass "P6: gate que salta no escribe nada en stdout"
 else fail "P6: gate que salta no escribe nada en stdout" "out='$HOOK_OUT'"; fi
+
+# ------------------------------------- T2: exit 1 tiene DOS significados ---
+# El engine sale con 1 para CUALQUIER error. Solo stderr distingue la
+# abstención legítima de un engine roto. Si esto se gatea por código, un
+# engine roto loguea `empty` para siempre y nadie se entera.
+VACIO="$TMP/exo-vacio"
+cat > "$VACIO" <<'EOF'
+#!/usr/bin/env bash
+echo "error: recall vacío (modo consulta): sin notas para el bloque" >&2
+exit 1
+EOF
+chmod +x "$VACIO"
+
+ROTO="$TMP/exo-roto"
+cat > "$ROTO" <<'EOF'
+#!/usr/bin/env bash
+echo "error: DB no encontrada: /nope/x.db" >&2
+exit 1
+EOF
+chmod +x "$ROTO"
+
+: > "$REFLEX_LOG_FILE"
+run_hook "M6-06" "$VACIO"
+if [ "$HOOK_RC" -eq 0 ] && [ -z "$HOOK_OUT" ]; then pass "P2: abstención ⇒ exit 0 sin bloque"
+else fail "P2: abstención ⇒ exit 0 sin bloque" "rc=$HOOK_RC out='$HOOK_OUT'"; fi
+if grep -q 'reason=empty' "$REFLEX_LOG_FILE" 2>/dev/null; then pass "P2: abstención loguea empty"
+else fail "P2: abstención loguea empty" "$(cat "$REFLEX_LOG_FILE" 2>/dev/null)"; fi
+
+: > "$REFLEX_LOG_FILE"
+run_hook "M6-06" "$ROTO"
+if grep -q 'reason=error' "$REFLEX_LOG_FILE" 2>/dev/null; then pass "P2: engine roto loguea error, no empty"
+else fail "P2: engine roto loguea error, no empty" "$(cat "$REFLEX_LOG_FILE" 2>/dev/null)"; fi
+if not_contains "$(cat "$REFLEX_LOG_FILE" 2>/dev/null)" 'reason=empty'; then pass "P2: engine roto NO se disfraza de empty"
+else fail "P2: engine roto NO se disfraza de empty" "logueó empty"; fi
+
+# ------------------------------------------------- T2: flag sellado y P5 ---
+: > "$EXO_CALLS"
+run_hook "M6-06" "$FAKE_EXO"
+CALLS="$(cat "$EXO_CALLS" 2>/dev/null)"
+if contains "$CALLS" "--min-similitud 0.40"; then pass "sellado: --min-similitud 0.40 explícito"
+else fail "sellado: --min-similitud 0.40 explícito" "args='$CALLS'"; fi
+if contains "$CALLS" "--refresca"; then pass "P5: con DB presente pasa --refresca"
+else fail "P5: con DB presente pasa --refresca" "args='$CALLS'"; fi
+
+# DB ausente: ni --refresca ni invocación; abstención logueada.
+: > "$EXO_CALLS"; : > "$REFLEX_LOG_FILE"
+EXO_INDEX_BAK="$EXO_INDEX"; export EXO_INDEX="$TMP/no-hay.db"
+run_hook "M6-06" "$FAKE_EXO"
+export EXO_INDEX="$EXO_INDEX_BAK"
+if [ ! -s "$EXO_CALLS" ] && grep -q 'reason=no-index' "$REFLEX_LOG_FILE" 2>/dev/null; then
+  pass "P5: DB ausente ⇒ no invoca y loguea no-index"
+else fail "P5: DB ausente ⇒ no invoca y loguea no-index" "calls='$(cat "$EXO_CALLS")'"; fi
+
+# ------------------------------------------------------ T2: P4 (timeout) ---
+LENTO="$TMP/exo-lento"
+cat > "$LENTO" <<'EOF'
+#!/usr/bin/env bash
+sleep 30
+EOF
+chmod +x "$LENTO"
+: > "$REFLEX_LOG_FILE"
+INICIO=$SECONDS
+export EXO_INJECT_TIMEOUT=2
+run_hook "M6-06" "$LENTO"
+unset EXO_INJECT_TIMEOUT
+ELAPSED=$((SECONDS - INICIO))
+if [ "$HOOK_RC" -eq 0 ] && [ "$ELAPSED" -lt 10 ]; then pass "P4: timeout propio corta (${ELAPSED}s)"
+else fail "P4: timeout propio corta" "rc=$HOOK_RC elapsed=${ELAPSED}s"; fi
+if grep -q 'reason=timeout-guard' "$REFLEX_LOG_FILE" 2>/dev/null; then pass "P4: loguea timeout-guard"
+else fail "P4: loguea timeout-guard" "$(cat "$REFLEX_LOG_FILE" 2>/dev/null)"; fi
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
