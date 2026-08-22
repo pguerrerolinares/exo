@@ -37,6 +37,45 @@ pub struct Busqueda {
     pub search_type: String,
     pub elapsed_s: f64,
     pub results: Vec<Resultado>,
+    /// Degradaciones que el consumidor NO puede inferir de `results` (campo
+    /// aditivo: omitido cuando está vacío, no sube `SCHEMA_VERSION`).
+    ///
+    /// Existe por el modo mudo del arm vector: `busca_hybrid` fusionaba una
+    /// lista vacía sin distinguir "el vector no encontró nada" de "la tabla
+    /// `vectores` está vacía o a medio poblar", y devolvía FTS puro
+    /// etiquetado `hybrid` (25/55 donde el instrumento promete 48/55).
+    /// `search_type` NO cambia a propósito: lo comparan los scripts del eval.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub avisos: Vec<String>,
+}
+
+/// Avisos de cobertura del arm vector: compara filas de `vectores` contra
+/// filas de `trozos`, que es la relación 1:1 que mantiene el indexer.
+///
+/// Corpus vacío (`trozos == 0`) no avisa: una DB recién creada no está
+/// degradada, está vacía. Avisar ahí sería el falso rojo simétrico.
+fn avisos_cobertura_vector(conn: &rusqlite::Connection) -> Result<Vec<String>> {
+    let trozos: i64 = conn
+        .query_row("SELECT count(*) FROM trozos", [], |f| f.get(0))
+        .context("contar filas de trozos")?;
+    if trozos == 0 {
+        return Ok(Vec::new());
+    }
+    let vectores: i64 = conn
+        .query_row("SELECT count(*) FROM vectores", [], |f| f.get(0))
+        .context("contar filas de vectores")?;
+
+    Ok(if vectores == 0 {
+        vec![format!(
+            "arm vector INERTE: 0 vectores para {trozos} trozos.              El resultado sale de FTS puro aunque se etiquete hybrid;              reindexa con `exo index` antes de fiarte del ranking."
+        )]
+    } else if vectores < trozos {
+        vec![format!(
+            "cobertura vectorial PARCIAL: {vectores} de {trozos} trozos embebidos.              El arm vector no puede aportar los que faltan."
+        )]
+    } else {
+        Vec::new()
+    })
 }
 
 /// Rellena `ruta` en los resultados a partir de `notas` (M4 §2). Un único
@@ -165,6 +204,7 @@ pub fn busca(db_ruta: &Path, query: &str, limite: usize) -> Result<Busqueda> {
         search_type: "fts".to_string(),
         elapsed_s: inicio.elapsed().as_secs_f64(),
         results,
+        avisos: Vec::new(),
     })
 }
 
@@ -295,12 +335,14 @@ pub fn busca_vector(
 
     let mut results = results;
     enriquece_rutas(&conn, &mut results)?;
+    let avisos = avisos_cobertura_vector(&conn)?;
 
     Ok(Busqueda {
         query: query.to_string(),
         search_type: "vector".to_string(),
         elapsed_s: inicio.elapsed().as_secs_f64(),
         results,
+        avisos,
     })
 }
 
@@ -405,6 +447,7 @@ pub fn busca_hybrid(
     let f_por_entidad = normaliza_fts(&candidatos_fts, escala_fts);
 
     let vector = busca_vector(db_ruta, query, usize::MAX, min_similitud)?;
+    let avisos = vector.avisos;
     let v_por_entidad: HashMap<String, f64> = vector
         .results
         .into_iter()
@@ -421,6 +464,7 @@ pub fn busca_hybrid(
         search_type: "hybrid".to_string(),
         elapsed_s: inicio.elapsed().as_secs_f64(),
         results,
+        avisos,
     })
 }
 

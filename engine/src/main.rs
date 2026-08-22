@@ -476,6 +476,14 @@ fn busca_cmd(args: ArgsSearch) -> Result<()> {
         )?,
     };
 
+    // Los avisos van a stderr SIEMPRE, con o sin `--json`: nunca contaminan el
+    // envelope de stdout, y quien mira la terminal ve la degradación sin
+    // tener que parsear nada. Un instrumento degradado que no grita es el
+    // modo de fallo caro que este campo existe para matar.
+    for aviso in &resultado.avisos {
+        eprintln!("aviso: {aviso}");
+    }
+
     if args.json {
         envelope::emite("search", serde_json::to_value(&resultado)?);
     } else {

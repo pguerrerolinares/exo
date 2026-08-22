@@ -44,18 +44,6 @@
   **Acción:** no esperar a C9 — la config propia con fallback RO a basic-memory
   mientras dure el side-by-side es independiente del MCP.
 
-- [ ] **Modo mudo de `busca_hybrid` cuando el arm vector aporta 0.**
-  `buscador.rs:235` devuelve `Vec::new()` si `total_vectores == 0`, y
-  `busca_hybrid` (`buscador.rs:384`) fusiona ese vacío sin distinguir "el arm
-  vector no encontró nada" de "la tabla `vectores` está vacía o parcialmente
-  poblada". El resultado sale etiquetado `search_type: "hybrid"` siendo **FTS
-  puro: 25/55 en vez de 48/55**. Devolver resultados plausibles estando roto es
-  el modo de fallo más caro para un instrumento de retrieval.
-  **Acción:** contar la cobertura de vectores frente a `trozos` y emitir aviso
-  (o campo en el envelope) cuando el arm vector no pueda contribuir.
-  *Contexto:* esto sale del chequeo defensivo que preguntaba si exo degrada en
-  silencio como `empirica`. La respuesta completa está abajo, en Cerrado.
-
 ## Media
 
 - [ ] **CI mínimo — el gate que falta.** No hay `.github/`, ni `rustfmt.toml`, ni
@@ -123,6 +111,16 @@
 ---
 
 ## Cerrado con evidencia (para no re-proponer)
+
+- [x] **Modo mudo de `busca_hybrid`: cerrado el 2026-08-22.** `Busqueda` gana
+  `avisos: Vec<String>` (aditivo, omitido cuando está vacío, `search_type`
+  intacto porque lo comparan los scripts del eval). `avisos_cobertura_vector`
+  compara `vectores` contra `trozos` y distingue arm INERTE (0 vectores) de
+  cobertura PARCIAL (con cifras); corpus vacío no avisa, que es el falso rojo
+  simétrico. Los avisos salen además por **stderr con y sin `--json`**, así que
+  nunca contaminan el envelope y siempre se ven. 4 tests nuevos vistos fallar
+  primero (`tests/buscador.rs`), 124 verdes en la suite. Se mantiene el
+  contrato de Task 3 (0 vectores ⇒ 0 resultados, no error): avisa, no falla.
 
 - [x] **exo NO degrada a vector-hash como `empirica`** (2026-08-18, lectura de
   `buscador.rs` e `indexer.rs`): un fallo de embed sube por `?` con contexto

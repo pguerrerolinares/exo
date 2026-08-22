@@ -314,3 +314,103 @@ fn busca_vector_desempate_determinista_por_permalink() {
         );
     }
 }
+
+// --- Modo mudo del arm vector (backlog "alta", 2026-08-22) ---
+//
+// `busca_hybrid` fusionaba un arm vector vacío sin distinguir "no encontró
+// nada" de "la tabla `vectores` está vacía o a medio poblar", y devolvía el
+// resultado etiquetado `hybrid` siendo FTS puro. Devolver resultados
+// plausibles estando roto es el modo de fallo más caro de un instrumento de
+// retrieval; estos tests fijan que la degradación sea VISIBLE.
+
+/// DB fixture indexada a la que se le vacía la tabla `vectores`: trozos sí,
+/// vectores no. Es el estado real que produce un embed abortado a medias o un
+/// índice heredado de antes de M2-06.
+fn db_sin_vectores() -> (tempfile::TempDir, tempfile::TempDir, std::path::PathBuf) {
+    let (kb, db_dir, db) = db_indexada();
+    let conn = exo::abre_db(&db).unwrap();
+    conn.execute("DELETE FROM vectores", []).unwrap();
+    let quedan: i64 = conn
+        .query_row("SELECT count(*) FROM vectores", [], |f| f.get(0))
+        .unwrap();
+    assert_eq!(quedan, 0, "precondición: la tabla vectores queda vacía");
+    (kb, db_dir, db)
+}
+
+#[test]
+fn hybrid_sin_vectores_avisa_de_que_es_fts_puro() {
+    let (_kb, _db_dir, db) = db_sin_vectores();
+
+    let hybrid = busca_hybrid(&db, "buscable", 10, Some(0.0), 0.2, 0.8).unwrap();
+
+    assert!(
+        !hybrid.results.is_empty(),
+        "precondición: FTS sí tiene hits para esta query"
+    );
+    assert!(
+        hybrid.avisos.iter().any(|a| a.contains("vector")),
+        "un hybrid servido por FTS puro debe avisarlo: {:?}",
+        hybrid.avisos
+    );
+}
+
+#[test]
+fn hybrid_con_cobertura_parcial_avisa_con_las_cifras() {
+    let (_kb, _db_dir, db) = db_indexada();
+    let conn = exo::abre_db(&db).unwrap();
+    let trozos: i64 = conn
+        .query_row("SELECT count(*) FROM trozos", [], |f| f.get(0))
+        .unwrap();
+    assert!(trozos >= 2, "precondición: el fixture tiene varios trozos");
+    let victima: i64 = conn
+        .query_row("SELECT rowid FROM vectores LIMIT 1", [], |f| f.get(0))
+        .unwrap();
+    conn.execute("DELETE FROM vectores WHERE rowid = ?1", params![victima])
+        .unwrap();
+
+    let hybrid = busca_hybrid(&db, "buscable", 10, Some(0.0), 0.2, 0.8).unwrap();
+
+    let aviso = hybrid.avisos.join(" | ");
+    assert!(
+        aviso.contains(&(trozos - 1).to_string()) && aviso.contains(&trozos.to_string()),
+        "el aviso de cobertura parcial debe llevar las cifras ({} de {}): {aviso:?}",
+        trozos - 1,
+        trozos
+    );
+}
+
+#[test]
+fn hybrid_con_cobertura_completa_no_ensucia_el_envelope() {
+    let (_kb, _db_dir, db) = db_indexada();
+
+    let hybrid = busca_hybrid(&db, "buscable", 10, Some(0.0), 0.2, 0.8).unwrap();
+
+    assert!(
+        hybrid.avisos.is_empty(),
+        "sin degradación no hay avisos: {:?}",
+        hybrid.avisos
+    );
+    let valor = serde_json::to_value(&hybrid).unwrap();
+    assert!(
+        !valor.as_object().unwrap().contains_key("avisos"),
+        "la clave `avisos` no debe aparecer cuando está vacía (envelope v1 §4.1)"
+    );
+}
+
+#[test]
+fn vector_puro_sin_vectores_tambien_avisa() {
+    let (_kb, _db_dir, db) = db_sin_vectores();
+
+    let vector = busca_vector(&db, "buscable", 10, Some(0.0)).unwrap();
+
+    assert_eq!(
+        vector.results,
+        Vec::new(),
+        "contrato Task 3: 0 resultados, no error"
+    );
+    assert!(
+        !vector.avisos.is_empty(),
+        "0 resultados por tabla vacía no es lo mismo que 0 resultados por query: {:?}",
+        vector.avisos
+    );
+}
