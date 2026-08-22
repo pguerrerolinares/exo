@@ -133,10 +133,26 @@ ningún topical.)
 ### 2.2 Búsqueda — hybrid, siempre, tras el gate
 
 ```
-timeout 5 exo recall --db "$EXO_INDEX" --query "$PROMPT" \
-       --min-similitud 0.40 --limite 3 --cap-bytes 1024 [--refresca]
+timeout 5 exo recall --db "$EXO_INDEX" --query="$PROMPT" \
+       --min-similitud 0.40 --limite 4 --cap-bytes 4000 [--refresca] --json
 ```
 
+**Los números de la invocación no son los del bloque, y la diferencia importa.**
+`--limite 4` pide un hit de repuesto por si el filtro de `core-index` (§2.3) quita
+uno. `--cap-bytes 4000` es el cap de **fetch**: solo evita traer un payload absurdo,
+y no debe confundirse con el cap de **inyección** (1024), que aplica el hook al
+componer. Medido: con un cap de fetch ajustado (1400) el engine truncaba su propia
+respuesta en 3 de cada 10 queries **antes** de que el hook filtrara nada, y en una de
+cada diez se comía el repuesto — racionando en silencio justo lo que §2.3 vino a
+arreglar. Con 4000, cero truncados.
+
+`--query=` con el igual pegado, y no `--query "$PROMPT"`: el prompt es texto
+arbitrario del usuario y si empieza por guion, clap lo parsea como flag y sale con
+exit 2 (medido). Los demás flags llevan valores que controlamos nosotros.
+
+- **Si el engine responde `truncado: true`, se registra.** Significa que su propio
+  cap recortó la respuesta y el repuesto puede haber desaparecido; sin ese rastro, el
+  hook entregaría menos punteros sin que nadie pudiera saberlo.
 - **`--min-similitud 0.40` explícito y no negociable**: sin el flag, `recall` cae al
   **0.35 de la config RO**. El sellado de M2-07 viaja por flag hasta M5a (doctrina
   D-f3), y omitirlo sería degradación silenciosa con forma válida.
@@ -173,6 +189,15 @@ timeout 5 exo recall --db "$EXO_INDEX" --query "$PROMPT" \
   script desde las constantes reales en vez de escrito a mano. Si un hit se pasa,
   se recorta su **snippet** a frontera de palabra con elipsis — nunca la ruta, que
   es lo único que el modelo necesita íntegro para abrir la nota.
+
+  **Acoplamiento declarado**: hoy el recorte por hit **no llega a activarse nunca en
+  producción**, porque el engine ya capa cada snippet a 200 B
+  (`engine/src/recall.rs:88`, `SNIPPET_MAX_BYTES`) y el presupuesto derivado ronda los
+  240. Es decir: el invariante lo sostiene hoy una constante de otro subsistema, y la
+  derivación es la red que lo sostendrá el día que esa constante suba. Se dice aquí
+  porque un acoplamiento que nadie ha escrito es el que rompe la siguiente campaña, y
+  porque obliga a que los tests del recorte usen fixtures que **superen** ese tamaño:
+  con snippets realistas de 200 B, un test del recorte no ejerce nada.
 
   **Por qué derivado y no un segundo número**: la primera versión de esta spec fijó
   1024 sobre un "bloque real con 3 hits ≈ 970 B" que resultó ser el **mínimo** de la
@@ -231,19 +256,6 @@ contexto —verificado: un título con `\n- inyectado` produce un puntero invent
 emparejado con el snippet de otra nota, emitido con `log=emitted` y sin ninguna
 señal de degradación—. Es la primera ley de [[Fallo silencioso]] en su forma más
 literal.
-
-Tres propiedades **no negociables**, porque son la única defensa contra FP que este
-diseño tiene:
-
-1. Se declara **mecánico** — nadie lo pidió; no es una búsqueda que Paul ordenó ni
-   parte de su prompt.
-2. Se declara **material, no instrucción** — mismo espíritu que el `PARCIAL` del
-   arranque.
-3. **Da licencia explícita de ignorar.** Con hybrid sin abstención (§1), esa última
-   línea es la mitigación que el umbral no puede dar.
-
-Implementación: componer desde `--json` con `jq`, o reemplazar la primera línea del
-modo texto. Ambas triviales; ningún cambio de engine.
 
 ### 2.5 Observabilidad — rastro de degradación, no medición
 
