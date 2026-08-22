@@ -128,14 +128,18 @@ fi
 EXO_INJECT_TIMEOUT="${EXO_INJECT_TIMEOUT:-5}"
 ERR_TMP="$(mktemp)" || ERR_TMP=""
 
+# `--query=` y no `--query ` : el prompt es texto arbitrario del usuario, y si
+# empieza por guion clap lo parsea como flag (medido: "- revisa X" da exit 2,
+# "unexpected argument"). La forma con `=` quita la ambigüedad. Los demás flags
+# llevan valores que controlamos nosotros, así que no la necesitan.
 SALIDA="$(timeout "$EXO_INJECT_TIMEOUT" "$EXO_BIN" recall \
-            --db "$EXO_INDEX" --query "$PROMPT" \
+            --db "$EXO_INDEX" --query="$PROMPT" \
             --min-similitud 0.40 --limite 4 --cap-bytes 1400 \
             --refresca --json 2>"${ERR_TMP:-/dev/null}")"
 RC=$?
 
 ERR=""
-[ -n "$ERR_TMP" ] && ERR="$(head -c 300 "$ERR_TMP" 2>/dev/null)" && rm -f "$ERR_TMP"
+[ -n "$ERR_TMP" ] && ERR="$(head -c 300 "$ERR_TMP" 2>/dev/null)"; rm -f "$ERR_TMP"
 
 if [ "$RC" -eq 124 ]; then
   # `timeout` usa 124. Que el guard sea nuestro y no del harness es lo que hace
@@ -145,12 +149,14 @@ if [ "$RC" -eq 124 ]; then
 fi
 
 if [ "$RC" -ne 0 ]; then
-  # El engine sale con 1 para CUALQUIER error (main.rs:246): la abstención por
-  # "ningún hit sobre el umbral" es indistinguible por código de una DB
-  # corrupta o un ONNX roto. El distinguidor está en stderr y es estable.
-  # Gatear solo por código sería un hook donde el engine roto loguea `empty`
-  # para siempre — con forma de abstención correcta, que es la peor forma de
-  # romperse.
+  # El engine sale con 1 para sus propios errores (main.rs:246) y con 3 para el
+  # rechazo de `write`; clap sale con 2 para errores de línea de comandos, que
+  # son fallos nuestros de invocación, no del engine. En ningún caso el código
+  # por sí solo distingue "ningún hit sobre el umbral" de una DB corrupta, un
+  # ONNX roto o un flag mal formado: el distinguidor está en stderr y es
+  # estable. Gatear solo por código sería un hook donde el engine roto loguea
+  # `empty` para siempre — con forma de abstención correcta, que es la peor
+  # forma de romperse.
   case "$ERR" in
     *"recall vacío"*) log_ri "degraded" "reason=empty" ;;
     *) log_ri "degraded" "reason=error rc=$RC err=$(printf '%s' "$ERR" | tr -d '\n' | cut -c1-120)" ;;
