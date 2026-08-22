@@ -101,6 +101,20 @@ Cita: §4.2 "threshold configurable" + spec del indexer §5 (config): "`semantic
 - **Re-sweep obligatorio** (spec madre §4 punto 4: "**Re-sweep del threshold** por modelo (el 0.55 no sobrevive al cambio)"): ni se hereda el 0.55, ni se asume el 0.35 del verdict M0 sin re-barrer con la señal del engine — el 0.35 se calibró sobre el pipeline de bm, no sobre esta fusión. Procedimiento en §5.
 - Si el valor elegido difiere del 0.35 de config: E1 NO escribe nada (ni en `config.json` — spec indexer §5), así que el valor elegido se pasa por `--min-similitud` en corridas y consumidores, y queda documentado en el verdict del sweep. Config propia de exo = M5a.
 
+### 4.6b Revisión del modelo, congelada (añadido 2026-08-22)
+
+El arm vector solo es comparable consigo mismo si los pesos no se mueven bajo
+los pies. `hf_hub::Api::model()` resuelve `main`, que es una referencia móvil:
+un re-subida de `jinaai/jina-embeddings-v2-base-es` cambiaría los embeddings en
+silencio y con ellos el índice **y la línea base de las 55 queries** de
+`evals/retrieval-fase0/`, que es contra lo que se calibró `thr=0.40`. Desde
+`lib.rs` (`repo_hf`) el modelo va pineado al sha
+`8e2d780d8fd38f81ca9123ee28e4c5a968aaf21e` —el snapshot que generó esos
+números—, con la misma lógica que `sqlite-vec = "=0.1.9"`. Cambiar ese sha
+obliga a re-correr el eval, exactamente igual que cambiar de modelo. Un modelo
+ajeno (config distinta) sigue resolviendo `main`, pero el engine lo dice por
+stderr en vez de dejar creer que está congelado.
+
 ### 4.7 CLI y envelope
 
 - `exo search --type hybrid` completa el enum previsto (`TipoBusqueda`); envelope v1 y contrato §4.1 **intactos** (superficie gateada): `search_type: "hybrid"` literal, `results` nivel entidad orden score desc, `score` = fusionado ("el score del `search_type` usado (fusionado en hybrid); su escala es informativa, no contractual" — §4.1).

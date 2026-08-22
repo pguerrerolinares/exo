@@ -22,17 +22,6 @@
 
 ## Alta
 
-- [ ] **Pinear la revisión del modelo en HuggingFace.** `lib.rs:176`
-  (`Embedder::con_modelo`) hace `Api::new()?.model(modelo).get(…)` (`lib.rs:183`)
-  contra la revisión por defecto (`main`) del repo HF, **sin revisión fijada ni
-  checksum**. Si `jinaai/jina-embeddings-v2-base-es` se re-sube, los embeddings
-  cambian en silencio y con ellos el índice **y la línea base de las 55 queries
-  del eval** — se perdería la comparabilidad de todo `evals/retrieval-fase0/`.
-  Es incoherente con el pin exacto de `sqlite-vec = "=0.1.9"`, que sí lleva su
-  razón escrita en el plan (§Global Constraints).
-  **Acción:** fijar `revision` al sha del snapshot en uso y anotarlo en la spec
-  de fusión. Una línea + una línea de doc.
-
 - [ ] **Adelantar M5a-02: config propia y des-hardcodear la KB.** Hoy el engine
   lee modelo, dims y threshold de `~/.basic-memory/config.json` (RO) y resuelve
   la raíz de la KB con `projects["kb-demo"]` literal (`lib.rs:71`). Es decir:
@@ -111,6 +100,12 @@
 ---
 
 ## Cerrado con evidencia (para no re-proponer)
+
+- [x] **Revisión de HuggingFace pineada: cerrado el 2026-08-22.** `repo_hf`
+  (`lib.rs`) resuelve `jinaai/jina-embeddings-v2-base-es` contra el sha
+  `8e2d780d…`, el snapshot que generó la línea base del eval; un modelo ajeno
+  sigue cayendo a `main` pero el engine lo avisa por stderr. Anotado en la spec
+  de fusión §4.6b. 2 tests unitarios vistos fallar primero.
 
 - [x] **Modo mudo de `busca_hybrid`: cerrado el 2026-08-22.** `Busqueda` gana
   `avisos: Vec<String>` (aditivo, omitido cuando está vacío, `search_type`

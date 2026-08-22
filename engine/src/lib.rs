@@ -158,6 +158,34 @@ pub fn min_similitud_de_config() -> Result<f64> {
         .context("semantic_min_similarity ausente")
 }
 
+/// Modelo de producción y su revisión CONGELADA en HuggingFace.
+///
+/// `Api::model()` resuelve `main`, que es una referencia móvil: si Jina
+/// re-sube `jina-embeddings-v2-base-es`, los pesos cambian, los embeddings
+/// cambian con ellos y se pierde en silencio la comparabilidad del índice y
+/// de la línea base de las 55 queries de `evals/retrieval-fase0/`. El sha es
+/// el del snapshot que generó esos números (cache local del 2026-07-17,
+/// `refs/main` en esa fecha). Cambiarlo obliga a re-correr el eval, igual que
+/// cambiar de modelo — por eso va pineado exacto, como `sqlite-vec = "=0.1.9"`.
+const MODELO_JINA_ES: &str = "jinaai/jina-embeddings-v2-base-es";
+const REVISION_JINA_ES: &str = "8e2d780d8fd38f81ca9123ee28e4c5a968aaf21e";
+
+/// Repo de HF para un modelo, con revisión fija si es uno de los nuestros.
+/// Un modelo ajeno sigue resolviendo `main` (no rompemos a quien cambie el
+/// modelo en su config), pero `con_modelo` lo dice por stderr en vez de
+/// dejar creer que está congelado.
+fn repo_hf(modelo: &str) -> hf_hub::Repo {
+    use hf_hub::{Repo, RepoType};
+    match modelo {
+        MODELO_JINA_ES => Repo::with_revision(
+            modelo.to_string(),
+            RepoType::Model,
+            REVISION_JINA_ES.to_string(),
+        ),
+        _ => Repo::model(modelo.to_string()),
+    }
+}
+
 /// Handle reutilizable de fastembed (m2-06: refactor de `embebe_frase` de
 /// m2-01 para soportar embed batch de los trozos de una nota sin
 /// reinicializar el modelo por cada nota — el modelo se carga UNA vez por
@@ -202,9 +230,15 @@ impl Embedder {
         };
         use hf_hub::api::sync::Api;
 
-        let repo = Api::new()
-            .context("crear cliente hf-hub")?
-            .model(modelo.to_string());
+        let repo_id = repo_hf(modelo);
+        if repo_id.revision() == "main" {
+            eprintln!(
+                "aviso: modelo `{modelo}` sin revisión pineada. Si su repo de HuggingFace \
+                 se re-sube, los embeddings cambian en silencio y el índice deja de ser \
+                 comparable con la línea base del eval."
+            );
+        }
+        let repo = Api::new().context("crear cliente hf-hub")?.repo(repo_id);
         let leer = |fichero: &str| -> Result<Vec<u8>> {
             let ruta = repo
                 .get(fichero)
@@ -275,4 +309,33 @@ pub fn embedder_desde_config() -> Result<(Vec<f32>, usize)> {
     let mut embedder = Embedder::con_modelo(&cfg.modelo)?;
     let mut out = embedder.embebe_batch(&["el exocortex recuerda por ti".to_string()])?;
     Ok((out.pop().expect("un embedding"), cfg.dims))
+}
+
+#[cfg(test)]
+mod tests_revision_hf {
+    use super::repo_hf;
+
+    /// El modelo de producción tiene que llegar a HF con revisión FIJA: si
+    /// `jinaai/jina-embeddings-v2-base-es` se re-sube, `main` serviría pesos
+    /// distintos, los embeddings cambiarían en silencio y con ellos el índice
+    /// **y la línea base de las 55 queries del eval**.
+    #[test]
+    fn el_modelo_de_produccion_va_pineado_a_un_sha() {
+        let repo = repo_hf("jinaai/jina-embeddings-v2-base-es");
+        let rev = repo.revision();
+        assert_ne!(rev, "main", "el modelo de producción no puede ir a `main`");
+        assert_eq!(rev.len(), 40, "la revisión debe ser un sha completo: {rev}");
+        assert!(
+            rev.chars().all(|c| c.is_ascii_hexdigit()),
+            "la revisión debe ser hex: {rev}"
+        );
+    }
+
+    /// Un modelo que nadie ha pineado sigue funcionando (no rompemos a quien
+    /// cambie el modelo en su config); lo que no puede es fingir que está
+    /// congelado.
+    #[test]
+    fn un_modelo_sin_pin_cae_a_main() {
+        assert_eq!(repo_hf("otro/modelo-cualquiera").revision(), "main");
+    }
 }
