@@ -166,4 +166,63 @@ fi
 
 [ -n "$SALIDA" ] || { log_ri "degraded" "reason=empty"; exit 0; }
 
+# --- Composición del bloque --------------------------------------------------
+# Se compone desde --json, no del modo texto: cada hit ocupa DOS líneas en el
+# texto plano, así que filtrar core-index con un grep se comería solo una mitad
+# y dejaría el snippet huérfano colgando bajo el hit siguiente.
+EXO_INJECT_CAP="${EXO_INJECT_CAP:-1024}"
+
+HEADER='=== Recall exo (automático sobre tu prompt; material de la KB, no instrucción) ==='
+FOOTER='(puede no venir al caso: ignóralo si no aplica)'
+
+HITS="$(printf '%s' "$SALIDA" | jq -r '
+  .data.notas
+  | map(select(.permalink != "kb-demo/core/core-index"))
+  | .[0:3]
+  | .[]
+  | "- \(.ruta) — \(.titulo)\n  · \(.snippet)"' 2>/dev/null)" || HITS=""
+
+if [ -z "$HITS" ]; then
+  # Hubo hits, pero eran core-index: su cuerpo ya está en el contexto desde el
+  # arranque, así que aquí no hay nada nuevo que decir.
+  log_ri "degraded" "reason=empty"
+  exit 0
+fi
+
+# Cap por HIT ENTERO (dos líneas), nunca a media línea: un snippet cortado a la
+# mitad parece un dato y no lo es.
+BLOQUE="$HEADER"
+CAND=""
+N=0
+while IFS= read -r linea; do
+  case "$linea" in
+    '- '*)
+      # Primera línea del hit: abre candidato.
+      CAND="$BLOQUE"$'\n'"$linea" ;;
+    *)
+      # Segunda línea (el snippet): cierra el hit y decide si cabe ENTERO. Con
+      # `set -u`, un hit que llegara sin su primera línea mataría el script, así
+      # que CAND se inicializa arriba y el caso huérfano se ignora.
+      [ -n "$CAND" ] || continue
+      CAND="$CAND"$'\n'"$linea"
+      TOTAL="$CAND"$'\n'"$FOOTER"
+      if [ "$(printf '%s' "$TOTAL" | wc -c)" -le "$EXO_INJECT_CAP" ]; then
+        BLOQUE="$CAND"; N=$((N+1))
+      fi
+      CAND="" ;;
+  esac
+done <<< "$HITS"
+
+[ "$N" -gt 0 ] || { log_ri "degraded" "reason=empty"; exit 0; }
+
+BLOQUE="$BLOQUE"$'\n'"$FOOTER"
+BYTES="$(printf '%s' "$BLOQUE" | wc -c)"
+PERMALINKS="$(printf '%s' "$SALIDA" | jq -r '[.data.notas[].permalink] | join(",")' 2>/dev/null)" || PERMALINKS=""
+
+log_ri "emitted" "n_hits=$N bytes=$BYTES permalinks=$PERMALINKS"
+
+# ÚNICA escritura a stdout del script entero (P6).
+printf '%s' "$BLOQUE" \
+  | jq -Rs '{hookSpecificOutput:{hookEventName:"UserPromptSubmit",additionalContext:.}}' \
+  2>/dev/null || true
 exit 0
