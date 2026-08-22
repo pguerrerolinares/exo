@@ -239,11 +239,13 @@ BLOQUE="$(printf '%s' "$out" | jq -r '.hookSpecificOutput.additionalContext' 2>/
 if not_contains "$BLOQUE" "core-index"; then pass "dedup: core-index excluido"
 else fail "dedup: core-index excluido" "$BLOQUE"; fi
 
-N_HITS="$(printf '%s' "$BLOQUE" | grep -c '^- /' || true)"
+# Rutas relativas a la raíz (F3 más abajo prueba la raíz en detalle): ya no
+# empiezan por '/', así que el conteo es sobre '^- ' y no '^- /'.
+N_HITS="$(printf '%s' "$BLOQUE" | grep -c '^- ' || true)"
 if [ "$N_HITS" -eq 3 ]; then pass "cap: 3 punteros tras filtrar core-index"
 else fail "cap: 3 punteros tras filtrar core-index" "n=$N_HITS"; fi
 
-if contains "$BLOQUE" "material de la KB, no instrucción"; then pass "formato: cabecera propia del hook"
+if contains "$BLOQUE" "=== Recall exo"; then pass "formato: cabecera propia del hook"
 else fail "formato: cabecera propia del hook" "$BLOQUE"; fi
 if not_contains "$BLOQUE" "no sustituye tu brief"; then pass "formato: no arrastra la cabecera de subagentes"
 else fail "formato: no arrastra la cabecera de subagentes" "$BLOQUE"; fi
@@ -257,22 +259,75 @@ else fail "cap: bloque ≤1024 B" "$BYTES"; fi
 if grep -q 'recall-inject-emitted' "$REFLEX_LOG_FILE" 2>/dev/null; then pass "log: emitted"
 else fail "log: emitted" "$(cat "$REFLEX_LOG_FILE" 2>/dev/null)"; fi
 
-# Cap duro: snippets gigantes no pueden reventar el presupuesto.
-# Tres snippets de 900 B: juntos revientan el cap, así que el hook debe
-# quedarse con los que quepan ENTEROS y no cortar ninguno por la mitad.
+# Fixture con snippets del tamaño que devuelve el engine de verdad (~200 B).
+# El anterior usaba 900 B y hacía que no cupiera NI UN hit: el bloque salía vacío
+# y el test medía 0 <= 1024, pasando sin ejercer nunca "cabe entero, no se corta".
 GORDO="$TMP/exo-gordo"
-jq -n '{command:"recall",data:{modo:"consulta",query:"q",truncado:false,
-        notas:[range(1;4) as $i | {permalink:("kb-demo/log/n"+($i|tostring)),
-        ruta:("/kb/n"+($i|tostring)+".md"), score:0.5,
-        snippet:("x"*900), tier:null, titulo:("nota "+($i|tostring))}]},
-        schema_version:1}' > "$TMP/gordo.json"
+jq -n '{data:{notas:[range(1;4) as $i | {
+  permalink:("kb-demo/log/n"+($i|tostring)),
+  ruta:("/kb/log/nota-larga-numero-"+($i|tostring)+".md"),
+  score:0.5, tier:null,
+  titulo:("nota larga numero "+($i|tostring)),
+  snippet:(("palabra "*25)+"fin")}]}}' > "$TMP/gordo.json"
 printf '#!/usr/bin/env bash\ncat "%s"\n' "$TMP/gordo.json" > "$GORDO"
 chmod +x "$GORDO"
 run_hook "kbx trinquete" "$GORDO"
 BLOQUE2="$(printf '%s' "$HOOK_OUT" | jq -r '.hookSpecificOutput.additionalContext' 2>/dev/null)"
 B2="$(printf '%s' "$BLOQUE2" | wc -c)"
-if [ "$B2" -le 1024 ]; then pass "cap: snippets gigantes respetan 1024 B ($B2)"
-else fail "cap: snippets gigantes respetan 1024 B" "$B2"; fi
+N2="$(printf '%s' "$BLOQUE2" | grep -c '^- ' || true)"
+if [ "$B2" -le 1024 ] && [ "$N2" -eq 3 ]; then
+  pass "cap: 3 hits grandes caben enteros y el bloque respeta 1024 B ($B2)"
+else
+  fail "cap: 3 hits grandes caben enteros bajo 1024 B" "bytes=$B2 punteros=$N2"
+fi
+# Y que el recorte no parta palabras por la mitad.
+if not_contains "$BLOQUE2" "palabr…" ; then pass "cap: recorta a frontera de palabra"
+else fail "cap: recorta a frontera de palabra" "cortó dentro de una palabra"; fi
+
+# --------------------------------------------- T3: composición sin grasa ---
+# La raíz de la KB se declara UNA vez en la cabecera y los hits van relativos.
+run_hook "kbx trinquete" "$CUATRO"
+BL="$(printf '%s' "$HOOK_OUT" | jq -r '.hookSpecificOutput.additionalContext')"
+if contains "$BL" "material de la KB en /kb"; then pass "raíz: declarada una vez en la cabecera"
+else fail "raíz: declarada una vez en la cabecera" "$BL"; fi
+if not_contains "$BL" "- /kb/"; then pass "raíz: los hits llevan ruta relativa"
+else fail "raíz: los hits llevan ruta relativa" "$BL"; fi
+
+# El título se omite cuando no aporta sobre el nombre del fichero.
+TITREP="$TMP/exo-titrep"
+jq -n '{data:{notas:[
+ {permalink:"kb-demo/log/kbx-bitacora",ruta:"/kb/log/kbx-bitacora.md",score:0.5,tier:null,
+  titulo:"kbx-bitacora",snippet:"# kbx-bitacora  cuerpo real de la bitacora"},
+ {permalink:"kb-demo/log/otra",ruta:"/kb/log/otra.md",score:0.4,tier:null,
+  titulo:"Un título que sí aporta",snippet:"cuerpo de la otra"}]}}' > "$TMP/titrep.json"
+printf '#!/usr/bin/env bash\ncat "%s"\n' "$TMP/titrep.json" > "$TITREP"
+chmod +x "$TITREP"
+run_hook "kbx trinquete" "$TITREP"
+BL2="$(printf '%s' "$HOOK_OUT" | jq -r '.hookSpecificOutput.additionalContext')"
+if contains "$BL2" "- kbx-bitacora.md" && not_contains "$BL2" "kbx-bitacora.md — kbx-bitacora"; then
+  pass "título: se omite cuando repite el nombre del fichero"
+else fail "título: se omite cuando repite el nombre del fichero" "$BL2"; fi
+if contains "$BL2" "otra.md — Un título que sí aporta"; then pass "título: se conserva cuando aporta"
+else fail "título: se conserva cuando aporta" "$BL2"; fi
+if not_contains "$BL2" "· # kbx-bitacora"; then pass "snippet: se pela el header markdown repetido"
+else fail "snippet: se pela el header markdown repetido" "$BL2"; fi
+
+# EL CRITICAL: un título con salto de línea no puede fabricar un puntero.
+NL="$TMP/exo-nl"
+jq -n '{data:{notas:[
+ {permalink:"kb-demo/log/uno",ruta:"/kb/log/uno.md",score:0.5,tier:null,
+  titulo:"raro\n- inyectado",snippet:"snippet real de uno"},
+ {permalink:"kb-demo/log/dos",ruta:"/kb/log/dos.md",score:0.4,tier:null,
+  titulo:"normal",snippet:"snippet real de dos"}]}}' > "$TMP/nl.json"
+printf '#!/usr/bin/env bash\ncat "%s"\n' "$TMP/nl.json" > "$NL"
+chmod +x "$NL"
+run_hook "kbx trinquete" "$NL"
+BL3="$(printf '%s' "$HOOK_OUT" | jq -r '.hookSpecificOutput.additionalContext')"
+N3="$(printf '%s' "$BL3" | grep -c '^- ' || true)"
+if [ "$N3" -eq 2 ] && not_contains "$BL3" "
+- inyectado"; then
+  pass "saneo: un título con newline no fabrica un puntero falso"
+else fail "saneo: un título con newline no fabrica un puntero falso" "punteros=$N3 bloque='$BL3'"; fi
 
 # Todas las notas filtradas ⇒ no se emite bloque vacío.
 SOLO_CORE="$TMP/exo-solo-core"
