@@ -80,7 +80,33 @@ done
 if ! gate_dispara "SÍ, DALE"; then pass "gate: normaliza acentos y mayúsculas"
 else fail "gate: normaliza acentos y mayúsculas" "llegó a los guards"; fi
 
+# F1: un prompt con metacaracteres no puede depender del CWD.
+GLOBDIR="$TMP/globdir"
+mkdir -p "$GLOBDIR" && touch "$GLOBDIR/a.md" "$GLOBDIR/b.md"
+(
+  cd "$GLOBDIR" || exit 1
+  : > "$REFLEX_LOG_FILE"
+  printf '%s' "vale *" | jq -Rs '{prompt:., session_id:"test-sess"}' \
+    | EXO_BIN="$NO_BIN" "$HOOK" >/dev/null 2>&1
+  grep -q 'no-engine' "$REFLEX_LOG_FILE" 2>/dev/null && exit 1
+  exit 0
+)
+if [ $? -eq 0 ]; then pass "F1: 'vale *' calla aunque el CWD tenga ficheros"
+else fail "F1: 'vale *' calla aunque el CWD tenga ficheros" "el glob se expandió y disparó el gate"; fi
+
+# F2: la normalización no puede depender del locale.
+: > "$REFLEX_LOG_FILE"
+printf '%s' "SÍ, DALE" | jq -Rs '{prompt:., session_id:"test-sess"}' \
+  | LC_ALL=C LANG=C EXO_BIN="$NO_BIN" "$HOOK" >/dev/null 2>&1
+if ! grep -q 'no-engine' "$REFLEX_LOG_FILE" 2>/dev/null; then
+  pass "F2: 'SÍ, DALE' calla también bajo LC_ALL=C"
+else fail "F2: 'SÍ, DALE' calla también bajo LC_ALL=C" "la normalización depende del locale"; fi
+
 # --------------------------------------------------- T1: P1 (nunca rompe) ---
+# OJO: hoy estos tres casos son VACUOS — la Task 1 solo hace `[ -x "$EXO_BIN" ]`,
+# nunca ejecuta el binario, así que pasan con cualquier fichero ejecutable. Se
+# vuelven reales en la Task 2, que es la que invoca el engine. Se dejan puestos
+# para que esa tarea nazca con la red ya montada.
 # Binario que sale con 2, que revienta, que escupe basura: exit 0 y sin bloque.
 for modo in "exit 2" "kill -TERM \$\$" "printf 'basura no-json'"; do
   BAD="$TMP/exo-bad"
