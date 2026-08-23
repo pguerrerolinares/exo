@@ -80,9 +80,9 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
 
     // Guarda de modelo (Ola 1 T1), primero de todo y ANTES de tocar
     // fastembed: aborta rápido y sin cargar el modelo si la config cambió
-    // desde la última corrida. `cfg.modelo`/`cfg.dims` se reutilizan al
-    // final de la función para el upsert de meta, así que se leen una
-    // única vez aquí.
+    // desde la última corrida. `cfg.modelo`/`cfg.dims` se reutilizan un poco
+    // más abajo para el upsert de meta (junto a `kb_root`), así que se leen
+    // una única vez aquí.
     let cfg = config_embeddings().context("leer config de embeddings")?;
     verifica_modelo(&conn, &cfg.modelo)?;
 
@@ -98,6 +98,36 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
         params![kb_abs.to_string_lossy()],
     )
     .context("escribir meta.kb_root")?;
+
+    // meta.modelo_embeddings/meta.dims_embeddings: se escriben aquí, junto a
+    // kb_root, y NO al final de la función. La clave no describe "la última
+    // indexación terminó bien": describe de qué modelo son los vectores que
+    // hay en esta DB. Y como el bucle de abajo commitea por nota
+    // (`tx.commit()`, transacción por nota), esa procedencia es un hecho
+    // desde la PRIMERA nota commiteada, no desde que la corrida entera
+    // termina. Si el upsert viviera al final y la corrida abortara a mitad
+    // (panic, OOM, `kill -9`, disco lleno), las notas ya commiteadas
+    // quedarían en disco con vectores del modelo actual mientras la clave
+    // seguiría ausente o con el modelo previo; la corrida siguiente, con la
+    // config ya cambiada a otro modelo, leería esa ausencia como "índice
+    // viejo, migración silenciosa" (rama `None` de `verifica_modelo`) y
+    // mezclaría vectores de ambos modelos bajo la propia guarda que existe
+    // para impedirlo. Escribiendo la clave antes de embeber nada, un abort a
+    // mitad deja `meta` ya apuntando al modelo de esta corrida, y la corrida
+    // siguiente con otra config choca contra la guarda y aborta antes de
+    // mezclar.
+    conn.execute(
+        "INSERT INTO meta (clave, valor) VALUES ('modelo_embeddings', ?1)
+         ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor",
+        params![cfg.modelo],
+    )
+    .context("escribir meta.modelo_embeddings")?;
+    conn.execute(
+        "INSERT INTO meta (clave, valor) VALUES ('dims_embeddings', ?1)
+         ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor",
+        params![cfg.dims.to_string()],
+    )
+    .context("escribir meta.dims_embeddings")?;
 
     let rutas_absolutas = walk_kb(kb)?;
 
@@ -204,24 +234,6 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
     // sobre las ~115 notas de la KB, y hace que un link roto se cure solo en
     // cuanto la nota destino aparezca en un index/rebuild posterior.
     resuelve_destinos(&conn).context("resolver destino_permalink de aristas")?;
-
-    // meta.modelo_embeddings/meta.dims_embeddings: se escriben al FINAL, no
-    // al principio como kb_root — si esta corrida aborta a mitad (un `?` de
-    // arriba), la clave debe quedar como estaba (ausente, o con el modelo
-    // viejo) para que la corrida siguiente repita la migración silenciosa o
-    // la guarda de arriba, en vez de dar por buena una indexación a medias.
-    conn.execute(
-        "INSERT INTO meta (clave, valor) VALUES ('modelo_embeddings', ?1)
-         ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor",
-        params![cfg.modelo],
-    )
-    .context("escribir meta.modelo_embeddings")?;
-    conn.execute(
-        "INSERT INTO meta (clave, valor) VALUES ('dims_embeddings', ?1)
-         ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor",
-        params![cfg.dims.to_string()],
-    )
-    .context("escribir meta.dims_embeddings")?;
 
     Ok(Resumen {
         indexadas,
