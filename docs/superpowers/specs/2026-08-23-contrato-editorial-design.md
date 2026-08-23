@@ -3,7 +3,13 @@
 Fecha: 2026-08-23. Origen: expediente de auditoría del sistema de presupuestos
 de la KB (`docs/superpowers/consultas/2026-08-22-presupuestos/`), propuesta v2,
 puntos **Pata A.2, A.3, A.4 y A.5** más el test del título de §1.4.
-Estado: **diseño aprobado por Paul, pendiente de plan.**
+Estado: **implementada** (2026-08-23). `ba636b3` en exo (SKILL.md de
+`/consolida`, las seis piezas) y `0a008ce` en kb-demo (core-index + el
+precedente de Wikipedia appendeado a `log/doctrina-agentes-bitacora.md`).
+Verificado sobre el bloque real, no sobre el fichero: **6.570 → 6.084 B**, deja
+de truncar, y los **10** punteros de actividad reciente sobreviven donde antes
+llegaban 3-4. El hook de arranque se ejecutó de verdad: sin FALLBACK, core-index
+completo. Sin plan aparte: es prosa, la spec traía el texto exacto.
 Repos: `exo` (`plugins/reflex/skills/consolida/SKILL.md`) y la KB `kb-demo`
 (`core/core-index.md`). **No toca kbx.**
 Depende de: la spec de la guarda de aire (`kbx`), porque la doctrina nueva
