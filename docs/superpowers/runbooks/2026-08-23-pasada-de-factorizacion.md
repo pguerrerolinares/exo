@@ -124,7 +124,7 @@ título → tema amplio, partir por género.**
 | Benchmarks: pre-registro, saturación, prevalencia | 1.257 |
 | Negativos, controles y potencia | 2.129 |
 | Esperar procesos largos y subagentes idle | 2.013 |
-| Relations / Observations | 771 |
+| Relations (301, **en medio del fichero**, entre Benchmarks y Negativos) + Observations (470, última) | 771 |
 
 Los tres géneros que la §2 nombra son visibles: narrativa de la meta-habilidad
 (destello, principios, SDD, disciplina), referencia técnica del harness (hooks,
@@ -154,6 +154,18 @@ Reglas, todas de la doctrina ya escrita:
 - **Las vecinas solo reciben.** `evidencia-y-divulgacion` y `fallo-silencioso`
   aceptan bloques (append) pero **no se reescriben ni bajan su techo**. Así no
   disparan la guarda ni entran en el alcance.
+- **Antes de appendear: ¿el destino ya dice esto?** Verificado en la review:
+  `doctrina-agentes §"Mutation testing como validación del padre"` ("el padre
+  muta el código y exige que la suite se entere") y `fallo-silencioso §2` ("la
+  prueba definitiva es la mutación, no el color") son **la misma lección con
+  evidencia distinta**. Appendear el bloque entero recrearía en la vecina justo
+  la duplicación que esta pasada existe para eliminar. Las dos reglas anteriores
+  —bloques enteros, vecinas solo reciben— no dan salida a ese caso, así que la
+  tabla del paso 0 lleva una columna más: **¿el destino ya lo dice?** Si sí, el
+  bloque **no viaja**: lo que viaja es su *evidencia* (los casos, los números)
+  como añadido bajo la sección que ya existe en el destino, y la afirmación
+  duplicada se retira del origen. Eso no es re-resumir: la formulación que
+  sobrevive es la que ya estaba escrita, entera.
 - **Título-afirmación** en cada nota nueva: el título dice qué es verdad, no de
   qué trata. Es lo que hace falsable el test del título en la próxima pasada.
 - **Frontmatter de las hijas**: `tier` correcto y **sin `kbx_budget_max`** si
@@ -189,6 +201,13 @@ evidencia, no trámite.
 - **IOU de la regla de los caps**: la doctrina prometió *"cuando se partan, esto
   sube"* como demanda suprimida. Se salda aquí: las hijas nacen con su tier
   nominal y sin waiver siempre que se pueda.
+- **La doctrina diferida por falta de sitio.** La spec del contrato editorial
+  declara que la doctrina que no cupo en `doctrina-agentes` (33 B de aire) ni en
+  `desarrollo-agentico` (49 B) "se difiere al runbook". Aquí se cobra: una vez
+  partidas, las madres-índice y las hijas tienen sitio. **Qué se escribe se
+  decide en el paso 0**, con la tabla delante, y no antes — si al llegar aquí
+  resulta que no había nada pendiente de escribir, se dice y se cierra la IOU
+  en vez de dejarla abierta otra pasada más.
 - `kbx ratchet --kb $KB --seal`. **Atómico**: o sella todo o no sella nada. Si
   falla, lista cada techo sin aire con su objetivo de poda — eso no es un error
   del sello, es trabajo que falta. **Nunca subir un techo para que pase.**
@@ -198,10 +217,22 @@ evidencia, no trámite.
 
 ## Verificación (no darlo por hecho)
 
-1. **Conservación**: la suma de cabeceras `## ` de las madres antes
-   (`git show HEAD:<ruta> | grep -c '^## '`) = las de las madres-índice ahora +
-   las de todas las hijas + las movidas a vecinas y bitácoras. Si no cuadra, hay
-   un bloque perdido: **para y revísalo**.
+1. **Conservación, en dos niveles.** El conteo de cabeceras solo ve si un bloque
+   entero aparece o desaparece; **no detecta pérdida DENTRO de un bloque** —un
+   bullet caído, una frase recortada, una paráfrasis— que es exactamente el modo
+   de fallo que "bloques enteros, nunca re-resumir" intenta prevenir. Hacen falta
+   los dos:
+   - **Bloques**: suma de cabeceras `## ` de las madres antes
+     (`git show HEAD:<ruta> | grep -c '^## '`) = las de las madres-índice ahora +
+     las de todas las hijas + las movidas a vecinas y bitácoras.
+   - **Bytes**: la tabla bloque→destino del paso 0 ya trae los bytes de cada
+     bloque. Suma los de origen y compáralos con los de destino. Los únicos
+     bytes nuevos legítimos son cabeceras de nota, frontmatter y el texto de los
+     índices-madre; los únicos que faltan legítimamente son los evictados a
+     bitácora, que están contados como tales. `git diff --shortstat` de la
+     operación completa da el control grueso.
+
+   Si cualquiera de los dos no cuadra: **para y revísalo**.
 2. **Routing**: buscar en la KB tres conceptos que vivían en las madres
    (`exo search --type hybrid`) y comprobar que se llega a la hija correcta. Es
    la comprobación del riesgo de routing; sin ella la mitigación es una promesa.
