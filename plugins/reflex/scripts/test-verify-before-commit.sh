@@ -51,10 +51,12 @@ transcript_tool_result() {
 }
 
 # Payload PreToolUse. Args: cwd, transcript_path (puede ser vacio), command.
+# Los saltos de línea reales (heredocs) se pasan a \n literal para que el
+# JSON resultante sea válido (mismo patrón que test-git-c-bash.sh).
 make_payload() {
   local cwd="$1" transcript="$2" cmd="$3"
   local cmd_escaped
-  cmd_escaped="$(printf '%s' "$cmd" | sed 's/\\/\\\\/g; s/"/\\"/g')"
+  cmd_escaped="$(printf '%s' "$cmd" | sed 's/\\/\\\\/g; s/"/\\"/g' | awk 'NR>1{printf "\\n"} {printf "%s", $0}')"
   if [ -n "$transcript" ]; then
     printf '{"session_id":"test-sid","cwd":"%s","transcript_path":"%s","tool_name":"Bash","tool_input":{"command":"%s"},"hook_event_name":"PreToolUse"}' \
       "$cwd" "$transcript" "$cmd_escaped"
@@ -193,6 +195,51 @@ echo ""
   OUTPUT="$(printf '%s' "$PAYLOAD" | REFLEX_LOG_FILE="$TMPLOG" bash "$HOOK" 2>/dev/null)"
   AFTER="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
   assert_no_nudge "caso7: nada staged → silencio" "$BEFORE" "$AFTER" "$OUTPUT"
+}
+
+# ---------------------------------------------------------------------------
+# CASO 8 (T2): heredoc multilínea (>500 chars acumulados) delante del
+# "git commit" real → el payload logueado DEBE conservar el "git commit",
+# no solo el heredoc.
+# ---------------------------------------------------------------------------
+{
+  REPO="$(make_repo caso8 "foo.py:print('hi')")"
+  LINE="$(head -c 130 < /dev/zero | tr '\0' 'x')"
+  HEREDOC_BODY="$(printf '%s\n%s\n%s\n%s\n%s' "$LINE" "$LINE" "$LINE" "$LINE" "$LINE")"
+  CMD="$(printf 'cat <<EOF\n%s\nEOF\ngit commit -m fix' "$HEREDOC_BODY")"
+  PAYLOAD_JSON="$(make_payload "$REPO" "" "$CMD")"
+  BEFORE="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
+  OUTPUT="$(printf '%s' "$PAYLOAD_JSON" | REFLEX_LOG_FILE="$TMPLOG" bash "$HOOK" 2>/dev/null)"
+  AFTER="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
+  LOGGED="$(tail -1 "$TMPLOG" | jq -r '.payload' 2>/dev/null)"
+  if [ -z "$OUTPUT" ] && [ "$AFTER" -gt "$BEFORE" ] && printf '%s' "$LOGGED" | grep -q 'git commit'; then
+    printf '[PASS] caso8: heredoc largo + git commit → el payload conserva el match\n'
+    PASS=$((PASS+1))
+  else
+    printf '[FAIL] caso8: heredoc largo + git commit → el match no aparece (before=%s after=%s). payload=%s\n' "$BEFORE" "$AFTER" "$LOGGED"
+    FAIL=$((FAIL+1))
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# CASO 9 (T2): comando corto que cabe entero en el prefijo → se loguea
+# entero, sin marcador ⟨match⟩.
+# ---------------------------------------------------------------------------
+{
+  REPO="$(make_repo caso9 "foo.py:print('hi')")"
+  CMD="git commit -m fix"
+  PAYLOAD_JSON="$(make_payload "$REPO" "" "$CMD")"
+  BEFORE="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
+  OUTPUT="$(printf '%s' "$PAYLOAD_JSON" | REFLEX_LOG_FILE="$TMPLOG" bash "$HOOK" 2>/dev/null)"
+  AFTER="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
+  LOGGED="$(tail -1 "$TMPLOG" | jq -r '.payload' 2>/dev/null)"
+  if [ -z "$OUTPUT" ] && [ "$AFTER" -gt "$BEFORE" ] && [ "$LOGGED" = "$CMD" ]; then
+    printf '[PASS] caso9: comando corto → payload = comando entero, sin marcador\n'
+    PASS=$((PASS+1))
+  else
+    printf '[FAIL] caso9: comando corto → esperaba payload="%s", obtuve "%s" (before=%s after=%s)\n' "$CMD" "$LOGGED" "$BEFORE" "$AFTER"
+    FAIL=$((FAIL+1))
+  fi
 }
 
 # ---------------------------------------------------------------------------

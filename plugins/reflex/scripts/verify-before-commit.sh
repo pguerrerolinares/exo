@@ -20,6 +20,11 @@
 #
 # Por-ocurrencia (sin sentinel): cada commit de codigo sin verificar es un evento real.
 # Aplica en padre Y subagentes (sin guarda agent_id).
+#
+# LOG: el payload persistido es contexto (primeros ~120 chars) + la
+# invocacion "git commit" que de verdad disparo, extraida con el MISMO
+# patron que la deteccion (via grep -Eo). Comando corto que cabe entero en
+# esos ~120 chars se loguea tal cual, sin marcador.
 set -uo pipefail
 
 INPUT="$(cat)"
@@ -29,7 +34,8 @@ CMD="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)"
 [ -z "$CMD" ] && exit 0
 
 # 1. Solo actuar en git commit.
-printf '%s' "$CMD" | grep -Eq 'git[[:space:]]+commit([[:space:]]|$)' || exit 0
+PATRON='git[[:space:]]+commit([[:space:]]|$)'
+printf '%s' "$CMD" | grep -Eq "$PATRON" || exit 0
 
 # 2. Escape hatch: --no-verify -> abstension.
 printf '%s' "$CMD" | grep -q -- '--no-verify' && exit 0
@@ -97,7 +103,23 @@ fi
 # 5. Si todo ok -> silencio.
 [ "$SHOULD_WARN" -eq 0 ] && exit 0
 
+# payload del log: prefijo de contexto + la sentencia que disparo (mismo
+# PATRON de arriba via grep -Eo). Comando corto que cabe entero en el
+# prefijo -> se loguea entero, sin marcador. Extraccion sin match (no
+# deberia pasar) -> degrada al prefijo solo.
+if [ "${#CMD}" -le 120 ]; then
+  PAYLOAD="$CMD"
+else
+  PREFIJO="$(printf '%s' "$CMD" | cut -c1-120)"
+  MATCH="$(printf '%s' "$CMD" | grep -Eo "$PATRON" | head -1)"
+  if [ -n "$MATCH" ]; then
+    PAYLOAD="${PREFIJO} … ⟨match⟩ ${MATCH}"
+  else
+    PAYLOAD="$PREFIJO"
+  fi
+fi
+
 # log del disparo (best-effort, nunca rompe el warn-only)
-. "$(dirname "$0")/_reflex-log.sh" 2>/dev/null && reflex_log "verify-before-done" "$INPUT" "$(printf '%s' "$CMD" | cut -c1-200)" || true
+. "$(dirname "$0")/_reflex-log.sh" 2>/dev/null && reflex_log "verify-before-done" "$INPUT" "$PAYLOAD" || true
 
 exit 0
