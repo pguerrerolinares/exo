@@ -47,11 +47,29 @@ printf '%s' "$CMD" | grep -Eq "$PATRON" || exit 0
 # comando de muchas lineas cortas cada una sobrevive intacta y el "prefijo"
 # real acaba siendo lineas*120 caracteres, reventando el cap del helper y
 # comiendose el match otra vez. Es el mismo bug que este fix vino a arreglar.
+# OJO 2: el propio PATRON no tiene techo (`-C[[:space:]]+[^[:space:]]+`
+# acepta un path de cualquier longitud), asi que el MATCH extraido tampoco
+# lo tiene. Un match gigante (path absurdo tras -C) puede por si solo topar
+# el cap de 2000 del helper y comerse el "add -A" -- la misma brecha, otra
+# puerta. Si el match excede la ventana, se conserva cabeza+cola (NO solo
+# el principio): el fragmento que informa vive al FINAL del match (el
+# "add -A"/"--all"/"."), truncar solo por delante lo tiraria.
+# Nota aparte (no ataja nada, solo lo documenta): estos cortes por indice
+# (aqui, PREFIJO y el cap de _reflex-log.sh) cuentan caracteres en locale
+# UTF-8 pero bytes en LC_ALL=C -- bajo esa locale el corte puede caer a
+# mitad de un caracter multibyte. jq lo tolera (sustituye por el caracter
+# de reemplazo, exit 0) y el contrato best-effort aguanta, asi que no hace
+# falta blindarlo.
+MATCH_HEAD=80
+MATCH_TAIL=60
 if [ "${#CMD}" -le 120 ]; then
   PAYLOAD="$CMD"
 else
   PREFIJO="${CMD:0:120}"
   MATCH="$(printf '%s' "$CMD" | grep -Eo "$PATRON" | head -1)"
+  if [ "${#MATCH}" -gt $((MATCH_HEAD + MATCH_TAIL)) ]; then
+    MATCH="${MATCH:0:MATCH_HEAD}…${MATCH: -MATCH_TAIL}"
+  fi
   if [ -n "$MATCH" ]; then
     PAYLOAD="${PREFIJO} … ⟨match⟩ ${MATCH}"
   else

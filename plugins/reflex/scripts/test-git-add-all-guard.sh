@@ -139,6 +139,31 @@ assert_no_nudge "git commit -m x → no nudge"        "git commit -m x"
   fi
 }
 
+# caso match sin techo (T2, Important de review): el propio PATRON no
+# acota `-C[[:space:]]+[^[:space:]]+`, así que un path absurdamente largo
+# tras `-C` hace que el MATCH extraído por sí solo tope el cap de 2000 del
+# helper y se coma el "add -A" — la misma brecha por otra puerta. El
+# payload DEBE conservar "add -A" (el verbo va al final del match, así que
+# el truncado tiene que guardar cabeza Y cola, no solo el principio).
+{
+  PATH_LARGO="$(head -c 3000 < /dev/zero | tr '\0' 'x')"
+  CMD="git -C ${PATH_LARGO} add -A"
+  : > "$TMPLOG"
+  make_payload "$CMD" | REFLEX_LOG_FILE="$TMPLOG" bash "$HOOK" >/dev/null 2>&1
+  PAYLOAD="$(tail -1 "$TMPLOG" | jq -r '.payload' 2>/dev/null)"
+  PAYLOAD_LEN="$(printf '%s' "$PAYLOAD" | wc -c)"
+  if [ "${#CMD}" -lt 2500 ]; then
+    printf '[FAIL] match sin techo → el comando de prueba mide %d chars, no llega a los 2500 necesarios para topar el cap\n' "${#CMD}"
+    FAIL=$((FAIL+1))
+  elif printf '%s' "$PAYLOAD" | grep -q 'add -A' && [ "$PAYLOAD_LEN" -lt 2000 ]; then
+    printf '[PASS] match sin techo (path de 3000 chars) → payload (%d bytes) conserva "add -A"\n' "$PAYLOAD_LEN"
+    PASS=$((PASS+1))
+  else
+    printf '[FAIL] match sin techo → "add -A" no aparece o payload no cabe en el cap (payload=%d bytes). payload=%s\n' "$PAYLOAD_LEN" "$PAYLOAD"
+    FAIL=$((FAIL+1))
+  fi
+}
+
 # caso comando corto (T2): cabe entero dentro de la ventana de prefijo →
 # se loguea entero, sin marcador ⟨match⟩ (duplicarlo no informa de nada).
 {

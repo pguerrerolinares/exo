@@ -258,6 +258,36 @@ echo ""
 }
 
 # ---------------------------------------------------------------------------
+# CASO 8c (T2, Important de review): match sin techo. El PATRON
+# `git[[:space:]]+commit` acepta cualquier cantidad de espacios, así que
+# "git" + 3000 espacios + "commit" por sí solo topa el cap de 2000 y se
+# come el "commit" — la misma brecha, otra puerta. El payload DEBE
+# conservar "commit" (va al final del match; el truncado tiene que
+# guardar cabeza y cola, no solo el principio).
+# ---------------------------------------------------------------------------
+{
+  REPO="$(make_repo caso8c "foo.py:print('hi')")"
+  ESPACIOS="$(head -c 3000 < /dev/zero | tr '\0' ' ')"
+  CMD="git${ESPACIOS}commit -m fix"
+  PAYLOAD_JSON="$(make_payload "$REPO" "" "$CMD")"
+  BEFORE="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
+  OUTPUT="$(printf '%s' "$PAYLOAD_JSON" | REFLEX_LOG_FILE="$TMPLOG" bash "$HOOK" 2>/dev/null)"
+  AFTER="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
+  LOGGED="$(tail -1 "$TMPLOG" | jq -r '.payload' 2>/dev/null)"
+  PAYLOAD_LEN="$(printf '%s' "$LOGGED" | wc -c)"
+  if [ "${#CMD}" -lt 2500 ]; then
+    printf '[FAIL] caso8c: el comando de prueba mide %d chars, no llega a los 2500 necesarios\n' "${#CMD}"
+    FAIL=$((FAIL+1))
+  elif [ -z "$OUTPUT" ] && [ "$AFTER" -gt "$BEFORE" ] && printf '%s' "$LOGGED" | grep -q 'commit' && [ "$PAYLOAD_LEN" -lt 2000 ]; then
+    printf '[PASS] caso8c: match sin techo (3000 espacios) → payload (%d bytes) conserva "commit"\n' "$PAYLOAD_LEN"
+    PASS=$((PASS+1))
+  else
+    printf '[FAIL] caso8c: match sin techo → "commit" no aparece o payload no cabe (payload=%d bytes, before=%s after=%s). payload=%s\n' "$PAYLOAD_LEN" "$BEFORE" "$AFTER" "$LOGGED"
+    FAIL=$((FAIL+1))
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # CASO 9 (T2): comando corto que cabe entero en el prefijo → se loguea
 # entero, sin marcador ⟨match⟩.
 # ---------------------------------------------------------------------------
