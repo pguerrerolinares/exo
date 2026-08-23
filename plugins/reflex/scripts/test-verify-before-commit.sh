@@ -309,6 +309,65 @@ echo ""
 }
 
 # ---------------------------------------------------------------------------
+# CASO 10 (T2, fix3 -- el bug que esta ronda vino a arreglar): DOS
+# ocurrencias DISTINTAS del patron en el mismo comando -- una mencion en
+# prosa dentro de un heredoc ("recuerda hacer git commit tras cada cambio
+# importante...") y la invocacion real (git commit, sin -m, como ultima
+# linea) al final. La mencion en prosa matchea con espacio de cola ("git
+# commit "); la real, al ser lo ultimo de su linea, matchea contra `$`
+# (sin espacio de cola: "git commit") -- son literalmente distintas, asi
+# que el dedup NO las colapsa. Con `head -1` (el bug) el payload se queda
+# con la mencion en prosa y esconde la real.
+# ---------------------------------------------------------------------------
+{
+  REPO="$(make_repo caso10 "foo.py:print('hi')")"
+  CMD="$(printf "cat > docs/normas.md <<'EOF'\nrecuerda hacer git commit tras cada cambio importante siempre que sea posible en este repo\nEOF\ngit commit")"
+  PAYLOAD_JSON="$(make_payload "$REPO" "" "$CMD")"
+  BEFORE="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
+  OUTPUT="$(printf '%s' "$PAYLOAD_JSON" | REFLEX_LOG_FILE="$TMPLOG" bash "$HOOK" 2>/dev/null)"
+  AFTER="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
+  LOGGED="$(tail -1 "$TMPLOG" | jq -r '.payload' 2>/dev/null)"
+  # la real matchea sin espacio de cola -- exigir "git commit" no basta
+  # (la mencion en prosa tambien contiene ese substring), asi que se
+  # verifica que el fragmento final del payload sea la ocurrencia sin cola.
+  if [ -z "$OUTPUT" ] && [ "$AFTER" -gt "$BEFORE" ] && printf '%s' "$LOGGED" | grep -qE 'commit$'; then
+    printf '[PASS] caso10: dos ocurrencias distintas (prosa + real al final) → el payload conserva la real\n'
+    PASS=$((PASS+1))
+  else
+    printf '[FAIL] caso10: dos ocurrencias distintas → la real no aparece al final (before=%s after=%s). payload=%s\n' "$BEFORE" "$AFTER" "$LOGGED"
+    FAIL=$((FAIL+1))
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# CASO 11: ocurrencias identicas repetidas no deben duplicarse en el
+# payload (repetir el mismo texto no informa mas que mostrarlo una vez).
+# El relleno va DELANTE de las dos ocurrencias y ocupa >120 chars por si
+# solo, para que el PREFIJO (contexto crudo, primeros 120 chars) no
+# contenga ninguna ocurrencia -- si no, el conteo se contamina con la
+# aparicion literal del PREFIJO y no mide el dedup del MATCH.
+# ---------------------------------------------------------------------------
+{
+  REPO="$(make_repo caso11 "foo.py:print('hi')")"
+  RELLENO="$(head -c 150 < /dev/zero | tr '\0' 'x')"
+  CMD="echo ${RELLENO} ; git commit -m x ; git commit -m x"
+  PAYLOAD_JSON="$(make_payload "$REPO" "" "$CMD")"
+  BEFORE="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
+  OUTPUT="$(printf '%s' "$PAYLOAD_JSON" | REFLEX_LOG_FILE="$TMPLOG" bash "$HOOK" 2>/dev/null)"
+  AFTER="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
+  LOGGED="$(tail -1 "$TMPLOG" | jq -r '.payload' 2>/dev/null)"
+  MATCH_SEGMENT="$(printf '%s' "$LOGGED" | sed 's/.*⟨match⟩ //')"
+  OCURRENCIAS="$(printf '%s' "$MATCH_SEGMENT" | grep -o 'git commit ' | wc -l)"
+  if [ -z "$OUTPUT" ] && [ "$AFTER" -gt "$BEFORE" ] && [ "$OCURRENCIAS" -eq 1 ]; then
+    printf '[PASS] caso11: ocurrencias identicas repetidas → dedup (aparece una sola vez)\n'
+    PASS=$((PASS+1))
+  else
+    printf '[FAIL] caso11: ocurrencias identicas repetidas → esperaba 1 aparicion, hubo %s (before=%s after=%s). payload=%s\n' "$OCURRENCIAS" "$BEFORE" "$AFTER" "$LOGGED"
+    FAIL=$((FAIL+1))
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # CLEANUP
 # ---------------------------------------------------------------------------
 rm -rf "$TMPDIR_BASE" 2>/dev/null || true

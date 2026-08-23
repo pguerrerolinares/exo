@@ -180,6 +180,50 @@ assert_no_nudge "git commit -m x → no nudge"        "git commit -m x"
   fi
 }
 
+# caso multi-ocurrencia (T2, fix3 -- el bug que esta ronda vino a arreglar):
+# DOS ocurrencias DISTINTAS del patron en el mismo comando -- una mencion
+# en prosa dentro de un heredoc ("nunca uses git add . ...") y la
+# invocacion real (git add -A) al final. Con `head -1` (el bug) el payload
+# se queda con la mencion en prosa y esconde la real: exactamente el falso
+# positivo benigno que este instrumento existe para medir, entrando por
+# otra puerta. El payload DEBE conservar la ocurrencia real ("add -A").
+{
+  CMD="$(printf "cat > docs/normas-del-repo.md <<'EOF'\nNorma 1: nunca uses git add . en este repositorio porque arrastra residuo.\nNorma 2: usa git add con rutas explicitas.\nEOF\ngit add -A")"
+  : > "$TMPLOG"
+  make_payload "$CMD" | REFLEX_LOG_FILE="$TMPLOG" bash "$HOOK" >/dev/null 2>&1
+  PAYLOAD="$(tail -1 "$TMPLOG" | jq -r '.payload' 2>/dev/null)"
+  if printf '%s' "$PAYLOAD" | grep -q 'add -A'; then
+    printf '[PASS] dos ocurrencias distintas (prosa + real al final) → el payload conserva "add -A"\n'
+    PASS=$((PASS+1))
+  else
+    printf '[FAIL] dos ocurrencias distintas → "add -A" no aparece, se quedo solo con la primera. payload=%s\n' "$PAYLOAD"
+    FAIL=$((FAIL+1))
+  fi
+}
+
+# mismo caso: ocurrencias identicas repetidas no deben duplicarse en el
+# payload (repetir el mismo texto no informa mas que mostrarlo una vez).
+# El relleno va DELANTE de las dos ocurrencias y ocupa >120 chars por si
+# solo, para que el PREFIJO (contexto crudo, primeros 120 chars) no
+# contenga ninguna ocurrencia -- si no, el conteo se contamina con la
+# aparicion literal del PREFIJO y no mide el dedup del MATCH.
+{
+  RELLENO="$(head -c 150 < /dev/zero | tr '\0' 'x')"
+  CMD="echo ${RELLENO} ; git add . ; echo nope ; git add . ; true"
+  : > "$TMPLOG"
+  make_payload "$CMD" | REFLEX_LOG_FILE="$TMPLOG" bash "$HOOK" >/dev/null 2>&1
+  PAYLOAD="$(tail -1 "$TMPLOG" | jq -r '.payload' 2>/dev/null)"
+  MATCH_SEGMENT="$(printf '%s' "$PAYLOAD" | sed 's/.*⟨match⟩ //')"
+  OCURRENCIAS="$(printf '%s' "$MATCH_SEGMENT" | grep -o 'git add \.' | wc -l)"
+  if [ "$OCURRENCIAS" -eq 1 ]; then
+    printf '[PASS] ocurrencias identicas repetidas → dedup (aparece una sola vez)\n'
+    PASS=$((PASS+1))
+  else
+    printf '[FAIL] ocurrencias identicas repetidas → esperaba 1 aparicion, hubo %s. payload=%s\n' "$OCURRENCIAS" "$PAYLOAD"
+    FAIL=$((FAIL+1))
+  fi
+}
+
 echo ""
 TOTAL=$((PASS+FAIL))
 echo "=== Resultado: ${PASS}/${TOTAL} pasaron ==="
