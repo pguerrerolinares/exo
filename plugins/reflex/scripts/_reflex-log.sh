@@ -16,7 +16,7 @@ reflex_log() {
   local reflex="$1" input="$2" payload="${3:-}"
   local ts; ts="$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)" || ts=""
   printf '%s' "$input" | jq -c \
-    --arg ts "$ts" --arg reflex "$reflex" --arg payload "${payload:0:500}" \
+    --arg ts "$ts" --arg reflex "$reflex" --arg payload "${payload:0:2000}" \
     '{ts:$ts, reflex:$reflex,
       session_id: (.session_id // ""),
       agent_id: (.agent_id // ""),

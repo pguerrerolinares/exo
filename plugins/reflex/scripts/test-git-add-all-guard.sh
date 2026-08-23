@@ -13,10 +13,12 @@ FAIL=0
 TMPLOG="$(mktemp)"; trap 'rm -f "$TMPLOG"' EXIT
 
 # Genera un payload PreToolUse mínimo. El command se pasa ya JSON-escapado.
+# Los saltos de línea reales (heredocs) se pasan a \n literal para que el JSON
+# resultante sea válido (mismo patrón que test-git-c-bash.sh).
 make_payload() {
   local cmd="$1"
   local cmd_escaped
-  cmd_escaped="$(printf '%s' "$cmd" | sed 's/\\/\\\\/g; s/"/\\"/g')"
+  cmd_escaped="$(printf '%s' "$cmd" | sed 's/\\/\\\\/g; s/"/\\"/g' | awk 'NR>1{printf "\\n"} {printf "%s", $0}')"
   printf '{"session_id":"test-sid","tool_name":"Bash","tool_input":{"command":"%s"},"hook_event_name":"PreToolUse"}' \
     "$cmd_escaped"
 }
@@ -75,6 +77,149 @@ assert_no_nudge "git commit -m x → no nudge"        "git commit -m x"
     PASS=$((PASS+1))
   else
     printf '[FAIL] command vacío → ec=%d output=%s\n' "$EC" "$OUTPUT"
+    FAIL=$((FAIL+1))
+  fi
+}
+
+# caso heredoc pequeño (650 chars, 5 líneas): regresión ligera, cabe
+# holgado en el cap de 2000 aunque el prefijo se calculara mal.
+{
+  LINE="$(head -c 130 < /dev/zero | tr '\0' 'x')"
+  HEREDOC_BODY="$(printf '%s\n%s\n%s\n%s\n%s' "$LINE" "$LINE" "$LINE" "$LINE" "$LINE")"
+  CMD="$(printf 'cat <<EOF\n%s\nEOF\ngit add -A' "$HEREDOC_BODY")"
+  : > "$TMPLOG"
+  make_payload "$CMD" | REFLEX_LOG_FILE="$TMPLOG" bash "$HOOK" >/dev/null 2>&1
+  PAYLOAD="$(tail -1 "$TMPLOG" | jq -r '.payload' 2>/dev/null)"
+  if printf '%s' "$PAYLOAD" | grep -q 'git add -A'; then
+    printf '[PASS] heredoc 650 chars + git add -A → el payload conserva el match\n'
+    PASS=$((PASS+1))
+  else
+    printf '[FAIL] heredoc 650 chars + git add -A → el match no aparece en el payload. payload=%s\n' "$PAYLOAD"
+    FAIL=$((FAIL+1))
+  fi
+}
+
+# caso heredoc grande (T2, el que fija el contrato — el que cita el plan
+# literalmente: "con un heredoc de 4 KB seguiria fallando"): ~4.5 KB
+# repartidos en 42 líneas de 100 chars, como una spec o runbook real
+# pegado con un heredoc, delante del git add -A real.
+#
+# Por qué hacen falta MUCHAS líneas y no una sola larga: `cut -c1-200` (el
+# bug original) y `cut -c1-120` (un bug equivalente que este mismo fix
+# introdujo y luego corrigió) truncan POR LINEA, no el string completo. Un
+# heredoc de una sola línea gigante se trunca a 120/200 chars igual que uno
+# corto -- no revienta nada. Lo que revienta el prefijo es que decenas de
+# líneas, cada una intacta tras el cut-por-línea, se acumulen: 42 líneas *
+# ~120 chars de "prefijo" = ~5000 chars, muy por encima del cap de 2000 del
+# helper, y el "git add -A" final cae fuera de la ventana igual que antes.
+{
+  HEREDOC_BODY=""
+  for i in $(seq -w 0 41); do
+    LINEA="linea ${i}: $(head -c 100 < /dev/zero | tr '\0' 'x')"
+    if [ -z "$HEREDOC_BODY" ]; then
+      HEREDOC_BODY="$LINEA"
+    else
+      HEREDOC_BODY="$(printf '%s\n%s' "$HEREDOC_BODY" "$LINEA")"
+    fi
+  done
+  CMD="$(printf "cat > spec.md <<'EOF'\n%s\nEOF\ngit add -A" "$HEREDOC_BODY")"
+  : > "$TMPLOG"
+  make_payload "$CMD" | REFLEX_LOG_FILE="$TMPLOG" bash "$HOOK" >/dev/null 2>&1
+  PAYLOAD="$(tail -1 "$TMPLOG" | jq -r '.payload' 2>/dev/null)"
+  PAYLOAD_LEN="$(printf '%s' "$PAYLOAD" | wc -c)"
+  if [ "${#CMD}" -lt 4000 ]; then
+    printf '[FAIL] heredoc grande → el comando de prueba mide %d chars, no llega a los 4 KB del plan\n' "${#CMD}"
+    FAIL=$((FAIL+1))
+  elif printf '%s' "$PAYLOAD" | grep -q 'git add -A'; then
+    printf '[PASS] heredoc ~4.5KB/42 líneas + git add -A → el payload (cmd=%d chars, payload=%d bytes) conserva el match\n' "${#CMD}" "$PAYLOAD_LEN"
+    PASS=$((PASS+1))
+  else
+    printf '[FAIL] heredoc ~4.5KB/42 líneas + git add -A → el match no aparece (cmd=%d chars, payload=%d bytes). payload=%s\n' "${#CMD}" "$PAYLOAD_LEN" "$PAYLOAD"
+    FAIL=$((FAIL+1))
+  fi
+}
+
+# caso match sin techo (T2, Important de review): el propio PATRON no
+# acota `-C[[:space:]]+[^[:space:]]+`, así que un path absurdamente largo
+# tras `-C` hace que el MATCH extraído por sí solo tope el cap de 2000 del
+# helper y se coma el "add -A" — la misma brecha por otra puerta. El
+# payload DEBE conservar "add -A" (el verbo va al final del match, así que
+# el truncado tiene que guardar cabeza Y cola, no solo el principio).
+{
+  PATH_LARGO="$(head -c 3000 < /dev/zero | tr '\0' 'x')"
+  CMD="git -C ${PATH_LARGO} add -A"
+  : > "$TMPLOG"
+  make_payload "$CMD" | REFLEX_LOG_FILE="$TMPLOG" bash "$HOOK" >/dev/null 2>&1
+  PAYLOAD="$(tail -1 "$TMPLOG" | jq -r '.payload' 2>/dev/null)"
+  PAYLOAD_LEN="$(printf '%s' "$PAYLOAD" | wc -c)"
+  if [ "${#CMD}" -lt 2500 ]; then
+    printf '[FAIL] match sin techo → el comando de prueba mide %d chars, no llega a los 2500 necesarios para topar el cap\n' "${#CMD}"
+    FAIL=$((FAIL+1))
+  elif printf '%s' "$PAYLOAD" | grep -q 'add -A' && [ "$PAYLOAD_LEN" -lt 2000 ]; then
+    printf '[PASS] match sin techo (path de 3000 chars) → payload (%d bytes) conserva "add -A"\n' "$PAYLOAD_LEN"
+    PASS=$((PASS+1))
+  else
+    printf '[FAIL] match sin techo → "add -A" no aparece o payload no cabe en el cap (payload=%d bytes). payload=%s\n' "$PAYLOAD_LEN" "$PAYLOAD"
+    FAIL=$((FAIL+1))
+  fi
+}
+
+# caso comando corto (T2): cabe entero dentro de la ventana de prefijo →
+# se loguea entero, sin marcador ⟨match⟩ (duplicarlo no informa de nada).
+{
+  CMD="git add -A"
+  : > "$TMPLOG"
+  make_payload "$CMD" | REFLEX_LOG_FILE="$TMPLOG" bash "$HOOK" >/dev/null 2>&1
+  PAYLOAD="$(tail -1 "$TMPLOG" | jq -r '.payload' 2>/dev/null)"
+  if [ "$PAYLOAD" = "$CMD" ]; then
+    printf '[PASS] comando corto → payload = comando entero, sin marcador\n'
+    PASS=$((PASS+1))
+  else
+    printf '[FAIL] comando corto → esperaba payload="%s", obtuve "%s"\n' "$CMD" "$PAYLOAD"
+    FAIL=$((FAIL+1))
+  fi
+}
+
+# caso multi-ocurrencia (T2, fix3 -- el bug que esta ronda vino a arreglar):
+# DOS ocurrencias DISTINTAS del patron en el mismo comando -- una mencion
+# en prosa dentro de un heredoc ("nunca uses git add . ...") y la
+# invocacion real (git add -A) al final. Con `head -1` (el bug) el payload
+# se queda con la mencion en prosa y esconde la real: exactamente el falso
+# positivo benigno que este instrumento existe para medir, entrando por
+# otra puerta. El payload DEBE conservar la ocurrencia real ("add -A").
+{
+  CMD="$(printf "cat > docs/normas-del-repo.md <<'EOF'\nNorma 1: nunca uses git add . en este repositorio porque arrastra residuo.\nNorma 2: usa git add con rutas explicitas.\nEOF\ngit add -A")"
+  : > "$TMPLOG"
+  make_payload "$CMD" | REFLEX_LOG_FILE="$TMPLOG" bash "$HOOK" >/dev/null 2>&1
+  PAYLOAD="$(tail -1 "$TMPLOG" | jq -r '.payload' 2>/dev/null)"
+  if printf '%s' "$PAYLOAD" | grep -q 'add -A'; then
+    printf '[PASS] dos ocurrencias distintas (prosa + real al final) → el payload conserva "add -A"\n'
+    PASS=$((PASS+1))
+  else
+    printf '[FAIL] dos ocurrencias distintas → "add -A" no aparece, se quedo solo con la primera. payload=%s\n' "$PAYLOAD"
+    FAIL=$((FAIL+1))
+  fi
+}
+
+# mismo caso: ocurrencias identicas repetidas no deben duplicarse en el
+# payload (repetir el mismo texto no informa mas que mostrarlo una vez).
+# El relleno va DELANTE de las dos ocurrencias y ocupa >120 chars por si
+# solo, para que el PREFIJO (contexto crudo, primeros 120 chars) no
+# contenga ninguna ocurrencia -- si no, el conteo se contamina con la
+# aparicion literal del PREFIJO y no mide el dedup del MATCH.
+{
+  RELLENO="$(head -c 150 < /dev/zero | tr '\0' 'x')"
+  CMD="echo ${RELLENO} ; git add . ; echo nope ; git add . ; true"
+  : > "$TMPLOG"
+  make_payload "$CMD" | REFLEX_LOG_FILE="$TMPLOG" bash "$HOOK" >/dev/null 2>&1
+  PAYLOAD="$(tail -1 "$TMPLOG" | jq -r '.payload' 2>/dev/null)"
+  MATCH_SEGMENT="$(printf '%s' "$PAYLOAD" | sed 's/.*⟨match⟩ //')"
+  OCURRENCIAS="$(printf '%s' "$MATCH_SEGMENT" | grep -o 'git add \.' | wc -l)"
+  if [ "$OCURRENCIAS" -eq 1 ]; then
+    printf '[PASS] ocurrencias identicas repetidas → dedup (aparece una sola vez)\n'
+    PASS=$((PASS+1))
+  else
+    printf '[FAIL] ocurrencias identicas repetidas → esperaba 1 aparicion, hubo %s. payload=%s\n' "$OCURRENCIAS" "$PAYLOAD"
     FAIL=$((FAIL+1))
   fi
 }

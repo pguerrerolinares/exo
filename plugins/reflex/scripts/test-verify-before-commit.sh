@@ -51,10 +51,12 @@ transcript_tool_result() {
 }
 
 # Payload PreToolUse. Args: cwd, transcript_path (puede ser vacio), command.
+# Los saltos de línea reales (heredocs) se pasan a \n literal para que el
+# JSON resultante sea válido (mismo patrón que test-git-c-bash.sh).
 make_payload() {
   local cwd="$1" transcript="$2" cmd="$3"
   local cmd_escaped
-  cmd_escaped="$(printf '%s' "$cmd" | sed 's/\\/\\\\/g; s/"/\\"/g')"
+  cmd_escaped="$(printf '%s' "$cmd" | sed 's/\\/\\\\/g; s/"/\\"/g' | awk 'NR>1{printf "\\n"} {printf "%s", $0}')"
   if [ -n "$transcript" ]; then
     printf '{"session_id":"test-sid","cwd":"%s","transcript_path":"%s","tool_name":"Bash","tool_input":{"command":"%s"},"hook_event_name":"PreToolUse"}' \
       "$cwd" "$transcript" "$cmd_escaped"
@@ -193,6 +195,176 @@ echo ""
   OUTPUT="$(printf '%s' "$PAYLOAD" | REFLEX_LOG_FILE="$TMPLOG" bash "$HOOK" 2>/dev/null)"
   AFTER="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
   assert_no_nudge "caso7: nada staged → silencio" "$BEFORE" "$AFTER" "$OUTPUT"
+}
+
+# ---------------------------------------------------------------------------
+# CASO 8 (T2): heredoc pequeño (650 chars, 5 líneas) delante del
+# "git commit" real → regresión ligera.
+# ---------------------------------------------------------------------------
+{
+  REPO="$(make_repo caso8 "foo.py:print('hi')")"
+  LINE="$(head -c 130 < /dev/zero | tr '\0' 'x')"
+  HEREDOC_BODY="$(printf '%s\n%s\n%s\n%s\n%s' "$LINE" "$LINE" "$LINE" "$LINE" "$LINE")"
+  CMD="$(printf 'cat <<EOF\n%s\nEOF\ngit commit -m fix' "$HEREDOC_BODY")"
+  PAYLOAD_JSON="$(make_payload "$REPO" "" "$CMD")"
+  BEFORE="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
+  OUTPUT="$(printf '%s' "$PAYLOAD_JSON" | REFLEX_LOG_FILE="$TMPLOG" bash "$HOOK" 2>/dev/null)"
+  AFTER="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
+  LOGGED="$(tail -1 "$TMPLOG" | jq -r '.payload' 2>/dev/null)"
+  if [ -z "$OUTPUT" ] && [ "$AFTER" -gt "$BEFORE" ] && printf '%s' "$LOGGED" | grep -q 'git commit'; then
+    printf '[PASS] caso8: heredoc 650 chars + git commit → el payload conserva el match\n'
+    PASS=$((PASS+1))
+  else
+    printf '[FAIL] caso8: heredoc 650 chars + git commit → el match no aparece (before=%s after=%s). payload=%s\n' "$BEFORE" "$AFTER" "$LOGGED"
+    FAIL=$((FAIL+1))
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# CASO 8b (T2, fija el contrato): heredoc grande, ~4.5 KB en 42 líneas de
+# 100 chars (el caso que cita el plan literalmente: "con un heredoc de 4 KB
+# seguiria fallando"). Muchas líneas cortas, no una sola larga: `cut -c`
+# trunca POR LINEA, así que solo un heredoc con decenas de líneas revienta
+# el prefijo acumulado por encima del cap de 2000 del helper.
+# ---------------------------------------------------------------------------
+{
+  REPO="$(make_repo caso8b "foo.py:print('hi')")"
+  HEREDOC_BODY=""
+  for i in $(seq -w 0 41); do
+    LINEA="linea ${i}: $(head -c 100 < /dev/zero | tr '\0' 'x')"
+    if [ -z "$HEREDOC_BODY" ]; then
+      HEREDOC_BODY="$LINEA"
+    else
+      HEREDOC_BODY="$(printf '%s\n%s' "$HEREDOC_BODY" "$LINEA")"
+    fi
+  done
+  CMD="$(printf "cat > spec.md <<'EOF'\n%s\nEOF\ngit commit -m fix" "$HEREDOC_BODY")"
+  PAYLOAD_JSON="$(make_payload "$REPO" "" "$CMD")"
+  BEFORE="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
+  OUTPUT="$(printf '%s' "$PAYLOAD_JSON" | REFLEX_LOG_FILE="$TMPLOG" bash "$HOOK" 2>/dev/null)"
+  AFTER="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
+  LOGGED="$(tail -1 "$TMPLOG" | jq -r '.payload' 2>/dev/null)"
+  PAYLOAD_LEN="$(printf '%s' "$LOGGED" | wc -c)"
+  if [ "${#CMD}" -lt 4000 ]; then
+    printf '[FAIL] caso8b: el comando de prueba mide %d chars, no llega a los 4 KB del plan\n' "${#CMD}"
+    FAIL=$((FAIL+1))
+  elif [ -z "$OUTPUT" ] && [ "$AFTER" -gt "$BEFORE" ] && printf '%s' "$LOGGED" | grep -q 'git commit'; then
+    printf '[PASS] caso8b: heredoc ~4.5KB/42 líneas + git commit → el payload (cmd=%d chars, payload=%d bytes) conserva el match\n' "${#CMD}" "$PAYLOAD_LEN"
+    PASS=$((PASS+1))
+  else
+    printf '[FAIL] caso8b: heredoc ~4.5KB/42 líneas + git commit → el match no aparece (cmd=%d chars, payload=%d bytes, before=%s after=%s). payload=%s\n' "${#CMD}" "$PAYLOAD_LEN" "$BEFORE" "$AFTER" "$LOGGED"
+    FAIL=$((FAIL+1))
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# CASO 8c (T2, Important de review): match sin techo. El PATRON
+# `git[[:space:]]+commit` acepta cualquier cantidad de espacios, así que
+# "git" + 3000 espacios + "commit" por sí solo topa el cap de 2000 y se
+# come el "commit" — la misma brecha, otra puerta. El payload DEBE
+# conservar "commit" (va al final del match; el truncado tiene que
+# guardar cabeza y cola, no solo el principio).
+# ---------------------------------------------------------------------------
+{
+  REPO="$(make_repo caso8c "foo.py:print('hi')")"
+  ESPACIOS="$(head -c 3000 < /dev/zero | tr '\0' ' ')"
+  CMD="git${ESPACIOS}commit -m fix"
+  PAYLOAD_JSON="$(make_payload "$REPO" "" "$CMD")"
+  BEFORE="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
+  OUTPUT="$(printf '%s' "$PAYLOAD_JSON" | REFLEX_LOG_FILE="$TMPLOG" bash "$HOOK" 2>/dev/null)"
+  AFTER="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
+  LOGGED="$(tail -1 "$TMPLOG" | jq -r '.payload' 2>/dev/null)"
+  PAYLOAD_LEN="$(printf '%s' "$LOGGED" | wc -c)"
+  if [ "${#CMD}" -lt 2500 ]; then
+    printf '[FAIL] caso8c: el comando de prueba mide %d chars, no llega a los 2500 necesarios\n' "${#CMD}"
+    FAIL=$((FAIL+1))
+  elif [ -z "$OUTPUT" ] && [ "$AFTER" -gt "$BEFORE" ] && printf '%s' "$LOGGED" | grep -q 'commit' && [ "$PAYLOAD_LEN" -lt 2000 ]; then
+    printf '[PASS] caso8c: match sin techo (3000 espacios) → payload (%d bytes) conserva "commit"\n' "$PAYLOAD_LEN"
+    PASS=$((PASS+1))
+  else
+    printf '[FAIL] caso8c: match sin techo → "commit" no aparece o payload no cabe (payload=%d bytes, before=%s after=%s). payload=%s\n' "$PAYLOAD_LEN" "$BEFORE" "$AFTER" "$LOGGED"
+    FAIL=$((FAIL+1))
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# CASO 9 (T2): comando corto que cabe entero en el prefijo → se loguea
+# entero, sin marcador ⟨match⟩.
+# ---------------------------------------------------------------------------
+{
+  REPO="$(make_repo caso9 "foo.py:print('hi')")"
+  CMD="git commit -m fix"
+  PAYLOAD_JSON="$(make_payload "$REPO" "" "$CMD")"
+  BEFORE="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
+  OUTPUT="$(printf '%s' "$PAYLOAD_JSON" | REFLEX_LOG_FILE="$TMPLOG" bash "$HOOK" 2>/dev/null)"
+  AFTER="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
+  LOGGED="$(tail -1 "$TMPLOG" | jq -r '.payload' 2>/dev/null)"
+  if [ -z "$OUTPUT" ] && [ "$AFTER" -gt "$BEFORE" ] && [ "$LOGGED" = "$CMD" ]; then
+    printf '[PASS] caso9: comando corto → payload = comando entero, sin marcador\n'
+    PASS=$((PASS+1))
+  else
+    printf '[FAIL] caso9: comando corto → esperaba payload="%s", obtuve "%s" (before=%s after=%s)\n' "$CMD" "$LOGGED" "$BEFORE" "$AFTER"
+    FAIL=$((FAIL+1))
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# CASO 10 (T2, fix3 -- el bug que esta ronda vino a arreglar): DOS
+# ocurrencias DISTINTAS del patron en el mismo comando -- una mencion en
+# prosa dentro de un heredoc ("recuerda hacer git commit tras cada cambio
+# importante...") y la invocacion real (git commit, sin -m, como ultima
+# linea) al final. La mencion en prosa matchea con espacio de cola ("git
+# commit "); la real, al ser lo ultimo de su linea, matchea contra `$`
+# (sin espacio de cola: "git commit") -- son literalmente distintas, asi
+# que el dedup NO las colapsa. Con `head -1` (el bug) el payload se queda
+# con la mencion en prosa y esconde la real.
+# ---------------------------------------------------------------------------
+{
+  REPO="$(make_repo caso10 "foo.py:print('hi')")"
+  CMD="$(printf "cat > docs/normas.md <<'EOF'\nrecuerda hacer git commit tras cada cambio importante siempre que sea posible en este repo\nEOF\ngit commit")"
+  PAYLOAD_JSON="$(make_payload "$REPO" "" "$CMD")"
+  BEFORE="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
+  OUTPUT="$(printf '%s' "$PAYLOAD_JSON" | REFLEX_LOG_FILE="$TMPLOG" bash "$HOOK" 2>/dev/null)"
+  AFTER="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
+  LOGGED="$(tail -1 "$TMPLOG" | jq -r '.payload' 2>/dev/null)"
+  # la real matchea sin espacio de cola -- exigir "git commit" no basta
+  # (la mencion en prosa tambien contiene ese substring), asi que se
+  # verifica que el fragmento final del payload sea la ocurrencia sin cola.
+  if [ -z "$OUTPUT" ] && [ "$AFTER" -gt "$BEFORE" ] && printf '%s' "$LOGGED" | grep -qE 'commit$'; then
+    printf '[PASS] caso10: dos ocurrencias distintas (prosa + real al final) → el payload conserva la real\n'
+    PASS=$((PASS+1))
+  else
+    printf '[FAIL] caso10: dos ocurrencias distintas → la real no aparece al final (before=%s after=%s). payload=%s\n' "$BEFORE" "$AFTER" "$LOGGED"
+    FAIL=$((FAIL+1))
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# CASO 11: ocurrencias identicas repetidas no deben duplicarse en el
+# payload (repetir el mismo texto no informa mas que mostrarlo una vez).
+# El relleno va DELANTE de las dos ocurrencias y ocupa >120 chars por si
+# solo, para que el PREFIJO (contexto crudo, primeros 120 chars) no
+# contenga ninguna ocurrencia -- si no, el conteo se contamina con la
+# aparicion literal del PREFIJO y no mide el dedup del MATCH.
+# ---------------------------------------------------------------------------
+{
+  REPO="$(make_repo caso11 "foo.py:print('hi')")"
+  RELLENO="$(head -c 150 < /dev/zero | tr '\0' 'x')"
+  CMD="echo ${RELLENO} ; git commit -m x ; git commit -m x"
+  PAYLOAD_JSON="$(make_payload "$REPO" "" "$CMD")"
+  BEFORE="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
+  OUTPUT="$(printf '%s' "$PAYLOAD_JSON" | REFLEX_LOG_FILE="$TMPLOG" bash "$HOOK" 2>/dev/null)"
+  AFTER="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
+  LOGGED="$(tail -1 "$TMPLOG" | jq -r '.payload' 2>/dev/null)"
+  MATCH_SEGMENT="$(printf '%s' "$LOGGED" | sed 's/.*⟨match⟩ //')"
+  OCURRENCIAS="$(printf '%s' "$MATCH_SEGMENT" | grep -o 'git commit ' | wc -l)"
+  if [ -z "$OUTPUT" ] && [ "$AFTER" -gt "$BEFORE" ] && [ "$OCURRENCIAS" -eq 1 ]; then
+    printf '[PASS] caso11: ocurrencias identicas repetidas → dedup (aparece una sola vez)\n'
+    PASS=$((PASS+1))
+  else
+    printf '[FAIL] caso11: ocurrencias identicas repetidas → esperaba 1 aparicion, hubo %s (before=%s after=%s). payload=%s\n' "$OCURRENCIAS" "$BEFORE" "$AFTER" "$LOGGED"
+    FAIL=$((FAIL+1))
+  fi
 }
 
 # ---------------------------------------------------------------------------
