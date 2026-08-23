@@ -83,6 +83,15 @@ stable=12.500B, log=sin límite; excluye `archive/`, `docs/`, `.superpowers/`.
 > pendiente. Su campo `limit` da el techo que cumpliría y el mensaje el tamaño
 > objetivo de poda. Es la cola de trabajo de esta pasada.
 
+Y en el mismo paso 1, la otra mitad de la misma deuda: `kbx budget` reporta en
+`no_air` (línea `no-air:` en texto) las notas **sin waiver** que están a menos
+del 15% de su nominal de tier. La guarda del ratchet solo cubre techos
+declarados, así que sin esto una nota que vive de su nominal puede quedarse a
+19 bytes del muro sin que nadie lo vea — declarar un waiver te mete bajo
+vigilancia y no declararlo te libra de ella. No bloquea (exit 0); cada línea
+trae el tamaño objetivo. Trátalas como la misma cola de trabajo que las
+`no-air-debt`: el remedio es partir canon/bitácora, no comprimir.
+
 Revisa `waived`: ¿siguen justificadas las excepciones reconocidas? (p.ej. un
 `kbx_orphan_ok` en una nota que recuperó relaciones desaparece de `waived` por
 sí solo).
