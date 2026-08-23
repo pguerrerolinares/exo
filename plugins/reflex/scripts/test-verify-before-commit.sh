@@ -198,9 +198,8 @@ echo ""
 }
 
 # ---------------------------------------------------------------------------
-# CASO 8 (T2): heredoc multilínea (>500 chars acumulados) delante del
-# "git commit" real → el payload logueado DEBE conservar el "git commit",
-# no solo el heredoc.
+# CASO 8 (T2): heredoc pequeño (650 chars, 5 líneas) delante del
+# "git commit" real → regresión ligera.
 # ---------------------------------------------------------------------------
 {
   REPO="$(make_repo caso8 "foo.py:print('hi')")"
@@ -213,10 +212,47 @@ echo ""
   AFTER="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
   LOGGED="$(tail -1 "$TMPLOG" | jq -r '.payload' 2>/dev/null)"
   if [ -z "$OUTPUT" ] && [ "$AFTER" -gt "$BEFORE" ] && printf '%s' "$LOGGED" | grep -q 'git commit'; then
-    printf '[PASS] caso8: heredoc largo + git commit → el payload conserva el match\n'
+    printf '[PASS] caso8: heredoc 650 chars + git commit → el payload conserva el match\n'
     PASS=$((PASS+1))
   else
-    printf '[FAIL] caso8: heredoc largo + git commit → el match no aparece (before=%s after=%s). payload=%s\n' "$BEFORE" "$AFTER" "$LOGGED"
+    printf '[FAIL] caso8: heredoc 650 chars + git commit → el match no aparece (before=%s after=%s). payload=%s\n' "$BEFORE" "$AFTER" "$LOGGED"
+    FAIL=$((FAIL+1))
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# CASO 8b (T2, fija el contrato): heredoc grande, ~4.5 KB en 42 líneas de
+# 100 chars (el caso que cita el plan literalmente: "con un heredoc de 4 KB
+# seguiria fallando"). Muchas líneas cortas, no una sola larga: `cut -c`
+# trunca POR LINEA, así que solo un heredoc con decenas de líneas revienta
+# el prefijo acumulado por encima del cap de 2000 del helper.
+# ---------------------------------------------------------------------------
+{
+  REPO="$(make_repo caso8b "foo.py:print('hi')")"
+  HEREDOC_BODY=""
+  for i in $(seq -w 0 41); do
+    LINEA="linea ${i}: $(head -c 100 < /dev/zero | tr '\0' 'x')"
+    if [ -z "$HEREDOC_BODY" ]; then
+      HEREDOC_BODY="$LINEA"
+    else
+      HEREDOC_BODY="$(printf '%s\n%s' "$HEREDOC_BODY" "$LINEA")"
+    fi
+  done
+  CMD="$(printf "cat > spec.md <<'EOF'\n%s\nEOF\ngit commit -m fix" "$HEREDOC_BODY")"
+  PAYLOAD_JSON="$(make_payload "$REPO" "" "$CMD")"
+  BEFORE="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
+  OUTPUT="$(printf '%s' "$PAYLOAD_JSON" | REFLEX_LOG_FILE="$TMPLOG" bash "$HOOK" 2>/dev/null)"
+  AFTER="$(wc -l < "$TMPLOG" 2>/dev/null || echo 0)"
+  LOGGED="$(tail -1 "$TMPLOG" | jq -r '.payload' 2>/dev/null)"
+  PAYLOAD_LEN="$(printf '%s' "$LOGGED" | wc -c)"
+  if [ "${#CMD}" -lt 4000 ]; then
+    printf '[FAIL] caso8b: el comando de prueba mide %d chars, no llega a los 4 KB del plan\n' "${#CMD}"
+    FAIL=$((FAIL+1))
+  elif [ -z "$OUTPUT" ] && [ "$AFTER" -gt "$BEFORE" ] && printf '%s' "$LOGGED" | grep -q 'git commit'; then
+    printf '[PASS] caso8b: heredoc ~4.5KB/42 líneas + git commit → el payload (cmd=%d chars, payload=%d bytes) conserva el match\n' "${#CMD}" "$PAYLOAD_LEN"
+    PASS=$((PASS+1))
+  else
+    printf '[FAIL] caso8b: heredoc ~4.5KB/42 líneas + git commit → el match no aparece (cmd=%d chars, payload=%d bytes, before=%s after=%s). payload=%s\n' "${#CMD}" "$PAYLOAD_LEN" "$BEFORE" "$AFTER" "$LOGGED"
     FAIL=$((FAIL+1))
   fi
 }

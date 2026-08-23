@@ -107,10 +107,15 @@ fi
 # PATRON de arriba via grep -Eo). Comando corto que cabe entero en el
 # prefijo -> se loguea entero, sin marcador. Extraccion sin match (no
 # deberia pasar) -> degrada al prefijo solo.
+# OJO: el prefijo se saca con expansion de parametro (${CMD:0:120}), NO con
+# `cut -c`. `cut -c` trunca POR LINEA, no el string completo -- con un
+# comando de muchas lineas cortas cada una sobrevive intacta y el "prefijo"
+# real acaba siendo lineas*120 caracteres, reventando el cap del helper y
+# comiendose el match otra vez. Es el mismo bug que este fix vino a arreglar.
 if [ "${#CMD}" -le 120 ]; then
   PAYLOAD="$CMD"
 else
-  PREFIJO="$(printf '%s' "$CMD" | cut -c1-120)"
+  PREFIJO="${CMD:0:120}"
   MATCH="$(printf '%s' "$CMD" | grep -Eo "$PATRON" | head -1)"
   if [ -n "$MATCH" ]; then
     PAYLOAD="${PREFIJO} … ⟨match⟩ ${MATCH}"

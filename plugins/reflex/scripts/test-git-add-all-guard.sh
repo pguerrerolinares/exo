@@ -81,12 +81,8 @@ assert_no_nudge "git commit -m x → no nudge"        "git commit -m x"
   fi
 }
 
-# caso heredoc (T2): un comando con un heredoc multilínea (>400 chars en total,
-# como una spec o un mensaje de commit largo) delante del git add -A real.
-# `cut -c1-200` del llamador corta cada LINEA a 200 (no el conjunto), pero el
-# segundo cap de `_reflex-log.sh` (antes 500) sí corta la cadena ya compuesta
-# de punta a punta: con varias líneas el acumulado supera 500 y el
-# "git add -A", que va al final, cae fuera de la ventana capturada.
+# caso heredoc pequeño (650 chars, 5 líneas): regresión ligera, cabe
+# holgado en el cap de 2000 aunque el prefijo se calculara mal.
 {
   LINE="$(head -c 130 < /dev/zero | tr '\0' 'x')"
   HEREDOC_BODY="$(printf '%s\n%s\n%s\n%s\n%s' "$LINE" "$LINE" "$LINE" "$LINE" "$LINE")"
@@ -95,10 +91,50 @@ assert_no_nudge "git commit -m x → no nudge"        "git commit -m x"
   make_payload "$CMD" | REFLEX_LOG_FILE="$TMPLOG" bash "$HOOK" >/dev/null 2>&1
   PAYLOAD="$(tail -1 "$TMPLOG" | jq -r '.payload' 2>/dev/null)"
   if printf '%s' "$PAYLOAD" | grep -q 'git add -A'; then
-    printf '[PASS] heredoc >400 chars + git add -A → el payload conserva el match\n'
+    printf '[PASS] heredoc 650 chars + git add -A → el payload conserva el match\n'
     PASS=$((PASS+1))
   else
-    printf '[FAIL] heredoc >400 chars + git add -A → el match no aparece en el payload. payload=%s\n' "$PAYLOAD"
+    printf '[FAIL] heredoc 650 chars + git add -A → el match no aparece en el payload. payload=%s\n' "$PAYLOAD"
+    FAIL=$((FAIL+1))
+  fi
+}
+
+# caso heredoc grande (T2, el que fija el contrato — el que cita el plan
+# literalmente: "con un heredoc de 4 KB seguiria fallando"): ~4.5 KB
+# repartidos en 42 líneas de 100 chars, como una spec o runbook real
+# pegado con un heredoc, delante del git add -A real.
+#
+# Por qué hacen falta MUCHAS líneas y no una sola larga: `cut -c1-200` (el
+# bug original) y `cut -c1-120` (un bug equivalente que este mismo fix
+# introdujo y luego corrigió) truncan POR LINEA, no el string completo. Un
+# heredoc de una sola línea gigante se trunca a 120/200 chars igual que uno
+# corto -- no revienta nada. Lo que revienta el prefijo es que decenas de
+# líneas, cada una intacta tras el cut-por-línea, se acumulen: 42 líneas *
+# ~120 chars de "prefijo" = ~5000 chars, muy por encima del cap de 2000 del
+# helper, y el "git add -A" final cae fuera de la ventana igual que antes.
+{
+  HEREDOC_BODY=""
+  for i in $(seq -w 0 41); do
+    LINEA="linea ${i}: $(head -c 100 < /dev/zero | tr '\0' 'x')"
+    if [ -z "$HEREDOC_BODY" ]; then
+      HEREDOC_BODY="$LINEA"
+    else
+      HEREDOC_BODY="$(printf '%s\n%s' "$HEREDOC_BODY" "$LINEA")"
+    fi
+  done
+  CMD="$(printf "cat > spec.md <<'EOF'\n%s\nEOF\ngit add -A" "$HEREDOC_BODY")"
+  : > "$TMPLOG"
+  make_payload "$CMD" | REFLEX_LOG_FILE="$TMPLOG" bash "$HOOK" >/dev/null 2>&1
+  PAYLOAD="$(tail -1 "$TMPLOG" | jq -r '.payload' 2>/dev/null)"
+  PAYLOAD_LEN="$(printf '%s' "$PAYLOAD" | wc -c)"
+  if [ "${#CMD}" -lt 4000 ]; then
+    printf '[FAIL] heredoc grande → el comando de prueba mide %d chars, no llega a los 4 KB del plan\n' "${#CMD}"
+    FAIL=$((FAIL+1))
+  elif printf '%s' "$PAYLOAD" | grep -q 'git add -A'; then
+    printf '[PASS] heredoc ~4.5KB/42 líneas + git add -A → el payload (cmd=%d chars, payload=%d bytes) conserva el match\n' "${#CMD}" "$PAYLOAD_LEN"
+    PASS=$((PASS+1))
+  else
+    printf '[FAIL] heredoc ~4.5KB/42 líneas + git add -A → el match no aparece (cmd=%d chars, payload=%d bytes). payload=%s\n' "${#CMD}" "$PAYLOAD_LEN" "$PAYLOAD"
     FAIL=$((FAIL+1))
   fi
 }
