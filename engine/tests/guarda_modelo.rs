@@ -131,6 +131,23 @@ fn clave_escrita_aunque_la_corrida_no_llegue_al_final() {
     // con un error de SO real, no uno inventado por el test.
     std::fs::set_permissions(&ilegible, std::fs::Permissions::from_mode(0o000)).unwrap();
 
+    // Bajo root los bits de permiso se ignoran: la lectura de abajo tendría
+    // éxito pese al 0o000, `indexa` completaría sin abortar, y el
+    // `assert!(resultado.is_err())` de más abajo fallaría con un mensaje que
+    // no explica la causa real. Se comprueba el escenario directamente en
+    // vez de asumir con qué uid corre el proceso, y se restaura el permiso
+    // antes de saltar para que el `TempDir` de `kb` pueda limpiar al salir.
+    if std::fs::read_to_string(&ilegible).is_ok() {
+        eprintln!(
+            "SALTADO: chmod 0o000 no bloqueó la lectura de {} — entorno sin \
+             permisos Unix honrados (¿root? ¿filesystem que los ignora?), no se \
+             puede montar el escenario de este test",
+            ilegible.display()
+        );
+        std::fs::set_permissions(&ilegible, std::fs::Permissions::from_mode(0o644)).unwrap();
+        return;
+    }
+
     let (_dbdir, db) = db_temporal();
 
     let resultado = indexa(kb.path(), &db);

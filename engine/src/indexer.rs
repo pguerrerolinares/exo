@@ -393,8 +393,9 @@ fn verifica_modelo(conn: &Connection, modelo_actual: &str) -> Result<()> {
 
     match previo {
         // Índice viejo, de antes de esta guarda: no hay nada que comparar
-        // todavía. Se deja pasar y el upsert del final de `indexa` escribe
-        // la clave por primera vez — migración silenciosa hacia delante.
+        // todavía. Se deja pasar y el upsert del principio de `indexa`
+        // (junto al de `kb_root`) escribe la clave por primera vez —
+        // migración silenciosa hacia delante.
         None => Ok(()),
         Some(v) if v == modelo_actual => Ok(()),
         Some(v) => bail!(
