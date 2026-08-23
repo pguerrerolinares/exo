@@ -83,6 +83,14 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
     // desde la última corrida. `cfg.modelo`/`cfg.dims` se reutilizan un poco
     // más abajo para el upsert de meta (junto a `kb_root`), así que se leen
     // una única vez aquí.
+    // Deuda conocida (Ola 1 T1): esta lectura es incondicional desde que esta
+    // guarda existe. Antes, la config solo se leía perezosamente al construir
+    // el `Embedder`, así que un `exo index` sin nada que indexar funcionaba
+    // sin `~/.basic-memory/config.json`. Ahora ese mismo `exo index` falla si
+    // el fichero no existe, aunque no haya trabajo que hacer. No se arregla
+    // en esta ola: arreglarlo bien exige decidir de dónde sale la config del
+    // modelo, que es el hito C10. Hasta entonces esto bloquea M5b (la
+    // desinstalación de basic-memory).
     let cfg = config_embeddings().context("leer config de embeddings")?;
     verifica_modelo(&conn, &cfg.modelo)?;
 
@@ -395,8 +403,31 @@ fn verifica_modelo(conn: &Connection, modelo_actual: &str) -> Result<()> {
         // Índice viejo, de antes de esta guarda: no hay nada que comparar
         // todavía. Se deja pasar y el upsert del principio de `indexa`
         // (junto al de `kb_root`) escribe la clave por primera vez —
-        // migración silenciosa hacia delante.
-        None => Ok(()),
+        // migración silenciosa hacia delante. Si ese índice viejo YA tenía
+        // vectores (construidos con quién sabe qué modelo), la migración los
+        // etiqueta como si fueran del modelo actual sin que nadie lo pida —
+        // y como la clave queda escrita, la guarda de arriba (`Some(v) => `)
+        // queda satisfecha para siempre: no hay corrida futura que vuelva a
+        // detectarlo. `COUNT(*)` contra `vectores` (vec0) funciona igual que
+        // sobre cualquier tabla normal (verificado, no asumido). Si hay
+        // vectores, se avisa por stderr antes de dejar pasar — nunca por
+        // stdout, que llevan los consumidores de `--json` — y sin bloquear:
+        // sigue siendo `Ok`, la migración sigue siendo silenciosa en el
+        // sentido de "no aborta", solo deja de serlo en el sentido de "nadie
+        // se entera".
+        None => {
+            let n: i64 = conn
+                .query_row("SELECT COUNT(*) FROM vectores", [], |r| r.get(0))
+                .context("contar vectores para el aviso de migración silenciosa")?;
+            if n > 0 {
+                eprintln!(
+                    "aviso: el índice traía {n} vectores sin modelo registrado; \
+                     se etiquetan como {modelo_actual}. Si se construyeron con otro \
+                     modelo, corre 'exo rebuild'."
+                );
+            }
+            Ok(())
+        }
         Some(v) if v == modelo_actual => Ok(()),
         Some(v) => bail!(
             "el índice se construyó con {v}, la config pide {modelo_actual}: corre 'exo rebuild'"

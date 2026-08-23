@@ -188,6 +188,53 @@ fn clave_escrita_aunque_la_corrida_no_llegue_al_final() {
     assert!(!valor.is_empty());
 }
 
+/// Fix de la review final de T1: un índice viejo (clave ausente) que YA
+/// tiene vectores de otro modelo debe seguir migrando sin abortar — el aviso
+/// por stderr (Cambio 1) es no-bloqueante, solo declara la deuda en vez de
+/// dejarla muda. Este test cubre el camino ("sigue sin error, la clave queda
+/// escrita, los vectores no se tocan"), NO la emisión del aviso en sí:
+/// capturar stderr desde un test de integración de Rust (proceso separado
+/// del binario de test, `eprintln!` no pasa por ningún logger inyectable)
+/// no tiene una forma limpia en este repo, y forzarla con
+/// `std::process::Command` reinvocando el propio test sería más aparato que
+/// señal para una sola línea de `eprintln!`. Queda sin cubrir por test;
+/// ver reporte de la tarea.
+#[test]
+fn clave_ausente_con_vectores_sigue_migrando_sin_error() {
+    let kb = kb_vacia();
+    let (_dbdir, db) = db_temporal();
+
+    indexa(kb.path(), &db).unwrap();
+
+    // Simula un índice viejo con vectores ya en disco (de "otro modelo",
+    // aunque aquí el contenido del vector es indiferente al escenario) y sin
+    // la clave que los identifica.
+    let conn = exo::abre_db(&db).unwrap();
+    conn.execute("DELETE FROM meta WHERE clave = 'modelo_embeddings'", [])
+        .unwrap();
+    exo::vectores::inserta(&conn, 1, &vec![0.0f32; 768]).unwrap();
+    drop(conn);
+
+    // No debe fallar: el conteo de vectores solo dispara un aviso por
+    // stderr, nunca un abort.
+    indexa(kb.path(), &db).unwrap();
+
+    let conn = exo::abre_db(&db).unwrap();
+    let valor: String = conn
+        .query_row(
+            "SELECT valor FROM meta WHERE clave = 'modelo_embeddings'",
+            [],
+            |r| r.get(0),
+        )
+        .expect("la clave debe quedar reescrita tras la migración silenciosa");
+    assert!(!valor.is_empty());
+
+    let n_vectores: i64 = conn
+        .query_row("SELECT COUNT(*) FROM vectores", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(n_vectores, 1, "el vector sembrado no debe tocarse por el aviso");
+}
+
 #[test]
 fn modelo_igual_no_falla_al_reindexar() {
     let kb = kb_vacia();
