@@ -6,8 +6,9 @@ use crate::trozos::trocea;
 use crate::vectores;
 use crate::walker::walk_kb;
 use crate::con_embedder_de_proceso;
-use anyhow::{Context, Result};
-use rusqlite::{params, Connection};
+use crate::config_embeddings;
+use anyhow::{bail, Context, Result};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -76,6 +77,14 @@ pub struct Resumen {
 pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
     let conn = abre_db(db_ruta)?;
     crea_schema(&conn)?;
+
+    // Guarda de modelo (Ola 1 T1), primero de todo y ANTES de tocar
+    // fastembed: aborta rápido y sin cargar el modelo si la config cambió
+    // desde la última corrida. `cfg.modelo`/`cfg.dims` se reutilizan al
+    // final de la función para el upsert de meta, así que se leen una
+    // única vez aquí.
+    let cfg = config_embeddings().context("leer config de embeddings")?;
+    verifica_modelo(&conn, &cfg.modelo)?;
 
     // meta.kb_root: procedencia del índice (M6-04 §2.1). Se escribe en cada
     // corrida por upsert — si la KB se mueve, el índice siguiente lo refleja.
@@ -195,6 +204,24 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
     // sobre las ~115 notas de la KB, y hace que un link roto se cure solo en
     // cuanto la nota destino aparezca en un index/rebuild posterior.
     resuelve_destinos(&conn).context("resolver destino_permalink de aristas")?;
+
+    // meta.modelo_embeddings/meta.dims_embeddings: se escriben al FINAL, no
+    // al principio como kb_root — si esta corrida aborta a mitad (un `?` de
+    // arriba), la clave debe quedar como estaba (ausente, o con el modelo
+    // viejo) para que la corrida siguiente repita la migración silenciosa o
+    // la guarda de arriba, en vez de dar por buena una indexación a medias.
+    conn.execute(
+        "INSERT INTO meta (clave, valor) VALUES ('modelo_embeddings', ?1)
+         ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor",
+        params![cfg.modelo],
+    )
+    .context("escribir meta.modelo_embeddings")?;
+    conn.execute(
+        "INSERT INTO meta (clave, valor) VALUES ('dims_embeddings', ?1)
+         ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor",
+        params![cfg.dims.to_string()],
+    )
+    .context("escribir meta.dims_embeddings")?;
 
     Ok(Resumen {
         indexadas,
@@ -331,6 +358,37 @@ fn embeddings_por_texto(conn: &Connection, permalink: &str) -> Result<HashMap<St
         }
     }
     Ok(mapa)
+}
+
+/// Aborta si el índice se construyó con un modelo de embeddings distinto al
+/// que la config activa pide ahora. Sin esto, dos modelos de la misma
+/// dimensión (768d: el jina actual y `multilingual-e5-base`) producen blobs
+/// indistinguibles para `vectores::lee` — su `BYTES_ESPERADOS` filtra por
+/// longitud, no por procedencia — así que un `exo index` incremental tras
+/// cambiar el modelo mezclaría vectores de ambos en la misma tabla sin una
+/// sola queja. `exo rebuild` no pasa por aquí con estado mixto: borra la DB
+/// entera antes de indexar (`main.rs::corre`, `borra_antes`), así que la
+/// clave no existe y esta guarda no tiene nada que comparar.
+fn verifica_modelo(conn: &Connection, modelo_actual: &str) -> Result<()> {
+    let previo: Option<String> = conn
+        .query_row(
+            "SELECT valor FROM meta WHERE clave = 'modelo_embeddings'",
+            [],
+            |r| r.get(0),
+        )
+        .optional()
+        .context("leer meta.modelo_embeddings")?;
+
+    match previo {
+        // Índice viejo, de antes de esta guarda: no hay nada que comparar
+        // todavía. Se deja pasar y el upsert del final de `indexa` escribe
+        // la clave por primera vez — migración silenciosa hacia delante.
+        None => Ok(()),
+        Some(v) if v == modelo_actual => Ok(()),
+        Some(v) => bail!(
+            "el índice se construyó con {v}, la config pide {modelo_actual}: corre 'exo rebuild'"
+        ),
+    }
 }
 
 fn ruta_relativa(kb: &Path, ruta_abs: &Path) -> Result<String> {
