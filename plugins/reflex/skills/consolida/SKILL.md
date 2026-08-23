@@ -77,6 +77,12 @@ de su `kbx_budget_max: N` de frontmatter es una excepción reconocida: exit 0,
 listada en `waived` (no en `offenders`). Presupuestos por defecto: core=8.500B,
 stable=12.500B, log=sin límite; excluye `archive/`, `docs/`, `.superpowers/`.
 
+> Corre también `kbx ratchet --kb <kb> --json` con el árbol limpio. Los findings
+> `no-air-debt` listan las notas cuyo techo está sellado a ras: no bloquean nada
+> (la guarda juzga transiciones, no estado), pero cada una es un mordisco
+> pendiente. Su campo `limit` da el techo que cumpliría y el mensaje el tamaño
+> objetivo de poda. Es la cola de trabajo de esta pasada.
+
 Revisa `waived`: ¿siguen justificadas las excepciones reconocidas? (p.ej. un
 `kbx_orphan_ok` en una nota que recuperó relaciones desaparece de `waived` por
 sí solo).
@@ -105,8 +111,52 @@ están desincronizados: reinstala el que vaya atrasado (`make install` en kbx,
   reconocida (p.ej. README/metodología) seguirá apareciendo alta en `stale`
   (es advisory) — no es bug.
 - Chequea inject-failed E inject-abstained en reflex-log.jsonl (jq 'select(.reflex=="inject-failed" or .reflex=="inject-abstained")'): >0 sostenido = componedor roto en silencio o payloads sin agent_type — never-break no puede significar semanas sin inyección (spec transporte §7).
+- Chequea también `recall-fallback` con `reason=truncated`
+  (`jq 'select(.reflex=="recall-fallback" and (.detail|test("truncated")))'`).
+  Cada uno es un arranque servido incompleto: el cuerpo de `core-index`
+  sobrevive siempre —el guard busca "Contrato de memoria", que está al
+  principio— y lo que se cae por el final son los punteros de actividad
+  reciente, sin que nada lo diga. Sostenido = `core-index` está sobresuscrito y
+  toca evicción del índice (entradas muertas y justificaciones, nunca comprimir
+  entradas vivas). Compruébalo con el bloque real, no con `wc` del fichero:
+
+      exo recall --db ~/.exo/index.db --contenido \
+          --nota kb-demo/core/core-index --limite 10 --cap-bytes 6144
+
+  Un `aviso: … truncado` en stderr es la señal.
 
 ### 2. Split canon/bitácora por cada core/stable obeso
+
+> **Evicción editorial (una vez por pasada, por cada nota que se toque).** Antes
+> de mover nada por fecha, haz la pregunta de valor: *¿qué párrafo de esta nota
+> ya no paga su sitio?* Candidatos: lo que se ha vuelto obvio, lo que quedó
+> superado por una decisión posterior, el detalle de una iteración cuya
+> conclusión ya está escrita, y el ejemplo que ilustra algo que el texto ya dice.
+> Eso baja a la bitácora con su fecha. Lo que queda es lo que sigue siendo
+> verdad y sigue costando de recordar.
+>
+> Va **antes** que el criterio cronológico y **antes** que la poda para dejar
+> aire. Sin ella, podar para caber es rotación por orden de llegada: sale lo
+> viejo por viejo, no lo que sobra. Y al mover: **bloques enteros, nunca
+> re-resumir prosa** (la reescritura iterativa erosiona el detalle).
+
+> **Test del título — ¿partir o destilar?** Mide qué fracción del crecimiento de
+> la nota desde la última pasada cayó en cabeceras **nuevas** (`git log -p` sobre
+> la nota, contando `^## ` añadidos frente a crecimiento dentro de cabeceras que
+> ya existían):
+>
+> - **~0%** — la nota converge en estructura: engordó por dentro. Remedio:
+>   evicción editorial. **No la partas.**
+> - **>50% con las cabeceras nuevas afines al título** — tema amplio
+>   subdividiéndose. Remedio: partir **por género** (narrativa / referencia /
+>   epistemología).
+> - **>50% con las cabeceras nuevas sin relación entre sí** — es un cajón, no
+>   una nota. Remedio: partir **por tema**, y la madre queda como **índice
+>   corto**: puerta única de routing, sin la cual la fricción de espacio se
+>   convierte en fricción de routing.
+> - **Entremedias** — juicio. Umbral revisable: se calibró con 4 puntos de datos.
+>
+> Un índice **no se destila**: cuando muerde se le retiran entradas muertas.
 
 Mismo contrato que `/documenta` v2: la nota canónica es el **estado vivo**, editado
 como delta (qué es verdad *ahora*); todo lo fechado/histórico (decisiones tomadas en
@@ -125,6 +175,10 @@ fechado a `log/backlog-diario.md`, y elimínalos del backlog. Conserva SIEMPRE t
 Es la única nota `core` a la que se le tolera rebasar presupuesto por ser estado vivo,
 pero este flush periódico es lo que evita que se dispare. (En caliente, `/documenta`
 marca el `[x]` de una línea al cerrar; aquí, offline, se barren los viejos.)
+
+> El remedio del Backlog al morder es **cerrar y archivar frentes, no destilar
+> el texto de los abiertos**. Un frente abierto se describe entero o no se
+> describe; comprimirlo lo rompe como estado vivo, igual que a un índice.
 
 ### 3. Archivar sesiones de frentes cerrados
 
@@ -157,8 +211,15 @@ una escritura silenciosa.
 ### 5. Refrescar índice y commit
 
 Actualiza `[[core-index]]` para que refleje los cores y destilados activos (altas,
-bajas de sección, nuevos punteros a bitácoras). Luego commit scoped con las mismas
-reglas git de Paul:
+bajas de sección, nuevos punteros a bitácoras).
+
+> Tras podar y partir, corre `kbx ratchet --kb <kb> --seal`. Es **atómico**: o
+> sella todo o no sella nada, y si falla lista cada techo sin 15% de aire con su
+> objetivo de poda. Esa lista no es un error del sello: es trabajo que falta.
+> **Nunca subas un techo para que pase** — el trinquete lo rechazará en el
+> commit de todos modos.
+
+Luego commit scoped con las mismas reglas git de Paul:
 
 - `git -C /home/paul/Documentos/proyectos/kb-demo add <ruta1> <ruta2> ...` —
   **nunca** `git add -A`, **nunca** `git add .`.
