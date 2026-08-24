@@ -170,6 +170,33 @@ prefijo literal y líneas enteras. Se comprobó que sigue mordiendo mutando el
 truncado de producción de tres formas distintas: las tres lo ponen rojo.
 `src/recall.rs` quedó idéntico a `main` (verificado con `git diff`).
 
+### El `jq` nativo de Windows emite CRLF — y solo muerde en un patrón
+
+`jq` instalado por winget es un **binario PE32+ nativo**, no msys: abre stdout en
+modo texto y termina las líneas con `\r\n`. La mayoría del repo es inmune porque
+captura `jq` con `$(...)`, y bash **sí** elimina el `\r` final en sustitución de
+comando. El patrón que no sobrevive es `while read` desde *process substitution*:
+
+```bash
+while IFS=$'\t' read -r sid aid; do …; done < <(jq -r '…|@tsv' …)
+# aid vale "a1\r" → el glob agent-${aid}.jsonl busca agent-a1<CR>.jsonl
+```
+
+Único sitio del repo con ese patrón: `a1-gate.sh:201-202`. Tumbaba 22 de los 73
+checks de su suite y dejaba la métrica U1 permanentemente en
+`INSUFICIENTE-N` — con sesgo conservador (nunca un PASS falso), lo que hace el
+fallo aún más fácil de no ver. Con un `jq` de msys2 no pasaría: es específico de
+tener el nativo en el PATH.
+
+### `iconv` no existe en Git Bash
+
+Solo están las DLLs, no el ejecutable. `test-compose-inject.sh:302` validaba
+UTF-8 con `iconv -f utf8 -t utf8 … || UTF8_OK=0`: el shell devuelve 127, el `||`
+se dispara y la aserción falla **sin haber validado nada**. Un test que suspende
+por una razón que no tiene que ver con lo que dice medir. El producto estaba
+bien: el corte por líneas enteras de `compose-inject.sh` no parte caracteres
+multibyte, verificado con payload real.
+
 ### Rutas absolutas a `/home/paul`
 
 `skills/consolida/SKILL.md` lleva 13 y depende de `kbx`, que aquí no está
