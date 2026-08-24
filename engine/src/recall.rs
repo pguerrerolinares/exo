@@ -337,11 +337,25 @@ pub fn recall_arranque_contenido(
             .collect(),
     };
 
-    let mut lineas: Vec<String> = vec![CABECERA.to_string()];
+    // La raíz se declara UNA sola vez y todo lo demás va relativo a ella.
+    // Antes cada core llevaba su ruta ABSOLUTA y cada reciente el prefijo de
+    // proyecto de su permalink: dos convenciones de identidad distintas en el
+    // mismo bloque, las dos pagando N veces un prefijo común que no lleva
+    // información. Sobre la KB real eso desbordaba el cap y el bloque se
+    // truncaba por el final (medido: 6209 B contra 6144, dos punteros de
+    // actividad reciente fuera), y el coste crecía con cada core nuevo —
+    // justo cuando más doctrina hay que servir. Además el bloque pasa a ser
+    // estable entre máquinas: `C:\Users\<user>\...` mide bastante más que
+    // `/home/paul/...`, así que el mismo bloque cabía en Linux y no aquí.
+    let mut lineas: Vec<String> = vec![
+        CABECERA.to_string(),
+        format!("KB: {} (rutas relativas a esta raíz)", kb.display()),
+    ];
+    let lineas_de_cabecera = lineas.len();
 
     for nota in elegidas {
         lineas.push(String::new());
-        lineas.push(format!("# {} ({})", nota.titulo, nota.ruta));
+        lineas.push(format!("# {} ({})", nota.titulo, relativa(&nota.ruta, kb)));
         match cuerpo_de(Path::new(&nota.ruta)) {
             Some(cuerpo) => lineas.extend(cuerpo.lines().map(str::to_string)),
             // Una nota core ilegible no aborta el arranque: se anota y se
@@ -359,7 +373,7 @@ pub fn recall_arranque_contenido(
         lineas.push(String::new());
         lineas.push("--- Actividad reciente (por git; read_note para el detalle) ---".to_string());
         for nota in recientes {
-            lineas.push(format!("{} — {}", nota.permalink, nota.titulo));
+            lineas.push(etiqueta(&relativa(&nota.ruta, kb), &nota.titulo));
         }
     }
 
@@ -371,12 +385,12 @@ pub fn recall_arranque_contenido(
     let total = lineas.len();
     let mut bloque = String::new();
     let mut escritas = 0usize;
-    for linea in lineas {
+    for linea in &lineas {
         let coste = linea.len() + 1;
         if bloque.len() + coste > cap_bytes {
             break;
         }
-        bloque.push_str(&linea);
+        bloque.push_str(linea);
         bloque.push('\n');
         escritas += 1;
     }
@@ -388,10 +402,49 @@ pub fn recall_arranque_contenido(
         );
     }
 
-    if bloque.trim().is_empty() || bloque.trim() == CABECERA {
+    // "Vacío" es no haber servido NINGUNA línea de contenido, no que el
+    // bloque esté en blanco: la cabecera y la línea de la raíz siempre están,
+    // así que compararlas contra el texto entero dejaba de detectar el caso en
+    // cuanto la cabecera dejó de ser una sola línea. Se mira lo que
+    // sobrevivió al cap, que es también el caso "el cap solo dio para la
+    // cabecera".
+    let hubo_contenido = lineas
+        .iter()
+        .skip(lineas_de_cabecera)
+        .take(escritas.saturating_sub(lineas_de_cabecera))
+        .any(|l| !l.trim().is_empty());
+    if !hubo_contenido {
         anyhow::bail!("recall de arranque vacío: sin notas core ni recientes que servir");
     }
     Ok(bloque)
+}
+
+/// Ruta de una nota relativa a la raíz de la KB, con `/` como separador en
+/// todas las plataformas. El bloque declara la raíz una sola vez en cabecera,
+/// así que repetirla por línea es pagar N veces un prefijo que no lleva
+/// información.
+///
+/// Si la ruta no cuelga de `kb` se devuelve tal cual: no debería ocurrir
+/// —`recall_arranque` las resuelve contra esa misma raíz—, y devolverla
+/// entera es informativo y nunca peor que fallar el arranque entero.
+fn relativa(ruta: &str, kb: &Path) -> String {
+    Path::new(ruta)
+        .strip_prefix(kb)
+        .map(|r| r.to_string_lossy().replace('\\', "/"))
+        .unwrap_or_else(|_| ruta.to_string())
+}
+
+/// Línea de una nota reciente: su ruta relativa y, SOLO si añade algo, su
+/// título. Las bitácoras archivadas se titulan exactamente como su fichero
+/// (`exo-bitacora-2026-07-17_2026-08-22`), así que el `— {titulo}` escribía
+/// el mismo texto dos veces en la misma línea.
+fn etiqueta(rel: &str, titulo: &str) -> String {
+    let nombre = rel.rsplit('/').next().unwrap_or(rel);
+    if nombre.trim_end_matches(".md") == titulo {
+        rel.to_string()
+    } else {
+        format!("{rel} — {titulo}")
+    }
 }
 
 /// Cuerpo de una nota en disco (sin frontmatter), o `None` si no se puede
