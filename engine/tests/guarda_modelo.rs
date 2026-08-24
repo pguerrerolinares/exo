@@ -99,12 +99,35 @@ fn clave_ausente_migra_en_silencio() {
 ///
 /// No se simula un `kill -9` real (eso corrompería el propio proceso de
 /// test). En su lugar se fuerza un error real y tardío en el pipeline —tras
-/// haber commiteado ya una nota anterior— quitándole permiso de lectura a
-/// un fichero `.md` de la KB a mitad de la corrida: `parsea_nota` falla su
-/// `std::fs::read_to_string` con un error de sistema operativo, que se
-/// propaga con `?` y aborta `indexa` sin llegar al final. `walk_kb` ordena
-/// las rutas (`encontradas.sort()`), así que `a.md` se procesa y commitea
-/// ANTES que `b-illeg.md`, que es la que se vuelve ilegible.
+/// haber commiteado ya una nota anterior— haciendo que `parsea_nota` falle
+/// su `std::fs::read_to_string` sobre un fichero `.md` de la KB: el error se
+/// propaga con `?` (línea `let Some(n) = parsea_nota(ruta_abs)?`) y aborta
+/// `indexa` sin llegar al final. `walk_kb` ordena las rutas
+/// (`encontradas.sort()`), así que `a.md` se procesa y commitea ANTES que
+/// `b-illeg.md`, que es la que se vuelve ilegible.
+///
+/// El mecanismo que rompe la lectura es UTF-8 inválido en el fichero, no un
+/// `chmod 0o000` como en la primera versión de este test. Razones, por orden
+/// de peso:
+///
+/// 1. `PermissionsExt::from_mode` es `std::os::unix`: no existe en Windows, y
+///    un solo target que no compila aborta `cargo test` ENTERO — la suite
+///    completa dejaba de correr en Windows por este único test.
+/// 2. En Windows no hay equivalente barato: quitar el permiso de LECTURA
+///    exige manipular ACLs, no un bit de modo.
+/// 3. El 0o000 tampoco era fiable en Unix: bajo root los bits se ignoran, y
+///    el test tenía que detectarlo y volverse un `return` silencioso (CI en
+///    contenedor = root es lo habitual, o sea que ahí no probaba nada).
+/// 4. Marcar el fichero como directorio en vez de fichero NO sirve: `walk_kb`
+///    filtra con `tipo.is_file()` y recursa en los directorios, así que
+///    `b-illeg.md` ni siquiera llegaría a ser candidato.
+///
+/// El error sigue siendo un `std::io::Error` genuino devuelto por
+/// `read_to_string` (kind `InvalidData`), no uno inventado ni mockeado por el
+/// test: la validación UTF-8 vive dentro de la propia llamada, antes de que
+/// `parsea_nota` mire el frontmatter, así que el camino de código ejercitado
+/// es exactamente el mismo (`?` que cortocircuita) y ahora es determinista en
+/// las dos plataformas y con cualquier uid.
 ///
 /// Esto verifica el contrato nuevo (la clave se escribe temprano, no al
 /// final) sin necesitar un abort a mitad del bucle: si el upsert siguiera
@@ -113,8 +136,6 @@ fn clave_ausente_migra_en_silencio() {
 /// líneas.
 #[test]
 fn clave_escrita_aunque_la_corrida_no_llegue_al_final() {
-    use std::os::unix::fs::PermissionsExt;
-
     let kb = TempDir::new().unwrap();
     std::fs::write(
         kb.path().join("a.md"),
@@ -122,39 +143,28 @@ fn clave_escrita_aunque_la_corrida_no_llegue_al_final() {
     )
     .unwrap();
     let ilegible = kb.path().join("b-illeg.md");
+    // Bytes 0xFF/0xFE: inválidos en UTF-8 en cualquier posición, así que
+    // `read_to_string` falla pase lo que pase con el resto del contenido. El
+    // frontmatter delante solo documenta que la nota SERÍA indexable si se
+    // pudiera leer: el fallo no viene de que le falte permalink (ese camino
+    // es `Ok(None)`, un skip, y no abortaría nada), viene de la lectura.
     std::fs::write(
         &ilegible,
-        "---\npermalink: kb/b\ntitle: B\n---\n",
+        b"---\npermalink: kb/b\ntitle: B\n---\n\xFF\xFE\xFF",
     )
     .unwrap();
-    // Sin permiso de lectura: std::fs::read_to_string en parsea_nota falla
-    // con un error de SO real, no uno inventado por el test.
-    std::fs::set_permissions(&ilegible, std::fs::Permissions::from_mode(0o000)).unwrap();
 
-    // Bajo root los bits de permiso se ignoran: la lectura de abajo tendría
-    // éxito pese al 0o000, `indexa` completaría sin abortar, y el
-    // `assert!(resultado.is_err())` de más abajo fallaría con un mensaje que
-    // no explica la causa real. Se comprueba el escenario directamente en
-    // vez de asumir con qué uid corre el proceso, y se restaura el permiso
-    // antes de saltar para que el `TempDir` de `kb` pueda limpiar al salir.
-    if std::fs::read_to_string(&ilegible).is_ok() {
-        eprintln!(
-            "SALTADO: chmod 0o000 no bloqueó la lectura de {} — entorno sin \
-             permisos Unix honrados (¿root? ¿filesystem que los ignora?), no se \
-             puede montar el escenario de este test",
-            ilegible.display()
-        );
-        std::fs::set_permissions(&ilegible, std::fs::Permissions::from_mode(0o644)).unwrap();
-        return;
-    }
+    // El escenario se comprueba directamente en vez de asumirlo: si por lo
+    // que sea la lectura tuviera éxito, `indexa` no abortaría y el assert de
+    // más abajo fallaría con un mensaje que no explica la causa real.
+    assert!(
+        std::fs::read_to_string(&ilegible).is_err(),
+        "el fixture debe ser ilegible como texto: sin eso este test no prueba nada"
+    );
 
     let (_dbdir, db) = db_temporal();
 
     let resultado = indexa(kb.path(), &db);
-
-    // Restaura permisos para que TempDir pueda limpiar el directorio al
-    // salir del test, corra este assert o no.
-    std::fs::set_permissions(&ilegible, std::fs::Permissions::from_mode(0o644)).unwrap();
 
     assert!(
         resultado.is_err(),
