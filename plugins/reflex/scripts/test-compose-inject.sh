@@ -25,6 +25,62 @@ fail() { printf '[FAIL] %s — %s\n' "$1" "$2"; FAIL=$((FAIL+1)); }
 contains()     { case "$1" in *"$2"*) return 0 ;; *) return 1 ;; esac; }
 not_contains() { case "$1" in *"$2"*) return 1 ;; *) return 0 ;; esac; }
 
+# --- validador de UTF-8 sin iconv ---
+# Devuelve 0 si el fichero es UTF-8 valido, !=0 si tiene bytes invalidos.
+#
+# Esto era "iconv -f utf8 -t utf8 fichero", y en Windows era una asercion VACUA:
+# en este Git Bash iconv solo existe como DLL, no como ejecutable, asi que el
+# shell devolvia 127, el "|| UTF8_OK=0" se disparaba y el caso 9 daba FAIL sin
+# haber mirado un solo byte del fichero. Falso negativo puro: el producto
+# (compose-inject.sh) corta por lineas enteras y por construccion no puede
+# partir un caracter multibyte. Lo que fallaba era el instrumento, no la pieza.
+#
+# El truco de grep: en un locale UTF-8, GNU grep no considera que una linea con
+# una secuencia multibyte invalida "coincida" ni siquiera con '.*'. Por tanto
+# -v '.*' (lineas que NO coinciden) selecciona exactamente las lineas con bytes
+# invalidos, y basta con que haya una. -a trata el fichero como texto aunque
+# lleve NUL, -x ancla la comparacion a la linea entera, -q corta al primer
+# hallazgo.
+#
+# LC_ALL=C.UTF-8 es obligatorio, no cosmetico: bajo LC_ALL=C todo byte es un
+# caracter valido, grep deja de discriminar y volveriamos justo a la asercion
+# vacua que estamos quitando (comprobado en esta maquina: con LC_ALL=C la
+# fixture sana y la rota dan las dos el mismo rc). Y ese es el motivo de que el
+# caso 0 de mas abajo sea un self-test negativo: si en alguna maquina este
+# validador dejara de distinguir un fichero roto de uno sano, la suite se pone
+# roja de forma visible en vez de aprobar por no estar midiendo nada.
+es_utf8_valido() { ! LC_ALL=C.UTF-8 grep -qaxv '.*' "$1"; }
+
+# =========================================================================
+# Caso 0 (self-test del arnes): el validador UTF-8 tiene que DISTINGUIR.
+# No prueba compose-inject.sh, prueba el instrumento con el que el caso 9 lo
+# juzga. Un validador que diga "valido" a todo pasaria el caso 9 siempre y no
+# nos enteraramos nunca — que es exactamente lo que llevaba pasando al reves
+# con iconv. Las fixtures se escriben con escapes \xNN a proposito, para que la
+# prueba dependa de bytes concretos y no de con que codificacion se haya
+# guardado este propio fichero.
+# =========================================================================
+{
+  UTF8_FIX_OK="$TMP/utf8_sano.txt"
+  UTF8_FIX_ROTO="$TMP/utf8_roto.txt"
+  # Sano: acentos, ñ y € (2 y 3 bytes), y una ultima linea sin salto final,
+  # que es la forma que tiene la salida real cuando el cap recorta.
+  printf 'l\xc3\xadnea con acentos: \xc3\xa1rbol, \xc3\xb1, \xe2\x82\xac\nsin salto final: \xc3\xbc' > "$UTF8_FIX_OK"
+  # Roto: \xc3 abre una secuencia de 2 bytes y le sigue '(' (0x28), que no es
+  # un byte de continuacion valido (0x80-0xBF). Es el destrozo exacto que
+  # produciria un corte a mitad de caracter multibyte, o sea lo unico que el
+  # caso 9 pretende descartar.
+  printf 'roto aqui: \xc3\x28 fin\n' > "$UTF8_FIX_ROTO"
+  es_utf8_valido "$UTF8_FIX_OK";   RC_SANO=$?
+  es_utf8_valido "$UTF8_FIX_ROTO"; RC_ROTO=$?
+  if [ "$RC_SANO" -eq 0 ] && [ "$RC_ROTO" -ne 0 ]; then
+    pass "caso0: el validador UTF-8 acepta la fixture sana y RECHAZA la rota (no es vacuo)"
+  else
+    fail "caso0: el validador UTF-8 acepta la fixture sana y RECHAZA la rota (no es vacuo)" \
+      "rc_sano=$RC_SANO (esperado 0) rc_roto=$RC_ROTO (esperado !=0)"
+  fi
+}
+
 # --- fixture básica: executor.md + KB (core-index con Doctrina compacta / Cores, otra-nota, proj) ---
 EXEC_MD="$TMP/executor_basico.md"
 cat > "$EXEC_MD" <<'EOF'
@@ -298,8 +354,10 @@ done
   while IFS= read -r linea; do
     grep -qxF "$linea" "$EXEC_LINEAS" || ALL_MATCH=0
   done < <(grep '^LINEA_DOCTRINA_' "$OUT9_FILE")
+  # Ver es_utf8_valido() y el caso 0: aqui habia un iconv que en Git Bash no
+  # existe como ejecutable y hacia fallar el caso sin validar nada.
   UTF8_OK=1
-  iconv -f utf8 -t utf8 "$OUT9_FILE" >/dev/null 2>&1 || UTF8_OK=0
+  es_utf8_valido "$OUT9_FILE" || UTF8_OK=0
   if [ $EC9 -eq 0 ] && [ "$N_LINEAS_SALIDA" -gt 0 ] && [ "$N_LINEAS_SALIDA" -lt 20 ] \
      && [ "$ALL_MATCH" -eq 1 ] && [ "$UTF8_OK" -eq 1 ]; then
     pass "caso9: cap por líneas ⇒ ninguna línea truncada (n=$N_LINEAS_SALIDA/20), UTF-8 válido"
