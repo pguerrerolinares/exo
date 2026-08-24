@@ -64,14 +64,89 @@ fn contenido_no_vuelca_el_cuerpo_de_las_notas_no_core() {
     );
 }
 
+/// M6-07: las recientes se listan por RUTA relativa a la raíz declarada en
+/// cabecera, no por permalink. El permalink llevaba el nombre del proyecto
+/// (`kb-demo/`, `kb/`) delante de CADA línea: sobre la KB real son 12
+/// bytes por línea, diez líneas, que no dicen nada que la cabecera no diga ya
+/// una vez. La ruta relativa cuesta eso menos, y además es accionable: raíz +
+/// ruta es un `Read` directo, cosa que el permalink no da.
 #[test]
-fn contenido_lista_las_recientes_por_permalink() {
+fn contenido_lista_las_recientes_por_ruta_relativa() {
     let (kb, db, _d) = kb_de_prueba();
     let bloque = recall_arranque_contenido(&db, kb.path(), 5, 8192, None).unwrap();
 
     assert!(
-        bloque.contains("kb/otra"),
-        "las recientes se listan por permalink (paridad con el digest del hook actual):\n{bloque}"
+        bloque.contains("otra.md"),
+        "las recientes se listan por ruta relativa a la raíz:\n{bloque}"
+    );
+    assert!(
+        !bloque.contains("kb/otra"),
+        "el prefijo de proyecto del permalink no debe repetirse por línea:\n{bloque}"
+    );
+}
+
+/// La raíz aparece UNA vez, en cabecera, y ninguna línea la repite. Es lo que
+/// hace que el bloque quepa, y de paso lo vuelve estable entre máquinas: con
+/// la ruta absoluta en cada core, el mismo bloque cabía en Linux
+/// (`/home/paul/...`) y se truncaba en Windows (`C:\Users\<user>\...`), que es
+/// la clase de bug "pasa allí, falla aquí" que este formato elimina de raíz.
+#[test]
+fn contenido_declara_la_raiz_una_sola_vez() {
+    let (kb, db, _d) = kb_de_prueba();
+    let bloque = recall_arranque_contenido(&db, kb.path(), 5, 8192, None).unwrap();
+
+    let raiz = kb.path().display().to_string();
+    assert_eq!(
+        bloque.matches(&raiz).count(),
+        1,
+        "la raíz debe aparecer exactamente una vez, en cabecera:\n{bloque}"
+    );
+    assert!(
+        bloque.lines().nth(1).unwrap_or("").starts_with("KB: "),
+        "la segunda línea del bloque declara la raíz:\n{bloque}"
+    );
+    assert!(
+        bloque.contains("# indice (indice.md)"),
+        "el core se titula con su ruta RELATIVA:\n{bloque}"
+    );
+}
+
+/// Casi toda bitácora archivada se titula igual que su fichero
+/// (`exo-bitacora-2026-07-17_2026-08-22`), así que la línea escribía el mismo
+/// texto dos veces separado por un guión. Se omite el título cuando no añade
+/// nada — y solo entonces.
+#[test]
+fn contenido_omite_el_titulo_solo_cuando_repite_el_nombre_del_fichero() {
+    let (kb, db, _d) = kb_de_prueba();
+    let bloque = recall_arranque_contenido(&db, kb.path(), 5, 8192, None).unwrap();
+
+    assert!(
+        !bloque.contains("otra.md — otra"),
+        "título redundante: repite el nombre del fichero:\n{bloque}"
+    );
+
+    // Una nota cuyo título NO es su nombre de fichero sí lo conserva.
+    let kb2 = TempDir::new().unwrap();
+    git(kb2.path(), &["init", "-q"]);
+    escribe(kb2.path(), "indice.md", "core", "DOCTRINA.");
+    fs::write(
+        kb2.path().join("slug-feo.md"),
+        "---\npermalink: kb/slug-feo\ntitle: Un título de verdad\ntier: log\n---\n\nx\n",
+    )
+    .unwrap();
+    git(kb2.path(), &["add", "-A"]);
+    git(
+        kb2.path(),
+        &["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "kb"],
+    );
+    let d2 = TempDir::new().unwrap();
+    let db2 = d2.path().join("i.db");
+    indexa(kb2.path(), &db2).unwrap();
+    let bloque2 = recall_arranque_contenido(&db2, kb2.path(), 5, 8192, None).unwrap();
+
+    assert!(
+        bloque2.contains("slug-feo.md — Un título de verdad"),
+        "un título que aporta información se conserva:\n{bloque2}"
     );
 }
 
@@ -123,16 +198,26 @@ fn contenido_respeta_el_cap_de_bytes() {
         "el desglose por líneas debe sumar el bloque entero:\n{completo}"
     );
 
-    // Con menos de 3 líneas el bloque es cabecera (+ línea en blanco) y el
-    // recall hace `bail!` adrede, así que el primer corte SERVIBLE es k = 3.
-    // Exigir que haya más líneas que eso garantiza que este test trunca de
-    // verdad y no se queda en un caso degenerado que pasaría siempre.
+    // El primer corte SERVIBLE es el que ya incluye la primera línea de
+    // CONTENIDO: por debajo de eso el bloque es cabecera (+ la línea en blanco
+    // que la separa del cuerpo) y el recall hace `bail!` adrede.
+    //
+    // Se DERIVA del bloque en vez de escribirse a mano. Aquí había un `3`
+    // fijo, correcto mientras la cabecera fue una sola línea; M6-07 le añadió
+    // la línea de la raíz y ese 3 pasó a apuntar dentro de la cabecera, con lo
+    // que el test empezó a exigir que `bail!` no ocurriera justo donde debe
+    // ocurrir. Derivarlo hace que la próxima línea de cabecera no rompa nada.
+    let primer_contenido = completo
+        .lines()
+        .position(|l| l.starts_with("# "))
+        .expect("el bloque debe traer al menos un core con cuerpo");
+    let primer_servible = primer_contenido + 1;
     assert!(
-        costes.len() > 3,
+        costes.len() > primer_servible,
         "la KB de prueba debe dar para al menos un truncado servible:\n{completo}"
     );
 
-    for k in 3..costes.len() {
+    for k in primer_servible..costes.len() {
         // Cap clavado en el borde de la línea k: deben entrar k líneas, ni
         // una menos (no se malgasta presupuesto) ni una más (el cap manda).
         let cap = cumulativo[k - 1];
