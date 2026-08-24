@@ -1,0 +1,18 @@
+# Finales de línea: LF en el repo Y en el árbol de trabajo, en todas las
+# plataformas.
+#
+# Hoy el repo ya está limpio: `core.autocrlf=true` (el default de Git for
+# Windows) normaliza a LF al commitear, así que los blobs son LF aunque el
+# árbol de trabajo en Windows sea CRLF. Esta regla no arregla nada roto — cierra
+# una vía de fallo que depende de una config de usuario que nadie garantiza.
+#
+# La vía: si alguien clona en Windows con `core.autocrlf` en false o unset (otro
+# cliente git, un runner de CI, una máquina nueva), los hooks de
+# `plugins/reflex/scripts/` entran a un commit con CRLF, y en Linux el shebang
+# pasa a ser `#!/usr/bin/env bash\r` → "bad interpreter", con el hook muerto. No
+# se ve venir desde Windows: el bash de msys sí tolera el CRLF en el shebang
+# (verificado ejecutando los hooks directamente el 2026-08-24).
+#
+# Con `eol=lf` el árbol de trabajo también queda en LF, así que deja de existir
+# la asimetría entre plataformas de la que nace ese fallo.
+* text=auto eol=lf
