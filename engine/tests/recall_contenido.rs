@@ -75,17 +75,106 @@ fn contenido_lista_las_recientes_por_permalink() {
     );
 }
 
+/// El cap es en BYTES y el bloque mete la ruta ABSOLUTA de cada core en su
+/// línea de título (`# titulo (ruta)`), así que el `120` mágico que había aquí
+/// no medía la propiedad: medía cuánto ocupa el tempdir del sistema operativo.
+/// La cabecera son 55 bytes y la línea en blanco 1, o sea que del cap solo
+/// quedaban 64 para esa línea de título. En Linux la ruta de la nota es
+/// `/tmp/.tmpXXXXXX/indice.md` (25 bytes), la línea sale a 37 y cabía: el
+/// bloque se truncaba, el assert pasaba y el test parecía bueno. En Windows es
+/// `C:\Users\<user>\AppData\Local\Temp\.tmpXXXXXX\indice.md` (55 bytes), la
+/// línea sale a 67 y NO cabía: el bloque se quedaba en la cabecera pelada y
+/// `recall_arranque_contenido` hacía `bail!` a propósito — test rojo por el
+/// entorno, no por una regresión.
+///
+/// Los caps se derivan del bloque REALMENTE renderizado en esta máquina, así
+/// que el test es portable y además más estricto que antes: ya no comprueba
+/// solo `<= cap`, sino que el truncado corta por líneas enteras, en el borde
+/// exacto, y que lo que sobrevive es prefijo literal del bloque completo.
 #[test]
 fn contenido_respeta_el_cap_de_bytes() {
     let (kb, db, _d) = kb_de_prueba();
-    let cap = 120;
-    let bloque = recall_arranque_contenido(&db, kb.path(), 5, cap, None).unwrap();
 
+    // Referencia sin truncar: la KB de prueba cabe de sobra en 8192 (mismo
+    // cap holgado que usan los demás tests de este fichero).
+    let completo = recall_arranque_contenido(&db, kb.path(), 5, 8192, None).unwrap();
     assert!(
-        bloque.len() <= cap,
-        "bloque de {} bytes con cap {cap}: el cap del consumidor no es negociable",
-        bloque.len()
+        completo.len() < 8192,
+        "la referencia debe ir SIN truncar o los caps derivados no significan nada: \
+         {} bytes",
+        completo.len()
     );
+
+    // `split_inclusive` conserva el '\n' que el recall añade a cada línea, así
+    // que el coste medido es el mismo que cuenta el truncado (`linea.len() + 1`)
+    // sin suponer nada sobre finales de línea. `cumulativo[i]` = bytes que
+    // ocupan las `i + 1` primeras líneas.
+    let costes: Vec<usize> = completo.split_inclusive('\n').map(str::len).collect();
+    let cumulativo: Vec<usize> = costes
+        .iter()
+        .scan(0usize, |acc, c| {
+            *acc += c;
+            Some(*acc)
+        })
+        .collect();
+    assert_eq!(
+        cumulativo.last().copied(),
+        Some(completo.len()),
+        "el desglose por líneas debe sumar el bloque entero:\n{completo}"
+    );
+
+    // Con menos de 3 líneas el bloque es cabecera (+ línea en blanco) y el
+    // recall hace `bail!` adrede, así que el primer corte SERVIBLE es k = 3.
+    // Exigir que haya más líneas que eso garantiza que este test trunca de
+    // verdad y no se queda en un caso degenerado que pasaría siempre.
+    assert!(
+        costes.len() > 3,
+        "la KB de prueba debe dar para al menos un truncado servible:\n{completo}"
+    );
+
+    for k in 3..costes.len() {
+        // Cap clavado en el borde de la línea k: deben entrar k líneas, ni
+        // una menos (no se malgasta presupuesto) ni una más (el cap manda).
+        let cap = cumulativo[k - 1];
+        let bloque = recall_arranque_contenido(&db, kb.path(), 5, cap, None).unwrap();
+        assert!(
+            bloque.len() <= cap,
+            "bloque de {} bytes con cap {cap}: el cap del consumidor no es negociable",
+            bloque.len()
+        );
+        assert_eq!(
+            bloque.len(),
+            cap,
+            "con el cap justo en el borde de la línea {k} deben caber esas {k} líneas enteras:\n\
+             {bloque}"
+        );
+        assert!(
+            bloque.len() < completo.len(),
+            "si el cap no recorta nada, este test no está probando el truncado"
+        );
+        assert_eq!(
+            bloque,
+            completo[..cap],
+            "lo que sobrevive al cap debe ser prefijo LITERAL del bloque completo"
+        );
+
+        // Un byte menos de lo que costaría la línea k + 1: no debe colarse
+        // media línea para llenar el hueco. El truncado es por líneas enteras.
+        let cap_sobrante = cumulativo[k] - 1;
+        let bloque_sobrante =
+            recall_arranque_contenido(&db, kb.path(), 5, cap_sobrante, None).unwrap();
+        assert!(
+            bloque_sobrante.len() <= cap_sobrante,
+            "bloque de {} bytes con cap {cap_sobrante}: el cap del consumidor no es negociable",
+            bloque_sobrante.len()
+        );
+        assert_eq!(
+            bloque_sobrante,
+            bloque,
+            "con {cap_sobrante} bytes la línea {} no cabe entera, así que no entra NADA de ella",
+            k + 1
+        );
+    }
 }
 
 #[test]
