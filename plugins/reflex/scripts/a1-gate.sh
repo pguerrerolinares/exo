@@ -198,8 +198,22 @@ while IFS=$'\t' read -r sid aid; do
     fi
   done
   [ "$found_tf" -eq 1 ] || u1_sin_transcript=$((u1_sin_transcript+1))
+#
+# El "| tr -d '\r'" NO es decorativo, no lo quites: en Windows con Git Bash el
+# jq del PATH puede ser un binario NATIVO (p.ej. ~/.local/bin/jq.exe), que abre
+# stdout en modo texto y termina cada linea con CRLF. Como aqui la salida entra
+# al bucle por process substitution y no por sustitucion de comando, nadie
+# limpia ese CR: bash solo lo recorta en "$(...)", que es la razon por la que el
+# resto de hooks del repo no sufren esto y este si. El sintoma es mudo y caro:
+# aid vale "a1\r", el glob de arriba busca "agent-a1<CR>.jsonl" — que no existe —
+# y U1 sale con recibieron=0 y sin_transcript inflado, es decir la metrica queda
+# inservible sin que nada falle a la vista.
+# Es seguro borrar todos los CR del flujo, no solo el final de linea: @tsv
+# escapa tabs, saltos y CR de los datos como secuencias de dos caracteres
+# (\r literal), asi que ningun CR crudo puede venir del contenido — todos los
+# que lleguen aqui los ha puesto el runtime de Windows. En Linux es un no-op.
 done < <(jq -s -r '[.[] | select(.reflex=="inject-emitted" and (.agent_id // "")!="")
-                    | [.session_id, .agent_id]] | unique | .[] | @tsv' "$FILTERED")
+                    | [.session_id, .agent_id]] | unique | .[] | @tsv' "$FILTERED" | tr -d '\r')
 
 # --- porcentajes/ratios ---
 if [ "$dispatches_fs" -gt 0 ]; then
