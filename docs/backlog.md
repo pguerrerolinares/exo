@@ -22,16 +22,46 @@
 
 ## Alta
 
-- [ ] **Adelantar M5a-02: config propia y des-hardcodear la KB.** Hoy el engine
-  lee modelo, dims y threshold de `~/.basic-memory/config.json` (RO) y resuelve
-  la raíz de la KB con `projects["kb-demo"]` literal (`lib.rs:71`). Es decir:
-  **el sustituto depende del sustituido para arrancar.** Es el bloqueante duro
-  de C10/M5b, ya escrito como requisito transversal en C11 del plan, y cada
-  campaña que pasa sin tocarlo lo encarece. El mismo patrón está en los scripts
-  de reflex (`basic-memory-recall.sh`, `a1-freeze-watch.sh` con ruta absoluta),
-  asignados a C6/M6-02.
-  **Acción:** no esperar a C9 — la config propia con fallback RO a basic-memory
-  mientras dure el side-by-side es independiente del MCP.
+- [ ] **La suite de tests no es hermética — depende de `~/.exo/config.toml`.**
+  Medido en la Task 3 de la ola 1A (2026-08-26): apartar
+  `~/.exo/config.toml` y correr `cargo test --release --no-fail-fast` da
+  `CARGO_EXIT=101`, **59 tests en 7 suites** en rojo (`buscador`,
+  `guarda_modelo`, `indexer`, `recall`, `recall_contenido`,
+  `cache_embeddings`, `escritor`). No es regresión de esta ola: antes de ella
+  esos mismos tests pasaban leyendo `~/.basic-memory/config.json`, también un
+  fichero de `$HOME` fuera del repo — la dependencia se mudó de fichero, no
+  nació. Lo que hizo la ola fue volverla visible. Bloquea CI en un runner
+  limpio.
+  **Acción:** esas siete suites montan su propia config temporal, patrón
+  `EXO_CONFIG` a un tempdir, como ya hacen `engine/src/config.rs` y
+  `engine/tests/config_cableado.rs`.
+
+- [ ] **`exo-recall.sh` no tiene suite de test.** Es el hook de SessionStart —
+  lo que inyecta la KB al arrancar cada sesión — y la ola 1A lo modificó dos
+  veces (Task 7, Task 8), respaldado solo por demostraciones manuales.
+  `plugins/reflex/scripts/` tiene `test-recall-inject.sh`,
+  `test-compose-inject.sh` y `test-exo-index.sh`, pero nunca tuvo un
+  `test-exo-recall.sh`.
+  **Acción:** suite dedicada — cubrir el guard `no-engine`, el guard
+  `no-config` y su orden relativo (ver hallazgo de la Task 8: antes de esa
+  tarea, sin engine, se logueaban `no-config` Y `no-engine` para una sola
+  causa), y el camino feliz.
+
+- [ ] **Restricción de orden en el cutover binario↔scripts — nada la aplica
+  hoy.** El alias oculto de D9 (ítem de retirar aliases españoles, abajo en
+  Media) protege *scripts viejos → binario nuevo*. Nada protege la dirección
+  contraria, que es justo la que produce un cutover real. Demostrado en la
+  Task 10 (2026-08-26): ejecutando los scripts migrados del repo contra el
+  binario v1 instalado, el hook de arranque no revienta — **sirve el texto de
+  fallback embebido** ("Tu memoria persistente es una KB de notas markdown
+  servida por..."), un bloque con forma correcta que no trae ni una nota de la
+  KB. Degrada con forma válida: el peor tipo de fallo silencioso, porque nadie
+  lo nota sin comparar contra lo que debería haber salido.
+  **Acción:** en el cutover de la ola 1B, el binario nuevo se instala ANTES o
+  en el mismo paso atómico que los scripts del plugin — nunca después. Y
+  `exo doctor` debe detectar el desfase entre la versión del binario instalado
+  y la versión del plugin: comprobación barata y falsable para un fallo que no
+  grita.
 
 ## Media
 
@@ -65,7 +95,10 @@
   envelope con `--json` (`{"command":"write","data":{"reason":...}}`, claves en
   inglés por D8; `Rechazo::data` en `escritor.rs`, test
   `engine/tests/rechazo_envelope.rs`, spec corregida en
-  `2026-08-18-m4-write-design.md`). **Vivos 5, por orden de daño:**
+  `2026-08-18-m4-write-design.md`). Cerrado también en la ola 1A (M5a-02, ver
+  `## Cerrado con evidencia`): el **disenso del consultor** — el prefijo de
+  proyecto sale de `[kb] name` en la config propia, no de `kb.file_name()`.
+  **Vivos 4, por orden de daño:**
   - **#5 [media]** sin fallback walk+parse (la spec §3.2 lo afirma en presente):
     con índice rancio, un `--crea` puede dejar **dos ficheros con el mismo
     permalink**. Riesgo hoy bajo (las 26 bitácoras de `log/` son slug-clean).
@@ -78,17 +111,17 @@
     `write_append_cmd` asume 3.
   - **#9 [baja]** el `SKILL.md` de `documenta` omite `--db` en los comandos del
     Paso 3; tomados literales fallan con error de clap.
-  - **Disenso abierto del consultor:** el prefijo de proyecto sale de
-    `kb.file_name()`, no de la config, contra lo que dice la spec §3.1. Hoy
-    coinciden; si en M5a el nombre de proyecto ≠ nombre de directorio, revienta
-    en silencio. **Que C9 lo herede como requisito explícito.**
+
+- [ ] **`test-contrato-engine.sh` depende del índice y la KB reales de esta
+  máquina.** Rutas cableadas (`C:/Users/paul/.exo/index.db`,
+  `C:/proyectos/homework/kb-demo`, ver cabecera del script). Se abstiene
+  con exit 2 si faltan — no miente sobre lo que no pudo comprobar — pero eso
+  significa que en un runner limpio (o en la máquina de cualquier otra
+  persona) esta suite no corre nunca.
+  **Acción:** CI necesita un fixture propio (índice + KB de prueba mínimos)
+  para que la suite deje de abstenerse fuera de esta máquina.
 
 ## Baja
-
-- [ ] **Rot documental.** El `README.md` sigue diciendo "M2 (E1 read) al 7/9 —
-  falta `exo recall` (M2-08) y la corrida final (M2-09)" con M2, M6 y M4 cerrados
-  y mergeados. El propio plan lo listaba como deuda a barrer en C5 y ya van dos
-  campañas. **Acción:** actualizar estado y añadir puntero a este backlog.
 
 - [ ] **Nombres y ubicaciones.** `docs/superpowers/` como carpeta de docs del
   proyecto cuyo objetivo declarado es jubilar superpowers, y `reports/` colgando
@@ -112,6 +145,27 @@
 ---
 
 ## Cerrado con evidencia (para no re-proponer)
+
+- [x] **M5a-02 config propia: cerrado el 2026-08-26.** El engine arranca con
+  `~/.exo/config.toml` (`engine/src/config.rs`), con precedencia
+  `flag > env > config > error accionable` y sin fallback a basic-memory: la
+  única lectura que sobrevive es `exo init --from-basic-memory`, explícita y
+  borrable (`engine/src/inicia.rs`). Cierra de paso el disenso del gate M4 de
+  este mismo backlog (ítem Media, «Barrer los hallazgos vivos del gate M4») —
+  el prefijo de permalink sale de `[kb] name`, no de `kb.file_name()`.
+  Verificado (ola 1A, Task 11, 2026-08-26):
+  `grep -rn "basic-memory/config.json" engine/src/ | grep -v inicia.rs` sin
+  salida, y `grep -rn "kb-demo" engine/src/ | grep -v '///' | grep -v '//'`
+  sin salida. Las quince menciones restantes de "basic-memory" en
+  `engine/src/` son históricas o de linaje de diseño (comentarios), revisadas
+  una a una.
+
+- [x] **Rot documental del README: cerrado el 2026-08-26.** El bloque de
+  estado citaba "M0, M1a y M2 (E1 read) cerrados · M4 (E2 write) cerrado" sin
+  mencionar la ola 1A de config propia. Actualizado en la Task 11 de la ola
+  1A, con puntero a este backlog y a
+  `docs/superpowers/specs/2026-08-26-exo-generico-design.md`. Llevaba dos
+  campañas abierto (anotado ya en C5).
 
 - [x] **Revisión de HuggingFace pineada: cerrado el 2026-08-22.** `repo_hf`
   (`lib.rs`) resuelve `jinaai/jina-embeddings-v2-base-es` contra el sha
