@@ -68,7 +68,7 @@ struct ArgsWriteNew {
     /// dup-gate; con `--force` no se consulta.
     #[arg(long)]
     db: PathBuf,
-    /// Raíz de la KB. Default: config RO de basic-memory (hasta M5a).
+    /// Raíz de la KB. Default: `[kb] path` de `~/.exo/config.toml`.
     #[arg(long)]
     kb: Option<PathBuf>,
     /// Directorio destino dentro de la KB (`projects`, `log`, `research`…).
@@ -120,8 +120,8 @@ struct ArgsIndex {
     /// Fichero SQLite del índice. Obligatorio, sin default (D6).
     #[arg(long)]
     db: PathBuf,
-    /// Raíz de la KB. Por defecto, `projects.kb-demo.path` de
-    /// `~/.basic-memory/config.json` (RO). Precedencia: flag > config (D6).
+    /// Raíz de la KB. Por defecto, `[kb] path` de `~/.exo/config.toml`.
+    /// Precedencia: flag > config (D6).
     #[arg(long)]
     kb: Option<PathBuf>,
     /// Emite el resultado como envelope JSON (spec §4) en stdout.
@@ -152,9 +152,8 @@ struct ArgsSearch {
     #[arg(long, value_enum, default_value_t = TipoBusqueda::Fts)]
     r#type: TipoBusqueda,
     /// Umbral de similitud coseno del arm vector/hybrid. Opcional: si se
-    /// omite, cae a `semantic_min_similarity` de la config RO de
-    /// basic-memory (D6, precedencia flags > config). Sin efecto en
-    /// `--type fts`.
+    /// omite, cae a `[embeddings] min_similarity` de `~/.exo/config.toml`
+    /// (D6, precedencia flags > config). Sin efecto en `--type fts`.
     #[arg(long)]
     min_similitud: Option<f64>,
     /// Peso del canal débil en la fórmula de fusión (`bonus·min(v,f)`,
@@ -182,8 +181,8 @@ struct ArgsRecall {
     /// contrato que `index`/`search`).
     #[arg(long)]
     db: PathBuf,
-    /// Raíz de la KB. Por defecto, `projects.kb-demo.path` de
-    /// `~/.basic-memory/config.json` (RO). `exo recall` la necesita aunque
+    /// Raíz de la KB. Por defecto, `[kb] path` de `~/.exo/config.toml`.
+    /// `exo recall` la necesita aunque
     /// solo lea del índice: `notas.ruta` es relativa, y modo arranque
     /// también relee `tier` del `.md` en disco (no está en el índice).
     #[arg(long)]

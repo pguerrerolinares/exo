@@ -86,11 +86,11 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
     // Deuda conocida (Ola 1 T1): esta lectura es incondicional desde que esta
     // guarda existe. Antes, la config solo se leía perezosamente al construir
     // el `Embedder`, así que un `exo index` sin nada que indexar funcionaba
-    // sin `~/.basic-memory/config.json`. Ahora ese mismo `exo index` falla si
-    // el fichero no existe, aunque no haya trabajo que hacer. No se arregla
-    // en esta ola: arreglarlo bien exige decidir de dónde sale la config del
-    // modelo, que es el hito C10. Hasta entonces esto bloquea M5b (la
-    // desinstalación de basic-memory).
+    // sin config. Sigue sin funcionar sin ella: un `exo index` sin trabajo
+    // falla igual si el fichero no existe. Lo que cambió en Ola 1A T3 es de
+    // dónde sale ese fichero — ya no es el de otro producto, sino
+    // `~/.exo/config.toml` propio, y el error es accionable porque nombra
+    // `exo init` (Task 4) como la forma de crearlo.
     let cfg = config_embeddings().context("leer config de embeddings")?;
     verifica_modelo(&conn, &cfg.modelo)?;
 

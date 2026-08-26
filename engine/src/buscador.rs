@@ -227,8 +227,8 @@ fn similitud_desde_l2_cuadrado(distancia_l2_cuadrado: f64) -> f64 {
 }
 
 /// Precedencia flags > config (D6): `min_similitud` es el valor de
-/// `--min-similitud` si se pasó; si no, cae a `semantic_min_similarity` de
-/// `~/.basic-memory/config.json` (RO).
+/// `--min-similitud` si se pasó; si no, cae a `[embeddings] min_similarity`
+/// de `~/.exo/config.toml`.
 fn min_similitud_efectivo(min_similitud: Option<f64>) -> Result<f64> {
     match min_similitud {
         Some(v) => Ok(v),
