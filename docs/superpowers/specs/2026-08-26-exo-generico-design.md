@@ -257,7 +257,8 @@ fichero es un punto de fallo.
 Nunca un default silencioso.
 
 **También en G1 (H9):** barrer el hallazgo vivo **#3 del gate M4** — la spec de
-write promete `data.dup_candidatas` en el rechazo exit 3 y solo hay una línea
+write promete `data.candidates` en el rechazo exit 3 (nombre corregido por D8;
+la spec de write llevaba `dup_candidatas`) y solo hay una línea
 humana por stderr. Es **contrato por prosa** en una superficie que un tercero
 va a consumir. O se implementa o se corrige la spec de write; publicarlo como
 está exporta el enemigo declarado del proyecto.
