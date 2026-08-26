@@ -28,6 +28,7 @@
 | D6 | **Contenido en español** | Prosa, docs, skills y errores no se traducen. El modelo `-es` pasa a ser posicionamiento declarado. Multiidioma es un frente futuro |
 | D7 | **Identificadores en inglés** | Nombres de skills, verbos del CLI y claves de config en inglés |
 | D8 | **Claves de `data` del envelope: al inglés, en esta ola** | Resuelve Q1 al revés de lo propuesto en v1 (ver abajo). `SCHEMA_VERSION` 1→2 |
+| D9 | **Flags largos del CLI: al inglés, en esta ola** | 10 flags renombrados con el nombre español como `alias` oculto; se retira en 1.1 (ver abajo) |
 
 ### D8 — por qué Q1 se resolvió al revés
 
@@ -60,8 +61,40 @@ mecanismo de bump ya está previsto en `engine/src/envelope.rs:4-6`.
 Renombrado: `notas`→`notes`, `ruta`→`path`, `titulo`→`title`,
 `truncado`→`truncated`, `indexadas`→`indexed`, `saltadas`→`skipped`,
 `borradas`→`deleted`, `trozos_*`→`chunks_*`, `avisos`→`warnings`,
-`modo`→`mode`, `lineas_perdidas`→`dropped_lines`. Va en el mismo commit que la
-migración del script y sus fixtures, con `SCHEMA_VERSION` a 2.
+`modo`→`mode`. Va en el mismo commit que la migración del script y sus
+fixtures, con `SCHEMA_VERSION` a 2.
+
+**Corrección sobre v2:** la lista de arriba incluía
+`lineas_perdidas`→`dropped_lines`. Se retira: `ResultadoCap`
+(`recall.rs:101-105`) no deriva `Serialize` y `lineas_perdidas` solo llega al
+aviso de stderr (`main.rs:451`) — no es clave del envelope. Renombrarlo sería
+tocar un identificador interno, que está explícitamente fuera de scope.
+
+### D9 — los flags largos, la última mezcla
+
+D7 lleva al inglés los nombres de skills y los **verbos** del CLI; D8, las
+claves del envelope. Ninguna de las dos cubría los **flags**, y así el 1.0
+público emitiría `--limite` al lado de `--json` y de `{"notes": …}`: la misma
+incoherencia que D7 y D8 existen para matar, en la superficie que un tercero
+teclea a mano.
+
+Diez flags: `--titulo`→`--title`, `--crea`→`--create`, `--limite`→`--limit`
+(×2), `--min-similitud`→`--min-similarity` (×2), `--escala-fts`→`--fts-scale`,
+`--contenido`→`--content`, `--nota`→`--note`, `--refresca`→`--refresh`. No se
+tocan los que ya son ingleses —`--db`, `--kb`, `--dir`, `--from`, `--tier`,
+`--force`, `--json`, `--type`, `--bonus`, `--cap-bytes`, `--query`—:
+renombrar de más también rompe.
+
+**Mecanismo:** `#[arg(long = "limit", alias = "limite")]`. El campo Rust no
+cambia (mismo criterio que D8), `--help` documenta solo el nuevo, y el viejo
+sigue parseando **sin aparecer**. El alias no es cortesía con terceros —no los
+hay todavía—: es lo que impide que durante el cutover un plugin cacheado en
+`~/.claude/plugins/cache/` con los scripts viejos muera con `unexpected
+argument` a mitad de un hook. Se retira en 1.1, con item de backlog abierto al
+crearlo.
+
+**Por qué ahora y no después:** hoy rompe cuatro invocaciones propias, dos
+skills y el harness de evals. Después de publicar, rompe a terceros.
 
 ## Decisiones bloqueantes pendientes (de Paul, no del consultor)
 
@@ -212,7 +245,8 @@ de coincidencia.
 (`config_embeddings`), `min_similitud_de_config`, los doc-comments de `--kb`
 (`main.rs:123`, `main.rs:185`), el default de `--db`, y los scripts con el
 nombre hardcodeado: `exo-recall.sh:35`, `recall-inject.sh:201`,
-`compose-inject.sh:27`.
+`compose-inject.sh:27`. Y, por D9, los diez flags largos en español de
+`main.rs` con sus siete consumidores vivos.
 
 **Dep nueva:** `toml`. Se consideró JSON (sin dep) y se descartó: la config se
 edita a mano y quiere comentarios — el runbook de W11 demuestra que ese
@@ -550,6 +584,6 @@ cerrados.
   líneas). Es audit trail. Nota: esto exime de *traducir*, no de *revisar en
   privacy-pass* — ver G5.
 - **Traducir los identificadores internos del código Rust** (`buscador.rs`,
-  `busca_hybrid`, `escritor.rs`). D7 y D8 cubren la superficie de cara al
+  `busca_hybrid`, `escritor.rs`). D7, D8 y D9 cubren la superficie de cara al
   usuario. Los 6.317 líneas de identificadores internos son otra decisión, y
   no la pide nada de esta ola.

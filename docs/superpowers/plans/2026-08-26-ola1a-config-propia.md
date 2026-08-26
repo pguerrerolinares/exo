@@ -32,6 +32,8 @@ rusqlite 0.40 bundled · SQLite FTS5 + sqlite-vec 0.1.9 · Git Bash en Windows 1
   `exo init --from-basic-memory`. Clave ausente ⇒ nombra la clave y la ruta.
   Nunca un default silencioso.»
 - **D8:** las claves de `data` del envelope van al inglés, `SCHEMA_VERSION` 1→2.
+- **D9:** los flags largos del CLI van al inglés, con el nombre español como
+  `alias` oculto durante la ventana de migración (Task 10).
 - **Fuera de scope, no lo hagas:** traducir identificadores internos de Rust
   (`buscador.rs`, `busca_hybrid`, `escritor.rs`…). Por eso el renombrado usa
   `#[serde(rename)]`, patrón que ya existe en la casa
@@ -2078,7 +2080,380 @@ git commit -m "fix(write): el rechazo del dup-gate emite envelope con --json (ha
 
 ---
 
-### Task 10: Cierre de la ola — actualizar backlog y README
+### Task 10: Flags del CLI al inglés, con alias de compatibilidad
+
+Cierra la última incoherencia del contrato público: los subcomandos ya son
+ingleses (`index`, `search`, `recall`, `write`, `init`) y las claves del
+envelope lo son desde la Task 6, pero los flags siguen en español. Un 1.0 con
+`--limite` al lado de `--json` es la misma mezcla que D8 existe para matar, y
+la ventana barata es esta: después rompe a terceros.
+
+Se hace con `#[arg(long = "limit", alias = "limite")]`: **el nombre del campo
+Rust no se toca** —identificadores internos fuera de scope, igual que en la
+Task 6—, `--help` muestra solo el nuevo, y el viejo sigue parseando sin
+aparecer documentado. Eso es lo que evita que un plugin cacheado en
+`~/.claude/plugins/cache/` con la versión vieja de los scripts se caiga al
+fallback en silencio mientras dura el cutover.
+
+`alias` y no `visible_alias`: el objetivo es que el nombre español desaparezca
+de la documentación hoy y del código en 1.1, no consagrarlo como sinónimo.
+
+**Files:**
+- Modify: `engine/src/main.rs` (`ArgsWriteNew`, `ArgsWriteAppend`, `ArgsSearch`, `ArgsRecall`)
+- Modify: `plugins/reflex/scripts/exo-recall.sh:63-64`
+- Modify: `plugins/reflex/scripts/recall-inject.sh:141-142`
+- Modify: `plugins/reflex/scripts/test-recall-inject.sh:173-190`
+- Modify: `plugins/reflex/skills/consolida/SKILL.md:132-133`
+- Modify: `plugins/process/skills/documenta/SKILL.md:51`
+- Modify: `evals/retrieval-fase0/harness/replay-engine.py`
+- Modify: doc-comments de `engine/src/{lib,buscador,recall,escritor}.rs` y `engine/tests/{buscador,refresca,recall_contenido}.rs`
+- Test: `engine/tests/flags.rs`
+
+**Interfaces:**
+- Consumes: el binario ya construido de las Tasks 4-6. No depende de sus tipos.
+- Produces: superficie CLI v1.0. La consume la ola 1B al mover los scripts.
+
+Mapeo completo. **Los que ya están en inglés no se tocan**: `--db`, `--kb`,
+`--dir`, `--from`, `--tier`, `--force`, `--json`, `--type`, `--bonus`,
+`--cap-bytes`, `--query`. Ojo con `--cap-bytes`: es inglés ya («cap» +
+«bytes»), y renombrarlo sería churn sin ganancia.
+
+| Struct | Campo Rust (intacto) | Flag hoy | Flag nuevo |
+|---|---|---|---|
+| `ArgsWriteNew` | `titulo` | `--titulo` | `--title` |
+| `ArgsWriteAppend` | `crea` | `--crea` | `--create` |
+| `ArgsSearch` | `limite` | `--limite` | `--limit` |
+| `ArgsSearch` | `min_similitud` | `--min-similitud` | `--min-similarity` |
+| `ArgsSearch` | `escala_fts` | `--escala-fts` | `--fts-scale` |
+| `ArgsRecall` | `limite` | `--limite` | `--limit` |
+| `ArgsRecall` | `min_similitud` | `--min-similitud` | `--min-similarity` |
+| `ArgsRecall` | `contenido` | `--contenido` | `--content` |
+| `ArgsRecall` | `nota` | `--nota` | `--note` |
+| `ArgsRecall` | `refresca` | `--refresca` | `--refresh` |
+
+- [ ] **Step 1: Escribir el test que falla**
+
+Crear `engine/tests/flags.rs`:
+
+```rust
+//! Superficie CLI v1.0: los flags largos están en inglés y los españoles
+//! siguen parseando como alias oculto durante la ventana de migración.
+//!
+//! Se prueba contra el BINARIO, no contra clap por unidad: lo que se afirma
+//! es "esta línea de comandos funciona", y eso solo lo demuestra ejecutarla.
+//!
+//! Criterio de "el flag existe" sin necesitar índice ni modelo: clap sale con
+//! **exit 2** y `unexpected argument` cuando un flag no existe, y con
+//! cualquier otro error (config ausente, DB ausente) cuando sí existe y el
+//! comando llega a correr. Así el test no depende del estado de la máquina.
+
+use std::process::Command;
+
+fn bin() -> std::path::PathBuf {
+    let mut p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    p.push("target");
+    p.push(if cfg!(debug_assertions) { "debug" } else { "release" });
+    p.push(if cfg!(windows) { "exo.exe" } else { "exo" });
+    p
+}
+
+/// Corre el binario con un `EXO_CONFIG` inexistente y devuelve
+/// `(exit_code, stderr)`. El comando fallará —no hay config— pero el PARSEO
+/// de argumentos ocurre antes, que es lo único que aquí se mide.
+fn corre(args: &[&str]) -> (Option<i32>, String) {
+    let out = Command::new(bin())
+        .args(args)
+        .env("EXO_CONFIG", "C:/no-existe-jamas/config.toml")
+        .env_remove("EXO_DB")
+        .env_remove("EXO_KB")
+        .output()
+        .expect("correr el binario");
+    (
+        out.status.code(),
+        String::from_utf8_lossy(&out.stderr).to_string(),
+    )
+}
+
+fn acepta_el_flag(args: &[&str]) -> bool {
+    let (code, err) = corre(args);
+    !(code == Some(2)
+        || err.contains("unexpected argument")
+        || err.contains("argumento inesperado"))
+}
+
+#[test]
+fn los_flags_ingleses_existen() {
+    assert!(acepta_el_flag(&["search", "--limit", "3", "q"]), "search --limit");
+    assert!(acepta_el_flag(&["search", "--min-similarity", "0.4", "q"]), "search --min-similarity");
+    assert!(acepta_el_flag(&["search", "--fts-scale", "0.6", "q"]), "search --fts-scale");
+    assert!(acepta_el_flag(&["recall", "--limit", "3"]), "recall --limit");
+    assert!(acepta_el_flag(&["recall", "--content"]), "recall --content");
+    assert!(acepta_el_flag(&["recall", "--note", "x/y"]), "recall --note");
+    assert!(acepta_el_flag(&["recall", "--refresh"]), "recall --refresh");
+    assert!(acepta_el_flag(&["recall", "--min-similarity", "0.4"]), "recall --min-similarity");
+    assert!(
+        acepta_el_flag(&["write", "new", "--dir", "d", "--title", "T", "--from", "-"]),
+        "write new --title"
+    );
+    assert!(
+        acepta_el_flag(&["write", "append", "--from", "-", "--create", "p"]),
+        "write append --create"
+    );
+}
+
+#[test]
+fn los_flags_espanoles_siguen_parseando_como_alias() {
+    // La ventana de migración: un script viejo cacheado no debe morir con
+    // "unexpected argument" a mitad de un hook.
+    assert!(acepta_el_flag(&["search", "--limite", "3", "q"]), "alias --limite");
+    assert!(acepta_el_flag(&["recall", "--contenido", "--nota", "x/y"]), "alias --contenido/--nota");
+    assert!(acepta_el_flag(&["recall", "--refresca"]), "alias --refresca");
+    assert!(acepta_el_flag(&["search", "--min-similitud", "0.4", "q"]), "alias --min-similitud");
+}
+
+#[test]
+fn el_help_solo_documenta_los_ingleses() {
+    // Un alias VISIBLE consagraría el nombre español; el objetivo es que
+    // desaparezca de la documentación hoy y del código en 1.1.
+    let out = Command::new(bin())
+        .args(["recall", "--help"])
+        .output()
+        .expect("correr --help");
+    let help = String::from_utf8_lossy(&out.stdout);
+    assert!(help.contains("--limit"), "el help no muestra --limit:\n{help}");
+    assert!(help.contains("--refresh"), "el help no muestra --refresh:\n{help}");
+    assert!(!help.contains("--limite"), "el help sigue mostrando --limite:\n{help}");
+    assert!(!help.contains("--refresca"), "el help sigue mostrando --refresca:\n{help}");
+}
+
+#[test]
+fn los_flags_ya_ingleses_no_se_han_movido() {
+    // Guardarraíl contra el churn: renombrar de más también rompe.
+    assert!(acepta_el_flag(&["recall", "--cap-bytes", "2048"]), "--cap-bytes");
+    assert!(acepta_el_flag(&["search", "--bonus", "0.5", "q"]), "--bonus");
+    assert!(acepta_el_flag(&["search", "--type", "fts", "q"]), "--type");
+}
+```
+
+- [ ] **Step 2: Correr el test y verlo fallar**
+
+```bash
+cd /c/proyectos/homework/exo/engine
+cargo build && cargo test --test flags 2>&1 | grep -E '^test |panicked' | head
+```
+
+Expected: FAIL en `los_flags_ingleses_existen` — hoy `--limit` no existe y
+clap sale con exit 2.
+
+- [ ] **Step 3: Renombrar en `main.rs`**
+
+Diez atributos, uno por fila de la tabla. El patrón es siempre el mismo —
+`#[arg(long)]` pasa a `#[arg(long = "<nuevo>", alias = "<viejo>")]`,
+conservando cualquier otra clave que ya tuviera:
+
+```rust
+// ArgsWriteNew.titulo
+    #[arg(long = "title", alias = "titulo")]
+    titulo: String,
+
+// ArgsWriteAppend.crea
+    #[arg(long = "create", alias = "crea")]
+    crea: bool,
+
+// ArgsSearch.limite — conserva el default
+    #[arg(long = "limit", alias = "limite", default_value_t = 10)]
+    limite: usize,
+
+// ArgsSearch.min_similitud
+    #[arg(long = "min-similarity", alias = "min-similitud")]
+    min_similitud: Option<f64>,
+
+// ArgsSearch.escala_fts
+    #[arg(long = "fts-scale", alias = "escala-fts")]
+    escala_fts: Option<f64>,
+
+// ArgsRecall.limite — conserva el default
+    #[arg(long = "limit", alias = "limite", default_value_t = 5)]
+    limite: usize,
+
+// ArgsRecall.min_similitud
+    #[arg(long = "min-similarity", alias = "min-similitud")]
+    min_similitud: Option<f64>,
+
+// ArgsRecall.contenido
+    #[arg(long = "content", alias = "contenido")]
+    contenido: bool,
+
+// ArgsRecall.nota
+    #[arg(long = "note", alias = "nota")]
+    nota: Option<String>,
+
+// ArgsRecall.refresca
+    #[arg(long = "refresh", alias = "refresca")]
+    refresca: bool,
+```
+
+`ArgsRecall.cap_bytes` **no se toca**: `#[arg(long, default_value_t = 2048)]`
+ya produce `--cap-bytes`.
+
+Actualiza además los doc-comments de `main.rs` que citan los nombres viejos
+(zonas de las líneas 17-23, 320, 393-406, 450): son la ayuda que ve el
+usuario, y una ayuda que nombra un flag inexistente es peor que ninguna.
+
+- [ ] **Step 4: Correr el test y verlo pasar**
+
+```bash
+cd /c/proyectos/homework/exo/engine
+cargo build && cargo test --test flags 2>&1 | grep -E '^test result'
+```
+
+Expected: `test result: ok. 4 passed; 0 failed`.
+
+- [ ] **Step 5: Migrar los consumidores reales**
+
+Son cuatro invocaciones vivas, más dos skills y el harness de evals. Los
+aliases hacen que nada se rompa mientras tanto, pero se migran igual: dejar
+llamadas en español apoyadas en un alias que se borra en 1.1 es programar el
+fallo para el día que se borre.
+
+`plugins/reflex/scripts/exo-recall.sh:63-64`:
+
+```bash
+  BASE="$("$EXO_BIN" recall --db "$EXO_INDEX" --content --note "$EXO_NOTA" \
+          --limit "$EXO_LIMITE" --cap-bytes "$EXO_CAP" 2>"$ERR_TMP")" || BASE=""
+```
+
+`plugins/reflex/scripts/recall-inject.sh:141-142`:
+
+```bash
+            --min-similarity 0.40 --limit 4 --cap-bytes 4000 \
+            --refresh --json 2>"${ERR_TMP:-/dev/null}")"
+```
+
+`plugins/reflex/scripts/test-recall-inject.sh:173-176` — las aserciones
+comprueban la cadena de args capturada, así que hay que mover el literal
+esperado o el test pasa a ser un falso rojo:
+
+```bash
+if contains "$CALLS" "--min-similarity 0.40"; then pass "sellado: --min-similarity 0.40 explícito"
+else fail "sellado: --min-similarity 0.40 explícito" "args='$CALLS'"; fi
+if contains "$CALLS" "--refresh"; then pass "P5: con DB presente pasa --refresh"
+else fail "P5: con DB presente pasa --refresh" "args='$CALLS'"; fi
+```
+
+Y el comentario de la línea 190 (`# DB ausente: ni --refresca ni invocación…`)
+pasa a `--refresh`.
+
+`plugins/reflex/skills/consolida/SKILL.md:132-133`:
+
+```
+      exo recall --db ~/.exo/index.db --content \
+          --note kb-demo/core/core-index --limit 10 --cap-bytes 6144
+```
+
+`plugins/process/skills/documenta/SKILL.md:51`: `--titulo <t>` pasa a
+`--title <t>`.
+
+`evals/retrieval-fase0/harness/replay-engine.py` — dos capas distintas, y hay
+que tocar las dos:
+
+```python
+# línea ~60, lo que se REENVÍA al binario
+    cmd = [str(exo_bin), "search", "--db", str(db), "--limit", str(limite), "--type", tipo, "--json", query]
+# líneas ~62 y ~66
+        cmd += ["--min-similarity", str(min_similitud)]
+        cmd += ["--fts-scale", str(escala_fts)]
+
+# líneas ~82-87, los flags PROPIOS del harness. `dest` se conserva en
+# español para no tocar el cuerpo del script — mismo criterio que en Rust:
+# cambia el nombre público, no el identificador interno.
+    ap.add_argument("--type", dest="tipo", default="fts", choices=["fts", "vector", "hybrid"], help="--type reenviado a exo search (default fts)")
+    ap.add_argument("--limit", dest="limite", type=int, default=5, help="resultados por query (default 5, hit@5)")
+    ap.add_argument("--min-similarity", dest="min_similitud", type=float, default=None, help="--min-similarity reenviado a exo search (default: omitido, cae a config)")
+    ap.add_argument("--fts-scale", dest="escala_fts", type=float, default=None, help="--fts-scale (beta) reenviado a exo search --type hybrid (default: omitido, cae al sellado del binario)")
+```
+
+Y el docstring de cabecera (líneas 6-8 y 31-35), que documenta la firma.
+
+Verifica que nadie más llama al harness antes de dar esto por bueno:
+
+```bash
+cd /c/proyectos/homework/exo
+grep -rn 'replay-engine' evals --include=*.sh
+```
+
+Expected: sin salida (`run-arm.sh` no lo invoca; el harness se corre a mano).
+
+- [ ] **Step 6: Barrer los doc-comments del engine que citan flags muertos**
+
+```bash
+cd /c/proyectos/homework/exo/engine
+grep -rn -- '--limite\|--titulo\|--contenido\|--refresca\|--min-similitud\|--escala-fts\|--crea\b\|--nota\b' src/ tests/
+```
+
+Son prosa en `lib.rs`, `buscador.rs`, `recall.rs`, `escritor.rs`,
+`tests/buscador.rs`, `tests/refresca.rs`, `tests/recall_contenido.rs`.
+Sustituye cada cita por el nombre nuevo. Expected tras el barrido: solo
+quedan las de `main.rs` que son literales `alias = "…"` y las del propio
+`tests/flags.rs`.
+
+- [ ] **Step 7: Verificación end-to-end del camino real**
+
+Un `cargo test` verde aquí no prueba gran cosa: lo que puede romperse es el
+hook, que corre el binario instalado contra los scripts de disco.
+
+```bash
+cd /c/proyectos/homework/exo/engine
+cargo build --release
+cp target/release/exo.exe ~/.local/bin/exo.exe
+cd /c/proyectos/homework/exo
+echo '{"session_id":"t","source":"startup"}' \
+  | bash plugins/reflex/scripts/exo-recall.sh \
+  | jq -r '.hookSpecificOutput.additionalContext' | grep -c 'Contrato de memoria'
+```
+
+Expected: `1`. Un `0` significa que está sirviendo el fallback embebido — o
+sea, que la migración rompió el arranque y lo hizo en silencio.
+
+```bash
+cd /c/proyectos/homework/exo
+for t in test-recall-inject test-compose-inject test-exo-index; do
+  printf "%s: " "$t"
+  bash "plugins/reflex/scripts/$t.sh" >/tmp/$t-flags.log 2>&1 && echo OK || { echo "FAIL"; tail -20 /tmp/$t-flags.log; }
+done
+```
+
+Expected: los tres `OK`.
+
+- [ ] **Step 8: Anotar la retirada de los aliases**
+
+Un alias sin fecha de caducidad es permanente. En `docs/backlog.md`, sección
+`## Media`, añadir:
+
+```markdown
+- [ ] **Retirar los aliases españoles del CLI en 1.1.** Los diez flags
+  renombrados en la ola 1A (`--limite`→`--limit`, `--titulo`→`--title`,
+  `--contenido`→`--content`, `--nota`→`--note`, `--refresca`→`--refresh`,
+  `--crea`→`--create`, `--min-similitud`→`--min-similarity`,
+  `--escala-fts`→`--fts-scale`) mantienen el nombre viejo como `alias` oculto
+  para que un plugin cacheado no muera a mitad de un hook durante el cutover.
+  Al retirarlos, borrar también el test
+  `los_flags_espanoles_siguen_parseando_como_alias` de `engine/tests/flags.rs`
+  — si no, el borrado se ve rojo y alguien "arregla" el test reponiendo el
+  alias.
+```
+
+- [ ] **Step 9: Commit**
+
+```bash
+cd /c/proyectos/homework/exo
+git add engine/src/main.rs engine/src/lib.rs engine/src/buscador.rs engine/src/recall.rs engine/src/escritor.rs engine/tests/ plugins/ evals/retrieval-fase0/harness/replay-engine.py docs/backlog.md
+git commit -m "feat(cli)!: flags largos al inglés, con alias oculto de los españoles"
+```
+
+---
+
+### Task 11: Cierre de la ola — actualizar backlog y README
 
 **Files:**
 - Modify: `docs/backlog.md` (item Alta y hallazgo #3 de la sección Media)
@@ -2101,9 +2476,19 @@ cargo test --release --no-fail-fast > /tmp/t9.txt 2>&1; echo "CARGO_EXIT=$?"
 grep -E '^test result' /tmp/t9.txt
 echo "--- 4. fmt limpio"
 cargo fmt --check; echo "FMT_EXIT=$?"
+cd /c/proyectos/homework/exo
+echo "--- 5. cero flags españoles en consumidores vivos (D9)"
+grep -rn -- '--limite\|--titulo\|--contenido\|--refresca\|--min-similitud\|--escala-fts\|--crea\b\|--nota\b' \
+  plugins evals/retrieval-fase0/harness engine/src engine/tests \
+  | grep -v 'alias = ' | grep -v 'engine/tests/flags.rs'
+echo "--- 6. cero claves españolas de envelope en consumidores vivos (D8)"
+grep -rn 'data\.notas\|has("notas")\|data\.truncado\|indexadas\|trozos_embebidos\|\.avisos' \
+  plugins --include=*.sh --include=*.py
 ```
 
-Expected: 1 y 2 sin salida, `CARGO_EXIT=0`, `FMT_EXIT=0`.
+Expected: 1, 2, 5 y 6 sin salida, `CARGO_EXIT=0`, `FMT_EXIT=0`. El 5 y el 6 son
+los que detectan un consumidor que este plan no vio: si sale una línea, hay un
+llamador huérfano que se va a romper después del cutover, no ahora.
 
 - [ ] **Step 2: Marcar cerrado el item Alta del backlog**
 
@@ -2141,25 +2526,19 @@ git commit -m "docs: cerrar M5a-02 y el hallazgo #3 en el backlog, actualizar es
 
 ---
 
-## Decisión que este plan deja abierta
+## Nota sobre la Task 10 (decisión tomada el 2026-08-26)
 
-**Los flags del CLI siguen en español** (`--limite`, `--titulo`, `--cap-bytes`,
-`--contenido`, `--refresca`, `--min-similitud`, `--escala-fts`, `--crea`,
-`--nota`). D7 cubre «nombres de skills y verbos del CLI»; los subcomandos ya
-son ingleses (`index`, `search`, `recall`, `write`, `init`), pero los flags no
-están cubiertos por ninguna decisión.
+Este plan dejaba abierta una decisión: si los flags del CLI se traducían al
+inglés o se quedaban en español. **Se decidió traducirlos, en esta ola**, y la
+Task 10 la implementa. Queda registrada en la spec como **D9**.
 
-Medido: **44 ocurrencias en 7 ficheros vivos** —`exo-index.sh`,
-`exo-recall.sh`, `recall-inject.sh`, `test-recall-inject.sh`,
-`consolida/SKILL.md`, `replay-engine.py`, `diagnostica-lectura-a.py`—. Cuatro
-de los siete ya los toca la Task 7.
+El razonamiento, para que nadie la reabra: D7 llevaba al inglés los nombres de
+skills y los verbos del CLI, y D8 las claves del envelope; dejar los flags en
+español producía un 1.0 donde `--limite` convive con `--json` y con
+`{"notes": …}` — exactamente la mezcla que esas dos decisiones existen para
+matar. Y el coste de la ventana es asimétrico: hoy rompe cuatro scripts
+propios, después rompe a terceros.
 
-**Recomendación:** hacerlo, y hacerlo aquí. Un 1.0 público con `--limite` al
-lado de `--json` es la misma incoherencia que D8 existe para matar, y la
-ventana barata es esta —después rompe a terceros—. Se implementa como tarea
-propia con `#[arg(long = "limit", alias = "limite")]`, que da migración sin
-rotura instantánea.
-
-**No está en el plan porque la spec no lo decide.** Si se aprueba, entra como
-Task 10 antes del cierre; si no, se anota en la spec como decisión consciente
-de dejarlos en español para que nadie la vuelva a abrir.
+Lo que la Task 10 **no** hace, y es deliberado: no traduce los identificadores
+internos de Rust ni el `dest` de argparse en el harness. Mismo criterio que la
+Task 6 — cambia el nombre público, no el nombre interno.
