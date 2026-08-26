@@ -88,10 +88,36 @@ fn los_flags_ingleses_existen() {
 #[test]
 fn los_flags_espanoles_siguen_parseando_como_alias() {
     // La ventana de migración: un script viejo cacheado no debe morir con
-    // "unexpected argument" a mitad de un hook.
+    // "unexpected argument" a mitad de un hook. Los diez pares, no una
+    // muestra: un alias borrado o mal escrito en cualquiera de los diez
+    // reproduce ese fallo, y solo se detecta probándolos todos.
+    assert!(
+        acepta_el_flag(&["write", "new", "--dir", "d", "--titulo", "T", "--from", "-"]),
+        "alias --titulo"
+    );
+    assert!(
+        acepta_el_flag(&["write", "append", "--from", "-", "--crea", "p"]),
+        "alias --crea"
+    );
     assert!(
         acepta_el_flag(&["search", "--limite", "3", "q"]),
-        "alias --limite"
+        "alias --limite (search)"
+    );
+    assert!(
+        acepta_el_flag(&["search", "--min-similitud", "0.4", "q"]),
+        "alias --min-similitud (search)"
+    );
+    assert!(
+        acepta_el_flag(&["search", "--escala-fts", "0.6", "q"]),
+        "alias --escala-fts"
+    );
+    assert!(
+        acepta_el_flag(&["recall", "--limite", "3"]),
+        "alias --limite (recall)"
+    );
+    assert!(
+        acepta_el_flag(&["recall", "--min-similitud", "0.4"]),
+        "alias --min-similitud (recall)"
     );
     assert!(
         acepta_el_flag(&["recall", "--contenido", "--nota", "x/y"]),
@@ -101,49 +127,110 @@ fn los_flags_espanoles_siguen_parseando_como_alias() {
         acepta_el_flag(&["recall", "--refresca"]),
         "alias --refresca"
     );
-    assert!(
-        acepta_el_flag(&["search", "--min-similitud", "0.4", "q"]),
-        "alias --min-similitud"
-    );
+}
+
+/// `--help` del subcomando dado, como texto.
+fn help_de(args: &[&str]) -> String {
+    let out = Command::new(bin())
+        .args(args)
+        .output()
+        .expect("correr --help");
+    String::from_utf8_lossy(&out.stdout).to_string()
+}
+
+/// `flag` aparece como TOKEN completo en el help, no como substring de otro
+/// flag más largo: `--crea` es substring literal de `--create`, así que un
+/// `help.contains("--crea")` daría positivo aunque `--crea` no esté — justo
+/// la clase de falso positivo/negativo que esta suite existe para atajar.
+fn help_contiene_flag(help: &str, flag: &str) -> bool {
+    help.split(|c: char| c.is_whitespace() || c == ',')
+        .any(|tok| tok == flag)
 }
 
 #[test]
 fn el_help_solo_documenta_los_ingleses() {
     // Un alias VISIBLE consagraría el nombre español; el objetivo es que
-    // desaparezca de la documentación hoy y del código en 1.1.
-    let out = Command::new(bin())
-        .args(["recall", "--help"])
-        .output()
-        .expect("correr --help");
-    let help = String::from_utf8_lossy(&out.stdout);
+    // desaparezca de la documentación hoy y del código en 1.1. Los diez
+    // pares, cada uno en el --help del subcomando que lo declara: un
+    // `visible_alias` colado en cualquiera de los diez pasaría inadvertido
+    // si solo se mirasen dos.
+    let help_write_new = help_de(&["write", "new", "--help"]);
     assert!(
-        help.contains("--limit"),
-        "el help no muestra --limit:\n{help}"
+        help_contiene_flag(&help_write_new, "--title"),
+        "write new --help no muestra --title:\n{help_write_new}"
     );
     assert!(
-        help.contains("--refresh"),
-        "el help no muestra --refresh:\n{help}"
+        !help_contiene_flag(&help_write_new, "--titulo"),
+        "write new --help sigue mostrando --titulo:\n{help_write_new}"
+    );
+
+    let help_write_append = help_de(&["write", "append", "--help"]);
+    assert!(
+        help_contiene_flag(&help_write_append, "--create"),
+        "write append --help no muestra --create:\n{help_write_append}"
     );
     assert!(
-        !help.contains("--limite"),
-        "el help sigue mostrando --limite:\n{help}"
+        !help_contiene_flag(&help_write_append, "--crea"),
+        "write append --help sigue mostrando --crea:\n{help_write_append}"
     );
-    assert!(
-        !help.contains("--refresca"),
-        "el help sigue mostrando --refresca:\n{help}"
-    );
+
+    let help_search = help_de(&["search", "--help"]);
+    for (nuevo, viejo) in [
+        ("--limit", "--limite"),
+        ("--min-similarity", "--min-similitud"),
+        ("--fts-scale", "--escala-fts"),
+    ] {
+        assert!(
+            help_contiene_flag(&help_search, nuevo),
+            "search --help no muestra {nuevo}:\n{help_search}"
+        );
+        assert!(
+            !help_contiene_flag(&help_search, viejo),
+            "search --help sigue mostrando {viejo}:\n{help_search}"
+        );
+    }
+
+    let help_recall = help_de(&["recall", "--help"]);
+    for (nuevo, viejo) in [
+        ("--limit", "--limite"),
+        ("--min-similarity", "--min-similitud"),
+        ("--content", "--contenido"),
+        ("--note", "--nota"),
+        ("--refresh", "--refresca"),
+    ] {
+        assert!(
+            help_contiene_flag(&help_recall, nuevo),
+            "recall --help no muestra {nuevo}:\n{help_recall}"
+        );
+        assert!(
+            !help_contiene_flag(&help_recall, viejo),
+            "recall --help sigue mostrando {viejo}:\n{help_recall}"
+        );
+    }
 }
 
 #[test]
 fn los_flags_ya_ingleses_no_se_han_movido() {
-    // Guardarraíl contra el churn: renombrar de más también rompe.
+    // Guardarraíl contra el churn: renombrar de más también rompe. Como el
+    // mecanismo es `alias` y no un rename puro, comprobar que el flag viejo
+    // sigue PARSEANDO no basta — un `--bonus` renombrado a `--weight` con
+    // `alias = "bonus"` seguiría parseando y este test seguiría verde sin
+    // detectar el churn. Lo que hay que mirar es el nombre CANÓNICO en el
+    // `--help`, el mismo criterio que usa el test del help para los
+    // migrados, en sentido inverso.
+    let help_search = help_de(&["search", "--help"]);
     assert!(
-        acepta_el_flag(&["recall", "--cap-bytes", "2048"]),
-        "--cap-bytes"
+        help_contiene_flag(&help_search, "--bonus"),
+        "search --help ya no muestra --bonus:\n{help_search}"
     );
     assert!(
-        acepta_el_flag(&["search", "--bonus", "0.5", "q"]),
-        "--bonus"
+        help_contiene_flag(&help_search, "--type"),
+        "search --help ya no muestra --type:\n{help_search}"
     );
-    assert!(acepta_el_flag(&["search", "--type", "fts", "q"]), "--type");
+
+    let help_recall = help_de(&["recall", "--help"]);
+    assert!(
+        help_contiene_flag(&help_recall, "--cap-bytes"),
+        "recall --help ya no muestra --cap-bytes:\n{help_recall}"
+    );
 }

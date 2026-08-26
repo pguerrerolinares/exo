@@ -10,7 +10,7 @@ Uso: replay-engine.py <arm> --db <ruta> [--type fts|vector|hybrid]
 `--db` es obligatorio (D6: ningún default persistente — la ruta del índice
 la decide quien invoca, no el script). `--exo` por defecto resuelve al
 binario release del propio repo; `exo` NUNCA se asume en $PATH (no está
-instalado — instalar es M5b). `--tipo` (default "fts") se reenvía tal cual
+instalado — instalar es M5b). `--type` (default "fts") se reenvía tal cual
 a `exo search --type <tipo>`; `<arm>` (nombre del fichero de salida) es
 independiente del tipo — así "engine-fts", "engine-vector" (M2-06) y
 "engine-hybrid" (M2-07) son la misma pieza de código con distinto flag, sin
