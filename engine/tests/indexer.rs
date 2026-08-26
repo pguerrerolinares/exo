@@ -15,7 +15,8 @@ fn arista(db: &Path, origen: &str, destino_texto: &str) -> (String, Option<Strin
 
 fn cuenta_aristas(db: &Path) -> i64 {
     let conn = exo::abre_db(db).unwrap();
-    conn.query_row("SELECT count(*) FROM aristas", [], |r| r.get(0)).unwrap()
+    conn.query_row("SELECT count(*) FROM aristas", [], |r| r.get(0))
+        .unwrap()
 }
 
 fn git(dir: &Path, args: &[&str]) {
@@ -39,9 +40,27 @@ fn kb_fixture() -> tempfile::TempDir {
     git(dir.path(), &["init", "-q"]);
     git(dir.path(), &["config", "user.email", "test@exo.local"]);
     git(dir.path(), &["config", "user.name", "exo-test"]);
-    crea_nota(dir.path(), "a.md", "kb-demo/a", "Nota A", "contenido alfa buscable");
-    crea_nota(dir.path(), "b.md", "kb-demo/b", "Nota B", "contenido beta buscable");
-    crea_nota(dir.path(), "c.md", "kb-demo/c", "Nota C", "contenido gamma buscable");
+    crea_nota(
+        dir.path(),
+        "a.md",
+        "kb-demo/a",
+        "Nota A",
+        "contenido alfa buscable",
+    );
+    crea_nota(
+        dir.path(),
+        "b.md",
+        "kb-demo/b",
+        "Nota B",
+        "contenido beta buscable",
+    );
+    crea_nota(
+        dir.path(),
+        "c.md",
+        "kb-demo/c",
+        "Nota C",
+        "contenido gamma buscable",
+    );
     git(dir.path(), &["add", "."]);
     git(dir.path(), &["commit", "-q", "-m", "3 notas iniciales"]);
     dir
@@ -55,7 +74,9 @@ fn db_temporal() -> (tempfile::TempDir, std::path::PathBuf) {
 
 fn permalinks(db: &Path) -> BTreeSet<String> {
     let conn = exo::abre_db(db).unwrap();
-    let mut stmt = conn.prepare("SELECT permalink FROM notas ORDER BY permalink").unwrap();
+    let mut stmt = conn
+        .prepare("SELECT permalink FROM notas ORDER BY permalink")
+        .unwrap();
     stmt.query_map([], |r| r.get(0))
         .unwrap()
         .collect::<rusqlite::Result<_>>()
@@ -74,7 +95,8 @@ fn cuenta_trozos(db: &Path, permalink: &str) -> i64 {
 
 fn cuenta_vectores(db: &Path) -> i64 {
     let conn = exo::abre_db(db).unwrap();
-    conn.query_row("SELECT count(*) FROM vectores", [], |r| r.get(0)).unwrap()
+    conn.query_row("SELECT count(*) FROM vectores", [], |r| r.get(0))
+        .unwrap()
 }
 
 fn ids_de_trozos(db: &Path, permalink: &str) -> BTreeSet<i64> {
@@ -90,7 +112,9 @@ fn ids_de_trozos(db: &Path, permalink: &str) -> BTreeSet<i64> {
 
 fn rowids_de_vectores(db: &Path) -> BTreeSet<i64> {
     let conn = exo::abre_db(db).unwrap();
-    let mut stmt = conn.prepare("SELECT rowid FROM vectores ORDER BY rowid").unwrap();
+    let mut stmt = conn
+        .prepare("SELECT rowid FROM vectores ORDER BY rowid")
+        .unwrap();
     stmt.query_map([], |r| r.get(0))
         .unwrap()
         .collect::<rusqlite::Result<_>>()
@@ -108,7 +132,9 @@ fn index_puebla_notas_y_fts() {
     assert_eq!(resumen.borradas, 0);
 
     let conn = exo::abre_db(&db).unwrap();
-    let n: i64 = conn.query_row("SELECT count(*) FROM notas", [], |r| r.get(0)).unwrap();
+    let n: i64 = conn
+        .query_row("SELECT count(*) FROM notas", [], |r| r.get(0))
+        .unwrap();
     assert_eq!(n, 3);
     let n_fts: i64 = conn
         .query_row("SELECT count(*) FROM notas_fts", [], |r| r.get(0))
@@ -149,7 +175,9 @@ fn index_borra_notas_ausentes() {
     assert_eq!(resumen.borradas, 1);
 
     let conn = exo::abre_db(&db).unwrap();
-    let n: i64 = conn.query_row("SELECT count(*) FROM notas", [], |r| r.get(0)).unwrap();
+    let n: i64 = conn
+        .query_row("SELECT count(*) FROM notas", [], |r| r.get(0))
+        .unwrap();
     assert_eq!(n, 2);
     let n_fts: i64 = conn
         .query_row("SELECT count(*) FROM notas_fts", [], |r| r.get(0))
@@ -180,11 +208,20 @@ fn rebuild_es_idempotente() {
 #[test]
 fn link_roto_no_es_error() {
     let kb = kb_fixture();
-    crea_nota(kb.path(), "a.md", "kb-demo/a", "Nota A", "contenido alfa buscable con [[link roto]]");
+    crea_nota(
+        kb.path(),
+        "a.md",
+        "kb-demo/a",
+        "Nota A",
+        "contenido alfa buscable con [[link roto]]",
+    );
     let (_db_dir, db) = db_temporal();
 
     let resumen = indexa(kb.path(), &db);
-    assert!(resumen.is_ok(), "indexar un link roto debe ser exit 0, no error");
+    assert!(
+        resumen.is_ok(),
+        "indexar un link roto debe ser exit 0, no error"
+    );
 
     let (origen, destino_permalink) = arista(&db, "kb-demo/a", "link roto");
     assert_eq!(origen, "kb-demo/a");
@@ -195,7 +232,13 @@ fn link_roto_no_es_error() {
 fn wikilink_a_nota_existente_resuelve_destino_permalink() {
     let kb = kb_fixture();
     // b.md tiene título "Nota B": un link por título debe resolver a su permalink.
-    crea_nota(kb.path(), "a.md", "kb-demo/a", "Nota A", "ver [[Nota B]] para más");
+    crea_nota(
+        kb.path(),
+        "a.md",
+        "kb-demo/a",
+        "Nota A",
+        "ver [[Nota B]] para más",
+    );
     let (_db_dir, db) = db_temporal();
 
     indexa(kb.path(), &db).unwrap();
@@ -207,7 +250,13 @@ fn wikilink_a_nota_existente_resuelve_destino_permalink() {
 #[test]
 fn wikilink_con_alias_se_guarda_entero_y_resuelve_por_parte_antes_del_pipe() {
     let kb = kb_fixture();
-    crea_nota(kb.path(), "a.md", "kb-demo/a", "Nota A", "ver [[Nota B|texto alias]] aquí");
+    crea_nota(
+        kb.path(),
+        "a.md",
+        "kb-demo/a",
+        "Nota A",
+        "ver [[Nota B|texto alias]] aquí",
+    );
     let (_db_dir, db) = db_temporal();
 
     indexa(kb.path(), &db).unwrap();
@@ -219,14 +268,26 @@ fn wikilink_con_alias_se_guarda_entero_y_resuelve_por_parte_antes_del_pipe() {
 #[test]
 fn wikilink_roto_se_cura_solo_cuando_aparece_la_nota_destino() {
     let kb = kb_fixture();
-    crea_nota(kb.path(), "a.md", "kb-demo/a", "Nota A", "ver [[Nota Nueva]] aquí");
+    crea_nota(
+        kb.path(),
+        "a.md",
+        "kb-demo/a",
+        "Nota A",
+        "ver [[Nota Nueva]] aquí",
+    );
     let (_db_dir, db) = db_temporal();
 
     indexa(kb.path(), &db).unwrap();
     let (_, antes) = arista(&db, "kb-demo/a", "Nota Nueva");
     assert_eq!(antes, None);
 
-    crea_nota(kb.path(), "d.md", "kb-demo/d", "Nota Nueva", "contenido delta");
+    crea_nota(
+        kb.path(),
+        "d.md",
+        "kb-demo/d",
+        "Nota Nueva",
+        "contenido delta",
+    );
     git(kb.path(), &["add", "."]);
     git(kb.path(), &["commit", "-q", "-m", "añade Nota Nueva"]);
 
@@ -242,7 +303,13 @@ fn wikilink_roto_se_cura_solo_cuando_aparece_la_nota_destino() {
 #[test]
 fn reindexar_una_nota_que_pierde_un_link_borra_la_arista_vieja() {
     let kb = kb_fixture();
-    crea_nota(kb.path(), "a.md", "kb-demo/a", "Nota A", "ver [[Nota B]] aquí");
+    crea_nota(
+        kb.path(),
+        "a.md",
+        "kb-demo/a",
+        "Nota A",
+        "ver [[Nota B]] aquí",
+    );
     let (_db_dir, db) = db_temporal();
 
     indexa(kb.path(), &db).unwrap();
@@ -251,16 +318,32 @@ fn reindexar_una_nota_que_pierde_un_link_borra_la_arista_vieja() {
     // Reescribe a.md sin el link, forzando mtime a cambiar (git commit no es
     // necesario: la detección de cambio del indexer es por mtime, §3).
     std::thread::sleep(std::time::Duration::from_millis(10));
-    crea_nota(kb.path(), "a.md", "kb-demo/a", "Nota A", "contenido sin ningún link ya");
+    crea_nota(
+        kb.path(),
+        "a.md",
+        "kb-demo/a",
+        "Nota A",
+        "contenido sin ningún link ya",
+    );
 
     indexa(kb.path(), &db).unwrap();
-    assert_eq!(cuenta_aristas(&db), 0, "la arista vieja debe desaparecer, no quedar huérfana");
+    assert_eq!(
+        cuenta_aristas(&db),
+        0,
+        "la arista vieja debe desaparecer, no quedar huérfana"
+    );
 }
 
 #[test]
 fn wikilink_duplicado_en_la_misma_nota_no_duplica_fila() {
     let kb = kb_fixture();
-    crea_nota(kb.path(), "a.md", "kb-demo/a", "Nota A", "[[Nota B]] y otra vez [[Nota B]]");
+    crea_nota(
+        kb.path(),
+        "a.md",
+        "kb-demo/a",
+        "Nota A",
+        "[[Nota B]] y otra vez [[Nota B]]",
+    );
     let (_db_dir, db) = db_temporal();
 
     indexa(kb.path(), &db).unwrap();
@@ -270,7 +353,13 @@ fn wikilink_duplicado_en_la_misma_nota_no_duplica_fila() {
 #[test]
 fn rebuild_doble_da_el_mismo_conteo_de_aristas() {
     let kb = kb_fixture();
-    crea_nota(kb.path(), "a.md", "kb-demo/a", "Nota A", "ver [[Nota B]] y [[link roto]]");
+    crea_nota(
+        kb.path(),
+        "a.md",
+        "kb-demo/a",
+        "Nota A",
+        "ver [[Nota B]] y [[link roto]]",
+    );
     let (_db_dir, db) = db_temporal();
 
     indexa(kb.path(), &db).unwrap();
@@ -319,17 +408,33 @@ fn reindexar_nota_cambiada_reemplaza_trozos_y_vectores() {
     assert_eq!(ids_antes.len(), 1);
 
     std::thread::sleep(std::time::Duration::from_millis(10));
-    crea_nota(kb.path(), "a.md", "kb-demo/a", "Nota A", "contenido alfa completamente distinto ahora");
+    crea_nota(
+        kb.path(),
+        "a.md",
+        "kb-demo/a",
+        "Nota A",
+        "contenido alfa completamente distinto ahora",
+    );
     indexa(kb.path(), &db).unwrap();
 
     let ids_despues = ids_de_trozos(&db, "kb-demo/a");
-    assert_eq!(ids_despues.len(), 1, "sigue siendo 1 trozo (cuerpo corto), no 2 acumulados");
-    assert_ne!(ids_antes, ids_despues, "el reindex debe generar filas nuevas, no reusar las viejas");
+    assert_eq!(
+        ids_despues.len(),
+        1,
+        "sigue siendo 1 trozo (cuerpo corto), no 2 acumulados"
+    );
+    assert_ne!(
+        ids_antes, ids_despues,
+        "el reindex debe generar filas nuevas, no reusar las viejas"
+    );
 
     // ningún vector huérfano del id viejo
     let rowids = rowids_de_vectores(&db);
     for id_viejo in &ids_antes {
-        assert!(!rowids.contains(id_viejo), "vector huérfano del trozo viejo id={id_viejo}");
+        assert!(
+            !rowids.contains(id_viejo),
+            "vector huérfano del trozo viejo id={id_viejo}"
+        );
     }
 }
 
@@ -353,7 +458,10 @@ fn borrar_nota_borra_tambien_sus_vectores() {
     assert_eq!(cuenta_trozos(&db, "kb-demo/b"), 0);
     let rowids_despues = rowids_de_vectores(&db);
     for id_b in &ids_b {
-        assert!(!rowids_despues.contains(id_b), "vector de la nota borrada debe desaparecer, id={id_b}");
+        assert!(
+            !rowids_despues.contains(id_b),
+            "vector de la nota borrada debe desaparecer, id={id_b}"
+        );
     }
     assert_eq!(cuenta_vectores(&db), 2, "quedan solo los vectores de a y c");
 }
@@ -417,7 +525,10 @@ fn un_fallo_a_mitad_no_deja_la_nota_fuera_del_indice() {
         .unwrap();
     }
 
-    assert!(indexa(kb.path(), &db).is_err(), "se esperaba fallo al embeber");
+    assert!(
+        indexa(kb.path(), &db).is_err(),
+        "se esperaba fallo al embeber"
+    );
 
     // Sin transaccion por nota, el mtime nuevo ya esta commiteado y la nota
     // queda fuera del indice PARA SIEMPRE: la corrida siguiente la salta.
@@ -462,7 +573,9 @@ fn indexa_escribe_kb_root_en_meta() {
 
     let conn = exo::abre_db(&db).expect("abrir db");
     let valor: String = conn
-        .query_row("SELECT valor FROM meta WHERE clave='kb_root'", [], |r| r.get(0))
+        .query_row("SELECT valor FROM meta WHERE clave='kb_root'", [], |r| {
+            r.get(0)
+        })
         .expect("leer meta.kb_root");
 
     let esperado = std::fs::canonicalize(kb.path()).expect("canonicalizar kb");
@@ -486,7 +599,9 @@ fn indexa_dos_veces_no_duplica_kb_root() {
 
     let conn = exo::abre_db(&db).expect("abrir db");
     let filas: i64 = conn
-        .query_row("SELECT COUNT(*) FROM meta WHERE clave='kb_root'", [], |r| r.get(0))
+        .query_row("SELECT COUNT(*) FROM meta WHERE clave='kb_root'", [], |r| {
+            r.get(0)
+        })
         .expect("contar");
     assert_eq!(filas, 1, "kb_root debe ser upsert, no insert repetido");
 }

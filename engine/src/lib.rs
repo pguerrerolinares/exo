@@ -93,9 +93,7 @@ pub fn kb_desde_config() -> Result<std::path::PathBuf> {
         .and_then(|p| p.get("kb-demo"))
         .and_then(|p| p.get("path"))
         .and_then(|p| p.as_str())
-        .with_context(|| {
-            format!("projects.kb-demo.path ausente en {}", ruta.display())
-        })?;
+        .with_context(|| format!("projects.kb-demo.path ausente en {}", ruta.display()))?;
     Ok(std::path::PathBuf::from(path))
 }
 

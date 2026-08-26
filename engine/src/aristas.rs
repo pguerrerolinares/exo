@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use regex::Regex;
-use rusqlite::params;
 use rusqlite::Connection;
+use rusqlite::params;
 use std::collections::{HashMap, HashSet};
 
 /// Patrón de wikilink (spec `2026-07-17-indexer-design.md` §diseño fijado M2-04,
@@ -18,9 +18,7 @@ const PATRON_WIKILINK: &str = r"\[\[([^\]]+)\]\]";
 /// `INSERT OR IGNORE` del llamador los colapsa.
 pub fn extrae_wikilinks(cuerpo: &str) -> Vec<String> {
     let re = Regex::new(PATRON_WIKILINK).expect("regex de wikilink válida (patrón fijo)");
-    re.captures_iter(cuerpo)
-        .map(|c| c[1].to_string())
-        .collect()
+    re.captures_iter(cuerpo).map(|c| c[1].to_string()).collect()
 }
 
 /// Reindexa las aristas de una nota: borra las viejas (`origen = permalink`,
@@ -119,7 +117,10 @@ mod tests {
 
     #[test]
     fn sin_wikilinks_devuelve_vacio() {
-        assert_eq!(extrae_wikilinks("cuerpo sin links de ningún tipo"), Vec::<String>::new());
+        assert_eq!(
+            extrae_wikilinks("cuerpo sin links de ningún tipo"),
+            Vec::<String>::new()
+        );
     }
 
     #[test]

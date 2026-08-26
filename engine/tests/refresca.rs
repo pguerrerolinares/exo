@@ -21,9 +21,21 @@ fn kb_con_una_nota(dir: &std::path::Path) {
     for args in [
         vec!["init", "-q"],
         vec!["add", "-A"],
-        vec!["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "uno"],
+        vec![
+            "-c",
+            "user.email=t@t",
+            "-c",
+            "user.name=t",
+            "commit",
+            "-qm",
+            "uno",
+        ],
     ] {
-        Command::new("git").args(&args).current_dir(dir).output().unwrap();
+        Command::new("git")
+            .args(&args)
+            .current_dir(dir)
+            .output()
+            .unwrap();
     }
 }
 
@@ -36,9 +48,21 @@ fn anade_nota(dir: &std::path::Path) {
     .unwrap();
     for args in [
         vec!["add", "-A"],
-        vec!["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "dos"],
+        vec![
+            "-c",
+            "user.email=t@t",
+            "-c",
+            "user.name=t",
+            "commit",
+            "-qm",
+            "dos",
+        ],
     ] {
-        Command::new("git").args(&args).current_dir(dir).output().unwrap();
+        Command::new("git")
+            .args(&args)
+            .current_dir(dir)
+            .output()
+            .unwrap();
     }
 }
 
@@ -71,7 +95,10 @@ fn refresca_indice_antes_de_servir_incluye_la_nota_nueva() {
 
     let resumen = exo::refresca_indice(kb.path(), &db).unwrap();
     assert_eq!(resumen.indexadas, 1, "solo la nota nueva se reindexa");
-    assert_eq!(resumen.saltadas, 1, "la que no cambió se salta (incremental)");
+    assert_eq!(
+        resumen.saltadas, 1,
+        "la que no cambió se salta (incremental)"
+    );
 
     let bruto = recall_arranque(&db, kb.path(), 5).unwrap();
     let mut permalinks: Vec<_> = bruto.notas.iter().map(|n| n.permalink.clone()).collect();

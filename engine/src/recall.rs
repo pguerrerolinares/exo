@@ -27,7 +27,7 @@
 use crate::abre_db;
 use crate::nota::parsea_nota;
 use anyhow::{Context, Result};
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{OptionalExtension, params};
 use serde::Serialize;
 use std::path::Path;
 
@@ -111,7 +111,12 @@ pub struct ResultadoCap {
 /// Una nota entra en `notas`/el texto solo si TODAS sus líneas cupieron
 /// completas; en cuanto una línea no cabe, el proceso para (ni esa nota
 /// parcial ni ninguna posterior aparecen).
-fn aplica_cap(modo: &str, query: Option<String>, notas: Vec<NotaRecall>, cap_bytes: usize) -> ResultadoCap {
+fn aplica_cap(
+    modo: &str,
+    query: Option<String>,
+    notas: Vec<NotaRecall>,
+    cap_bytes: usize,
+) -> ResultadoCap {
     let unidades: Vec<Unidad> = notas
         .into_iter()
         .map(|n| {
@@ -579,7 +584,10 @@ mod tests {
 
     #[test]
     fn aplica_cap_todo_cabe_no_trunca() {
-        let notas = vec![nota("a", "/kb/a.md", "A", None), nota("b", "/kb/b.md", "B", None)];
+        let notas = vec![
+            nota("a", "/kb/a.md", "A", None),
+            nota("b", "/kb/b.md", "B", None),
+        ];
         let r = aplica_cap("arranque", None, notas, 2048);
         assert!(!r.recall.truncado);
         assert_eq!(r.recall.notas.len(), 2);
@@ -593,7 +601,10 @@ mod tests {
     /// segunda nota se descarta ENTERA (ninguna nota "a medias").
     #[test]
     fn aplica_cap_corta_por_lineas_enteras_y_para() {
-        let notas = vec![nota("a", "/kb/a.md", "A", None), nota("b", "/kb/b.md", "B", None)];
+        let notas = vec![
+            nota("a", "/kb/a.md", "A", None),
+            nota("b", "/kb/b.md", "B", None),
+        ];
         let linea_a = "- /kb/a.md — A\n".to_string();
         let cabecera = format!("{CABECERA}\n");
         let cap = cabecera.len() + linea_a.len(); // exacto para cabecera+a, no para b
@@ -619,7 +630,12 @@ mod tests {
     /// nota entera se descarta (no aparece "a medias" sin snippet).
     #[test]
     fn aplica_cap_nota_con_snippet_que_no_cabe_se_descarta_entera() {
-        let notas = vec![nota("a", "/kb/a.md", "A", Some("un snippet bastante largo de verdad"))];
+        let notas = vec![nota(
+            "a",
+            "/kb/a.md",
+            "A",
+            Some("un snippet bastante largo de verdad"),
+        )];
         // cap justo para la cabecera + la línea principal, no el snippet
         let cabecera = format!("{CABECERA}\n");
         let linea_a = "- /kb/a.md — A\n";
@@ -641,7 +657,10 @@ mod tests {
         }
         let primera = &obj["notas"][0];
         for clave in ["permalink", "ruta", "titulo", "tier", "score", "snippet"] {
-            assert!(primera.get(clave).is_some(), "falta {clave} en nota: {primera:?}");
+            assert!(
+                primera.get(clave).is_some(),
+                "falta {clave} en nota: {primera:?}"
+            );
         }
     }
 }

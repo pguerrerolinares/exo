@@ -171,7 +171,10 @@ fn nombre_fichero(titulo: &str) -> String {
 /// `--dir` o `--titulo` la atravesaría (verificado en el gate). No es un gate
 /// saltable con `--force`: es un error.
 fn verifica_segmento(valor: &str, flag: &str) -> Result<()> {
-    if valor.split(['/', '\\']).any(|seg| seg == ".." || seg == ".") {
+    if valor
+        .split(['/', '\\'])
+        .any(|seg| seg == ".." || seg == ".")
+    {
         anyhow::bail!(
             "{flag} contiene un segmento de ruta relativo ({valor:?}): el write-path \
              solo escribe dentro de la KB"
@@ -251,8 +254,7 @@ pub fn escribe_nueva(
     }
 
     let (yaml_previo, cuerpo_limpio) = separa_frontmatter(cuerpo);
-    let (frontmatter, completado) =
-        compone_frontmatter(&yaml_previo, titulo, &permalink, tier);
+    let (frontmatter, completado) = compone_frontmatter(&yaml_previo, titulo, &permalink, tier);
 
     let contenido = format!("---\n{frontmatter}---\n{cuerpo_limpio}");
     escribe_atomico(&ruta_abs, &contenido)?;
@@ -275,12 +277,7 @@ pub fn escribe_nueva(
 ///
 /// Rechaza si la nota destino no es `tier: log` (§7.1) salvo `forzar`.
 /// Para leer el `tier` toca el head del fichero, no el cuerpo entero.
-pub fn escribe_append(
-    kb: &Path,
-    ruta_rel: &str,
-    texto: &str,
-    forzar: bool,
-) -> Result<Escritura> {
+pub fn escribe_append(kb: &Path, ruta_rel: &str, texto: &str, forzar: bool) -> Result<Escritura> {
     let ruta_abs = kb.join(ruta_rel);
     if !ruta_abs.exists() {
         anyhow::bail!(
@@ -334,7 +331,11 @@ fn anexa(ruta: &Path, texto: &str) -> Result<()> {
     let mut a_escribir = String::new();
     if !final_previo.is_empty() {
         // "…texto"   → "\n\n";  "…texto\n" → "\n";  "…texto\n\n" → nada.
-        let saltos = final_previo.chars().rev().take_while(|c| *c == '\n').count();
+        let saltos = final_previo
+            .chars()
+            .rev()
+            .take_while(|c| *c == '\n')
+            .count();
         for _ in saltos..2 {
             a_escribir.push('\n');
         }
@@ -366,8 +367,7 @@ fn cola(f: &mut std::fs::File, n: usize) -> Result<String> {
 /// y evita cargar una bitácora entera solo para leer su `tier`.
 fn lee_cabecera(ruta: &Path) -> Result<String> {
     use std::io::Read;
-    let mut f = std::fs::File::open(ruta)
-        .with_context(|| format!("abrir {}", ruta.display()))?;
+    let mut f = std::fs::File::open(ruta).with_context(|| format!("abrir {}", ruta.display()))?;
     let mut buf = vec![0u8; 8192];
     let leidos = f.read(&mut buf).context("leer cabecera")?;
     buf.truncate(leidos);
@@ -450,8 +450,7 @@ fn escribe_atomico(destino: &Path, contenido: &str) -> Result<()> {
     let padre = destino
         .parent()
         .context("la nota destino no tiene directorio padre")?;
-    std::fs::create_dir_all(padre)
-        .with_context(|| format!("crear {}", padre.display()))?;
+    std::fs::create_dir_all(padre).with_context(|| format!("crear {}", padre.display()))?;
 
     let tmp: PathBuf = padre.join(format!(
         ".{}.exo-tmp",

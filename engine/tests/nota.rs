@@ -54,7 +54,11 @@ fn titulo_de_frontmatter_o_stem() {
     let nota = parsea_nota(&con_titulo).unwrap().unwrap();
     assert_eq!(nota.titulo, "Título explícito");
 
-    let sin_titulo = escribe(&dir, "mi-nota-b.md", "---\npermalink: kb-demo/b\n---\ncuerpo\n");
+    let sin_titulo = escribe(
+        &dir,
+        "mi-nota-b.md",
+        "---\npermalink: kb-demo/b\n---\ncuerpo\n",
+    );
     let nota = parsea_nota(&sin_titulo).unwrap().unwrap();
     assert_eq!(nota.titulo, "mi-nota-b");
 }

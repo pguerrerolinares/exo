@@ -1,14 +1,14 @@
 use crate::abre_db;
 use crate::aristas::{reindexa_aristas_de_nota, resuelve_destinos};
+use crate::con_embedder_de_proceso;
+use crate::config_embeddings;
 use crate::nota::parsea_nota;
 use crate::schema::crea_schema;
 use crate::trozos::trocea;
 use crate::vectores;
 use crate::walker::walk_kb;
-use crate::con_embedder_de_proceso;
-use crate::config_embeddings;
-use anyhow::{bail, Context, Result};
-use rusqlite::{params, Connection, OptionalExtension};
+use anyhow::{Context, Result, bail};
+use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -266,8 +266,11 @@ fn borra_trozos_y_vectores_de_nota(conn: &Connection, permalink: &str) -> Result
     for id in ids {
         vectores::borra(conn, id).with_context(|| format!("borrar vector rowid={id}"))?;
     }
-    conn.execute("DELETE FROM trozos WHERE permalink = ?1", params![permalink])
-        .with_context(|| format!("borrar trozos de {permalink}"))?;
+    conn.execute(
+        "DELETE FROM trozos WHERE permalink = ?1",
+        params![permalink],
+    )
+    .with_context(|| format!("borrar trozos de {permalink}"))?;
     Ok(())
 }
 
@@ -319,10 +322,9 @@ fn reindexa_trozos_de_nota(
         HashMap::new()
     } else {
         let vectores_nuevos =
-            con_embedder_de_proceso(|embedder| embedder.embebe_batch(&pendientes))
-                .with_context(|| {
-                    format!("embed batch de {} trozos de {permalink}", pendientes.len())
-                })?;
+            con_embedder_de_proceso(|embedder| embedder.embebe_batch(&pendientes)).with_context(
+                || format!("embed batch de {} trozos de {permalink}", pendientes.len()),
+            )?;
         pendientes.iter().cloned().zip(vectores_nuevos).collect()
     };
 
@@ -337,9 +339,9 @@ fn reindexa_trozos_de_nota(
             }
             None => {
                 embebidos += 1;
-                recien_embebidos
-                    .get(texto)
-                    .with_context(|| format!("embedding ausente del trozo {orden} de {permalink}"))?
+                recien_embebidos.get(texto).with_context(|| {
+                    format!("embedding ausente del trozo {orden} de {permalink}")
+                })?
             }
         };
         conn.execute(
@@ -438,7 +440,13 @@ fn verifica_modelo(conn: &Connection, modelo_actual: &str) -> Result<()> {
 fn ruta_relativa(kb: &Path, ruta_abs: &Path) -> Result<String> {
     Ok(ruta_abs
         .strip_prefix(kb)
-        .with_context(|| format!("{} no está bajo la raíz {}", ruta_abs.display(), kb.display()))?
+        .with_context(|| {
+            format!(
+                "{} no está bajo la raíz {}",
+                ruta_abs.display(),
+                kb.display()
+            )
+        })?
         .to_string_lossy()
         .into_owned())
 }

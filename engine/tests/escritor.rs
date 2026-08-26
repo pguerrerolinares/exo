@@ -116,13 +116,20 @@ fn nueva_respeta_el_frontmatter_que_ya_trae_el_cuerpo() {
         !escrito.contains("type: note"),
         "no debe duplicar la clave type"
     );
-    assert_eq!(esc.frontmatter_completado, vec!["permalink", "title", "tier"]);
+    assert_eq!(
+        esc.frontmatter_completado,
+        vec!["permalink", "title", "tier"]
+    );
 }
 
 #[test]
 fn nueva_jamas_pisa_una_nota_existente() {
     let kb = kb_falsa();
-    escribe_nota(&kb, "projects/Ya Existe.md", "---\npermalink: x\n---\nviejo\n");
+    escribe_nota(
+        &kb,
+        "projects/Ya Existe.md",
+        "---\npermalink: x\n---\nviejo\n",
+    );
 
     let err = escribe_nueva(
         kb.path(),
@@ -308,8 +315,7 @@ fn titulo_con_barra_no_crea_subdirectorio() {
     .unwrap();
 
     assert_eq!(
-        esc.ruta_rel,
-        "projects/pguerrero.me — Hub personal - portfolio.md",
+        esc.ruta_rel, "projects/pguerrero.me — Hub personal - portfolio.md",
         "la barra colapsa a guion, como hace bm en producción"
     );
     assert!(

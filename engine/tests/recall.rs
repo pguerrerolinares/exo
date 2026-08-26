@@ -33,7 +33,9 @@ fn commitea_con_epoch(dir: &Path, nombre: &str, contenido: &str, epoch: i64) {
 
 fn nota_md(permalink: &str, titulo: &str, tier: Option<&str>, cuerpo: &str) -> String {
     match tier {
-        Some(t) => format!("---\npermalink: {permalink}\ntitle: {titulo}\ntier: {t}\n---\n{cuerpo}\n"),
+        Some(t) => {
+            format!("---\npermalink: {permalink}\ntitle: {titulo}\ntier: {t}\n---\n{cuerpo}\n")
+        }
         None => format!("---\npermalink: {permalink}\ntitle: {titulo}\n---\n{cuerpo}\n"),
     }
 }
@@ -53,31 +55,56 @@ fn kb_arranque() -> (tempfile::TempDir, tempfile::TempDir, std::path::PathBuf) {
     commitea_con_epoch(
         kb.path(),
         "core-b.md",
-        &nota_md("kb-demo/core-b", "Core B", Some("core"), "contenido core b"),
+        &nota_md(
+            "kb-demo/core-b",
+            "Core B",
+            Some("core"),
+            "contenido core b",
+        ),
         1_700_000_000,
     );
     commitea_con_epoch(
         kb.path(),
         "core-a.md",
-        &nota_md("kb-demo/core-a", "Core A", Some("core"), "contenido core a"),
+        &nota_md(
+            "kb-demo/core-a",
+            "Core A",
+            Some("core"),
+            "contenido core a",
+        ),
         1_700_000_001,
     );
     commitea_con_epoch(
         kb.path(),
         "r-viejo.md",
-        &nota_md("kb-demo/r-viejo", "Reciente viejo", None, "contenido viejo"),
+        &nota_md(
+            "kb-demo/r-viejo",
+            "Reciente viejo",
+            None,
+            "contenido viejo",
+        ),
         1_700_000_002,
     );
     commitea_con_epoch(
         kb.path(),
         "r-medio.md",
-        &nota_md("kb-demo/r-medio", "Reciente medio", None, "contenido medio"),
+        &nota_md(
+            "kb-demo/r-medio",
+            "Reciente medio",
+            None,
+            "contenido medio",
+        ),
         1_700_000_003,
     );
     commitea_con_epoch(
         kb.path(),
         "r-nuevo.md",
-        &nota_md("kb-demo/r-nuevo", "Reciente nuevo", None, "contenido nuevo"),
+        &nota_md(
+            "kb-demo/r-nuevo",
+            "Reciente nuevo",
+            None,
+            "contenido nuevo",
+        ),
         1_700_000_004,
     );
 
@@ -117,7 +144,9 @@ fn recall_arranque_cores_en_orden_de_ruta_y_recientes_por_git_hasta_limite() {
 
     // ruta absoluta, no relativa
     assert!(
-        bruto.notas[0].ruta.starts_with(&kb.path().display().to_string()),
+        bruto.notas[0]
+            .ruta
+            .starts_with(&kb.path().display().to_string()),
         "{}",
         bruto.notas[0].ruta
     );
@@ -159,7 +188,9 @@ fn recall_consulta_devuelve_score_y_snippet_no_nulos() {
 
     resuelve_rutas_absolutas(&mut bruto, kb.path());
     assert!(
-        bruto.notas[0].ruta.starts_with(&kb.path().display().to_string()),
+        bruto.notas[0]
+            .ruta
+            .starts_with(&kb.path().display().to_string()),
         "{}",
         bruto.notas[0].ruta
     );
@@ -169,8 +200,15 @@ fn recall_consulta_devuelve_score_y_snippet_no_nulos() {
 fn recall_consulta_sin_hits_da_notas_vacias_no_error() {
     let (kb, _db_dir, db) = kb_arranque();
 
-    let bruto = recall_consulta(&db, "palabra-que-no-existe-en-ningun-lado-de-verdad", 5, Some(1.5), 0.0, 0.6)
-        .unwrap();
+    let bruto = recall_consulta(
+        &db,
+        "palabra-que-no-existe-en-ningun-lado-de-verdad",
+        5,
+        Some(1.5),
+        0.0,
+        0.6,
+    )
+    .unwrap();
     assert!(bruto.notas.is_empty(), "{:?}", bruto.notas);
     let _ = kb; // la ausencia de hits no es error a este nivel; el CLI decide exit 1
 }

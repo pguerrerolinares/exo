@@ -296,8 +296,8 @@ fn write_new_cmd(args: ArgsWriteNew) -> Result<()> {
     let candidatas: Vec<(String, f64)> = if args.force {
         Vec::new()
     } else {
-        let indexados = exo::buscador::permalinks(&args.db)
-            .context("dup-gate: leer permalinks del índice")?;
+        let indexados =
+            exo::buscador::permalinks(&args.db).context("dup-gate: leer permalinks del índice")?;
         exo::escritor::dup_candidatas(&exo::escritor::slug(&args.titulo), &indexados)
     };
 

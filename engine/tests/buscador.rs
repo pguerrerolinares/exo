@@ -61,7 +61,10 @@ fn query_con_guiones_y_acentos_no_revienta() {
     let resultado = busca(&db, "agent-develop bitácora", 10).expect("no debe reventar FTS5");
     assert_eq!(resultado.search_type, "fts");
     assert!(
-        resultado.results.iter().any(|r| r.permalink == "kb-demo/log/agent-develop-bitacora"),
+        resultado
+            .results
+            .iter()
+            .any(|r| r.permalink == "kb-demo/log/agent-develop-bitacora"),
         "{:?}",
         resultado.results
     );
@@ -122,7 +125,10 @@ fn db_inexistente_da_error_claro() {
     let dir = tempfile::tempdir().unwrap();
     let db = dir.path().join("no-existe.db");
     let err = busca(&db, "algo", 10).expect_err("debe fallar, no crear una DB vacía");
-    assert!(!db.exists(), "no debe crear el fichero como side-effect del error");
+    assert!(
+        !db.exists(),
+        "no debe crear el fichero como side-effect del error"
+    );
     assert!(format!("{err:#}").contains("no-existe.db"));
 }
 
@@ -137,15 +143,25 @@ fn busca_vector_con_db_poblada_devuelve_entidades_ordenadas() {
     let resultado = busca_vector(&db, "la bitácora de agent-develop", 10, None).unwrap();
 
     assert_eq!(resultado.search_type, "vector");
-    assert!(!resultado.results.is_empty(), "esperaba al menos un resultado sobre threshold");
+    assert!(
+        !resultado.results.is_empty(),
+        "esperaba al menos un resultado sobre threshold"
+    );
     for r in &resultado.results {
         assert_eq!(r.tipo, "entity");
     }
     for ventana in resultado.results.windows(2) {
-        assert!(ventana[0].score >= ventana[1].score, "{:?}", resultado.results);
+        assert!(
+            ventana[0].score >= ventana[1].score,
+            "{:?}",
+            resultado.results
+        );
     }
     assert!(
-        resultado.results.iter().any(|r| r.permalink == "kb-demo/log/agent-develop-bitacora"),
+        resultado
+            .results
+            .iter()
+            .any(|r| r.permalink == "kb-demo/log/agent-develop-bitacora"),
         "la nota de la bitácora debería aparecer sobre threshold: {:?}",
         resultado.results
     );
@@ -193,7 +209,11 @@ fn fusion_gate_fts_no_pierde_hit_semantico() {
     let (_kb, _db_dir, db) = db_indexada();
 
     let fts = busca(&db, "palabra-que-no-existe-en-ningun-lado", 50).unwrap();
-    assert_eq!(fts.results, Vec::new(), "precondición: FTS vacío para esta query");
+    assert_eq!(
+        fts.results,
+        Vec::new(),
+        "precondición: FTS vacío para esta query"
+    );
 
     let hybrid = busca_hybrid(
         &db,
