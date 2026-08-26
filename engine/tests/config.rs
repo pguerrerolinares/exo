@@ -1,6 +1,11 @@
 //! Contrato de `exo::config`: precedencia, errores accionables y expansión
-//! de `~`. Todos los tests fijan `EXO_CONFIG` a un fichero temporal, así
-//! que ninguno toca el `~/.exo/config.toml` de la máquina.
+//! de `~`.
+//!
+//! Los tests de contenido (parseo, mensajes de error) llaman a `carga_desde`
+//! directamente con una ruta de fichero temporal: no tocan el entorno del
+//! proceso en absoluto, así que no compiten entre sí aunque cargo los corra
+//! en paralelo. Solo `ruta_config_respeta_la_variable_de_entorno` toca
+//! `EXO_CONFIG`, y es el único test del fichero que lo hace.
 
 use std::io::Write;
 
@@ -33,22 +38,19 @@ min_similarity = 0.35
 #[test]
 fn carga_un_config_completo() {
     let (_dir, ruta) = config_temporal(COMPLETO);
-    unsafe { std::env::set_var("EXO_CONFIG", &ruta) };
-    let cfg = exo::config::carga().expect("carga");
+    let cfg = exo::config::carga_desde(&ruta).expect("carga");
     assert_eq!(cfg.schema_version, 1);
     assert_eq!(cfg.kb.name, "demo");
     assert_eq!(cfg.kb.path, std::path::PathBuf::from("C:/kb/demo"));
     assert_eq!(cfg.embeddings.dims, 768);
     assert_eq!(cfg.embeddings.min_similarity, 0.35);
-    unsafe { std::env::remove_var("EXO_CONFIG") };
 }
 
 #[test]
 fn fichero_ausente_nombra_el_comando_de_arranque() {
     let dir = tempfile::tempdir().expect("tempdir");
     let ruta = dir.path().join("no-existe.toml");
-    unsafe { std::env::set_var("EXO_CONFIG", &ruta) };
-    let err = exo::config::carga().expect_err("debe fallar");
+    let err = exo::config::carga_desde(&ruta).expect_err("debe fallar");
     let msg = format!("{err:#}");
     // El mensaje tiene que decirle al usuario qué ejecutar, no solo que falta
     // un fichero: es la diferencia entre un error y un callejón sin salida.
@@ -57,7 +59,6 @@ fn fichero_ausente_nombra_el_comando_de_arranque() {
         "mensaje sin salida accionable: {msg}"
     );
     assert!(msg.contains("no-existe.toml"), "mensaje sin la ruta: {msg}");
-    unsafe { std::env::remove_var("EXO_CONFIG") };
 }
 
 #[test]
@@ -77,12 +78,10 @@ dims = 768
 min_similarity = 0.35
 "#;
     let (_dir, ruta) = config_temporal(sin_name);
-    unsafe { std::env::set_var("EXO_CONFIG", &ruta) };
-    let err = exo::config::carga().expect_err("debe fallar");
+    let err = exo::config::carga_desde(&ruta).expect_err("debe fallar");
     let msg = format!("{err:#}");
     assert!(msg.contains("name"), "no nombra la clave: {msg}");
     assert!(msg.contains("config.toml"), "no nombra la ruta: {msg}");
-    unsafe { std::env::remove_var("EXO_CONFIG") };
 }
 
 #[test]
@@ -114,24 +113,37 @@ dims = 768
 min_similarity = 0.35
 "#;
     let (_dir, ruta) = config_temporal(con_backslash);
-    unsafe { std::env::set_var("EXO_CONFIG", &ruta) };
-    let cfg = exo::config::carga().expect("carga con backslashes");
+    let cfg = exo::config::carga_desde(&ruta).expect("carga con backslashes");
     assert_eq!(
         cfg.kb.path,
         std::path::PathBuf::from(r"C:\proyectos\homework\kb-demo")
     );
-    unsafe { std::env::remove_var("EXO_CONFIG") };
 }
 
 #[test]
 fn toml_invalido_no_se_disfraza_de_clave_ausente() {
     let (_dir, ruta) = config_temporal("esto no es toml [[[");
-    unsafe { std::env::set_var("EXO_CONFIG", &ruta) };
-    let err = exo::config::carga().expect_err("debe fallar");
+    let err = exo::config::carga_desde(&ruta).expect_err("debe fallar");
     let msg = format!("{err:#}");
     assert!(
         msg.contains("no es TOML válido"),
         "un parse error debe decir que es un parse error: {msg}"
     );
+}
+
+/// `ruta_config()` respeta `$EXO_CONFIG`, y una variable vacía se trata como
+/// no definida (cae al default). Es el ÚNICO test del fichero que toca el
+/// entorno del proceso; si algún día hay otro, ambos tienen que serializarse
+/// con un mutex — el entorno es global y cargo corre estos tests en hilos del
+/// mismo proceso.
+#[test]
+fn ruta_config_respeta_la_variable_de_entorno() {
+    unsafe { std::env::set_var("EXO_CONFIG", "C:/ruta/explicita/config.toml") };
+    let r = exo::config::ruta_config().expect("ruta");
+    assert_eq!(r, std::path::PathBuf::from("C:/ruta/explicita/config.toml"));
+
+    unsafe { std::env::set_var("EXO_CONFIG", "") };
+    let r_vacia = exo::config::ruta_config().expect("ruta con env vacía");
     unsafe { std::env::remove_var("EXO_CONFIG") };
+    assert_eq!(r_vacia, dirs::home_dir().unwrap().join(".exo/config.toml"));
 }

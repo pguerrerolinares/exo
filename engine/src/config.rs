@@ -48,6 +48,8 @@ pub struct Embeddings {
 /// `~/.exo/config.toml`.
 pub fn ruta_config() -> Result<PathBuf> {
     if let Ok(v) = std::env::var("EXO_CONFIG") {
+        // Una variable definida pero vacía se trata como no definida: cae al
+        // default en vez de intentar leer un fichero en la ruta vacía.
         if !v.is_empty() {
             return Ok(PathBuf::from(v));
         }
@@ -69,12 +71,15 @@ pub fn expande_tilde(p: &Path) -> PathBuf {
     p.to_path_buf()
 }
 
-/// Carga y valida la config. Errores accionables por contrato: el de fichero
-/// ausente nombra el comando que lo crea, el de clave ausente nombra la clave
-/// y la ruta.
-pub fn carga() -> Result<Config> {
-    let ruta = ruta_config()?;
-    let contenido = std::fs::read_to_string(&ruta).map_err(|e| {
+/// Carga y valida la config de una ruta concreta. Es donde vive la lógica;
+/// `carga()` solo resuelve la ruta. Separarlas permite testear el parseo y
+/// los mensajes de error SIN tocar el entorno del proceso, que es global y
+/// compartido entre los tests que cargo corre en paralelo.
+///
+/// Errores accionables por contrato: el de fichero ausente nombra el comando
+/// que lo crea, el de clave ausente nombra la clave y la ruta.
+pub fn carga_desde(ruta: &Path) -> Result<Config> {
+    let contenido = std::fs::read_to_string(ruta).map_err(|e| {
         anyhow::anyhow!(
             "no encuentro la config de exo en {} ({e}).\n\
              Créala con `exo init --from-basic-memory` si vienes de basic-memory, \
@@ -91,4 +96,9 @@ pub fn carga() -> Result<Config> {
         anyhow::anyhow!("config incompleta o mal tipada en {}: {e}", ruta.display())
     })?;
     Ok(cfg)
+}
+
+/// Carga la config de la ruta por defecto (`$EXO_CONFIG` o `~/.exo/config.toml`).
+pub fn carga() -> Result<Config> {
+    carga_desde(&ruta_config()?)
 }
