@@ -40,6 +40,15 @@ fn las_claves_de_recall_estan_en_ingles() {
     }
     assert!(nota.get("ruta").is_none(), "sobrevive `ruta`");
     assert!(nota.get("titulo").is_none(), "sobrevive `titulo`");
+
+    // No basta con que las claves existan: si dos renames estuvieran
+    // intercambiados, todas estarían presentes y ninguna española, y el test
+    // pasaría con el contrato invertido. Se asevera el VALOR.
+    assert_eq!(nota["path"], "core/x.md");
+    assert_eq!(nota["title"], "X");
+    assert_eq!(v["mode"], "arranque");
+    assert_eq!(v["truncated"], false);
+    assert_eq!(v["cap_bytes"], 2048);
 }
 
 #[test]
@@ -53,12 +62,24 @@ fn las_claves_de_index_estan_en_ingles() {
     };
     let v = serde_json::to_value(&r).expect("serializar");
     let obj = v.as_object().expect("objeto");
-    for k in ["indexed", "skipped", "deleted", "chunks_embedded", "chunks_reused"] {
+    for k in [
+        "indexed",
+        "skipped",
+        "deleted",
+        "chunks_embedded",
+        "chunks_reused",
+    ] {
         assert!(obj.contains_key(k), "falta {k} en {v}");
     }
     assert_eq!(v["indexed"], 1);
     assert_eq!(v["chunks_embedded"], 4);
-    for k in ["indexadas", "saltadas", "borradas", "trozos_embebidos", "trozos_reusados"] {
+    for k in [
+        "indexadas",
+        "saltadas",
+        "borradas",
+        "trozos_embebidos",
+        "trozos_reusados",
+    ] {
         assert!(!obj.contains_key(k), "sobrevive la clave española {k}");
     }
 }
@@ -80,6 +101,15 @@ fn las_claves_de_search_estan_en_ingles() {
     let v = serde_json::to_value(&b).expect("serializar");
     assert!(v.get("warnings").is_some(), "falta `warnings`: {v}");
     assert!(v.get("avisos").is_none(), "sobrevive `avisos`");
-    assert!(v["results"][0].get("path").is_some(), "falta `path` en el resultado");
+    assert!(
+        v["results"][0].get("path").is_some(),
+        "falta `path` en el resultado"
+    );
     assert!(v["results"][0].get("ruta").is_none(), "sobrevive `ruta`");
+
+    // Mismo motivo que en recall: aseverar solo presencia de clave no
+    // distingue un swap de renames. Se asevera el VALOR.
+    assert_eq!(v["results"][0]["path"], "x.md");
+    assert_eq!(v["results"][0]["permalink"], "kb/x");
+    assert_eq!(v["warnings"][0], "algo");
 }
