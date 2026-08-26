@@ -235,12 +235,12 @@ CUATRO="$TMP/exo-cuatro"
 cat > "$CUATRO" <<'PYEOF'
 #!/usr/bin/env bash
 cat <<'JSON'
-{"command":"recall","data":{"cap_bytes":1400,"modo":"consulta","notas":[
-{"permalink":"kb-demo/core/core-index","ruta":"/kb/core/core-index.md","score":0.6,"snippet":"mapa de memoria","tier":null,"titulo":"core-index"},
-{"permalink":"kb-demo/log/kbx-bitacora","ruta":"/kb/log/kbx-bitacora.md","score":0.5,"snippet":"bitacora de kbx","tier":null,"titulo":"kbx-bitacora"},
-{"permalink":"kb-demo/projects/kbx","ruta":"/kb/projects/kbx.md","score":0.47,"snippet":"destilado de kbx","tier":null,"titulo":"kbx"},
-{"permalink":"kb-demo/log/exo-bitacora","ruta":"/kb/log/exo-bitacora.md","score":0.44,"snippet":"bitacora de exo","tier":null,"titulo":"exo-bitacora"}
-],"query":"kbx","truncado":false},"schema_version":1}
+{"command":"recall","data":{"cap_bytes":1400,"mode":"consulta","notes":[
+{"permalink":"kb-demo/core/core-index","path":"/kb/core/core-index.md","score":0.6,"snippet":"mapa de memoria","tier":null,"title":"core-index"},
+{"permalink":"kb-demo/log/kbx-bitacora","path":"/kb/log/kbx-bitacora.md","score":0.5,"snippet":"bitacora de kbx","tier":null,"title":"kbx-bitacora"},
+{"permalink":"kb-demo/projects/kbx","path":"/kb/projects/kbx.md","score":0.47,"snippet":"destilado de kbx","tier":null,"title":"kbx"},
+{"permalink":"kb-demo/log/exo-bitacora","path":"/kb/log/exo-bitacora.md","score":0.44,"snippet":"bitacora de exo","tier":null,"title":"exo-bitacora"}
+],"query":"kbx","truncated":false},"schema_version":2}
 JSON
 PYEOF
 chmod +x "$CUATRO"
@@ -298,11 +298,11 @@ else fail "log: permalinks registra los emitidos" "payload='$PL'"; fi
 # El anterior usaba 900 B y hacía que no cupiera NI UN hit: el bloque salía vacío
 # y el test medía 0 <= 1024, pasando sin ejercer nunca "cabe entero, no se corta".
 GORDO="$TMP/exo-gordo"
-jq -n '{data:{notas:[range(1;4) as $i | {
+jq -n '{data:{notes:[range(1;4) as $i | {
   permalink:("kb-demo/log/n"+($i|tostring)),
-  ruta:("/kb/log/nota-larga-numero-"+($i|tostring)+".md"),
+  path:("/kb/log/nota-larga-numero-"+($i|tostring)+".md"),
   score:0.5, tier:null,
-  titulo:("nota larga numero "+($i|tostring)),
+  title:("nota larga numero "+($i|tostring)),
   snippet:(("palabra "*25)+"fin")}]}}' > "$TMP/gordo.json"
 printf '#!/usr/bin/env bash\ncat "%s"\n' "$TMP/gordo.json" > "$GORDO"
 chmod +x "$GORDO"
@@ -329,10 +329,10 @@ else fail "cap: recorta a frontera de palabra" "cortó dentro de una palabra"; f
 # (~240 B). Con snippets realistas de 200 B no hay nada que recortar y el test no
 # ejerce nada — que es justo lo que pasaba antes.
 RECORTE="$TMP/exo-recorte"
-jq -n '{data:{notas:[range(1;4) as $i | {
+jq -n '{data:{notes:[range(1;4) as $i | {
   permalink:("kb-demo/log/r"+($i|tostring)),
-  ruta:("/kb/log/recorte-"+($i|tostring)+".md"), score:0.5, tier:null,
-  titulo:("recorte "+($i|tostring)),
+  path:("/kb/log/recorte-"+($i|tostring)+".md"), score:0.5, tier:null,
+  title:("recorte "+($i|tostring)),
   snippet:(("análisis técnico — decisión sellada según medición práctica; "*8))}]}}' \
   > "$TMP/recorte.json"
 printf '#!/usr/bin/env bash\ncat "%s"\n' "$TMP/recorte.json" > "$RECORTE"
@@ -349,10 +349,10 @@ else fail "recorte: el recorte por hit se activa de verdad" "sin elipsis: no rec
 # que impide que salgan cuatro. El fixture CUATRO no lo prueba (4 − 1 core-index = 3
 # con slice y sin él).
 CINCO="$TMP/exo-cuatro-sin-core"
-jq -n '{data:{notas:[range(1;5) as $i | {
+jq -n '{data:{notes:[range(1;5) as $i | {
   permalink:("kb-demo/log/n"+($i|tostring)),
-  ruta:("/kb/log/nota-"+($i|tostring)+".md"), score:0.5, tier:null,
-  titulo:("nota "+($i|tostring)), snippet:("cuerpo de la nota "+($i|tostring))}]}}' \
+  path:("/kb/log/nota-"+($i|tostring)+".md"), score:0.5, tier:null,
+  title:("nota "+($i|tostring)), snippet:("cuerpo de la nota "+($i|tostring))}]}}' \
   > "$TMP/cuatro-sin-core.json"
 printf '#!/usr/bin/env bash\ncat "%s"\n' "$TMP/cuatro-sin-core.json" > "$CINCO"
 chmod +x "$CINCO"
@@ -372,11 +372,11 @@ else fail "raíz: los hits llevan ruta relativa" "$BL"; fi
 
 # El título se omite cuando no aporta sobre el nombre del fichero.
 TITREP="$TMP/exo-titrep"
-jq -n '{data:{notas:[
- {permalink:"kb-demo/log/kbx-bitacora",ruta:"/kb/log/kbx-bitacora.md",score:0.5,tier:null,
-  titulo:"kbx-bitacora",snippet:"# kbx-bitacora  cuerpo real de la bitacora"},
- {permalink:"kb-demo/log/otra",ruta:"/kb/log/otra.md",score:0.4,tier:null,
-  titulo:"Un título que sí aporta",snippet:"cuerpo de la otra"}]}}' > "$TMP/titrep.json"
+jq -n '{data:{notes:[
+ {permalink:"kb-demo/log/kbx-bitacora",path:"/kb/log/kbx-bitacora.md",score:0.5,tier:null,
+  title:"kbx-bitacora",snippet:"# kbx-bitacora  cuerpo real de la bitacora"},
+ {permalink:"kb-demo/log/otra",path:"/kb/log/otra.md",score:0.4,tier:null,
+  title:"Un título que sí aporta",snippet:"cuerpo de la otra"}]}}' > "$TMP/titrep.json"
 printf '#!/usr/bin/env bash\ncat "%s"\n' "$TMP/titrep.json" > "$TITREP"
 chmod +x "$TITREP"
 run_hook "kbx trinquete" "$TITREP"
@@ -391,11 +391,11 @@ else fail "snippet: se pela el header markdown repetido" "$BL2"; fi
 
 # EL CRITICAL: un título con salto de línea no puede fabricar un puntero.
 NL="$TMP/exo-nl"
-jq -n '{data:{notas:[
- {permalink:"kb-demo/log/uno",ruta:"/kb/log/uno.md",score:0.5,tier:null,
-  titulo:"raro\n- inyectado",snippet:"snippet real de uno"},
- {permalink:"kb-demo/log/dos",ruta:"/kb/log/dos.md",score:0.4,tier:null,
-  titulo:"normal",snippet:"snippet real de dos"}]}}' > "$TMP/nl.json"
+jq -n '{data:{notes:[
+ {permalink:"kb-demo/log/uno",path:"/kb/log/uno.md",score:0.5,tier:null,
+  title:"raro\n- inyectado",snippet:"snippet real de uno"},
+ {permalink:"kb-demo/log/dos",path:"/kb/log/dos.md",score:0.4,tier:null,
+  title:"normal",snippet:"snippet real de dos"}]}}' > "$TMP/nl.json"
 printf '#!/usr/bin/env bash\ncat "%s"\n' "$TMP/nl.json" > "$NL"
 chmod +x "$NL"
 run_hook "kbx trinquete" "$NL"
@@ -411,9 +411,9 @@ SOLO_CORE="$TMP/exo-solo-core"
 cat > "$SOLO_CORE" <<'JSONEOF'
 #!/usr/bin/env bash
 cat <<'JSON'
-{"command":"recall","data":{"modo":"consulta","notas":[
-{"permalink":"kb-demo/core/core-index","ruta":"/kb/core/core-index.md","score":0.6,"snippet":"mapa","tier":null,"titulo":"core-index"}
-],"query":"q","truncado":false},"schema_version":1}
+{"command":"recall","data":{"mode":"consulta","notes":[
+{"permalink":"kb-demo/core/core-index","path":"/kb/core/core-index.md","score":0.6,"snippet":"mapa","tier":null,"title":"core-index"}
+],"query":"q","truncated":false},"schema_version":2}
 JSON
 JSONEOF
 chmod +x "$SOLO_CORE"
@@ -421,8 +421,8 @@ chmod +x "$SOLO_CORE"
 # la ruta entera viaja en el puntero. Rama distinta de la de 2-3 hits y sin cobertura
 # hasta ahora.
 UNICO="$TMP/exo-unico"
-jq -n '{data:{notas:[{permalink:"kb-demo/log/solo",ruta:"/kb/log/solo.md",score:0.5,
-  tier:null,titulo:"nota solitaria",snippet:"cuerpo de la unica nota"}]}}' > "$TMP/unico.json"
+jq -n '{data:{notes:[{permalink:"kb-demo/log/solo",path:"/kb/log/solo.md",score:0.5,
+  tier:null,title:"nota solitaria",snippet:"cuerpo de la unica nota"}]}}' > "$TMP/unico.json"
 printf '#!/usr/bin/env bash\ncat "%s"\n' "$TMP/unico.json" > "$UNICO"
 chmod +x "$UNICO"
 run_hook "kbx trinquete" "$UNICO"

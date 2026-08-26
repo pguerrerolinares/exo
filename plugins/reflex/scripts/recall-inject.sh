@@ -174,7 +174,7 @@ fi
 # engine hablando otro idioma (cambio de schema, salida corrupta). Etiquetarlo
 # `empty` lo haría invisible, porque `empty` es el caso normal — exactamente el
 # disfraz que P2 impide en la rama de exit 1.
-if ! printf '%s' "$SALIDA" | jq -e 'has("data") and (.data | has("notas"))' >/dev/null 2>&1; then
+if ! printf '%s' "$SALIDA" | jq -e 'has("data") and (.data | has("notes"))' >/dev/null 2>&1; then
   log_ri "degraded" "reason=error err=envelope-ilegible"
   exit 0
 fi
@@ -183,7 +183,7 @@ fi
 # repuesto puede haber desaparecido y saldrían menos punteros sin que nadie
 # pudiera saberlo. No es un fallo del hook, así que no degrada nada: solo deja
 # rastro para poder correlacionarlo si alguna vez se ve un bloque corto.
-if [ "$(printf '%s' "$SALIDA" | jq -r '.data.truncado // false' 2>/dev/null)" = "true" ]; then
+if [ "$(printf '%s' "$SALIDA" | jq -r '.data.truncated // false' 2>/dev/null)" = "true" ]; then
   log_ri "degraded" "reason=fetch-truncado"
 fi
 
@@ -243,12 +243,12 @@ def recorta($n):
     | (if (index(" ") != null) then sub(" [^ ]*$"; "") else . end) + "…"
   end;
 
-( .data.notas
+( .data.notes
   | map(select(.permalink != $excluir))
   | .[0:$max]
-  | map({ ruta: (.ruta | sane), titulo: (.titulo | sane), snippet: (.snippet | sane) })
+  | map({ path: (.path | sane), title: (.title | sane), snippet: (.snippet | sane) })
 ) as $hits
-| ($hits | map(.ruta | split("/") | .[:-1])) as $dirs
+| ($hits | map(.path | split("/") | .[:-1])) as $dirs
 | ( if ($hits | length) < 2 then ""
     else
       ($dirs | map(length) | min) as $n
@@ -264,9 +264,9 @@ def recorta($n):
 | [ $header ]
   + ( $hits
       | map(
-          (if $raiz == "" then .ruta else (.ruta | ltrimstr($raiz + "/")) end) as $rel
+          (if $raiz == "" then .path else (.path | ltrimstr($raiz + "/")) end) as $rel
           | ($rel | split("/") | last | sub("\\.md$"; "")) as $stem
-          | (if (.titulo | laxo) == ($stem | laxo) then "- \($rel)" else "- \($rel) — \(.titulo)" end) as $linea1
+          | (if (.title | laxo) == ($stem | laxo) then "- \($rel)" else "- \($rel) — \(.title)" end) as $linea1
           | ($por_hit - ($linea1 | utf8bytelength) - 5) as $presu
           | (.snippet | pela_header | gsub("  +"; " ") | recorta(if $presu < 40 then 40 else $presu end)) as $snip
           | [$linea1, "  · \($snip)"]
@@ -296,7 +296,7 @@ BYTES="$(printf '%s' "$BLOQUE" | wc -c)"
 # composición del bloque: $excluir y $max, no un literal ni un slice aparte.
 PERMALINKS="$(printf '%s' "$SALIDA" \
   | jq -r --arg excluir "$EXO_EXCLUIR" --argjson max "$EXO_MAX_HITS" \
-      '[.data.notas[] | select(.permalink != $excluir)][0:$max]
+      '[.data.notes[] | select(.permalink != $excluir)][0:$max]
        | map(.permalink) | join(",")' 2>/dev/null)" || PERMALINKS=""
 
 # El log de "emitted" solo puede ser verdad si el JSON final se construyó bien:
