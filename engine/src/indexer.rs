@@ -49,14 +49,19 @@ pub fn git_epoch_de(kb: &Path, ruta_rel: &Path) -> Option<i64> {
 /// `index`/`rebuild`, spec §4).
 #[derive(Debug, Serialize, PartialEq, Eq)]
 pub struct Resumen {
+    #[serde(rename = "indexed")]
     pub indexadas: usize,
+    #[serde(rename = "skipped")]
     pub saltadas: usize,
+    #[serde(rename = "deleted")]
     pub borradas: usize,
     /// Trozos que pasaron por el modelo en esta corrida (M6-01b). Campo
     /// aditivo del envelope: no sube `SCHEMA_VERSION` (envelope.rs).
+    #[serde(rename = "chunks_embedded")]
     pub trozos_embebidos: usize,
     /// Trozos cuyo texto no cambió y reutilizaron su embedding almacenado.
     /// Es la métrica que dice si el cache está sirviendo de algo.
+    #[serde(rename = "chunks_reused")]
     pub trozos_reusados: usize,
 }
 

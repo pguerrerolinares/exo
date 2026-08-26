@@ -412,8 +412,8 @@ fn hybrid_con_cobertura_completa_no_ensucia_el_envelope() {
     );
     let valor = serde_json::to_value(&hybrid).unwrap();
     assert!(
-        !valor.as_object().unwrap().contains_key("avisos"),
-        "la clave `avisos` no debe aparecer cuando está vacía (envelope v1 §4.1)"
+        !valor.as_object().unwrap().contains_key("warnings"),
+        "la clave `warnings` no debe aparecer cuando está vacía (envelope v2 §4.1)"
     );
 }
 

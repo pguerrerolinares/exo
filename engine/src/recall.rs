@@ -37,7 +37,9 @@ use std::path::Path;
 #[derive(Debug, Serialize, PartialEq, Clone)]
 pub struct NotaRecall {
     pub permalink: String,
+    #[serde(rename = "path")]
     pub ruta: String,
+    #[serde(rename = "title")]
     pub titulo: String,
     pub tier: Option<String>,
     pub score: Option<f64>,
@@ -47,10 +49,13 @@ pub struct NotaRecall {
 /// `data` del envelope de `exo recall` (contrato §"Salida `--json`").
 #[derive(Debug, Serialize, PartialEq)]
 pub struct Recall {
+    #[serde(rename = "mode")]
     pub modo: String,
     pub query: Option<String>,
     pub cap_bytes: usize,
+    #[serde(rename = "truncated")]
     pub truncado: bool,
+    #[serde(rename = "notes")]
     pub notas: Vec<NotaRecall>,
 }
 
@@ -652,11 +657,11 @@ mod tests {
         let r = aplica_cap("consulta", Some("q".to_string()), notas, 2048);
         let valor = serde_json::to_value(&r.recall).unwrap();
         let obj = valor.as_object().unwrap();
-        for clave in ["modo", "query", "cap_bytes", "truncado", "notas"] {
+        for clave in ["mode", "query", "cap_bytes", "truncated", "notes"] {
             assert!(obj.contains_key(clave), "falta {clave}: {obj:?}");
         }
-        let primera = &obj["notas"][0];
-        for clave in ["permalink", "ruta", "titulo", "tier", "score", "snippet"] {
+        let primera = &obj["notes"][0];
+        for clave in ["permalink", "path", "title", "tier", "score", "snippet"] {
             assert!(
                 primera.get(clave).is_some(),
                 "falta {clave} en nota: {primera:?}"

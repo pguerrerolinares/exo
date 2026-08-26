@@ -27,6 +27,7 @@ pub struct Resultado {
     /// eso no se invierte. Sin este campo, cuando muera basic-memory el agente
     /// no tiene forma de localizar el fichero que va a editar con `Edit`.
     /// `None` solo si el permalink no está en `notas` (índice rancio).
+    #[serde(rename = "path")]
     pub ruta: Option<String>,
 }
 
@@ -45,7 +46,7 @@ pub struct Busqueda {
     /// `vectores` está vacía o a medio poblar", y devolvía FTS puro
     /// etiquetado `hybrid` (25/55 donde el instrumento promete 48/55).
     /// `search_type` NO cambia a propósito: lo comparan los scripts del eval.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(rename = "warnings", skip_serializing_if = "Vec::is_empty")]
     pub avisos: Vec<String>,
 }
 
