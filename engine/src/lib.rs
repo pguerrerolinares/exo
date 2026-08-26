@@ -76,26 +76,23 @@ pub fn abre_db(ruta: &Path) -> Result<Connection> {
     Ok(conn)
 }
 
-/// Raíz de la KB desde `projects.kb-demo.path` en `~/.basic-memory/config.json`
-/// (RO, D6; precedencia flags > config la resuelve el llamador con `--kb`).
-/// Sin fallback inventado: si el fichero no existe, no es legible, o le
-/// falta la clave, error claro y `Result::Err` (exit ≠0 en el CLI) —
-/// aclaración vinculante m2-03.
+/// Raíz de la KB desde `[kb] path` de la config propia (`~/.exo/config.toml`).
+///
+/// Antes leía `projects["kb-demo"].path` del `config.json` de basic-memory
+/// (`~/.basic-memory/`): el sustituto dependía del sustituido para arrancar,
+/// y era el bloqueante duro de M5b. La precedencia `flags > env > config` la
+/// resuelve el llamador.
 pub fn kb_desde_config() -> Result<std::path::PathBuf> {
-    let ruta = dirs::home_dir()
-        .context("sin HOME: no se puede localizar ~/.basic-memory/config.json")?
-        .join(".basic-memory/config.json");
-    let contenido = std::fs::read_to_string(&ruta)
-        .with_context(|| format!("leer config RO de basic-memory en {}", ruta.display()))?;
-    let cfg: serde_json::Value = serde_json::from_str(&contenido)
-        .with_context(|| format!("{} no es JSON válido", ruta.display()))?;
-    let path = cfg
-        .get("projects")
-        .and_then(|p| p.get("kb-demo"))
-        .and_then(|p| p.get("path"))
-        .and_then(|p| p.as_str())
-        .with_context(|| format!("projects.kb-demo.path ausente en {}", ruta.display()))?;
-    Ok(std::path::PathBuf::from(path))
+    let cfg = config::carga()?;
+    Ok(config::expande_tilde(&cfg.kb.path))
+}
+
+/// Nombre de proyecto de la KB (prefijo de permalink), EXPLÍCITO en config.
+///
+/// Cierra el disenso del gate M4: `write new` lo derivaba de
+/// `kb.file_name()`, contra lo que decía la spec §3.1. Coincidían por suerte.
+pub fn nombre_kb() -> Result<String> {
+    Ok(config::carga()?.kb.name)
 }
 
 /// Refresco del índice ANTES de servir un recall (M6-01, "índice fresco sin
@@ -115,46 +112,27 @@ pub fn refresca_indice(kb: &Path, db: &Path) -> Result<indexer::Resumen> {
     indexer::indexa(kb, db)
 }
 
-/// Config de embeddings leída de `~/.basic-memory/config.json` (RO, D6):
-/// modelo fastembed + dims declaradas. Separada de `Embedder` porque el
-/// indexer necesita `dims` (p.ej. para decidir si hay algo que embeber)
-/// sin pagar la carga del modelo.
+/// Config de embeddings leída de `[embeddings]` de la config propia
+/// (`~/.exo/config.toml`): modelo fastembed + dims declaradas. Separada de
+/// `Embedder` porque el indexer necesita `dims` (p.ej. para decidir si hay
+/// algo que embeber) sin pagar la carga del modelo.
 pub struct ConfigEmbeddings {
     pub modelo: String,
     pub dims: usize,
 }
 
-/// Lee `semantic_embedding_model`/`semantic_embedding_dimensions` de la
-/// config RO de basic-memory (D6, precedencia flags > config la resuelve el
-/// llamador).
+/// Modelo y dims de embeddings desde `[embeddings]` de la config propia.
 pub fn config_embeddings() -> Result<ConfigEmbeddings> {
-    let ruta = dirs::home_dir()
-        .context("sin HOME")?
-        .join(".basic-memory/config.json");
-    let cfg: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(&ruta).context("leer config bm")?)?;
-    let modelo = cfg["semantic_embedding_model"]
-        .as_str()
-        .context("semantic_embedding_model ausente")?
-        .to_string();
-    let dims = cfg["semantic_embedding_dimensions"]
-        .as_u64()
-        .context("semantic_embedding_dimensions ausente")? as usize;
-    Ok(ConfigEmbeddings { modelo, dims })
+    let cfg = config::carga()?;
+    Ok(ConfigEmbeddings {
+        modelo: cfg.embeddings.model,
+        dims: cfg.embeddings.dims,
+    })
 }
 
-/// Lee `semantic_min_similarity` de la config RO de basic-memory (D6; hoy
-/// 0.35). Umbral por defecto del arm vector — precedencia flags > config la
-/// resuelve el llamador (`buscador::busca_vector`, flag `--min-similitud`).
+/// Umbral por defecto del arm vector desde `[embeddings] min_similarity`.
 pub fn min_similitud_de_config() -> Result<f64> {
-    let ruta = dirs::home_dir()
-        .context("sin HOME")?
-        .join(".basic-memory/config.json");
-    let cfg: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(&ruta).context("leer config bm")?)?;
-    cfg["semantic_min_similarity"]
-        .as_f64()
-        .context("semantic_min_similarity ausente")
+    Ok(config::carga()?.embeddings.min_similarity)
 }
 
 /// Modelo de producción y su revisión CONGELADA en HuggingFace.
@@ -195,8 +173,8 @@ pub struct Embedder {
 }
 
 impl Embedder {
-    /// Inicializa fastembed con el modelo de `~/.basic-memory/config.json`
-    /// (RO, D6). Mapeo string de config -> camino fastembed (verificado
+    /// Inicializa fastembed con el modelo de `[embeddings] model` de
+    /// `~/.exo/config.toml`. Mapeo string de config -> camino fastembed (verificado
     /// contra docs.rs de fastembed 5.17.3, la versión pineada en
     /// Cargo.toml):
     ///
