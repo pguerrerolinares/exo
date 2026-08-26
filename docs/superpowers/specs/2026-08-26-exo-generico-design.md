@@ -358,7 +358,15 @@ Las 5 notas doctrinales van **reescritas**, no copiadas de `kb-demo`: sin
 nombres, sin proyectos, sin fechas de la historia de Paul. Frontmatter
 `semilla: true` para que un usuario pueda barrerlas con un `grep`.
 
-**`exo init <ruta> [--name <n>] [--from-basic-memory] [--force]`**
+**`exo init [--kb <ruta>] [--name <n>] [--from-basic-memory] [--force]`**
+
+> Corregido el 2026-08-26 durante la ejecución de la ola 1A: v2 escribía
+> `<ruta>` posicional. Un reviewer levantó el conflicto contra la
+> implementación, que usa `--kb`. Manda el flag, no el posicional: `--kb` es
+> el nombre establecido para la raíz de la KB en **todos** los demás
+> subcomandos (`index`, `search`, `recall`, `write`), y un posicional solo en
+> `init` sería una excepción sin razón. La notación posicional de v2 era un
+> bosquejo de la forma del comando, no una decisión sobre posicional vs flag.
 
 1. Falla si `<ruta>` existe y no está vacía (salvo `--force`).
 2. Vuelca la plantilla sustituyendo `{{KB_NAME}}` en permalinks y títulos.
