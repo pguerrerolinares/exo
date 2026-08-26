@@ -160,6 +160,25 @@
   `engine/src/` son históricas o de linaje de diseño (comentarios), revisadas
   una a una.
 
+  **Corrección (review de pre-merge de la rama `ola1a-config-propia`,
+  2026-08-26, cerrado en el mismo commit de este arreglo):** el cierre de
+  arriba solo cubría el camino `write new` (`write_new_cmd`, que ya llamaba a
+  `exo::nombre_kb()`). El camino `--create` de `write append`
+  (`write_append_cmd`, `engine/src/main.rs`) se quedó fuera: seguía derivando
+  el prefijo de `kb.file_name()` en vez de `exo::nombre_kb()`, así que
+  `exo write append --create` con un `[kb] name` de config distinto del
+  basename del directorio de `--kb` creaba el fichero con el prefijo
+  equivocado. El grep de arriba (`kb-demo`) no podía detectarlo porque el
+  bug no contiene esa cadena. Arreglado sustituyendo el `kb.file_name()` de
+  `write_append_cmd` por `exo::nombre_kb()?` — el mismo mecanismo que
+  `write_new_cmd`. Evidencia: `grep -rn 'file_name()' engine/src/main.rs`
+  ahora solo devuelve el comentario histórico de la línea 483 (que documenta
+  el propio cierre de M5a-02), sin ninguna llamada real a `file_name()` para
+  derivar el prefijo de permalink. Cubierto además por un test de integración
+  nuevo (`engine/tests/write_create_permalink.rs`) que monta un `[kb] name`
+  distinto del basename del tempdir de la KB y comprueba el permalink real,
+  tanto en el envelope como en el frontmatter del fichero creado en disco.
+
 - [x] **Rot documental del README: cerrado el 2026-08-26.** El bloque de
   estado citaba "M0, M1a y M2 (E1 read) cerrados · M4 (E2 write) cerrado" sin
   mencionar la ola 1A de config propia. Actualizado en la Task 11 de la ola

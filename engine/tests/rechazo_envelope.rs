@@ -82,6 +82,13 @@ fn write_new_rechazado_con_json_emite_envelope_y_sale_3() {
     });
     bin.push(if cfg!(windows) { "exo.exe" } else { "exo" });
 
+    // El dup-gate se calcula SOLO a partir de `--db` (permalinks ya
+    // indexados) — `escribe_nueva` lo comprueba ANTES de tocar disco, así que
+    // pasar `--kb` a un tempdir no cambia si el gate dispara, pero elimina el
+    // riesgo de que, si por lo que sea NO disparase, el binario escribiera en
+    // la KB real en vez de aquí (I6, review de pre-merge 2026-08-26).
+    let kb_tmp = tempfile::tempdir().expect("tempdir kb");
+
     let cuerpo = tempfile::NamedTempFile::new().expect("tmp");
     let out = std::process::Command::new(&bin)
         .args([
@@ -89,6 +96,8 @@ fn write_new_rechazado_con_json_emite_envelope_y_sale_3() {
             "new",
             "--db",
             db.to_str().unwrap(),
+            "--kb",
+            kb_tmp.path().to_str().unwrap(),
             "--dir",
             "projects",
             "--title",

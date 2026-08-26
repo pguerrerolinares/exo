@@ -532,10 +532,7 @@ fn write_append_cmd(args: ArgsWriteAppend) -> Result<()> {
             let rel = format!("{dir}/{slug_nota}.md");
 
             if !kb.join(&rel).exists() {
-                let proyecto = kb
-                    .file_name()
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .context("la raíz de la KB no tiene nombre de directorio")?;
+                let proyecto = exo::nombre_kb()?;
                 escribe_nueva(&kb, &proyecto, dir, slug_nota, "", Some("log"), &[], false)
                     .context("crear la bitácora con --create")?;
                 eprintln!("write: bitácora creada en {rel}");
@@ -553,7 +550,7 @@ fn write_append_cmd(args: ArgsWriteAppend) -> Result<()> {
     Ok(())
 }
 
-/// Salida común de `write`: envelope v1 por stdout con `--json`, o una línea
+/// Salida común de `write`: envelope v2 por stdout con `--json`, o una línea
 /// humana con la ruta absoluta —lo que `/documenta` necesita para su commit
 /// scoped— por stdout sin él.
 fn emite_escritura(esc: exo::escritor::Escritura, json: bool) {

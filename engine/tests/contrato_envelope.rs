@@ -113,3 +113,48 @@ fn las_claves_de_search_estan_en_ingles() {
     assert_eq!(v["results"][0]["permalink"], "kb/x");
     assert_eq!(v["warnings"][0], "algo");
 }
+
+#[test]
+fn las_claves_de_write_estan_en_ingles() {
+    let e = exo::escritor::Escritura {
+        op: "new".into(),
+        permalink: "kb/projects/x".into(),
+        ruta_rel: "projects/x.md".into(),
+        ruta_abs: "/kb/projects/x.md".into(),
+        creada: true,
+        frontmatter_completado: vec!["tier".into()],
+        forzado: false,
+    };
+    let v = serde_json::to_value(&e).expect("serializar");
+    let obj = v.as_object().expect("objeto");
+    for k in [
+        "op",
+        "permalink",
+        "relative_path",
+        "absolute_path",
+        "created",
+        "frontmatter_filled",
+        "forced",
+    ] {
+        assert!(obj.contains_key(k), "falta la clave {k} en {v}");
+    }
+    for k in [
+        "ruta_rel",
+        "ruta_abs",
+        "creada",
+        "frontmatter_completado",
+        "forzado",
+    ] {
+        assert!(!obj.contains_key(k), "sobrevive la clave española {k}");
+    }
+
+    // Mismo motivo que en recall/search: aseverar solo presencia de clave no
+    // distingue un swap de renames. Se asevera el VALOR.
+    assert_eq!(v["op"], "new");
+    assert_eq!(v["permalink"], "kb/projects/x");
+    assert_eq!(v["relative_path"], "projects/x.md");
+    assert_eq!(v["absolute_path"], "/kb/projects/x.md");
+    assert_eq!(v["created"], true);
+    assert_eq!(v["frontmatter_filled"][0], "tier");
+    assert_eq!(v["forced"], false);
+}

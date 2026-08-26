@@ -6,7 +6,7 @@ use serde_json::Value;
 /// v2 (2026-08-26, D8): claves de `data` al inglés antes del 1.0 público.
 pub const SCHEMA_VERSION: u32 = 2;
 
-/// Emite `{"schema_version":1,"command":<command>,"data":<data>}` como una
+/// Emite `{"schema_version":2,"command":<command>,"data":<data>}` como una
 /// única línea JSON, newline-terminada, a **stdout** — stdout es exclusivo
 /// del envelope; todo lo humano/warnings va a stderr (spec §4, adopción del
 /// patrón `envelope.Write` de kbx). Los consumidores gatean por exit code,

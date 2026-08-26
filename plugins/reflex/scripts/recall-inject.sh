@@ -153,7 +153,7 @@ if [ "$RC" -eq 124 ]; then
 fi
 
 if [ "$RC" -ne 0 ]; then
-  # El engine sale con 1 para sus propios errores (main.rs:246) y con 3 para el
+  # El engine sale con 1 para sus propios errores (main.rs:300) y con 3 para el
   # rechazo de `write`; clap sale con 2 para errores de línea de comandos, que
   # son fallos nuestros de invocación, no del engine. En ningún caso el código
   # por sí solo distingue "ningún hit sobre el umbral" de una DB corrupta, un

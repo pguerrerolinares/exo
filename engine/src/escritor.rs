@@ -88,16 +88,21 @@ pub struct Candidata {
 pub struct Escritura {
     pub op: String,
     pub permalink: String,
+    #[serde(rename = "relative_path")]
     pub ruta_rel: String,
+    #[serde(rename = "absolute_path")]
     pub ruta_abs: String,
     /// `true` si el fichero no existía y esta invocación lo creó.
+    #[serde(rename = "created")]
     pub creada: bool,
     /// Claves de frontmatter que exo rellenó porque faltaban (M4-03:
     /// auto-completa y nunca rechaza). Vacío = el autor lo traía todo.
+    #[serde(rename = "frontmatter_filled")]
     pub frontmatter_completado: Vec<String>,
     /// `--force` usado. Se emite SIEMPRE que se fuerza, para que el escape
     /// quede auditable (spec M4 §7.3: un guard sin vía de excepción muere por
     /// ruido; una vía de excepción sin rastro es peor).
+    #[serde(rename = "forced")]
     pub forzado: bool,
 }
 

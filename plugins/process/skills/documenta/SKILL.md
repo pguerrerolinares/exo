@@ -72,7 +72,7 @@ wikilinks `[[...]]` — reusa el exacto al enlazar.
 ## Paso 4 · Commit scoped y resumen
 
 Commitea SOLO los ficheros que esta invocación escribió o editó — nunca
-`git add -A`. Las rutas salen del campo `ruta_abs` de cada envelope de
+`git add -A`. Las rutas salen del campo `absolute_path` de cada envelope de
 `exo write` y de los `Edit` que hiciste; exo **no commitea**, a propósito.
 `git -C <repo>` (nunca `cd`). NUNCA push. Mensaje: `docs(kb): documenta
 <resumen corto>`. Ante `.git/index.lock`: espera ~2s, reintenta una vez; si
