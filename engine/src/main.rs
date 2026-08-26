@@ -75,7 +75,9 @@ struct ArgsInit {
     #[arg(long)]
     name: Option<String>,
     /// Toma raíz, nombre y embeddings de `~/.basic-memory/config.json`.
-    #[arg(long)]
+    /// Incompatible con `--kb`/`--name`: mezclarlos sería descartar uno de
+    /// los dos orígenes en silencio.
+    #[arg(long, conflicts_with_all = ["kb", "name"])]
     from_basic_memory: bool,
     /// Sobreescribe una config existente.
     #[arg(long)]
@@ -294,7 +296,8 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
         let ruta = exo::inicia::ruta_basic_memory()?;
         let json =
             std::fs::read_to_string(&ruta).with_context(|| format!("leer {}", ruta.display()))?;
-        exo::inicia::desde_basic_memory(&json)?
+        exo::inicia::desde_basic_memory(&json)
+            .with_context(|| format!("leyendo {}", ruta.display()))?
     } else {
         let kb = args
             .kb
@@ -304,8 +307,14 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
             .context("--name es obligatorio sin --from-basic-memory")?;
         // Defaults del modelo de producción: los mismos que la línea base del
         // eval, declarados en la spec como posicionamiento (producto en español).
+        // `MODELO_JINA_ES` (no un literal duplicado): `repo_hf` en lib.rs solo
+        // pinea la revisión si la cadena coincide EXACTAMENTE con esa
+        // constante; un literal que divergiera silenciosamente destino a
+        // `main` (móvil) y perdería la comparabilidad del índice y del eval.
         let emb = exo::config::Embeddings {
-            model: "jinaai/jina-embeddings-v2-base-es".to_string(),
+            model: exo::MODELO_JINA_ES.to_string(),
+            // 768 es la dimensionalidad DE ESTE modelo (MODELO_JINA_ES): si
+            // se cambia uno, el otro tiene que cambiar con él.
             dims: 768,
             min_similarity: 0.35,
         };

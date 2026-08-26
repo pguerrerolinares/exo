@@ -145,7 +145,7 @@ pub fn min_similitud_de_config() -> Result<f64> {
 /// el del snapshot que generó esos números (cache local del 2026-07-17,
 /// `refs/main` en esa fecha). Cambiarlo obliga a re-correr el eval, igual que
 /// cambiar de modelo — por eso va pineado exacto, como `sqlite-vec = "=0.1.9"`.
-const MODELO_JINA_ES: &str = "jinaai/jina-embeddings-v2-base-es";
+pub const MODELO_JINA_ES: &str = "jinaai/jina-embeddings-v2-base-es";
 const REVISION_JINA_ES: &str = "8e2d780d8fd38f81ca9123ee28e4c5a968aaf21e";
 
 /// Repo de HF para un modelo, con revisión fija si es uno de los nuestros.

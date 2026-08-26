@@ -43,6 +43,16 @@ pub fn desde_basic_memory(json: &str) -> Result<(PathBuf, String, Embeddings)> {
     Ok((PathBuf::from(path), nombre, emb))
 }
 
+/// Renderiza un valor de cadena como literal TOML **escapado**. La estructura
+/// del fichero se sigue escribiendo a mano —los comentarios son la mitad del
+/// valor de un TOML editable, y el serializador los pierde—, pero los valores
+/// no: una comilla en un nombre o en una ruta (legal en Linux y macOS)
+/// produciría un fichero que no se puede releer, y el fallo aparecería lejos
+/// de aquí.
+fn cadena_toml(s: &str) -> String {
+    toml::Value::String(s.to_string()).to_string()
+}
+
 /// Escribe `config.toml`. Se niega si el destino existe y no hay `--force`:
 /// pisar la config de alguien sin avisar es exactamente el tipo de efecto
 /// silencioso que este proyecto persigue.
@@ -71,22 +81,22 @@ pub fn escribe_config(
 
 [kb]
 # Raíz de la KB markdown. Barras normales funcionan también en Windows.
-path = "{}"
+path = {}
 # Prefijo de permalink. Explícito: NO se deriva del nombre del directorio.
-name = "{}"
+name = {}
 
 [index]
-db = "{}"
+db = {}
 
 [embeddings]
-model = "{}"
+model = {}
 dims = {}
 min_similarity = {}
 "#,
-        kb.display().to_string().replace('\\', "/"),
-        nombre,
-        db.display().to_string().replace('\\', "/"),
-        emb.model,
+        cadena_toml(&kb.display().to_string().replace('\\', "/")),
+        cadena_toml(nombre),
+        cadena_toml(&db.display().to_string().replace('\\', "/")),
+        cadena_toml(&emb.model),
         emb.dims,
         emb.min_similarity,
     );
