@@ -1,8 +1,9 @@
 # exo
 
 Framework de trabajo agéntico con memoria persistente. Tres capas:
-**thin** (skills-router, hooks) → **engine** (index/search/recall/write/budget/doctor)
-→ **thick** (KB markdown+frontmatter ≈OKF).
+**thin** (skills-router, hooks) → **engine** (hoy: `init`/`config`/`index`/`rebuild`/
+`search`/`write`/`recall`, ver `exo --help` · planeado: `budget`, `doctor`) →
+**thick** (KB markdown+frontmatter ≈OKF).
 
 El engine es un binario Rust (`exo`) que se construye desde `engine/` y arranca con
 `~/.exo/config.toml` — sin dependencia de `basic-memory` para funcionar (la única
