@@ -64,9 +64,22 @@ abstenerse() {  # $1 = motivo
   exit 2
 }
 
-[ -x "$EXO_BIN" ]  || abstenerse "binario ausente o no ejecutable ($EXO_BIN)"
-[ -f "$EXO_INDEX" ] || abstenerse "falta el índice de esta máquina ($EXO_INDEX)"
-[ -d "$EXO_KB" ]    || abstenerse "falta la KB de esta máquina ($EXO_KB)"
+[ -x "$EXO_BIN" ] || abstenerse "binario ausente o no ejecutable ($EXO_BIN)"
+
+# Dos causas distintas para un EXO_INDEX/EXO_KB vacíos o inválidos: que
+# `exo config --json` (via $CONFIG_BIN) no haya podido resolver nada —y
+# entonces el motivo NO es el índice/la KB, es la config— o que sí resolvió
+# algo pero esa ruta no existe. Un solo mensaje interpolando una variable
+# vacía culpa a la pieza equivocada y deja paréntesis en blanco.
+if [ -z "$EXO_INDEX" ]; then
+  abstenerse "no se pudo resolver el índice: \`exo config --json\` (via $CONFIG_BIN) no devolvió nada, y \$EXO_INDEX no está definida"
+fi
+[ -f "$EXO_INDEX" ] || abstenerse "el índice resuelto no existe ($EXO_INDEX)"
+
+if [ -z "$EXO_KB" ]; then
+  abstenerse "no se pudo resolver la KB: \`exo config --json\` (via $CONFIG_BIN) no devolvió nada, y \$EXO_KB no está definida"
+fi
+[ -d "$EXO_KB" ] || abstenerse "la KB resuelta no existe ($EXO_KB)"
 
 # Modo arranque (sin --query): no depende del modelo de embeddings y basta
 # para ejercer la forma del envelope que consume recall-inject.sh.

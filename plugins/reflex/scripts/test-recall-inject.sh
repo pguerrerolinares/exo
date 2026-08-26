@@ -28,10 +28,15 @@ not_contains() { case "$1" in *"$2"*) return 1 ;; *) return 0 ;; esac; }
 # NO devuelve por stdout a propósito: `out="$(run_hook …)"` correría la función
 # en un subshell y el exit code se perdería por el camino.
 # $2 (opcional) = binario exo a usar en ESTA llamada, sin contaminar las demás.
-run_hook() {  # $1 = prompt  [$2 = exo_bin]
+# $3 (opcional) = override de EXO_KB_NAME para ESTA llamada, sin contaminar
+# las demás. Usa `${3-...}` (sin `:`) para que pasar "" explícito cuente como
+# "quiero vacío", no "no me importa" — así los dos casos de resolución real
+# de `exo config --json` pueden anular el seam global sin tocarlo.
+run_hook() {  # $1 = prompt  [$2 = exo_bin]  [$3 = EXO_KB_NAME override]
   local bin="${2:-$EXO_BIN}"
+  local kbname="${3-$EXO_KB_NAME}"
   printf '%s' "$1" | jq -Rs '{prompt:., session_id:"test-sess"}' \
-    | EXO_BIN="$bin" "$HOOK" > "$TMP/hook-out.txt" 2>/dev/null
+    | EXO_BIN="$bin" EXO_KB_NAME="$kbname" "$HOOK" > "$TMP/hook-out.txt" 2>/dev/null
   HOOK_RC=$?
   HOOK_OUT="$(cat "$TMP/hook-out.txt" 2>/dev/null)"
 }
@@ -46,7 +51,9 @@ export EXO_INDEX="$FAKE_DB"
 # entiende subcomandos), así que sin este seam el exclude quedaría sin
 # prefijo y las fixtures de esta suite (permalinks "kb-demo/...") no
 # calzarían con el filtro. Fijar EXO_KB_NAME es el mismo seam que usa el
-# script real, no un atajo de test.
+# script real, no un atajo de test — es el default para todos los casos de
+# esta suite salvo los que anulan el 3er arg de `run_hook` para ejercer de
+# verdad la extracción vía `exo config --json` (ver T-config al final).
 export EXO_KB_NAME="kb-demo"
 
 # --- Binario exo falso: registra su invocación y no devuelve nada ---
@@ -442,6 +449,75 @@ else fail "raíz: con un solo hit, cabecera sin raíz y ruta absoluta" "$BL_U"; 
 run_hook "kbx trinquete" "$SOLO_CORE"
 if [ -z "$HOOK_OUT" ] && [ "$HOOK_RC" -eq 0 ]; then pass "dedup: si solo había core-index, no emite bloque"
 else fail "dedup: si solo había core-index, no emite bloque" "out='$HOOK_OUT'"; fi
+
+# ------------------------------ T-config: `exo config --json` de verdad ---
+# Todos los casos de arriba corren con EXO_KB_NAME="kb-demo" fijado por
+# el seam global (línea ~46): necesario porque el FAKE_EXO por defecto no
+# entiende NINGÚN subcomando, así que sin el seam el código de esta tarea
+# quedaría sin ejercer. Estos dos casos anulan ese seam (3er arg de
+# `run_hook`, override a "") con binarios falsos que SÍ distinguen
+# `config` de `recall`, para probar la extracción real y su degradación.
+
+# Caso A: `exo config --json` responde con un envelope válido ⇒ el exclude
+# se resuelve solo, sin el seam, y el dedup del core-index funciona.
+FAKE_EXO_CONFIG_OK="$TMP/exo-config-ok"
+cat > "$FAKE_EXO_CONFIG_OK" <<'EOF'
+#!/usr/bin/env bash
+if [ "$1" = "config" ]; then
+  printf '%s\n' '{"schema_version":2,"command":"config","data":{"kb":{"name":"kb-demo","path":"/kb"}}}'
+  exit 0
+fi
+cat <<'JSON'
+{"command":"recall","data":{"mode":"consulta","notes":[
+{"permalink":"kb-demo/core/core-index","path":"/kb/core/core-index.md","score":0.6,"snippet":"mapa","tier":null,"title":"core-index"},
+{"permalink":"kb-demo/log/kbx-bitacora","path":"/kb/log/kbx-bitacora.md","score":0.5,"snippet":"bitacora de kbx","tier":null,"title":"kbx-bitacora"}
+],"query":"kbx","truncated":false},"schema_version":2}
+JSON
+EOF
+chmod +x "$FAKE_EXO_CONFIG_OK"
+
+: > "$REFLEX_LOG_FILE"
+run_hook "kbx trinquete" "$FAKE_EXO_CONFIG_OK" ""
+BL_CFG_OK="$(printf '%s' "$HOOK_OUT" | jq -r '.hookSpecificOutput.additionalContext' 2>/dev/null)"
+if [ "$HOOK_RC" -eq 0 ] && not_contains "$BL_CFG_OK" "core-index"; then
+  pass "config real: sin seam, \`exo config --json\` resuelve el exclude y dedupa core-index"
+else
+  fail "config real: sin seam, \`exo config --json\` resuelve el exclude y dedupa core-index" \
+    "rc=$HOOK_RC bloque='$BL_CFG_OK'"
+fi
+if grep -q 'reason=no-config' "$REFLEX_LOG_FILE" 2>/dev/null; then
+  fail "config real: config OK no debe loguear no-config" "$(cat "$REFLEX_LOG_FILE" 2>/dev/null)"
+else
+  pass "config real: config OK no loguea no-config"
+fi
+
+# Caso B: `exo config` falla (subcomando desconocido / config rota) ⇒ sin
+# el seam, el script se degrada (exclude sin prefijo) pero deja rastro
+# `reason=no-config`, distinguible de no-engine/no-index/empty.
+FAKE_EXO_CONFIG_FAIL="$TMP/exo-config-fail"
+cat > "$FAKE_EXO_CONFIG_FAIL" <<'EOF'
+#!/usr/bin/env bash
+if [ "$1" = "config" ]; then
+  echo "error: unrecognized subcommand 'config'" >&2
+  exit 2
+fi
+cat <<'JSON'
+{"command":"recall","data":{"mode":"consulta","notes":[
+{"permalink":"kb-demo/core/core-index","path":"/kb/core/core-index.md","score":0.6,"snippet":"mapa","tier":null,"title":"core-index"}
+],"query":"q","truncated":false},"schema_version":2}
+JSON
+EOF
+chmod +x "$FAKE_EXO_CONFIG_FAIL"
+
+: > "$REFLEX_LOG_FILE"
+run_hook "kbx trinquete" "$FAKE_EXO_CONFIG_FAIL" ""
+NOCFG="$(grep 'reason=no-config' "$REFLEX_LOG_FILE" 2>/dev/null)"
+if [ -n "$NOCFG" ] && contains "$NOCFG" "unrecognized subcommand"; then
+  pass "config real: \`exo config\` falla ⇒ loguea no-config con el motivo exacto"
+else
+  fail "config real: \`exo config\` falla ⇒ loguea no-config con el motivo exacto" \
+    "$(cat "$REFLEX_LOG_FILE" 2>/dev/null)"
+fi
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

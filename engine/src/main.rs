@@ -388,14 +388,26 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
     Ok(())
 }
 
+/// Ruta lista para cruzar la frontera hacia shell: barras normales siempre.
+/// `expande_tilde` hace `home.join(resto)` con `home` en formato nativo de
+/// Windows (`\`) y `resto` con el separador literal del TOML (`/`); el
+/// `PathBuf` resultante mezcla los dos y a Rust no le importa (así abre
+/// ficheros en todo el engine), pero un script de shell sí que lo nota si
+/// hace `dirname`, recorta un prefijo o compara contra otra ruta. Se
+/// normaliza aquí, en la salida, no en `expande_tilde`: ese `PathBuf` es de
+/// uso interno del engine, y el problema nace justo al cruzar a shell.
+fn ruta_shell(p: &Path) -> String {
+    p.display().to_string().replace('\\', "/")
+}
+
 /// `exo config`: la config efectiva, con rutas expandidas.
 fn config_cmd(args: ArgsConfig) -> Result<()> {
     let cfg = exo::config::carga()?;
     let kb = exo::config::expande_tilde(&cfg.kb.path);
     let db = exo::config::expande_tilde(&cfg.index.db);
     let data = serde_json::json!({
-        "kb": { "path": kb.display().to_string(), "name": cfg.kb.name },
-        "index": { "db": db.display().to_string() },
+        "kb": { "path": ruta_shell(&kb), "name": cfg.kb.name },
+        "index": { "db": ruta_shell(&db) },
         "embeddings": {
             "model": cfg.embeddings.model,
             "dims": cfg.embeddings.dims,

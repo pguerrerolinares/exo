@@ -200,14 +200,25 @@ FOOTER='(puede no venir al caso: ignóralo si no aplica)'
 # dos sitios que haya que cambiar juntos.
 #
 # El nombre de la KB sale de la config del engine, no de un literal: era el
-# último sitio donde `kb-demo` seguía cableado en este script.
-EXO_KB_NAME="${EXO_KB_NAME:-$("$EXO_BIN" config --json 2>/dev/null | jq -r '.data.kb.name // empty')}"
+# último sitio donde `kb-demo` seguía cableado en este script. Se resuelve
+# aquí, ya pasados los guards de EXO_BIN/EXO_INDEX de arriba: si el binario
+# faltara, esta llamada fallaría por la misma razón que la principal (más
+# arriba, ya logueada como `no-engine`) y doblaría el evento con una causa
+# que mentiría.
+CONFIG_ERR_TMP="$(mktemp)" || CONFIG_ERR_TMP=""
+EXO_KB_NAME="${EXO_KB_NAME:-$("$EXO_BIN" config --json 2>"${CONFIG_ERR_TMP:-/dev/null}" | jq -r '.data.kb.name // empty')}"
 if [ -z "${EXO_EXCLUIR:-}" ] && [ -z "$EXO_KB_NAME" ]; then
   # Sin config no hay prefijo de proyecto: el permalink a excluir queda
   # pelado y no calza con el real (que sí lo lleva), así que el filtro deja
-  # de funcionar. Degradación aceptable, pero no muda: razón distinguible.
-  log_ri "degraded" "reason=no-config"
+  # de funcionar. Degradación aceptable, pero no muda: razón distinguible, y
+  # el payload trae el motivo exacto de `exo config` (config rota vs.
+  # binario transicional que aún no conoce el subcomando) sin tener que
+  # reproducirlo a mano.
+  CONFIG_ERR=""
+  [ -n "$CONFIG_ERR_TMP" ] && CONFIG_ERR="$(head -1 "$CONFIG_ERR_TMP" 2>/dev/null | tr -d '\n' | cut -c1-120)"
+  log_ri "degraded" "reason=no-config err=$CONFIG_ERR"
 fi
+rm -f "$CONFIG_ERR_TMP"
 EXO_EXCLUIR="${EXO_EXCLUIR:-${EXO_KB_NAME:+$EXO_KB_NAME/}core/core-index}"
 EXO_MAX_HITS="${EXO_MAX_HITS:-3}"
 
