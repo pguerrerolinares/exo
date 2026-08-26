@@ -198,7 +198,17 @@ FOOTER='(puede no venir al caso: ignóralo si no aplica)'
 # Compartidos entre el jq de composición y el cálculo de PERMALINKS más abajo:
 # el filtro de core-index y el límite de punteros no pueden vivir duplicados en
 # dos sitios que haya que cambiar juntos.
-EXO_EXCLUIR="${EXO_EXCLUIR:-kb-demo/core/core-index}"
+#
+# El nombre de la KB sale de la config del engine, no de un literal: era el
+# último sitio donde `kb-demo` seguía cableado en este script.
+EXO_KB_NAME="${EXO_KB_NAME:-$("$EXO_BIN" config --json 2>/dev/null | jq -r '.data.kb.name // empty')}"
+if [ -z "${EXO_EXCLUIR:-}" ] && [ -z "$EXO_KB_NAME" ]; then
+  # Sin config no hay prefijo de proyecto: el permalink a excluir queda
+  # pelado y no calza con el real (que sí lo lleva), así que el filtro deja
+  # de funcionar. Degradación aceptable, pero no muda: razón distinguible.
+  log_ri "degraded" "reason=no-config"
+fi
+EXO_EXCLUIR="${EXO_EXCLUIR:-${EXO_KB_NAME:+$EXO_KB_NAME/}core/core-index}"
 EXO_MAX_HITS="${EXO_MAX_HITS:-3}"
 
 # Composición del bloque, entera en jq (ver comentario de arriba sobre bytes vs

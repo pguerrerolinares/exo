@@ -42,9 +42,17 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 EXO_BIN="${EXO_BIN:-$REPO_ROOT/engine/target/release/exo.exe}"
 
 # Rutas estilo Windows: el binario es nativo y no entiende `/c/Users/...`.
-# Índice y KB reales de esta máquina — no hay fixture (ver nota G5 arriba).
-EXO_INDEX="${EXO_INDEX:-C:/Users/paul/.exo/index.db}"
-EXO_KB="${EXO_KB:-C:/proyectos/homework/kb-demo}"
+# Índice y KB salen de `exo config --json` (Task 8), no de un literal — pero
+# SIEMPRE del binario recién compilado del repo, nunca de $EXO_BIN: cuando
+# este test apunta $EXO_BIN a un binario viejo para probar el estado "rojo",
+# ese binario es de antes de Task 8 y no conoce `config`; resolver ahí
+# dejaría índice/KB vacíos y el test abstendría en vez de fallar en rojo por
+# la causa real (el contrato de `recall`). El seam de entorno (EXO_INDEX,
+# EXO_KB) sigue mandando si algo los define, igual que antes.
+CONFIG_BIN="$REPO_ROOT/engine/target/release/exo.exe"
+CONFIG_JSON="$("$CONFIG_BIN" config --json 2>/dev/null)" || CONFIG_JSON=""
+EXO_INDEX="${EXO_INDEX:-$(printf '%s' "$CONFIG_JSON" | jq -r '.data.index.db // empty' 2>/dev/null)}"
+EXO_KB="${EXO_KB:-$(printf '%s' "$CONFIG_JSON" | jq -r '.data.kb.path // empty' 2>/dev/null)}"
 
 PASS=0
 FAIL=0

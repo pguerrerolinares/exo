@@ -32,7 +32,6 @@ RECON-FIRST (look before you leap) en tareas DURAS/desconocidas/time-boxed: ante
 # para otra persona, apuntar a SU KB sin editar el script.
 EXO_BIN="${EXO_BIN:-$(command -v exo 2>/dev/null || echo "$HOME/.local/bin/exo")}"
 EXO_INDEX="${EXO_INDEX:-$HOME/.exo/index.db}"
-EXO_NOTA="${EXO_RECALL_NOTA:-kb-demo/core/core-index}"
 EXO_CAP="${EXO_RECALL_CAP:-6144}"
 # Recientes en el digest. El camino viejo listaba hasta 15 permalinks de los
 # últimos 3 días; con 5 se perdían notas del mismo día (hallazgo del gate M6).
@@ -45,6 +44,17 @@ log_recall_fallback() {  # $1=reason $2=payload extra opcional
   . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && \
     reflex_log "recall-fallback" "$input" "reason=$1${2:+ $2}" || true
 }
+
+# El nombre de la KB sale de la config del engine, no de un literal: era el
+# último sitio donde `kb-demo` seguía cableado en el camino de arranque.
+EXO_KB_NAME="${EXO_KB_NAME:-$("$EXO_BIN" config --json 2>/dev/null | jq -r '.data.kb.name // empty')}"
+if [ -z "${EXO_RECALL_NOTA:-}" ] && [ -z "$EXO_KB_NAME" ]; then
+  # Sin config no hay prefijo de proyecto: la nota cae a `core/core-index`
+  # pelado, que no resuelve. Degradación aceptable, pero no muda: distinta
+  # razón que `no-engine`/`no-index`, para poder diferenciarlas en el log.
+  log_recall_fallback "no-config"
+fi
+EXO_NOTA="${EXO_RECALL_NOTA:-${EXO_KB_NAME:+$EXO_KB_NAME/}core/core-index}"
 
 # Un fallback silencioso deja al agente sin mapa de la KB en TODAS las sesiones
 # sin que nadie se entere (esto ya mordió una vez, F3.1): cada rama deja un

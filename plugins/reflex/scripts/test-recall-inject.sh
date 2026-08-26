@@ -41,6 +41,14 @@ FAKE_DB="$TMP/index.db"
 : > "$FAKE_DB"
 export EXO_INDEX="$FAKE_DB"
 
+# Task 8: EXO_EXCLUIR ya no lleva "kb-demo" hardcodeado — sale de
+# `exo config --json`. El FAKE_EXO de abajo siempre sale con rc=1 (no
+# entiende subcomandos), así que sin este seam el exclude quedaría sin
+# prefijo y las fixtures de esta suite (permalinks "kb-demo/...") no
+# calzarían con el filtro. Fijar EXO_KB_NAME es el mismo seam que usa el
+# script real, no un atajo de test.
+export EXO_KB_NAME="kb-demo"
+
 # --- Binario exo falso: registra su invocación y no devuelve nada ---
 FAKE_EXO="$TMP/exo-silent"
 cat > "$FAKE_EXO" <<'EOF'

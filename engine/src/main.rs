@@ -36,6 +36,9 @@ enum Comando {
     /// Crea `~/.exo/config.toml`. Con `--from-basic-memory`, migra los valores
     /// de `~/.basic-memory/config.json` una sola vez.
     Init(ArgsInit),
+    /// Emite la config efectiva como envelope JSON, con las rutas ya
+    /// expandidas. Existe para los consumidores en shell: jq no lee TOML.
+    Config(ArgsConfig),
     /// Indexa la KB de forma incremental (mtime al invocar, sin daemon).
     Index(ArgsIndex),
     /// Borra la DB y reconstruye desde cero (primera clase, no cirugía —
@@ -81,6 +84,12 @@ struct ArgsInit {
     /// Sobreescribe una config existente.
     #[arg(long)]
     force: bool,
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(clap::Args)]
+struct ArgsConfig {
     #[arg(long)]
     json: bool,
 }
@@ -312,6 +321,7 @@ fn ejecuta() -> Result<()> {
     let cli = Cli::parse();
     match cli.comando {
         Comando::Init(args) => init_cmd(args),
+        Comando::Config(args) => config_cmd(args),
         Comando::Index(args) => corre("index", args, false),
         Comando::Rebuild(args) => corre("rebuild", args, true),
         Comando::Search(args) => busca_cmd(args),
@@ -374,6 +384,31 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
         println!("config escrita en {}", destino.display());
         println!("KB: {} (name: {nombre})", kb.display());
         println!("siguiente: exo index --json");
+    }
+    Ok(())
+}
+
+/// `exo config`: la config efectiva, con rutas expandidas.
+fn config_cmd(args: ArgsConfig) -> Result<()> {
+    let cfg = exo::config::carga()?;
+    let kb = exo::config::expande_tilde(&cfg.kb.path);
+    let db = exo::config::expande_tilde(&cfg.index.db);
+    let data = serde_json::json!({
+        "kb": { "path": kb.display().to_string(), "name": cfg.kb.name },
+        "index": { "db": db.display().to_string() },
+        "embeddings": {
+            "model": cfg.embeddings.model,
+            "dims": cfg.embeddings.dims,
+            "min_similarity": cfg.embeddings.min_similarity,
+        },
+    });
+    if args.json {
+        exo::envelope::emite("config", data);
+    } else {
+        println!("kb.path   {}", kb.display());
+        println!("kb.name   {}", cfg.kb.name);
+        println!("index.db  {}", db.display());
+        println!("model     {}", cfg.embeddings.model);
     }
     Ok(())
 }

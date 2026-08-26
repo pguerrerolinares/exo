@@ -486,12 +486,13 @@ done
 }
 
 # =========================================================================
-# Fixture para casos 14-15 (M6-03c, seam de KB): dos KB distinguibles por
-# ruta — KB_ENV (la que debe ganar via $EXO_KB) y KB_HOME (la que hoy sirve
-# el fallback a ~/.basic-memory/config.json). FAKE_HOME simula el HOME real
-# sin tocarlo: compose-inject lee "$HOME/.basic-memory/config.json" literal,
-# así que sobreescribir HOME en el entorno del proceso hijo basta para
-# probar el fallback sin rozar el config.json de verdad.
+# Fixture para casos 14-15 (M6-03c, seam de KB; Task 8: fin del fallback a
+# basic-memory): dos KB distinguibles por ruta — KB_ENV (la que debe ganar
+# via $EXO_KB) y KB_HOME (la que sirve el fallback a `exo config --json`).
+# FAKE_EXO_DIR simula el binario `exo` real sin tocarlo: compose-inject.sh
+# invoca `exo config --json` literal (busca en PATH), así que anteponer
+# FAKE_EXO_DIR a PATH en el proceso hijo basta para probar el fallback sin
+# depender del engine real ni de su config.
 # =========================================================================
 KB_ENV="$TMP/kb_env_seam"
 mkdir -p "$KB_ENV/core" "$KB_ENV/projects"
@@ -519,46 +520,48 @@ cat > "$KB_HOME/core/otra-nota-home.md" <<'EOF'
 Contenido de relleno KB_HOME.
 EOF
 
-FAKE_HOME="$TMP/fake_home"
-mkdir -p "$FAKE_HOME/.basic-memory"
-cat > "$FAKE_HOME/.basic-memory/config.json" <<EOF
-{"projects": {"kb-demo": {"path": "$KB_HOME"}}}
+FAKE_EXO_DIR="$TMP/fake-exo-bin"
+mkdir -p "$FAKE_EXO_DIR"
+cat > "$FAKE_EXO_DIR/exo" <<EOF
+#!/usr/bin/env bash
+echo '{"schema_version":2,"command":"config","data":{"kb":{"path":"$KB_HOME","name":"kb-home"}}}'
 EOF
+chmod +x "$FAKE_EXO_DIR/exo"
 
 # =========================================================================
-# Caso 14 (M6-03c): sin --kb, con \$EXO_KB apuntando a KB_ENV y HOME apuntando
-# a un config.json que resolvería KB_HOME ⇒ debe ganar KB_ENV (el seam va
-# ANTES del fallback a basic-memory/config.json, aunque este exista y sea
-# leíble).
+# Caso 14 (M6-03c): sin --kb, con \$EXO_KB apuntando a KB_ENV y un `exo` en
+# PATH que resolvería KB_HOME ⇒ debe ganar KB_ENV (el seam va ANTES del
+# fallback a `exo config --json`, aunque este exista y responda).
 # =========================================================================
 {
-  OUT14="$(HOME="$FAKE_HOME" EXO_KB="$KB_ENV" REFLEX_EXECUTOR_MD="$EXEC_MD" REFLEX_CANARY_FILE="$NO_CANARY" \
+  OUT14="$(PATH="$FAKE_EXO_DIR:$PATH" EXO_KB="$KB_ENV" REFLEX_EXECUTOR_MD="$EXEC_MD" REFLEX_CANARY_FILE="$NO_CANARY" \
     "$COMPOSE" --type general-purpose)"
   EC14=$?
   if [ $EC14 -eq 0 ] \
      && contains "$OUT14" "$KB_ENV/core/otra-nota-env.md" \
      && not_contains "$OUT14" "$KB_HOME/core/otra-nota-home.md"; then
-    pass "caso14: \$EXO_KB definida ⇒ gana sobre el fallback a config.json"
+    pass "caso14: \$EXO_KB definida ⇒ gana sobre el fallback a \`exo config --json\`"
   else
-    fail "caso14: \$EXO_KB definida ⇒ gana sobre el fallback a config.json" "ec=$EC14 out=$OUT14"
+    fail "caso14: \$EXO_KB definida ⇒ gana sobre el fallback a \`exo config --json\`" "ec=$EC14 out=$OUT14"
   fi
 }
 
 # =========================================================================
-# Caso 15 (M6-03c, no-regresión): sin --kb y SIN \$EXO_KB ⇒ el comportamiento
-# es idéntico al de hoy: cae al fallback de ~/.basic-memory/config.json (aquí
-# simulado con HOME=FAKE_HOME) y resuelve KB_HOME.
+# Caso 15 (Task 8, sustituye la no-regresión M6-03c): sin --kb y SIN
+# \$EXO_KB ⇒ cae al fallback de `exo config --json` (aquí un `exo` fake en
+# PATH) y resuelve KB_HOME. El fallback viejo a ~/.basic-memory/config.json
+# desapareció con esta tarea; este caso prueba su sustituto.
 # =========================================================================
 {
-  OUT15="$(HOME="$FAKE_HOME" REFLEX_EXECUTOR_MD="$EXEC_MD" REFLEX_CANARY_FILE="$NO_CANARY" \
+  OUT15="$(PATH="$FAKE_EXO_DIR:$PATH" REFLEX_EXECUTOR_MD="$EXEC_MD" REFLEX_CANARY_FILE="$NO_CANARY" \
     "$COMPOSE" --type general-purpose)"
   EC15=$?
   if [ $EC15 -eq 0 ] \
      && contains "$OUT15" "$KB_HOME/core/otra-nota-home.md" \
      && not_contains "$OUT15" "$KB_ENV/core/otra-nota-env.md"; then
-    pass "caso15: sin \$EXO_KB ⇒ no-regresión, fallback a config.json idéntico al de hoy"
+    pass "caso15: sin \$EXO_KB ⇒ fallback a \`exo config --json\`"
   else
-    fail "caso15: sin \$EXO_KB ⇒ no-regresión, fallback a config.json idéntico al de hoy" "ec=$EC15 out=$OUT15"
+    fail "caso15: sin \$EXO_KB ⇒ fallback a \`exo config --json\`" "ec=$EC15 out=$OUT15"
   fi
 }
 
