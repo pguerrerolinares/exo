@@ -57,6 +57,12 @@ fn config_embeddings_lee_la_config_propia() {
 }
 
 #[test]
+fn nombre_kb_lee_la_config_propia() {
+    let n = con_config(CFG, || exo::nombre_kb().expect("nombre"));
+    assert_eq!(n, "valor-imposible");
+}
+
+#[test]
 fn min_similitud_lee_la_config_propia() {
     let m = con_config(CFG, || exo::min_similitud_de_config().expect("min"));
     assert_eq!(m, 0.99);

@@ -220,8 +220,8 @@ pub fn busca(db_ruta: &Path, query: &str, limite: usize) -> Result<Busqueda> {
 /// `common::normalize` sin condición al output de `TextEmbedding`). Para
 /// dos vectores unitarios, `||a-b||² = 2 - 2·cos(a,b)`, luego
 /// `cos(a,b) = 1 - ||a-b||²/2` — la conversión que usa esta función para
-/// comparar contra `semantic_min_similarity` (threshold pensado en escala
-/// coseno, config de producción de basic-memory, hoy 0.35).
+/// comparar contra `[embeddings] min_similarity` (threshold pensado en escala
+/// coseno, config propia de `~/.exo/config.toml`, hoy 0.35).
 fn similitud_desde_l2_cuadrado(distancia_l2_cuadrado: f64) -> f64 {
     1.0 - distancia_l2_cuadrado / 2.0
 }
