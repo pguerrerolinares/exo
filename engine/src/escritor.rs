@@ -24,7 +24,7 @@ pub enum Rechazo {
     /// Append a una nota que no es `tier: log`. Es EL anti-patrón medido de
     /// esta KB: 52 `## Delta AAAA-MM-DD` anexados al canon en la historia
     /// real, causa del 100% de los incidentes caros (spec M4 §7.1).
-    AppendACanon { tier: String },
+    AppendACanon { tier: Option<String> },
 }
 
 impl std::fmt::Display for Rechazo {
@@ -41,11 +41,14 @@ impl std::fmt::Display for Rechazo {
                         .join(", ")
                 )
             }
-            Rechazo::AppendACanon { tier } => write!(
-                f,
-                "append a nota tier '{tier}': el canon se edita como delta, no se anexa. \
-                 Usa la bitácora del frente, o --force si es una excepción consciente"
-            ),
+            Rechazo::AppendACanon { tier } => {
+                let tier = tier.as_deref().unwrap_or("(sin tier)");
+                write!(
+                    f,
+                    "append a nota tier '{tier}': el canon se edita como delta, no se anexa. \
+                     Usa la bitácora del frente, o --force si es una excepción consciente"
+                )
+            }
         }
     }
 }
@@ -309,18 +312,20 @@ pub fn escribe_append(kb: &Path, ruta_rel: &str, texto: &str, forzar: bool) -> R
 
     let cabecera = lee_cabecera(&ruta_abs)?;
     let (yaml, _) = separa_frontmatter(&cabecera);
-    let tier = valor_yaml(&yaml, "tier").unwrap_or_default();
+    let tier_raw = valor_yaml(&yaml, "tier").unwrap_or_default();
     let permalink = valor_yaml(&yaml, "permalink").unwrap_or_default();
 
-    if tier != "log" && !forzar {
-        return Err(Rechazo::AppendACanon {
-            tier: if tier.is_empty() {
-                "(sin tier)".into()
-            } else {
-                tier
-            },
-        }
-        .into());
+    if tier_raw != "log" && !forzar {
+        // Ausencia de tier = `None`, no el centinela de prosa `"(sin tier)"`:
+        // ese centinela sigue existiendo, pero solo en el `Display` humano
+        // (arriba). Un consumidor de `data()` que lea `data.tier` necesita
+        // poder distinguir por TIPO entre "core" (tier real) y ausencia.
+        let tier = if tier_raw.is_empty() {
+            None
+        } else {
+            Some(tier_raw)
+        };
+        return Err(Rechazo::AppendACanon { tier }.into());
     }
 
     anexa(&ruta_abs, texto)?;

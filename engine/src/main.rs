@@ -272,12 +272,15 @@ struct ArgsRecall {
 }
 
 fn main() {
-    // Se lee de argv y no del `args` parseado porque en la rama de error el
-    // `args` ya se movió dentro de `ejecuta`. argv es la fuente de verdad y no
-    // puede desincronizarse de lo que el usuario pidió.
-    let quiere_json = std::env::args().any(|a| a == "--json");
-    match ejecuta() {
-        Ok(_) => {}
+    let cli = Cli::parse();
+    // El flag sale del parseo de clap, no de un escaneo de argv: un valor de
+    // otro flag que fuese literalmente "--json" (p.ej. `--titulo "--json"`)
+    // engañaría al escaneo y filtraría el envelope a stdout sin que nadie lo
+    // hubiera pedido. Se consulta ANTES de ejecutar porque en la rama de
+    // error el comando ya se ha consumido dentro de `ejecuta`.
+    let json = quiere_json(&cli.comando);
+    match ejecuta(cli.comando) {
+        Ok(()) => {}
         Err(e) => {
             // Un gate rechazado NO es un error del sistema: es una decisión que
             // se le devuelve al llamador (nota duplicada, append al canon).
@@ -288,7 +291,7 @@ fn main() {
             // quiera parsear (spec write §3.3).
             if let Some(rechazo) = e.downcast_ref::<exo::escritor::Rechazo>() {
                 eprintln!("rechazado: {rechazo}");
-                if quiere_json {
+                if json {
                     exo::envelope::emite("write", rechazo.data());
                 }
                 std::process::exit(3);
@@ -296,6 +299,24 @@ fn main() {
             eprintln!("error: {e:#}");
             std::process::exit(1);
         }
+    }
+}
+
+/// Si el comando invocado pidió `--json`. EXHAUSTIVO a propósito, sin `_ =>`
+/// comodín: si mañana se añade un subcomando nuevo, el compilador debe
+/// obligar a decidir explícitamente si emite JSON, no caer en un default
+/// silencioso.
+fn quiere_json(c: &Comando) -> bool {
+    match c {
+        Comando::Init(a) => a.json,
+        Comando::Config(a) => a.json,
+        Comando::Index(a) | Comando::Rebuild(a) => a.json,
+        Comando::Search(a) => a.json,
+        Comando::Recall(a) => a.json,
+        Comando::Write(w) => match w {
+            ComandoWrite::New(a) => a.json,
+            ComandoWrite::Append(a) => a.json,
+        },
     }
 }
 
@@ -330,46 +351,20 @@ fn resuelve_kb(flag: Option<PathBuf>) -> Result<PathBuf> {
     exo::kb_desde_config()
 }
 
-/// El `bool` de retorno es «se pidió `--json»`, extraído del flag ANTES de
-/// mover `args` dentro de cada comando (en la rama de error, `main` ya no
-/// tiene acceso al struct de args movido, de ahí que también lea argv por su
-/// cuenta — ver comentario en `main`).
-fn ejecuta() -> Result<bool> {
-    let cli = Cli::parse();
-    match cli.comando {
-        Comando::Init(args) => {
-            let json = args.json;
-            init_cmd(args).map(|_| json)
-        }
-        Comando::Config(args) => {
-            let json = args.json;
-            config_cmd(args).map(|_| json)
-        }
-        Comando::Index(args) => {
-            let json = args.json;
-            corre("index", args, false).map(|_| json)
-        }
-        Comando::Rebuild(args) => {
-            let json = args.json;
-            corre("rebuild", args, true).map(|_| json)
-        }
-        Comando::Search(args) => {
-            let json = args.json;
-            busca_cmd(args).map(|_| json)
-        }
-        Comando::Recall(args) => {
-            let json = args.json;
-            recall_cmd(args).map(|_| json)
-        }
+/// Ejecuta el comando ya parseado. El flag `--json` no se extrae aquí: lo
+/// resuelve `quiere_json` en `main`, antes de llamar, porque en la rama de
+/// error el `comando` ya se ha movido dentro de esta función.
+fn ejecuta(comando: Comando) -> Result<()> {
+    match comando {
+        Comando::Init(args) => init_cmd(args),
+        Comando::Config(args) => config_cmd(args),
+        Comando::Index(args) => corre("index", args, false),
+        Comando::Rebuild(args) => corre("rebuild", args, true),
+        Comando::Search(args) => busca_cmd(args),
+        Comando::Recall(args) => recall_cmd(args),
         Comando::Write(sub) => match sub {
-            ComandoWrite::New(args) => {
-                let json = args.json;
-                write_new_cmd(args).map(|_| json)
-            }
-            ComandoWrite::Append(args) => {
-                let json = args.json;
-                write_append_cmd(args).map(|_| json)
-            }
+            ComandoWrite::New(args) => write_new_cmd(args),
+            ComandoWrite::Append(args) => write_append_cmd(args),
         },
     }
 }

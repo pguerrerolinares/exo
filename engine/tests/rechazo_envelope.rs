@@ -30,7 +30,7 @@ fn el_data_del_rechazo_duplicada_lleva_las_candidatas() {
 #[test]
 fn el_data_del_rechazo_append_a_canon_lleva_el_tier() {
     let r = exo::escritor::Rechazo::AppendACanon {
-        tier: "core".into(),
+        tier: Some("core".into()),
     };
     let v = r.data();
     assert_eq!(v["reason"], "append_to_canon");
@@ -41,28 +41,60 @@ fn el_data_del_rechazo_append_a_canon_lleva_el_tier() {
 }
 
 #[test]
+fn el_data_del_rechazo_append_a_canon_sin_tier_es_null_no_el_centinela_de_prosa() {
+    // `"(sin tier)"` es la frase para el `Display` humano (stderr); en el
+    // contrato JSON, ausencia de tier es `null`, no un string disfrazado de
+    // ausencia — un consumidor que lea `data.tier` debe poder distinguir por
+    // TIPO entre "core" (tier real) y ausencia.
+    let r = exo::escritor::Rechazo::AppendACanon { tier: None };
+    let v = r.data();
+    assert_eq!(v["reason"], "append_to_canon");
+    assert!(
+        v["tier"].is_null(),
+        "tier debe ser JSON null, no {:?}",
+        v["tier"]
+    );
+    assert_eq!(
+        format!("{r}"),
+        "append a nota tier '(sin tier)': el canon se edita como delta, no se anexa. Usa la bitácora del frente, o --force si es una excepción consciente"
+    );
+}
+
+#[test]
 fn write_new_rechazado_con_json_emite_envelope_y_sale_3() {
     // Se apoya en la KB real y su índice: es el único sitio donde hay un
     // duplicado que el gate reconozca. Si no existen, el test se salta
     // ruidosamente en vez de dar un verde falso.
     let db = dirs::home_dir().expect("home").join(".exo/index.db");
     if !db.exists() {
-        eprintln!("SKIP: no hay índice en {} — este test necesita la KB real", db.display());
+        eprintln!(
+            "SKIP: no hay índice en {} — este test necesita la KB real",
+            db.display()
+        );
         return;
     }
     let mut bin = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     bin.push("target");
-    bin.push(if cfg!(debug_assertions) { "debug" } else { "release" });
+    bin.push(if cfg!(debug_assertions) {
+        "debug"
+    } else {
+        "release"
+    });
     bin.push(if cfg!(windows) { "exo.exe" } else { "exo" });
 
     let cuerpo = tempfile::NamedTempFile::new().expect("tmp");
     let out = std::process::Command::new(&bin)
         .args([
-            "write", "new",
-            "--db", db.to_str().unwrap(),
-            "--dir", "projects",
-            "--titulo", "exo — framework unificado de trabajo agéntico",
-            "--from", cuerpo.path().to_str().unwrap(),
+            "write",
+            "new",
+            "--db",
+            db.to_str().unwrap(),
+            "--dir",
+            "projects",
+            "--titulo",
+            "exo — framework unificado de trabajo agéntico",
+            "--from",
+            cuerpo.path().to_str().unwrap(),
             "--json",
         ])
         .output()
@@ -70,12 +102,14 @@ fn write_new_rechazado_con_json_emite_envelope_y_sale_3() {
 
     assert_eq!(out.status.code(), Some(3), "el gate debe salir 3");
     let stdout = String::from_utf8_lossy(&out.stdout);
-    let v: serde_json::Value =
-        serde_json::from_str(stdout.trim()).unwrap_or_else(|e| panic!("stdout no es envelope ({e}): {stdout}"));
+    let v: serde_json::Value = serde_json::from_str(stdout.trim())
+        .unwrap_or_else(|e| panic!("stdout no es envelope ({e}): {stdout}"));
     assert_eq!(v["command"], "write");
     assert_eq!(v["data"]["reason"], "duplicate");
     assert!(
-        v["data"]["candidates"].as_array().is_some_and(|a| !a.is_empty()),
+        v["data"]["candidates"]
+            .as_array()
+            .is_some_and(|a| !a.is_empty()),
         "sin candidatas en el envelope: {v}"
     );
 }
