@@ -5,10 +5,9 @@ use exo::{
     envelope,
     escritor::{escribe_append, escribe_nueva},
     indexer::indexa,
-    kb_desde_config,
     recall::{recall_arranque, recall_consulta, renderiza, resuelve_rutas_absolutas},
 };
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Defaults SELLADOS del arm hybrid (M2-07, §5.2.6 de la spec de fusión):
 /// ganadores del sweep 15+1 corridas (grid bonus{0,0.1,0.2,0.3,0.5}×
@@ -88,11 +87,13 @@ struct ArgsInit {
 
 #[derive(clap::Args)]
 struct ArgsWriteNew {
-    /// Fichero SQLite del índice (mismo contrato D6 que el resto). Lo usa el
-    /// dup-gate; con `--force` no se consulta.
+    /// Fichero SQLite del índice. Default: `[index] db` de la config
+    /// (`~/.exo/config.toml`). Precedencia: flag > $EXO_DB > config. Lo usa
+    /// el dup-gate; con `--force` no se consulta.
     #[arg(long)]
-    db: PathBuf,
+    db: Option<PathBuf>,
     /// Raíz de la KB. Default: `[kb] path` de `~/.exo/config.toml`.
+    /// Precedencia: flag > $EXO_KB > config.
     #[arg(long)]
     kb: Option<PathBuf>,
     /// Directorio destino dentro de la KB (`projects`, `log`, `research`…).
@@ -119,8 +120,12 @@ struct ArgsWriteNew {
 
 #[derive(clap::Args)]
 struct ArgsWriteAppend {
+    /// Fichero SQLite del índice. Default: `[index] db` de la config
+    /// (`~/.exo/config.toml`). Precedencia: flag > $EXO_DB > config.
     #[arg(long)]
-    db: PathBuf,
+    db: Option<PathBuf>,
+    /// Raíz de la KB. Default: `[kb] path` de `~/.exo/config.toml`.
+    /// Precedencia: flag > $EXO_KB > config.
     #[arg(long)]
     kb: Option<PathBuf>,
     /// Fichero con el texto a anexar (`-` = stdin).
@@ -141,11 +146,12 @@ struct ArgsWriteAppend {
 
 #[derive(clap::Args)]
 struct ArgsIndex {
-    /// Fichero SQLite del índice. Obligatorio, sin default (D6).
+    /// Fichero SQLite del índice. Default: `[index] db` de la config
+    /// (`~/.exo/config.toml`). Precedencia: flag > $EXO_DB > config.
     #[arg(long)]
-    db: PathBuf,
+    db: Option<PathBuf>,
     /// Raíz de la KB. Por defecto, `[kb] path` de `~/.exo/config.toml`.
-    /// Precedencia: flag > config (D6).
+    /// Precedencia: flag > $EXO_KB > config.
     #[arg(long)]
     kb: Option<PathBuf>,
     /// Emite el resultado como envelope JSON (spec §4) en stdout.
@@ -163,10 +169,10 @@ enum TipoBusqueda {
 
 #[derive(clap::Args)]
 struct ArgsSearch {
-    /// Fichero SQLite del índice. Obligatorio, sin default (D6: un default
-    /// sería config encubierta).
+    /// Fichero SQLite del índice. Default: `[index] db` de la config
+    /// (`~/.exo/config.toml`). Precedencia: flag > $EXO_DB > config.
     #[arg(long)]
-    db: PathBuf,
+    db: Option<PathBuf>,
     /// Máximo de resultados. Default 10 (replay-engine pasa el suyo
     /// explícito; flags > config).
     #[arg(long, default_value_t = 10)]
@@ -201,12 +207,12 @@ struct ArgsSearch {
 
 #[derive(clap::Args)]
 struct ArgsRecall {
-    /// Fichero SQLite del índice. Obligatorio, sin default (D6, mismo
-    /// contrato que `index`/`search`).
+    /// Fichero SQLite del índice. Default: `[index] db` de la config
+    /// (`~/.exo/config.toml`). Precedencia: flag > $EXO_DB > config.
     #[arg(long)]
-    db: PathBuf,
+    db: Option<PathBuf>,
     /// Raíz de la KB. Por defecto, `[kb] path` de `~/.exo/config.toml`.
-    /// `exo recall` la necesita aunque
+    /// Precedencia: flag > $EXO_KB > config. `exo recall` la necesita aunque
     /// solo lea del índice: `notas.ruta` es relativa, y modo arranque
     /// también relee `tier` del `.md` en disco (no está en el índice).
     #[arg(long)]
@@ -269,6 +275,37 @@ fn main() {
         eprintln!("error: {e:#}");
         std::process::exit(1);
     }
+}
+
+/// Precedencia de la DB del índice: `--db` > `$EXO_DB` > `[index] db`.
+///
+/// `--db` era obligatorio «sin default (D6: un default sería config
+/// encubierta)». Con config propia deja de serlo: un valor declarado en un
+/// fichero del usuario no es config encubierta, es config.
+fn resuelve_db(flag: Option<PathBuf>) -> Result<PathBuf> {
+    if let Some(p) = flag {
+        return Ok(p);
+    }
+    if let Ok(v) = std::env::var("EXO_DB") {
+        if !v.is_empty() {
+            return Ok(exo::config::expande_tilde(Path::new(&v)));
+        }
+    }
+    let cfg = exo::config::carga()?;
+    Ok(exo::config::expande_tilde(&cfg.index.db))
+}
+
+/// Precedencia de la raíz de la KB: `--kb` > `$EXO_KB` > `[kb] path`.
+fn resuelve_kb(flag: Option<PathBuf>) -> Result<PathBuf> {
+    if let Some(p) = flag {
+        return Ok(p);
+    }
+    if let Ok(v) = std::env::var("EXO_KB") {
+        if !v.is_empty() {
+            return Ok(exo::config::expande_tilde(Path::new(&v)));
+        }
+    }
+    exo::kb_desde_config()
 }
 
 fn ejecuta() -> Result<()> {
@@ -355,19 +392,14 @@ fn lee_from(from: &str) -> Result<String> {
 /// `exo write new`: dup-gate con `busca_hybrid` (salvo `--force`) y creación
 /// de la nota. El gate corre ANTES de tocar el disco.
 fn write_new_cmd(args: ArgsWriteNew) -> Result<()> {
-    let kb = match args.kb {
-        Some(p) => p,
-        None => kb_desde_config().context("resolver raíz de la KB (--kb ausente)")?,
-    };
+    let kb = resuelve_kb(args.kb)?;
+    let db = resuelve_db(args.db)?;
     let cuerpo = lee_from(&args.from)?;
 
-    // El nombre del proyecto es el primer segmento del permalink de la KB
-    // (`kb-demo/projects/…`). Sale del directorio raíz, NO hardcodeado:
-    // requisito C11 del plan (no cerrar la puerta a otras instancias).
-    let proyecto = kb
-        .file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .context("la raíz de la KB no tiene nombre de directorio")?;
+    // El nombre del proyecto sale de `[kb] name` de la config, EXPLÍCITO.
+    // Antes se derivaba de `kb.file_name()` contra lo que decía la spec §3.1;
+    // coincidían por suerte y el día que no, reventaba en silencio.
+    let proyecto = exo::nombre_kb()?;
 
     // Dup-gate por solape de slug, NO por retrieval: ver `solape_slug`.
     // Barato y determinista — no carga el modelo de embeddings, así que el
@@ -376,7 +408,7 @@ fn write_new_cmd(args: ArgsWriteNew) -> Result<()> {
         Vec::new()
     } else {
         let indexados =
-            exo::buscador::permalinks(&args.db).context("dup-gate: leer permalinks del índice")?;
+            exo::buscador::permalinks(&db).context("dup-gate: leer permalinks del índice")?;
         exo::escritor::dup_candidatas(&exo::escritor::slug(&args.titulo), &indexados)
     };
 
@@ -398,13 +430,11 @@ fn write_new_cmd(args: ArgsWriteNew) -> Result<()> {
 /// `exo write append`: resuelve permalink→ruta contra el índice y anexa. Con
 /// `--crea`, una bitácora que no existe se crea en vez de fallar.
 fn write_append_cmd(args: ArgsWriteAppend) -> Result<()> {
-    let kb = match args.kb {
-        Some(p) => p,
-        None => kb_desde_config().context("resolver raíz de la KB (--kb ausente)")?,
-    };
+    let kb = resuelve_kb(args.kb)?;
+    let db = resuelve_db(args.db)?;
     let texto = lee_from(&args.from)?;
 
-    let ruta_rel = match exo::buscador::ruta_de(&args.db, &args.permalink)? {
+    let ruta_rel = match exo::buscador::ruta_de(&db, &args.permalink)? {
         Some(r) => r,
         None if args.crea => {
             // Sin fila en el índice: o la bitácora no existe, o el índice está
@@ -464,15 +494,13 @@ fn emite_escritura(esc: exo::escritor::Escritura, json: bool) {
 /// bloque (aunque venga truncado); recall vacío (cero notas tras el cap) =
 /// `bail!` = exit 1, sin tabla de códigos nueva.
 fn recall_cmd(args: ArgsRecall) -> Result<()> {
-    let kb = match args.kb {
-        Some(p) => p,
-        None => kb_desde_config().context("resolver raíz de la KB (--kb ausente)")?,
-    };
+    let kb = resuelve_kb(args.kb)?;
+    let db = resuelve_db(args.db)?;
 
     if args.refresca {
         // El resumen va a stderr: stdout es exclusivo del envelope/bloque
         // (contrato §4), y el hook consume stdout tal cual.
-        let resumen = exo::refresca_indice(&kb, &args.db)
+        let resumen = exo::refresca_indice(&kb, &db)
             .context("refrescar el índice antes del recall (--refresca)")?;
         if resumen.indexadas > 0 || resumen.borradas > 0 {
             eprintln!(
@@ -489,7 +517,7 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
         // Camino del hook: bloque de texto a stdout y fuera. No pasa por el
         // envelope ni por `aplica_cap` (trae su propio truncado por líneas).
         let bloque = exo::recall::recall_arranque_contenido(
-            &args.db,
+            &db,
             &kb,
             args.limite,
             args.cap_bytes,
@@ -500,10 +528,10 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
     }
 
     let bruto = match &args.query {
-        None => recall_arranque(&args.db, &kb, args.limite)?,
+        None => recall_arranque(&db, &kb, args.limite)?,
         Some(q) => {
             let mut bruto = recall_consulta(
-                &args.db,
+                &db,
                 q,
                 args.limite,
                 args.min_similitud,
@@ -540,13 +568,12 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
 }
 
 fn busca_cmd(args: ArgsSearch) -> Result<()> {
+    let db = resuelve_db(args.db)?;
     let resultado = match args.r#type {
-        TipoBusqueda::Fts => busca(&args.db, &args.query, args.limite)?,
-        TipoBusqueda::Vector => {
-            busca_vector(&args.db, &args.query, args.limite, args.min_similitud)?
-        }
+        TipoBusqueda::Fts => busca(&db, &args.query, args.limite)?,
+        TipoBusqueda::Vector => busca_vector(&db, &args.query, args.limite, args.min_similitud)?,
         TipoBusqueda::Hybrid => busca_hybrid(
-            &args.db,
+            &db,
             &args.query,
             args.limite,
             args.min_similitud,
@@ -574,17 +601,15 @@ fn busca_cmd(args: ArgsSearch) -> Result<()> {
 }
 
 fn corre(nombre: &str, args: ArgsIndex, borra_antes: bool) -> Result<()> {
-    let kb = match args.kb {
-        Some(p) => p,
-        None => kb_desde_config().context("resolver raíz de la KB (--kb ausente)")?,
-    };
+    let kb = resuelve_kb(args.kb)?;
+    let db = resuelve_db(args.db)?;
 
-    if borra_antes && args.db.exists() {
-        std::fs::remove_file(&args.db)
-            .with_context(|| format!("borrar {} antes de rebuild", args.db.display()))?;
+    if borra_antes && db.exists() {
+        std::fs::remove_file(&db)
+            .with_context(|| format!("borrar {} antes de rebuild", db.display()))?;
     }
 
-    let resumen = indexa(&kb, &args.db)?;
+    let resumen = indexa(&kb, &db)?;
 
     if args.json {
         envelope::emite(nombre, serde_json::to_value(&resumen)?);
