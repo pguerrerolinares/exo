@@ -52,6 +52,27 @@ impl std::fmt::Display for Rechazo {
 
 impl std::error::Error for Rechazo {}
 
+impl Rechazo {
+    /// `data` del envelope de un rechazo (spec de write §3.3). Existe para que
+    /// el consumidor tenga el detalle en JSON, no solo una línea de prosa en
+    /// stderr — un contrato prometido por escrito y servido por prosa es la
+    /// definición de contrato no falsable.
+    ///
+    /// El exit code sigue siendo el gate: esto es el detalle, no la señal.
+    pub fn data(&self) -> serde_json::Value {
+        match self {
+            Rechazo::Duplicada { candidatas } => serde_json::json!({
+                "reason": "duplicate",
+                "candidates": candidatas,
+            }),
+            Rechazo::AppendACanon { tier } => serde_json::json!({
+                "reason": "append_to_canon",
+                "tier": tier,
+            }),
+        }
+    }
+}
+
 /// Candidata duplicada devuelta por el dup-gate.
 #[derive(Debug, Clone, Serialize)]
 pub struct Candidata {

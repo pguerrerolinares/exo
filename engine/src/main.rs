@@ -272,17 +272,30 @@ struct ArgsRecall {
 }
 
 fn main() {
-    if let Err(e) = ejecuta() {
-        // Un gate rechazado NO es un error del sistema: es una decisión que se
-        // le devuelve al llamador (nota duplicada, append al canon). Sale con
-        // 3 para que el consumidor lo distinga de un fallo real por exit code
-        // —jamás parseando `data`— y pueda reintentar con `--force`.
-        if let Some(rechazo) = e.downcast_ref::<exo::escritor::Rechazo>() {
-            eprintln!("rechazado: {rechazo}");
-            std::process::exit(3);
+    // Se lee de argv y no del `args` parseado porque en la rama de error el
+    // `args` ya se movió dentro de `ejecuta`. argv es la fuente de verdad y no
+    // puede desincronizarse de lo que el usuario pidió.
+    let quiere_json = std::env::args().any(|a| a == "--json");
+    match ejecuta() {
+        Ok(_) => {}
+        Err(e) => {
+            // Un gate rechazado NO es un error del sistema: es una decisión que
+            // se le devuelve al llamador (nota duplicada, append al canon).
+            // Sale con 3 para que el consumidor lo distinga de un fallo real
+            // por exit code —jamás parseando `data`— y pueda reintentar con
+            // `--force`. Con `--json` además emite el envelope: el exit code
+            // sigue siendo el gate, el envelope es el detalle para quien lo
+            // quiera parsear (spec write §3.3).
+            if let Some(rechazo) = e.downcast_ref::<exo::escritor::Rechazo>() {
+                eprintln!("rechazado: {rechazo}");
+                if quiere_json {
+                    exo::envelope::emite("write", rechazo.data());
+                }
+                std::process::exit(3);
+            }
+            eprintln!("error: {e:#}");
+            std::process::exit(1);
         }
-        eprintln!("error: {e:#}");
-        std::process::exit(1);
     }
 }
 
@@ -317,18 +330,46 @@ fn resuelve_kb(flag: Option<PathBuf>) -> Result<PathBuf> {
     exo::kb_desde_config()
 }
 
-fn ejecuta() -> Result<()> {
+/// El `bool` de retorno es «se pidió `--json»`, extraído del flag ANTES de
+/// mover `args` dentro de cada comando (en la rama de error, `main` ya no
+/// tiene acceso al struct de args movido, de ahí que también lea argv por su
+/// cuenta — ver comentario en `main`).
+fn ejecuta() -> Result<bool> {
     let cli = Cli::parse();
     match cli.comando {
-        Comando::Init(args) => init_cmd(args),
-        Comando::Config(args) => config_cmd(args),
-        Comando::Index(args) => corre("index", args, false),
-        Comando::Rebuild(args) => corre("rebuild", args, true),
-        Comando::Search(args) => busca_cmd(args),
-        Comando::Recall(args) => recall_cmd(args),
+        Comando::Init(args) => {
+            let json = args.json;
+            init_cmd(args).map(|_| json)
+        }
+        Comando::Config(args) => {
+            let json = args.json;
+            config_cmd(args).map(|_| json)
+        }
+        Comando::Index(args) => {
+            let json = args.json;
+            corre("index", args, false).map(|_| json)
+        }
+        Comando::Rebuild(args) => {
+            let json = args.json;
+            corre("rebuild", args, true).map(|_| json)
+        }
+        Comando::Search(args) => {
+            let json = args.json;
+            busca_cmd(args).map(|_| json)
+        }
+        Comando::Recall(args) => {
+            let json = args.json;
+            recall_cmd(args).map(|_| json)
+        }
         Comando::Write(sub) => match sub {
-            ComandoWrite::New(args) => write_new_cmd(args),
-            ComandoWrite::Append(args) => write_append_cmd(args),
+            ComandoWrite::New(args) => {
+                let json = args.json;
+                write_new_cmd(args).map(|_| json)
+            }
+            ComandoWrite::Append(args) => {
+                let json = args.json;
+                write_append_cmd(args).map(|_| json)
+            }
         },
     }
 }

@@ -352,3 +352,14 @@ para el que se construyó.
 > `{"reason":"duplicate","candidates":[{permalink,score}]}` y
 > `{"reason":"append_to_canon","tier":"<t>"}`. El exit code 3 sigue siendo
 > el gate; esto es el detalle, no la senal.
+>
+> **Implementado el 2026-08-26** (hallazgo #3 del gate M4, `engine/src/main.rs`
+> `fn main`, `engine/src/escritor.rs` `impl Rechazo::data`): con `--json`, el
+> rechazo emite `{"schema_version":2,"command":"write","data":<lo de arriba>}`
+> por stdout **además** de la línea humana por stderr, antes de salir 3. El
+> `command` es `"write"` — el mismo que ya usa el envelope de éxito de `write
+> new`/`write append` (§3.3 arriba) — y no un `"write.new"`/`"write.rechazo"`
+> nuevo: ambos subcomandos ya distinguían el caso por `data.op`/`data.reason`,
+> no por el nombre del comando, así que introducir un segundo esquema de
+> nombrado aquí habría sido una inconsistencia gratuita. Sin `--json`, stdout
+> queda vacío como siempre. Test: `engine/tests/rechazo_envelope.rs`.

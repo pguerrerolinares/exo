@@ -49,15 +49,16 @@
 
 - [ ] **Barrer los hallazgos vivos del gate M4** (`evals/e1-read/verdict/gate-m4.md`).
   Cerrados en `acb312e`: traversal por `..` en `--dir`/`--titulo`, `--force` sin
-  rastro en el envelope, flag muerto `--min-similitud` en `write new`. **Vivos 6,
-  por orden de daño:**
+  rastro en el envelope, flag muerto `--min-similitud` en `write new`. Cerrado
+  en la Task 9 de ola 1A (2026-08-26): **#3** — el rechazo exit 3 ahora emite
+  envelope con `--json` (`{"command":"write","data":{"reason":...}}`, claves en
+  inglés por D8; `Rechazo::data` en `escritor.rs`, test
+  `engine/tests/rechazo_envelope.rs`, spec corregida en
+  `2026-08-18-m4-write-design.md`). **Vivos 5, por orden de daño:**
   - **#5 [media]** sin fallback walk+parse (la spec §3.2 lo afirma en presente):
     con índice rancio, un `--crea` puede dejar **dos ficheros con el mismo
     permalink**. Riesgo hoy bajo (las 26 bitácoras de `log/` son slug-clean).
     Mínimo: walk de confirmación antes de crear.
-  - **#3 [media]** el rechazo exit 3 no emite envelope con `--json`: la spec §3.3
-    promete `data.dup_candidatas` y solo hay una línea humana en stderr.
-    Implementarlo o corregir la spec.
   - **#8 [baja]** divergencia de slug medida **19/127** frente a basic-memory
     (`_` conservado en 10 bitácoras rotadas, CamelCase separado, `§`→`ss`).
     Autoconsistente, pero conviene decidirlo **por escrito antes de M5b**,
