@@ -34,6 +34,9 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Comando {
+    /// Crea `~/.exo/config.toml`. Con `--from-basic-memory`, migra los valores
+    /// de `~/.basic-memory/config.json` una sola vez.
+    Init(ArgsInit),
     /// Indexa la KB de forma incremental (mtime al invocar, sin daemon).
     Index(ArgsIndex),
     /// Borra la DB y reconstruye desde cero (primera clase, no cirugía —
@@ -60,6 +63,25 @@ enum ComandoWrite {
     /// Anexa al final de una bitácora sin releerla. Rechaza (exit 3) si el
     /// destino no es `tier: log`, salvo `--force`.
     Append(ArgsWriteAppend),
+}
+
+#[derive(clap::Args)]
+struct ArgsInit {
+    /// Raíz de la KB. Obligatorio salvo con `--from-basic-memory`.
+    #[arg(long)]
+    kb: Option<PathBuf>,
+    /// Nombre de la KB (prefijo de permalink). Obligatorio salvo con
+    /// `--from-basic-memory`.
+    #[arg(long)]
+    name: Option<String>,
+    /// Toma raíz, nombre y embeddings de `~/.basic-memory/config.json`.
+    #[arg(long)]
+    from_basic_memory: bool,
+    /// Sobreescribe una config existente.
+    #[arg(long)]
+    force: bool,
+    #[arg(long)]
+    json: bool,
 }
 
 #[derive(clap::Args)]
@@ -250,6 +272,7 @@ fn main() {
 fn ejecuta() -> Result<()> {
     let cli = Cli::parse();
     match cli.comando {
+        Comando::Init(args) => init_cmd(args),
         Comando::Index(args) => corre("index", args, false),
         Comando::Rebuild(args) => corre("rebuild", args, true),
         Comando::Search(args) => busca_cmd(args),
@@ -259,6 +282,54 @@ fn ejecuta() -> Result<()> {
             ComandoWrite::Append(args) => write_append_cmd(args),
         },
     }
+}
+
+/// `exo init`: escribe la config propia. El volcado de la KB semilla llega en
+/// G3 y se engancha aquí sin cambiar esta firma.
+fn init_cmd(args: ArgsInit) -> Result<()> {
+    let destino = exo::config::ruta_config()?;
+    let db_default = dirs::home_dir().context("sin HOME")?.join(".exo/index.db");
+
+    let (kb, nombre, emb) = if args.from_basic_memory {
+        let ruta = exo::inicia::ruta_basic_memory()?;
+        let json =
+            std::fs::read_to_string(&ruta).with_context(|| format!("leer {}", ruta.display()))?;
+        exo::inicia::desde_basic_memory(&json)?
+    } else {
+        let kb = args
+            .kb
+            .context("--kb es obligatorio sin --from-basic-memory")?;
+        let nombre = args
+            .name
+            .context("--name es obligatorio sin --from-basic-memory")?;
+        // Defaults del modelo de producción: los mismos que la línea base del
+        // eval, declarados en la spec como posicionamiento (producto en español).
+        let emb = exo::config::Embeddings {
+            model: "jinaai/jina-embeddings-v2-base-es".to_string(),
+            dims: 768,
+            min_similarity: 0.35,
+        };
+        (kb, nombre, emb)
+    };
+
+    exo::inicia::escribe_config(&destino, &kb, &nombre, &emb, &db_default, args.force)?;
+
+    if args.json {
+        exo::envelope::emite(
+            "init",
+            serde_json::json!({
+                "config": destino.display().to_string(),
+                "kb": kb.display().to_string(),
+                "name": nombre,
+                "from_basic_memory": args.from_basic_memory,
+            }),
+        );
+    } else {
+        println!("config escrita en {}", destino.display());
+        println!("KB: {} (name: {nombre})", kb.display());
+        println!("siguiente: exo index --json");
+    }
+    Ok(())
 }
 
 /// Lee el contenido de `--from`: ruta de fichero, o stdin si es `-`.
