@@ -91,7 +91,7 @@ fn write_new_rechazado_con_json_emite_envelope_y_sale_3() {
             db.to_str().unwrap(),
             "--dir",
             "projects",
-            "--titulo",
+            "--title",
             "exo — framework unificado de trabajo agéntico",
             "--from",
             cuerpo.path().to_str().unwrap(),

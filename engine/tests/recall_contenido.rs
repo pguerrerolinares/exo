@@ -1,4 +1,4 @@
-//! M6-02: `exo recall --contenido`.
+//! M6-02: `exo recall --content`.
 //!
 //! El hook de arranque que esto sustituye NO inyecta una lista de ficheros:
 //! inyecta el CUERPO del core-index (contrato de memoria + doctrina compacta

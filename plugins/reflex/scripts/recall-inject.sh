@@ -115,7 +115,7 @@ if [ ! -x "$EXO_BIN" ]; then
   exit 0
 fi
 if [ ! -f "$EXO_INDEX" ]; then
-  # Sin índice NO se pasa `--refresca`: dispararía un bootstrap de minutos bajo
+  # Sin índice NO se pasa `--refresh`: dispararía un bootstrap de minutos bajo
   # el timeout del evento. Se abstiene y deja rastro.
   log_ri "degraded" "reason=no-index db=$EXO_INDEX"
   exit 0
@@ -138,8 +138,8 @@ ERR_TMP="$(mktemp)" || ERR_TMP=""
 # llevan valores que controlamos nosotros, así que no la necesitan.
 SALIDA="$(timeout "$EXO_INJECT_TIMEOUT" "$EXO_BIN" recall \
             --db "$EXO_INDEX" --query="$PROMPT" \
-            --min-similitud 0.40 --limite 4 --cap-bytes 4000 \
-            --refresca --json 2>"${ERR_TMP:-/dev/null}")"
+            --min-similarity 0.40 --limit 4 --cap-bytes 4000 \
+            --refresh --json 2>"${ERR_TMP:-/dev/null}")"
 RC=$?
 
 ERR=""

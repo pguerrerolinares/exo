@@ -185,10 +185,10 @@ else fail "P2: engine roto NO se disfraza de empty" "logueó empty"; fi
 : > "$EXO_CALLS"
 run_hook "M6-06" "$FAKE_EXO"
 CALLS="$(cat "$EXO_CALLS" 2>/dev/null)"
-if contains "$CALLS" "--min-similitud 0.40"; then pass "sellado: --min-similitud 0.40 explícito"
-else fail "sellado: --min-similitud 0.40 explícito" "args='$CALLS'"; fi
-if contains "$CALLS" "--refresca"; then pass "P5: con DB presente pasa --refresca"
-else fail "P5: con DB presente pasa --refresca" "args='$CALLS'"; fi
+if contains "$CALLS" "--min-similarity 0.40"; then pass "sellado: --min-similarity 0.40 explícito"
+else fail "sellado: --min-similarity 0.40 explícito" "args='$CALLS'"; fi
+if contains "$CALLS" "--refresh"; then pass "P5: con DB presente pasa --refresh"
+else fail "P5: con DB presente pasa --refresh" "args='$CALLS'"; fi
 
 # F1: un prompt que empieza por guion no puede acabar parseado como flag: si se pasa
 # como argumento separado, clap lo rechaza con exit 2 y el recall se apaga en
@@ -202,7 +202,7 @@ else
   fail "F1: prompt con guion inicial viaja como --query=" "args='$CALLS_GUION'"
 fi
 
-# DB ausente: ni --refresca ni invocación; abstención logueada.
+# DB ausente: ni --refresh ni invocación; abstención logueada.
 : > "$EXO_CALLS"; : > "$REFLEX_LOG_FILE"
 EXO_INDEX_BAK="$EXO_INDEX"; export EXO_INDEX="$TMP/no-hay.db"
 run_hook "M6-06" "$FAKE_EXO"

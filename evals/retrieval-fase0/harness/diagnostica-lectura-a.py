@@ -8,9 +8,9 @@ prohíbe explícitamente ("NO añadas un code-path ni un flag para A"). Esta
 lectura se produce POST-HOC, combinando dos corridas YA capturadas contra
 la MISMA DB:
 
-1. La corrida hybrid del centro del grid (bonus/β centrales, `--min-similitud
-   0.0 --limite 10`) — YA fusionada, YA ordenada por score desc (lectura B).
-2. Una corrida FTS fresca a K_c=50 (`--tipo fts --limite 50`) — el MISMO
+1. La corrida hybrid del centro del grid (bonus/β centrales, `--min-similarity
+   0.0 --limit 10`) — YA fusionada, YA ordenada por score desc (lectura B).
+2. Una corrida FTS fresca a K_c=50 (`--type fts --limit 50`) — el MISMO
    candidatos-FTS que `busca_hybrid` usa internamente (spec §4.2) — para
    saber, por query, qué permalinks tienen candidato FTS.
 

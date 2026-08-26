@@ -13,13 +13,13 @@ use std::path::{Path, PathBuf};
 /// ganadores del sweep 15+1 corridas (grid bonus{0,0.1,0.2,0.3,0.5}×
 /// β{0.6,0.8,1.0} + diagnóstica A, `reports/m2-07-impl-report.md`) —
 /// selección pre-registrada §5.2.4 (max hit@5=49/55 → 4 celdas empatadas en
-/// β=0.6 → menor bonus=0.0), confirmada nativa (§5.2.5, `--min-similitud
+/// β=0.6 → menor bonus=0.0), confirmada nativa (§5.2.5, `--min-similarity
 /// 0.40` da 49/55 idéntico al post-hoc). Cubren SOLO el uso de `exo search
-/// --type hybrid` sin `--bonus`/`--escala-fts` explícitos; el sweep siempre
+/// --type hybrid` sin `--bonus`/`--fts-scale` explícitos; el sweep siempre
 /// pasó ambos flags, así que estos valores no afectaron su resultado. El
 /// threshold ganador (0.40) NO se sella aquí como constante — D-f3/§4.6: el
 /// valor difiere del 0.35 de config y config es RO hasta M5a, así que se
-/// pasa por `--min-similitud 0.40` explícito en corridas/consumidores hasta
+/// pasa por `--min-similarity 0.40` explícito en corridas/consumidores hasta
 /// entonces (documentado en el verdict, no hardcodeado en el binario).
 const BONUS_SELLADO: f64 = 0.0;
 const ESCALA_FTS_SELLADA: f64 = 0.6;
@@ -110,7 +110,7 @@ struct ArgsWriteNew {
     dir: String,
     /// Título de la nota. De él salen el nombre de fichero y el slug del
     /// permalink.
-    #[arg(long)]
+    #[arg(long = "title", alias = "titulo")]
     titulo: String,
     /// Fichero con el cuerpo (`-` = stdin). El contenido NO viaja por argv:
     /// el agente lo escribe con su tool `Write` y aquí solo se referencia,
@@ -141,7 +141,7 @@ struct ArgsWriteAppend {
     #[arg(long)]
     from: String,
     /// Crea la bitácora si no existe (documenta.md la pide con `tier: log`).
-    #[arg(long)]
+    #[arg(long = "create", alias = "crea")]
     crea: bool,
     /// Anexa aunque el destino no sea `tier: log`. Queda registrado en el
     /// envelope (`forzado: true`) para que la excepción sea auditable.
@@ -184,7 +184,7 @@ struct ArgsSearch {
     db: Option<PathBuf>,
     /// Máximo de resultados. Default 10 (replay-engine pasa el suyo
     /// explícito; flags > config).
-    #[arg(long, default_value_t = 10)]
+    #[arg(long = "limit", alias = "limite", default_value_t = 10)]
     limite: usize,
     /// Tipo de búsqueda (fts|vector|hybrid, M2-07). Default `fts`:
     /// comportamiento actual intacto si no se pasa el flag.
@@ -193,7 +193,7 @@ struct ArgsSearch {
     /// Umbral de similitud coseno del arm vector/hybrid. Opcional: si se
     /// omite, cae a `[embeddings] min_similarity` de `~/.exo/config.toml`
     /// (D6, precedencia flags > config). Sin efecto en `--type fts`.
-    #[arg(long)]
+    #[arg(long = "min-similarity", alias = "min-similitud")]
     min_similitud: Option<f64>,
     /// Peso del canal débil en la fórmula de fusión (`bonus·min(v,f)`,
     /// spec fusión §4.4). Solo para `--type hybrid`: override puntual del
@@ -205,7 +205,7 @@ struct ArgsSearch {
     /// D-f1). Solo para `--type hybrid`: override puntual del sellado
     /// (M2-07, §5.2.6); si se omite, cae al default sellado
     /// `ESCALA_FTS_SELLADA`.
-    #[arg(long)]
+    #[arg(long = "fts-scale", alias = "escala-fts")]
     escala_fts: Option<f64>,
     /// Emite el resultado como envelope JSON (spec §4) en stdout.
     #[arg(long)]
@@ -234,7 +234,7 @@ struct ArgsRecall {
     /// (los `tier: core` siempre entran todos); en modo consulta, tope de
     /// `busca_hybrid`. Default 5 (contrato del brief para modo consulta;
     /// mismo flag, mismo default en ambos modos).
-    #[arg(long, default_value_t = 5)]
+    #[arg(long = "limit", alias = "limite", default_value_t = 5)]
     limite: usize,
     /// Presupuesto de bytes del bloque de salida (texto o `--json`), trunca
     /// por líneas ENTERAS. Default 2048 (brief).
@@ -243,27 +243,27 @@ struct ArgsRecall {
     /// Umbral de similitud coseno del arm vector de `busca_hybrid` (modo
     /// consulta). Sin efecto en modo arranque. Default de config si se
     /// omite (D6, mismo contrato que `search`).
-    #[arg(long)]
+    #[arg(long = "min-similarity", alias = "min-similitud")]
     min_similitud: Option<f64>,
     /// Modo arranque en versión CONTENIDO: vuelca el cuerpo de las notas
     /// `tier: core` + lista de recientes, en vez de una línea por nota. Es
     /// lo que consume el hook de SessionStart (paridad con el
     /// `basic-memory-recall.sh` que sustituye, que inyectaba el cuerpo del
     /// core-index, no sus rutas). Incompatible con `--query`.
-    #[arg(long)]
+    #[arg(long = "content", alias = "contenido")]
     contenido: bool,
-    /// Permalink de la nota cuyo cuerpo se quiere en `--contenido` (p.ej.
-    /// `core/core-index`). Sin este flag, `--contenido` vuelca TODAS las
+    /// Permalink de la nota cuyo cuerpo se quiere en `--content` (p.ej.
+    /// `core/core-index`). Sin este flag, `--content` vuelca TODAS las
     /// `tier: core` — que en una KB con un core grande agota el presupuesto
     /// con la primera. Qué nota es "la de arranque" lo decide el consumidor,
     /// no el engine.
-    #[arg(long)]
+    #[arg(long = "note", alias = "nota")]
     nota: Option<String>,
     /// Refresca el índice (indexado incremental) ANTES de servir, para no
     /// devolver un bloque de una KB rancia (M6-01, "índice fresco sin
     /// daemon"). Barato cuando nada cambió: un `stat` por fichero y ninguna
     /// carga del modelo. Si la DB no existe, la construye (bootstrap).
-    #[arg(long)]
+    #[arg(long = "refresh", alias = "refresca")]
     refresca: bool,
     /// Emite el resultado como envelope JSON (spec §4) en stdout. Sin este
     /// flag, imprime un bloque de texto plano (el que consumirá el hook).
@@ -274,7 +274,7 @@ struct ArgsRecall {
 fn main() {
     let cli = Cli::parse();
     // El flag sale del parseo de clap, no de un escaneo de argv: un valor de
-    // otro flag que fuese literalmente "--json" (p.ej. `--titulo "--json"`)
+    // otro flag que fuese literalmente "--json" (p.ej. `--title "--json"`)
     // engañaría al escaneo y filtraría el envelope a stdout sin que nadie lo
     // hubiera pedido. Se consulta ANTES de ejecutar porque en la rama de
     // error el comando ya se ha consumido dentro de `ejecuta`.
@@ -511,7 +511,7 @@ fn write_new_cmd(args: ArgsWriteNew) -> Result<()> {
 }
 
 /// `exo write append`: resuelve permalink→ruta contra el índice y anexa. Con
-/// `--crea`, una bitácora que no existe se crea en vez de fallar.
+/// `--create`, una bitácora que no existe se crea en vez de fallar.
 fn write_append_cmd(args: ArgsWriteAppend) -> Result<()> {
     let kb = resuelve_kb(args.kb)?;
     let db = resuelve_db(args.db)?;
@@ -537,13 +537,13 @@ fn write_append_cmd(args: ArgsWriteAppend) -> Result<()> {
                     .map(|n| n.to_string_lossy().into_owned())
                     .context("la raíz de la KB no tiene nombre de directorio")?;
                 escribe_nueva(&kb, &proyecto, dir, slug_nota, "", Some("log"), &[], false)
-                    .context("crear la bitácora con --crea")?;
+                    .context("crear la bitácora con --create")?;
                 eprintln!("write: bitácora creada en {rel}");
             }
             rel
         }
         None => anyhow::bail!(
-            "{} no está en el índice: comprueba el permalink, o usa --crea si la bitácora aún no existe",
+            "{} no está en el índice: comprueba el permalink, o usa --create si la bitácora aún no existe",
             args.permalink
         ),
     };
@@ -584,7 +584,7 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
         // El resumen va a stderr: stdout es exclusivo del envelope/bloque
         // (contrato §4), y el hook consume stdout tal cual.
         let resumen = exo::refresca_indice(&kb, &db)
-            .context("refrescar el índice antes del recall (--refresca)")?;
+            .context("refrescar el índice antes del recall (--refresh)")?;
         if resumen.indexadas > 0 || resumen.borradas > 0 {
             eprintln!(
                 "refresca: indexadas={} borradas={} saltadas={}",
@@ -595,7 +595,7 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
 
     if args.contenido {
         if args.query.is_some() {
-            anyhow::bail!("--contenido es del modo arranque: no se combina con --query");
+            anyhow::bail!("--content es del modo arranque: no se combina con --query");
         }
         // Camino del hook: bloque de texto a stdout y fuera. No pasa por el
         // envelope ni por `aplica_cap` (trae su propio truncado por líneas).

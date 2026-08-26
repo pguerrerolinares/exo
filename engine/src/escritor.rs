@@ -1,7 +1,7 @@
 //! Write-path de exo (M4/E2). File-first: escribe el markdown de la KB
 //! directamente — la KB es un repo git, así que el rollback es `git checkout`
 //! (spec madre §4.4-E2). NO commitea y NO indexa: lo primero es del agente
-//! (commit scoped por rutas), lo segundo lo absorbe el `--refresca` del recall
+//! (commit scoped por rutas), lo segundo lo absorbe el `--refresh` del recall
 //! de la sesión siguiente (M6-01).
 //!
 //! Reparto de trabajo con el agente (spec M4 §1): aquí viven `new` y `append`
@@ -192,7 +192,7 @@ fn nombre_fichero(titulo: &str) -> String {
 
 /// Rechaza segmentos de ruta que escaparían del árbol de la KB. Es una línea
 /// roja dura: el write-path solo escribe DENTRO de la KB, y un `..` en
-/// `--dir` o `--titulo` la atravesaría (verificado en el gate). No es un gate
+/// `--dir` o `--title` la atravesaría (verificado en el gate). No es un gate
 /// saltable con `--force`: es un error.
 fn verifica_segmento(valor: &str, flag: &str) -> Result<()> {
     if valor
@@ -264,7 +264,7 @@ pub fn escribe_nueva(
     }
 
     verifica_segmento(dir, "--dir")?;
-    verifica_segmento(titulo, "--titulo")?;
+    verifica_segmento(titulo, "--title")?;
 
     let permalink = format!("{proyecto}/{dir}/{}", slug(titulo));
     let ruta_rel = format!("{dir}/{}.md", nombre_fichero(titulo));
@@ -305,7 +305,7 @@ pub fn escribe_append(kb: &Path, ruta_rel: &str, texto: &str, forzar: bool) -> R
     let ruta_abs = kb.join(ruta_rel);
     if !ruta_abs.exists() {
         anyhow::bail!(
-            "{} no existe: para crear la bitácora usa --crea",
+            "{} no existe: para crear la bitácora usa --create",
             ruta_abs.display()
         );
     }

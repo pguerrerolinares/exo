@@ -47,6 +47,17 @@
   declarar `rust-version`, LICENSE en raíz. En un proyecto cuya tesis es "gates y
   evidencia", este es el gate más barato de todos.
 
+- [ ] **Retirar los aliases españoles del CLI en 1.1.** Los diez flags
+  renombrados en la ola 1A (`--limite`→`--limit`, `--titulo`→`--title`,
+  `--contenido`→`--content`, `--nota`→`--note`, `--refresca`→`--refresh`,
+  `--crea`→`--create`, `--min-similitud`→`--min-similarity`,
+  `--escala-fts`→`--fts-scale`) mantienen el nombre viejo como `alias` oculto
+  para que un plugin cacheado no muera a mitad de un hook durante el cutover.
+  Al retirarlos, borrar también el test
+  `los_flags_espanoles_siguen_parseando_como_alias` de `engine/tests/flags.rs`
+  — si no, el borrado se ve rojo y alguien "arregla" el test reponiendo el
+  alias.
+
 - [ ] **Barrer los hallazgos vivos del gate M4** (`evals/e1-read/verdict/gate-m4.md`).
   Cerrados en `acb312e`: traversal por `..` en `--dir`/`--titulo`, `--force` sin
   rastro en el envelope, flag muerto `--min-similitud` en `write new`. Cerrado

@@ -79,8 +79,8 @@ else
   # caso; tirar el aviso dejaría llegar un bloque cortado sin rastro, que es
   # justo la degradación silenciosa que F3.1 arregló.
   ERR_TMP="$(mktemp)"
-  BASE="$("$EXO_BIN" recall --db "$EXO_INDEX" --contenido --nota "$EXO_NOTA" \
-          --limite "$EXO_LIMITE" --cap-bytes "$EXO_CAP" 2>"$ERR_TMP")" || BASE=""
+  BASE="$("$EXO_BIN" recall --db "$EXO_INDEX" --content --note "$EXO_NOTA" \
+          --limit "$EXO_LIMITE" --cap-bytes "$EXO_CAP" 2>"$ERR_TMP")" || BASE=""
   if grep -q 'truncado' "$ERR_TMP" 2>/dev/null; then
     log_recall_fallback "truncated" "$(head -1 "$ERR_TMP" | tr -d '\n' | cut -c1-120)"
   fi

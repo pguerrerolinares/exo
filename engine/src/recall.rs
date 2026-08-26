@@ -5,7 +5,7 @@
 //!
 //! Dos modos (brief M2-08, contrato CLI fijado por el orquestador):
 //! - **arranque** (sin `--query`): notas `tier: core` en orden de ruta
-//!   estable + las `--limite` notas más recientes por `git_epoch`.
+//!   estable + las `--limit` notas más recientes por `git_epoch`.
 //! - **consulta** (con `--query`): `busca_hybrid` con los defaults sellados
 //!   de M2-07.
 //!
@@ -474,7 +474,7 @@ fn tier_de(ruta: &Path) -> Option<String> {
 /// Modo consulta (brief §Tarea 2): `busca_hybrid` con los defaults sellados
 /// (`bonus`/`escala_fts` los pasa el llamador — M2-07, `BONUS_SELLADO`/
 /// `ESCALA_FTS_SELLADA` viven en `main.rs`, no se duplican aquí) y
-/// `--min-similitud` con el mismo default de config que `search`. El
+/// `--min-similarity` con el mismo default de config que `search`. El
 /// snippet de cada nota es su PRIMER trozo (`orden = 0`): la fusión
 /// hybrid no expone qué trozo individual disparó el match de una entidad
 /// (agrega por máxima similitud, spec fusión) y recalcular esa similitud

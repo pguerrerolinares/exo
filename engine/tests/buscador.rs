@@ -169,7 +169,7 @@ fn busca_vector_con_db_poblada_devuelve_entidades_ordenadas() {
 
 /// Un threshold inalcanzable (por encima del máximo teórico de similitud
 /// coseno, 1.0) filtra todo — verifica que el filtro por
-/// `semantic_min_similarity`/`--min-similitud` realmente se aplica.
+/// `semantic_min_similarity`/`--min-similarity` realmente se aplica.
 #[test]
 fn busca_vector_threshold_alto_filtra_todo() {
     let (_kb, _db_dir, db) = db_indexada();
@@ -312,7 +312,7 @@ fn db_con_entidades_empatadas(orden: [&str; 3]) -> (tempfile::TempDir, std::path
 }
 
 /// M2-09a: `busca_vector` desempata por permalink ascendente cuando el score
-/// empata exactamente. `--min-similitud -2.0` (por debajo del mínimo teórico
+/// empata exactamente. `--min-similarity -2.0` (por debajo del mínimo teórico
 /// de coseno, -1.0) garantiza que el filtro de umbral nunca descarte las
 /// tres entidades empatadas, sin importar el signo real de la similitud
 /// contra la query embebida.

@@ -1,4 +1,4 @@
-//! M6-01: índice fresco sin daemon. `exo recall --refresca` corre el
+//! M6-01: índice fresco sin daemon. `exo recall --refresh` corre el
 //! indexado incremental ANTES de servir, para que el consumidor (el hook de
 //! recall de M6) no sirva un bloque de una KB rancia. basic-memory tenía un
 //! watch en segundo plano; exo indexa al invocar (spec §4.2: "incremental por
