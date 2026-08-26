@@ -5,6 +5,7 @@ use std::sync::{Mutex, Once};
 
 pub mod aristas;
 pub mod buscador;
+pub mod config;
 pub mod envelope;
 pub mod escritor;
 pub mod indexer;
