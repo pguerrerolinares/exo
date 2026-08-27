@@ -1,6 +1,6 @@
 ---
 permalink: "{{KB_NAME}}/projects/_template"
-title: _template
+title: Plantilla de proyecto
 tags: [plantilla]
 tier: stable
 semilla: true

@@ -47,7 +47,11 @@ volatilidad y cómo debe tratarlas un proceso de mantenimiento de la KB:
 Un proceso de consolidación de la KB puede tratar de forma distinta las
 notas `stable` (las revisa, las funde, las poda) y las `log` (las deja
 crecer y, cuando corresponde, las resume hacia una nota `stable` sin tocar
-el original, o lo mueve a `archive/`).
+el original, o lo mueve a `archive/`). Una nota `stable` también puede
+retirarse a `archive/` cuando deja de estar activa (un proyecto cerrado, un
+learning ya fundido en otro); el traslado cambia la carpeta, no el `tier`
+del frontmatter — sigue llevando `stable`, ahora leído como "estable pero
+retirada" en vez de "estable y vigente".
 
 ## La regla de oro: dónde va un avance
 

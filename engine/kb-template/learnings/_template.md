@@ -1,6 +1,6 @@
 ---
 permalink: "{{KB_NAME}}/learnings/_template"
-title: _template
+title: Plantilla de learning
 tags: [plantilla]
 tier: stable
 semilla: true

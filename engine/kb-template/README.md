@@ -28,15 +28,20 @@ sin tener que releer todo el historial de trabajo.
 
 Para el contrato completo de cómo un agente debe leer y escribir en esta
 estructura (qué va a cada carpeta, la regla de oro de routing), ver
-`AGENTS.md` en esta misma carpeta.
+[[Contrato de la KB para agentes|AGENTS.md]] en esta misma carpeta. Como
+primera lectura, empieza por
+[[core-index — mapa y presupuesto de esta KB|core/core-index]]: es el mapa
+de qué hay y dónde, pensado para leerse antes que cualquier otra cosa.
 
 ## Cómo se indexa
 
 Las notas de esta KB se recorren periódicamente con un indexador: una
 herramienta que lee cada fichero, extrae su frontmatter (título, tags,
 permalink) y su contenido, y construye un índice de búsqueda a partir de
-ello. No hace falta mantener ningún índice a mano — se regenera a partir de
-las notas cada vez que se ejecuta.
+ello. Este índice de búsqueda no hace falta mantenerlo a mano — se regenera
+a partir de las notas cada vez que se ejecuta. Es un índice distinto de
+`core-index.md`: aquel es una nota-mapa que sí hay que mantener a mano, y
+esto es la base de datos de búsqueda que el indexador reconstruye sola.
 
 Si llegaste aquí por `exo init`, el comando es `exo index`.
 
@@ -60,4 +65,4 @@ soporte la herramienta concreta que se esté usando). Con `exo`, es
 `exo search "lo que buscas"`. El flujo habitual de
 un agente es: buscar primero si ya existe una nota relacionada con lo que se
 quiere anotar o consultar, y solo si no existe, plantearse crear una nueva
-siguiendo la regla de oro descrita en `AGENTS.md`.
+siguiendo la regla de oro descrita en [[Contrato de la KB para agentes|AGENTS.md]].

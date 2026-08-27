@@ -1,6 +1,6 @@
 ---
 permalink: "{{KB_NAME}}/log/_template"
-title: _template
+title: Plantilla de bitácora
 tags: [plantilla]
 tier: log
 semilla: true
