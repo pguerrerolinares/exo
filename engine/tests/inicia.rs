@@ -132,3 +132,82 @@ fn no_pisa_una_config_existente_sin_force() {
     let contenido = std::fs::read_to_string(&destino).expect("releer");
     assert_eq!(contenido, "# la config del usuario\n");
 }
+
+#[test]
+fn init_rechaza_un_directorio_no_vacio_sin_force() {
+    let dir = tempfile::TempDir::new().unwrap();
+    std::fs::write(dir.path().join("algo.md"), "x").unwrap();
+    let e = exo::inicia::prepara_kb(dir.path(), false).unwrap_err();
+    assert!(
+        e.to_string().contains("no está vacía"),
+        "mensaje inesperado: {e}"
+    );
+}
+
+#[test]
+fn init_acepta_un_directorio_vacio() {
+    let dir = tempfile::TempDir::new().unwrap();
+    exo::inicia::prepara_kb(dir.path(), false).expect("dir vacío debe pasar");
+}
+
+#[test]
+fn init_acepta_un_directorio_inexistente() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let nueva = dir.path().join("kb-nueva");
+    exo::inicia::prepara_kb(&nueva, false).expect("dir inexistente debe pasar");
+}
+
+/// `--from-basic-memory` adopta una KB existente: NO puede escribir ni un
+/// byte dentro de ella. Con el cableado de la v1 de este plan, este test
+/// fallaba de las dos formas posibles: sin `--force` abortaba, y con `--force`
+/// machacaba `core/core-index.md` con la semilla.
+#[test]
+fn adopcion_no_toca_ni_un_fichero_de_la_kb_existente() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let kb = tmp.path().join("kb-poblada");
+    std::fs::create_dir_all(kb.join("core")).unwrap();
+    let canon = kb.join("core/core-index.md");
+    std::fs::write(
+        &canon,
+        "---\npermalink: real/core/core-index\n---\nCONTENIDO REAL\n",
+    )
+    .unwrap();
+    let antes = std::fs::read_to_string(&canon).unwrap();
+
+    let bm = tmp.path().join("bm.json");
+    let kb_json = kb.display().to_string().replace('\\', "/");
+    std::fs::write(
+        &bm,
+        format!(
+            r#"{{"projects":{{"real":{{"path":"{}"}}}},"default_project":"real","semantic_embedding_model":"{}","semantic_embedding_dimensions":768,"semantic_min_similarity":0.35}}"#,
+            kb_json,
+            exo::MODELO_JINA_ES
+        ),
+    )
+    .unwrap();
+
+    // Ejecuta el binario en modo adopción con config y db aisladas.
+    let salida = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
+        .args(["init", "--from-basic-memory", "--json"])
+        .env("EXO_CONFIG", tmp.path().join("config.toml"))
+        .env("EXO_DB", tmp.path().join("index.db"))
+        .env("EXO_BASIC_MEMORY_JSON", &bm)
+        .output()
+        .expect("ejecutar exo init");
+
+    assert!(
+        salida.status.success(),
+        "init falló: {}",
+        String::from_utf8_lossy(&salida.stderr)
+    );
+    assert_eq!(
+        std::fs::read_to_string(&canon).unwrap(),
+        antes,
+        "la adopción escribió en la KB"
+    );
+    assert!(
+        !kb.join("AGENTS.md").exists(),
+        "la adopción volcó la plantilla"
+    );
+    assert!(!kb.join(".git").exists(), "la adopción hizo git init");
+}

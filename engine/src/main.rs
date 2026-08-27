@@ -369,18 +369,58 @@ fn ejecuta(comando: Comando) -> Result<()> {
     }
 }
 
-/// `exo init`: escribe la config propia. El volcado de la KB semilla llega en
-/// G3 y se engancha aquí sin cambiar esta firma.
+/// `git init` + primer commit sobre la KB recién volcada.
+/// `std::process::Command`, nunca `git2`: añadir una dependencia con
+/// toolchain C contradice D4, que existe para sacar el toolchain C del
+/// camino del usuario. Un fallo en CUALQUIER paso (git ausente del PATH, o
+/// presente pero sin `user.name`/`user.email` en una máquina fresca de
+/// tercero — el caso más probable del público de G3) avisa por stderr y NO
+/// aborta: una KB sin git funciona, abortar por eso sería peor.
+fn versiona_kb(kb: &Path) -> bool {
+    let paso = |args: &[&str]| -> bool {
+        match std::process::Command::new("git")
+            .arg("-C")
+            .arg(kb)
+            .args(args)
+            .output()
+        {
+            Ok(salida) if salida.status.success() => true,
+            Ok(salida) => {
+                eprintln!(
+                    "aviso: git {} falló: {}",
+                    args.join(" "),
+                    String::from_utf8_lossy(&salida.stderr).trim()
+                );
+                false
+            }
+            Err(e) => {
+                eprintln!("aviso: no se pudo ejecutar git {}: {e}", args.join(" "));
+                false
+            }
+        }
+    };
+
+    paso(&["init"])
+        && paso(&["add", "."])
+        && paso(&["commit", "-m", "kb: semilla inicial de exo init"])
+}
+
+/// `exo init`: dos modos. ADOPCIÓN (`--from-basic-memory`) apunta a una KB
+/// **ya existente y poblada** — no se toca ni un byte dentro de ella: nada
+/// de `prepara_kb`, nada de plantilla, nada de `git init`. CREACIÓN (`--kb`
+/// + `--name`) es la que nace aquí: valida el destino, vuelca la semilla, la
+/// versiona con git (best-effort) y la indexa.
 fn init_cmd(args: ArgsInit) -> Result<()> {
     let destino = exo::config::ruta_config()?;
     let db_default = dirs::home_dir().context("sin HOME")?.join(".exo/index.db");
 
-    let (kb, nombre, emb) = if args.from_basic_memory {
+    let (kb, nombre, emb, modo, escritos, git_ok) = if args.from_basic_memory {
         let ruta = exo::inicia::ruta_basic_memory()?;
         let json =
             std::fs::read_to_string(&ruta).with_context(|| format!("leer {}", ruta.display()))?;
-        exo::inicia::desde_basic_memory(&json)
-            .with_context(|| format!("leyendo {}", ruta.display()))?
+        let (kb, nombre, emb) = exo::inicia::desde_basic_memory(&json)
+            .with_context(|| format!("leyendo {}", ruta.display()))?;
+        (kb, nombre, emb, "adopt", Vec::new(), false)
     } else {
         let kb = args
             .kb
@@ -401,10 +441,24 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
             dims: 768,
             min_similarity: 0.35,
         };
-        (kb, nombre, emb)
+
+        exo::inicia::prepara_kb(&kb, args.force)?;
+        std::fs::create_dir_all(&kb).with_context(|| format!("crear {}", kb.display()))?;
+        let escritos = exo::plantilla::vuelca(&kb, &nombre)?;
+        let git_ok = versiona_kb(&kb);
+
+        (kb, nombre, emb, "create", escritos, git_ok)
     };
 
     exo::inicia::escribe_config(&destino, &kb, &nombre, &emb, &db_default, args.force)?;
+
+    // Índice inicial. `resuelve_db(None)` (precedencia `$EXO_DB` > `[index]
+    // db`), NO `db_default`: `db_default` es lo que se GRABA en config.toml,
+    // pero el índice que se toca aquí es el efectivo — si no fuera por
+    // `EXO_DB`, un test (o un `exo init` bajo `$HOME` no estándar) indexaría
+    // el `~/.exo/index.db` real de la máquina.
+    let db = resuelve_db(None)?;
+    indexa(&kb, &db)?;
 
     if args.json {
         exo::envelope::emite(
@@ -414,12 +468,31 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
                 "kb": kb.display().to_string(),
                 "name": nombre,
                 "from_basic_memory": args.from_basic_memory,
+                "mode": modo,
+                "files": escritos.len(),
+                "git": git_ok,
             }),
         );
     } else {
-        println!("config escrita en {}", destino.display());
+        match modo {
+            "adopt" => {
+                println!("KB existente adoptada: {} (name: {nombre})", kb.display());
+                println!("config escrita en {}", destino.display());
+            }
+            _ => {
+                println!(
+                    "KB semilla volcada en {} ({} ficheros)",
+                    kb.display(),
+                    escritos.len()
+                );
+                if !git_ok {
+                    eprintln!("aviso: la KB no quedó versionada con git (ver avisos arriba)");
+                }
+                println!("config escrita en {}", destino.display());
+            }
+        }
         println!("KB: {} (name: {nombre})", kb.display());
-        println!("siguiente: exo index --json");
+        println!("siguiente: exo recall --json");
     }
     Ok(())
 }

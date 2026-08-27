@@ -106,8 +106,39 @@ min_similarity = {}
 }
 
 /// Ruta por defecto del JSON de basic-memory, para `--from-basic-memory`.
+///
+/// `EXO_BASIC_MEMORY_JSON` la overridea cuando está puesta (y no vacía) —
+/// mismo patrón que `resuelve_db`/`resuelve_kb` en `main.rs`: sin este seam,
+/// los tests de adopción leerían el `~/.basic-memory/config.json` real de la
+/// máquina y dejarían de ser herméticos.
 pub fn ruta_basic_memory() -> Result<PathBuf> {
+    if let Ok(v) = std::env::var("EXO_BASIC_MEMORY_JSON") {
+        if !v.is_empty() {
+            return Ok(PathBuf::from(v));
+        }
+    }
     Ok(dirs::home_dir()
         .context("sin HOME")?
         .join(".basic-memory/config.json"))
+}
+
+/// Comprueba que `kb` es un destino legítimo: inexistente, o existente y
+/// vacío. Con `force`, cualquiera. Volcar sobre una KB con contenido pisaría
+/// notas de alguien sin avisar — el efecto silencioso que este proyecto
+/// persigue.
+pub fn prepara_kb(kb: &Path, force: bool) -> Result<()> {
+    if force || !kb.exists() {
+        return Ok(());
+    }
+    let vacia = std::fs::read_dir(kb)
+        .with_context(|| format!("leer {}", kb.display()))?
+        .next()
+        .is_none();
+    if !vacia {
+        anyhow::bail!(
+            "{} existe y no está vacía — repite con --force si de verdad quieres volcar encima",
+            kb.display()
+        );
+    }
+    Ok(())
 }
