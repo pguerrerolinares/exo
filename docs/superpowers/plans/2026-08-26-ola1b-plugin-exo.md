@@ -481,7 +481,7 @@ repo del monorepo, así que ningún `grep` del monorepo lo encuentra.
 - Consumes: el plugin renombrado de las Tasks 2-3.
 - Produces: el gate de la KB apuntando al plugin nuevo.
 
-- [ ] **Step 1: Demostrar el fallo antes de arreglarlo**
+- [x] **Step 1: Demostrar el fallo antes de arreglarlo**
 
 ```bash
 ls -d "$HOME"/.claude/plugins/cache/exo/reflex/*/scripts/kb-precommit.sh 2>/dev/null; echo "GLOB_VIEJO_EXIT=$?"
@@ -491,7 +491,7 @@ ls -d "$HOME"/.claude/plugins/cache/exo/exo/*/scripts/kb-precommit.sh 2>/dev/nul
 Hoy el viejo resuelve y el nuevo no. Tras el cutover será al revés — y el shim
 sin tocar se iría por la rama `exit 0`. Anota ambas salidas en el runbook.
 
-- [ ] **Step 2: Reescribir el shim para que falle RUIDOSO, no permisivo**
+- [x] **Step 2: Reescribir el shim para que falle RUIDOSO, no permisivo**
 
 El shim actual deja pasar el commit cuando no encuentra el script, con el
 argumento de que «un plugin ausente no debe convertirse en un repo bloqueado».
@@ -532,7 +532,7 @@ fi
 exec bash "$script" "$@"
 ```
 
-- [ ] **Step 3: Verificar el shim en sus tres estados**
+- [x] **Step 3: Verificar el shim en sus tres estados**
 
 ```bash
 HOOK=/c/proyectos/homework/kb-demo/.git/hooks/pre-commit
@@ -551,20 +551,20 @@ HOME=/tmp/home-vacio bash "$HOOK" </dev/null; echo "EXIT_B=$?"
 Expected: `EXIT_B=1` y dos líneas en stderr. **Este es el test que importa**:
 antes daba 0.
 
-- [ ] **Step 4: Actualizar los comentarios de `kb-precommit.sh`**
+- [x] **Step 4: Actualizar los comentarios de `kb-precommit.sh`**
 
 En `plugins/exo/scripts/kb-precommit.sh`, actualizar la cabecera y cualquier
 comentario que cite `plugin reflex` o la ruta `cache/exo/reflex/`. **No toques
 las llamadas a `kbx`**: eso es G4.
 
-- [ ] **Step 5: Documentar en el runbook**
+- [x] **Step 5: Documentar en el runbook**
 
 Añadir al runbook de la Task 1 una sección `## El shim del pre-commit` con: el
 fallo demostrado en el Step 1, el cambio de criterio (permisivo → ruidoso) y
 su razón, y la nota de que el fallback a `reflex` se retira cuando las dos
 máquinas estén migradas.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 cd /c/proyectos/homework/exo
