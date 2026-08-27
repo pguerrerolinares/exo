@@ -35,7 +35,11 @@ EXO_INDEX="${EXO_INDEX:-$HOME/.exo/index.db}"
 EXO_CAP="${EXO_RECALL_CAP:-6144}"
 # Recientes en el digest. El camino viejo listaba hasta 15 permalinks de los
 # últimos 3 días; con 5 se perdían notas del mismo día (hallazgo del gate M6).
-# 10 cabe de sobra: el bloque real ronda los 4,5 KB sobre un cap de 6144.
+# 10 cabe de sobra por número de notas, pero el margen de BYTES ya no sobra:
+# medido el 2026-08-27, el bloque real es 5.921 B sobre el cap de 6.144 — un
+# 3,6% de aire, y el desbordamiento se trunca EN SILENCIO por el final. El
+# comentario anterior decía «ronda los 4,5 KB»: llevaba rancio lo bastante
+# como para tranquilizar a quien lo leyera. Ver docs/backlog.md.
 EXO_LIMITE="${EXO_RECALL_LIMITE:-10}"
 
 log_recall_fallback() {  # $1=reason $2=payload extra opcional

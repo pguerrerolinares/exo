@@ -36,6 +36,29 @@
   `EXO_CONFIG` a un tempdir, como ya hacen `engine/src/config.rs` y
   `engine/tests/config_cableado.rs`.
 
+- [ ] **El bloque de arranque va al 96% de su cap, y desborda en silencio.**
+  Medido el 2026-08-27 al validar la Task 6 de la ola 1B: el bloque que
+  `exo-recall.sh` inyecta en cada `SessionStart` ocupa **5.921 B sobre un cap de
+  6.144** (`EXO_CAP="${EXO_RECALL_CAP:-6144}"`, `:36`) — **223 B de aire, un
+  3,6%**. La doctrina de presupuestos de la propia KB exige **15%** al sellar un
+  techo, y llama a lo de estar a ras «un mordisco programado para mañana».
+  **El modo de fallo es el peor posible**: la cabecera de `core-index.md` lo
+  dice literalmente — «lo que sobra se trunca **en silencio** por el final». No
+  hay error, no hay aviso en el log; simplemente el arranque deja de servir el
+  final del bloque. Y el final es la cola de «Destilados de proyecto activos»:
+  hoy, la entrada de **exo** — el proyecto en curso.
+  **Por qué crece solo**: el bloque es `core-index.md` (5.355 B) **más** los
+  punteros de actividad reciente, que salen de la actividad git de la KB y por
+  tanto **varían solos, sin que nadie edite nada**. Una racha de commits en la
+  KB puede empujarlo por encima del cap sin un solo cambio de contenido.
+  No lo causó esta ola (aportó 28 B de esos 5.921), pero la ola lo hizo medible.
+  **Acción, por orden de coste:** (a) que el truncado **grite** — un aviso por
+  stderr y un evento en el log cuando el bloque toca el cap, hoy no hay ninguno;
+  (b) pasada de `/distill` sobre `core-index` retirando entradas muertas (es
+  índice: se retiran entradas, no se comprimen las vivas) — la propia entrada de
+  exo está rancia, sigue diciendo «Frente: C10/M5a-02 config propia», que se
+  cerró hoy; (c) revisar si el cap de 6.144 sigue siendo el correcto.
+
 - [ ] **`inject-emitted` se emite aunque no se inyecte nada.** Medido el
   2026-08-27 al validar la Task 3-bis de la ola 1B: con la KB sin resolver, el
   perfil `reducido` (el del agente `executor`) compone **71 bytes de cabecera y

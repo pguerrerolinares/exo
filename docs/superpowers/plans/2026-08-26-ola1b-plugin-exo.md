@@ -692,7 +692,7 @@ git commit -m "feat(marketplace): el repo exo sirve su propio marketplace exo@ex
   se inyecta en cada arranque de sesión, así que una línea rancia ahí es
   doctrina falsa servida en cada sesión.
 
-- [ ] **Step 1: Inventariar**
+- [x] **Step 1: Inventariar**
 
 ```bash
 cd /c/proyectos/homework/kb-demo
@@ -703,7 +703,7 @@ grep -rn 'plugin `process`\|process:\|reflex:\|/documenta\|/consolida' \
 `archive/` y `log/` son bitácora e histórico: hablan del pasado y **no se
 tocan**. Solo el canon vivo.
 
-- [ ] **Step 2: Actualizar la línea de routing de `core-index.md`**
+- [x] **Step 2: Actualizar la línea de routing de `core-index.md`**
 
 La línea actual empieza por «ROUTING DE PROCESO (plugin `process`)». Sustituir
 por:
@@ -712,7 +712,7 @@ por:
 - ROUTING DE PROCESO (plugin `exo`): brainstorm (diseño antes de código) · plan (spec→plan) · orchestrate (ejecutar plan multi-tarea) · tdd (test primero) · debug (bug o atasco) · verify (antes de declarar hecho) · document (cierre de sesión) · distill (consolidación offline). Si una aplica — aunque sea al 1% — invócala ANTES de responder o actuar, incluidas las preguntas aclaratorias; no lo racionalices. Subagente ejecutando una tarea concreta: exento.
 ```
 
-- [ ] **Step 3: Verificar el presupuesto de `core-index` (no lo revientes)**
+- [x] **Step 3: Verificar el presupuesto de `core-index` (no lo revientes)**
 
 `core-index` tiene techo sellado y se inyecta en un bloque de 6.144 B. Añadir
 `· distill (consolidación offline)` lo engorda.
@@ -727,12 +727,12 @@ Compara el tamaño con el techo sellado. Si lo rebasa: **no subas el techo y no
 mutiles la nota**. Retira una entrada muerta del índice, que es lo que la
 doctrina permite para un índice. Si nada cabe, deja el cambio pendiente y dilo.
 
-- [ ] **Step 4: Barrer el resto del canon**
+- [x] **Step 4: Barrer el resto del canon**
 
 Los demás matches del Step 1, con el mismo criterio de la Task 3: lee el
 contexto, «documentación» no es el skill.
 
-- [ ] **Step 5: Commit en la KB (con el gate corriendo)**
+- [x] **Step 5: Commit en la KB (con el gate corriendo)**
 
 ```bash
 cd /c/proyectos/homework/kb-demo
