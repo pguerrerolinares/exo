@@ -11,6 +11,8 @@
 //! (`embebidos` / `reusados`) del indexer, que es lo que distingue haber
 //! llamado al modelo de haberlo evitado.
 
+mod common;
+
 use exo::indexer::indexa;
 use std::fs;
 use std::process::Command;
@@ -67,36 +69,38 @@ fn reindexar_sin_cambios_de_texto_no_vuelve_a_embeber() {
     kb_con(kb.path(), &dos_parrafos("Segundo párrafo original."));
     commitea(kb.path(), "uno");
 
-    let primero = indexa(kb.path(), &db).unwrap();
-    assert!(
-        primero.trozos_embebidos >= 2,
-        "el primer indexado sí embebe"
-    );
-    assert_eq!(primero.trozos_reusados, 0, "no había nada que reutilizar");
+    common::con_config(kb.path(), "kb-test", &db, || {
+        let primero = indexa(kb.path(), &db).unwrap();
+        assert!(
+            primero.trozos_embebidos >= 2,
+            "el primer indexado sí embebe"
+        );
+        assert_eq!(primero.trozos_reusados, 0, "no había nada que reutilizar");
 
-    // Cambia el frontmatter (el título), NO el cuerpo: el mtime cambia, así
-    // que la nota se reindexa entera... pero ni un solo trozo debe pasar por
-    // el modelo.
-    fs::write(
-        kb.path().join("nota.md"),
-        format!(
-            "---\npermalink: kb/nota\ntitle: Otro título\n---\n\n{}\n",
-            dos_parrafos("Segundo párrafo original.")
-        ),
-    )
-    .unwrap();
-    commitea(kb.path(), "dos");
+        // Cambia el frontmatter (el título), NO el cuerpo: el mtime cambia, así
+        // que la nota se reindexa entera... pero ni un solo trozo debe pasar por
+        // el modelo.
+        fs::write(
+            kb.path().join("nota.md"),
+            format!(
+                "---\npermalink: kb/nota\ntitle: Otro título\n---\n\n{}\n",
+                dos_parrafos("Segundo párrafo original.")
+            ),
+        )
+        .unwrap();
+        commitea(kb.path(), "dos");
 
-    let segundo = indexa(kb.path(), &db).unwrap();
-    assert_eq!(
-        segundo.indexadas, 1,
-        "la nota sí se reindexa (mtime cambió)"
-    );
-    assert_eq!(
-        segundo.trozos_embebidos, 0,
-        "ningún trozo cambió de texto: cero llamadas al modelo"
-    );
-    assert!(segundo.trozos_reusados >= 2, "todos reutilizados");
+        let segundo = indexa(kb.path(), &db).unwrap();
+        assert_eq!(
+            segundo.indexadas, 1,
+            "la nota sí se reindexa (mtime cambió)"
+        );
+        assert_eq!(
+            segundo.trozos_embebidos, 0,
+            "ningún trozo cambió de texto: cero llamadas al modelo"
+        );
+        assert!(segundo.trozos_reusados >= 2, "todos reutilizados");
+    });
 }
 
 #[test]
@@ -108,27 +112,29 @@ fn editar_un_trozo_solo_reembebe_ese_trozo() {
     kb_con(kb.path(), &dos_parrafos("Segundo párrafo original."));
     commitea(kb.path(), "uno");
 
-    let primero = indexa(kb.path(), &db).unwrap();
-    let total = primero.trozos_embebidos;
-    assert!(total >= 2);
+    common::con_config(kb.path(), "kb-test", &db, || {
+        let primero = indexa(kb.path(), &db).unwrap();
+        let total = primero.trozos_embebidos;
+        assert!(total >= 2);
 
-    // Solo cambia el segundo párrafo.
-    kb_con(
-        kb.path(),
-        &dos_parrafos("Segundo párrafo REESCRITO por completo."),
-    );
-    commitea(kb.path(), "dos");
+        // Solo cambia el segundo párrafo.
+        kb_con(
+            kb.path(),
+            &dos_parrafos("Segundo párrafo REESCRITO por completo."),
+        );
+        commitea(kb.path(), "dos");
 
-    let segundo = indexa(kb.path(), &db).unwrap();
-    assert_eq!(
-        segundo.trozos_embebidos, 1,
-        "solo el trozo tocado pasa por el modelo"
-    );
-    assert_eq!(
-        segundo.trozos_reusados,
-        total - 1,
-        "el resto se reutiliza tal cual"
-    );
+        let segundo = indexa(kb.path(), &db).unwrap();
+        assert_eq!(
+            segundo.trozos_embebidos, 1,
+            "solo el trozo tocado pasa por el modelo"
+        );
+        assert_eq!(
+            segundo.trozos_reusados,
+            total - 1,
+            "el resto se reutiliza tal cual"
+        );
+    });
 }
 
 #[test]
@@ -139,19 +145,22 @@ fn el_embedding_reutilizado_es_el_mismo_byte_a_byte() {
     git(kb.path(), &["init", "-q"]);
     kb_con(kb.path(), &dos_parrafos("Segundo párrafo original."));
     commitea(kb.path(), "uno");
-    indexa(kb.path(), &db).unwrap();
 
-    let antes = embedding_del_primer_trozo(&db);
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
 
-    kb_con(kb.path(), &dos_parrafos("Segundo párrafo REESCRITO."));
-    commitea(kb.path(), "dos");
-    indexa(kb.path(), &db).unwrap();
+        let antes = embedding_del_primer_trozo(&db);
 
-    let despues = embedding_del_primer_trozo(&db);
-    assert_eq!(
-        antes, despues,
-        "reutilizar no puede corromper ni desplazar el vector guardado"
-    );
+        kb_con(kb.path(), &dos_parrafos("Segundo párrafo REESCRITO."));
+        commitea(kb.path(), "dos");
+        indexa(kb.path(), &db).unwrap();
+
+        let despues = embedding_del_primer_trozo(&db);
+        assert_eq!(
+            antes, despues,
+            "reutilizar no puede corromper ni desplazar el vector guardado"
+        );
+    });
 }
 
 /// Lee el embedding del trozo `orden = 0` de la única nota, como blob crudo.

@@ -223,7 +223,7 @@ pub fn con_config<T>(kb: &Path, nombre: &str, db: &Path, f: impl FnOnce() -> T) 
 
 ```bash
 cd engine
-EXO_CONFIG=/tmp/no-existe.toml cargo test --release \
+EXO_CONFIG=/tmp/no-existe.toml cargo test --release --no-fail-fast \
   --test write_create_permalink --test rechazo_envelope
 ```
 
@@ -252,7 +252,7 @@ existe para desmentir).
 
 ```bash
 cd engine
-EXO_CONFIG=/tmp/no-existe.toml cargo test --release \
+EXO_CONFIG=/tmp/no-existe.toml cargo test --release --no-fail-fast \
   --test write_create_permalink --test rechazo_envelope
 echo "EXIT=$?"
 ```
@@ -396,11 +396,17 @@ git commit -m "test(engine): hermetizada buscador contra la config global"
 
 ```bash
 cd engine
-EXO_CONFIG=/tmp/no-existe.toml cargo test --release \
+EXO_CONFIG=/tmp/no-existe.toml cargo test --release --no-fail-fast \
   --test recall --test recall_contenido --test guarda_modelo --test refresca --test cache_embeddings
 ```
 
 Expected: 5 + 7 + 5 + 4 + 3 = 24 failed, 0 passed en las cinco.
+
+> **`--no-fail-fast` es obligatorio aquí, no cosmético.** Sin él, cargo aborta
+> tras el PRIMER binario que falla y las otras cuatro suites no llegan a
+> ejecutarse: verías un rojo parcial y creerías que el reparto del plan está
+> mal. Lo detectó el ejecutor de la Task 1 midiendo su propio Step 2, donde el
+> comando tenía el mismo defecto.
 
 > El total del plan (61) sale de 1+1 (Task 1) + 19 (Task 2a) + 16 (Task 2b)
 > + 24 (Task 3).
@@ -422,7 +428,7 @@ Mismo patrón. Dos avisos concretos:
 
 ```bash
 cd engine
-EXO_CONFIG=/tmp/no-existe.toml cargo test --release \
+EXO_CONFIG=/tmp/no-existe.toml cargo test --release --no-fail-fast \
   --test recall --test recall_contenido --test guarda_modelo --test refresca --test cache_embeddings
 echo "EXIT=$?"
 ```

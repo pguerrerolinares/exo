@@ -12,6 +12,8 @@
 //! nombre del comando. Inventar `write.new`/`write.rechazo` aquí habría sido
 //! un segundo esquema de nombrado conviviendo con el que ya existe.
 
+mod common;
+
 #[test]
 fn el_data_del_rechazo_duplicada_lleva_las_candidatas() {
     let r = exo::escritor::Rechazo::Duplicada {
@@ -90,35 +92,48 @@ fn write_new_rechazado_con_json_emite_envelope_y_sale_3() {
     let kb_tmp = tempfile::tempdir().expect("tempdir kb");
 
     let cuerpo = tempfile::NamedTempFile::new().expect("tmp");
-    let out = std::process::Command::new(&bin)
-        .args([
-            "write",
-            "new",
-            "--db",
-            db.to_str().unwrap(),
-            "--kb",
-            kb_tmp.path().to_str().unwrap(),
-            "--dir",
-            "projects",
-            "--title",
-            "exo — framework unificado de trabajo agéntico",
-            "--from",
-            cuerpo.path().to_str().unwrap(),
-            "--json",
-        ])
-        .output()
-        .expect("correr");
 
-    assert_eq!(out.status.code(), Some(3), "el gate debe salir 3");
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    let v: serde_json::Value = serde_json::from_str(stdout.trim())
-        .unwrap_or_else(|e| panic!("stdout no es envelope ({e}): {stdout}"));
-    assert_eq!(v["command"], "write");
-    assert_eq!(v["data"]["reason"], "duplicate");
-    assert!(
-        v["data"]["candidates"]
-            .as_array()
-            .is_some_and(|a| !a.is_empty()),
-        "sin candidatas en el envelope: {v}"
-    );
+    // Config temporal del proceso (helper de `common`): el subproceso de abajo
+    // no recibe `--kb`/`--db` como fuente de config (esos flags solo dirigen
+    // el propio comando), así que hereda `EXO_CONFIG` del entorno de ESTE
+    // proceso de test. Sin esto cae al `~/.exo/config.toml` de la máquina en
+    // un runner limpio y el gate nunca llega a evaluarse.
+    common::con_config(kb_tmp.path(), "rechazo-envelope-kb", &db, || {
+        let out = std::process::Command::new(&bin)
+            .args([
+                "write",
+                "new",
+                "--db",
+                db.to_str().unwrap(),
+                "--kb",
+                kb_tmp.path().to_str().unwrap(),
+                "--dir",
+                "projects",
+                "--title",
+                "exo — framework unificado de trabajo agéntico",
+                "--from",
+                cuerpo.path().to_str().unwrap(),
+                "--json",
+            ])
+            .output()
+            .expect("correr");
+
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert_eq!(
+            out.status.code(),
+            Some(3),
+            "el gate debe salir 3 (stdout={stdout}, stderr={stderr})"
+        );
+        let v: serde_json::Value = serde_json::from_str(stdout.trim())
+            .unwrap_or_else(|e| panic!("stdout no es envelope ({e}): {stdout}"));
+        assert_eq!(v["command"], "write");
+        assert_eq!(v["data"]["reason"], "duplicate");
+        assert!(
+            v["data"]["candidates"]
+                .as_array()
+                .is_some_and(|a| !a.is_empty()),
+            "sin candidatas en el envelope: {v}"
+        );
+    });
 }
