@@ -71,30 +71,41 @@ podrá distinguir «esto ya estaba roto» de «lo rompí yo».
 - Consumes: nada.
 - Produces: el runbook de cutover, que las Tasks 4 y 8 amplían.
 
-- [ ] **Step 1: ¿El hook `Stop` reindexa de verdad en esta máquina?**
+- [x] **Step 1: ¿El hook `Stop` reindexa de verdad en esta máquina?**
 
 Es el item 3 de la ola 0 de la spec: el fix de portabilidad está instalado
 (reflex 0.17.0) pero **no hay evidencia de que se haya ejecutado nunca**.
 
+> **Corregido el 2026-08-27 al ejecutarlo: el check original no era falsable.**
+> Mandaba `grep -c '"event":"index"' ~/.claude/reflex-log.jsonl`, que
+> devuelve `0` funcione el hook o no, por dos razones independientes: **(a)** ese
+> log no tiene ninguna clave `event` — usa `"reflex":"<nombre>"`, y
+> `grep -c '"event"'` da `0` sobre el fichero entero; **(b)** el indexado con
+> éxito **no se loguea ahí por diseño** — `exo-index.sh` solo llama a
+> `reflex_log` en la rama de fallo (`index-fallback`, `:36-41`) y manda la
+> salida del camino feliz a otro fichero (`:29`). Un check que da el mismo
+> número con el instrumento sano y roto no mide nada. El artefacto real es el
+> log de indexado.
+
 ```bash
+ls -l ~/.claude/exo-index.log
+grep -c '"command":"index"' ~/.claude/exo-index.log
+tail -1 ~/.claude/exo-index.log
 stat -c '%y %n' ~/.exo/index.db
-grep -c '"event":"index"' ~/.claude/reflex-log.jsonl 2>/dev/null || echo 0
-tail -3 ~/.claude/reflex-log.jsonl
+jq -r 'select(.reflex=="index-fallback") | "\(.ts) \(.payload)"' ~/.claude/reflex-log.jsonl
 ```
 
-Anota el mtime y el conteo. Luego **cierra una sesión de Claude Code de
-verdad** en este repo y repite:
+Expected: el conteo de envelopes crece entre dos cierres de sesión y el `tail`
+muestra uno reciente. Cero envelopes **o** entradas de `index-fallback` es el
+hallazgo: anótalo en el runbook **antes** de seguir — no lo arregles aquí.
 
-```bash
-stat -c '%y %n' ~/.exo/index.db
-grep -c '"event":"index"' ~/.claude/reflex-log.jsonl
-```
+**Resultado (2026-08-27):** 65 envelopes, el último de hoy a las 12:26, cero
+`index-fallback`. El hook reindexa: cierra el item 3 de la ola 0 de la spec.
+Y de paso el `tail` deja ver el desfase vivo — `"schema_version":1` y claves
+en español desde un binario instalado el 24-08, anterior al merge de la ola 1A.
+Detalle en el runbook.
 
-Expected: mtime posterior **y** conteo mayor. Si el mtime no se mueve, el hook
-no reindexa y eso es un hallazgo que hay que anotar en el runbook **antes** de
-seguir — no lo arregles aquí, pero déjalo escrito.
-
-- [ ] **Step 2: Inventariar qué plugins están instalados y en qué versión**
+- [x] **Step 2: Inventariar qué plugins están instalados y en qué versión**
 
 ```bash
 ls -d ~/.claude/plugins/cache/exo/*/*/ 2>/dev/null
@@ -103,7 +114,7 @@ cat ~/.claude/plugins/installed_plugins.json 2>/dev/null | jq . 2>/dev/null | he
 
 Anota la salida literal en el runbook: es el estado al que hay que poder volver.
 
-- [ ] **Step 3: Comprobar que el gate de la KB funciona HOY**
+- [x] **Step 3: Comprobar que el gate de la KB funciona HOY**
 
 ```bash
 cat /c/proyectos/homework/kb-demo/.git/hooks/pre-commit
@@ -114,7 +125,7 @@ Expected: el shim existe **y** el glob resuelve a un fichero real. Si el
 segundo comando no devuelve nada, el gate ya está abierto y hay que decirlo
 antes de que el rename se lleve la culpa.
 
-- [ ] **Step 4: Crear el runbook con la baseline**
+- [x] **Step 4: Crear el runbook con la baseline**
 
 Crear `docs/superpowers/runbooks/2026-08-26-cutover-plugin-exo.md` con la
 salida literal de los tres pasos anteriores bajo una sección `## Baseline
