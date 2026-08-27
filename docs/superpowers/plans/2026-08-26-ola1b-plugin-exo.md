@@ -131,7 +131,7 @@ Crear `docs/superpowers/runbooks/2026-08-26-cutover-plugin-exo.md` con la
 salida literal de los tres pasos anteriores bajo una sección `## Baseline
 (antes del cutover)`, y una sección `## Rollback` vacía que la Task 8 rellena.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd /c/proyectos/homework/exo
@@ -154,7 +154,7 @@ git commit -m "docs(runbook): baseline falsable antes del cutover del plugin exo
 - Produces, para las Tasks 3-8: el árbol `plugins/exo/` con
   `skills/`, `agents/`, `hooks/hooks.json`, `scripts/`, `LICENSES/`.
 
-- [ ] **Step 1: Mover con `git mv`, no con `cp`**
+- [x] **Step 1: Mover con `git mv`, no con `cp`**
 
 `git mv` conserva la detección de renames y con ella el `git log --follow` de
 cada script. Copiar y borrar la pierde.
@@ -172,7 +172,7 @@ git mv plugins/reflex/skills/recon-first plugins/exo/skills/recon-first
 git status --short | head -40
 ```
 
-- [ ] **Step 2: Verificar que no queda nada suelto**
+- [x] **Step 2: Verificar que no queda nada suelto**
 
 ```bash
 cd /c/proyectos/homework/exo
@@ -183,7 +183,7 @@ Expected: solo los dos `.claude-plugin/plugin.json` y los dos `README.md`
 viejos, que se borran en el paso siguiente. Cualquier otra cosa es un fichero
 que el `git mv` se dejó.
 
-- [ ] **Step 3: Crear el manifest del plugin nuevo**
+- [x] **Step 3: Crear el manifest del plugin nuevo**
 
 Crear `plugins/exo/.claude-plugin/plugin.json`:
 
@@ -200,7 +200,7 @@ Crear `plugins/exo/.claude-plugin/plugin.json`:
 }
 ```
 
-- [ ] **Step 4: Borrar los manifests y READMEs viejos, escribir el nuevo**
+- [x] **Step 4: Borrar los manifests y READMEs viejos, escribir el nuevo**
 
 ```bash
 cd /c/proyectos/homework/exo
@@ -213,7 +213,7 @@ con su evento y su fichero, y la sección de atribución a superpowers que ya
 existía en `plugins/process/README.md` (**no la pierdas**: es la obligación
 de la licencia MIT).
 
-- [ ] **Step 5: Verificar que los hooks siguen resolviendo**
+- [x] **Step 5: Verificar que los hooks siguen resolviendo**
 
 `hooks.json` usa `"${CLAUDE_PLUGIN_ROOT}"/scripts/x.sh`, que es relativo al
 plugin, así que el contenido **no cambia**. Compruébalo:
@@ -228,7 +228,7 @@ jq -r '.hooks | to_entries[] | .value[] | .hooks[] | .command' plugins/exo/hooks
 
 Expected: **nueve líneas `OK`, cero `FALTA`**.
 
-- [ ] **Step 6: Correr las suites de script en su ubicación nueva**
+- [x] **Step 6: Correr las suites de script en su ubicación nueva**
 
 ```bash
 cd /c/proyectos/homework/exo
@@ -241,7 +241,7 @@ done
 Expected: todas `OK`. Si alguna falla por una ruta que asumía `reflex/` en el
 path, arréglala aquí.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 cd /c/proyectos/homework/exo
