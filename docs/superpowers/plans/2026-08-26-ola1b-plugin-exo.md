@@ -266,7 +266,7 @@ git commit -m "refactor(plugins): fusionar process y reflex en el plugin único 
 - Produces: los nueve skills con nombre definitivo, invocables como
   `exo:document` y `exo:distill`.
 
-- [ ] **Step 1: Inventariar todas las referencias antes de mover**
+- [x] **Step 1: Inventariar todas las referencias antes de mover**
 
 ```bash
 cd /c/proyectos/homework/exo
@@ -281,7 +281,7 @@ Guarda `/tmp/refs-rename.txt`: es la lista de la compra. Los documentos
 históricos (`consultas/`, planes viejos) **no se tocan** — son audit trail y
 hablan del pasado.
 
-- [ ] **Step 2: Mover los directorios**
+- [x] **Step 2: Mover los directorios**
 
 ```bash
 cd /c/proyectos/homework/exo
@@ -290,7 +290,7 @@ git mv plugins/exo/skills/consolida plugins/exo/skills/distill
 git mv plugins/exo/scripts/documenta-remind.sh plugins/exo/scripts/document-remind.sh
 ```
 
-- [ ] **Step 3: Actualizar el frontmatter de los dos SKILL.md**
+- [x] **Step 3: Actualizar el frontmatter de los dos SKILL.md**
 
 En `plugins/exo/skills/document/SKILL.md`, línea 2:
 
@@ -309,7 +309,7 @@ kb-demo» por «Consolidación offline de la KB» —el nombre de la KB de Paul
 no pinta nada en un plugin que va a ser público—. Actualiza también sus
 triggers entrecomillados si citan `/consolida`.
 
-- [ ] **Step 4: Actualizar la ruta del script en `hooks.json`**
+- [x] **Step 4: Actualizar la ruta del script en `hooks.json`**
 
 En `plugins/exo/hooks/hooks.json`, en el bloque `Stop`:
 
@@ -317,7 +317,7 @@ En `plugins/exo/hooks/hooks.json`, en el bloque `Stop`:
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/document-remind.sh"
 ```
 
-- [ ] **Step 5: Barrer el resto de referencias**
+- [x] **Step 5: Barrer el resto de referencias**
 
 Recorre `/tmp/refs-rename.txt` fichero a fichero. Los sitios conocidos:
 
@@ -334,7 +334,7 @@ En cada uno, `/documenta`→`/document`, `/consolida`→`/distill`,
 `process:documenta`→`exo:document`, `reflex:consolida`→`exo:distill`. **Lee el
 contexto de cada match**: «documentación» y «documentar» no son el skill.
 
-- [ ] **Step 6: Verificar que no queda ninguna referencia viva**
+- [x] **Step 6: Verificar que no queda ninguna referencia viva**
 
 ```bash
 cd /c/proyectos/homework/exo
@@ -349,7 +349,7 @@ ls plugins/exo/skills/
 
 Expected exactamente: `brainstorm  debug  distill  document  orchestrate  plan  recon-first  tdd  verify`
 
-- [ ] **Step 7: Los tests de script siguen verdes**
+- [x] **Step 7: Los tests de script siguen verdes**
 
 ```bash
 cd /c/proyectos/homework/exo
@@ -361,7 +361,7 @@ done
 
 Expected: todas `OK`.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 cd /c/proyectos/homework/exo
@@ -371,6 +371,95 @@ git commit -m "refactor(plugins)!: documenta->document, consolida->distill
 BREAKING CHANGE: los skills cambian de nombre y de prefijo. Invocación nueva:
 exo:document, exo:distill. Referencias externas (KB, paul-profile, shim del
 pre-commit) se repuntan en los commits siguientes."
+```
+
+---
+
+### Task 3-bis: Repuntar las invocaciones `process:` / `reflex:` DENTRO del plugin
+
+> **Task añadida el 2026-08-27, durante la ejecución.** No estaba en el plan y
+> es un **hueco**, no un extra: la spec la exige en el punto 4 de su inventario
+> de cutover («`Agent(subagent_type: "reflex:executor")` → `exo:executor`, en
+> docs y skills»), pero ninguna task la reclamaba para el contenido del propio
+> plugin. La Task 5 repunta `paul-profile` (otro repo) y la Task 7 son docs del
+> monorepo. Lo levantó el ejecutor de la Task 3 al ver que el grep del Step 6
+> seguía devolviendo ~24 líneas después de su trabajo.
+
+**Files:**
+- Modify: `plugins/exo/agents/executor.md`
+- Modify: `plugins/exo/scripts/inject-profiles.json`
+- Modify: `plugins/exo/skills/{brainstorm,debug,orchestrate,plan,recon-first,verify}/**`
+- Modify: `plugins/exo/scripts/test-a1-gate.sh`, `plugins/exo/scripts/test-compose-inject.sh`
+
+**Interfaces:**
+- Consumes: los nombres nuevos de las Tasks 2 y 3.
+- Produces: un plugin que se invoca a sí mismo por su nombre nuevo. **Sin esto,
+  el cutover de la Task 8 deja el plugin llamando a plugins que ya no existen.**
+
+**Por qué es prioridad y no limpieza cosmética.** El caso grave no son las
+menciones en prosa, es `scripts/inject-profiles.json`. Se consume así:
+
+```bash
+# subagent-inject.sh:18
+PERFIL="$(jq -r --arg t "$TYPE" '.[$t] // ._default' "$SCRIPT_DIR/inject-profiles.json" ...)"
+```
+
+`.[$t] // ._default`: si la clave no encaja, **cae al perfil por defecto en
+silencio**. Cuando el agente pase a llamarse `exo:executor` y el JSON siga
+diciendo `reflex:executor`, cada subagente recibirá la doctrina equivocada con
+exit 0 y forma válida. Es el riesgo 5 de la spec —*reflex desenchufado sin
+síntoma*— dentro del hook `SubagentStart`.
+
+- [ ] **Step 1: Inventario, separando vivo de sintaxis**
+
+```bash
+grep -rn 'process:[a-z-]*\|reflex:[a-z-]*' plugins/exo/
+```
+
+Tres categorías, y **la tercera NO se toca**:
+
+1. **Invocable vivo** — `process:plan`, `process:tdd`, `process:orchestrate`,
+   `process:debug`, `reflex:executor` en `skills/**` y en `agents/executor.md`.
+   Van a `exo:*`.
+2. **Clave de lookup y sus fixtures** — `inject-profiles.json` y los
+   `agent_type` de `test-a1-gate.sh` / `test-compose-inject.sh`. Van a
+   `exo:executor`, y las fixtures **con** la clave, o el test dejaría de
+   ejercitar el camino real.
+3. **Sintaxis de jq, NO es una referencia** — `_reflex-log.sh:20`
+   (`reflex:$reflex`) construye la clave del log. Tocarlo rompe el log.
+
+- [ ] **Step 2: Repuntar las categorías 1 y 2**
+
+- [ ] **Step 3: El check que ata el lookup, no la cadena**
+
+Que el string haya cambiado no prueba que el perfil se resuelva. Ejercita el
+script de verdad:
+
+```bash
+S=plugins/exo/scripts
+echo '{"agent_type":"exo:executor"}' | bash "$S/subagent-inject.sh" | jq -e '.' >/dev/null && echo "invoca OK"
+jq -e '."exo:executor"' "$S/inject-profiles.json"
+jq -e 'has("reflex:executor") | not' "$S/inject-profiles.json"
+```
+
+Expected: el perfil de `exo:executor` existe y **no** queda `reflex:executor`.
+Un `._default` devuelto para `exo:executor` es el fallo silencioso vivo.
+
+- [ ] **Step 4: Cero invocables vivos**
+
+```bash
+grep -rn 'process:[a-z-]*\|reflex:[a-z-]*' plugins/exo/ | grep -v '_reflex-log.sh'
+```
+
+Expected: **cero líneas**. Si sale algo, o es categoría 3 y se documenta, o se
+repunta.
+
+- [ ] **Step 5: Suites verdes y commit**
+
+Las diez suites `test-*.sh` en verde — incluidas las dos cuyas fixtures cambian.
+
+```bash
+git commit -m "fix(plugins)!: el plugin exo se invoca por su nombre nuevo"
 ```
 
 ---
