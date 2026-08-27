@@ -1,0 +1,11 @@
+{
+  "name": "exo",
+  "owner": { "name": "Paul Guerrero", "email": "pguerrerolinares@gmail.com" },
+  "metadata": { "version": "1.0.0", "pluginRoot": "./plugins" },
+  "plugins": [
+    { "name": "exo", "source": "./plugins/exo",
+      "description": "Framework de trabajo agéntico con memoria persistente: nueve skills de proceso, el agente executor y la capa de reflejos.",
+      "version": "1.0.0",
+      "author": { "name": "Paul Guerrero", "email": "pguerrerolinares@gmail.com" } }
+  ]
+}
