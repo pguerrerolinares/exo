@@ -282,6 +282,12 @@ fn init_con_nombre_valido_produce_frontmatter_parseable_e_indexable() {
         .args(["--db"])
         .arg(&db2)
         .arg("--json")
+        // `EXO_CONFIG` explicito, no heredado: bajo `scripts/test-hermetico.sh`
+        // el proceso padre lleva `EXO_CONFIG` a una ruta inexistente a
+        // proposito, y el subproceso lo heredaria y moriria leyendo la config
+        // de embeddings. La config correcta aqui es justo la que `init` acaba
+        // de escribir, que es la que describe esta KB.
+        .env("EXO_CONFIG", &config)
         .output()
         .expect("ejecutar exo index");
     assert!(
