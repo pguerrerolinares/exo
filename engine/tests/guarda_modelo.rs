@@ -12,8 +12,12 @@
 //! jamás se llama (m2-06). La guarda vive al INICIO de `indexa`, antes de
 //! tocar fastembed (decisión del brief T1) — por eso estos tests son
 //! rápidos y deterministas, y por eso pueden sembrar `meta` a mano en vez
-//! de tocar la config real (`config_embeddings()` lee `$HOME` global y no
-//! es inyectable; cambiar `$HOME` en el test redescargaría el modelo).
+//! de tocar el modelo de la config (con `EXO_CONFIG` la config SÍ es
+//! inyectable por proceso vía `common::con_config`; sembrar `meta` sigue
+//! siendo el camino más simple para simular "este índice viene de otro
+//! modelo" sin montar una segunda config).
+
+mod common;
 
 use exo::indexer::indexa;
 use tempfile::TempDir;
@@ -41,25 +45,27 @@ fn modelo_distinto_aborta_y_cita_rebuild() {
     let kb = kb_vacia();
     let (_dbdir, db) = db_temporal();
 
-    // Primera corrida: DB nueva, meta.modelo_embeddings ausente todavía ->
-    // pasa la guarda y escribe el modelo real de la config.
-    indexa(kb.path(), &db).unwrap();
+    common::con_config(kb.path(), "kb-test", &db, || {
+        // Primera corrida: DB nueva, meta.modelo_embeddings ausente todavía ->
+        // pasa la guarda y escribe el modelo de la config temporal.
+        indexa(kb.path(), &db).unwrap();
 
-    // Se siembra en meta un modelo DISTINTO, como si este índice viniera de
-    // otro modelo (sin tocar la config real, ver comentario del módulo).
-    let conn = exo::abre_db(&db).unwrap();
-    conn.execute(
-        "UPDATE meta SET valor = 'multilingual-e5-base' WHERE clave = 'modelo_embeddings'",
-        [],
-    )
-    .unwrap();
-    drop(conn);
+        // Se siembra en meta un modelo DISTINTO, como si este índice viniera de
+        // otro modelo (sin tocar la config, ver comentario del módulo).
+        let conn = exo::abre_db(&db).unwrap();
+        conn.execute(
+            "UPDATE meta SET valor = 'multilingual-e5-base' WHERE clave = 'modelo_embeddings'",
+            [],
+        )
+        .unwrap();
+        drop(conn);
 
-    let err = indexa(kb.path(), &db).unwrap_err();
-    assert!(
-        err.to_string().contains("rebuild"),
-        "el mensaje debe citar 'exo rebuild', fue: {err}"
-    );
+        let err = indexa(kb.path(), &db).unwrap_err();
+        assert!(
+            err.to_string().contains("rebuild"),
+            "el mensaje debe citar 'exo rebuild', fue: {err}"
+        );
+    });
 }
 
 #[test]
@@ -67,27 +73,29 @@ fn clave_ausente_migra_en_silencio() {
     let kb = kb_vacia();
     let (_dbdir, db) = db_temporal();
 
-    indexa(kb.path(), &db).unwrap();
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
 
-    // Simula un índice viejo, de antes de que esta guarda existiera.
-    let conn = exo::abre_db(&db).unwrap();
-    conn.execute("DELETE FROM meta WHERE clave = 'modelo_embeddings'", [])
-        .unwrap();
-    drop(conn);
+        // Simula un índice viejo, de antes de que esta guarda existiera.
+        let conn = exo::abre_db(&db).unwrap();
+        conn.execute("DELETE FROM meta WHERE clave = 'modelo_embeddings'", [])
+            .unwrap();
+        drop(conn);
 
-    // No debe fallar: sin clave que comparar, la guarda deja pasar y
-    // `indexa` la reescribe.
-    indexa(kb.path(), &db).unwrap();
+        // No debe fallar: sin clave que comparar, la guarda deja pasar y
+        // `indexa` la reescribe.
+        indexa(kb.path(), &db).unwrap();
 
-    let conn = exo::abre_db(&db).unwrap();
-    let valor: String = conn
-        .query_row(
-            "SELECT valor FROM meta WHERE clave = 'modelo_embeddings'",
-            [],
-            |r| r.get(0),
-        )
-        .expect("la clave debe quedar reescrita tras la migración silenciosa");
-    assert!(!valor.is_empty());
+        let conn = exo::abre_db(&db).unwrap();
+        let valor: String = conn
+            .query_row(
+                "SELECT valor FROM meta WHERE clave = 'modelo_embeddings'",
+                [],
+                |r| r.get(0),
+            )
+            .expect("la clave debe quedar reescrita tras la migración silenciosa");
+        assert!(!valor.is_empty());
+    });
 }
 
 /// Fix del finding Critical de la review de T1: `meta.modelo_embeddings`
@@ -164,41 +172,45 @@ fn clave_escrita_aunque_la_corrida_no_llegue_al_final() {
 
     let (_dbdir, db) = db_temporal();
 
-    let resultado = indexa(kb.path(), &db);
+    common::con_config(kb.path(), "kb-test", &db, || {
+        let resultado = indexa(kb.path(), &db);
 
-    assert!(
-        resultado.is_err(),
-        "la corrida debía abortar al toparse con b-illeg.md ilegible"
-    );
+        assert!(
+            resultado.is_err(),
+            "la corrida debía abortar al toparse con b-illeg.md ilegible"
+        );
 
-    let conn = exo::abre_db(&db).unwrap();
+        let conn = exo::abre_db(&db).unwrap();
 
-    // Confirma que el escenario del finding realmente ocurrió: a.md quedó
-    // commiteada (transacción por nota) ANTES del abort en b-illeg.md. Sin
-    // esto el test no probaría nada — necesitamos que haya vectores en disco
-    // de la corrida abortada para que "meta debe reflejarlos" tenga sentido.
-    let a_commiteada: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM notas WHERE permalink = 'kb/a'",
-            [],
-            |r| r.get(0),
-        )
-        .unwrap();
-    assert_eq!(
-        a_commiteada, 1,
-        "a.md debía quedar commiteada antes del abort en b-illeg.md"
-    );
+        // Confirma que el escenario del finding realmente ocurrió: a.md quedó
+        // commiteada (transacción por nota) ANTES del abort en b-illeg.md. Sin
+        // esto el test no probaría nada — necesitamos que haya vectores en disco
+        // de la corrida abortada para que "meta debe reflejarlos" tenga sentido.
+        let a_commiteada: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM notas WHERE permalink = 'kb/a'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            a_commiteada, 1,
+            "a.md debía quedar commiteada antes del abort en b-illeg.md"
+        );
 
-    // A pesar del abort, meta.modelo_embeddings debe estar escrita: es la
-    // garantía que exige el fix (upsert junto a kb_root, al principio).
-    let valor: String = conn
-        .query_row(
-            "SELECT valor FROM meta WHERE clave = 'modelo_embeddings'",
-            [],
-            |r| r.get(0),
-        )
-        .expect("modelo_embeddings debe quedar escrita aunque la corrida haya abortado a mitad");
-    assert!(!valor.is_empty());
+        // A pesar del abort, meta.modelo_embeddings debe estar escrita: es la
+        // garantía que exige el fix (upsert junto a kb_root, al principio).
+        let valor: String = conn
+            .query_row(
+                "SELECT valor FROM meta WHERE clave = 'modelo_embeddings'",
+                [],
+                |r| r.get(0),
+            )
+            .expect(
+                "modelo_embeddings debe quedar escrita aunque la corrida haya abortado a mitad",
+            );
+        assert!(!valor.is_empty());
+    });
 }
 
 /// Fix de la review final de T1: un índice viejo (clave ausente) que YA
@@ -217,38 +229,40 @@ fn clave_ausente_con_vectores_sigue_migrando_sin_error() {
     let kb = kb_vacia();
     let (_dbdir, db) = db_temporal();
 
-    indexa(kb.path(), &db).unwrap();
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
 
-    // Simula un índice viejo con vectores ya en disco (de "otro modelo",
-    // aunque aquí el contenido del vector es indiferente al escenario) y sin
-    // la clave que los identifica.
-    let conn = exo::abre_db(&db).unwrap();
-    conn.execute("DELETE FROM meta WHERE clave = 'modelo_embeddings'", [])
-        .unwrap();
-    exo::vectores::inserta(&conn, 1, &vec![0.0f32; 768]).unwrap();
-    drop(conn);
+        // Simula un índice viejo con vectores ya en disco (de "otro modelo",
+        // aunque aquí el contenido del vector es indiferente al escenario) y sin
+        // la clave que los identifica.
+        let conn = exo::abre_db(&db).unwrap();
+        conn.execute("DELETE FROM meta WHERE clave = 'modelo_embeddings'", [])
+            .unwrap();
+        exo::vectores::inserta(&conn, 1, &vec![0.0f32; 768]).unwrap();
+        drop(conn);
 
-    // No debe fallar: el conteo de vectores solo dispara un aviso por
-    // stderr, nunca un abort.
-    indexa(kb.path(), &db).unwrap();
+        // No debe fallar: el conteo de vectores solo dispara un aviso por
+        // stderr, nunca un abort.
+        indexa(kb.path(), &db).unwrap();
 
-    let conn = exo::abre_db(&db).unwrap();
-    let valor: String = conn
-        .query_row(
-            "SELECT valor FROM meta WHERE clave = 'modelo_embeddings'",
-            [],
-            |r| r.get(0),
-        )
-        .expect("la clave debe quedar reescrita tras la migración silenciosa");
-    assert!(!valor.is_empty());
+        let conn = exo::abre_db(&db).unwrap();
+        let valor: String = conn
+            .query_row(
+                "SELECT valor FROM meta WHERE clave = 'modelo_embeddings'",
+                [],
+                |r| r.get(0),
+            )
+            .expect("la clave debe quedar reescrita tras la migración silenciosa");
+        assert!(!valor.is_empty());
 
-    let n_vectores: i64 = conn
-        .query_row("SELECT COUNT(*) FROM vectores", [], |r| r.get(0))
-        .unwrap();
-    assert_eq!(
-        n_vectores, 1,
-        "el vector sembrado no debe tocarse por el aviso"
-    );
+        let n_vectores: i64 = conn
+            .query_row("SELECT COUNT(*) FROM vectores", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(
+            n_vectores, 1,
+            "el vector sembrado no debe tocarse por el aviso"
+        );
+    });
 }
 
 #[test]
@@ -256,21 +270,23 @@ fn modelo_igual_no_falla_al_reindexar() {
     let kb = kb_vacia();
     let (_dbdir, db) = db_temporal();
 
-    indexa(kb.path(), &db).unwrap();
-    // Segunda corrida sin tocar nada: meta.modelo_embeddings ya coincide
-    // con la config -> debe seguir sin error.
-    indexa(kb.path(), &db).unwrap();
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
+        // Segunda corrida sin tocar nada: meta.modelo_embeddings ya coincide
+        // con la config -> debe seguir sin error.
+        indexa(kb.path(), &db).unwrap();
 
-    let conn = exo::abre_db(&db).unwrap();
-    let filas: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM meta WHERE clave = 'modelo_embeddings'",
-            [],
-            |r| r.get(0),
-        )
-        .unwrap();
-    assert_eq!(
-        filas, 1,
-        "modelo_embeddings debe ser upsert, no insert repetido"
-    );
+        let conn = exo::abre_db(&db).unwrap();
+        let filas: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM meta WHERE clave = 'modelo_embeddings'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            filas, 1,
+            "modelo_embeddings debe ser upsert, no insert repetido"
+        );
+    });
 }
