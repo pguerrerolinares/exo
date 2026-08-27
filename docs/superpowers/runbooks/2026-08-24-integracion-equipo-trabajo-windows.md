@@ -276,3 +276,24 @@ eficiencia y portabilidad, no de corrección.
 - Los commits quedaron firmados con la identidad corporativa de esta máquina
   (`dev@example.invalid`) en un repo personal.
 - `cargo fmt --check` no es gate en este repo: 90 diffs preexistentes.
+
+## Actualización 2026-08-26: plugin único exo
+
+Los plugins `process` y `reflex` se fusionaron en un plugin único `exo`
+v1.0.0 (nueve skills, agente `executor`). El repo `exo` pasó a ser su propio
+marketplace: ya no se sirve desde `exo-plugins`. Los comandos de instalación
+de más arriba (`claude plugin install process@exo` / `reflex@exo` contra el
+marketplace `exo-plugins`) documentan lo que se hizo aquel día y no se tocan;
+los equivalentes de hoy son:
+
+```bash
+claude plugin marketplace add pguerrerolinares/exo
+claude plugin install exo@exo
+```
+
+Y la ruta de verificación de `exo-recall.sh` de más arriba
+(`cache/exo/reflex/*/scripts/exo-recall.sh`) pasa a:
+
+```bash
+~/.claude/plugins/cache/exo/exo/*/scripts/exo-recall.sh
+```

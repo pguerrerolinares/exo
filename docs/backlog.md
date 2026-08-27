@@ -154,6 +154,10 @@
   de la raíz fuera de toda convención (los verdicts sí viven ordenados en
   `evals/*/verdict/`). **Acción:** decidir de una vez — renombrar o escribir por
   qué se queda. Barato ahora, caro cuando haya más ficheros.
+  **Actualización (G2, fusión de plugins):** resuelta la incoherencia de
+  nombres para `plugins/` — ya no hay `process`/`reflex`, hay un único
+  `plugins/exo/`. Quedan vivas como deuda sin resolver `docs/superpowers/` y
+  `reports/`; se abordan en G5.
 
 - [ ] **Residuos de entorno del plan** (ya listados allí, se repiten aquí para no
   perderlos): `crontab -r` pendiente de M1a · `reflex-baseline.sh` traga errores
