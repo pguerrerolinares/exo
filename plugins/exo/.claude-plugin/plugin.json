@@ -1,0 +1,10 @@
+{
+  "name": "exo",
+  "description": "Framework de trabajo agéntico con memoria persistente. Nueve skills de proceso (brainstorm · plan · orchestrate · tdd · debug · verify · document · distill · recon-first), el agente de rol `executor` con la doctrina en su system prompt, y la capa de reflejos: guardrails deterministas en PreToolUse/SessionStart/UserPromptSubmit/SubagentStart/Stop que activan conocimiento procedural en el punto de acción. El recall lo sirve el engine `exo` desde SQLite. Abstención por defecto. Destila el catálogo de obra/superpowers (MIT, © 2025 Jesse Vincent) más doctrina propia.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Paul Guerrero",
+    "email": "pguerrerolinares@gmail.com"
+  },
+  "keywords": ["exo", "memory", "hooks", "guardrails", "orchestration", "skills", "reflex"]
+}
