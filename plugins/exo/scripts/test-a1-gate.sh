@@ -37,7 +37,7 @@ cat > "$LOG1" <<'EOF'
 {"ts":"2026-08-02T09:20:00Z","reflex":"inject-emitted","session_id":"sidD","agent_id":"a5","agent_type":"Explore","tool":"","payload":"type=Explore perfil=divergente bytes=310"}
 {"ts":"2026-08-02T09:25:00Z","reflex":"inject-failed","session_id":"sidE","agent_id":"a8","agent_type":"claude","tool":"","payload":"type=claude perfil=ejecucion"}
 {"ts":"2026-08-02T09:30:00Z","reflex":"inject-skipped-depth","session_id":"sidA","agent_id":"a6","agent_type":"general-purpose","tool":"","payload":"type=general-purpose depth=2"}
-{"ts":"2026-08-02T09:35:00Z","reflex":"inject-skipped-depth","session_id":"sidF","agent_id":"a9","agent_type":"reflex:executor","tool":"","payload":"type=reflex:executor depth=2"}
+{"ts":"2026-08-02T09:35:00Z","reflex":"inject-skipped-depth","session_id":"sidF","agent_id":"a9","agent_type":"exo:executor","tool":"","payload":"type=exo:executor depth=2"}
 {"ts":"2026-08-02T09:40:00Z","reflex":"git-c","session_id":"sidA","agent_id":"a1","agent_type":"general-purpose","tool":"Bash","payload":"cd x && git status"}
 {"ts":"2026-08-02T09:45:00Z","reflex":"git-c-rewrite","session_id":"sidB","agent_id":"a3","agent_type":"general-purpose","tool":"Bash","payload":"cd y && git filter-branch"}
 {"ts":"2026-08-02T09:50:00Z","reflex":"zero-residuo","session_id":"sidC","agent_id":"a4","agent_type":"Explore","tool":"Bash","payload":"git add -A"}
@@ -444,12 +444,12 @@ LOG11="$TMP/log11.jsonl"
 PROJ11="$TMP/projects11"
 mkdir -p "$PROJ11/p/sidK/subagents"
 cat > "$LOG11" <<'EOF'
-{"ts":"2026-08-20T09:00:00Z","reflex":"inject-emitted","session_id":"sidK","agent_id":"aC1","agent_type":"reflex:executor","tool":"","payload":"type=reflex:executor perfil=reducido bytes=1026"}
-{"ts":"2026-08-20T09:06:00Z","reflex":"inject-emitted","session_id":"sidK","agent_id":"aC1","agent_type":"reflex:executor","tool":"","payload":"type=reflex:executor perfil=reducido bytes=1026"}
-{"ts":"2026-08-20T09:12:00Z","reflex":"inject-emitted","session_id":"sidK","agent_id":"aC1","agent_type":"reflex:executor","tool":"","payload":"type=reflex:executor perfil=reducido bytes=1026"}
+{"ts":"2026-08-20T09:00:00Z","reflex":"inject-emitted","session_id":"sidK","agent_id":"aC1","agent_type":"exo:executor","tool":"","payload":"type=exo:executor perfil=reducido bytes=1026"}
+{"ts":"2026-08-20T09:06:00Z","reflex":"inject-emitted","session_id":"sidK","agent_id":"aC1","agent_type":"exo:executor","tool":"","payload":"type=exo:executor perfil=reducido bytes=1026"}
+{"ts":"2026-08-20T09:12:00Z","reflex":"inject-emitted","session_id":"sidK","agent_id":"aC1","agent_type":"exo:executor","tool":"","payload":"type=exo:executor perfil=reducido bytes=1026"}
 {"ts":"2026-08-20T09:20:00Z","reflex":"inject-emitted","session_id":"sidK","agent_id":"aC2","agent_type":"general-purpose","tool":"","payload":"type=general-purpose perfil=ejecucion bytes=900"}
 {"ts":"2026-08-20T09:21:00Z","reflex":"inject-failed","session_id":"sidK","agent_id":"aC2","agent_type":"general-purpose","tool":"","payload":"type=general-purpose perfil=ejecucion"}
-{"ts":"2026-08-20T09:30:00Z","reflex":"git-c","session_id":"sidK","agent_id":"aC1","agent_type":"reflex:executor","tool":"Bash","payload":"cd x && git status"}
+{"ts":"2026-08-20T09:30:00Z","reflex":"git-c","session_id":"sidK","agent_id":"aC1","agent_type":"exo:executor","tool":"Bash","payload":"cd x && git status"}
 EOF
 for f in "$PROJ11/p/sidK/subagents/agent-aC1.meta.json" "$PROJ11/p/sidK/subagents/agent-aC2.meta.json"; do
   echo '{"spawnDepth":1}' > "$f"

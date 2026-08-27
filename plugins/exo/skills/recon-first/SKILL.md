@@ -51,6 +51,6 @@ quédate con la conclusión — no ensucies tu contexto con el material crudo.
 
 ## Si está disponible
 
-Para un flujo de depuración riguroso, `process:debug` es un buen
+Para un flujo de depuración riguroso, `exo:debug` es un buen
 complemento (hipótesis → experimento → confirmación). Úsalo si lo tienes; este skill no
 depende de él.

@@ -11,7 +11,7 @@ fresca del comando, siempre. Afirmar sin verificar es deshonestidad, no
 eficiencia.
 
 Solo auto-verificación barata pre-commit. Esta skill NO despacha reviewers ni
-subagentes — eso vive en `process:orchestrate` (mezclarlos es spam de
+subagentes — eso vive en `exo:orchestrate` (mezclarlos es spam de
 reviews o dilución del gate).
 
 ## Regla

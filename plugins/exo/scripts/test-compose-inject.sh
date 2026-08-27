@@ -140,21 +140,21 @@ NO_CANARY="$TMP/no-existe-canario"
 }
 
 # =========================================================================
-# Caso 2: --type reflex:executor (perfil reducido) ⇒ SIN doctrina, SIN
+# Caso 2: --type exo:executor (perfil reducido) ⇒ SIN doctrina, SIN
 # ORQUESTADOR/COST PYRAMID (sin doctrina compacta), CON ≥1 ruta.
 # =========================================================================
 {
   OUT2="$(REFLEX_EXECUTOR_MD="$EXEC_MD" REFLEX_CANARY_FILE="$NO_CANARY" \
-    "$COMPOSE" --type reflex:executor --kb "$KB1")"
+    "$COMPOSE" --type exo:executor --kb "$KB1")"
   EC2=$?
   if [ $EC2 -eq 0 ] \
      && not_contains "$OUT2" "FRAGMENTO_DOCTRINA_TEST" \
      && not_contains "$OUT2" "ORQUESTADOR" \
      && not_contains "$OUT2" "COST PYRAMID" \
      && contains "$OUT2" "$KB1/core/otra-nota.md"; then
-    pass "caso2: reflex:executor (reducido) ⇒ sin doctrina/compacta, con ruta"
+    pass "caso2: exo:executor (reducido) ⇒ sin doctrina/compacta, con ruta"
   else
-    fail "caso2: reflex:executor (reducido) ⇒ sin doctrina/compacta, con ruta" "ec=$EC2 out=$OUT2"
+    fail "caso2: exo:executor (reducido) ⇒ sin doctrina/compacta, con ruta" "ec=$EC2 out=$OUT2"
   fi
 }
 

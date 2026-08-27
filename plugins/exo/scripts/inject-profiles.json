@@ -1,5 +1,5 @@
 {
-  "reflex:executor": "reducido",
+  "exo:executor": "reducido",
   "general-purpose": "ejecucion",
   "claude": "ejecucion",
   "Explore": "divergente",

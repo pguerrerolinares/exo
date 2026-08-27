@@ -6,7 +6,7 @@ description: Usa antes de cualquier trabajo creativo — nueva feature, componen
 # brainstorm
 
 Explora intención, requisitos y diseño en diálogo colaborativo antes de
-implementar. Termina invocando `process:plan` — nunca código.
+implementar. Termina invocando `exo:plan` — nunca código.
 
 ## Proceso
 
@@ -44,7 +44,7 @@ diseño puede ser corto, pero se presenta y se aprueba siempre.
   ambigüedad. Arregla inline — no hace falta re-revisar.
 - Gate de review del usuario: pídele que revise la spec escrita y espera su
   respuesta antes de seguir.
-- Estado terminal: invoca `process:plan`. Ninguna otra skill.
+- Estado terminal: invoca `exo:plan`. Ninguna otra skill.
 
 ## Principios
 

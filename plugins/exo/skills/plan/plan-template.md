@@ -11,7 +11,7 @@ Todo plan empieza así:
 ```markdown
 # [Nombre de la feature] Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: usa `process:orchestrate`
+> **For agentic workers:** REQUIRED SUB-SKILL: usa `exo:orchestrate`
 > para ejecutar este plan tarea a tarea. Los pasos usan checkbox (`- [ ]`)
 > para tracking.
 

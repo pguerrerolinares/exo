@@ -11,7 +11,7 @@ Narración mínima — el ledger y los resultados llevan el registro.
 
 ## PARIDAD CRÍTICA — no negociable
 
-`subagent_type: reflex:executor`, **nunca** `general-purpose`, **sin**
+`subagent_type: exo:executor`, **nunca** `general-purpose`, **sin**
 `model` (el rol lo trae fijo — pasarlo lo pisaría). Si se pierde, reflex
 v2 se desenchufa sin síntoma.
 

@@ -1,6 +1,6 @@
 ---
 name: executor
-description: Ejecutor de tareas de implementación acotadas bajo doctrina de buena ingeniería. Despáchalo (subagent_type reflex:executor) cuando el orquestador delega una tarea concreta de implementación (SDD). Trae modelo (sonnet) y disciplina de serie; no hay que recordarle verificar ni cómo commitear.
+description: Ejecutor de tareas de implementación acotadas bajo doctrina de buena ingeniería. Despáchalo (subagent_type exo:executor) cuando el orquestador delega una tarea concreta de implementación (SDD). Trae modelo (sonnet) y disciplina de serie; no hay que recordarle verificar ni cómo commitear.
 model: sonnet
 ---
 

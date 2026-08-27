@@ -20,7 +20,7 @@ puede importar", entiende sus dependencias. Fase 3: hipótesis única y
 explícita ("creo que X porque Y"), test mínimo de una variable; si falla
 ⇒ NUEVA hipótesis, no apiles fixes — "no entiendo X" es más honesto que
 fingir. Fase 4: failing test que reproduce el bug ANTES del fix
-(`process:tdd`), UN fix al root cause (sin "ya que estoy aquí"), verifica
+(`exo:tdd`), UN fix al root cause (sin "ya que estoy aquí"), verifica
 que resuelve y que nada más se rompe.
 
 3+ fixes fallidos ⇒ para y cuestiona la arquitectura (cada fix revela

@@ -1,14 +1,14 @@
-# Implementer prompt (dispatch `reflex:executor`)
+# Implementer prompt (dispatch `exo:executor`)
 
 **Cuándo usar:** al despachar el ejecutor de una tarea del plan. Destilado
 de `subagent-driven-development/implementer-prompt.md` (superpowers 6.1.1,
 MIT © 2025 Jesse Vincent).
 
-**Dispatch:** `subagent_type: reflex:executor` — **sin** `model` (paridad
+**Dispatch:** `subagent_type: exo:executor` — **sin** `model` (paridad
 crítica: el rol trae modelo fijo, pasar `model` lo pisaría).
 
 ```
-Subagent (reflex:executor):
+Subagent (exo:executor):
   description: "Implement Task N: [task name]"
   prompt: |
     Estás implementando Task N: [task name]

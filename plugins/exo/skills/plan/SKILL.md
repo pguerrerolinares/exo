@@ -29,7 +29,7 @@ del usuario sobre ubicación gana).
 Header obligatorio: Goal (1 frase), Architecture (2-3 frases), Tech Stack, y
 Global Constraints con valores exactos copiados verbatim de la spec — toda
 tarea los hereda implícitamente. Incluye el pointer "For agentic workers": la
-skill de ejecución es `process:orchestrate`, pasos con checkbox (`- [ ]`)
+skill de ejecución es `exo:orchestrate`, pasos con checkbox (`- [ ]`)
 para tracking.
 
 Cada tarea: Files (Create/Modify/Test con paths exactos) + Interfaces
@@ -52,4 +52,4 @@ Con ojos frescos contra la spec (checklist propio, no dispatch): cobertura
 (¿cada requisito tiene tarea?), placeholder scan, consistencia de tipos y
 firmas entre tareas. Fix inline; si falta una tarea, añádela.
 
-Al terminar, handoff de ejecución a `process:orchestrate` — único destino.
+Al terminar, handoff de ejecución a `exo:orchestrate` — único destino.
