@@ -57,7 +57,7 @@
 - [ ] **`exo-recall.sh` no tiene suite de test.** Es el hook de SessionStart —
   lo que inyecta la KB al arrancar cada sesión — y la ola 1A lo modificó dos
   veces (Task 7, Task 8), respaldado solo por demostraciones manuales.
-  `plugins/reflex/scripts/` tiene `test-recall-inject.sh`,
+  `plugins/exo/scripts/` tiene `test-recall-inject.sh`,
   `test-compose-inject.sh` y `test-exo-index.sh`, pero nunca tuvo un
   `test-exo-recall.sh`.
   **Acción:** suite dedicada — cubrir el guard `no-engine`, el guard

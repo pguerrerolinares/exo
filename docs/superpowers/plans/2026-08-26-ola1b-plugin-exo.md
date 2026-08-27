@@ -757,27 +757,27 @@ sin decir nada, el shim no está haciendo su trabajo — vuelve a la Task 4.
 - Consumes: todo lo anterior.
 - Produces: nada de código.
 
-- [ ] **Step 1: `README.md`**
+- [x] **Step 1: `README.md`**
 
 La sección «## Capa thin: el plugin `process`» describe siete skills y un
 plugin que ya no existe. Reescribirla como «## Capa thin: el plugin `exo`» con
 los nueve skills, el agente y los hooks, y el id de plugin `exo@exo`. Conserva
 íntegra la sección «## Atribución» —es obligación de la licencia MIT—.
 
-- [ ] **Step 2: El runbook de W11**
+- [x] **Step 2: El runbook de W11**
 
 Sus comandos de instalación instalan `process@exo` y `reflex@exo`, y sus
 verificaciones usan rutas `cache/exo/reflex/*`. Añadir al final una sección
 `## Actualización 2026-08-26: plugin único exo` con los comandos nuevos, en vez
 de reescribir el cuerpo —es audit trail de aquella jornada—.
 
-- [ ] **Step 3: El backlog**
+- [x] **Step 3: El backlog**
 
 En `docs/backlog.md`, sección Baja, el item «Nombres y ubicaciones» menciona la
 incoherencia de nombres. Anota que G2 la resuelve para los plugins y que quedan
 vivas `docs/superpowers/` y `reports/` (que son de G5).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 cd /c/proyectos/homework/exo
