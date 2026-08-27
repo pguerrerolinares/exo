@@ -202,6 +202,109 @@ instalar binario y plugin, disparar un subagente real y exigir en el log
 `type=exo:executor perfil=reducido` con **bytes > 1000**. Un `bytes=70` con
 `inject-emitted` es el fallo, y sin ese umbral se lee como éxito.
 
+## El shim del pre-commit — 2026-08-27
+
+**Respaldo antes de tocar nada.** El fichero
+`kb-demo/.git/hooks/pre-commit` no vive en ningún repo — no hay commit que
+lo respalde ni `git checkout` que lo recupere. Copia literal guardada en el
+scratchpad de la sesión (fuera de cualquier repo) antes del primer edit, y
+verificada con `diff` contra el original:
+`kb-demo-pre-commit.2026-08-27.bak` (contenido idéntico al shim que dejó
+el 24-08: rama de fallo `echo … ; exit 0`).
+
+### Step 1 — el fallo demostrado, no asumido
+
+```
+$ ls -d "$HOME"/.claude/plugins/cache/exo/reflex/*/scripts/kb-precommit.sh 2>/dev/null; echo "GLOB_VIEJO_EXIT=$?"
+/c/Users/paul/.claude/plugins/cache/exo/reflex/0.16.0/scripts/kb-precommit.sh
+/c/Users/paul/.claude/plugins/cache/exo/reflex/0.17.0/scripts/kb-precommit.sh
+GLOB_VIEJO_EXIT=0
+
+$ ls -d "$HOME"/.claude/plugins/cache/exo/exo/*/scripts/kb-precommit.sh 2>/dev/null; echo "GLOB_NUEVO_EXIT=$?"
+GLOB_NUEVO_EXIT=2
+```
+
+Hoy (plugin `exo` aún no instalado — eso es la Task 8) el glob viejo resuelve
+y el nuevo no. Con el shim sin tocar, esto se habría ido por la rama
+`exit 0` en cuanto el rename llegara: commit permitido, gate mudo.
+
+### Step 2 — cambio de criterio: permisivo → ruidoso, con fallback
+
+Contenido nuevo de `kb-demo/.git/hooks/pre-commit`: prueba primero el
+glob `exo/exo/*`, si no resuelve cae al glob `exo/reflex/*` **avisando por
+stderr** («usando el plugin reflex (viejo) — migra a exo»), y solo si
+**ninguno** de los dos resuelve sale `exit 1` con dos líneas explicando por
+qué el gate no corrió. Antes, la ausencia de script terminaba en `exit 0`
+silencioso; ahora requiere `--no-verify` explícito para saltarse el gate.
+
+`plugins/exo/scripts/kb-precommit.sh` no citaba la ruta vieja ni el nombre
+`reflex` en ningún comentario (comprobado con
+`grep -n 'reflex\|cache/exo' kb-precommit.sh` → cero líneas): nada que tocar
+ahí, más allá de lo que ya hizo la Task 3-bis dentro del plugin.
+
+### Step 3 — los tres estados, verificados
+
+**a) con el plugin viejo instalado (estado real de hoy):**
+
+```
+$ bash "$HOOK" </dev/null; echo "EXIT_A=$?"
+pre-commit: usando el plugin reflex (viejo) — migra a exo
+... (el gate de kbx corre, notier: <ficheros>, rechaza por motivos propios de kbx)
+EXIT_A=1
+```
+
+El aviso de fallback sale. El `EXIT_A=1` de la invocación manual es el gate de
+`kbx` (ratchet/budget) rechazando por su propia lógica — **preexistente**,
+confirmado corriendo el shim de respaldo (el de antes de este cambio) en el
+mismo estado del repo: mismo rechazo, mismo `notier:` listado, exit 1 igual.
+No lo introduce este cambio.
+
+**b) sin ningún plugin (`HOME` vacío) — el test que importa:**
+
+```
+$ HOME=/tmp/home-vacio bash "$HOOK" </dev/null; echo "EXIT_B=$?"
+pre-commit: NO encuentro kb-precommit.sh de ningún plugin (exo ni reflex).
+pre-commit: el gate de la KB NO ha corrido. Instala el plugin, o usa --no-verify a sabiendas.
+EXIT_B=1
+```
+
+Antes daba `0` (commit permitido, gate mudo). Ahora da `1` con dos líneas en
+stderr explicando por qué. Es la propiedad que esta task existe para cerrar.
+
+**c) demostración con un commit real, no con la invocación manual:**
+
+Cambio inocuo en `kb-demo/README.md` (una línea HTML comment), `git add`,
+`git commit` de verdad:
+
+```
+$ git commit -m "test: verificar el shim del pre-commit tras Task 4 (se revierte)"
+pre-commit: usando el plugin reflex (viejo) — migra a exo
+[main a9f65e0] test: verificar el shim del pre-commit tras Task 4 (se revierte)
+ 1 file changed, 2 insertions(+)
+```
+
+El commit real **sí pasó** (a diferencia de la invocación manual del punto
+(a), que usa un snapshot vía `checkout-index` distinto al índice real que
+prepara `git commit`) — la KB sigue pudiendo commitear con el plugin viejo
+como fallback, con el aviso de migración visible por stderr. Revertido acto
+seguido con `git reset --hard b4a04e7` (el HEAD anterior a la prueba): la KB
+queda sin commits nuevos y sin cambios sueltos, verificado con
+`git log --oneline -3` y `git status --short` limpio tras el reset.
+
+### Qué se conserva del shim viejo y por qué
+
+- El comentario de por qué existe un shim y no un `ln -sf` (core.symlinks=false
+  en esta máquina): se conserva literal, sigue siendo cierto.
+- El `sort -V | tail -1` para quedarse con la versión más alta: se conserva,
+  mismo criterio, ahora aplicado primero al glob `exo` y solo si falla al
+  glob `reflex`.
+- El fallback a `reflex` **no se retira** — es explícitamente el Step 6 de la
+  Task 8, cuando las dos máquinas estén migradas al plugin `exo`. Retirarlo
+  ahora habría dejado la KB bloqueada, porque el plugin `exo` todavía no está
+  instalado en ninguna máquina.
+- Lo que **no** se conserva: el criterio de "ausencia de script = commit
+  permitido". Es exactamente el fallo silencioso que motiva esta task.
+
 ## Cutover
 
 > Lo rellena la Task 8.
