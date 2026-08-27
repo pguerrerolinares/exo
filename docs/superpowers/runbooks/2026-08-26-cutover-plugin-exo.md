@@ -206,11 +206,17 @@ instalar binario y plugin, disparar un subagente real y exigir en el log
 
 **Respaldo antes de tocar nada.** El fichero
 `kb-demo/.git/hooks/pre-commit` no vive en ningún repo — no hay commit que
-lo respalde ni `git checkout` que lo recupere. Copia literal guardada en el
-scratchpad de la sesión (fuera de cualquier repo) antes del primer edit, y
-verificada con `diff` contra el original:
-`kb-demo-pre-commit.2026-08-27.bak` (contenido idéntico al shim que dejó
-el 24-08: rama de fallo `echo … ; exit 0`).
+lo respalde ni `git checkout` que lo recupere. Copia literal tomada antes del
+primer edit y verificada con `diff` contra el original: contenido idéntico al
+shim que dejó el 24-08 (rama de fallo `echo … ; exit 0`).
+
+Vive en `~/.claude/backups/kb-demo-pre-commit.2026-08-27.bak`
+(sha256 `acaf02f9…9ad279a`). **Movido ahí el 2026-08-27**: nació en el
+scratchpad de la sesión, que cuelga de `%TEMP%` y lo barre cualquier limpieza
+de temporales. Era la única copia de un fichero que ningún repo respalda, y de
+la que depende el paso 3 del rollback: un respaldo que caduca solo es el mismo
+fallo silencioso que esta ola persigue. `~/.claude/` comparte ciclo de vida con
+los plugins a los que el shim apunta.
 
 ### Step 1 — el fallo demostrado, no asumido
 
@@ -448,7 +454,7 @@ En este orden. La red existe entera: nada se ha borrado.
    Sin esto quedan scripts v1 contra binario v2 — **la misma ventana de arriba,
    pero permanente**.
 3. **El shim de la KB.** Restaurar desde
-   `scratchpad/kb-demo-pre-commit.2026-08-27.bak`. Ojo: el shim viejo es el
+   `~/.claude/backups/kb-demo-pre-commit.2026-08-27.bak`. Ojo: el shim viejo es el
    **permisivo** (`exit 0` si no encuentra el script). Volver a él reabre el
    gate en silencio; hazlo solo si de verdad vas a revertir la ola entera.
 4. **Los repos.** Los tres commits están empujados. Revertir sería `git revert`,
