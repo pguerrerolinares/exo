@@ -22,20 +22,6 @@
 
 ## Alta
 
-- [ ] **La suite de tests no es hermética — depende de `~/.exo/config.toml`.**
-  Medido en la Task 3 de la ola 1A (2026-08-26): apartar
-  `~/.exo/config.toml` y correr `cargo test --release --no-fail-fast` da
-  `CARGO_EXIT=101`, **59 tests en 7 suites** en rojo (`buscador`,
-  `guarda_modelo`, `indexer`, `recall`, `recall_contenido`,
-  `cache_embeddings`, `escritor`). No es regresión de esta ola: antes de ella
-  esos mismos tests pasaban leyendo `~/.basic-memory/config.json`, también un
-  fichero de `$HOME` fuera del repo — la dependencia se mudó de fichero, no
-  nació. Lo que hizo la ola fue volverla visible. Bloquea CI en un runner
-  limpio.
-  **Acción:** esas siete suites montan su propia config temporal, patrón
-  `EXO_CONFIG` a un tempdir, como ya hacen `engine/src/config.rs` y
-  `engine/tests/config_cableado.rs`.
-
 - [ ] **El bloque de arranque va al 96% de su cap, y desborda en silencio.**
   Medido el 2026-08-27 al validar la Task 6 de la ola 1B: el bloque que
   `exo-recall.sh` inyecta en cada `SessionStart` ocupa **5.921 B sobre un cap de
@@ -289,3 +275,35 @@
 
 - [x] **Permalinks del frontmatter jamás regenerados**, verificado con `xxd` en
   el gate M4 y con paridad de corpus ∅ en M2-09 (138/138, 0 regenerados).
+
+- [x] **La suite de tests no es hermética — depende de `~/.exo/config.toml`:
+  cerrado el 2026-08-27 (ola 1C, Tasks 1–4).** El item citaba una cifra de
+  partida de **7 suites / 59 tests**, medida en otra ola (1A, 2026-08-26) —
+  **esa cifra es incorrecta para esta medición y no debe repetirse como si lo
+  fuera**. La cifra real de partida de la ola 1C, medida el 2026-08-27 con
+  `EXO_CONFIG` apuntando a una ruta inexistente y
+  `cargo test --release --no-fail-fast`, es **`CARGO_EXIT=101`, 9 suites / 61
+  tests en rojo** (`indexer` 19, `buscador` 16, `recall_contenido` 7,
+  `guarda_modelo` 5, `recall` 5, `refresca` 4, `cache_embeddings` 3,
+  `rechazo_envelope` 1, `write_create_permalink` 1). El cuello era de
+  producción, no de los tests: cuatro puntos leen config global
+  (`src/indexer.rs:99`, `src/lib.rs:200`, `src/lib.rs:286`,
+  `src/buscador.rs:236`) y las 9 suites lo heredaban por ahí.
+  **Acción tomada:** helper compartido `engine/tests/common/mod.rs::con_config`
+  (Task 1) — monta un `config.toml` temporal, apunta `EXO_CONFIG` a él bajo un
+  `Mutex` de proceso, y restaura el valor previo al salir. Las 9 suites
+  (`write_create_permalink`, `rechazo_envelope` en Task 1;  `indexer` en Task
+  2a; `buscador` en Task 2b; `recall`, `recall_contenido`, `guarda_modelo`,
+  `refresca`, `cache_embeddings` en Task 3) pasan a usarlo.
+  **Cifra final**, verificada tras hermetizar las 9: con `EXO_CONFIG` a una
+  ruta inexistente, `cargo test --release --no-fail-fast` da `CARGO_EXIT=0`,
+  **169 passed, 0 failed** — idéntico al recuento con config real.
+  **Gate anti-regresión (Task 4):** `engine/scripts/test-hermetico.sh` corre
+  la suite entera con `EXO_CONFIG` a un fichero inexistente y falla si
+  `cargo test` no sale 0 (sin tubería: mide el exit code de `cargo`
+  directamente, no el del último comando de un pipe). Verificado falsable con
+  un ciclo red-green real: revertido `engine/tests/indexer.rs` al commit
+  anterior a su hermetización (`8d512fc2bd7a30fdde1c08cdfdce311b18b566a6`), el
+  gate dio `EXIT_ROJO=1` citando `--test indexer` en el diagnóstico; restaurado
+  el fichero (`restaurado OK`), el gate volvió a dar `EXIT_VERDE=0`. Este será
+  el gate que consuma el CI de G5.
