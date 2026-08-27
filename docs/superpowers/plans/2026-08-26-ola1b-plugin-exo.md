@@ -595,7 +595,7 @@ anotado en el runbook y hay que repetirlo a mano en la otra máquina (Task 8).
 - Produces: el repo `exo` sirviendo `exo@exo` desde su propio marketplace, y
   `exo-plugins` (privado, renombrado a `paul`) sin `process` ni `reflex`.
 
-- [ ] **Step 1: Inventariar las referencias de paul-profile**
+- [x] **Step 1: Inventariar las referencias de paul-profile**
 
 ```bash
 cd /c/proyectos/homework/exo-plugins
@@ -605,13 +605,13 @@ grep -rn 'process:\|reflex:\|process@\|reflex@' . --include=*.json --include=*.m
 Expected según la adjudicación: `plugin.json:3` y
 `skills/fabrica/SKILL.md:8,43,61`, más las entradas del marketplace.
 
-- [ ] **Step 2: Repuntar paul-profile**
+- [x] **Step 2: Repuntar paul-profile**
 
 En cada match: `process:orchestrate`→`exo:orchestrate`,
 `reflex:executor`→`exo:executor`. **No** metas `paul-profile` dentro del
 plugin `exo` (A2): sigue siendo un plugin aparte, solo cambia a quién llama.
 
-- [ ] **Step 3: Retirar las dos entradas y renombrar el marketplace**
+- [x] **Step 3: Retirar las dos entradas y renombrar el marketplace**
 
 En `exo-plugins/.claude-plugin/marketplace.json`, borrar los objetos `process`
 y `reflex` **sin añadir `exo`**, y renombrar `"name": "exo"` -> `"paul"`. Dos
@@ -620,7 +620,7 @@ nombre `exo` pasa al repo `exo` en el Step 3-bis.
 
 Subir `metadata.version` del marketplace de `0.2.0` a `0.3.0`.
 
-- [ ] **Step 3-bis: Crear el marketplace del repo `exo`**
+- [x] **Step 3-bis: Crear el marketplace del repo `exo`**
 
 Crear `C:\proyectos\homework\exo\.claude-plugin\marketplace.json`:
 
@@ -643,7 +643,7 @@ oficial de Anthropic para `agent-sdk-dev` — verificado en
 `~/.claude/plugins/marketplaces/claude-plugins-official/.claude-plugin/marketplace.json`,
 no asumido.
 
-- [ ] **Step 4: Validar los dos JSON**
+- [x] **Step 4: Validar los dos JSON**
 
 ```bash
 jq -e '.plugins | map(.name) | sort' /c/proyectos/homework/exo-plugins/.claude-plugin/marketplace.json
@@ -654,13 +654,29 @@ jq -e '.plugins | map(.name)' /c/proyectos/homework/exo/.claude-plugin/marketpla
 Expected: `["paul-profile","workflow-lint"]` · `"paul"` · `["exo"]`. Si en el
 primero sale `process`, `reflex` o `exo`, el Step 3 está mal hecho.
 
-- [ ] **Step 5: Commit en el repo del marketplace**
+- [x] **Step 5: Dos repos, dos commits**
+
+Esta task toca **dos** repos y cada uno lleva su commit, con rutas explícitas.
+Nada de `git add -A` a ciegas: en `exo` hay trabajo de otras tasks en vuelo.
 
 ```bash
 cd /c/proyectos/homework/exo-plugins
-git add -A
-git commit -m "feat(marketplace): servir el plugin exo 1.0.0, retirar process y reflex"
+git add .claude-plugin/marketplace.json plugins/paul-profile
+git commit -m "feat(marketplace)!: retirar process y reflex, renombrar el marketplace a paul"
+
+cd /c/proyectos/homework/exo
+git add .claude-plugin/marketplace.json
+git commit -m "feat(marketplace): el repo exo sirve su propio marketplace exo@exo"
 ```
+
+> **Corregido el 2026-08-27 durante la ejecución.** El mensaje que mandaba este
+> step era `"feat(marketplace): servir el plugin exo 1.0.0, retirar process y
+> reflex"` — sobrevivió al repunte de B2 y **afirmaba justo lo contrario de lo
+> que el commit hace**: bajo B2, `exo-plugins` es precisamente el repo que deja
+> de servir `exo`. El ejecutor lo copió literal, como era su trabajo. Un
+> mensaje de commit que contradice a su propio diff es contrato por prosa en el
+> historial, y el historial no se relee con la spec al lado. Enmendado antes de
+> empujar (`bdfbb02`).
 
 ---
 
