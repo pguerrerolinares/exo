@@ -1,5 +1,5 @@
 ---
-permalink: {{KB_NAME}}/projects/_template
+permalink: "{{KB_NAME}}/projects/_template"
 title: _template
 tags: [plantilla]
 tier: stable

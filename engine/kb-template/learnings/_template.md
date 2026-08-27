@@ -1,5 +1,5 @@
 ---
-permalink: {{KB_NAME}}/learnings/_template
+permalink: "{{KB_NAME}}/learnings/_template"
 title: _template
 tags: [plantilla]
 tier: stable

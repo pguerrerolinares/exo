@@ -1,5 +1,5 @@
 ---
-permalink: {{KB_NAME}}/log/_template
+permalink: "{{KB_NAME}}/log/_template"
 title: _template
 tags: [plantilla]
 tier: log
