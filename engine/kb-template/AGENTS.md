@@ -82,6 +82,20 @@ en `projects/proyecto-x.md`. El flujo correcto es:
   contextos, añadir (o actualizar) una nota en `learnings/`.
 - No crear una nota nueva en `projects/` para esto: el proyecto ya existe.
 
+## `semilla: true`: qué es y cuándo quitarlo
+
+Las notas que venían con esta KB al crearla llevan `semilla: true` en el
+frontmatter. Es una marca de origen, no un tipo de nota: dice "esto lo puso la
+plantilla, no tú".
+
+Sirve para dos cosas. Una, orientarte: si estás leyendo algo con esa marca,
+todavía es texto de fábrica y probablemente hable en genérico. Y dos, poder
+barrerlo — `grep -rl 'semilla: true' .` te lista de una vez todo lo que aún no
+has hecho tuyo.
+
+Cuando reescribas una de esas notas con contenido propio, **quita la línea**.
+Cuando ya no quede ninguna, la KB ha dejado de ser una plantilla.
+
 ## Los índices no se destilan
 
 Cuando una nota índice (por ejemplo, un listado de proyectos activos o de

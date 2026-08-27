@@ -38,6 +38,8 @@ permalink) y su contenido, y construye un índice de búsqueda a partir de
 ello. No hace falta mantener ningún índice a mano — se regenera a partir de
 las notas cada vez que se ejecuta.
 
+Si llegaste aquí por `exo init`, el comando es `exo index`.
+
 Cada nota debe llevar un frontmatter mínimo para que el indexador la trate
 correctamente:
 
@@ -54,7 +56,8 @@ tier: stable   # o "log" para las notas de bitácora
 
 Una vez indexada, la KB se consulta mediante el buscador asociado al
 indexador (por título, por tag, o por contenido de texto libre, según lo que
-soporte la herramienta concreta que se esté usando). El flujo habitual de
+soporte la herramienta concreta que se esté usando). Con `exo`, es
+`exo search "lo que buscas"`. El flujo habitual de
 un agente es: buscar primero si ya existe una nota relacionada con lo que se
 quiere anotar o consultar, y solo si no existe, plantearse crear una nueva
 siguiendo la regla de oro descrita en `AGENTS.md`.
