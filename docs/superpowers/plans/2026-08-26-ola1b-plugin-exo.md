@@ -796,7 +796,7 @@ git commit -m "docs: actualizar README, runbook de W11 y backlog al plugin exo"
 - Consumes: todo lo anterior, empujado a `origin/main` de ambos repos.
 - Produces: las dos máquinas corriendo el plugin `exo`.
 
-- [ ] **Step 1: Empujar los dos repos**
+- [x] **Step 1: Empujar los dos repos**
 
 ```bash
 cd /c/proyectos/homework/exo && git push
@@ -808,7 +808,7 @@ ninguna máquina ve el plugin nuevo**. Es la trampa documentada del runbook del
 24 de agosto. Ojo: `main` va 31 commits por delante de `origin/main` (la ola 1A
 nunca se empujó), así que este push manda mucho más que esta ola.
 
-- [ ] **Step 1½: El binario ANTES que el plugin — nunca después**
+- [x] **Step 1½: El binario ANTES que el plugin — nunca después**
 
 Cierra el item Alta #3 de `docs/backlog.md`: nada aplicaba hoy esa restricción
 de orden. Y el desfase ya existe — `~/.local/bin/exo.exe` es del 24-08 17:11,
@@ -826,7 +826,7 @@ Expected: `binario v2 OK`. **Mira el envelope, no el mtime**: el binario del
 24-08 emite `schema_version: 1`, así que el check *falla* en vez de avisar. Un
 mtime nuevo no prueba que el binario sea el correcto; el envelope sí.
 
-- [ ] **Step 2: Cutover en esta máquina**
+- [x] **Step 2: Cutover en esta máquina**
 
 El marketplace `exo` cambia de repo (B2), así que no basta con `update`: hay
 que retirarlo y volver a añadirlo apuntando al repo `exo`.
@@ -846,7 +846,7 @@ a `exo-plugins.git`. Mira los dos artefactos, no el mensaje de los comandos: un
 `marketplace update` que no trae nada devuelve exit 0 igual — es el fallo
 silencioso ya documentado en la bitácora del 23 de agosto.
 
-- [ ] **Step 3: Verificación falsable de los cinco hooks**
+- [x] **Step 3: Verificación falsable de los cinco hooks**
 
 ```bash
 P=~/.claude/plugins/cache/exo/exo/1.0.0/scripts
@@ -866,7 +866,7 @@ grep recall-fallback ~/.claude/reflex-log.jsonl | tail -3
 Expected: las dos líneas `OK`, y ninguna entrada nueva de `recall-fallback` con
 `reason=no-engine` / `no-index` / `no-contract`.
 
-- [ ] **Step 4: Verificación del gate de la KB con el plugin nuevo**
+- [x] **Step 4: Verificación del gate de la KB con el plugin nuevo**
 
 ```bash
 ls -d "$HOME"/.claude/plugins/cache/exo/exo/*/scripts/kb-precommit.sh
@@ -892,7 +892,7 @@ Cuando **las dos** máquinas estén migradas, borrar del shim de
 `kb-demo/.git/hooks/pre-commit` el bloque de fallback a `reflex` que la
 Task 4 dejó, y dejar solo el glob de `exo`. Anótalo en el runbook con la fecha.
 
-- [ ] **Step 7: Escribir la sección Rollback del runbook**
+- [x] **Step 7: Escribir la sección Rollback del runbook**
 
 Cómo volver, con los comandos exactos y en este orden:
 
@@ -907,7 +907,7 @@ Cómo volver, con los comandos exactos y en este orden:
 
 Un cutover sin rollback escrito no es un cutover, es una apuesta.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 cd /c/proyectos/homework/exo

@@ -305,10 +305,153 @@ queda sin commits nuevos y sin cambios sueltos, verificado con
 - Lo que **no** se conserva: el criterio de "ausencia de script = commit
   permitido". Es exactamente el fallo silencioso que motiva esta task.
 
-## Cutover
+## Cutover — ejecutado el 2026-08-27 en W11
 
-> Lo rellena la Task 8.
+Orden real: **push → binario → plugin**. El Step 1½ (binario antes que plugin)
+no era higiene: abajo está la medida de lo que evitó.
+
+### Steps 1 y 1½ — push y binario
+
+Tres repos empujados (`exo` 46 commits — los 31 de la ola 1A que nunca
+salieron, más los de esta ola—, `exo-plugins` 1, `kb-demo` 1), los tres
+fast-forward y con el árbol limpio.
+
+El binario ya estaba compilado del merge de la ola 1A y **se verificó antes de
+instalarlo**, no después:
+
+```
+$ target/release/exo.exe config --json | jq -r .data.kb.path
+C:/proyectos/homework/kb-demo
+$ target/release/exo.exe search --json probe | jq -r .schema_version
+2
+```
+
+Respaldo del v1 en `~/.local/bin/exo-v1.exe` (24-08, 29.375.488 B) **antes** de
+copiar. Tras instalar: `binario v2 OK`.
+
+> **Nota de shell.** Los comandos del plan son de Git Bash. En PowerShell,
+> `install` no existe (`Copy-Item … -Force`) y `&&` es error de parseo en PS 5.1
+> (`; if ($?) { … }`). Y ojo: **el `cp` del respaldo no se repite** después de
+> instalar el v2, o se sobrescribe la red de rollback con el binario nuevo.
+
+### La ventana de degradación, medida en vivo
+
+Entre instalar el binario y cambiar el plugin, los scripts v1 instalados leen
+`.data.notas` / `.data.truncado` contra un binario que ya emite `notes` /
+`truncated`. El log lo registra entero:
+
+```
+12:37:17  recall-inject-emitted    n_hits=3 bytes=986      <- sano: v1 + v1
+12:39:04  recall-inject-degraded   reason=error err=envelope-ilegible   <- ventana
+12:41:19  recall-inject-degraded   reason=error err=envelope-ilegible   <- ventana
+12:41:54  recall-inject-emitted    n_hits=3 bytes=923      <- sano: v2 + v2
+12:41:56  inject-emitted           type=exo:executor perfil=reducido bytes=1273
+```
+
+**Dos lecciones, opuestas y las dos útiles:**
+
+1. **Aquí el instrumento gritó.** `recall-inject` no sirvió un bloque vacío: lo
+   declaró con una razón precisa (`envelope-ilegible`). Contrasta con el
+   `inject-emitted bytes=70` documentado arriba, que **no** grita. Mismo
+   sistema, dos hooks, disciplinas distintas — y por eso el de arriba es deuda.
+2. **El hook de arranque sobrevivió la ventana** (`exo-recall.sh` siguió
+   sirviendo sus 5.921 B). Solo cayó el recall por prompt. Que una mitad
+   aguante es precisamente lo que hace difícil notar la otra.
+
+### Step 2 — el plugin
+
+```
+$ jq -r '.exo.source' ~/.claude/plugins/known_marketplaces.json
+{ "source": "github", "repo": "pguerrerolinares/exo" }
+
+$ jq -r '.plugins | keys[]' ~/.claude/plugins/installed_plugins.json
+context7@claude-plugins-official
+exo@exo
+equipo-x@equipo-x-standards
+```
+
+`process@exo` y `reflex@exo` desaparecen de los instalados. El marketplace
+apunta al repo `exo`, no a `exo-plugins.git`: **B2 ejecutado**.
+
+**Desviación respecto al expected del plan.** El Step 2 esperaba que los
+directorios `process/` y `reflex/` **desaparecieran** de la caché. No
+desaparecen: siguen en disco `process/1.0.0/`, `reflex/0.16.0/` y
+`reflex/0.17.0/` aunque ya no estén instalados. Consecuencia concreta: **el
+fallback del shim sigue resolviendo**. Hoy es inocuo —el glob de `exo` gana
+porque va primero— y además conviene para el rollback, así que **se dejan a
+propósito** hasta el Step 6. Anotado para que nadie lo lea como un cutover a
+medias.
+
+### Step 3 — los hooks, contra el plugin nuevo
+
+```
+$ echo '{"session_id":"t","source":"startup"}' | bash $P/exo-recall.sh \
+    | jq -r '.hookSpecificOutput.additionalContext' | grep -c 'Contrato de memoria'
+1                       # un 0 sería el fallback embebido: el arranque mentiría
+
+recall-inject OK
+subagent-inject OK
+```
+
+**La verificación post-cutover que esta ola añadió** —la que exige contenido y
+no solo un evento— pasa:
+
+```
+$ echo '{"agent_type":"exo:executor"}' | bash $P/subagent-inject.sh \
+    | jq -r '.hookSpecificOutput.additionalContext' | wc -c
+1287                    # umbral: > 1000. Un 70 con `inject-emitted` sería el fallo
+```
+
+**Esto es lo que compró el Step 1½.** Con el plugin nuevo instalado antes que
+el binario, `exo:executor` habría recibido 70 bytes de cabecera y el log habría
+dicho `inject-emitted` — éxito aparente, doctrina ausente, en el agente que más
+la necesita.
+
+### Step 4 — el gate de la KB
+
+```
+$ ls -d "$HOME"/.claude/plugins/cache/exo/exo/*/scripts/kb-precommit.sh
+/c/Users/paul/.claude/plugins/cache/exo/exo/1.0.0/scripts/kb-precommit.sh
+```
+
+El glob nuevo resuelve, así que el shim ya no usa el fallback. Y el script es
+**idéntico** al que servía el plugin viejo (`diff -q` sin salida): lo movió un
+`git mv`, no una reescritura, así que el gate no cambia de comportamiento.
+
+### Pendiente
+
+- **Step 5 — los nueve skills con prefijo `exo:`.** No se puede verificar desde
+  la sesión que hizo el cutover: el harness resuelve el catálogo al arrancar.
+  **Requiere sesión nueva.**
+- **Step 6 — retirar el fallback a `reflex` del shim** y limpiar los tres
+  directorios rancios de caché. Solo cuando **la máquina Linux** también esté
+  migrada.
 
 ## Rollback
 
-> Lo rellena la Task 8, Step 7.
+En este orden. La red existe entera: nada se ha borrado.
+
+1. **Marketplace y plugins.**
+   ```bash
+   claude plugin uninstall exo@exo
+   claude plugin marketplace remove exo
+   claude plugin marketplace add pguerrerolinares/exo-plugins   # commit anterior a bdfbb02
+   claude plugin install reflex@exo && claude plugin install process@exo
+   ```
+   Las cachés de `process/1.0.0` y `reflex/0.17.0` **siguen en disco**, así que
+   esto es reversible incluso sin red.
+2. **El binario.**
+   ```bash
+   cp ~/.local/bin/exo-v1.exe ~/.local/bin/exo.exe
+   exo config --json     # debe fallar: 'unrecognized subcommand' == es el v1
+   ```
+   Sin esto quedan scripts v1 contra binario v2 — **la misma ventana de arriba,
+   pero permanente**.
+3. **El shim de la KB.** Restaurar desde
+   `scratchpad/kb-demo-pre-commit.2026-08-27.bak`. Ojo: el shim viejo es el
+   **permisivo** (`exit 0` si no encuentra el script). Volver a él reabre el
+   gate en silencio; hazlo solo si de verdad vas a revertir la ola entera.
+4. **Los repos.** Los tres commits están empujados. Revertir sería `git revert`,
+   no `reset`: hay historia pública (privada, pero compartida entre dos
+   máquinas).
+
