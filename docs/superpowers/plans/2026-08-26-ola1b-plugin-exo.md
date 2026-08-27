@@ -410,7 +410,7 @@ diciendo `reflex:executor`, cada subagente recibirá la doctrina equivocada con
 exit 0 y forma válida. Es el riesgo 5 de la spec —*reflex desenchufado sin
 síntoma*— dentro del hook `SubagentStart`.
 
-- [ ] **Step 1: Inventario, separando vivo de sintaxis**
+- [x] **Step 1: Inventario, separando vivo de sintaxis**
 
 ```bash
 grep -rn 'process:[a-z-]*\|reflex:[a-z-]*' plugins/exo/
@@ -428,9 +428,9 @@ Tres categorías, y **la tercera NO se toca**:
 3. **Sintaxis de jq, NO es una referencia** — `_reflex-log.sh:20`
    (`reflex:$reflex`) construye la clave del log. Tocarlo rompe el log.
 
-- [ ] **Step 2: Repuntar las categorías 1 y 2**
+- [x] **Step 2: Repuntar las categorías 1 y 2**
 
-- [ ] **Step 3: El check que ata el lookup, no la cadena**
+- [x] **Step 3: El check que ata el lookup, no la cadena**
 
 Que el string haya cambiado no prueba que el perfil se resuelva. Ejercita el
 script de verdad:
@@ -445,7 +445,7 @@ jq -e 'has("reflex:executor") | not' "$S/inject-profiles.json"
 Expected: el perfil de `exo:executor` existe y **no** queda `reflex:executor`.
 Un `._default` devuelto para `exo:executor` es el fallo silencioso vivo.
 
-- [ ] **Step 4: Cero invocables vivos**
+- [x] **Step 4: Cero invocables vivos**
 
 ```bash
 grep -rn 'process:[a-z-]*\|reflex:[a-z-]*' plugins/exo/ | grep -v '_reflex-log.sh'
@@ -454,7 +454,7 @@ grep -rn 'process:[a-z-]*\|reflex:[a-z-]*' plugins/exo/ | grep -v '_reflex-log.s
 Expected: **cero líneas**. Si sale algo, o es categoría 3 y se documenta, o se
 repunta.
 
-- [ ] **Step 5: Suites verdes y commit**
+- [x] **Step 5: Suites verdes y commit**
 
 Las diez suites `test-*.sh` en verde — incluidas las dos cuyas fixtures cambian.
 

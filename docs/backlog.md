@@ -36,6 +36,24 @@
   `EXO_CONFIG` a un tempdir, como ya hacen `engine/src/config.rs` y
   `engine/tests/config_cableado.rs`.
 
+- [ ] **`inject-emitted` se emite aunque no se inyecte nada.** Medido el
+  2026-08-27 al validar la Task 3-bis de la ola 1B: con la KB sin resolver, el
+  perfil `reducido` (el del agente `executor`) compone **71 bytes de cabecera y
+  cero rutas**, y `subagent-inject.sh` lo loguea igual como `inject-emitted`,
+  con `bytes=70` enterrado en el payload. Un evento cuyo nombre afirma el
+  efecto que no ocurrió. Los otros perfiles no lo exhiben porque su doctrina es
+  estática y sobrevive sin KB (784 B): `reducido` es el único hecho solo de
+  rutas, así que es el único que se queda en cero — y es el del agente que más
+  disciplina necesita.
+  **Causa inmediata** (esa sí se cierra en el cutover): `compose-inject.sh:29`
+  resuelve la KB con `exo config --json`, subcomando nacido en la ola 1A, y el
+  binario instalado del 24-08 responde `unrecognized subcommand`.
+  **Acción, independiente del cutover:** que el evento distinga «compuesto con
+  contenido» de «solo cabecera» — o un `inject-empty`, o un aviso cuando el
+  bloque no supera el tamaño de la cabecera. Mientras el nombre del evento
+  afirme más que lo ocurrido, el log no es evidencia. Detalle y medidas en
+  `runbooks/2026-08-26-cutover-plugin-exo.md`.
+
 - [ ] **`exo-recall.sh` no tiene suite de test.** Es el hook de SessionStart —
   lo que inyecta la KB al arrancar cada sesión — y la ola 1A lo modificó dos
   veces (Task 7, Task 8), respaldado solo por demostraciones manuales.

@@ -124,6 +124,84 @@ plugin renombrado a `exo`, el glob `…/cache/exo/reflex/*/…` deja de matchear
 el commit pasa con un aviso por stderr que nadie mira. Es el riesgo 5 de la
 spec y la razón de existir de la Task 4.
 
+## Hallazgo durante la ejecución (2026-08-27) — el desfase apaga la inyección, y lo loguea como éxito
+
+Salió al validar la Task 3-bis, midiendo el perfil que se inyecta a cada
+subagente. **Es la prueba concreta de por qué el binario va antes que el
+plugin** (Task 8, Step 1½): mucho más fuerte que el argumento del mtime.
+
+### La cadena
+
+`compose-inject.sh` resuelve la KB en este orden (`:19-29`):
+
+```
+--kb explícito  >  $EXO_KB  >  exo config --json | .data.kb.path
+```
+
+El último eslabón llama a **`exo config`**, un subcomando que **nació en la ola
+1A de hoy** (`43b9e36`). El binario instalado es del 24-08:
+
+```
+$ ~/.local/bin/exo.exe config --json
+error: unrecognized subcommand 'config'
+```
+
+Con los scripts del repo (que ya usan esa cadena) contra el binario instalado
+(que no la entiende), la KB **no se resuelve**. Y el perfil `reducido` —el del
+agente `executor`— es *solo rutas, sin doctrina*: sin KB no tiene nada que
+emitir.
+
+### La medida
+
+```
+$ compose-inject.sh --type exo:executor --kb /c/proyectos/homework/kb-demo
+1274 bytes   (con rutas — correcto)
+
+$ compose-inject.sh --type exo:executor          # lo que hace el hook real
+71 bytes     (solo la cabecera)
+```
+
+| Perfil | Con KB | Sin KB |
+|---|---|---|
+| `reducido` (`exo:executor`) | 1274 B | **71 B — nada** |
+| `doctrina` / `ejecucion` | 1752 B | 784 B (la doctrina estática sobrevive) |
+
+`reducido` es el único perfil que se queda **en cero**, porque es el único
+hecho solo de rutas. El agente que más disciplina necesita es el que se queda
+sin nada.
+
+### Por qué es fallo silencioso y no un error
+
+`subagent-inject.sh` loguea `inject-emitted` igual, con el tamaño real:
+
+```
+$ jq -r 'select(.reflex=="inject-emitted") | .payload' ~/.claude/reflex-log.jsonl | sort | uniq -c
+     29 type=reflex:executor perfil=reducido bytes=1209     <- firings reales, sanos
+      5 type=exo:executor    perfil=reducido bytes=70       <- las pruebas de hoy
+     14 type=general-purpose perfil=ejecucion bytes=1751
+```
+
+Un evento llamado **`inject-emitted`** para una inyección que no inyectó nada.
+El instrumento dice «emitido» y el número que lo desmiente (`bytes=70`) está en
+el payload, donde nadie lo mira. Ausencia de error ≠ evidencia de efecto.
+
+Las 29 entradas de `1209` son firings reales del plugin **instalado** (scripts
+viejos, que resolvían la KB por el literal cableado que la ola 1A retiró). O
+sea: hoy funciona porque el plugin viejo no depende del binario nuevo. **En
+cuanto el plugin nuevo entre sin el binario nuevo, se apaga.**
+
+### Consecuencia operativa
+
+El Step 1½ de la Task 8 no es higiene, es la condición de que el cutover no
+deje mudos a todos los `exo:executor`. Y su check —`schema_version == 2` sobre
+el envelope— vale también para esto: el mismo binario que emite v2 es el que
+entiende `exo config`.
+
+**Verificación post-cutover (va en el Step 3 de la Task 8):** después de
+instalar binario y plugin, disparar un subagente real y exigir en el log
+`type=exo:executor perfil=reducido` con **bytes > 1000**. Un `bytes=70` con
+`inject-emitted` es el fallo, y sin ese umbral se lee como éxito.
+
 ## Cutover
 
 > Lo rellena la Task 8.
