@@ -420,6 +420,17 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
             std::fs::read_to_string(&ruta).with_context(|| format!("leer {}", ruta.display()))?;
         let (kb, nombre, emb) = exo::inicia::desde_basic_memory(&json)
             .with_context(|| format!("leyendo {}", ruta.display()))?;
+        // El nombre no lo escribió el usuario en esta rama: salió de
+        // `default_project` en el JSON de basic-memory. El mensaje de
+        // `valida_nombre` lo deja claro para no confundir a quien lea el
+        // error pensando que tecleó `--name` él mismo.
+        exo::inicia::valida_nombre(&nombre).with_context(|| {
+            format!(
+                "el nombre adoptado ({nombre:?}) viene de `default_project` en {} \
+                 (JSON de basic-memory), no lo escribiste tú con --name — corrígelo ahí",
+                ruta.display()
+            )
+        })?;
         (kb, nombre, emb, "adopt", Vec::new(), false)
     } else {
         let kb = args
@@ -442,6 +453,7 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
             min_similarity: 0.35,
         };
 
+        exo::inicia::valida_nombre(&nombre)?;
         exo::inicia::prepara_kb(&kb, args.force)?;
         std::fs::create_dir_all(&kb).with_context(|| format!("crear {}", kb.display()))?;
         let escritos = exo::plantilla::vuelca(&kb, &nombre)?;

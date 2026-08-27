@@ -43,6 +43,43 @@ pub fn desde_basic_memory(json: &str) -> Result<(PathBuf, String, Embeddings)> {
     Ok((PathBuf::from(path), nombre, emb))
 }
 
+/// Valida que `nombre` es apto como `[kb] name` — no prosa libre, es el
+/// prefijo de permalink de TODAS las notas de la KB. `plantilla::render`
+/// vuelca ese nombre con un `String::replace` crudo dentro de
+/// `permalink: "{{KB_NAME}}/..."` en el frontmatter YAML de las once notas
+/// de la semilla, sin escapar nada: una comilla, un espacio o un salto de
+/// línea rompe ese YAML, y la KB nace con `indexed: 0` — `exo init` ya salió
+/// con exit 0 antes de que nadie lo note. `cadena_toml` (arriba) protege el
+/// mismo nombre del lado TOML; esta función protege el lado plantilla, que
+/// no tenía guardia.
+///
+/// Se rechaza aquí, en la frontera de `exo init`, en vez de escapar YAML en
+/// `plantilla::render`: el placeholder aparece en frontmatter, en títulos y
+/// en prosa dentro de la plantilla, y cada sitio querría un escapado
+/// distinto. Más simple: el nombre nunca llega a ser ambiguo.
+///
+/// Whitelist, no blacklist — una blacklist de "caracteres peligrosos" siempre
+/// se deja alguno fuera (¿y `:`? ¿y los caracteres de control?). Se admite
+/// ASCII alfanumérico + `-_.`: alcanza para nombres reales (`kb-demo`,
+/// `mi-kb.v2`) y no dice nada sobre cómo se escapa en TOML, en YAML o en una
+/// ruta — no hace falta, porque nunca lleva un carácter que necesite escape.
+pub fn valida_nombre(nombre: &str) -> Result<()> {
+    if nombre.is_empty() {
+        anyhow::bail!(
+            "el nombre de la KB está vacío — [kb] name es el prefijo de permalink de todas las notas, no puede quedar en blanco"
+        );
+    }
+    if let Some(c) = nombre
+        .chars()
+        .find(|c| !(c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.')))
+    {
+        anyhow::bail!(
+            "nombre de KB inválido: {nombre:?} contiene el carácter {c:?}, no permitido — [kb] name es el prefijo de permalink de todas las notas de la KB (permalink: \"NOMBRE/...\" en cada frontmatter), solo se admite ASCII alfanumérico y - _ ."
+        );
+    }
+    Ok(())
+}
+
 /// Renderiza un valor de cadena como literal TOML **escapado**. La estructura
 /// del fichero se sigue escribiendo a mano —los comentarios son la mitad del
 /// valor de un TOML editable, y el serializador los pierde—, pero los valores

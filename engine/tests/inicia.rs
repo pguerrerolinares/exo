@@ -157,6 +157,143 @@ fn init_acepta_un_directorio_inexistente() {
     exo::inicia::prepara_kb(&nueva, false).expect("dir inexistente debe pasar");
 }
 
+/// La validación es whitelist: letras, dígitos, `-`, `_`, `.`. Una comilla es
+/// exactamente el carácter que rompe el frontmatter YAML de la plantilla
+/// (`permalink: "{{KB_NAME}}/..."` — `plantilla::render` hace un
+/// `String::replace` crudo, sin escapado) — este es el test que documenta el
+/// bug original.
+#[test]
+fn un_nombre_con_comillas_es_rechazado_por_la_validacion() {
+    let nombre = r#"mi"kb"#;
+    let err = exo::inicia::valida_nombre(nombre).expect_err("debe rechazarse");
+    let msg = format!("{err:#}");
+    assert!(msg.contains('"'), "no cita el carácter ofensivo: {msg}");
+    // El nombre se cita vía `{nombre:?}` (Debug), que escapa la comilla
+    // interna como `\"` — se busca esa forma, no el literal sin escapar.
+    assert!(
+        msg.contains(&format!("{nombre:?}")),
+        "no cita el nombre recibido: {msg}"
+    );
+    assert!(
+        msg.contains("permalink"),
+        "no explica por qué importa (prefijo de permalink): {msg}"
+    );
+}
+
+#[test]
+fn un_nombre_con_espacio_es_rechazado_por_la_validacion() {
+    exo::inicia::valida_nombre("mi kb").expect_err("debe rechazarse");
+}
+
+#[test]
+fn un_nombre_con_barra_es_rechazado_por_la_validacion() {
+    exo::inicia::valida_nombre("mi/kb").expect_err("debe rechazarse");
+}
+
+#[test]
+fn un_nombre_con_salto_de_linea_es_rechazado_por_la_validacion() {
+    exo::inicia::valida_nombre("mi\nkb").expect_err("debe rechazarse");
+}
+
+/// Los nombres "de siempre" del resto de la suite (y de uso real) no se ven
+/// afectados por la whitelist nueva.
+#[test]
+fn los_nombres_habituales_siguen_pasando_la_validacion() {
+    for nombre in ["demo", "kb-demo", "mi-kb.v2", "kb_2"] {
+        exo::inicia::valida_nombre(nombre).unwrap_or_else(|e| panic!("{nombre:?} debería pasar: {e}"));
+    }
+}
+
+/// El agujero de verdad: `exo init --name 'mi"kb'` salía con exit 0 y una KB
+/// con frontmatter roto en las once notas de la semilla. Ahora debe fallar
+/// ANTES de escribir nada — ni config, ni plantilla, ni git init.
+#[test]
+fn init_con_nombre_invalido_no_escribe_nada() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let kb = tmp.path().join("kb-nueva");
+    let config = tmp.path().join("config.toml");
+    let db = tmp.path().join("index.db");
+
+    let salida = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
+        .args(["init", "--kb"])
+        .arg(&kb)
+        .args(["--name", "mi\"kb", "--json"])
+        .env("EXO_CONFIG", &config)
+        .env("EXO_DB", &db)
+        .output()
+        .expect("ejecutar exo init");
+
+    assert!(
+        !salida.status.success(),
+        "un nombre con comillas debería rechazarse, pero exit={:?}",
+        salida.status.code()
+    );
+    assert!(
+        !kb.exists() || std::fs::read_dir(&kb).unwrap().next().is_none(),
+        "init escribió en el destino a pesar de rechazar el nombre"
+    );
+    assert!(!config.exists(), "init escribió la config a pesar de rechazar el nombre");
+}
+
+/// Con un nombre válido, la nota canónica de la semilla vuelca un frontmatter
+/// YAML parseable, y su `permalink` empieza por el nombre dado — la
+/// propiedad que de verdad importa es que la nota sea indexable, no solo que
+/// el fichero exista.
+#[test]
+fn init_con_nombre_valido_produce_frontmatter_parseable_e_indexable() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let kb = tmp.path().join("kb-nueva");
+    let config = tmp.path().join("config.toml");
+    let db = tmp.path().join("index.db");
+    let nombre = "mi-kb.valida";
+
+    let salida = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
+        .args(["init", "--kb"])
+        .arg(&kb)
+        .args(["--name", nombre, "--json"])
+        .env("EXO_CONFIG", &config)
+        .env("EXO_DB", &db)
+        .output()
+        .expect("ejecutar exo init");
+    assert!(
+        salida.status.success(),
+        "init falló con un nombre válido: {}",
+        String::from_utf8_lossy(&salida.stderr)
+    );
+
+    let canon = kb.join("core/core-index.md");
+    let nota = exo::nota::parsea_nota(&canon)
+        .expect("el frontmatter debe parsear como YAML")
+        .expect("la nota debe tener permalink");
+    assert!(
+        nota.permalink.starts_with(nombre),
+        "permalink {:?} no empieza por el nombre {nombre:?}",
+        nota.permalink
+    );
+
+    // La propiedad que importa de verdad: la nota es indexable. `init` ya
+    // indexó sobre `db` (auto-index al final de `init_cmd`), así que aquí se
+    // apunta a una DB nueva y vacía — si no, todo saldría `skipped` (mtime
+    // sin cambios) y el `indexed > 0` de abajo no probaría nada.
+    let db2 = tmp.path().join("index2.db");
+    let salida_index = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
+        .args(["index", "--kb"])
+        .arg(&kb)
+        .args(["--db"])
+        .arg(&db2)
+        .arg("--json")
+        .output()
+        .expect("ejecutar exo index");
+    assert!(
+        salida_index.status.success(),
+        "index falló: {}",
+        String::from_utf8_lossy(&salida_index.stderr)
+    );
+    let env: serde_json::Value = serde_json::from_slice(&salida_index.stdout).expect("json");
+    let indexed = env["data"]["indexed"].as_u64().expect("campo indexed");
+    assert!(indexed > 0, "indexed debería ser > 0, envelope: {env}");
+}
+
 /// `--from-basic-memory` adopta una KB existente: NO puede escribir ni un
 /// byte dentro de ella. Con el cableado de la v1 de este plan, este test
 /// fallaba de las dos formas posibles: sin `--force` abortaba, y con `--force`
