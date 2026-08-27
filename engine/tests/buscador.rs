@@ -1,3 +1,5 @@
+mod common;
+
 use exo::buscador::{busca, busca_hybrid, busca_vector};
 use exo::indexer::indexa;
 use rusqlite::params;
@@ -19,8 +21,9 @@ fn crea_nota(dir: &Path, nombre: &str, permalink: &str, titulo: &str, cuerpo: &s
     std::fs::write(dir.join(nombre), contenido).unwrap();
 }
 
-/// KB fixture indexada (mismo patrón que tests/indexer.rs).
-fn db_indexada() -> (tempfile::TempDir, tempfile::TempDir, std::path::PathBuf) {
+/// KB fixture con 3 notas + git init (mismo patrón que tests/indexer.rs).
+/// No indexa: eso lo hace cada test dentro de `common::con_config`.
+fn kb_fixture() -> tempfile::TempDir {
     let kb = tempfile::tempdir().unwrap();
     git(kb.path(), &["init", "-q"]);
     git(kb.path(), &["config", "user.email", "test@exo.local"]);
@@ -48,76 +51,114 @@ fn db_indexada() -> (tempfile::TempDir, tempfile::TempDir, std::path::PathBuf) {
     );
     git(kb.path(), &["add", "."]);
     git(kb.path(), &["commit", "-q", "-m", "fixture de búsqueda"]);
+    kb
+}
 
-    let db_dir = tempfile::tempdir().unwrap();
-    let db = db_dir.path().join("exo.db");
-    indexa(kb.path(), &db).unwrap();
-    (kb, db_dir, db)
+fn db_temporal() -> (tempfile::TempDir, std::path::PathBuf) {
+    let dir = tempfile::tempdir().unwrap();
+    let ruta = dir.path().join("exo.db");
+    (dir, ruta)
+}
+
+/// Vacía la tabla `vectores` sobre una DB ya indexada (trozos sí, vectores
+/// no) — el estado real que produce un embed abortado a medias o un índice
+/// heredado de antes de M2-06.
+fn vacia_vectores(db: &Path) {
+    let conn = exo::abre_db(db).unwrap();
+    conn.execute("DELETE FROM vectores", []).unwrap();
+    let quedan: i64 = conn
+        .query_row("SELECT count(*) FROM vectores", [], |f| f.get(0))
+        .unwrap();
+    assert_eq!(quedan, 0, "precondición: la tabla vectores queda vacía");
 }
 
 #[test]
 fn query_con_guiones_y_acentos_no_revienta() {
-    let (_kb, _db_dir, db) = db_indexada();
-    let resultado = busca(&db, "agent-develop bitácora", 10).expect("no debe reventar FTS5");
-    assert_eq!(resultado.search_type, "fts");
-    assert!(
-        resultado
-            .results
-            .iter()
-            .any(|r| r.permalink == "kb-demo/log/agent-develop-bitacora"),
-        "{:?}",
-        resultado.results
-    );
+    let kb = kb_fixture();
+    let (_db_dir, db) = db_temporal();
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
+        let resultado = busca(&db, "agent-develop bitácora", 10).expect("no debe reventar FTS5");
+        assert_eq!(resultado.search_type, "fts");
+        assert!(
+            resultado
+                .results
+                .iter()
+                .any(|r| r.permalink == "kb-demo/log/agent-develop-bitacora"),
+            "{:?}",
+            resultado.results
+        );
+    });
 }
 
 #[test]
 fn resultados_a_nivel_entidad_con_tipo_fijo() {
-    let (_kb, _db_dir, db) = db_indexada();
-    let resultado = busca(&db, "bitácora", 10).unwrap();
-    assert!(!resultado.results.is_empty());
-    for r in &resultado.results {
-        assert_eq!(r.tipo, "entity");
-    }
+    let kb = kb_fixture();
+    let (_db_dir, db) = db_temporal();
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
+        let resultado = busca(&db, "bitácora", 10).unwrap();
+        assert!(!resultado.results.is_empty());
+        for r in &resultado.results {
+            assert_eq!(r.tipo, "entity");
+        }
+    });
 }
 
 #[test]
 fn resultados_ordenados_por_score_descendente() {
-    let (_kb, _db_dir, db) = db_indexada();
-    let resultado = busca(&db, "buscable", 10).unwrap();
-    assert_eq!(resultado.results.len(), 2, "{:?}", resultado.results);
-    assert_eq!(resultado.results[0].permalink, "kb-demo/mucho");
-    assert_eq!(resultado.results[1].permalink, "kb-demo/poco");
-    assert!(resultado.results[0].score >= resultado.results[1].score);
+    let kb = kb_fixture();
+    let (_db_dir, db) = db_temporal();
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
+        let resultado = busca(&db, "buscable", 10).unwrap();
+        assert_eq!(resultado.results.len(), 2, "{:?}", resultado.results);
+        assert_eq!(resultado.results[0].permalink, "kb-demo/mucho");
+        assert_eq!(resultado.results[1].permalink, "kb-demo/poco");
+        assert!(resultado.results[0].score >= resultado.results[1].score);
+    });
 }
 
 #[test]
 fn query_sin_hits_es_exito_con_resultados_vacios() {
-    let (_kb, _db_dir, db) = db_indexada();
-    let resultado = busca(&db, "palabra-que-no-existe-en-ningun-lado", 10).unwrap();
-    assert_eq!(resultado.results, Vec::new());
+    let kb = kb_fixture();
+    let (_db_dir, db) = db_temporal();
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
+        let resultado = busca(&db, "palabra-que-no-existe-en-ningun-lado", 10).unwrap();
+        assert_eq!(resultado.results, Vec::new());
+    });
 }
 
 #[test]
 fn limite_recorta_resultados() {
-    let (_kb, _db_dir, db) = db_indexada();
-    let resultado = busca(&db, "bitácora buscable", 1).unwrap();
-    assert!(resultado.results.len() <= 1);
+    let kb = kb_fixture();
+    let (_db_dir, db) = db_temporal();
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
+        let resultado = busca(&db, "bitácora buscable", 1).unwrap();
+        assert!(resultado.results.len() <= 1);
+    });
 }
 
 #[test]
 fn envelope_data_serializa_con_las_claves_del_contrato_4_1() {
-    let (_kb, _db_dir, db) = db_indexada();
-    let resultado = busca(&db, "buscable", 10).unwrap();
-    let valor = serde_json::to_value(&resultado).unwrap();
-    let obj = valor.as_object().unwrap();
-    assert!(obj.contains_key("query"));
-    assert!(obj.contains_key("search_type"));
-    assert!(obj.contains_key("elapsed_s"));
-    assert!(obj.contains_key("results"));
-    let primero = &obj["results"][0];
-    assert!(primero.get("permalink").is_some());
-    assert!(primero.get("type").is_some());
-    assert!(primero.get("score").is_some());
+    let kb = kb_fixture();
+    let (_db_dir, db) = db_temporal();
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
+        let resultado = busca(&db, "buscable", 10).unwrap();
+        let valor = serde_json::to_value(&resultado).unwrap();
+        let obj = valor.as_object().unwrap();
+        assert!(obj.contains_key("query"));
+        assert!(obj.contains_key("search_type"));
+        assert!(obj.contains_key("elapsed_s"));
+        assert!(obj.contains_key("results"));
+        let primero = &obj["results"][0];
+        assert!(primero.get("permalink").is_some());
+        assert!(primero.get("type").is_some());
+        assert!(primero.get("score").is_some());
+    });
 }
 
 #[test]
@@ -138,33 +179,37 @@ fn db_inexistente_da_error_claro() {
 /// cercano a la query.
 #[test]
 fn busca_vector_con_db_poblada_devuelve_entidades_ordenadas() {
-    let (_kb, _db_dir, db) = db_indexada();
+    let kb = kb_fixture();
+    let (_db_dir, db) = db_temporal();
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
 
-    let resultado = busca_vector(&db, "la bitácora de agent-develop", 10, None).unwrap();
+        let resultado = busca_vector(&db, "la bitácora de agent-develop", 10, None).unwrap();
 
-    assert_eq!(resultado.search_type, "vector");
-    assert!(
-        !resultado.results.is_empty(),
-        "esperaba al menos un resultado sobre threshold"
-    );
-    for r in &resultado.results {
-        assert_eq!(r.tipo, "entity");
-    }
-    for ventana in resultado.results.windows(2) {
+        assert_eq!(resultado.search_type, "vector");
         assert!(
-            ventana[0].score >= ventana[1].score,
-            "{:?}",
+            !resultado.results.is_empty(),
+            "esperaba al menos un resultado sobre threshold"
+        );
+        for r in &resultado.results {
+            assert_eq!(r.tipo, "entity");
+        }
+        for ventana in resultado.results.windows(2) {
+            assert!(
+                ventana[0].score >= ventana[1].score,
+                "{:?}",
+                resultado.results
+            );
+        }
+        assert!(
+            resultado
+                .results
+                .iter()
+                .any(|r| r.permalink == "kb-demo/log/agent-develop-bitacora"),
+            "la nota de la bitácora debería aparecer sobre threshold: {:?}",
             resultado.results
         );
-    }
-    assert!(
-        resultado
-            .results
-            .iter()
-            .any(|r| r.permalink == "kb-demo/log/agent-develop-bitacora"),
-        "la nota de la bitácora debería aparecer sobre threshold: {:?}",
-        resultado.results
-    );
+    });
 }
 
 /// Un threshold inalcanzable (por encima del máximo teórico de similitud
@@ -172,16 +217,22 @@ fn busca_vector_con_db_poblada_devuelve_entidades_ordenadas() {
 /// `semantic_min_similarity`/`--min-similarity` realmente se aplica.
 #[test]
 fn busca_vector_threshold_alto_filtra_todo() {
-    let (_kb, _db_dir, db) = db_indexada();
+    let kb = kb_fixture();
+    let (_db_dir, db) = db_temporal();
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
 
-    let resultado = busca_vector(&db, "la bitácora de agent-develop", 10, Some(1.5)).unwrap();
+        let resultado = busca_vector(&db, "la bitácora de agent-develop", 10, Some(1.5)).unwrap();
 
-    assert_eq!(resultado.results, Vec::new());
+        assert_eq!(resultado.results, Vec::new());
+    });
 }
 
 /// DB con schema creado pero sin ninguna nota indexada (0 filas en
 /// `vectores`): éxito con `results: []`, no error (Task 3, declarado —
-/// paridad con el contrato de `busca` FTS: "sin hits = éxito").
+/// paridad con el contrato de `busca` FTS: "sin hits = éxito"). No pasa por
+/// `min_similitud_de_config()` ni por el embedder (short-circuit en
+/// `total_vectores == 0`), así que no necesita config.
 #[test]
 fn busca_vector_sobre_db_sin_vectores_da_cero_resultados() {
     let dir = tempfile::tempdir().unwrap();
@@ -206,30 +257,34 @@ fn busca_vector_sobre_db_sin_vectores_da_cero_resultados() {
 /// entrada por FTS.
 #[test]
 fn fusion_gate_fts_no_pierde_hit_semantico() {
-    let (_kb, _db_dir, db) = db_indexada();
+    let kb = kb_fixture();
+    let (_db_dir, db) = db_temporal();
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
 
-    let fts = busca(&db, "palabra-que-no-existe-en-ningun-lado", 50).unwrap();
-    assert_eq!(
-        fts.results,
-        Vec::new(),
-        "precondición: FTS vacío para esta query"
-    );
+        let fts = busca(&db, "palabra-que-no-existe-en-ningun-lado", 50).unwrap();
+        assert_eq!(
+            fts.results,
+            Vec::new(),
+            "precondición: FTS vacío para esta query"
+        );
 
-    let hybrid = busca_hybrid(
-        &db,
-        "palabra-que-no-existe-en-ningun-lado",
-        10,
-        Some(0.0),
-        0.2,
-        0.8,
-    )
-    .unwrap();
+        let hybrid = busca_hybrid(
+            &db,
+            "palabra-que-no-existe-en-ningun-lado",
+            10,
+            Some(0.0),
+            0.2,
+            0.8,
+        )
+        .unwrap();
 
-    assert!(
-        !hybrid.results.is_empty(),
-        "el canal vector no debería perderse por FTS vacío: {:?}",
-        hybrid.results
-    );
+        assert!(
+            !hybrid.results.is_empty(),
+            "el canal vector no debería perderse por FTS vacío: {:?}",
+            hybrid.results
+        );
+    });
 }
 
 /// Test contractual 9: `v < umbral` ⇒ la entidad pierde el candidato vector
@@ -240,18 +295,22 @@ fn fusion_gate_fts_no_pierde_hit_semantico() {
 /// `score == f` (canal vector ausente = 0).
 #[test]
 fn threshold_filtra_vector_pre_fusion() {
-    let (_kb, _db_dir, db) = db_indexada();
+    let kb = kb_fixture();
+    let (_db_dir, db) = db_temporal();
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
 
-    let hybrid = busca_hybrid(&db, "bitácora", 10, Some(1.5), 0.2, 0.8).unwrap();
+        let hybrid = busca_hybrid(&db, "bitácora", 10, Some(1.5), 0.2, 0.8).unwrap();
 
-    assert!(
-        hybrid
-            .results
-            .iter()
-            .any(|r| r.permalink == "kb-demo/log/agent-develop-bitacora"),
-        "el candidato FTS debe sobrevivir aunque el vector quede filtrado: {:?}",
-        hybrid.results
-    );
+        assert!(
+            hybrid
+                .results
+                .iter()
+                .any(|r| r.permalink == "kb-demo/log/agent-develop-bitacora"),
+            "el candidato FTS debe sobrevivir aunque el vector quede filtrado: {:?}",
+            hybrid.results
+        );
+    });
 }
 
 /// Test contractual 11: envelope de `busca_hybrid` — `search_type: "hybrid"`
@@ -259,22 +318,26 @@ fn threshold_filtra_vector_pre_fusion() {
 /// score}`).
 #[test]
 fn busqueda_hybrid_envelope() {
-    let (_kb, _db_dir, db) = db_indexada();
+    let kb = kb_fixture();
+    let (_db_dir, db) = db_temporal();
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
 
-    let resultado = busca_hybrid(&db, "buscable", 10, Some(0.0), 0.2, 0.8).unwrap();
-    assert_eq!(resultado.search_type, "hybrid");
-    assert!(!resultado.results.is_empty());
+        let resultado = busca_hybrid(&db, "buscable", 10, Some(0.0), 0.2, 0.8).unwrap();
+        assert_eq!(resultado.search_type, "hybrid");
+        assert!(!resultado.results.is_empty());
 
-    let valor = serde_json::to_value(&resultado).unwrap();
-    let obj = valor.as_object().unwrap();
-    assert!(obj.contains_key("query"));
-    assert!(obj.contains_key("search_type"));
-    assert!(obj.contains_key("elapsed_s"));
-    assert!(obj.contains_key("results"));
-    let primero = &obj["results"][0];
-    assert!(primero.get("permalink").is_some());
-    assert!(primero.get("type").is_some());
-    assert!(primero.get("score").is_some());
+        let valor = serde_json::to_value(&resultado).unwrap();
+        let obj = valor.as_object().unwrap();
+        assert!(obj.contains_key("query"));
+        assert!(obj.contains_key("search_type"));
+        assert!(obj.contains_key("elapsed_s"));
+        assert!(obj.contains_key("results"));
+        let primero = &obj["results"][0];
+        assert!(primero.get("permalink").is_some());
+        assert!(primero.get("type").is_some());
+        assert!(primero.get("score").is_some());
+    });
 }
 
 /// DB con 3 entidades que comparten el MISMO embedding (unitario, componentes
@@ -315,24 +378,28 @@ fn db_con_entidades_empatadas(orden: [&str; 3]) -> (tempfile::TempDir, std::path
 /// empata exactamente. `--min-similarity -2.0` (por debajo del mínimo teórico
 /// de coseno, -1.0) garantiza que el filtro de umbral nunca descarte las
 /// tres entidades empatadas, sin importar el signo real de la similitud
-/// contra la query embebida.
+/// contra la query embebida. El threshold es explícito (`Some`), pero el
+/// embed de la query pasa por el embedder de proceso, que sí lee config —
+/// de ahí el envoltorio.
 #[test]
 fn busca_vector_desempate_determinista_por_permalink() {
-    let (_d1, db1) = db_con_entidades_empatadas(["z", "x", "y"]);
+    let (d1, db1) = db_con_entidades_empatadas(["z", "x", "y"]);
     let (_d2, db2) = db_con_entidades_empatadas(["y", "z", "x"]);
 
-    let r1 = busca_vector(&db1, "cualquier query", 10, Some(-2.0)).unwrap();
-    let r2 = busca_vector(&db2, "cualquier query", 10, Some(-2.0)).unwrap();
+    common::con_config(d1.path(), "kb-test", &db1, || {
+        let r1 = busca_vector(&db1, "cualquier query", 10, Some(-2.0)).unwrap();
+        let r2 = busca_vector(&db2, "cualquier query", 10, Some(-2.0)).unwrap();
 
-    for r in [&r1, &r2] {
-        let permalinks: Vec<&str> = r.results.iter().map(|res| res.permalink.as_str()).collect();
-        assert_eq!(
-            permalinks,
-            vec!["x", "y", "z"],
-            "empate triple debe desempatar por permalink ascendente: {:?}",
-            r.results
-        );
-    }
+        for r in [&r1, &r2] {
+            let permalinks: Vec<&str> = r.results.iter().map(|res| res.permalink.as_str()).collect();
+            assert_eq!(
+                permalinks,
+                vec!["x", "y", "z"],
+                "empate triple debe desempatar por permalink ascendente: {:?}",
+                r.results
+            );
+        }
+    });
 }
 
 // --- Modo mudo del arm vector (backlog "alta", 2026-08-22) ---
@@ -343,94 +410,99 @@ fn busca_vector_desempate_determinista_por_permalink() {
 // plausibles estando roto es el modo de fallo más caro de un instrumento de
 // retrieval; estos tests fijan que la degradación sea VISIBLE.
 
-/// DB fixture indexada a la que se le vacía la tabla `vectores`: trozos sí,
-/// vectores no. Es el estado real que produce un embed abortado a medias o un
-/// índice heredado de antes de M2-06.
-fn db_sin_vectores() -> (tempfile::TempDir, tempfile::TempDir, std::path::PathBuf) {
-    let (kb, db_dir, db) = db_indexada();
-    let conn = exo::abre_db(&db).unwrap();
-    conn.execute("DELETE FROM vectores", []).unwrap();
-    let quedan: i64 = conn
-        .query_row("SELECT count(*) FROM vectores", [], |f| f.get(0))
-        .unwrap();
-    assert_eq!(quedan, 0, "precondición: la tabla vectores queda vacía");
-    (kb, db_dir, db)
-}
-
 #[test]
 fn hybrid_sin_vectores_avisa_de_que_es_fts_puro() {
-    let (_kb, _db_dir, db) = db_sin_vectores();
+    let kb = kb_fixture();
+    let (_db_dir, db) = db_temporal();
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
+        vacia_vectores(&db);
 
-    let hybrid = busca_hybrid(&db, "buscable", 10, Some(0.0), 0.2, 0.8).unwrap();
+        let hybrid = busca_hybrid(&db, "buscable", 10, Some(0.0), 0.2, 0.8).unwrap();
 
-    assert!(
-        !hybrid.results.is_empty(),
-        "precondición: FTS sí tiene hits para esta query"
-    );
-    assert!(
-        hybrid.avisos.iter().any(|a| a.contains("vector")),
-        "un hybrid servido por FTS puro debe avisarlo: {:?}",
-        hybrid.avisos
-    );
+        assert!(
+            !hybrid.results.is_empty(),
+            "precondición: FTS sí tiene hits para esta query"
+        );
+        assert!(
+            hybrid.avisos.iter().any(|a| a.contains("vector")),
+            "un hybrid servido por FTS puro debe avisarlo: {:?}",
+            hybrid.avisos
+        );
+    });
 }
 
 #[test]
 fn hybrid_con_cobertura_parcial_avisa_con_las_cifras() {
-    let (_kb, _db_dir, db) = db_indexada();
-    let conn = exo::abre_db(&db).unwrap();
-    let trozos: i64 = conn
-        .query_row("SELECT count(*) FROM trozos", [], |f| f.get(0))
-        .unwrap();
-    assert!(trozos >= 2, "precondición: el fixture tiene varios trozos");
-    let victima: i64 = conn
-        .query_row("SELECT rowid FROM vectores LIMIT 1", [], |f| f.get(0))
-        .unwrap();
-    conn.execute("DELETE FROM vectores WHERE rowid = ?1", params![victima])
-        .unwrap();
+    let kb = kb_fixture();
+    let (_db_dir, db) = db_temporal();
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
 
-    let hybrid = busca_hybrid(&db, "buscable", 10, Some(0.0), 0.2, 0.8).unwrap();
+        let conn = exo::abre_db(&db).unwrap();
+        let trozos: i64 = conn
+            .query_row("SELECT count(*) FROM trozos", [], |f| f.get(0))
+            .unwrap();
+        assert!(trozos >= 2, "precondición: el fixture tiene varios trozos");
+        let victima: i64 = conn
+            .query_row("SELECT rowid FROM vectores LIMIT 1", [], |f| f.get(0))
+            .unwrap();
+        conn.execute("DELETE FROM vectores WHERE rowid = ?1", params![victima])
+            .unwrap();
 
-    let aviso = hybrid.avisos.join(" | ");
-    assert!(
-        aviso.contains(&(trozos - 1).to_string()) && aviso.contains(&trozos.to_string()),
-        "el aviso de cobertura parcial debe llevar las cifras ({} de {}): {aviso:?}",
-        trozos - 1,
-        trozos
-    );
+        let hybrid = busca_hybrid(&db, "buscable", 10, Some(0.0), 0.2, 0.8).unwrap();
+
+        let aviso = hybrid.avisos.join(" | ");
+        assert!(
+            aviso.contains(&(trozos - 1).to_string()) && aviso.contains(&trozos.to_string()),
+            "el aviso de cobertura parcial debe llevar las cifras ({} de {}): {aviso:?}",
+            trozos - 1,
+            trozos
+        );
+    });
 }
 
 #[test]
 fn hybrid_con_cobertura_completa_no_ensucia_el_envelope() {
-    let (_kb, _db_dir, db) = db_indexada();
+    let kb = kb_fixture();
+    let (_db_dir, db) = db_temporal();
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
 
-    let hybrid = busca_hybrid(&db, "buscable", 10, Some(0.0), 0.2, 0.8).unwrap();
+        let hybrid = busca_hybrid(&db, "buscable", 10, Some(0.0), 0.2, 0.8).unwrap();
 
-    assert!(
-        hybrid.avisos.is_empty(),
-        "sin degradación no hay avisos: {:?}",
-        hybrid.avisos
-    );
-    let valor = serde_json::to_value(&hybrid).unwrap();
-    assert!(
-        !valor.as_object().unwrap().contains_key("warnings"),
-        "la clave `warnings` no debe aparecer cuando está vacía (envelope v2 §4.1)"
-    );
+        assert!(
+            hybrid.avisos.is_empty(),
+            "sin degradación no hay avisos: {:?}",
+            hybrid.avisos
+        );
+        let valor = serde_json::to_value(&hybrid).unwrap();
+        assert!(
+            !valor.as_object().unwrap().contains_key("warnings"),
+            "la clave `warnings` no debe aparecer cuando está vacía (envelope v2 §4.1)"
+        );
+    });
 }
 
 #[test]
 fn vector_puro_sin_vectores_tambien_avisa() {
-    let (_kb, _db_dir, db) = db_sin_vectores();
+    let kb = kb_fixture();
+    let (_db_dir, db) = db_temporal();
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
+        vacia_vectores(&db);
 
-    let vector = busca_vector(&db, "buscable", 10, Some(0.0)).unwrap();
+        let vector = busca_vector(&db, "buscable", 10, Some(0.0)).unwrap();
 
-    assert_eq!(
-        vector.results,
-        Vec::new(),
-        "contrato Task 3: 0 resultados, no error"
-    );
-    assert!(
-        !vector.avisos.is_empty(),
-        "0 resultados por tabla vacía no es lo mismo que 0 resultados por query: {:?}",
-        vector.avisos
-    );
+        assert_eq!(
+            vector.results,
+            Vec::new(),
+            "contrato Task 3: 0 resultados, no error"
+        );
+        assert!(
+            !vector.avisos.is_empty(),
+            "0 resultados por tabla vacía no es lo mismo que 0 resultados por query: {:?}",
+            vector.avisos
+        );
+    });
 }
