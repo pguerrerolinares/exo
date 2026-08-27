@@ -5,7 +5,11 @@
 # Apunta EXO_CONFIG a un fichero inexistente en vez de mover el config real:
 # mover el de la máquina es destructivo y compite con el hook `Stop` que indexa.
 set -uo pipefail
-cd "$(dirname "$0")/.."
+# `|| exit 1` no es ceremonia: sin el, un cd fallido dejaria a cargo corriendo
+# en el cwd de invocacion, y si ese directorio tuviera su propio Cargo.toml el
+# gate daria verde sin haber probado nada. Hoy no lo tiene — pero eso es una
+# garantia del layout, no del script.
+cd "$(dirname "$0")/.." || exit 1
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT

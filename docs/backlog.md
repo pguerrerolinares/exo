@@ -292,7 +292,7 @@
   **Acción tomada:** helper compartido `engine/tests/common/mod.rs::con_config`
   (Task 1) — monta un `config.toml` temporal, apunta `EXO_CONFIG` a él bajo un
   `Mutex` de proceso, y restaura el valor previo al salir. Las 9 suites
-  (`write_create_permalink`, `rechazo_envelope` en Task 1;  `indexer` en Task
+  (`write_create_permalink`, `rechazo_envelope` en Task 1; `indexer` en Task
   2a; `buscador` en Task 2b; `recall`, `recall_contenido`, `guarda_modelo`,
   `refresca`, `cache_embeddings` en Task 3) pasan a usarlo.
   **Cifra final**, verificada tras hermetizar las 9: con `EXO_CONFIG` a una
