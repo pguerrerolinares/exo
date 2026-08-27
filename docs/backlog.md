@@ -62,6 +62,14 @@
   `exo doctor` debe detectar el desfase entre la versión del binario instalado
   y la versión del plugin: comprobación barata y falsable para un fallo que no
   grita.
+  **Estado 2026-08-27:** la mitad del cutover está aplicada al plan — el
+  Step 1½ nuevo de la Task 8 de `plans/2026-08-26-ola1b-plugin-exo.md` compila
+  e instala el binario antes del plugin, y su check mira el envelope
+  (`schema_version == 2`), no el mtime. **El item sigue abierto** por la otra
+  mitad: el check permanente en `exo doctor` es G5 y no existe todavía.
+  Medido ese mismo día: `~/.local/bin/exo.exe` es del 24-08 17:11, anterior al
+  merge de la ola 1A (27-08 10:13) — el desfase no es hipotético, está vivo en
+  esta máquina ahora mismo.
 
 ## Media
 
@@ -138,9 +146,23 @@
   declarando que se queda indexado. Llevar la decisión abierta indefinidamente es
   peor que cualquiera de las dos opciones.
 
-- [ ] **Privacy-pass a `evals/` antes de cualquier remote público.** Las queries
-  del eval son reales y están trackeadas; el snapshot del log está en
+- [ ] **Privacy-pass — va en la MISMA pasada de `filter-repo` que B1.** Las
+  queries del eval son reales y están trackeadas; el snapshot del log está en
   `.gitignore`, el eval set no. Spec §6.6, espíritu clean-room.
+  **Ampliado y resecuenciado el 2026-08-27** (adjudicación de B1, ver la spec
+  de exo genérico): el alcance no es solo `evals/`. Hay **35 ficheros
+  trackeados** que mencionan «empresa-x» — 3 correos literales en
+  `specs/2026-08-26-exo-generico-design.md` y en
+  `runbooks/2026-08-24-integracion-equipo-trabajo-windows.md`, y el resto
+  corpora de evals derivados de la KB.
+  **Por qué comparte pasada con B1:** `--mailmap` corrige la autoría, no el
+  contenido. Si el privacy-pass se hace después editando ficheros en HEAD,
+  esos strings siguen vivos en los diffs históricos y el gate
+  `git log --all -p | grep -ci 'empresa-x\|universidad\|dev'` → 0 no puede
+  pasar nunca. Y dos pasadas de filter-repo remapean dos veces los 137 SHAs
+  citados en prosa. Una sola pasada: `--mailmap` + reescritura de contenido.
+  **Es gate duro de publicación**: ningún push público antes de que ese grep
+  dé 0.
 
 ---
 

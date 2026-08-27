@@ -479,14 +479,21 @@ anotado en el runbook y hay que repetirlo a mano en la otra máquina (Task 8).
 
 ### Task 5: Repuntar `paul-profile` y el marketplace
 
+> **Repuntada por la adjudicación de B2 (2026-08-27).** El plugin `exo` **no**
+> se sirve desde `exo-plugins`: el repo `exo` pasa a ser su propio marketplace.
+> `exo-plugins` solo pierde `process`/`reflex` y renombra su marketplace a
+> `paul`. Ver la spec, «Decisiones bloqueantes — ADJUDICADAS».
+
 **Files:**
 - Modify: `C:\proyectos\homework\exo-plugins\.claude-plugin\marketplace.json`
 - Modify: `C:\proyectos\homework\exo-plugins\plugins\paul-profile\.claude-plugin\plugin.json`
 - Modify: `C:\proyectos\homework\exo-plugins\plugins\paul-profile\skills\fabrica\SKILL.md`
+- Create: `C:\proyectos\homework\exo\.claude-plugin\marketplace.json`
 
 **Interfaces:**
 - Consumes: el plugin `exo` de las Tasks 2-3.
-- Produces: marketplace que sirve `exo@exo` y ya no sirve `process` ni `reflex`.
+- Produces: el repo `exo` sirviendo `exo@exo` desde su propio marketplace, y
+  `exo-plugins` (privado, renombrado a `paul`) sin `process` ni `reflex`.
 
 - [ ] **Step 1: Inventariar las referencias de paul-profile**
 
@@ -504,39 +511,48 @@ En cada match: `process:orchestrate`→`exo:orchestrate`,
 `reflex:executor`→`exo:executor`. **No** metas `paul-profile` dentro del
 plugin `exo` (A2): sigue siendo un plugin aparte, solo cambia a quién llama.
 
-- [ ] **Step 3: Reemplazar las dos entradas del marketplace por una**
+- [ ] **Step 3: Retirar las dos entradas y renombrar el marketplace**
 
-En `.claude-plugin/marketplace.json`, borrar los objetos `process` y `reflex` y
-poner en su lugar:
-
-```json
-    {
-      "name": "exo",
-      "source": {
-        "source": "git-subdir",
-        "url": "https://github.com/pguerrerolinares/exo.git",
-        "path": "plugins/exo"
-      },
-      "description": "Framework de trabajo agéntico con memoria persistente: nueve skills de proceso, el agente executor y la capa de reflejos (hooks deterministas). Sustituye a los plugins process y reflex.",
-      "version": "1.0.0",
-      "author": {
-        "name": "Paul Guerrero",
-        "email": "pguerrerolinares@gmail.com"
-      }
-    },
-```
+En `exo-plugins/.claude-plugin/marketplace.json`, borrar los objetos `process`
+y `reflex` **sin añadir `exo`**, y renombrar `"name": "exo"` -> `"paul"`. Dos
+marketplaces no pueden compartir nombre en `known_marketplaces.json`, y el
+nombre `exo` pasa al repo `exo` en el Step 3-bis.
 
 Subir `metadata.version` del marketplace de `0.2.0` a `0.3.0`.
 
-- [ ] **Step 4: Validar el JSON**
+- [ ] **Step 3-bis: Crear el marketplace del repo `exo`**
 
-```bash
-cd /c/proyectos/homework/exo-plugins
-jq -e '.plugins | map(.name) | sort' .claude-plugin/marketplace.json
+Crear `C:\proyectos\homework\exo\.claude-plugin\marketplace.json`:
+
+```json
+{
+  "name": "exo",
+  "owner": { "name": "Paul Guerrero", "email": "pguerrerolinares@gmail.com" },
+  "metadata": { "version": "1.0.0", "pluginRoot": "./plugins" },
+  "plugins": [
+    { "name": "exo", "source": "./plugins/exo",
+      "description": "Framework de trabajo agéntico con memoria persistente: nueve skills de proceso, el agente executor y la capa de reflejos.",
+      "version": "1.0.0",
+      "author": { "name": "Paul Guerrero", "email": "pguerrerolinares@gmail.com" } }
+  ]
+}
 ```
 
-Expected: `["exo","paul-profile","workflow-lint"]`. Si sale `process` o
-`reflex`, no se han retirado.
+El `source` local (`./plugins/exo`) es el mismo patrón que usa el marketplace
+oficial de Anthropic para `agent-sdk-dev` — verificado en
+`~/.claude/plugins/marketplaces/claude-plugins-official/.claude-plugin/marketplace.json`,
+no asumido.
+
+- [ ] **Step 4: Validar los dos JSON**
+
+```bash
+jq -e '.plugins | map(.name) | sort' /c/proyectos/homework/exo-plugins/.claude-plugin/marketplace.json
+jq -e '.name' /c/proyectos/homework/exo-plugins/.claude-plugin/marketplace.json
+jq -e '.plugins | map(.name)' /c/proyectos/homework/exo/.claude-plugin/marketplace.json
+```
+
+Expected: `["paul-profile","workflow-lint"]` · `"paul"` · `["exo"]`. Si en el
+primero sale `process`, `reflex` o `exo`, el Step 3 está mal hecho.
 
 - [ ] **Step 5: Commit en el repo del marketplace**
 
@@ -671,22 +687,48 @@ cd /c/proyectos/homework/exo && git push
 cd /c/proyectos/homework/exo-plugins && git push
 ```
 
-El plugin se sirve por `git-subdir` desde GitHub: **hasta que esto no esté
-empujado, ninguna máquina ve el plugin nuevo**. Es la trampa documentada del
-runbook del 24 de agosto.
+El plugin se sirve desde el repo `exo`: **hasta que esto no esté empujado,
+ninguna máquina ve el plugin nuevo**. Es la trampa documentada del runbook del
+24 de agosto. Ojo: `main` va 31 commits por delante de `origin/main` (la ola 1A
+nunca se empujó), así que este push manda mucho más que esta ola.
+
+- [ ] **Step 1½: El binario ANTES que el plugin — nunca después**
+
+Cierra el item Alta #3 de `docs/backlog.md`: nada aplicaba hoy esa restricción
+de orden. Y el desfase ya existe — `~/.local/bin/exo.exe` es del 24-08 17:11,
+**anterior** al merge de la ola 1A (27-08 10:13): el binario instalado habla
+envelope v1 contra scripts que ya hablan v2.
+
+```bash
+cp ~/.local/bin/exo.exe ~/.local/bin/exo-v1.exe          # rollback del Step 7
+cargo build --release --manifest-path /c/proyectos/homework/exo/engine/Cargo.toml
+install -m 755 /c/proyectos/homework/exo/engine/target/release/exo.exe ~/.local/bin/exo.exe   # Linux: exo
+exo search --json probe | jq -e '.schema_version == 2' >/dev/null && echo "binario v2 OK"
+```
+
+Expected: `binario v2 OK`. **Mira el envelope, no el mtime**: el binario del
+24-08 emite `schema_version: 1`, así que el check *falla* en vez de avisar. Un
+mtime nuevo no prueba que el binario sea el correcto; el envelope sí.
 
 - [ ] **Step 2: Cutover en esta máquina**
 
+El marketplace `exo` cambia de repo (B2), así que no basta con `update`: hay
+que retirarlo y volver a añadirlo apuntando al repo `exo`.
+
 ```bash
-claude plugin marketplace update exo
+claude plugin uninstall process@exo && claude plugin uninstall reflex@exo
+claude plugin marketplace remove exo
+claude plugin marketplace add pguerrerolinares/exo
 claude plugin install exo@exo
-claude plugin uninstall process@exo
-claude plugin uninstall reflex@exo
 ls -d ~/.claude/plugins/cache/exo/*/*/
+jq -r '.exo.source' ~/.claude/plugins/known_marketplaces.json
 ```
 
-Expected: aparece `exo/1.0.0/` y **desaparecen** `process/` y `reflex/`. Mira
-el directorio, no el mensaje del comando.
+Expected: la caché muestra **solo** `exo/1.0.0/` (desaparecen `process/` y
+`reflex/`), y `known_marketplaces.json` apunta a `pguerrerolinares/exo`, **no**
+a `exo-plugins.git`. Mira los dos artefactos, no el mensaje de los comandos: un
+`marketplace update` que no trae nada devuelve exit 0 igual — es el fallo
+silencioso ya documentado en la bitácora del 23 de agosto.
 
 - [ ] **Step 3: Verificación falsable de los cinco hooks**
 
@@ -736,8 +778,17 @@ Task 4 dejó, y dejar solo el glob de `exo`. Anótalo en el runbook con la fecha
 
 - [ ] **Step 7: Escribir la sección Rollback del runbook**
 
-Cómo volver: `claude plugin install reflex@exo` y `process@exo` desde el commit
-anterior del marketplace, y restaurar el shim viejo. Con los comandos exactos.
+Cómo volver, con los comandos exactos y en este orden:
+
+1. `claude plugin marketplace remove exo` y volver a añadir `exo-plugins` como
+   marketplace desde el commit anterior (donde aún se llama `exo` y sirve
+   `process`/`reflex`).
+2. `claude plugin install reflex@exo` y `process@exo`.
+3. Restaurar el shim viejo de `kb-demo/.git/hooks/pre-commit`.
+4. `install -m 755 ~/.local/bin/exo-v1.exe ~/.local/bin/exo.exe` — el binario
+   guardado en el Step 1½. Sin esto, el rollback deja scripts v1 contra un
+   binario v2: el mismo desfase de esta ola, en la dirección contraria.
+
 Un cutover sin rollback escrito no es un cutover, es una apuesta.
 
 - [ ] **Step 8: Commit**
@@ -752,10 +803,17 @@ git commit -m "docs(runbook): cutover del plugin exo verificado end-to-end"
 
 ## Lo que este plan NO arregla, a propósito
 
-- **`distill` sigue sin funcionar en Windows.** Llama a `kbx`, que aquí no
-  compila. Es G4 y la spec lo decide así explícitamente: shippear el rewiring
-  a medias sería peor. El skill debe decirlo en voz alta cuando no encuentra
-  el binario, no callarse.
+- **`distill` sigue sin funcionar en Windows — pero no por lo que decía este
+  plan.** «Llama a `kbx`, que aquí no compila» es **falso como causa**:
+  verificado el 2026-08-27, `~/.local/bin/kbx` existe y
+  `kbx budget --kb … --json` responde con exit 0 en W11. Lo que no hay es
+  toolchain Go (`go: command not found`), que impide *compilarlo* pero no
+  *ejecutarlo* — y `distill` solo necesita ejecutarlo. La causa real son las
+  **13 rutas absolutas `/home/paul/…`** de la línea siguiente. La decisión no
+  cambia (es G4, y la spec lo decide así): allí se parametrizan esas rutas y se
+  reescriben los comandos a verbos `exo`, y separar los dos arreglos sobre el
+  mismo fichero sería peor. El skill debe decir en voz alta lo que le falta, no
+  callarse.
 - **Las 13 rutas `/home/paul/…` de `distill/SKILL.md`** se parametrizan contra
   la config en G4, cuando se reescriban sus comandos a verbos `exo`.
 - **`schema_drift`, `budget_prose_drift` y el resto del linter de la KB** son

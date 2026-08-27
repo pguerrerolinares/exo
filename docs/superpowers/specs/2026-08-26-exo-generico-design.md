@@ -115,10 +115,12 @@ crearlo.
 **Por qué ahora y no después:** hoy rompe cuatro invocaciones propias, dos
 skills y el harness de evals. Después de publicar, rompe a terceros.
 
-## Decisiones bloqueantes pendientes (de Paul, no del consultor)
+## Decisiones bloqueantes — ADJUDICADAS el 2026-08-27
 
 Ambas son de una sola ventana: después del primer push público no tienen
-arreglo. **Bloquean G5, no antes.**
+arreglo. **Bloquean G5, no antes.** El planteamiento original se conserva
+abajo tal cual; la resolución de cada una va a continuación, con los hechos
+que se midieron para tomarla.
 
 **B1 — destino de la historia git.** `git log --format=%ae | sort -u` sobre
 este repo devuelve `dev@example.invalid` y
@@ -134,6 +136,89 @@ Hacerlo público para servir el plugin `exo` publicaría también el harness
 personal, contra A2. **Recomendación: servir el plugin desde el propio repo
 `exo`**, que ya es la fuente de verdad declarada en su README — quita un repo
 de la ecuación y deja `exo-plugins` privado con `paul-profile` dentro.
+
+### B1 — RESUELTA: reescribir con `git filter-repo --mailmap`
+
+**Decisión (Paul, 2026-08-27):** se reescribe la autoría a una única identidad,
+`Paul Guerrero <pguerrerolinares@gmail.com>`. Rechazadas: *publicar tal cual*
+(dos correos del empleador en la autoría de un repo personal público) y
+*colapsar la historia* (destruye 232 commits de audit trail, que es el
+argumento de producto de este proyecto).
+
+**Alcance ampliado respecto al B1 original.** El planteamiento de arriba solo
+contempla las dos identidades corporativas. El mailmap colapsa **las cinco**:
+
+| Correo | Commits |
+|---|---|
+| `dev@example.invalid` | 189 |
+| `pguerrerolinares@gmail.com` | 32 |
+| `dev@example.invalid` | 9 |
+| `dev@example.invalid` | 1 |
+| `dev@example.invalid` | 1 |
+
+Existe una sexta identidad en el campo *committer* — `GitHub
+<noreply@github.com>`, 1 commit hecho por la web UI — que **se conserva**: es
+la marca honesta de dónde se hizo ese commit, no una identidad personal.
+
+**Coste medido, no estimado:** 71 SHAs únicos citados en prosa, 137
+ocurrencias — 115 en este repo (`docs/`, `evals/`, `reports/`,
+`.superpowers/`, más un comentario en `engine/src/buscador.rs:11`) y 22 en la
+KB. Ni los mensajes de commit ni los ficheros contienen los correos de
+autoría, así que `--mailmap` basta; el remapeo de las citas se automatiza con
+el `commit-map` que genera filter-repo, que se commitea en `docs/history/`.
+
+**EJECUCIÓN DIFERIDA — B1 y el privacy-pass van en la MISMA pasada.** La
+decisión está tomada; la ejecución espera. `--mailmap` corrige la *autoría*,
+no el *contenido*: 35 ficheros trackeados mencionan «empresa-x» (3 correos
+literales en esta misma spec y en el runbook de W11; el resto, corpora de
+evals derivados de la KB). Si el privacy-pass se hace después, editando
+ficheros en HEAD, esos strings **siguen vivos en los diffs históricos** y el
+gate de abajo no puede pasar nunca. Y hacerlo en dos pasadas de filter-repo
+remapea los 137 SHAs dos veces. Por tanto: se decide ahora, se ejecuta cuando
+las redacciones de contenido estén resueltas, en una sola pasada
+(`--mailmap` + reescritura de contenido).
+
+**Gate pre-publicación, falsable** (va al runbook de G5; hoy daría > 0, y eso
+es precisamente lo que impide publicar):
+
+```bash
+git log --all -p | grep -ci 'empresa-x\|universidad\|dev'   # exigido: 0
+git log --format='%ae%n%ce' | sort -u                        # exigido: gmail + noreply@github.com
+```
+
+**Nota de interacción con B2 — orden que no se puede invertir.** El cutover de
+la ola 1B añade este repo como marketplace, lo que crea un clon en la caché de
+cada máquina. Un `push --force` posterior por la reescritura deja esos clones
+con historia divergente. Al ejecutar B1: repuntar los marketplaces
+(`claude plugin marketplace remove exo` + `add`) en las dos máquinas **como
+parte de la misma operación**, no como limpieza posterior.
+
+### B2 — RESUELTA: el repo `exo` es su propio marketplace
+
+**Decisión (Paul, 2026-08-27):** se sirve el plugin desde el propio repo `exo`,
+que añade su `/.claude-plugin/marketplace.json`. `exo-plugins` **sigue
+privado**, con `paul-profile` dentro, y deja de servir `process` y `reflex`.
+Rechazada: hacer público `exo-plugins` (publicaría el harness personal, contra
+A2).
+
+**La recomendación de arriba se verificó en vez de heredarse.** El propio
+marketplace oficial de Anthropic sirve un plugin desde su mismo repo:
+`~/.claude/plugins/marketplaces/claude-plugins-official/.claude-plugin/marketplace.json`
+declara `agent-sdk-dev` con `"source": "./plugins/agent-sdk-dev"`. Un repo
+puede ser marketplace y fuente a la vez; el formato solo exige
+`.claude-plugin/marketplace.json` en raíz con `name` / `owner` / `plugins`.
+
+**Dos consecuencias que el planteamiento original no anticipaba:**
+
+1. `exo-plugins` debe **renombrar su marketplace de `exo` a `paul`**: dos
+   marketplaces no pueden compartir nombre en `known_marketplaces.json`, y el
+   nombre `exo` pasa al repo `exo`.
+2. **No hay breakage**: `paul-profile` y `workflow-lint` no están instalados en
+   W11 (`installed_plugins.json` — solo context7, equipo-x, `process@exo`,
+   `reflex@exo`). Y la caché no cambia de ruta, porque el marketplace nuevo se
+   sigue llamando `exo`.
+
+Ambas están aplicadas al plan de la ola 1B (Tasks 5 y 8).
 
 ## Asunciones adjudicadas
 
@@ -338,10 +423,36 @@ v1 se dejaba fuera lo más peligroso. La lista real:
 
 **La ventana G2→G4 (H8), a decidir aquí y no en el commit.** Entre la fusión y
 el port de verbos, `exo:distill` sigue dependiendo del binario `kbx`
-(`SKILL.md:31,71,80,108`), que **no existe en W11**. O G2 shippea `distill`
-con degradación total anunciada, o el rewiring de `distill`/`document` se
-mueve entero a G4. **Decisión: se mueve a G4** — shippear un skill que en una
-de las dos máquinas no puede hacer nada es publicar un comentario.
+(`SKILL.md:31,71,80,108`). O G2 shippea `distill` con degradación total
+anunciada, o el rewiring de `distill`/`document` se mueve entero a G4.
+**Decisión: se mueve a G4.**
+
+> **Corregido el 2026-08-27 — el fundamento era falso, la decisión no.** v2
+> justificaba esto con que `kbx` **«no existe en W11»**, y el consultor que lo
+> adjudicó heredó la frase sin medirla. Verificado ese día en esa máquina:
+> `~/.local/bin/kbx` existe (24-08) y
+> `kbx budget --kb … --json` devuelve envelope válido con **exit 0**. Lo que sí
+> es cierto —y es de donde salió la confusión— es que **no hay toolchain Go**
+> (`go: command not found`): cierto para *compilar* kbx, que es lo que exige el
+> gate de paridad de G4 (donde la afirmación se sostiene y se queda),
+> irrelevante para *ejecutarlo*, que es lo único que `distill` necesita.
+>
+> **La causa real** de que `distill` esté roto en W11 son las **13 rutas
+> absolutas `/home/paul/…`** del punto 9 de este mismo inventario: un bug de
+> parametrización, no una ausencia de binario. Sigue yendo a G4 porque es allí
+> donde esas rutas se parametrizan y donde se reescriben sus comandos a verbos
+> `exo` — dos arreglos sobre el mismo fichero, y separarlos es peor. Se cae el
+> argumento «no puede hacer nada en una de las dos máquinas»; queda en pie «no
+> lo arregles a medias».
+>
+> De paso resuelve una discrepancia interna: el punto 9 sitúa la
+> parametrización de esas 13 rutas en G2 y el plan de la ola 1B la manda a G4.
+> **Manda G4**, por la razón de arriba.
+
+**Lección, la misma de D8:** un hecho sobre el entorno que nadie vuelve a medir
+sobrevive a las revisiones porque suena plausible. `kbx --help` devuelve exit 2
+(no tiene `--help`), y eso basta para que una comprobación perezosa lo dé por
+ausente. La comprobación honesta es ejecutar el comando que se va a usar.
 
 `CLAUDE_PLUGIN_ROOT` se resuelve solo: los hooks cambian de ruta, no de
 contenido.
