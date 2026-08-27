@@ -1,3 +1,11 @@
+---
+permalink: "{{KB_NAME}}/AGENTS"
+title: Contrato de la KB para agentes
+tags: [contrato, agentes]
+tier: stable
+semilla: true
+---
+
 # Contrato de la KB para agentes
 
 Esta base de conocimiento (KB) está organizada para que un agente pueda leer

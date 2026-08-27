@@ -1,3 +1,11 @@
+---
+permalink: "{{KB_NAME}}/README"
+title: "{{KB_NAME}}"
+tags: [contrato, readme]
+tier: stable
+semilla: true
+---
+
 # {{KB_NAME}}
 
 Esta carpeta es una base de conocimiento (KB): un conjunto de notas en
