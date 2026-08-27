@@ -18,7 +18,7 @@ una migración explícita y de una sola vez). La capa thin (`plugins/reflex/`,
 - **Deuda abierta y hallazgos sin barrer: `docs/backlog.md`** — léelo antes de asumir
   que algo está terminado solo porque este README lo menciona.
 - Estado (2026-08-26): M0, M1a y M2 (E1 read) cerrados · M4 (E2 write) cerrado —
-  `exo write new|append` escribe la KB y `/documenta` ya va por el engine · M6-01/02
+  `exo write new|append` escribe la KB y `/document` ya va por el engine · M6-01/02
   hechos: `exo recall` sirve el arranque de cada sesión · **ola 1A cerrada**: el
   engine tiene config propia (`engine/src/config.rs`, precedencia
   `flag > env > config > error accionable`), cero código de producción lee ya
@@ -34,7 +34,7 @@ una migración explícita y de una sola vez). La capa thin (`plugins/reflex/`,
 ## Capa thin: el plugin `process`
 
 `plugins/process/` es la capa de skills. Siete: brainstorm · plan · orchestrate ·
-tdd · debug · verify · documenta. Sustituye a `superpowers` y a
+tdd · debug · verify · document. Sustituye a `superpowers` y a
 `paul-profile:orchestrate-personal` en el uso diario.
 
 Este repo es la **fuente de verdad** del plugin (co-evoluciona con el engine y con

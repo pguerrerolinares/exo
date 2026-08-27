@@ -2,7 +2,7 @@
 # PreToolUse (matcher: Bash): reflejo "zero-residuo".
 # Warn-only, NUNCA bloquea (exit 0 siempre). Detecta `git add -A`, `git add --all`
 # y `git add .` y recuerda anadir explicitamente solo los ficheros tocados.
-# Regla de Paul (CLAUDE.md / /documenta): NUNCA `git add -A` — arrastra cambios
+# Regla de Paul (CLAUDE.md / /document): NUNCA `git add -A` — arrastra cambios
 # no relacionados y residuo.
 #
 # POR QUE IMPORTA MAS BAJO CONCURRENCIA: `git add -A` no anade "lo que tocaste",

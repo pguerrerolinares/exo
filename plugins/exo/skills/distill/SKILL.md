@@ -1,12 +1,12 @@
 ---
-name: consolida
-description: Consolidación offline de la KB kb-demo (sleep-time compute manual): colapsa bitácoras/sesiones en destilados, chequea presupuestos por tier, promueve doctrina repetida a core y refresca core-index. Usar al cerrar un frente o semanalmente.
+name: distill
+description: Consolidación offline de la KB (sleep-time compute manual): colapsa bitácoras/sesiones en destilados, chequea presupuestos por tier, promueve doctrina repetida a core y refresca core-index. Usar al cerrar un frente o semanalmente.
 ---
 
-# consolida
+# distill
 
-**Qué es:** el "sleep-time compute" manual de la KB kb-demo. Mientras `/documenta`
-escribe en caliente (al cerrar una sesión), `/consolida` es mantenimiento offline —
+**Qué es:** el "sleep-time compute" manual de la KB kb-demo. Mientras `/document`
+escribe en caliente (al cerrar una sesión), `/distill` es mantenimiento offline —
 Paul lo invoca al cerrar un frente o semanalmente para que la KB no crezca sin control
 ni se llene de doctrina repetida sin destilar.
 
@@ -101,7 +101,7 @@ un `schema_drift` en `doctor`, ver abajo), **para** con un mensaje accionable
 (`kbx no está → make install`, "schema drift → el binario kbx y el binario exo
 están desincronizados: reinstala el que vaya atrasado (`make install` en kbx,
 `cargo build --release` + copia en exo) y vuelve a correr"). No degrades a mano:
-/consolida es offline y deliberado, el fallo ruidoso es correcto.
+/distill es offline y deliberado, el fallo ruidoso es correcto.
 
 ### 1b. Gate de deriva + priorización
 
@@ -167,7 +167,7 @@ están desincronizados: reinstala el que vaya atrasado (`make install` en kbx,
 >
 > Un índice **no se destila**: cuando muerde se le retiran entradas muertas.
 
-Mismo contrato que `/documenta` v2: la nota canónica es el **estado vivo**, editado
+Mismo contrato que `/document` v2: la nota canónica es el **estado vivo**, editado
 como delta (qué es verdad *ahora*); todo lo fechado/histórico (decisiones tomadas en
 tal fecha, iteraciones superadas) se mueve a `log/<slug>-bitacora.md`. La canónica
 queda dentro de presupuesto porque deja de cargar el historial completo.
@@ -182,7 +182,7 @@ no dan contexto del estado actual (deja los **últimos ~1-3 por frente**) → ap
 fechado a `log/backlog-diario.md`, y elimínalos del backlog. Conserva SIEMPRE todos los
 `[ ]` abiertos. El backlog debe tender a ≈ **abiertos + cola corta de recién-cerrado**.
 Es la única nota `core` a la que se le tolera rebasar presupuesto por ser estado vivo,
-pero este flush periódico es lo que evita que se dispare. (En caliente, `/documenta`
+pero este flush periódico es lo que evita que se dispare. (En caliente, `/document`
 marca el `[x]` de una línea al cerrar; aquí, offline, se barren los viejos.)
 
 > El remedio del Backlog al morder es **cerrar y archivar frentes, no destilar
@@ -192,16 +192,16 @@ marca el `[x]` de una línea al cerrar; aquí, offline, se barren los viejos.)
 ### 3. Archivar sesiones de frentes cerrados
 
 **Escanea solo lo cambiado.** No re-escanees toda la KB: corre
-`/home/paul/.local/bin/kbx diff-since consolida/last --json`
+`/home/paul/.local/bin/kbx diff-since distill/last --json`
 (`{data:{ref,resolved,notes:[{path,permalink,status,insertions,deletions}]}}`)
 para ver qué notas cambiaron desde la última consolidación.
 
 **Bootstrap (el tag aún no existe — `git tag -l` está vacío hoy):** si
-`consolida/last` no existe, `diff-since` fallará al resolver el ref. Eso **no**
+`distill/last` no existe, `diff-since` fallará al resolver el ref. Eso **no**
 es fallo-fuerte: haz un **full scan** (sin `diff-since`) esta vez. Al terminar
 el paso 5 (commit), crea/mueve el tag al HEAD del repo KB:
 
-    git -C /home/paul/Documentos/proyectos/kb-demo tag -f consolida/last HEAD
+    git -C /home/paul/Documentos/proyectos/kb-demo tag -f distill/last HEAD
 
 Es la única mutación del repo KB que hace esta skill más allá de commitear notas.
 
@@ -235,7 +235,7 @@ Luego commit scoped con las mismas reglas git de Paul:
 - **Nunca** `cd` encadenado con `git`; usa siempre `git -C <path>`.
 - **No hagas push** — esa decisión es de Paul.
 - Tras el commit, avanza el marcador de consolidación:
-  `git -C /home/paul/Documentos/proyectos/kb-demo tag -f consolida/last HEAD`.
+  `git -C /home/paul/Documentos/proyectos/kb-demo tag -f distill/last HEAD`.
   (No se pushea; es un marcador local para el `diff-since` de la próxima corrida.)
 
 ## Delegación

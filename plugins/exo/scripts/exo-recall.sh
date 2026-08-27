@@ -22,7 +22,7 @@ if [ -t 0 ]; then INPUT=""; else INPUT="$(cat)"; fi
 
 # Fallback embebido: se inyecta si el engine no puede servir. Reescrito en el
 # cutover — el texto viejo mandaba al agente a un MCP que está en retirada.
-FALLBACK='Tu memoria persistente es una KB de notas markdown servida por el engine `exo` (`exo recall`, `exo search --type hybrid`). Antes de empezar trabajo sustantivo, busca ahi contexto relevante. Al cerrar una sesion con decisiones/aprendizajes, documentalos con /documenta (busca antes de escribir; edita la nota canonica en vez de duplicar).
+FALLBACK='Tu memoria persistente es una KB de notas markdown servida por el engine `exo` (`exo recall`, `exo search --type hybrid`). Antes de empezar trabajo sustantivo, busca ahi contexto relevante. Al cerrar una sesion con decisiones/aprendizajes, documentalos con /document (busca antes de escribir; edita la nota canonica en vez de duplicar).
 
 MODO ORQUESTADOR LIMPIO (por defecto): delega investigacion, ejecucion multi-paso y lecturas voluminosas a subagentes. Quedate con la CONCLUSION, no con el material crudo. Context-rot validado: mas contexto en el padre = peor rendimiento. Tu contexto es para sintetizar y decidir, no para acumular fuentes.
 

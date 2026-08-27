@@ -28,8 +28,8 @@ y la nota *"Cerebro portable + capa de reflejos — design spec"* (proyecto
 | tdd | Test primero, verlo fallar por la razón esperada, código mínimo, verde, refactor. |
 | debug | Dos puertas: bug/test que falla, o atasco (mismo error ≥3 veces, terreno desconocido). Root cause y recon antes de computar. |
 | verify | Evidencia fresca del comando antes de cualquier claim de "completo" o "arreglado" — antes de commitear o aceptar el trabajo de un subagente. |
-| documenta | Extrae decisiones, aprendizajes y patrones de la sesión y los guarda en la KB siguiendo el contrato de routing; commit scoped al cerrar. |
-| consolida | Consolidación offline de la KB (sleep-time compute manual): colapsa bitácoras en destilados, chequea presupuestos, promueve doctrina a core. |
+| document | Extrae decisiones, aprendizajes y patrones de la sesión y los guarda en la KB siguiendo el contrato de routing; commit scoped al cerrar. |
+| distill | Consolidación offline de la KB (sleep-time compute manual): colapsa bitácoras en destilados, chequea presupuestos, promueve doctrina a core. |
 | recon-first | Recupera y verifica asunciones antes de computar — la puerta "mira antes de saltar" cuando estás atascado o en terreno desconocido. |
 
 ## El agente `executor`
@@ -62,7 +62,7 @@ Tabla exacta al cableado vivo de `hooks/hooks.json` (nueve comandos):
 | zero-residuo | `PreToolUse:Bash` | `scripts/git-add-all-guard.sh` | avisa ante `git add -A`/`--all`/`.` | calla en `git add <ficheros>` explícito |
 | verify-before-done | `PreToolUse:Bash` | `scripts/verify-before-commit.sh` | avisa antes de `git commit` si no hay test verde reciente | escape hatch `--no-verify`; calla en commits solo-docs |
 | exo-recall | `SessionStart` | `scripts/exo-recall.sh` | inyecta instrucción de memoria + digest 7d, servido por el engine `exo` (SQLite) | — (PUSH) |
-| documenta-remind | `Stop` | `scripts/documenta-remind.sh` | recuerda `/documenta` al cerrar | 1×/sesión + umbral de transcript |
+| document-remind | `Stop` | `scripts/document-remind.sh` | recuerda `/document` al cerrar | 1×/sesión + umbral de transcript |
 | exo-index | `Stop` | `scripts/exo-index.sh` | reindexa la KB al cierre de sesión | best-effort, fallback logueado |
 | subagent-inject | `SubagentStart` | `scripts/subagent-inject.sh` | inyecta doctrina/contexto al arrancar un subagente | — (PUSH) |
 | recall-inject | `UserPromptSubmit` | `scripts/recall-inject.sh` | recall dirigido por el prompt del usuario | fallback logueado (`recall-fallback`) |
@@ -100,8 +100,8 @@ parent-only, subagent-aware o indiferente.
 [`obra/superpowers`](https://github.com/obra/superpowers) (MIT, © 2025 Jesse
 Vincent — copia literal del LICENSE en `LICENSES/superpowers.LICENSE`) más
 doctrina propia. brainstorm, plan, orchestrate, tdd, debug y verify son obras
-derivadas por destilación de sus fuentes superpowers 6.1.1; documenta,
-consolida, recon-first y la capa de reflejos son fuente propia.
+derivadas por destilación de sus fuentes superpowers 6.1.1; document,
+distill, recon-first y la capa de reflejos son fuente propia.
 
 | Skill | Absorbe de superpowers 6.1.1 (MIT) | Absorbe propio |
 |---|---|---|
@@ -111,6 +111,6 @@ consolida, recon-first y la capa de reflejos son fuente propia.
 | tdd | test-driven-development | — |
 | debug | systematic-debugging | recon-first (dos puertas: bug + stuck/pre-grind) |
 | verify | verification-before-completion | gate de validación del padre de orchestrate-personal |
-| documenta | — | `~/.claude/commands/documenta.md` |
-| consolida | — | sleep-time compute manual, propio |
+| document | — | `~/.claude/commands/documenta.md` |
+| distill | — | sleep-time compute manual, propio |
 | recon-first | — | doctrina propia (mitad TRIGGER de `paul-profile/orchestrate-personal`) |

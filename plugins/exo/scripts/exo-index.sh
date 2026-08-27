@@ -10,7 +10,7 @@
 # caso en un cuelgue.
 #
 # Al cierre no molesta a nadie, y es justo cuando la KB acaba de cambiar
-# (/documenta escribe al terminar), así que el índice llega fresco al arranque
+# (/document escribe al terminar), así que el índice llega fresco al arranque
 # siguiente. Medido sobre el repo de la KB: el 95% de sus commits de los
 # últimos 60 días se hacen dentro de una sesión de agente, así que este
 # disparador cubre casi todo; lo que se edite fuera queda obsoleto como mucho

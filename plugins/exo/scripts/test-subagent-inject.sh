@@ -138,7 +138,7 @@ EOF
 
 # =========================================================================
 # Caso 5: payload sin agent_type ⇒ stdout vacío, exit 0, línea inject-abstained
-# en el log (I8: never-break no es SILENCIOSO — queda rastro para el gate/consolida).
+# en el log (I8: never-break no es SILENCIOSO — queda rastro para el gate/distill).
 # =========================================================================
 {
   LOG5="$TMP/log5.jsonl"

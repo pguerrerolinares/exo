@@ -1,9 +1,9 @@
 ---
-name: documenta
+name: document
 description: Extrae decisiones, opiniones, aprendizajes y patrones de la sesión actual y los guarda en la KB siguiendo el contrato de routing: canon como delta, bitácora como append, nota nueva casi nunca. Commit scoped al cerrar.
 ---
 
-# documenta
+# document
 
 Cierra la sesión escribiendo a la KB vía `exo write` (M4). Degradación con
 aviso visible si el engine no está: `kbx`/filesystem, nunca bloquear el cierre.
@@ -33,7 +33,7 @@ con frente activo ⇒ delta al destilado canónico + append ≤15 líneas a su
 bitácora (fecha + hechos + wikilinks, sin re-narrar). Backlog: cerrados
 `[ ]`→`[x]` en UNA línea sin duplicar el detalle — solo estado abierto +
 cola corta de recién-cerrado; el barrido de `[x]` viejos es de la
-consolidación (/consolida), no de documenta. Síntesis transversal ⇒ nota de learnings o
+consolidación (/distill), no de document. Síntesis transversal ⇒ nota de learnings o
 doctrina; decisión o patrón sobre el propio dueño ⇒ su nota de perfil
 (nunca nota nueva). Nota nueva SOLO para proyecto/tema nuevo, research
 standalone, o decisión que merece nota canónica propia. No crees "una
