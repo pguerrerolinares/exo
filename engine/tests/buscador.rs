@@ -61,7 +61,10 @@ fn query_con_guiones_y_acentos_no_revienta() {
     let resultado = busca(&db, "agent-develop bitácora", 10).expect("no debe reventar FTS5");
     assert_eq!(resultado.search_type, "fts");
     assert!(
-        resultado.results.iter().any(|r| r.permalink == "kb-demo/log/agent-develop-bitacora"),
+        resultado
+            .results
+            .iter()
+            .any(|r| r.permalink == "kb-demo/log/agent-develop-bitacora"),
         "{:?}",
         resultado.results
     );
@@ -122,7 +125,10 @@ fn db_inexistente_da_error_claro() {
     let dir = tempfile::tempdir().unwrap();
     let db = dir.path().join("no-existe.db");
     let err = busca(&db, "algo", 10).expect_err("debe fallar, no crear una DB vacía");
-    assert!(!db.exists(), "no debe crear el fichero como side-effect del error");
+    assert!(
+        !db.exists(),
+        "no debe crear el fichero como side-effect del error"
+    );
     assert!(format!("{err:#}").contains("no-existe.db"));
 }
 
@@ -137,15 +143,25 @@ fn busca_vector_con_db_poblada_devuelve_entidades_ordenadas() {
     let resultado = busca_vector(&db, "la bitácora de agent-develop", 10, None).unwrap();
 
     assert_eq!(resultado.search_type, "vector");
-    assert!(!resultado.results.is_empty(), "esperaba al menos un resultado sobre threshold");
+    assert!(
+        !resultado.results.is_empty(),
+        "esperaba al menos un resultado sobre threshold"
+    );
     for r in &resultado.results {
         assert_eq!(r.tipo, "entity");
     }
     for ventana in resultado.results.windows(2) {
-        assert!(ventana[0].score >= ventana[1].score, "{:?}", resultado.results);
+        assert!(
+            ventana[0].score >= ventana[1].score,
+            "{:?}",
+            resultado.results
+        );
     }
     assert!(
-        resultado.results.iter().any(|r| r.permalink == "kb-demo/log/agent-develop-bitacora"),
+        resultado
+            .results
+            .iter()
+            .any(|r| r.permalink == "kb-demo/log/agent-develop-bitacora"),
         "la nota de la bitácora debería aparecer sobre threshold: {:?}",
         resultado.results
     );
@@ -153,7 +169,7 @@ fn busca_vector_con_db_poblada_devuelve_entidades_ordenadas() {
 
 /// Un threshold inalcanzable (por encima del máximo teórico de similitud
 /// coseno, 1.0) filtra todo — verifica que el filtro por
-/// `semantic_min_similarity`/`--min-similitud` realmente se aplica.
+/// `semantic_min_similarity`/`--min-similarity` realmente se aplica.
 #[test]
 fn busca_vector_threshold_alto_filtra_todo() {
     let (_kb, _db_dir, db) = db_indexada();
@@ -193,7 +209,11 @@ fn fusion_gate_fts_no_pierde_hit_semantico() {
     let (_kb, _db_dir, db) = db_indexada();
 
     let fts = busca(&db, "palabra-que-no-existe-en-ningun-lado", 50).unwrap();
-    assert_eq!(fts.results, Vec::new(), "precondición: FTS vacío para esta query");
+    assert_eq!(
+        fts.results,
+        Vec::new(),
+        "precondición: FTS vacío para esta query"
+    );
 
     let hybrid = busca_hybrid(
         &db,
@@ -292,7 +312,7 @@ fn db_con_entidades_empatadas(orden: [&str; 3]) -> (tempfile::TempDir, std::path
 }
 
 /// M2-09a: `busca_vector` desempata por permalink ascendente cuando el score
-/// empata exactamente. `--min-similitud -2.0` (por debajo del mínimo teórico
+/// empata exactamente. `--min-similarity -2.0` (por debajo del mínimo teórico
 /// de coseno, -1.0) garantiza que el filtro de umbral nunca descarte las
 /// tres entidades empatadas, sin importar el signo real de la similitud
 /// contra la query embebida.
@@ -392,8 +412,8 @@ fn hybrid_con_cobertura_completa_no_ensucia_el_envelope() {
     );
     let valor = serde_json::to_value(&hybrid).unwrap();
     assert!(
-        !valor.as_object().unwrap().contains_key("avisos"),
-        "la clave `avisos` no debe aparecer cuando está vacía (envelope v1 §4.1)"
+        !valor.as_object().unwrap().contains_key("warnings"),
+        "la clave `warnings` no debe aparecer cuando está vacía (envelope v2 §4.1)"
     );
 }
 

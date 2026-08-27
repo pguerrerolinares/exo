@@ -27,6 +27,7 @@ pub struct Resultado {
     /// eso no se invierte. Sin este campo, cuando muera basic-memory el agente
     /// no tiene forma de localizar el fichero que va a editar con `Edit`.
     /// `None` solo si el permalink no está en `notas` (índice rancio).
+    #[serde(rename = "path")]
     pub ruta: Option<String>,
 }
 
@@ -45,7 +46,7 @@ pub struct Busqueda {
     /// `vectores` está vacía o a medio poblar", y devolvía FTS puro
     /// etiquetado `hybrid` (25/55 donde el instrumento promete 48/55).
     /// `search_type` NO cambia a propósito: lo comparan los scripts del eval.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(rename = "warnings", skip_serializing_if = "Vec::is_empty")]
     pub avisos: Vec<String>,
 }
 
@@ -220,15 +221,15 @@ pub fn busca(db_ruta: &Path, query: &str, limite: usize) -> Result<Busqueda> {
 /// `common::normalize` sin condición al output de `TextEmbedding`). Para
 /// dos vectores unitarios, `||a-b||² = 2 - 2·cos(a,b)`, luego
 /// `cos(a,b) = 1 - ||a-b||²/2` — la conversión que usa esta función para
-/// comparar contra `semantic_min_similarity` (threshold pensado en escala
-/// coseno, config de producción de basic-memory, hoy 0.35).
+/// comparar contra `[embeddings] min_similarity` (threshold pensado en escala
+/// coseno, config propia de `~/.exo/config.toml`, hoy 0.35).
 fn similitud_desde_l2_cuadrado(distancia_l2_cuadrado: f64) -> f64 {
     1.0 - distancia_l2_cuadrado / 2.0
 }
 
 /// Precedencia flags > config (D6): `min_similitud` es el valor de
-/// `--min-similitud` si se pasó; si no, cae a `semantic_min_similarity` de
-/// `~/.basic-memory/config.json` (RO).
+/// `--min-similarity` si se pasó; si no, cae a `[embeddings] min_similarity`
+/// de `~/.exo/config.toml`.
 fn min_similitud_efectivo(min_similitud: Option<f64>) -> Result<f64> {
     match min_similitud {
         Some(v) => Ok(v),

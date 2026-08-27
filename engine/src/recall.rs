@@ -5,7 +5,7 @@
 //!
 //! Dos modos (brief M2-08, contrato CLI fijado por el orquestador):
 //! - **arranque** (sin `--query`): notas `tier: core` en orden de ruta
-//!   estable + las `--limite` notas más recientes por `git_epoch`.
+//!   estable + las `--limit` notas más recientes por `git_epoch`.
 //! - **consulta** (con `--query`): `busca_hybrid` con los defaults sellados
 //!   de M2-07.
 //!
@@ -27,7 +27,7 @@
 use crate::abre_db;
 use crate::nota::parsea_nota;
 use anyhow::{Context, Result};
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{OptionalExtension, params};
 use serde::Serialize;
 use std::path::Path;
 
@@ -37,7 +37,9 @@ use std::path::Path;
 #[derive(Debug, Serialize, PartialEq, Clone)]
 pub struct NotaRecall {
     pub permalink: String,
+    #[serde(rename = "path")]
     pub ruta: String,
+    #[serde(rename = "title")]
     pub titulo: String,
     pub tier: Option<String>,
     pub score: Option<f64>,
@@ -47,10 +49,13 @@ pub struct NotaRecall {
 /// `data` del envelope de `exo recall` (contrato §"Salida `--json`").
 #[derive(Debug, Serialize, PartialEq)]
 pub struct Recall {
+    #[serde(rename = "mode")]
     pub modo: String,
     pub query: Option<String>,
     pub cap_bytes: usize,
+    #[serde(rename = "truncated")]
     pub truncado: bool,
+    #[serde(rename = "notes")]
     pub notas: Vec<NotaRecall>,
 }
 
@@ -111,7 +116,12 @@ pub struct ResultadoCap {
 /// Una nota entra en `notas`/el texto solo si TODAS sus líneas cupieron
 /// completas; en cuanto una línea no cabe, el proceso para (ni esa nota
 /// parcial ni ninguna posterior aparecen).
-fn aplica_cap(modo: &str, query: Option<String>, notas: Vec<NotaRecall>, cap_bytes: usize) -> ResultadoCap {
+fn aplica_cap(
+    modo: &str,
+    query: Option<String>,
+    notas: Vec<NotaRecall>,
+    cap_bytes: usize,
+) -> ResultadoCap {
     let unidades: Vec<Unidad> = notas
         .into_iter()
         .map(|n| {
@@ -464,7 +474,7 @@ fn tier_de(ruta: &Path) -> Option<String> {
 /// Modo consulta (brief §Tarea 2): `busca_hybrid` con los defaults sellados
 /// (`bonus`/`escala_fts` los pasa el llamador — M2-07, `BONUS_SELLADO`/
 /// `ESCALA_FTS_SELLADA` viven en `main.rs`, no se duplican aquí) y
-/// `--min-similitud` con el mismo default de config que `search`. El
+/// `--min-similarity` con el mismo default de config que `search`. El
 /// snippet de cada nota es su PRIMER trozo (`orden = 0`): la fusión
 /// hybrid no expone qué trozo individual disparó el match de una entidad
 /// (agrega por máxima similitud, spec fusión) y recalcular esa similitud
@@ -579,7 +589,10 @@ mod tests {
 
     #[test]
     fn aplica_cap_todo_cabe_no_trunca() {
-        let notas = vec![nota("a", "/kb/a.md", "A", None), nota("b", "/kb/b.md", "B", None)];
+        let notas = vec![
+            nota("a", "/kb/a.md", "A", None),
+            nota("b", "/kb/b.md", "B", None),
+        ];
         let r = aplica_cap("arranque", None, notas, 2048);
         assert!(!r.recall.truncado);
         assert_eq!(r.recall.notas.len(), 2);
@@ -593,7 +606,10 @@ mod tests {
     /// segunda nota se descarta ENTERA (ninguna nota "a medias").
     #[test]
     fn aplica_cap_corta_por_lineas_enteras_y_para() {
-        let notas = vec![nota("a", "/kb/a.md", "A", None), nota("b", "/kb/b.md", "B", None)];
+        let notas = vec![
+            nota("a", "/kb/a.md", "A", None),
+            nota("b", "/kb/b.md", "B", None),
+        ];
         let linea_a = "- /kb/a.md — A\n".to_string();
         let cabecera = format!("{CABECERA}\n");
         let cap = cabecera.len() + linea_a.len(); // exacto para cabecera+a, no para b
@@ -619,7 +635,12 @@ mod tests {
     /// nota entera se descarta (no aparece "a medias" sin snippet).
     #[test]
     fn aplica_cap_nota_con_snippet_que_no_cabe_se_descarta_entera() {
-        let notas = vec![nota("a", "/kb/a.md", "A", Some("un snippet bastante largo de verdad"))];
+        let notas = vec![nota(
+            "a",
+            "/kb/a.md",
+            "A",
+            Some("un snippet bastante largo de verdad"),
+        )];
         // cap justo para la cabecera + la línea principal, no el snippet
         let cabecera = format!("{CABECERA}\n");
         let linea_a = "- /kb/a.md — A\n";
@@ -636,12 +657,15 @@ mod tests {
         let r = aplica_cap("consulta", Some("q".to_string()), notas, 2048);
         let valor = serde_json::to_value(&r.recall).unwrap();
         let obj = valor.as_object().unwrap();
-        for clave in ["modo", "query", "cap_bytes", "truncado", "notas"] {
+        for clave in ["mode", "query", "cap_bytes", "truncated", "notes"] {
             assert!(obj.contains_key(clave), "falta {clave}: {obj:?}");
         }
-        let primera = &obj["notas"][0];
-        for clave in ["permalink", "ruta", "titulo", "tier", "score", "snippet"] {
-            assert!(primera.get(clave).is_some(), "falta {clave} en nota: {primera:?}");
+        let primera = &obj["notes"][0];
+        for clave in ["permalink", "path", "title", "tier", "score", "snippet"] {
+            assert!(
+                primera.get(clave).is_some(),
+                "falta {clave} en nota: {primera:?}"
+            );
         }
     }
 }

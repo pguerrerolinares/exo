@@ -115,7 +115,7 @@ if [ ! -x "$EXO_BIN" ]; then
   exit 0
 fi
 if [ ! -f "$EXO_INDEX" ]; then
-  # Sin índice NO se pasa `--refresca`: dispararía un bootstrap de minutos bajo
+  # Sin índice NO se pasa `--refresh`: dispararía un bootstrap de minutos bajo
   # el timeout del evento. Se abstiene y deja rastro.
   log_ri "degraded" "reason=no-index db=$EXO_INDEX"
   exit 0
@@ -138,8 +138,8 @@ ERR_TMP="$(mktemp)" || ERR_TMP=""
 # llevan valores que controlamos nosotros, así que no la necesitan.
 SALIDA="$(timeout "$EXO_INJECT_TIMEOUT" "$EXO_BIN" recall \
             --db "$EXO_INDEX" --query="$PROMPT" \
-            --min-similitud 0.40 --limite 4 --cap-bytes 4000 \
-            --refresca --json 2>"${ERR_TMP:-/dev/null}")"
+            --min-similarity 0.40 --limit 4 --cap-bytes 4000 \
+            --refresh --json 2>"${ERR_TMP:-/dev/null}")"
 RC=$?
 
 ERR=""
@@ -153,7 +153,7 @@ if [ "$RC" -eq 124 ]; then
 fi
 
 if [ "$RC" -ne 0 ]; then
-  # El engine sale con 1 para sus propios errores (main.rs:246) y con 3 para el
+  # El engine sale con 1 para sus propios errores (main.rs:300) y con 3 para el
   # rechazo de `write`; clap sale con 2 para errores de línea de comandos, que
   # son fallos nuestros de invocación, no del engine. En ningún caso el código
   # por sí solo distingue "ningún hit sobre el umbral" de una DB corrupta, un
@@ -174,7 +174,7 @@ fi
 # engine hablando otro idioma (cambio de schema, salida corrupta). Etiquetarlo
 # `empty` lo haría invisible, porque `empty` es el caso normal — exactamente el
 # disfraz que P2 impide en la rama de exit 1.
-if ! printf '%s' "$SALIDA" | jq -e 'has("data") and (.data | has("notas"))' >/dev/null 2>&1; then
+if ! printf '%s' "$SALIDA" | jq -e 'has("data") and (.data | has("notes"))' >/dev/null 2>&1; then
   log_ri "degraded" "reason=error err=envelope-ilegible"
   exit 0
 fi
@@ -183,7 +183,7 @@ fi
 # repuesto puede haber desaparecido y saldrían menos punteros sin que nadie
 # pudiera saberlo. No es un fallo del hook, así que no degrada nada: solo deja
 # rastro para poder correlacionarlo si alguna vez se ve un bloque corto.
-if [ "$(printf '%s' "$SALIDA" | jq -r '.data.truncado // false' 2>/dev/null)" = "true" ]; then
+if [ "$(printf '%s' "$SALIDA" | jq -r '.data.truncated // false' 2>/dev/null)" = "true" ]; then
   log_ri "degraded" "reason=fetch-truncado"
 fi
 
@@ -198,7 +198,28 @@ FOOTER='(puede no venir al caso: ignóralo si no aplica)'
 # Compartidos entre el jq de composición y el cálculo de PERMALINKS más abajo:
 # el filtro de core-index y el límite de punteros no pueden vivir duplicados en
 # dos sitios que haya que cambiar juntos.
-EXO_EXCLUIR="${EXO_EXCLUIR:-kb-demo/core/core-index}"
+#
+# El nombre de la KB sale de la config del engine, no de un literal: era el
+# último sitio donde `kb-demo` seguía cableado en este script. Se resuelve
+# aquí, ya pasados los guards de EXO_BIN/EXO_INDEX de arriba: si el binario
+# faltara, esta llamada fallaría por la misma razón que la principal (más
+# arriba, ya logueada como `no-engine`) y doblaría el evento con una causa
+# que mentiría.
+CONFIG_ERR_TMP="$(mktemp)" || CONFIG_ERR_TMP=""
+EXO_KB_NAME="${EXO_KB_NAME:-$("$EXO_BIN" config --json 2>"${CONFIG_ERR_TMP:-/dev/null}" | jq -r '.data.kb.name // empty')}"
+if [ -z "${EXO_EXCLUIR:-}" ] && [ -z "$EXO_KB_NAME" ]; then
+  # Sin config no hay prefijo de proyecto: el permalink a excluir queda
+  # pelado y no calza con el real (que sí lo lleva), así que el filtro deja
+  # de funcionar. Degradación aceptable, pero no muda: razón distinguible, y
+  # el payload trae el motivo exacto de `exo config` (config rota vs.
+  # binario transicional que aún no conoce el subcomando) sin tener que
+  # reproducirlo a mano.
+  CONFIG_ERR=""
+  [ -n "$CONFIG_ERR_TMP" ] && CONFIG_ERR="$(head -1 "$CONFIG_ERR_TMP" 2>/dev/null | tr -d '\n' | cut -c1-120)"
+  log_ri "degraded" "reason=no-config err=$CONFIG_ERR"
+fi
+rm -f "$CONFIG_ERR_TMP"
+EXO_EXCLUIR="${EXO_EXCLUIR:-${EXO_KB_NAME:+$EXO_KB_NAME/}core/core-index}"
 EXO_MAX_HITS="${EXO_MAX_HITS:-3}"
 
 # Composición del bloque, entera en jq (ver comentario de arriba sobre bytes vs
@@ -243,12 +264,12 @@ def recorta($n):
     | (if (index(" ") != null) then sub(" [^ ]*$"; "") else . end) + "…"
   end;
 
-( .data.notas
+( .data.notes
   | map(select(.permalink != $excluir))
   | .[0:$max]
-  | map({ ruta: (.ruta | sane), titulo: (.titulo | sane), snippet: (.snippet | sane) })
+  | map({ path: (.path | sane), title: (.title | sane), snippet: (.snippet | sane) })
 ) as $hits
-| ($hits | map(.ruta | split("/") | .[:-1])) as $dirs
+| ($hits | map(.path | split("/") | .[:-1])) as $dirs
 | ( if ($hits | length) < 2 then ""
     else
       ($dirs | map(length) | min) as $n
@@ -264,9 +285,9 @@ def recorta($n):
 | [ $header ]
   + ( $hits
       | map(
-          (if $raiz == "" then .ruta else (.ruta | ltrimstr($raiz + "/")) end) as $rel
+          (if $raiz == "" then .path else (.path | ltrimstr($raiz + "/")) end) as $rel
           | ($rel | split("/") | last | sub("\\.md$"; "")) as $stem
-          | (if (.titulo | laxo) == ($stem | laxo) then "- \($rel)" else "- \($rel) — \(.titulo)" end) as $linea1
+          | (if (.title | laxo) == ($stem | laxo) then "- \($rel)" else "- \($rel) — \(.title)" end) as $linea1
           | ($por_hit - ($linea1 | utf8bytelength) - 5) as $presu
           | (.snippet | pela_header | gsub("  +"; " ") | recorta(if $presu < 40 then 40 else $presu end)) as $snip
           | [$linea1, "  · \($snip)"]
@@ -296,7 +317,7 @@ BYTES="$(printf '%s' "$BLOQUE" | wc -c)"
 # composición del bloque: $excluir y $max, no un literal ni un slice aparte.
 PERMALINKS="$(printf '%s' "$SALIDA" \
   | jq -r --arg excluir "$EXO_EXCLUIR" --argjson max "$EXO_MAX_HITS" \
-      '[.data.notas[] | select(.permalink != $excluir)][0:$max]
+      '[.data.notes[] | select(.permalink != $excluir)][0:$max]
        | map(.permalink) | join(",")' 2>/dev/null)" || PERMALINKS=""
 
 # El log de "emitted" solo puede ser verdad si el JSON final se construyó bien:

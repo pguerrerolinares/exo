@@ -17,15 +17,16 @@ esac; done
 PERFIL="$(jq -r --arg t "$TYPE" '.[$t] // ._default // empty' "$PROFILES" 2>/dev/null)" || exit 1
 [ -n "$PERFIL" ] || exit 1
 # Seam (M6-03c): resuelve KB en orden --kb explícito (ya en $KB arriba) >
-# $EXO_KB > fallback a basic-memory/config.json. Mismo patrón que exo-recall.sh
-# (seams por variable de entorno con default). El default de hoy NO cambia:
-# esto abre la costura para que C10 corte el fallback sin reabrir reflex.
+# $EXO_KB > `exo config --json`. Mismo patrón de seams por variable de entorno
+# con default que exo-recall.sh. El fallback a basic-memory/config.json que
+# vivía aquí ya no existe: era el último resto del cordón (jq no lee TOML).
 if [ -z "$KB" ]; then
   KB="${EXO_KB:-}"
 fi
 if [ -z "$KB" ]; then
-  KB="$(jq -r '.projects["kb-demo"].path // .projects["kb-demo"] // empty' \
-        "$HOME/.basic-memory/config.json" 2>/dev/null)" || KB=""
+  # Antes caía a `~/.basic-memory/config.json` con jq. Ese era el cordón: el
+  # sustituto pidiéndole la ruta al sustituido. Ahora se la pide al engine.
+  KB="$(exo config --json 2>/dev/null | jq -r '.data.kb.path // empty')" || KB=""
 fi
 
 blen() { printf '%s' "$1" | wc -c; }  # longitud en BYTES (no caracteres; UTF-8 seguro)

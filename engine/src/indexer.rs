@@ -1,14 +1,14 @@
 use crate::abre_db;
 use crate::aristas::{reindexa_aristas_de_nota, resuelve_destinos};
+use crate::con_embedder_de_proceso;
+use crate::config_embeddings;
 use crate::nota::parsea_nota;
 use crate::schema::crea_schema;
 use crate::trozos::trocea;
 use crate::vectores;
 use crate::walker::walk_kb;
-use crate::con_embedder_de_proceso;
-use crate::config_embeddings;
-use anyhow::{bail, Context, Result};
-use rusqlite::{params, Connection, OptionalExtension};
+use anyhow::{Context, Result, bail};
+use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -49,14 +49,19 @@ pub fn git_epoch_de(kb: &Path, ruta_rel: &Path) -> Option<i64> {
 /// `index`/`rebuild`, spec §4).
 #[derive(Debug, Serialize, PartialEq, Eq)]
 pub struct Resumen {
+    #[serde(rename = "indexed")]
     pub indexadas: usize,
+    #[serde(rename = "skipped")]
     pub saltadas: usize,
+    #[serde(rename = "deleted")]
     pub borradas: usize,
     /// Trozos que pasaron por el modelo en esta corrida (M6-01b). Campo
     /// aditivo del envelope: no sube `SCHEMA_VERSION` (envelope.rs).
+    #[serde(rename = "chunks_embedded")]
     pub trozos_embebidos: usize,
     /// Trozos cuyo texto no cambió y reutilizaron su embedding almacenado.
     /// Es la métrica que dice si el cache está sirviendo de algo.
+    #[serde(rename = "chunks_reused")]
     pub trozos_reusados: usize,
 }
 
@@ -86,11 +91,11 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
     // Deuda conocida (Ola 1 T1): esta lectura es incondicional desde que esta
     // guarda existe. Antes, la config solo se leía perezosamente al construir
     // el `Embedder`, así que un `exo index` sin nada que indexar funcionaba
-    // sin `~/.basic-memory/config.json`. Ahora ese mismo `exo index` falla si
-    // el fichero no existe, aunque no haya trabajo que hacer. No se arregla
-    // en esta ola: arreglarlo bien exige decidir de dónde sale la config del
-    // modelo, que es el hito C10. Hasta entonces esto bloquea M5b (la
-    // desinstalación de basic-memory).
+    // sin config. Sigue sin funcionar sin ella: un `exo index` sin trabajo
+    // falla igual si el fichero no existe. Lo que cambió en Ola 1A T3 es de
+    // dónde sale ese fichero — ya no es el de otro producto, sino
+    // `~/.exo/config.toml` propio, y el error es accionable porque nombra
+    // `exo init` (Task 4) como la forma de crearlo.
     let cfg = config_embeddings().context("leer config de embeddings")?;
     verifica_modelo(&conn, &cfg.modelo)?;
 
@@ -266,8 +271,11 @@ fn borra_trozos_y_vectores_de_nota(conn: &Connection, permalink: &str) -> Result
     for id in ids {
         vectores::borra(conn, id).with_context(|| format!("borrar vector rowid={id}"))?;
     }
-    conn.execute("DELETE FROM trozos WHERE permalink = ?1", params![permalink])
-        .with_context(|| format!("borrar trozos de {permalink}"))?;
+    conn.execute(
+        "DELETE FROM trozos WHERE permalink = ?1",
+        params![permalink],
+    )
+    .with_context(|| format!("borrar trozos de {permalink}"))?;
     Ok(())
 }
 
@@ -319,10 +327,9 @@ fn reindexa_trozos_de_nota(
         HashMap::new()
     } else {
         let vectores_nuevos =
-            con_embedder_de_proceso(|embedder| embedder.embebe_batch(&pendientes))
-                .with_context(|| {
-                    format!("embed batch de {} trozos de {permalink}", pendientes.len())
-                })?;
+            con_embedder_de_proceso(|embedder| embedder.embebe_batch(&pendientes)).with_context(
+                || format!("embed batch de {} trozos de {permalink}", pendientes.len()),
+            )?;
         pendientes.iter().cloned().zip(vectores_nuevos).collect()
     };
 
@@ -337,9 +344,9 @@ fn reindexa_trozos_de_nota(
             }
             None => {
                 embebidos += 1;
-                recien_embebidos
-                    .get(texto)
-                    .with_context(|| format!("embedding ausente del trozo {orden} de {permalink}"))?
+                recien_embebidos.get(texto).with_context(|| {
+                    format!("embedding ausente del trozo {orden} de {permalink}")
+                })?
             }
         };
         conn.execute(
@@ -438,7 +445,13 @@ fn verifica_modelo(conn: &Connection, modelo_actual: &str) -> Result<()> {
 fn ruta_relativa(kb: &Path, ruta_abs: &Path) -> Result<String> {
     Ok(ruta_abs
         .strip_prefix(kb)
-        .with_context(|| format!("{} no está bajo la raíz {}", ruta_abs.display(), kb.display()))?
+        .with_context(|| {
+            format!(
+                "{} no está bajo la raíz {}",
+                ruta_abs.display(),
+                kb.display()
+            )
+        })?
         .to_string_lossy()
         .into_owned())
 }

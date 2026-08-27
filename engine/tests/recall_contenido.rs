@@ -1,4 +1,4 @@
-//! M6-02: `exo recall --contenido`.
+//! M6-02: `exo recall --content`.
 //!
 //! El hook de arranque que esto sustituye NO inyecta una lista de ficheros:
 //! inyecta el CUERPO del core-index (contrato de memoria + doctrina compacta
@@ -14,14 +14,20 @@ use std::process::Command;
 use tempfile::TempDir;
 
 fn git(dir: &std::path::Path, args: &[&str]) {
-    Command::new("git").args(args).current_dir(dir).output().unwrap();
+    Command::new("git")
+        .args(args)
+        .current_dir(dir)
+        .output()
+        .unwrap();
 }
 
 fn escribe(dir: &std::path::Path, nombre: &str, tier: &str, cuerpo: &str) {
     let permalink = nombre.trim_end_matches(".md");
     fs::write(
         dir.join(nombre),
-        format!("---\npermalink: kb/{permalink}\ntitle: {permalink}\ntier: {tier}\n---\n\n{cuerpo}\n"),
+        format!(
+            "---\npermalink: kb/{permalink}\ntitle: {permalink}\ntier: {tier}\n---\n\n{cuerpo}\n"
+        ),
     )
     .unwrap();
 }
@@ -29,12 +35,30 @@ fn escribe(dir: &std::path::Path, nombre: &str, tier: &str, cuerpo: &str) {
 fn kb_de_prueba() -> (TempDir, std::path::PathBuf, TempDir) {
     let kb = TempDir::new().unwrap();
     git(kb.path(), &["init", "-q"]);
-    escribe(kb.path(), "indice.md", "core", "DOCTRINA: delega y quédate la conclusión.");
-    escribe(kb.path(), "otra.md", "log", "Bitácora de cosas que pasaron.");
+    escribe(
+        kb.path(),
+        "indice.md",
+        "core",
+        "DOCTRINA: delega y quédate la conclusión.",
+    );
+    escribe(
+        kb.path(),
+        "otra.md",
+        "log",
+        "Bitácora de cosas que pasaron.",
+    );
     git(kb.path(), &["add", "-A"]);
     git(
         kb.path(),
-        &["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "kb"],
+        &[
+            "-c",
+            "user.email=t@t",
+            "-c",
+            "user.name=t",
+            "commit",
+            "-qm",
+            "kb",
+        ],
     );
     let dbdir = TempDir::new().unwrap();
     let db = dbdir.path().join("i.db");
@@ -137,7 +161,15 @@ fn contenido_omite_el_titulo_solo_cuando_repite_el_nombre_del_fichero() {
     git(kb2.path(), &["add", "-A"]);
     git(
         kb2.path(),
-        &["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "kb"],
+        &[
+            "-c",
+            "user.email=t@t",
+            "-c",
+            "user.name=t",
+            "commit",
+            "-qm",
+            "kb",
+        ],
     );
     let d2 = TempDir::new().unwrap();
     let db2 = d2.path().join("i.db");

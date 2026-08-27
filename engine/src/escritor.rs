@@ -1,7 +1,7 @@
 //! Write-path de exo (M4/E2). File-first: escribe el markdown de la KB
 //! directamente — la KB es un repo git, así que el rollback es `git checkout`
 //! (spec madre §4.4-E2). NO commitea y NO indexa: lo primero es del agente
-//! (commit scoped por rutas), lo segundo lo absorbe el `--refresca` del recall
+//! (commit scoped por rutas), lo segundo lo absorbe el `--refresh` del recall
 //! de la sesión siguiente (M6-01).
 //!
 //! Reparto de trabajo con el agente (spec M4 §1): aquí viven `new` y `append`
@@ -24,7 +24,7 @@ pub enum Rechazo {
     /// Append a una nota que no es `tier: log`. Es EL anti-patrón medido de
     /// esta KB: 52 `## Delta AAAA-MM-DD` anexados al canon en la historia
     /// real, causa del 100% de los incidentes caros (spec M4 §7.1).
-    AppendACanon { tier: String },
+    AppendACanon { tier: Option<String> },
 }
 
 impl std::fmt::Display for Rechazo {
@@ -41,16 +41,40 @@ impl std::fmt::Display for Rechazo {
                         .join(", ")
                 )
             }
-            Rechazo::AppendACanon { tier } => write!(
-                f,
-                "append a nota tier '{tier}': el canon se edita como delta, no se anexa. \
-                 Usa la bitácora del frente, o --force si es una excepción consciente"
-            ),
+            Rechazo::AppendACanon { tier } => {
+                let tier = tier.as_deref().unwrap_or("(sin tier)");
+                write!(
+                    f,
+                    "append a nota tier '{tier}': el canon se edita como delta, no se anexa. \
+                     Usa la bitácora del frente, o --force si es una excepción consciente"
+                )
+            }
         }
     }
 }
 
 impl std::error::Error for Rechazo {}
+
+impl Rechazo {
+    /// `data` del envelope de un rechazo (spec de write §3.3). Existe para que
+    /// el consumidor tenga el detalle en JSON, no solo una línea de prosa en
+    /// stderr — un contrato prometido por escrito y servido por prosa es la
+    /// definición de contrato no falsable.
+    ///
+    /// El exit code sigue siendo el gate: esto es el detalle, no la señal.
+    pub fn data(&self) -> serde_json::Value {
+        match self {
+            Rechazo::Duplicada { candidatas } => serde_json::json!({
+                "reason": "duplicate",
+                "candidates": candidatas,
+            }),
+            Rechazo::AppendACanon { tier } => serde_json::json!({
+                "reason": "append_to_canon",
+                "tier": tier,
+            }),
+        }
+    }
+}
 
 /// Candidata duplicada devuelta por el dup-gate.
 #[derive(Debug, Clone, Serialize)]
@@ -64,16 +88,21 @@ pub struct Candidata {
 pub struct Escritura {
     pub op: String,
     pub permalink: String,
+    #[serde(rename = "relative_path")]
     pub ruta_rel: String,
+    #[serde(rename = "absolute_path")]
     pub ruta_abs: String,
     /// `true` si el fichero no existía y esta invocación lo creó.
+    #[serde(rename = "created")]
     pub creada: bool,
     /// Claves de frontmatter que exo rellenó porque faltaban (M4-03:
     /// auto-completa y nunca rechaza). Vacío = el autor lo traía todo.
+    #[serde(rename = "frontmatter_filled")]
     pub frontmatter_completado: Vec<String>,
     /// `--force` usado. Se emite SIEMPRE que se fuerza, para que el escape
     /// quede auditable (spec M4 §7.3: un guard sin vía de excepción muere por
     /// ruido; una vía de excepción sin rastro es peor).
+    #[serde(rename = "forced")]
     pub forzado: bool,
 }
 
@@ -168,10 +197,13 @@ fn nombre_fichero(titulo: &str) -> String {
 
 /// Rechaza segmentos de ruta que escaparían del árbol de la KB. Es una línea
 /// roja dura: el write-path solo escribe DENTRO de la KB, y un `..` en
-/// `--dir` o `--titulo` la atravesaría (verificado en el gate). No es un gate
+/// `--dir` o `--title` la atravesaría (verificado en el gate). No es un gate
 /// saltable con `--force`: es un error.
 fn verifica_segmento(valor: &str, flag: &str) -> Result<()> {
-    if valor.split(['/', '\\']).any(|seg| seg == ".." || seg == ".") {
+    if valor
+        .split(['/', '\\'])
+        .any(|seg| seg == ".." || seg == ".")
+    {
         anyhow::bail!(
             "{flag} contiene un segmento de ruta relativo ({valor:?}): el write-path \
              solo escribe dentro de la KB"
@@ -237,7 +269,7 @@ pub fn escribe_nueva(
     }
 
     verifica_segmento(dir, "--dir")?;
-    verifica_segmento(titulo, "--titulo")?;
+    verifica_segmento(titulo, "--title")?;
 
     let permalink = format!("{proyecto}/{dir}/{}", slug(titulo));
     let ruta_rel = format!("{dir}/{}.md", nombre_fichero(titulo));
@@ -251,8 +283,7 @@ pub fn escribe_nueva(
     }
 
     let (yaml_previo, cuerpo_limpio) = separa_frontmatter(cuerpo);
-    let (frontmatter, completado) =
-        compone_frontmatter(&yaml_previo, titulo, &permalink, tier);
+    let (frontmatter, completado) = compone_frontmatter(&yaml_previo, titulo, &permalink, tier);
 
     let contenido = format!("---\n{frontmatter}---\n{cuerpo_limpio}");
     escribe_atomico(&ruta_abs, &contenido)?;
@@ -275,34 +306,31 @@ pub fn escribe_nueva(
 ///
 /// Rechaza si la nota destino no es `tier: log` (§7.1) salvo `forzar`.
 /// Para leer el `tier` toca el head del fichero, no el cuerpo entero.
-pub fn escribe_append(
-    kb: &Path,
-    ruta_rel: &str,
-    texto: &str,
-    forzar: bool,
-) -> Result<Escritura> {
+pub fn escribe_append(kb: &Path, ruta_rel: &str, texto: &str, forzar: bool) -> Result<Escritura> {
     let ruta_abs = kb.join(ruta_rel);
     if !ruta_abs.exists() {
         anyhow::bail!(
-            "{} no existe: para crear la bitácora usa --crea",
+            "{} no existe: para crear la bitácora usa --create",
             ruta_abs.display()
         );
     }
 
     let cabecera = lee_cabecera(&ruta_abs)?;
     let (yaml, _) = separa_frontmatter(&cabecera);
-    let tier = valor_yaml(&yaml, "tier").unwrap_or_default();
+    let tier_raw = valor_yaml(&yaml, "tier").unwrap_or_default();
     let permalink = valor_yaml(&yaml, "permalink").unwrap_or_default();
 
-    if tier != "log" && !forzar {
-        return Err(Rechazo::AppendACanon {
-            tier: if tier.is_empty() {
-                "(sin tier)".into()
-            } else {
-                tier
-            },
-        }
-        .into());
+    if tier_raw != "log" && !forzar {
+        // Ausencia de tier = `None`, no el centinela de prosa `"(sin tier)"`:
+        // ese centinela sigue existiendo, pero solo en el `Display` humano
+        // (arriba). Un consumidor de `data()` que lea `data.tier` necesita
+        // poder distinguir por TIPO entre "core" (tier real) y ausencia.
+        let tier = if tier_raw.is_empty() {
+            None
+        } else {
+            Some(tier_raw)
+        };
+        return Err(Rechazo::AppendACanon { tier }.into());
     }
 
     anexa(&ruta_abs, texto)?;
@@ -334,7 +362,11 @@ fn anexa(ruta: &Path, texto: &str) -> Result<()> {
     let mut a_escribir = String::new();
     if !final_previo.is_empty() {
         // "…texto"   → "\n\n";  "…texto\n" → "\n";  "…texto\n\n" → nada.
-        let saltos = final_previo.chars().rev().take_while(|c| *c == '\n').count();
+        let saltos = final_previo
+            .chars()
+            .rev()
+            .take_while(|c| *c == '\n')
+            .count();
         for _ in saltos..2 {
             a_escribir.push('\n');
         }
@@ -366,8 +398,7 @@ fn cola(f: &mut std::fs::File, n: usize) -> Result<String> {
 /// y evita cargar una bitácora entera solo para leer su `tier`.
 fn lee_cabecera(ruta: &Path) -> Result<String> {
     use std::io::Read;
-    let mut f = std::fs::File::open(ruta)
-        .with_context(|| format!("abrir {}", ruta.display()))?;
+    let mut f = std::fs::File::open(ruta).with_context(|| format!("abrir {}", ruta.display()))?;
     let mut buf = vec![0u8; 8192];
     let leidos = f.read(&mut buf).context("leer cabecera")?;
     buf.truncate(leidos);
@@ -450,8 +481,7 @@ fn escribe_atomico(destino: &Path, contenido: &str) -> Result<()> {
     let padre = destino
         .parent()
         .context("la nota destino no tiene directorio padre")?;
-    std::fs::create_dir_all(padre)
-        .with_context(|| format!("crear {}", padre.display()))?;
+    std::fs::create_dir_all(padre).with_context(|| format!("crear {}", padre.display()))?;
 
     let tmp: PathBuf = padre.join(format!(
         ".{}.exo-tmp",

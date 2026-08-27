@@ -184,7 +184,10 @@ fn clave_escrita_aunque_la_corrida_no_llegue_al_final() {
             |r| r.get(0),
         )
         .unwrap();
-    assert_eq!(a_commiteada, 1, "a.md debía quedar commiteada antes del abort en b-illeg.md");
+    assert_eq!(
+        a_commiteada, 1,
+        "a.md debía quedar commiteada antes del abort en b-illeg.md"
+    );
 
     // A pesar del abort, meta.modelo_embeddings debe estar escrita: es la
     // garantía que exige el fix (upsert junto a kb_root, al principio).
@@ -242,7 +245,10 @@ fn clave_ausente_con_vectores_sigue_migrando_sin_error() {
     let n_vectores: i64 = conn
         .query_row("SELECT COUNT(*) FROM vectores", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(n_vectores, 1, "el vector sembrado no debe tocarse por el aviso");
+    assert_eq!(
+        n_vectores, 1,
+        "el vector sembrado no debe tocarse por el aviso"
+    );
 }
 
 #[test]
@@ -263,5 +269,8 @@ fn modelo_igual_no_falla_al_reindexar() {
             |r| r.get(0),
         )
         .unwrap();
-    assert_eq!(filas, 1, "modelo_embeddings debe ser upsert, no insert repetido");
+    assert_eq!(
+        filas, 1,
+        "modelo_embeddings debe ser upsert, no insert repetido"
+    );
 }

@@ -17,7 +17,11 @@ use std::process::Command;
 use tempfile::TempDir;
 
 fn git(dir: &std::path::Path, args: &[&str]) {
-    Command::new("git").args(args).current_dir(dir).output().unwrap();
+    Command::new("git")
+        .args(args)
+        .current_dir(dir)
+        .output()
+        .unwrap();
 }
 
 fn kb_con(dir: &std::path::Path, cuerpo: &str) {
@@ -32,14 +36,26 @@ fn commitea(dir: &std::path::Path, msg: &str) {
     git(dir, &["add", "-A"]);
     git(
         dir,
-        &["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", msg],
+        &[
+            "-c",
+            "user.email=t@t",
+            "-c",
+            "user.name=t",
+            "commit",
+            "-qm",
+            msg,
+        ],
     );
 }
 
 /// Dos párrafos largos separados por línea en blanco → el troceador los deja
 /// en trozos distintos, que es lo que este test necesita para tocar uno solo.
 fn dos_parrafos(segundo: &str) -> String {
-    format!("{}\n\n{}", "Primer párrafo que no se toca. ".repeat(40), segundo)
+    format!(
+        "{}\n\n{}",
+        "Primer párrafo que no se toca. ".repeat(40),
+        segundo
+    )
 }
 
 #[test]
@@ -52,7 +68,10 @@ fn reindexar_sin_cambios_de_texto_no_vuelve_a_embeber() {
     commitea(kb.path(), "uno");
 
     let primero = indexa(kb.path(), &db).unwrap();
-    assert!(primero.trozos_embebidos >= 2, "el primer indexado sí embebe");
+    assert!(
+        primero.trozos_embebidos >= 2,
+        "el primer indexado sí embebe"
+    );
     assert_eq!(primero.trozos_reusados, 0, "no había nada que reutilizar");
 
     // Cambia el frontmatter (el título), NO el cuerpo: el mtime cambia, así
@@ -69,7 +88,10 @@ fn reindexar_sin_cambios_de_texto_no_vuelve_a_embeber() {
     commitea(kb.path(), "dos");
 
     let segundo = indexa(kb.path(), &db).unwrap();
-    assert_eq!(segundo.indexadas, 1, "la nota sí se reindexa (mtime cambió)");
+    assert_eq!(
+        segundo.indexadas, 1,
+        "la nota sí se reindexa (mtime cambió)"
+    );
     assert_eq!(
         segundo.trozos_embebidos, 0,
         "ningún trozo cambió de texto: cero llamadas al modelo"
@@ -91,7 +113,10 @@ fn editar_un_trozo_solo_reembebe_ese_trozo() {
     assert!(total >= 2);
 
     // Solo cambia el segundo párrafo.
-    kb_con(kb.path(), &dos_parrafos("Segundo párrafo REESCRITO por completo."));
+    kb_con(
+        kb.path(),
+        &dos_parrafos("Segundo párrafo REESCRITO por completo."),
+    );
     commitea(kb.path(), "dos");
 
     let segundo = indexa(kb.path(), &db).unwrap();
@@ -139,8 +164,10 @@ fn embedding_del_primer_trozo(db: &std::path::Path) -> Vec<u8> {
             |r| r.get(0),
         )
         .unwrap();
-    conn.query_row("SELECT embedding FROM vectores WHERE rowid = ?1", [id], |r| {
-        r.get(0)
-    })
+    conn.query_row(
+        "SELECT embedding FROM vectores WHERE rowid = ?1",
+        [id],
+        |r| r.get(0),
+    )
     .unwrap()
 }

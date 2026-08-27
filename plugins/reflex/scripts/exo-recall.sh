@@ -32,7 +32,6 @@ RECON-FIRST (look before you leap) en tareas DURAS/desconocidas/time-boxed: ante
 # para otra persona, apuntar a SU KB sin editar el script.
 EXO_BIN="${EXO_BIN:-$(command -v exo 2>/dev/null || echo "$HOME/.local/bin/exo")}"
 EXO_INDEX="${EXO_INDEX:-$HOME/.exo/index.db}"
-EXO_NOTA="${EXO_RECALL_NOTA:-kb-demo/core/core-index}"
 EXO_CAP="${EXO_RECALL_CAP:-6144}"
 # Recientes en el digest. El camino viejo listaba hasta 15 permalinks de los
 # últimos 3 días; con 5 se perdían notas del mismo día (hallazgo del gate M6).
@@ -55,13 +54,33 @@ if [ ! -x "$EXO_BIN" ]; then
 elif [ ! -f "$EXO_INDEX" ]; then
   log_recall_fallback "no-index" "db=$EXO_INDEX"
 else
+  # El nombre de la KB sale de la config del engine, no de un literal: era el
+  # último sitio donde `kb-demo` seguía cableado en el camino de arranque.
+  # Resuelto AQUÍ (binario ejecutable e índice ya confirmados arriba) y no
+  # antes: moverlo antes de esos guards doblaba el log cuando la causa real
+  # era `no-engine`/`no-index` — el mismo binario ausente que hace fallar
+  # `exo recall` también hace fallar `exo config`, y `no-config` mentiría
+  # sobre la causa.
+  CONFIG_ERR_TMP="$(mktemp)"
+  EXO_KB_NAME="${EXO_KB_NAME:-$("$EXO_BIN" config --json 2>"$CONFIG_ERR_TMP" | jq -r '.data.kb.name // empty')}"
+  if [ -z "${EXO_RECALL_NOTA:-}" ] && [ -z "$EXO_KB_NAME" ]; then
+    # Sin config no hay prefijo de proyecto: la nota cae a `core/core-index`
+    # pelado, que no resuelve. Degradación aceptable, pero no muda: distinta
+    # razón que `no-engine`/`no-index`, y el payload trae el motivo exacto de
+    # `exo config` (config rota vs. binario transicional que aún no conoce
+    # el subcomando) sin tener que reproducirlo a mano.
+    log_recall_fallback "no-config" "err=$(head -1 "$CONFIG_ERR_TMP" 2>/dev/null | tr -d '\n' | cut -c1-120)"
+  fi
+  rm -f "$CONFIG_ERR_TMP"
+  EXO_NOTA="${EXO_RECALL_NOTA:-${EXO_KB_NAME:+$EXO_KB_NAME/}core/core-index}"
+
   # stderr se captura, no se tira: ahí avisa el engine de que el bloque no
   # cupo entero. El script viejo caía a fallback con evento `oversize` en ese
   # caso; tirar el aviso dejaría llegar un bloque cortado sin rastro, que es
   # justo la degradación silenciosa que F3.1 arregló.
   ERR_TMP="$(mktemp)"
-  BASE="$("$EXO_BIN" recall --db "$EXO_INDEX" --contenido --nota "$EXO_NOTA" \
-          --limite "$EXO_LIMITE" --cap-bytes "$EXO_CAP" 2>"$ERR_TMP")" || BASE=""
+  BASE="$("$EXO_BIN" recall --db "$EXO_INDEX" --content --note "$EXO_NOTA" \
+          --limit "$EXO_LIMITE" --cap-bytes "$EXO_CAP" 2>"$ERR_TMP")" || BASE=""
   if grep -q 'truncado' "$ERR_TMP" 2>/dev/null; then
     log_recall_fallback "truncated" "$(head -1 "$ERR_TMP" | tr -d '\n' | cut -c1-120)"
   fi

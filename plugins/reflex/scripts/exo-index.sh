@@ -14,7 +14,7 @@
 # siguiente. Medido sobre el repo de la KB: el 95% de sus commits de los
 # últimos 60 días se hacen dentro de una sesión de agente, así que este
 # disparador cubre casi todo; lo que se edite fuera queda obsoleto como mucho
-# una sesión, y `exo recall --refresca` está para forzarlo a mano.
+# una sesión, y `exo recall --refresh` está para forzarlo a mano.
 #
 # Contrato: nunca bloquea el cierre. Se lanza detached y sale de inmediato.
 set -uo pipefail

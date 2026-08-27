@@ -48,15 +48,34 @@ vs envelope», es **comando a comando dentro del mismo binario**:
 | `search` | `results` · `query` · `search_type` · `elapsed_s` · `avisos` — inglés salvo `avisos` y `ruta` |
 | `recall` | `notas` · `truncado` · `modo` · `cap_bytes` — español |
 | `index` | `indexadas` · `saltadas` · `borradas` · `trozos_embebidos` · `trozos_reusados` — español |
+| `write` (éxito) | `op` · `permalink` · `ruta_rel` · `ruta_abs` · `creada` · `frontmatter_completado` · `forzado` — español salvo `op`/`permalink` |
+| `write` (rechazo exit 3) | superficie **nueva**, nace en inglés: `reason` · `candidates` · `tier` |
 | `targets`/`budget`/`lint`/`ratchet` (G4) | `tiers` · `offenders` · `notier` · `candidates` · `findings` — **inglés**, heredado de kbx |
 
 Sin D8, el 1.0 público emite inglés para la mitad de sus comandos y español
 para la otra mitad, del mismo binario.
 
-**Blast radius medido:** un solo consumidor real, `recall-inject.sh`, con
-cuatro expresiones jq (`:177`, `:186`, `:246`, `:299`) más sus fixtures. El
+**Blast radius medido:** `recall-inject.sh`, con cuatro expresiones jq (`:177`, `:186`, `:246`, `:299`) más sus fixtures. El
 harness de evals solo toca claves inglesas (`replay-engine.py:74-75`). El
 mecanismo de bump ya está previsto en `engine/src/envelope.rs:4-6`.
+
+> **Corregido el 2026-08-26, tras el review final de la ola 1A.** Las dos
+> frases de arriba tenían sendos errores que ningún gate por tarea podía ver,
+> porque ambos estaban en ESTA tabla y no en el código:
+>
+> 1. **La tabla omitía `exo write`.** Su envelope de éxito emitía cinco claves
+>    en español (`ruta_rel`, `ruta_abs`, `creada`, `frontmatter_completado`,
+>    `forzado`) y quedó fuera del renombrado. Como `SCHEMA_VERSION` ya estaba
+>    en 2, terminarlo después habría costado un v3 — un segundo cambio
+>    breaking para los terceros que la ola existe para habilitar. Arreglado en
+>    `674d368`: `relative_path`, `absolute_path`, `created`,
+>    `frontmatter_filled`, `forced`.
+> 2. **«Un solo consumidor real» era falso.** `documenta/SKILL.md:75` consume
+>    `ruta_abs` del envelope de `write`. Medir mal el blast radius es lo que
+>    hizo creer que `write` no estaba en juego.
+>
+> Lección para las olas siguientes: el inventario de una superficie pública se
+> hace enumerando los comandos del binario, no listando los que uno recuerda.
 
 Renombrado: `notas`→`notes`, `ruta`→`path`, `titulo`→`title`,
 `truncado`→`truncated`, `indexadas`→`indexed`, `saltadas`→`skipped`,
@@ -257,7 +276,8 @@ fichero es un punto de fallo.
 Nunca un default silencioso.
 
 **También en G1 (H9):** barrer el hallazgo vivo **#3 del gate M4** — la spec de
-write promete `data.dup_candidatas` en el rechazo exit 3 y solo hay una línea
+write promete `data.candidates` en el rechazo exit 3 (nombre corregido por D8;
+la spec de write llevaba `dup_candidatas`) y solo hay una línea
 humana por stderr. Es **contrato por prosa** en una superficie que un tercero
 va a consumir. O se implementa o se corrige la spec de write; publicarlo como
 está exporta el enemigo declarado del proyecto.
@@ -358,7 +378,15 @@ Las 5 notas doctrinales van **reescritas**, no copiadas de `kb-demo`: sin
 nombres, sin proyectos, sin fechas de la historia de Paul. Frontmatter
 `semilla: true` para que un usuario pueda barrerlas con un `grep`.
 
-**`exo init <ruta> [--name <n>] [--from-basic-memory] [--force]`**
+**`exo init [--kb <ruta>] [--name <n>] [--from-basic-memory] [--force]`**
+
+> Corregido el 2026-08-26 durante la ejecución de la ola 1A: v2 escribía
+> `<ruta>` posicional. Un reviewer levantó el conflicto contra la
+> implementación, que usa `--kb`. Manda el flag, no el posicional: `--kb` es
+> el nombre establecido para la raíz de la KB en **todos** los demás
+> subcomandos (`index`, `search`, `recall`, `write`), y un posicional solo en
+> `init` sería una excepción sin razón. La notación posicional de v2 era un
+> bosquejo de la forma del comando, no una decisión sobre posicional vs flag.
 
 1. Falla si `<ruta>` existe y no está vacía (salvo `--force`).
 2. Vuelca la plantilla sustituyendo `{{KB_NAME}}` en permalinks y títulos.

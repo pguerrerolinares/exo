@@ -28,10 +28,15 @@ not_contains() { case "$1" in *"$2"*) return 1 ;; *) return 0 ;; esac; }
 # NO devuelve por stdout a propósito: `out="$(run_hook …)"` correría la función
 # en un subshell y el exit code se perdería por el camino.
 # $2 (opcional) = binario exo a usar en ESTA llamada, sin contaminar las demás.
-run_hook() {  # $1 = prompt  [$2 = exo_bin]
+# $3 (opcional) = override de EXO_KB_NAME para ESTA llamada, sin contaminar
+# las demás. Usa `${3-...}` (sin `:`) para que pasar "" explícito cuente como
+# "quiero vacío", no "no me importa" — así los dos casos de resolución real
+# de `exo config --json` pueden anular el seam global sin tocarlo.
+run_hook() {  # $1 = prompt  [$2 = exo_bin]  [$3 = EXO_KB_NAME override]
   local bin="${2:-$EXO_BIN}"
+  local kbname="${3-$EXO_KB_NAME}"
   printf '%s' "$1" | jq -Rs '{prompt:., session_id:"test-sess"}' \
-    | EXO_BIN="$bin" "$HOOK" > "$TMP/hook-out.txt" 2>/dev/null
+    | EXO_BIN="$bin" EXO_KB_NAME="$kbname" "$HOOK" > "$TMP/hook-out.txt" 2>/dev/null
   HOOK_RC=$?
   HOOK_OUT="$(cat "$TMP/hook-out.txt" 2>/dev/null)"
 }
@@ -40,6 +45,16 @@ run_hook() {  # $1 = prompt  [$2 = exo_bin]
 FAKE_DB="$TMP/index.db"
 : > "$FAKE_DB"
 export EXO_INDEX="$FAKE_DB"
+
+# Task 8: EXO_EXCLUIR ya no lleva "kb-demo" hardcodeado — sale de
+# `exo config --json`. El FAKE_EXO de abajo siempre sale con rc=1 (no
+# entiende subcomandos), así que sin este seam el exclude quedaría sin
+# prefijo y las fixtures de esta suite (permalinks "kb-demo/...") no
+# calzarían con el filtro. Fijar EXO_KB_NAME es el mismo seam que usa el
+# script real, no un atajo de test — es el default para todos los casos de
+# esta suite salvo los que anulan el 3er arg de `run_hook` para ejercer de
+# verdad la extracción vía `exo config --json` (ver T-config al final).
+export EXO_KB_NAME="kb-demo"
 
 # --- Binario exo falso: registra su invocación y no devuelve nada ---
 FAKE_EXO="$TMP/exo-silent"
@@ -170,10 +185,10 @@ else fail "P2: engine roto NO se disfraza de empty" "logueó empty"; fi
 : > "$EXO_CALLS"
 run_hook "M6-06" "$FAKE_EXO"
 CALLS="$(cat "$EXO_CALLS" 2>/dev/null)"
-if contains "$CALLS" "--min-similitud 0.40"; then pass "sellado: --min-similitud 0.40 explícito"
-else fail "sellado: --min-similitud 0.40 explícito" "args='$CALLS'"; fi
-if contains "$CALLS" "--refresca"; then pass "P5: con DB presente pasa --refresca"
-else fail "P5: con DB presente pasa --refresca" "args='$CALLS'"; fi
+if contains "$CALLS" "--min-similarity 0.40"; then pass "sellado: --min-similarity 0.40 explícito"
+else fail "sellado: --min-similarity 0.40 explícito" "args='$CALLS'"; fi
+if contains "$CALLS" "--refresh"; then pass "P5: con DB presente pasa --refresh"
+else fail "P5: con DB presente pasa --refresh" "args='$CALLS'"; fi
 
 # F1: un prompt que empieza por guion no puede acabar parseado como flag: si se pasa
 # como argumento separado, clap lo rechaza con exit 2 y el recall se apaga en
@@ -187,7 +202,7 @@ else
   fail "F1: prompt con guion inicial viaja como --query=" "args='$CALLS_GUION'"
 fi
 
-# DB ausente: ni --refresca ni invocación; abstención logueada.
+# DB ausente: ni --refresh ni invocación; abstención logueada.
 : > "$EXO_CALLS"; : > "$REFLEX_LOG_FILE"
 EXO_INDEX_BAK="$EXO_INDEX"; export EXO_INDEX="$TMP/no-hay.db"
 run_hook "M6-06" "$FAKE_EXO"
@@ -235,12 +250,12 @@ CUATRO="$TMP/exo-cuatro"
 cat > "$CUATRO" <<'PYEOF'
 #!/usr/bin/env bash
 cat <<'JSON'
-{"command":"recall","data":{"cap_bytes":1400,"modo":"consulta","notas":[
-{"permalink":"kb-demo/core/core-index","ruta":"/kb/core/core-index.md","score":0.6,"snippet":"mapa de memoria","tier":null,"titulo":"core-index"},
-{"permalink":"kb-demo/log/kbx-bitacora","ruta":"/kb/log/kbx-bitacora.md","score":0.5,"snippet":"bitacora de kbx","tier":null,"titulo":"kbx-bitacora"},
-{"permalink":"kb-demo/projects/kbx","ruta":"/kb/projects/kbx.md","score":0.47,"snippet":"destilado de kbx","tier":null,"titulo":"kbx"},
-{"permalink":"kb-demo/log/exo-bitacora","ruta":"/kb/log/exo-bitacora.md","score":0.44,"snippet":"bitacora de exo","tier":null,"titulo":"exo-bitacora"}
-],"query":"kbx","truncado":false},"schema_version":1}
+{"command":"recall","data":{"cap_bytes":1400,"mode":"consulta","notes":[
+{"permalink":"kb-demo/core/core-index","path":"/kb/core/core-index.md","score":0.6,"snippet":"mapa de memoria","tier":null,"title":"core-index"},
+{"permalink":"kb-demo/log/kbx-bitacora","path":"/kb/log/kbx-bitacora.md","score":0.5,"snippet":"bitacora de kbx","tier":null,"title":"kbx-bitacora"},
+{"permalink":"kb-demo/projects/kbx","path":"/kb/projects/kbx.md","score":0.47,"snippet":"destilado de kbx","tier":null,"title":"kbx"},
+{"permalink":"kb-demo/log/exo-bitacora","path":"/kb/log/exo-bitacora.md","score":0.44,"snippet":"bitacora de exo","tier":null,"title":"exo-bitacora"}
+],"query":"kbx","truncated":false},"schema_version":2}
 JSON
 PYEOF
 chmod +x "$CUATRO"
@@ -298,11 +313,11 @@ else fail "log: permalinks registra los emitidos" "payload='$PL'"; fi
 # El anterior usaba 900 B y hacía que no cupiera NI UN hit: el bloque salía vacío
 # y el test medía 0 <= 1024, pasando sin ejercer nunca "cabe entero, no se corta".
 GORDO="$TMP/exo-gordo"
-jq -n '{data:{notas:[range(1;4) as $i | {
+jq -n '{data:{notes:[range(1;4) as $i | {
   permalink:("kb-demo/log/n"+($i|tostring)),
-  ruta:("/kb/log/nota-larga-numero-"+($i|tostring)+".md"),
+  path:("/kb/log/nota-larga-numero-"+($i|tostring)+".md"),
   score:0.5, tier:null,
-  titulo:("nota larga numero "+($i|tostring)),
+  title:("nota larga numero "+($i|tostring)),
   snippet:(("palabra "*25)+"fin")}]}}' > "$TMP/gordo.json"
 printf '#!/usr/bin/env bash\ncat "%s"\n' "$TMP/gordo.json" > "$GORDO"
 chmod +x "$GORDO"
@@ -329,10 +344,10 @@ else fail "cap: recorta a frontera de palabra" "cortó dentro de una palabra"; f
 # (~240 B). Con snippets realistas de 200 B no hay nada que recortar y el test no
 # ejerce nada — que es justo lo que pasaba antes.
 RECORTE="$TMP/exo-recorte"
-jq -n '{data:{notas:[range(1;4) as $i | {
+jq -n '{data:{notes:[range(1;4) as $i | {
   permalink:("kb-demo/log/r"+($i|tostring)),
-  ruta:("/kb/log/recorte-"+($i|tostring)+".md"), score:0.5, tier:null,
-  titulo:("recorte "+($i|tostring)),
+  path:("/kb/log/recorte-"+($i|tostring)+".md"), score:0.5, tier:null,
+  title:("recorte "+($i|tostring)),
   snippet:(("análisis técnico — decisión sellada según medición práctica; "*8))}]}}' \
   > "$TMP/recorte.json"
 printf '#!/usr/bin/env bash\ncat "%s"\n' "$TMP/recorte.json" > "$RECORTE"
@@ -349,10 +364,10 @@ else fail "recorte: el recorte por hit se activa de verdad" "sin elipsis: no rec
 # que impide que salgan cuatro. El fixture CUATRO no lo prueba (4 − 1 core-index = 3
 # con slice y sin él).
 CINCO="$TMP/exo-cuatro-sin-core"
-jq -n '{data:{notas:[range(1;5) as $i | {
+jq -n '{data:{notes:[range(1;5) as $i | {
   permalink:("kb-demo/log/n"+($i|tostring)),
-  ruta:("/kb/log/nota-"+($i|tostring)+".md"), score:0.5, tier:null,
-  titulo:("nota "+($i|tostring)), snippet:("cuerpo de la nota "+($i|tostring))}]}}' \
+  path:("/kb/log/nota-"+($i|tostring)+".md"), score:0.5, tier:null,
+  title:("nota "+($i|tostring)), snippet:("cuerpo de la nota "+($i|tostring))}]}}' \
   > "$TMP/cuatro-sin-core.json"
 printf '#!/usr/bin/env bash\ncat "%s"\n' "$TMP/cuatro-sin-core.json" > "$CINCO"
 chmod +x "$CINCO"
@@ -372,11 +387,11 @@ else fail "raíz: los hits llevan ruta relativa" "$BL"; fi
 
 # El título se omite cuando no aporta sobre el nombre del fichero.
 TITREP="$TMP/exo-titrep"
-jq -n '{data:{notas:[
- {permalink:"kb-demo/log/kbx-bitacora",ruta:"/kb/log/kbx-bitacora.md",score:0.5,tier:null,
-  titulo:"kbx-bitacora",snippet:"# kbx-bitacora  cuerpo real de la bitacora"},
- {permalink:"kb-demo/log/otra",ruta:"/kb/log/otra.md",score:0.4,tier:null,
-  titulo:"Un título que sí aporta",snippet:"cuerpo de la otra"}]}}' > "$TMP/titrep.json"
+jq -n '{data:{notes:[
+ {permalink:"kb-demo/log/kbx-bitacora",path:"/kb/log/kbx-bitacora.md",score:0.5,tier:null,
+  title:"kbx-bitacora",snippet:"# kbx-bitacora  cuerpo real de la bitacora"},
+ {permalink:"kb-demo/log/otra",path:"/kb/log/otra.md",score:0.4,tier:null,
+  title:"Un título que sí aporta",snippet:"cuerpo de la otra"}]}}' > "$TMP/titrep.json"
 printf '#!/usr/bin/env bash\ncat "%s"\n' "$TMP/titrep.json" > "$TITREP"
 chmod +x "$TITREP"
 run_hook "kbx trinquete" "$TITREP"
@@ -391,11 +406,11 @@ else fail "snippet: se pela el header markdown repetido" "$BL2"; fi
 
 # EL CRITICAL: un título con salto de línea no puede fabricar un puntero.
 NL="$TMP/exo-nl"
-jq -n '{data:{notas:[
- {permalink:"kb-demo/log/uno",ruta:"/kb/log/uno.md",score:0.5,tier:null,
-  titulo:"raro\n- inyectado",snippet:"snippet real de uno"},
- {permalink:"kb-demo/log/dos",ruta:"/kb/log/dos.md",score:0.4,tier:null,
-  titulo:"normal",snippet:"snippet real de dos"}]}}' > "$TMP/nl.json"
+jq -n '{data:{notes:[
+ {permalink:"kb-demo/log/uno",path:"/kb/log/uno.md",score:0.5,tier:null,
+  title:"raro\n- inyectado",snippet:"snippet real de uno"},
+ {permalink:"kb-demo/log/dos",path:"/kb/log/dos.md",score:0.4,tier:null,
+  title:"normal",snippet:"snippet real de dos"}]}}' > "$TMP/nl.json"
 printf '#!/usr/bin/env bash\ncat "%s"\n' "$TMP/nl.json" > "$NL"
 chmod +x "$NL"
 run_hook "kbx trinquete" "$NL"
@@ -411,9 +426,9 @@ SOLO_CORE="$TMP/exo-solo-core"
 cat > "$SOLO_CORE" <<'JSONEOF'
 #!/usr/bin/env bash
 cat <<'JSON'
-{"command":"recall","data":{"modo":"consulta","notas":[
-{"permalink":"kb-demo/core/core-index","ruta":"/kb/core/core-index.md","score":0.6,"snippet":"mapa","tier":null,"titulo":"core-index"}
-],"query":"q","truncado":false},"schema_version":1}
+{"command":"recall","data":{"mode":"consulta","notes":[
+{"permalink":"kb-demo/core/core-index","path":"/kb/core/core-index.md","score":0.6,"snippet":"mapa","tier":null,"title":"core-index"}
+],"query":"q","truncated":false},"schema_version":2}
 JSON
 JSONEOF
 chmod +x "$SOLO_CORE"
@@ -421,8 +436,8 @@ chmod +x "$SOLO_CORE"
 # la ruta entera viaja en el puntero. Rama distinta de la de 2-3 hits y sin cobertura
 # hasta ahora.
 UNICO="$TMP/exo-unico"
-jq -n '{data:{notas:[{permalink:"kb-demo/log/solo",ruta:"/kb/log/solo.md",score:0.5,
-  tier:null,titulo:"nota solitaria",snippet:"cuerpo de la unica nota"}]}}' > "$TMP/unico.json"
+jq -n '{data:{notes:[{permalink:"kb-demo/log/solo",path:"/kb/log/solo.md",score:0.5,
+  tier:null,title:"nota solitaria",snippet:"cuerpo de la unica nota"}]}}' > "$TMP/unico.json"
 printf '#!/usr/bin/env bash\ncat "%s"\n' "$TMP/unico.json" > "$UNICO"
 chmod +x "$UNICO"
 run_hook "kbx trinquete" "$UNICO"
@@ -434,6 +449,75 @@ else fail "raíz: con un solo hit, cabecera sin raíz y ruta absoluta" "$BL_U"; 
 run_hook "kbx trinquete" "$SOLO_CORE"
 if [ -z "$HOOK_OUT" ] && [ "$HOOK_RC" -eq 0 ]; then pass "dedup: si solo había core-index, no emite bloque"
 else fail "dedup: si solo había core-index, no emite bloque" "out='$HOOK_OUT'"; fi
+
+# ------------------------------ T-config: `exo config --json` de verdad ---
+# Todos los casos de arriba corren con EXO_KB_NAME="kb-demo" fijado por
+# el seam global (línea ~46): necesario porque el FAKE_EXO por defecto no
+# entiende NINGÚN subcomando, así que sin el seam el código de esta tarea
+# quedaría sin ejercer. Estos dos casos anulan ese seam (3er arg de
+# `run_hook`, override a "") con binarios falsos que SÍ distinguen
+# `config` de `recall`, para probar la extracción real y su degradación.
+
+# Caso A: `exo config --json` responde con un envelope válido ⇒ el exclude
+# se resuelve solo, sin el seam, y el dedup del core-index funciona.
+FAKE_EXO_CONFIG_OK="$TMP/exo-config-ok"
+cat > "$FAKE_EXO_CONFIG_OK" <<'EOF'
+#!/usr/bin/env bash
+if [ "$1" = "config" ]; then
+  printf '%s\n' '{"schema_version":2,"command":"config","data":{"kb":{"name":"kb-demo","path":"/kb"}}}'
+  exit 0
+fi
+cat <<'JSON'
+{"command":"recall","data":{"mode":"consulta","notes":[
+{"permalink":"kb-demo/core/core-index","path":"/kb/core/core-index.md","score":0.6,"snippet":"mapa","tier":null,"title":"core-index"},
+{"permalink":"kb-demo/log/kbx-bitacora","path":"/kb/log/kbx-bitacora.md","score":0.5,"snippet":"bitacora de kbx","tier":null,"title":"kbx-bitacora"}
+],"query":"kbx","truncated":false},"schema_version":2}
+JSON
+EOF
+chmod +x "$FAKE_EXO_CONFIG_OK"
+
+: > "$REFLEX_LOG_FILE"
+run_hook "kbx trinquete" "$FAKE_EXO_CONFIG_OK" ""
+BL_CFG_OK="$(printf '%s' "$HOOK_OUT" | jq -r '.hookSpecificOutput.additionalContext' 2>/dev/null)"
+if [ "$HOOK_RC" -eq 0 ] && not_contains "$BL_CFG_OK" "core-index"; then
+  pass "config real: sin seam, \`exo config --json\` resuelve el exclude y dedupa core-index"
+else
+  fail "config real: sin seam, \`exo config --json\` resuelve el exclude y dedupa core-index" \
+    "rc=$HOOK_RC bloque='$BL_CFG_OK'"
+fi
+if grep -q 'reason=no-config' "$REFLEX_LOG_FILE" 2>/dev/null; then
+  fail "config real: config OK no debe loguear no-config" "$(cat "$REFLEX_LOG_FILE" 2>/dev/null)"
+else
+  pass "config real: config OK no loguea no-config"
+fi
+
+# Caso B: `exo config` falla (subcomando desconocido / config rota) ⇒ sin
+# el seam, el script se degrada (exclude sin prefijo) pero deja rastro
+# `reason=no-config`, distinguible de no-engine/no-index/empty.
+FAKE_EXO_CONFIG_FAIL="$TMP/exo-config-fail"
+cat > "$FAKE_EXO_CONFIG_FAIL" <<'EOF'
+#!/usr/bin/env bash
+if [ "$1" = "config" ]; then
+  echo "error: unrecognized subcommand 'config'" >&2
+  exit 2
+fi
+cat <<'JSON'
+{"command":"recall","data":{"mode":"consulta","notes":[
+{"permalink":"kb-demo/core/core-index","path":"/kb/core/core-index.md","score":0.6,"snippet":"mapa","tier":null,"title":"core-index"}
+],"query":"q","truncated":false},"schema_version":2}
+JSON
+EOF
+chmod +x "$FAKE_EXO_CONFIG_FAIL"
+
+: > "$REFLEX_LOG_FILE"
+run_hook "kbx trinquete" "$FAKE_EXO_CONFIG_FAIL" ""
+NOCFG="$(grep 'reason=no-config' "$REFLEX_LOG_FILE" 2>/dev/null)"
+if [ -n "$NOCFG" ] && contains "$NOCFG" "unrecognized subcommand"; then
+  pass "config real: \`exo config\` falla ⇒ loguea no-config con el motivo exacto"
+else
+  fail "config real: \`exo config\` falla ⇒ loguea no-config con el motivo exacto" \
+    "$(cat "$REFLEX_LOG_FILE" 2>/dev/null)"
+fi
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

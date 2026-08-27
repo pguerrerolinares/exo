@@ -9,7 +9,9 @@ fn fts5_disponible() {
     )
     .expect("FTS5 compilado en el bundle");
     let n: i64 = db
-        .query_row("SELECT count(*) FROM t WHERE t MATCH 'engine'", [], |r| r.get(0))
+        .query_row("SELECT count(*) FROM t WHERE t MATCH 'engine'", [], |r| {
+            r.get(0)
+        })
         .unwrap();
     assert_eq!(n, 1);
 }

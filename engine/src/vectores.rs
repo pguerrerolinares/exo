@@ -5,7 +5,7 @@
 //! nota 1). `rowid` de `vectores` = `trozos.id` (§2, no negociable).
 
 use anyhow::{Context, Result};
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension, params};
 
 /// Serializa un embedding a blob de f32 little-endian nativo — la forma que
 /// `vector_from_value` de sqlite-vec 0.1.9 acepta directamente como
@@ -126,7 +126,10 @@ mod tests {
         let vecinos = knn(&conn, &vector_768(1.0), 1).expect("knn");
         assert_eq!(vecinos.len(), 1);
         assert_eq!(vecinos[0].rowid, 42);
-        assert!(vecinos[0].distancia < 1e-6, "vector idéntico ⇒ distancia ~0");
+        assert!(
+            vecinos[0].distancia < 1e-6,
+            "vector idéntico ⇒ distancia ~0"
+        );
     }
 
     #[test]

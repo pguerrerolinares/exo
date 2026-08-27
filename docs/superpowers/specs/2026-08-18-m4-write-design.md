@@ -77,7 +77,7 @@ exo write new --db <db> [--kb <kb>] --dir <projects/|log/|research/|...>
 - **Destino:** `<dir>/<titulo>.md`. Escritura por tmp+rename (atómica).
 - **Dup-gate (M4-02):** solape de tokens (Jaccard ≥ 0.6) entre el slug de la
   nota nueva y los permalinks ya indexados. Si hay candidatas y no hay
-  `--force` → **exit 3, no escribe**, con `data.dup_candidatas`.
+  `--force` → **exit 3, no escribe**, con `data.candidates`.
 
   > **Disenso con lo adjudicado, fundado en evidencia.** El consultor A
   > propuso `busca_hybrid` para este gate. Se implementó así y **se reprodujo
@@ -122,7 +122,7 @@ Envelope v1 en stdout, humano y avisos a stderr, gating por exit code:
 {"schema_version":1,"command":"write","data":{
   "op":"new","permalink":"…","ruta_rel":"…","ruta_abs":"…",
   "creada":true,"frontmatter_completado":["permalink","type"],
-  "dup_candidatas":[]}}
+  "candidates":[]}}
 ```
 
 Exit: `0` escrito · `3` dup-gate (decisión pedida, no fallo) · `1` error.
@@ -342,3 +342,24 @@ y se deja el segundo, deliberadamente:
 Cuando se toque, el cambio es de una línea: los appends a `log/<slug>-bitacora`
 y a `log/backlog-diario` pasan a `exo write append`, que es justo el patrón
 para el que se construyó.
+
+> **Corregido el 2026-08-26 (ola 1A de exo generico).** Esta spec prometia
+> `data.dup_candidatas` y `data.motivo` con valores en espanol. La decision D8
+> de `2026-08-26-exo-generico-design.md` lleva al ingles **todas** las claves de
+> `data` del envelope antes del 1.0 publico, y el rechazo del dup-gate es una
+> superficie nueva: nacer en espanol seria importar al 1.0 justo la mezcla que
+> D8 existe para matar. La forma vinculante pasa a ser
+> `{"reason":"duplicate","candidates":[{permalink,score}]}` y
+> `{"reason":"append_to_canon","tier":"<t>"}`. El exit code 3 sigue siendo
+> el gate; esto es el detalle, no la senal.
+>
+> **Implementado el 2026-08-26** (hallazgo #3 del gate M4, `engine/src/main.rs`
+> `fn main`, `engine/src/escritor.rs` `impl Rechazo::data`): con `--json`, el
+> rechazo emite `{"schema_version":2,"command":"write","data":<lo de arriba>}`
+> por stdout **además** de la línea humana por stderr, antes de salir 3. El
+> `command` es `"write"` — el mismo que ya usa el envelope de éxito de `write
+> new`/`write append` (§3.3 arriba) — y no un `"write.new"`/`"write.rechazo"`
+> nuevo: ambos subcomandos ya distinguían el caso por `data.op`/`data.reason`,
+> no por el nombre del comando, así que introducir un segundo esquema de
+> nombrado aquí habría sido una inconsistencia gratuita. Sin `--json`, stdout
+> queda vacío como siempre. Test: `engine/tests/rechazo_envelope.rs`.

@@ -117,14 +117,20 @@ mod tests {
 
     #[test]
     fn bloque_simple_da_un_trozo() {
-        assert_eq!(trocea("un párrafo simple de texto"), vec!["un párrafo simple de texto"]);
+        assert_eq!(
+            trocea("un párrafo simple de texto"),
+            vec!["un párrafo simple de texto"]
+        );
     }
 
     #[test]
     fn empaquetado_greedy_junta_bloques_bajo_el_techo() {
         let cuerpo = "primer bloque\n\nsegundo bloque\n\ntercer bloque";
         let trozos = trocea(cuerpo);
-        assert_eq!(trozos, vec!["primer bloque\n\nsegundo bloque\n\ntercer bloque"]);
+        assert_eq!(
+            trozos,
+            vec!["primer bloque\n\nsegundo bloque\n\ntercer bloque"]
+        );
     }
 
     #[test]

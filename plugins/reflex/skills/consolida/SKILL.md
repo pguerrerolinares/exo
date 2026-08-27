@@ -129,8 +129,8 @@ están desincronizados: reinstala el que vaya atrasado (`make install` en kbx,
   toca evicción del índice (entradas muertas y justificaciones, nunca comprimir
   entradas vivas). Compruébalo con el bloque real, no con `wc` del fichero:
 
-      exo recall --db ~/.exo/index.db --contenido \
-          --nota kb-demo/core/core-index --limite 10 --cap-bytes 6144
+      exo recall --db ~/.exo/index.db --content \
+          --note kb-demo/core/core-index --limit 10 --cap-bytes 6144
 
   Un `aviso: … truncado` en stderr es la señal.
 
