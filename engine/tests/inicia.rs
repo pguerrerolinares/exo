@@ -132,3 +132,396 @@ fn no_pisa_una_config_existente_sin_force() {
     let contenido = std::fs::read_to_string(&destino).expect("releer");
     assert_eq!(contenido, "# la config del usuario\n");
 }
+
+#[test]
+fn init_rechaza_un_directorio_no_vacio_sin_force() {
+    let dir = tempfile::TempDir::new().unwrap();
+    std::fs::write(dir.path().join("algo.md"), "x").unwrap();
+    let e = exo::inicia::prepara_kb(dir.path(), false).unwrap_err();
+    assert!(
+        e.to_string().contains("no está vacía"),
+        "mensaje inesperado: {e}"
+    );
+}
+
+#[test]
+fn init_acepta_un_directorio_vacio() {
+    let dir = tempfile::TempDir::new().unwrap();
+    exo::inicia::prepara_kb(dir.path(), false).expect("dir vacío debe pasar");
+}
+
+#[test]
+fn init_acepta_un_directorio_inexistente() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let nueva = dir.path().join("kb-nueva");
+    exo::inicia::prepara_kb(&nueva, false).expect("dir inexistente debe pasar");
+}
+
+/// La validación es whitelist: letras, dígitos, `-`, `_`, `.`. Una comilla es
+/// exactamente el carácter que rompe el frontmatter YAML de la plantilla
+/// (`permalink: "{{KB_NAME}}/..."` — `plantilla::render` hace un
+/// `String::replace` crudo, sin escapado) — este es el test que documenta el
+/// bug original.
+#[test]
+fn un_nombre_con_comillas_es_rechazado_por_la_validacion() {
+    let nombre = r#"mi"kb"#;
+    let err = exo::inicia::valida_nombre(nombre).expect_err("debe rechazarse");
+    let msg = format!("{err:#}");
+    assert!(msg.contains('"'), "no cita el carácter ofensivo: {msg}");
+    // El nombre se cita vía `{nombre:?}` (Debug), que escapa la comilla
+    // interna como `\"` — se busca esa forma, no el literal sin escapar.
+    assert!(
+        msg.contains(&format!("{nombre:?}")),
+        "no cita el nombre recibido: {msg}"
+    );
+    assert!(
+        msg.contains("permalink"),
+        "no explica por qué importa (prefijo de permalink): {msg}"
+    );
+}
+
+#[test]
+fn un_nombre_con_espacio_es_rechazado_por_la_validacion() {
+    exo::inicia::valida_nombre("mi kb").expect_err("debe rechazarse");
+}
+
+#[test]
+fn un_nombre_con_barra_es_rechazado_por_la_validacion() {
+    exo::inicia::valida_nombre("mi/kb").expect_err("debe rechazarse");
+}
+
+#[test]
+fn un_nombre_con_salto_de_linea_es_rechazado_por_la_validacion() {
+    exo::inicia::valida_nombre("mi\nkb").expect_err("debe rechazarse");
+}
+
+/// Los nombres "de siempre" del resto de la suite (y de uso real) no se ven
+/// afectados por la whitelist nueva.
+#[test]
+fn los_nombres_habituales_siguen_pasando_la_validacion() {
+    for nombre in ["demo", "kb-demo", "mi-kb.v2", "kb_2"] {
+        exo::inicia::valida_nombre(nombre).unwrap_or_else(|e| panic!("{nombre:?} debería pasar: {e}"));
+    }
+}
+
+/// El agujero de verdad: `exo init --name 'mi"kb'` salía con exit 0 y una KB
+/// con frontmatter roto en las once notas de la semilla. Ahora debe fallar
+/// ANTES de escribir nada — ni config, ni plantilla, ni git init.
+#[test]
+fn init_con_nombre_invalido_no_escribe_nada() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let kb = tmp.path().join("kb-nueva");
+    let config = tmp.path().join("config.toml");
+    let db = tmp.path().join("index.db");
+
+    let salida = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
+        .args(["init", "--kb"])
+        .arg(&kb)
+        .args(["--name", "mi\"kb", "--json"])
+        .env("EXO_CONFIG", &config)
+        .env("EXO_DB", &db)
+        .output()
+        .expect("ejecutar exo init");
+
+    assert!(
+        !salida.status.success(),
+        "un nombre con comillas debería rechazarse, pero exit={:?}",
+        salida.status.code()
+    );
+    assert!(
+        !kb.exists() || std::fs::read_dir(&kb).unwrap().next().is_none(),
+        "init escribió en el destino a pesar de rechazar el nombre"
+    );
+    assert!(!config.exists(), "init escribió la config a pesar de rechazar el nombre");
+}
+
+/// Con un nombre válido, la nota canónica de la semilla vuelca un frontmatter
+/// YAML parseable, y su `permalink` empieza por el nombre dado — la
+/// propiedad que de verdad importa es que la nota sea indexable, no solo que
+/// el fichero exista.
+#[test]
+fn init_con_nombre_valido_produce_frontmatter_parseable_e_indexable() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let kb = tmp.path().join("kb-nueva");
+    let config = tmp.path().join("config.toml");
+    let db = tmp.path().join("index.db");
+    let nombre = "mi-kb.valida";
+
+    let salida = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
+        .args(["init", "--kb"])
+        .arg(&kb)
+        .args(["--name", nombre, "--json"])
+        .env("EXO_CONFIG", &config)
+        .env("EXO_DB", &db)
+        .output()
+        .expect("ejecutar exo init");
+    assert!(
+        salida.status.success(),
+        "init falló con un nombre válido: {}",
+        String::from_utf8_lossy(&salida.stderr)
+    );
+
+    let canon = kb.join("core/core-index.md");
+    let nota = exo::nota::parsea_nota(&canon)
+        .expect("el frontmatter debe parsear como YAML")
+        .expect("la nota debe tener permalink");
+    assert!(
+        nota.permalink.starts_with(nombre),
+        "permalink {:?} no empieza por el nombre {nombre:?}",
+        nota.permalink
+    );
+
+    // La propiedad que importa de verdad: la nota es indexable. `init` ya
+    // indexó sobre `db` (auto-index al final de `init_cmd`), así que aquí se
+    // apunta a una DB nueva y vacía — si no, todo saldría `skipped` (mtime
+    // sin cambios) y el `indexed > 0` de abajo no probaría nada.
+    let db2 = tmp.path().join("index2.db");
+    let salida_index = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
+        .args(["index", "--kb"])
+        .arg(&kb)
+        .args(["--db"])
+        .arg(&db2)
+        .arg("--json")
+        // `EXO_CONFIG` explicito, no heredado: bajo `scripts/test-hermetico.sh`
+        // el proceso padre lleva `EXO_CONFIG` a una ruta inexistente a
+        // proposito, y el subproceso lo heredaria y moriria leyendo la config
+        // de embeddings. La config correcta aqui es justo la que `init` acaba
+        // de escribir, que es la que describe esta KB.
+        .env("EXO_CONFIG", &config)
+        .output()
+        .expect("ejecutar exo index");
+    assert!(
+        salida_index.status.success(),
+        "index falló: {}",
+        String::from_utf8_lossy(&salida_index.stderr)
+    );
+    let env: serde_json::Value = serde_json::from_slice(&salida_index.stdout).expect("json");
+    let indexed = env["data"]["indexed"].as_u64().expect("campo indexed");
+    assert!(indexed > 0, "indexed debería ser > 0, envelope: {env}");
+}
+
+/// `--from-basic-memory` adopta una KB existente: NO puede escribir ni un
+/// byte dentro de ella. Con el cableado de la v1 de este plan, este test
+/// fallaba de las dos formas posibles: sin `--force` abortaba, y con `--force`
+/// machacaba `core/core-index.md` con la semilla.
+#[test]
+fn adopcion_no_toca_ni_un_fichero_de_la_kb_existente() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let kb = tmp.path().join("kb-poblada");
+    std::fs::create_dir_all(kb.join("core")).unwrap();
+    let canon = kb.join("core/core-index.md");
+    std::fs::write(
+        &canon,
+        "---\npermalink: real/core/core-index\n---\nCONTENIDO REAL\n",
+    )
+    .unwrap();
+    let antes = std::fs::read_to_string(&canon).unwrap();
+
+    let bm = tmp.path().join("bm.json");
+    let kb_json = kb.display().to_string().replace('\\', "/");
+    std::fs::write(
+        &bm,
+        format!(
+            r#"{{"projects":{{"real":{{"path":"{}"}}}},"default_project":"real","semantic_embedding_model":"{}","semantic_embedding_dimensions":768,"semantic_min_similarity":0.35}}"#,
+            kb_json,
+            exo::MODELO_JINA_ES
+        ),
+    )
+    .unwrap();
+
+    // Ejecuta el binario en modo adopción con config y db aisladas.
+    let salida = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
+        .args(["init", "--from-basic-memory", "--json"])
+        .env("EXO_CONFIG", tmp.path().join("config.toml"))
+        .env("EXO_DB", tmp.path().join("index.db"))
+        .env("EXO_BASIC_MEMORY_JSON", &bm)
+        .output()
+        .expect("ejecutar exo init");
+
+    assert!(
+        salida.status.success(),
+        "init falló: {}",
+        String::from_utf8_lossy(&salida.stderr)
+    );
+    assert_eq!(
+        std::fs::read_to_string(&canon).unwrap(),
+        antes,
+        "la adopción escribió en la KB"
+    );
+    assert!(
+        !kb.join("AGENTS.md").exists(),
+        "la adopción volcó la plantilla"
+    );
+    assert!(!kb.join(".git").exists(), "la adopción hizo git init");
+}
+
+/// I4 (review de rama): `init_cmd` volcaba la plantilla (12 ficheros) y hacía
+/// `git init` + commit ANTES de que `escribe_config` descubriera, ya al
+/// final, que la config existía y abortara sin `--force` — residuo de KB +
+/// repo git en disco tras el exit 1, y el reintento fallaba ya por otra vía
+/// (`prepara_kb`: "no está vacía"). Ahora la comprobación corre primero:
+/// nada toca el disco de la KB si la config no se puede escribir. Es la
+/// hermana de `init_con_nombre_invalido_no_escribe_nada` (misma forma,
+/// disparador distinto).
+#[test]
+fn init_con_config_existente_sin_force_no_deja_residuo_en_la_kb() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let kb = tmp.path().join("kb-nueva");
+    let config = tmp.path().join("config.toml");
+    std::fs::write(&config, "# config de otra persona\n").expect("sembrar config");
+    let db = tmp.path().join("index.db");
+
+    let salida = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
+        .args(["init", "--kb"])
+        .arg(&kb)
+        .args(["--name", "i4-demo", "--json"])
+        .env("EXO_CONFIG", &config)
+        .env("EXO_DB", &db)
+        .output()
+        .expect("ejecutar exo init");
+
+    assert!(
+        !salida.status.success(),
+        "debe rechazarse sin --force por config existente, pero exit={:?}",
+        salida.status.code()
+    );
+    assert!(
+        !kb.exists() || std::fs::read_dir(&kb).unwrap().next().is_none(),
+        "init dejó residuo en la KB (semilla y/o git) tras fallar por config existente"
+    );
+    // Negarse no es medio-pisar: la config del usuario sigue intacta.
+    assert_eq!(
+        std::fs::read_to_string(&config).unwrap(),
+        "# config de otra persona\n"
+    );
+}
+
+/// I7 (review de rama): `versiona_kb` degrada a aviso + exit 0 por diseño si
+/// git falla — correcto para no bloquear a quien no tiene git. Pero nadie
+/// afirmaba que en el camino feliz SÍ quede un commit; con cero CI en el
+/// repo, ese paso puede dejar de funcionar sin que nada se ponga rojo.
+///
+/// La identidad de autor/committer se fija vía `GIT_AUTHOR_*`/
+/// `GIT_COMMITTER_*` (variables que git respeta sin fichero de config, ni
+/// local ni global) en vez de `git -C <kb> config user.email` posterior: el
+/// commit lo hace `versiona_kb` DENTRO de este subproceso, así que no hay
+/// forma de inyectar config a mitad del `git init` que hace el propio `exo
+/// init` — las variables de entorno sí llegan, heredadas por el `git commit`
+/// que lanza. El objetivo es el mismo que pide la review: que el test no
+/// dependa de si la máquina que lo corre tiene `user.name`/`user.email`.
+#[test]
+fn init_en_modo_creacion_deja_un_commit_en_la_kb() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let kb = tmp.path().join("kb-nueva");
+    let config = tmp.path().join("config.toml");
+    let db = tmp.path().join("index.db");
+
+    let salida = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
+        .args(["init", "--kb"])
+        .arg(&kb)
+        .args(["--name", "i7-demo", "--json"])
+        .env("EXO_CONFIG", &config)
+        .env("EXO_DB", &db)
+        .env("GIT_AUTHOR_NAME", "exo-test")
+        .env("GIT_AUTHOR_EMAIL", "exo-test@example.invalid")
+        .env("GIT_COMMITTER_NAME", "exo-test")
+        .env("GIT_COMMITTER_EMAIL", "exo-test@example.invalid")
+        .output()
+        .expect("ejecutar exo init");
+    assert!(
+        salida.status.success(),
+        "init falló: {}",
+        String::from_utf8_lossy(&salida.stderr)
+    );
+    let env: serde_json::Value = serde_json::from_slice(&salida.stdout).expect("json");
+    assert_eq!(
+        env["data"]["git"], true,
+        "el envelope dice que git no quedó ok: {env}"
+    );
+
+    let log = std::process::Command::new("git")
+        .arg("-C")
+        .arg(&kb)
+        .args(["log", "--oneline"])
+        .output()
+        .expect("ejecutar git log");
+    assert!(
+        log.status.success(),
+        "git log falló en la KB volcada: {}",
+        String::from_utf8_lossy(&log.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&log.stdout);
+    assert_eq!(
+        stdout.lines().count(),
+        1,
+        "modo creación debe dejar EXACTAMENTE un commit en la KB, vio: {stdout:?}"
+    );
+}
+
+/// C2 (review de rama): `init_cmd` capturaba el `Resumen` de `indexa` y lo
+/// tiraba — `data.files` (12, ficheros ESCRITOS) era lo único que decía el
+/// envelope, nunca cuántas notas quedaron INDEXADAS. Una semilla que vuelca
+/// 12 ficheros e indexa cero notas salía exit 0 con mensaje de éxito. Ahora
+/// `data.index` lleva el resumen completo y, en creación, cuadra con las
+/// notas `.md` de la plantilla: 11 (los 12 ficheros de la semilla menos
+/// `archive/log/.gitkeep`, que `walk_kb` filtra por extensión y ni ve).
+#[test]
+fn init_en_modo_creacion_publica_el_resumen_de_indexado_en_el_envelope() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let kb = tmp.path().join("kb-nueva");
+    let config = tmp.path().join("config.toml");
+    let db = tmp.path().join("index.db");
+
+    let salida = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
+        .args(["init", "--kb"])
+        .arg(&kb)
+        .args(["--name", "c2-demo", "--json"])
+        .env("EXO_CONFIG", &config)
+        .env("EXO_DB", &db)
+        .output()
+        .expect("ejecutar exo init");
+    assert!(
+        salida.status.success(),
+        "init falló: {}",
+        String::from_utf8_lossy(&salida.stderr)
+    );
+    let env: serde_json::Value = serde_json::from_slice(&salida.stdout).expect("json");
+    assert_eq!(env["data"]["files"], 12, "ficheros escritos: {env}");
+    assert_eq!(
+        env["data"]["index"]["indexed"], 11,
+        "el envelope no publica cuántas notas quedaron indexadas: {env}"
+    );
+    assert_eq!(env["data"]["index"]["skipped"], 0);
+    assert_eq!(
+        env["data"]["index"]["unreadable"], 0,
+        "el skip por frontmatter ilegible ahora es representable: {env}"
+    );
+}
+
+/// La lógica de "lo indexado cuadra con lo volcado" (C2) vive en
+/// `inicia::verifica_indexado_completo`, testable sin pasar por el binario ni
+/// por el modelo de embeddings.
+#[test]
+fn verifica_indexado_completo_pasa_cuando_las_notas_md_cuadran() {
+    let escritos = vec![
+        std::path::PathBuf::from("a.md"),
+        std::path::PathBuf::from("b.md"),
+        // No-`.md`: no cuenta para "esperadas", igual que
+        // `archive/log/.gitkeep` en la plantilla real.
+        std::path::PathBuf::from("archive/log/.gitkeep"),
+    ];
+    exo::inicia::verifica_indexado_completo(&escritos, 2).expect("2 notas .md == 2 indexadas");
+}
+
+#[test]
+fn verifica_indexado_completo_falla_ruidoso_cuando_no_cuadra() {
+    let escritos = vec![
+        std::path::PathBuf::from("a.md"),
+        std::path::PathBuf::from("b.md"),
+        std::path::PathBuf::from("archive/log/.gitkeep"),
+    ];
+    let err = exo::inicia::verifica_indexado_completo(&escritos, 1).expect_err("debe fallar");
+    let msg = format!("{err:#}");
+    assert!(msg.contains('2'), "no dice cuántas esperaba: {msg}");
+    assert!(msg.contains('1'), "no dice cuántas entraron: {msg}");
+}

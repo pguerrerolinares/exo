@@ -230,9 +230,10 @@ es que el core-index real (5.355 B) ya supera él solo el límite semilla
 ### MENOR-5 — El barrido de fugas clean-room es débil como gate automático; y el ejecutor de Task 6 nace con contexto contaminado
 
 Los greps (`plan:476,578`) cazan 7-8 tokens. No cazan: fechas de la historia de
-Paul (la spec las prohíbe explícitamente, `spec:488-490`), nombres de proyectos
-de la KB (universidad, lighthouses, spark, cliente-c, cliente-b, redmine, ocr…), ni
-anécdotas sin token. Además, el ejecutor que escriba las notas recibe por hook
+Paul (la spec las prohíbe explícitamente, `spec:488-490`), los nombres de
+proyectos y clientes que aparecen en la KB privada (una media docena larga, no
+enumerados aquí: enumerarlos en un artefacto versionado sería la misma fuga que
+el hallazgo describe), ni anécdotas sin token. Además, el ejecutor que escriba las notas recibe por hook
 punteros y resúmenes de `kb-demo` en su contexto de arranque: el método
 clean-room (whitelist, `framework-unificado:153`) exige escribir desde cero, y
 un ejecutor que relea las notas origen está haciendo blacklist-destilado sin

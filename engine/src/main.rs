@@ -81,7 +81,9 @@ struct ArgsInit {
     /// los dos orígenes en silencio.
     #[arg(long, conflicts_with_all = ["kb", "name"])]
     from_basic_memory: bool,
-    /// Sobreescribe una config existente.
+    /// Sobreescribe una config existente. En modo creación (sin
+    /// `--from-basic-memory`) también autoriza volcar la semilla sobre una
+    /// `--kb` no vacía, pisando lo que hubiera dentro.
     #[arg(long)]
     force: bool,
     #[arg(long)]
@@ -369,22 +371,88 @@ fn ejecuta(comando: Comando) -> Result<()> {
     }
 }
 
-/// `exo init`: escribe la config propia. El volcado de la KB semilla llega en
-/// G3 y se engancha aquí sin cambiar esta firma.
+/// `git init` + primer commit sobre la KB recién volcada.
+/// `std::process::Command`, nunca `git2`: añadir una dependencia con
+/// toolchain C contradice D4, que existe para sacar el toolchain C del
+/// camino del usuario. Un fallo en CUALQUIER paso (git ausente del PATH, o
+/// presente pero sin `user.name`/`user.email` en una máquina fresca de
+/// tercero — el caso más probable del público de G3) avisa por stderr y NO
+/// aborta: una KB sin git funciona, abortar por eso sería peor.
+fn versiona_kb(kb: &Path) -> bool {
+    let paso = |args: &[&str]| -> bool {
+        match std::process::Command::new("git")
+            .arg("-C")
+            .arg(kb)
+            .args(args)
+            .output()
+        {
+            Ok(salida) if salida.status.success() => true,
+            Ok(salida) => {
+                eprintln!(
+                    "aviso: git {} falló: {}",
+                    args.join(" "),
+                    String::from_utf8_lossy(&salida.stderr).trim()
+                );
+                false
+            }
+            Err(e) => {
+                eprintln!("aviso: no se pudo ejecutar git {}: {e}", args.join(" "));
+                false
+            }
+        }
+    };
+
+    paso(&["init"])
+        && paso(&["add", "."])
+        && paso(&["commit", "-m", "kb: semilla inicial de exo init"])
+}
+
+/// `exo init`: dos modos. ADOPCIÓN (`--from-basic-memory`) apunta a una KB
+/// **ya existente y poblada** — no se toca ni un byte dentro de ella: nada
+/// de `prepara_kb`, nada de plantilla, nada de `git init`. CREACIÓN (`--kb`
+/// + `--name`) es la que nace aquí: valida el destino, vuelca la semilla, la
+/// versiona con git (best-effort) y la indexa.
 fn init_cmd(args: ArgsInit) -> Result<()> {
     let destino = exo::config::ruta_config()?;
     let db_default = dirs::home_dir().context("sin HOME")?.join(".exo/index.db");
 
-    let (kb, nombre, emb) = if args.from_basic_memory {
+    // I4 (review de rama): se comprueba ANTES de tocar nada en disco. Antes
+    // esta guarda solo vivía dentro de `escribe_config`, llamada después de
+    // volcar la plantilla (12 ficheros) y de `git init` + commit en modo
+    // creación — sin `--force` contra una config existente, el aborto llegaba
+    // tarde: KB a medio escribir + repo git en disco + exit 1, y el reintento
+    // fallaba ya por otra vía (`prepara_kb`: "no está vacía").
+    exo::inicia::valida_config_escribible(&destino, args.force)?;
+
+    let (kb, nombre, emb, modo, escritos, git_ok) = if args.from_basic_memory {
         let ruta = exo::inicia::ruta_basic_memory()?;
         let json =
             std::fs::read_to_string(&ruta).with_context(|| format!("leer {}", ruta.display()))?;
-        exo::inicia::desde_basic_memory(&json)
-            .with_context(|| format!("leyendo {}", ruta.display()))?
+        let (kb, nombre, emb) = exo::inicia::desde_basic_memory(&json)
+            .with_context(|| format!("leyendo {}", ruta.display()))?;
+        // El nombre no lo escribió el usuario en esta rama: salió de
+        // `default_project` en el JSON de basic-memory. El mensaje de
+        // `valida_nombre` lo deja claro para no confundir a quien lea el
+        // error pensando que tecleó `--name` él mismo.
+        exo::inicia::valida_nombre(&nombre).with_context(|| {
+            format!(
+                "el nombre adoptado ({nombre:?}) viene de `default_project` en {} \
+                 (JSON de basic-memory), no lo escribiste tú con --name — corrígelo ahí",
+                ruta.display()
+            )
+        })?;
+        (kb, nombre, emb, "adopt", Vec::new(), false)
     } else {
-        let kb = args
-            .kb
-            .context("--kb es obligatorio sin --from-basic-memory")?;
+        // `expande_tilde`: sin esto, `exo init --kb ~/mi-kb` en Windows crea
+        // un directorio LITERAL llamado `~` (el shell no expande `~` como en
+        // POSIX), sale 0, y la config queda apuntando a un sitio que no es el
+        // que el usuario escribió — falla ruidoso en el comando siguiente,
+        // pero ya con basura en disco (Minor, review de rama).
+        let kb = exo::config::expande_tilde(
+            &args
+                .kb
+                .context("--kb es obligatorio sin --from-basic-memory")?,
+        );
         let nombre = args
             .name
             .context("--name es obligatorio sin --from-basic-memory")?;
@@ -401,10 +469,40 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
             dims: 768,
             min_similarity: 0.35,
         };
-        (kb, nombre, emb)
+
+        exo::inicia::valida_nombre(&nombre)?;
+        exo::inicia::prepara_kb(&kb, args.force)?;
+        std::fs::create_dir_all(&kb).with_context(|| format!("crear {}", kb.display()))?;
+        let escritos = exo::plantilla::vuelca(&kb, &nombre)?;
+        let git_ok = versiona_kb(&kb);
+
+        (kb, nombre, emb, "create", escritos, git_ok)
     };
 
     exo::inicia::escribe_config(&destino, &kb, &nombre, &emb, &db_default, args.force)?;
+
+    // Índice inicial. `resuelve_db(None)` (precedencia `$EXO_DB` > `[index]
+    // db`), NO `db_default`: `db_default` es lo que se GRABA en config.toml,
+    // pero el índice que se toca aquí es el efectivo — si no fuera por
+    // `EXO_DB`, un test (o un `exo init` bajo `$HOME` no estándar) indexaría
+    // el `~/.exo/index.db` real de la máquina.
+    let db = resuelve_db(None)?;
+    let resumen = indexa(&kb, &db)?;
+
+    // C2 (review de rama): solo en modo CREACIÓN — en ADOPCIÓN la KB es del
+    // usuario y su contenido no lo decide `init`. La lógica vive en
+    // `inicia::verifica_indexado_completo` (testable sin pasar por el
+    // binario); aquí solo se orquesta.
+    if modo == "create" {
+        exo::inicia::verifica_indexado_completo(&escritos, resumen.indexadas).with_context(
+            || {
+                format!(
+                    "la config y la KB ya están en disco en {} — revísala antes de reintentar",
+                    kb.display()
+                )
+            },
+        )?;
+    }
 
     if args.json {
         exo::envelope::emite(
@@ -414,12 +512,36 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
                 "kb": kb.display().to_string(),
                 "name": nombre,
                 "from_basic_memory": args.from_basic_memory,
+                "mode": modo,
+                "files": escritos.len(),
+                "git": git_ok,
+                "index": resumen,
             }),
         );
     } else {
-        println!("config escrita en {}", destino.display());
+        match modo {
+            "adopt" => {
+                println!("KB existente adoptada: {} (name: {nombre})", kb.display());
+                println!("config escrita en {}", destino.display());
+            }
+            _ => {
+                println!(
+                    "KB semilla volcada en {} ({} ficheros)",
+                    kb.display(),
+                    escritos.len()
+                );
+                if !git_ok {
+                    eprintln!("aviso: la KB no quedó versionada con git (ver avisos arriba)");
+                }
+                println!("config escrita en {}", destino.display());
+            }
+        }
+        println!(
+            "índice: indexadas={} saltadas={} sin_permalink={} borradas={}",
+            resumen.indexadas, resumen.saltadas, resumen.sin_permalink, resumen.borradas
+        );
         println!("KB: {} (name: {nombre})", kb.display());
-        println!("siguiente: exo index --json");
+        println!("siguiente: exo recall --json");
     }
     Ok(())
 }

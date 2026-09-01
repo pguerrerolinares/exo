@@ -11,6 +11,7 @@ pub mod escritor;
 pub mod indexer;
 pub mod inicia;
 pub mod nota;
+pub mod plantilla;
 pub mod recall;
 pub mod schema;
 pub mod trozos;

@@ -133,6 +133,12 @@ fn los_flags_espanoles_siguen_parseando_como_alias() {
 fn help_de(args: &[&str]) -> String {
     let out = Command::new(bin())
         .args(args)
+        // Mismo valor literal que `corre()`: clap resuelve `--help` antes de
+        // llegar a leer la config, así que hoy pasa incluso sin esto — pero
+        // heredar el `EXO_CONFIG` del proceso que corre los tests no está
+        // aislado, solo pasa por el orden de evaluación de clap. Fijarlo
+        // explícito hace la hermeticidad real, no accidental.
+        .env("EXO_CONFIG", "C:/no-existe-jamas/config.toml")
         .output()
         .expect("correr --help");
     String::from_utf8_lossy(&out.stdout).to_string()

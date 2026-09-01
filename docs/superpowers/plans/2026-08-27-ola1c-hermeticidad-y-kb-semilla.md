@@ -137,7 +137,7 @@ acción que el backlog ya adjudicó y el patrón que
   - `pub const MODELO: &str` — el mismo valor que `exo::MODELO_JINA_ES`
   - `pub const DIMS: usize = 768`
 
-- [ ] **Step 1: Escribir el helper**
+- [x] **Step 1: Escribir el helper**
 
 `engine/tests/common/mod.rs`:
 
@@ -219,11 +219,11 @@ pub fn con_config<T>(kb: &Path, nombre: &str, db: &Path, f: impl FnOnce() -> T) 
 }
 ```
 
-- [ ] **Step 2: Verificar que las dos suites fallan HOY sin config**
+- [x] **Step 2: Verificar que las dos suites fallan HOY sin config**
 
 ```bash
 cd engine
-EXO_CONFIG=/tmp/no-existe.toml cargo test --release \
+EXO_CONFIG=/tmp/no-existe.toml cargo test --release --no-fail-fast \
   --test write_create_permalink --test rechazo_envelope
 ```
 
@@ -232,7 +232,7 @@ Expected: FAILED. `write_create_permalink` 0 passed / 1 failed,
 `no encuentro la config de exo`. Si cita otra cosa, **para**: la causa no es
 la que este plan asume.
 
-- [ ] **Step 3: Cablear las dos suites**
+- [x] **Step 3: Cablear las dos suites**
 
 En cada fichero, añadir arriba del todo:
 
@@ -248,11 +248,11 @@ existen en el test — pásalas al helper, y usa como `nombre` el valor que el
 test ya afirma (**no** el basename del directorio: eso es justo lo que el test
 existe para desmentir).
 
-- [ ] **Step 4: Correr y verificar verde SIN config**
+- [x] **Step 4: Correr y verificar verde SIN config**
 
 ```bash
 cd engine
-EXO_CONFIG=/tmp/no-existe.toml cargo test --release \
+EXO_CONFIG=/tmp/no-existe.toml cargo test --release --no-fail-fast \
   --test write_create_permalink --test rechazo_envelope
 echo "EXIT=$?"
 ```
@@ -264,7 +264,7 @@ Expected: `EXIT=0`, ambas suites `ok`, 1 + 4 tests passed.
 > error se cometió midiendo esta misma deuda el 2026-08-27 y dio un falso
 > verde.
 
-- [ ] **Step 5: Verificar que no rompe CON config**
+- [x] **Step 5: Verificar que no rompe CON config**
 
 ```bash
 cd engine && cargo test --release --test write_create_permalink --test rechazo_envelope
@@ -273,7 +273,7 @@ echo "EXIT=$?"
 
 Expected: `EXIT=0`. La hermeticidad no puede costar los verdes que ya había.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add engine/tests/common/mod.rs engine/tests/write_create_permalink.rs engine/tests/rechazo_envelope.rs
@@ -291,7 +291,7 @@ git commit -m "test(engine): helper de config temporal y hermetizadas las dos su
 - Consumes: `common::con_config`, `common::MODELO`, `common::DIMS` (Task 1).
 - Produces: nada nuevo.
 
-- [ ] **Step 1: Confirmar el rojo de partida**
+- [x] **Step 1: Confirmar el rojo de partida**
 
 ```bash
 cd engine
@@ -300,13 +300,13 @@ EXO_CONFIG=/tmp/no-existe.toml cargo test --release --test indexer
 
 Expected: `indexer` 0 passed / **19 failed**.
 
-- [ ] **Step 2: Cablear la suite**
+- [x] **Step 2: Cablear la suite**
 
 `mod common;` en cabecera. Cada test que construya una KB temporal y una DB
 temporal envuelve su cuerpo en
 `common::con_config(kb.path(), "kb-test", &db, || { ... })`.
 
-- [ ] **Step 3: Verde sin config, y verde con config**
+- [x] **Step 3: Verde sin config, y verde con config**
 
 ```bash
 cd engine
@@ -321,7 +321,7 @@ Expected: `SIN=0` y `CON=0`, 19 passed en ambas.
 > error se cometió midiendo esta misma deuda el 2026-08-27 y dio un falso
 > verde.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add engine/tests/indexer.rs
@@ -339,7 +339,7 @@ git commit -m "test(engine): hermetizada indexer contra la config global"
 - Consumes: `common::con_config`, `common::MIN_SIMILARITY` (Task 1).
 - Produces: nada nuevo.
 
-- [ ] **Step 1: Confirmar el rojo de partida**
+- [x] **Step 1: Confirmar el rojo de partida**
 
 ```bash
 cd engine
@@ -348,7 +348,7 @@ EXO_CONFIG=/tmp/no-existe.toml cargo test --release --test buscador
 
 Expected: `buscador` 2 passed / **16 failed**.
 
-- [ ] **Step 2: Cablear la suite**
+- [x] **Step 2: Cablear la suite**
 
 `mod common;` en cabecera, mismo envoltorio que la Task 2a.
 
@@ -360,7 +360,7 @@ ningún valor efectivo hoy. Si algún test dependía del valor de la máquina,
 **fíjalo explícito en el test** en vez de heredarlo — es la diferencia entre
 un test que pasa y un test que dice algo.
 
-- [ ] **Step 3: Verde sin config, y verde con config**
+- [x] **Step 3: Verde sin config, y verde con config**
 
 ```bash
 cd engine
@@ -370,7 +370,7 @@ cargo test --release --test buscador; echo "CON=$?"
 
 Expected: `SIN=0` y `CON=0`, 18 passed en ambas.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add engine/tests/buscador.rs
@@ -392,20 +392,26 @@ git commit -m "test(engine): hermetizada buscador contra la config global"
 - Consumes: `common::con_config` (Task 1).
 - Produces: nada nuevo.
 
-- [ ] **Step 1: Confirmar el rojo de partida**
+- [x] **Step 1: Confirmar el rojo de partida**
 
 ```bash
 cd engine
-EXO_CONFIG=/tmp/no-existe.toml cargo test --release \
+EXO_CONFIG=/tmp/no-existe.toml cargo test --release --no-fail-fast \
   --test recall --test recall_contenido --test guarda_modelo --test refresca --test cache_embeddings
 ```
 
 Expected: 5 + 7 + 5 + 4 + 3 = 24 failed, 0 passed en las cinco.
 
+> **`--no-fail-fast` es obligatorio aquí, no cosmético.** Sin él, cargo aborta
+> tras el PRIMER binario que falla y las otras cuatro suites no llegan a
+> ejecutarse: verías un rojo parcial y creerías que el reparto del plan está
+> mal. Lo detectó el ejecutor de la Task 1 midiendo su propio Step 2, donde el
+> comando tenía el mismo defecto.
+
 > El total del plan (61) sale de 1+1 (Task 1) + 19 (Task 2a) + 16 (Task 2b)
 > + 24 (Task 3).
 
-- [ ] **Step 2: Cablear las cinco**
+- [x] **Step 2: Cablear las cinco**
 
 Mismo patrón. Dos avisos concretos:
 
@@ -418,18 +424,18 @@ Mismo patrón. Dos avisos concretos:
   `render_config` y sustituye el modelo a mano en la cadena, o siembra `meta`
   como ya hace hoy. No cambies `common::MODELO`.
 
-- [ ] **Step 3: Verde sin config**
+- [x] **Step 3: Verde sin config**
 
 ```bash
 cd engine
-EXO_CONFIG=/tmp/no-existe.toml cargo test --release \
+EXO_CONFIG=/tmp/no-existe.toml cargo test --release --no-fail-fast \
   --test recall --test recall_contenido --test guarda_modelo --test refresca --test cache_embeddings
 echo "EXIT=$?"
 ```
 
 Expected: `EXIT=0`, 24 passed, 0 failed.
 
-- [ ] **Step 4: La suite ENTERA, sin config — el gate de la fase**
+- [x] **Step 4: La suite ENTERA, sin config — el gate de la fase**
 
 ```bash
 cd engine
@@ -441,7 +447,7 @@ Expected: `CARGO_EXIT=0`, **169 passed, 0 failed** — el mismo número que la
 línea base con config. Cualquier cifra menor que 169 significa que un test se
 perdió por el camino, no que "ya pasa".
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add engine/tests/recall.rs engine/tests/recall_contenido.rs engine/tests/guarda_modelo.rs engine/tests/refresca.rs engine/tests/cache_embeddings.rs
@@ -461,7 +467,7 @@ git commit -m "test(engine): la suite entera corre sin ~/.exo/config.toml"
 - Produces: `engine/scripts/test-hermetico.sh` — exit 0 si la suite corre sin
   config; lo consumirá el CI de G5.
 
-- [ ] **Step 1: Escribir el gate**
+- [x] **Step 1: Escribir el gate**
 
 `engine/scripts/test-hermetico.sh`:
 
@@ -491,7 +497,7 @@ fi
 echo "test-hermetico: OK — la suite corre sin config global."
 ```
 
-- [ ] **Step 2: Verificar que el gate DETECTA el fallo (ciclo red-green)**
+- [x] **Step 2: Verificar que el gate DETECTA el fallo (ciclo red-green)**
 
 No basta con verlo pasar. Revierte una suite de verdad y exige que grite.
 
@@ -518,7 +524,7 @@ Expected: el `git diff --stat` **no vacío** (prueba de que la reversión mordi�
 `EXIT_ROJO=1` citando `--test indexer`, `restaurado OK`, y `EXIT_VERDE=0`. Sin
 el rojo verificado no hay gate, hay un script que siempre dice que sí.
 
-- [ ] **Step 3: Cerrar el item del backlog con evidencia**
+- [x] **Step 3: Cerrar el item del backlog con evidencia**
 
 En `docs/backlog.md`, mover el item Alta "La suite de tests no es hermética" a
 "Cerrado con evidencia", citando: cifra de partida medida el 2026-08-27
@@ -526,7 +532,7 @@ En `docs/backlog.md`, mover el item Alta "La suite de tests no es hermética" a
 que decía el item), cifra final (169 passed, `CARGO_EXIT=0` sin config), y el
 ciclo red-green del gate.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add engine/scripts/test-hermetico.sh docs/backlog.md
@@ -555,14 +561,14 @@ git commit -m "test(engine): gate falsable de hermeticidad y cierre del item del
 - Produces, para la Task 6: `engine/scripts/fugas-semilla.sh` — sale **0 si
   encuentra** una fuga (0 es malo), 1 si el árbol está limpio.
 
-- [ ] **Step 1: Escribir los tres `_template.md`**
+- [x] **Step 1: Escribir los tres `_template.md`**
 
 Cada uno con frontmatter mínimo válido para el indexer (`permalink`, `title`,
 `tags`, `tier`) y `semilla: true`. `tier` por carpeta: `stable` en
 `projects/`, `log` en `log/`, `stable` en `learnings/`. Los permalinks llevan
 el prefijo `{{KB_NAME}}/`.
 
-- [ ] **Step 2: Escribir `AGENTS.md` y `README.md`**
+- [x] **Step 2: Escribir `AGENTS.md` y `README.md`**
 
 `AGENTS.md`: el contrato de la KB para un agente — qué significa cada carpeta,
 qué es `tier`, la regla de oro de routing (canon como delta, bitácora como
@@ -570,7 +576,7 @@ append, nota nueva casi nunca). `README.md`: para el humano — qué es esta KB,
 cómo se indexa, cómo se busca. Ambos en español, sin una sola referencia a
 Paul, a `kb-demo` ni a proyectos concretos.
 
-- [ ] **Step 3: Verificar que el placeholder es el único, y que no hay fugas**
+- [x] **Step 3: Verificar que el placeholder es el único, y que no hay fugas**
 
 ```bash
 cd engine
@@ -599,7 +605,7 @@ grep -rniE "$PATRON" kb-template/
 correcto aquí. El patrón de fechas (`20NN-MM`) existe porque §G3 prohíbe
 explícitamente «fechas de la historia de Paul» y ningún token las cazaba.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add engine/kb-template/
@@ -630,7 +636,7 @@ git commit -m "feat(kb-template): estructura y plantillas de la KB semilla"
   config), pero el fichero de test vive junto a los demás y sigue sus reglas.
 - Produces, para la Task 7: los 5 ficheros `.md` que `plantilla.rs` embebe.
 
-- [ ] **Step 1: Escribir el test del gate de bytes ANTES que las notas**
+- [x] **Step 1: Escribir el test del gate de bytes ANTES que las notas**
 
 `engine/tests/plantilla_presupuesto.rs`:
 
@@ -669,7 +675,7 @@ fn el_limite_es_el_declarado_en_la_spec() {
 }
 ```
 
-- [ ] **Step 2: Verlo fallar por la razón correcta**
+- [x] **Step 2: Verlo fallar por la razón correcta**
 
 ```bash
 cd engine && cargo test --release --test plantilla_presupuesto
@@ -679,7 +685,7 @@ Expected: FAIL de compilación — `include_str!` no encuentra
 `../kb-template/core/core-index.md`. Ese es el rojo esperado: el fichero aún
 no existe.
 
-- [ ] **Step 3: Escribir las 5 notas clean-room**
+- [x] **Step 3: Escribir las 5 notas clean-room**
 
 > **Instrucción vinculante para quien ejecute este paso: NO abras las notas de
 > `kb-demo`.** Escribe cada nota **desde el nombre del principio**, con tu
@@ -702,7 +708,7 @@ límite de bytes.
 
 Todas con `semilla: true` en frontmatter y permalink `{{KB_NAME}}/...`.
 
-- [ ] **Step 4: Gate de bytes en verde + barrido de fugas**
+- [x] **Step 4: Gate de bytes en verde + barrido de fugas**
 
 ```bash
 cd engine
@@ -715,11 +721,11 @@ bash scripts/fugas-semilla.sh ; echo "FUGAS_EXIT=$?"
 Expected: `EXIT=0`, los 2 tests passed, `core-index.md` ≤ 5222 B, y
 `FUGAS_EXIT=1` (sin match).
 
-- [ ] **Step 5: Gate de revisión de Paul**
+- [x] **Step 5: Gate de revisión de Paul**
 
 Presenta las 5 notas. **No commitees sin su OK**: es la superficie pública.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add engine/kb-template/core/ engine/kb-template/learnings/ engine/tests/plantilla_presupuesto.rs
@@ -742,7 +748,7 @@ git commit -m "feat(kb-template): núcleo doctrinal clean-room con gate de presu
   - `pub fn render(contenido: &str, kb_name: &str) -> String`
   - `pub fn vuelca(destino: &Path, kb_name: &str) -> anyhow::Result<Vec<PathBuf>>`
 
-- [ ] **Step 1: Test que falla**
+- [x] **Step 1: Test que falla**
 
 `engine/tests/plantilla.rs`:
 
@@ -777,7 +783,7 @@ fn vuelca_escribe_los_doce_y_no_deja_placeholders() {
 }
 ```
 
-- [ ] **Step 2: Verlo fallar**
+- [x] **Step 2: Verlo fallar**
 
 ```bash
 cd engine && cargo test --release --test plantilla
@@ -785,7 +791,7 @@ cd engine && cargo test --release --test plantilla
 
 Expected: FAIL de compilación — no existe `exo::plantilla`.
 
-- [ ] **Step 3: Implementar `plantilla.rs`**
+- [x] **Step 3: Implementar `plantilla.rs`**
 
 `include_str!` **fichero a fichero**, sin macro-crate (D4):
 
@@ -848,7 +854,7 @@ Registrar en `engine/src/lib.rs`, en orden alfabético entre `nota` y `recall`:
 pub mod plantilla;
 ```
 
-- [ ] **Step 4: Verde**
+- [x] **Step 4: Verde**
 
 ```bash
 cd engine && cargo test --release --test plantilla
@@ -857,7 +863,7 @@ echo "EXIT=$?"
 
 Expected: `EXIT=0`, 3 tests passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add engine/src/plantilla.rs engine/src/lib.rs engine/tests/plantilla.rs
@@ -882,7 +888,7 @@ git commit -m "feat(engine): plantilla de la KB semilla embebida en el binario"
   - dos seams de test: `EXO_DB` honrado por el index de `init`, y
     `EXO_BASIC_MEMORY_JSON` como override de `ruta_basic_memory()`
 
-- [ ] **Step 1: Tests que fallan**
+- [x] **Step 1: Tests que fallan**
 
 Añadir a `engine/tests/inicia.rs`:
 
@@ -964,7 +970,7 @@ CONTENIDO REAL
 > el `~/.basic-memory/config.json` real y dejaría de ser hermético — justo lo
 > que la Pista A existe para erradicar.
 
-- [ ] **Step 2: Verlo fallar**
+- [x] **Step 2: Verlo fallar**
 
 ```bash
 cd engine && cargo test --release --test inicia
@@ -972,7 +978,7 @@ cd engine && cargo test --release --test inicia
 
 Expected: FAIL de compilación — `prepara_kb` no existe.
 
-- [ ] **Step 3: Implementar `prepara_kb` en `src/inicia.rs`**
+- [x] **Step 3: Implementar `prepara_kb` en `src/inicia.rs`**
 
 ```rust
 /// Comprueba que `kb` es un destino legítimo: inexistente, o existente y
@@ -997,7 +1003,7 @@ pub fn prepara_kb(kb: &Path, force: bool) -> Result<()> {
 }
 ```
 
-- [ ] **Step 4: Verde**
+- [x] **Step 4: Verde**
 
 ```bash
 cd engine && cargo test --release --test inicia
@@ -1006,7 +1012,7 @@ echo "EXIT=$?"
 
 Expected: `EXIT=0`.
 
-- [ ] **Step 5: Cablear `init_cmd` en el orden de §G3**
+- [x] **Step 5: Cablear `init_cmd` en el orden de §G3**
 
 > **Dos modos, no uno.** `--from-basic-memory` resuelve `kb` a una KB
 > **existente y poblada** (en esta máquina, `kb-demo`, 100+ notas). Cablear
@@ -1045,7 +1051,7 @@ El envelope `--json` gana `"files": escritos.len()` (0 en adopción),
 `"git": true|false` (false si cualquier paso git falló) y
 `"mode": "create"|"adopt"`.
 
-- [ ] **Step 6: Prueba end-to-end real, no solo unitaria**
+- [x] **Step 6: Prueba end-to-end real, no solo unitaria**
 
 > **`EXO_CONFIG` aísla la config, NO la db.** `init_cmd` escribe la config con
 > `db_default = ~/.exo/index.db` (`src/main.rs:376`; `ArgsInit` no tiene flag
@@ -1079,7 +1085,7 @@ Expected: `EXIT=0`; el `wc -l` da **12**; un commit en el log;
 vivos); `$TMP/index.db` existe. Y repetir el mismo `init` sobre el mismo
 `--kb` debe fallar citando "no está vacía".
 
-- [ ] **Step 7: La suite entera, con y sin config**
+- [x] **Step 7: La suite entera, con y sin config**
 
 ```bash
 cd engine
@@ -1095,7 +1101,7 @@ presupuesto + 3 de plantilla + 4 nuevos de `inicia`, incluido
 > lo produce la Task 4 (Pista A): no ejecutes este step hasta que esa pista
 > haya cerrado.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add engine/src/main.rs engine/src/inicia.rs engine/tests/inicia.rs
@@ -1143,3 +1149,4 @@ git commit -m "feat(engine): exo init vuelca la KB semilla, la versiona y la ind
 |---|---|---|
 | 2026-08-27 | Consultor independiente (régimen de gates, spec `2026-07-16`) | **APROBADO CON CAMBIOS** — 3 BLOQUEANTES, 1 MAYOR, 8 MENORES. Verdict: `docs/superpowers/consultas/2026-08-27-ola1c/consultor-plan.md` |
 | 2026-08-27 | Aplicación del verdict | Los 4 exigidos y los 8 menores aplicados; fases paralelizadas por decisión de Paul |
+| 2026-08-27 | Auditor de la semilla — waiver `learnings/recon-first.md` (m-3) | **Waiver concedido**: se queda con el nombre en inglés, identificador de producto (alinea con el skill publicado `exo:recon-first`). Razonamiento completo en `docs/superpowers/consultas/2026-08-27-ola1c/auditor-semilla.md` (## Resolución del gate) |
