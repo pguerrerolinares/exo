@@ -1,6 +1,14 @@
 # Gate KB semilla (Task 6, ola-1c-b) — verdict del auditor independiente
 
-- **Fecha**: 2026-08-27 · **Worktree**: `C:/proyectos/homework/exo-wt-b` · rama `ola-1c-b`
+> **Nota de saneamiento (2026-09-01)**: este artefacto se editó para retirar
+> transcripciones verbatim de contenido privado (ruta absoluta de worktree,
+> títulos de notas privadas, un H1 privado y nombres de proyectos personales)
+> señaladas como Important en la review final de superficie pública. El valor
+> probatorio de cada hallazgo se conserva: las citas se sustituyen por
+> descripciones verificables o por la remisión a dónde comprobarlas. Veredicto,
+> los cuatro cambios exigidos y la resolución del gate quedan intactos.
+
+- **Fecha**: 2026-08-27 · **Worktree**: secundario de la Pista B (relativo a la raíz del repo) · rama `ola-1c-b`
 - **Objeto**: las 11 notas de `engine/kb-template/` (6 de Task 6 sin commitear: `core/core-index.md`, `core/doctrina.md`, 4 de `learnings/`; más el diff sin commitear de `README.md` y el test `engine/tests/plantilla_presupuesto.rs`, también de esta ola).
 - **Auditor**: fresco; no participó en escribir nada de lo juzgado.
 
@@ -36,7 +44,7 @@ Los MENORES m-5 y m-6 son recomendaciones; no condicionan.
 |---|---|---|
 | `cargo test --release --test plantilla_presupuesto` → 2 passed | Corrido en el worktree | **2 passed; 0 failed** ✓ |
 | `core-index.md` = 3.750 B ≤ 5.222 | `wc -c` sobre las 11 notas | **3.750 B** ✓ (cap 6.144, aire 15% ⇒ 5.222) |
-| `fugas-semilla.sh` → EXIT=1 (limpio) | Corrido; además leí el script: 16 patrones (`paul`, `wisdom`, `empresa-x`, `cliente-a`, `equipo-x`, `cliente-c`, `cliente-b`, `redmine`, `universidad`, `lighthouse`, `spark`, `cge`, `solve-it`, `openwisdom`, `basic-memory`, `20YY-MM`), y su convención es **0 = encontró algo** | **FUGAS_EXIT=1** ✓ (sin match) |
+| `fugas-semilla.sh` → EXIT=1 (limpio) | Corrido; además leí el script: 16 patrones (nombres de clientes y proyectos privados, más un patrón de fecha `20YY-MM`), y su convención es **0 = encontró algo** | **FUGAS_EXIT=1** ✓ (sin match) |
 | Render + index: 11 notas, 0 saltadas; 11 aristas, 0 sin resolver | Copié la plantilla a un tempdir del scratchpad, sustituí `{{KB_NAME}}` por `auditoria-kb` con sed, y corrí `exo.exe index --db <db temporal> --kb <tempdir>` (jamás toqué `~/.exo/`) | `index: indexadas=11 saltadas=0` ✓; en la DB temporal: **11 aristas, 0 con `destino_permalink` NULL** ✓ |
 | «Se convirtieron 12 referencias a wikilink» | `grep -rn '\[\[' kb-template/` → 12 ocurrencias; 11 aristas porque el `UNIQUE (origen, destino_texto)` de `aristas.rs` colapsa el link duplicado de `README.md` (líneas 31 y 63, mismo destino) | **12 links = 11 aristas, cuadra** ✓ |
 
@@ -48,7 +56,7 @@ Constraints verbatim, comprobadas una a una:
 - `tier: stable` en `core/`, `projects/`, `learnings/` y raíz; `tier: log` solo en `log/_template.md` ✓ (grep `^tier:` sobre los 11).
 - Sin personas, clientes, proyectos concretos ni fechas en la plantilla ✓ (barrido de 16 patrones + lectura íntegra de las 11 notas). La única fecha del lote de la Task 6 está en el **test**, no en la plantilla (m-4).
 
-Para el análisis de fugas leí **enteras** las 11 notas de la semilla y las comparé con sus contrapartes privadas leídas también enteras: `kb-demo/core/core-index.md`, `kb-demo/core/doctrina-agentes.md`, `kb-demo/learnings/El cuello de botella es el brief, no el modelo.md`, `.../Fallo silencioso — el instrumento que no grita.md`, `.../El padre integra, no implementa — despacho de subagentes.md` (que contiene las secciones «Orquestador limpio» y «Recon-first»).
+Para el análisis de fugas leí **enteras** las 11 notas de la semilla y las comparé, también enteras, con sus cinco contrapartes privadas homólogas: dos de `kb-demo/core/` (contrapartes de `core-index.md` y `doctrina.md`) y tres de `kb-demo/learnings/` — una de ellas la fuente de las secciones equivalentes a «Orquestador limpio» y «Recon-first», ya publicadas en el plugin `exo`. No reproduzco aquí sus títulos por ser notas privadas.
 
 ---
 
@@ -57,10 +65,10 @@ Para el análisis de fugas leí **enteras** las 11 notas de la semilla y las com
 ### MAYOR
 
 **M-1 · El esqueleto de `core-index.md` está transcrito de la nota privada, aunque la prosa esté limpia.**
-- `engine/kb-template/core/core-index.md:9` — H1 «core-index — mapa de memoria **y** doctrina compacta» vs. privado `kb-demo/core/core-index.md` H1 «core-index — mapa de memoria **+** doctrina compacta». Mismo texto, un carácter de diferencia. La frase no aparece en ninguna spec publicada del repo (grep sobre `docs/`, `plugins/`, `engine/`): su única fuente es la nota privada.
+- `engine/kb-template/core/core-index.md:9` — H1 «core-index — mapa de memoria **y** doctrina compacta». Coincide carácter a carácter con el H1 de la nota privada homóloga (`kb-demo/core/core-index.md`), salvo un conectivo (`y` frente a `+` en el mismo punto de la frase; verificable contra esa nota privada). La frase no aparece en ninguna spec publicada del repo (grep sobre `docs/`, `plugins/`, `engine/`): su única fuente es la nota privada.
 - `engine/kb-template/core/core-index.md:14` — cabecera «## Contrato de memoria», idéntica a la sección privada del mismo nombre y en la misma posición (primera sección tras el H1).
 - Colateral: las seis «formas concretas» de `learnings/fallo-silencioso.md:14-38` reproducen la taxonomía de seis mecanismos del privado **en el mismo orden** (degradar con forma válida → check no falsable → contrato por prosa → exit 0 → composición → ausencia ≠ evidencia). Cada ítem es genérico y no arrastra ni una anécdota; lo señalo como huella de derivación, no como fuga.
-- **Por qué MAYOR y no BLOQUEANTE**: no hay ni un dato privado en el texto — cero nombres, cero clientes, cero anécdotas, cero fechas (verificado contra los originales, que están llenos de ellas: `empirica`, `pguerrero-music`, Navidrome, cifras, fechas). El daño de publicar tal cual es bajo. Pero el clean-room (spec `2026-07-16-framework-unificado-design.md:153`: «se escribe desde cero mirando la instancia solo como referencia de forma») es exactamente el control que este gate custodia, y un título calcado carácter a carácter es «mismo texto», no «mismo principio»: prueba que la nota privada estuvo a la vista al escribir. La respuesta honesta a «¿escrito desde cero o despersonalizado?» es: **la prosa, desde cero; el esqueleto del core-index, calcado**. El fix cuesta dos líneas (cambio nº 1).
+- **Por qué MAYOR y no BLOQUEANTE**: no hay ni un dato privado en el texto — cero nombres, cero clientes, cero anécdotas, cero fechas (verificado contra los originales, que están llenos de ellas: nombres de proyectos personales, herramientas concretas, cifras y fechas). El daño de publicar tal cual es bajo. Pero el clean-room (spec `2026-07-16-framework-unificado-design.md:153`: «se escribe desde cero mirando la instancia solo como referencia de forma») es exactamente el control que este gate custodia, y un título calcado carácter a carácter es «mismo texto», no «mismo principio»: prueba que la nota privada estuvo a la vista al escribir. La respuesta honesta a «¿escrito desde cero o despersonalizado?» es: **la prosa, desde cero; el esqueleto del core-index, calcado**. El fix cuesta dos líneas (cambio nº 1).
 - Descargo verificado en la otra dirección: la «regla de los índices» («retirar entradas muertas, nunca comprimir las vivas», `core-index.md:44-50`, `AGENTS.md:107-113`) **sí** está en doctrina publicada del propio repo (`docs/superpowers/specs/2026-08-23-contrato-editorial-design.md:101,236`), así que ese eco es del producto, no de la KB privada. Lo mismo vale para el cap 6.144/15%/5.222 (G3 de la spec, aserto literal en el test) y para los nombres `orquestador-limpio`/`recon-first`, que coinciden con doctrina y skill ya publicados en el plugin `exo`.
 
 ### MENOR
