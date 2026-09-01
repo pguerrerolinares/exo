@@ -53,6 +53,19 @@ fn write_append_create_usa_el_name_de_la_config_no_el_basename_del_dir_kb() {
         "el montaje exige que difieran — si no, el defecto queda enmascarado"
     );
 
+    // Dos configs con modelos DELIBERADAMENTE distintos en juego, y no chocan:
+    // - `common::con_config` de abajo (modelo `common::MODELO`) es la que lee
+    //   `exo::indexer::indexa`, en proceso, para bootstrapear el índice.
+    // - Esta config manual (`model = "m"`) es la que recibe el SUBPROCESO de
+    //   `write append --create` vía `.env("EXO_CONFIG", &config_path)`.
+    // `write_append_cmd` (`engine/src/main.rs:637-673`) en su camino
+    // `--create` solo llama a `escribe_nueva`/`escribe_append`, que escriben
+    // ficheros sin tocar `meta.modelo_embeddings` ni invocar
+    // `indexer::verifica_modelo` — nunca pasa por `indexer::indexa`. Por eso
+    // el `model = "m"` de aquí es un placeholder: solo hace falta para que el
+    // TOML parsee (`[embeddings]` es obligatoria), pero su valor nunca se
+    // compara contra nada. No hace falta unificar los dos modelos — sería
+    // menos honesto: sugeriría una dependencia entre ambos que no existe.
     let mut f = std::fs::File::create(&config_path).expect("crear config");
     write!(
         f,

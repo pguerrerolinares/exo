@@ -3,26 +3,9 @@
 //! apunta `EXO_CONFIG` a un fichero con valores IMPOSIBLES de encontrar en
 //! ninguna config de basic-memory de esta máquina.
 
-use std::io::Write;
+mod common;
 
-/// El entorno es global al proceso y cargo corre los tests de un fichero en
-/// hilos paralelos. Todo test que toque `EXO_CONFIG` toma este candado durante
-/// toda su vida. `unwrap_or_else(|e| e.into_inner())` porque un test que panica
-/// con el candado tomado envenena el mutex, y eso convertiría un fallo en una
-/// cascada de fallos que tapan al original.
-static ENTORNO: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
-fn con_config<T>(contenido: &str, f: impl FnOnce() -> T) -> T {
-    let _guarda = ENTORNO.lock().unwrap_or_else(|e| e.into_inner());
-    let dir = tempfile::tempdir().expect("tempdir");
-    let ruta = dir.path().join("config.toml");
-    let mut fh = std::fs::File::create(&ruta).expect("crear");
-    fh.write_all(contenido.as_bytes()).expect("escribir");
-    unsafe { std::env::set_var("EXO_CONFIG", &ruta) };
-    let r = f();
-    unsafe { std::env::remove_var("EXO_CONFIG") };
-    r
-}
+use common::con_config_texto as con_config;
 
 const CFG: &str = r#"
 schema_version = 1
