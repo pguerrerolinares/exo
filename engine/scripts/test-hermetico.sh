@@ -24,4 +24,4 @@ if [ "$EC" -ne 0 ]; then
   grep -E '^test result: FAILED|targets failed|--test ' "$TMP/out.txt" >&2
   exit 1
 fi
-echo "test-hermetico: OK — la suite corre sin config global."
+echo "test-hermetico: OK — la suite corre sin ~/.exo/config.toml; NO cubre la caché del modelo ONNX (~0,6 GB), que las suites de indexado siguen exigiendo."

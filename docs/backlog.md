@@ -112,6 +112,27 @@
   declarar `rust-version`, LICENSE en raíz. En un proyecto cuya tesis es "gates y
   evidencia", este es el gate más barato de todos.
 
+- [ ] **Caché del modelo de embeddings — segunda dependencia de entorno sin
+  cerrar, para G5.** El gate de hermeticidad
+  (`engine/scripts/test-hermetico.sh`, cerrado arriba) solo cubre
+  `~/.exo/config.toml`. Nueve suites indexan cuerpos no vacíos, y eso carga
+  el modelo ONNX de embeddings (~0,6 GB) vía `hf_hub`
+  (`engine/src/indexer.rs:330` → `con_embedder_de_proceso`) la primera vez
+  que corren en la máquina. En un runner de verdad limpio — sin caché de
+  HuggingFace previa — esas nueve suites siguen en rojo, solo que por otra
+  razón que la que el gate mide.
+  **Precedente de convención:** `engine/tests/smoke.rs:31` ya marca su test
+  `jina_es_embebe_a_768` con `#[ignore]` precisamente porque descarga el
+  modelo y "se corre explícito, no en CI de cada merge". Las nueve suites
+  afectadas — `indexer`, `buscador`, `recall_contenido`, `guarda_modelo`,
+  `recall`, `refresca`, `cache_embeddings`, `rechazo_envelope`,
+  `write_create_permalink` — no siguen esa convención: indexan cuerpos no
+  vacíos sin `#[ignore]` ni fixture de caché propia.
+  **Acción, para quien monte el CI en los tres SO (G5):** cachear el modelo
+  entre runs del CI, o extender la convención de `#[ignore]` / un flag de
+  entorno a las nueve suites, o fijar un fixture de vectores pre-calculados
+  que no dispare la descarga. Decisión de diseño, no de este cierre.
+
 - [ ] **Retirar los aliases españoles del CLI en 1.1.** Los diez flags
   renombrados en la ola 1A (`--limite`→`--limit`, `--titulo`→`--title`,
   `--contenido`→`--content`, `--nota`→`--note`, `--refresca`→`--refresh`,
@@ -194,6 +215,16 @@
   citados en prosa. Una sola pasada: `--mailmap` + reescritura de contenido.
   **Es gate duro de publicación**: ningún push público antes de que ese grep
   dé 0.
+
+- [ ] **`kb-demo` como fixture por defecto en 8 ficheros de test.** Medido
+  el 2026-09-01: `engine/tests/{buscador,config,escritor,indexer,inicia,nota,
+  recall,recall_contenido}.rs` usan literalmente `"kb-demo"` como nombre
+  de KB / permalink de partida en sus fixtures. En un repo que se publica, el
+  nombre de la KB privada del autor no debería ser el fixture por defecto de
+  la suite.
+  **Acción:** renombrar a un fixture neutro (`kb-test`, ya en uso en algunos
+  tests hermetizados de la Pista A, es candidato natural) antes de publicar.
+  Deuda menor — no bloquea nada hoy.
 
 ---
 
@@ -307,3 +338,26 @@
   gate dio `EXIT_ROJO=1` citando `--test indexer` en el diagnóstico; restaurado
   el fichero (`restaurado OK`), el gate volvió a dar `EXIT_VERDE=0`. Este será
   el gate que consuma el CI de G5.
+
+  **Alcance sincerado (2026-09-01):** esta hermeticidad es respecto a
+  `~/.exo/config.toml`, no respecto al entorno completo. Queda una segunda
+  dependencia sin cerrar: nueve de estas suites indexan cuerpos no vacíos, y
+  eso carga el modelo ONNX de embeddings (~0,6 GB) vía `hf_hub`
+  (`engine/src/indexer.rs:330` → `con_embedder_de_proceso`) la primera vez
+  que corre en la máquina. En un runner de verdad limpio, sin caché de
+  HuggingFace, la suite sigue en rojo — por esa razón, no por config.
+  `engine/tests/smoke.rs:31` marca esa dependencia con `#[ignore]`; las nueve
+  suites de indexado no siguen esa convención. Anotado como item nuevo del
+  backlog, adjudicado a G5 (Media, «Caché del modelo de embeddings…»).
+
+  **El punto de encuentro nació rojo:** la primera corrida de la fusión de
+  las dos pistas dio `HERMETICO=1`, no verde.
+  `init_con_nombre_valido_produce_frontmatter_parseable_e_indexable` (nacida
+  en la Pista B) lanzaba `exo index` como subproceso pasándole `--kb` y
+  `--db` explícitos pero no `EXO_CONFIG`; bajo `test-hermetico.sh` el padre
+  lleva esa variable a una ruta inexistente a propósito, el hijo la heredaba
+  y moría leyendo la config de embeddings — ninguna pista podía verlo sola,
+  porque cada una era verde en su propio worktree. Arreglado en `c723311`
+  (`.env("EXO_CONFIG", &config)` explícito en el test). Es el argumento
+  entero a favor del punto de encuentro único: un fallo de composición
+  invisible a cualquiera de las dos pistas por separado.

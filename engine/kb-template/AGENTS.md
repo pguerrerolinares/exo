@@ -51,7 +51,10 @@ el original, o lo mueve a `archive/`). Una nota `stable` también puede
 retirarse a `archive/` cuando deja de estar activa (un proyecto cerrado, un
 learning ya fundido en otro); el traslado cambia la carpeta, no el `tier`
 del frontmatter — sigue llevando `stable`, ahora leído como "estable pero
-retirada" en vez de "estable y vigente".
+retirada" en vez de "estable y vigente". Esa nota vive directamente bajo
+`archive/` (p. ej. `archive/proyecto-cerrado.md`), no bajo `archive/log/`:
+esa subcarpeta es solo para bitácoras `log` retiradas, no para notas
+`stable`.
 
 ## La regla de oro: dónde va un avance
 

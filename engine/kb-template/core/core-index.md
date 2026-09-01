@@ -61,8 +61,8 @@ rápido, y una entrada resumida a la mitad no orienta, confunde.
   — la señal de que toca parar es el mismo error repitiéndose, no solo lo
   desconocido del terreno.
 - **[[El fallo más caro es el que no avisa|learnings/fallo-silencioso]]** —
-  el fallo que no avisa (forma válida, checks no falsables, exit 0 sin
-  efecto, ausencia sin ser evidencia) es más caro que el que sí avisa.
+  vigilarlo exige buscarlo activamente, no solo reaccionar al que sí grita:
+  de la degradación con forma válida a la ausencia que no es evidencia.
 - **[[La claridad del encargo es el cuello de botella, no la capacidad del agente|learnings/el-brief-es-el-cuello-de-botella]]**
   — subir la capacidad del agente no lo arregla: interpretará la ambigüedad
   con más sofisticación, no la eliminará.
