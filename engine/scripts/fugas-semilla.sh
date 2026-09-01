@@ -6,8 +6,9 @@
 # de clientes y proyectos privados) sería ella misma una fuga si se publicara
 # verbatim. Viven en un fichero fuera del repo, un patrón regex-ERE por
 # línea, líneas en blanco ignoradas; se unen con `|` y se pasan a `grep -E`.
-# Ejemplo de dos líneas del fichero:
-#   empresa-x
+# Ejemplo de dos líneas del fichero (genérico a propósito: poner aquí un
+# patrón real reintroduciría en el repo justo lo que este diseño saca de él):
+#   nombre-de-cliente
 #   20[0-9]{2}-[0-9]{2}
 #
 # Ruta por defecto: $HOME/.config/exo/fugas.patterns — override con
