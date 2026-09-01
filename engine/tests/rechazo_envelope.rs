@@ -62,44 +62,123 @@ fn el_data_del_rechazo_append_a_canon_sin_tier_es_null_no_el_centinela_de_prosa(
     );
 }
 
+/// Título compartido por la nota-fixture (ya indexada) y por el `write new`
+/// del test: mismo título ⇒ mismo slug ⇒ Jaccard 1.0 contra el umbral 0.6 de
+/// `escritor::UMBRAL_DUP`. Determinista por construcción, no por suerte de
+/// contenido real.
+const TITULO_DUP: &str = "Prueba determinista del dup-gate de write new";
+
+/// Escribe, sin indexar todavía, una nota-fixture cuyo permalink termina en
+/// el slug de `TITULO_DUP`. Separado de la indexación a propósito: `indexa`
+/// necesita `EXO_CONFIG` ya apuntando a una config válida (lee el modelo de
+/// embeddings incondicionalmente), así que la llamada a `indexa` vive DENTRO
+/// del closure de `common::con_config` en el llamador — no aquí, donde
+/// `EXO_CONFIG` todavía no está puesto.
+fn escribe_nota_fixture(kb_fixture: &std::path::Path) {
+    let dir_notas = kb_fixture.join("projects");
+    std::fs::create_dir_all(&dir_notas).expect("crear projects/");
+    std::fs::write(
+        dir_notas.join("existente.md"),
+        format!(
+            "---\npermalink: \"rechazo-envelope-kb/projects/{}\"\ntitle: \"{TITULO_DUP}\"\n---\n",
+            exo::escritor::slug(TITULO_DUP)
+        ),
+    )
+    .expect("escribir nota-fixture");
+}
+
 #[test]
 fn write_new_rechazado_con_json_emite_envelope_y_sale_3() {
-    // Se apoya en la KB real y su índice: es el único sitio donde hay un
-    // duplicado que el gate reconozca. Si no existen, el test se salta
-    // ruidosamente en vez de dar un verde falso.
-    let db = dirs::home_dir().expect("home").join(".exo/index.db");
-    if !db.exists() {
-        eprintln!(
-            "SKIP: no hay índice en {} — este test necesita la KB real",
-            db.display()
-        );
-        return;
-    }
-    let mut bin = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    bin.push("target");
-    bin.push(if cfg!(debug_assertions) {
-        "debug"
-    } else {
-        "release"
-    });
-    bin.push(if cfg!(windows) { "exo.exe" } else { "exo" });
+    // El duplicado no depende de la KB real de la máquina: se monta aquí, en
+    // un tempdir, indexando una nota cuyo slug coincide con el título que se
+    // va a escribir. Antes este test se apoyaba en `~/.exo/index.db` y se
+    // saltaba silenciosamente (`eprintln!` + `return`, que cargo cuenta como
+    // `ok`) si ese índice no existía — abstención permanente en el runner
+    // hermético que `test-hermetico.sh` existe para proteger. Ahora afirma
+    // sin condición.
+    let kb_fixture = tempfile::tempdir().expect("tempdir kb-fixture");
+    escribe_nota_fixture(kb_fixture.path());
+    let dir_db = tempfile::tempdir().expect("tempdir db");
+    let db = dir_db.path().join("index.db");
 
-    // El dup-gate se calcula SOLO a partir de `--db` (permalinks ya
-    // indexados) — `escribe_nueva` lo comprueba ANTES de tocar disco, así que
-    // pasar `--kb` a un tempdir no cambia si el gate dispara, pero elimina el
-    // riesgo de que, si por lo que sea NO disparase, el binario escribiera en
-    // la KB real en vez de aquí (I6, review de pre-merge 2026-08-26).
-    let kb_tmp = tempfile::tempdir().expect("tempdir kb");
-
+    let kb_write = tempfile::tempdir().expect("tempdir kb destino");
     let cuerpo = tempfile::NamedTempFile::new().expect("tmp");
 
-    // Config temporal del proceso (helper de `common`): el subproceso de abajo
-    // no recibe `--kb`/`--db` como fuente de config (esos flags solo dirigen
-    // el propio comando), así que hereda `EXO_CONFIG` del entorno de ESTE
-    // proceso de test. Sin esto cae al `~/.exo/config.toml` de la máquina en
-    // un runner limpio y el gate nunca llega a evaluarse.
+    // Config temporal del proceso (helper de `common`): tanto la llamada a
+    // `indexa` de aquí abajo como el subproceso de `write new` (que no recibe
+    // `--kb`/`--db` como fuente de config — esos flags solo dirigen el propio
+    // comando, así que hereda `EXO_CONFIG` del entorno de ESTE proceso de
+    // test) necesitan `EXO_CONFIG` puesto. Sin esto cae al
+    // `~/.exo/config.toml` de la máquina en un runner limpio y el gate nunca
+    // llega a evaluarse.
+    common::con_config(kb_write.path(), "rechazo-envelope-kb", &db, || {
+        // Cuerpo vacío ⇒ `trocea("")` no produce trozos ⇒ `indexa` jamás toca
+        // el embedder de proceso (indexer.rs: "Nota sin trozos... jamás toca
+        // el embedder"). El fixture indexa en milisegundos, sin cargar el
+        // modelo ONNX.
+        exo::indexer::indexa(kb_fixture.path(), &db).expect("indexar la nota-fixture");
+
+        let out = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
+            .args([
+                "write",
+                "new",
+                "--db",
+                db.to_str().unwrap(),
+                "--kb",
+                kb_write.path().to_str().unwrap(),
+                "--dir",
+                "projects",
+                "--title",
+                TITULO_DUP,
+                "--from",
+                cuerpo.path().to_str().unwrap(),
+                "--json",
+            ])
+            .output()
+            .expect("correr");
+
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert_eq!(
+            out.status.code(),
+            Some(3),
+            "el gate debe salir 3 (stdout={stdout}, stderr={stderr})"
+        );
+        let v: serde_json::Value = serde_json::from_str(stdout.trim())
+            .unwrap_or_else(|e| panic!("stdout no es envelope ({e}): {stdout}"));
+        assert_eq!(v["command"], "write");
+        assert_eq!(v["data"]["reason"], "duplicate");
+        assert!(
+            v["data"]["candidates"]
+                .as_array()
+                .is_some_and(|a| !a.is_empty()),
+            "sin candidatas en el envelope: {v}"
+        );
+    });
+}
+
+/// Variante honesta de la anterior contra la KB real de la máquina (la que
+/// tenía el test original antes de hermetizarse): `#[ignore]` explícito, no
+/// un skip silencioso — no corre por defecto y se ve en la lista de tests
+/// ignorados que no corre, en vez de aparecer como `ok` sin haber probado
+/// nada. Se lanza a mano con `cargo test -- --ignored`.
+#[test]
+#[ignore = "depende de ~/.exo/index.db real; correr a mano con --ignored"]
+fn write_new_rechazado_contra_la_kb_real_emite_envelope_y_sale_3() {
+    let db = dirs::home_dir().expect("home").join(".exo/index.db");
+    if !db.exists() {
+        panic!(
+            "no hay índice en {} — este test necesita la KB real, no lo saltes: quítalo de \
+             --ignored solo cuando exista",
+            db.display()
+        );
+    }
+
+    let kb_tmp = tempfile::tempdir().expect("tempdir kb");
+    let cuerpo = tempfile::NamedTempFile::new().expect("tmp");
+
     common::con_config(kb_tmp.path(), "rechazo-envelope-kb", &db, || {
-        let out = std::process::Command::new(&bin)
+        let out = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
             .args([
                 "write",
                 "new",

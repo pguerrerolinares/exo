@@ -354,3 +354,174 @@ fn adopcion_no_toca_ni_un_fichero_de_la_kb_existente() {
     );
     assert!(!kb.join(".git").exists(), "la adopción hizo git init");
 }
+
+/// I4 (review de rama): `init_cmd` volcaba la plantilla (12 ficheros) y hacía
+/// `git init` + commit ANTES de que `escribe_config` descubriera, ya al
+/// final, que la config existía y abortara sin `--force` — residuo de KB +
+/// repo git en disco tras el exit 1, y el reintento fallaba ya por otra vía
+/// (`prepara_kb`: "no está vacía"). Ahora la comprobación corre primero:
+/// nada toca el disco de la KB si la config no se puede escribir. Es la
+/// hermana de `init_con_nombre_invalido_no_escribe_nada` (misma forma,
+/// disparador distinto).
+#[test]
+fn init_con_config_existente_sin_force_no_deja_residuo_en_la_kb() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let kb = tmp.path().join("kb-nueva");
+    let config = tmp.path().join("config.toml");
+    std::fs::write(&config, "# config de otra persona\n").expect("sembrar config");
+    let db = tmp.path().join("index.db");
+
+    let salida = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
+        .args(["init", "--kb"])
+        .arg(&kb)
+        .args(["--name", "i4-demo", "--json"])
+        .env("EXO_CONFIG", &config)
+        .env("EXO_DB", &db)
+        .output()
+        .expect("ejecutar exo init");
+
+    assert!(
+        !salida.status.success(),
+        "debe rechazarse sin --force por config existente, pero exit={:?}",
+        salida.status.code()
+    );
+    assert!(
+        !kb.exists() || std::fs::read_dir(&kb).unwrap().next().is_none(),
+        "init dejó residuo en la KB (semilla y/o git) tras fallar por config existente"
+    );
+    // Negarse no es medio-pisar: la config del usuario sigue intacta.
+    assert_eq!(
+        std::fs::read_to_string(&config).unwrap(),
+        "# config de otra persona\n"
+    );
+}
+
+/// I7 (review de rama): `versiona_kb` degrada a aviso + exit 0 por diseño si
+/// git falla — correcto para no bloquear a quien no tiene git. Pero nadie
+/// afirmaba que en el camino feliz SÍ quede un commit; con cero CI en el
+/// repo, ese paso puede dejar de funcionar sin que nada se ponga rojo.
+///
+/// La identidad de autor/committer se fija vía `GIT_AUTHOR_*`/
+/// `GIT_COMMITTER_*` (variables que git respeta sin fichero de config, ni
+/// local ni global) en vez de `git -C <kb> config user.email` posterior: el
+/// commit lo hace `versiona_kb` DENTRO de este subproceso, así que no hay
+/// forma de inyectar config a mitad del `git init` que hace el propio `exo
+/// init` — las variables de entorno sí llegan, heredadas por el `git commit`
+/// que lanza. El objetivo es el mismo que pide la review: que el test no
+/// dependa de si la máquina que lo corre tiene `user.name`/`user.email`.
+#[test]
+fn init_en_modo_creacion_deja_un_commit_en_la_kb() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let kb = tmp.path().join("kb-nueva");
+    let config = tmp.path().join("config.toml");
+    let db = tmp.path().join("index.db");
+
+    let salida = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
+        .args(["init", "--kb"])
+        .arg(&kb)
+        .args(["--name", "i7-demo", "--json"])
+        .env("EXO_CONFIG", &config)
+        .env("EXO_DB", &db)
+        .env("GIT_AUTHOR_NAME", "exo-test")
+        .env("GIT_AUTHOR_EMAIL", "exo-test@example.invalid")
+        .env("GIT_COMMITTER_NAME", "exo-test")
+        .env("GIT_COMMITTER_EMAIL", "exo-test@example.invalid")
+        .output()
+        .expect("ejecutar exo init");
+    assert!(
+        salida.status.success(),
+        "init falló: {}",
+        String::from_utf8_lossy(&salida.stderr)
+    );
+    let env: serde_json::Value = serde_json::from_slice(&salida.stdout).expect("json");
+    assert_eq!(
+        env["data"]["git"], true,
+        "el envelope dice que git no quedó ok: {env}"
+    );
+
+    let log = std::process::Command::new("git")
+        .arg("-C")
+        .arg(&kb)
+        .args(["log", "--oneline"])
+        .output()
+        .expect("ejecutar git log");
+    assert!(
+        log.status.success(),
+        "git log falló en la KB volcada: {}",
+        String::from_utf8_lossy(&log.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&log.stdout);
+    assert_eq!(
+        stdout.lines().count(),
+        1,
+        "modo creación debe dejar EXACTAMENTE un commit en la KB, vio: {stdout:?}"
+    );
+}
+
+/// C2 (review de rama): `init_cmd` capturaba el `Resumen` de `indexa` y lo
+/// tiraba — `data.files` (12, ficheros ESCRITOS) era lo único que decía el
+/// envelope, nunca cuántas notas quedaron INDEXADAS. Una semilla que vuelca
+/// 12 ficheros e indexa cero notas salía exit 0 con mensaje de éxito. Ahora
+/// `data.index` lleva el resumen completo y, en creación, cuadra con las
+/// notas `.md` de la plantilla: 11 (los 12 ficheros de la semilla menos
+/// `archive/log/.gitkeep`, que `walk_kb` filtra por extensión y ni ve).
+#[test]
+fn init_en_modo_creacion_publica_el_resumen_de_indexado_en_el_envelope() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let kb = tmp.path().join("kb-nueva");
+    let config = tmp.path().join("config.toml");
+    let db = tmp.path().join("index.db");
+
+    let salida = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
+        .args(["init", "--kb"])
+        .arg(&kb)
+        .args(["--name", "c2-demo", "--json"])
+        .env("EXO_CONFIG", &config)
+        .env("EXO_DB", &db)
+        .output()
+        .expect("ejecutar exo init");
+    assert!(
+        salida.status.success(),
+        "init falló: {}",
+        String::from_utf8_lossy(&salida.stderr)
+    );
+    let env: serde_json::Value = serde_json::from_slice(&salida.stdout).expect("json");
+    assert_eq!(env["data"]["files"], 12, "ficheros escritos: {env}");
+    assert_eq!(
+        env["data"]["index"]["indexed"], 11,
+        "el envelope no publica cuántas notas quedaron indexadas: {env}"
+    );
+    assert_eq!(env["data"]["index"]["skipped"], 0);
+    assert_eq!(
+        env["data"]["index"]["unreadable"], 0,
+        "el skip por frontmatter ilegible ahora es representable: {env}"
+    );
+}
+
+/// La lógica de "lo indexado cuadra con lo volcado" (C2) vive en
+/// `inicia::verifica_indexado_completo`, testable sin pasar por el binario ni
+/// por el modelo de embeddings.
+#[test]
+fn verifica_indexado_completo_pasa_cuando_las_notas_md_cuadran() {
+    let escritos = vec![
+        std::path::PathBuf::from("a.md"),
+        std::path::PathBuf::from("b.md"),
+        // No-`.md`: no cuenta para "esperadas", igual que
+        // `archive/log/.gitkeep` en la plantilla real.
+        std::path::PathBuf::from("archive/log/.gitkeep"),
+    ];
+    exo::inicia::verifica_indexado_completo(&escritos, 2).expect("2 notas .md == 2 indexadas");
+}
+
+#[test]
+fn verifica_indexado_completo_falla_ruidoso_cuando_no_cuadra() {
+    let escritos = vec![
+        std::path::PathBuf::from("a.md"),
+        std::path::PathBuf::from("b.md"),
+        std::path::PathBuf::from("archive/log/.gitkeep"),
+    ];
+    let err = exo::inicia::verifica_indexado_completo(&escritos, 1).expect_err("debe fallar");
+    let msg = format!("{err:#}");
+    assert!(msg.contains('2'), "no dice cuántas esperaba: {msg}");
+    assert!(msg.contains('1'), "no dice cuántas entraron: {msg}");
+}

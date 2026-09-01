@@ -81,7 +81,9 @@ struct ArgsInit {
     /// los dos orígenes en silencio.
     #[arg(long, conflicts_with_all = ["kb", "name"])]
     from_basic_memory: bool,
-    /// Sobreescribe una config existente.
+    /// Sobreescribe una config existente. En modo creación (sin
+    /// `--from-basic-memory`) también autoriza volcar la semilla sobre una
+    /// `--kb` no vacía, pisando lo que hubiera dentro.
     #[arg(long)]
     force: bool,
     #[arg(long)]
@@ -414,6 +416,14 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
     let destino = exo::config::ruta_config()?;
     let db_default = dirs::home_dir().context("sin HOME")?.join(".exo/index.db");
 
+    // I4 (review de rama): se comprueba ANTES de tocar nada en disco. Antes
+    // esta guarda solo vivía dentro de `escribe_config`, llamada después de
+    // volcar la plantilla (12 ficheros) y de `git init` + commit en modo
+    // creación — sin `--force` contra una config existente, el aborto llegaba
+    // tarde: KB a medio escribir + repo git en disco + exit 1, y el reintento
+    // fallaba ya por otra vía (`prepara_kb`: "no está vacía").
+    exo::inicia::valida_config_escribible(&destino, args.force)?;
+
     let (kb, nombre, emb, modo, escritos, git_ok) = if args.from_basic_memory {
         let ruta = exo::inicia::ruta_basic_memory()?;
         let json =
@@ -433,9 +443,16 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
         })?;
         (kb, nombre, emb, "adopt", Vec::new(), false)
     } else {
-        let kb = args
-            .kb
-            .context("--kb es obligatorio sin --from-basic-memory")?;
+        // `expande_tilde`: sin esto, `exo init --kb ~/mi-kb` en Windows crea
+        // un directorio LITERAL llamado `~` (el shell no expande `~` como en
+        // POSIX), sale 0, y la config queda apuntando a un sitio que no es el
+        // que el usuario escribió — falla ruidoso en el comando siguiente,
+        // pero ya con basura en disco (Minor, review de rama).
+        let kb = exo::config::expande_tilde(
+            &args
+                .kb
+                .context("--kb es obligatorio sin --from-basic-memory")?,
+        );
         let nombre = args
             .name
             .context("--name es obligatorio sin --from-basic-memory")?;
@@ -470,7 +487,22 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
     // `EXO_DB`, un test (o un `exo init` bajo `$HOME` no estándar) indexaría
     // el `~/.exo/index.db` real de la máquina.
     let db = resuelve_db(None)?;
-    indexa(&kb, &db)?;
+    let resumen = indexa(&kb, &db)?;
+
+    // C2 (review de rama): solo en modo CREACIÓN — en ADOPCIÓN la KB es del
+    // usuario y su contenido no lo decide `init`. La lógica vive en
+    // `inicia::verifica_indexado_completo` (testable sin pasar por el
+    // binario); aquí solo se orquesta.
+    if modo == "create" {
+        exo::inicia::verifica_indexado_completo(&escritos, resumen.indexadas).with_context(
+            || {
+                format!(
+                    "la config y la KB ya están en disco en {} — revísala antes de reintentar",
+                    kb.display()
+                )
+            },
+        )?;
+    }
 
     if args.json {
         exo::envelope::emite(
@@ -483,6 +515,7 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
                 "mode": modo,
                 "files": escritos.len(),
                 "git": git_ok,
+                "index": resumen,
             }),
         );
     } else {
@@ -503,6 +536,10 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
                 println!("config escrita en {}", destino.display());
             }
         }
+        println!(
+            "índice: indexadas={} saltadas={} sin_permalink={} borradas={}",
+            resumen.indexadas, resumen.saltadas, resumen.sin_permalink, resumen.borradas
+        );
         println!("KB: {} (name: {nombre})", kb.display());
         println!("siguiente: exo recall --json");
     }

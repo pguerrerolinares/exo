@@ -56,6 +56,7 @@ fn las_claves_de_index_estan_en_ingles() {
     let r = exo::indexer::Resumen {
         indexadas: 1,
         saltadas: 2,
+        sin_permalink: 6,
         borradas: 3,
         trozos_embebidos: 4,
         trozos_reusados: 5,
@@ -65,6 +66,7 @@ fn las_claves_de_index_estan_en_ingles() {
     for k in [
         "indexed",
         "skipped",
+        "unreadable",
         "deleted",
         "chunks_embedded",
         "chunks_reused",
@@ -72,10 +74,12 @@ fn las_claves_de_index_estan_en_ingles() {
         assert!(obj.contains_key(k), "falta {k} en {v}");
     }
     assert_eq!(v["indexed"], 1);
+    assert_eq!(v["unreadable"], 6);
     assert_eq!(v["chunks_embedded"], 4);
     for k in [
         "indexadas",
         "saltadas",
+        "sin_permalink",
         "borradas",
         "trozos_embebidos",
         "trozos_reusados",

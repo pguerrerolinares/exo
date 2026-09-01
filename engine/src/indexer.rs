@@ -53,6 +53,15 @@ pub struct Resumen {
     pub indexadas: usize,
     #[serde(rename = "skipped")]
     pub saltadas: usize,
+    /// Notas vistas por el walk cuyo frontmatter no dio un `permalink`
+    /// legible (YAML roto, o `permalink` ausente) — `parsea_nota` las
+    /// devuelve `None` y el bucle de `indexa` hacía `continue` sin sumar a
+    /// NINGÚN contador (C2, review de rama): invisibles en el envelope, así
+    /// que un `exo init` que vuelca 12 ficheros e indexa 0 salía exit 0. Este
+    /// contador es justo lo que faltaba para que ese hueco fuera
+    /// representable.
+    #[serde(rename = "unreadable")]
+    pub sin_permalink: usize,
     #[serde(rename = "deleted")]
     pub borradas: usize,
     /// Trozos que pasaron por el modelo en esta corrida (M6-01b). Campo
@@ -152,6 +161,7 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
 
     let mut indexadas = 0usize;
     let mut saltadas = 0usize;
+    let mut sin_permalink = 0usize;
     let mut trozos_embebidos = 0usize;
     let mut trozos_reusados = 0usize;
     let mut vistas: HashSet<String> = HashSet::new();
@@ -171,6 +181,7 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
                 "aviso: {} sin permalink en frontmatter, se salta (§6.2 regla 1)",
                 ruta_abs.display()
             );
+            sin_permalink += 1;
             continue;
         };
 
@@ -251,6 +262,7 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
     Ok(Resumen {
         indexadas,
         saltadas,
+        sin_permalink,
         borradas,
         trozos_embebidos,
         trozos_reusados,

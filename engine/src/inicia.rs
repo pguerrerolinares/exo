@@ -90,6 +90,25 @@ fn cadena_toml(s: &str) -> String {
     toml::Value::String(s.to_string()).to_string()
 }
 
+/// Comprueba que `destino` admite escribir la config: inexistente, o
+/// `force`. Pensada para llamarse ANTES de tocar el disco de la KB (I4,
+/// review de rama): `init_cmd` volcaba la plantilla de 12 ficheros y hacía
+/// `git init` + commit ANTES de que `escribe_config` (más abajo) descubriera
+/// que ya había una config y abortara sin `--force` — residuo en disco tras
+/// un exit 1, y el reintento fallaba ya por otra vía (`prepara_kb`, "no está
+/// vacía"). `escribe_config` sigue haciendo la misma comprobación al escribir
+/// de verdad (defensa en profundidad, es barata), pero quien orquesta varios
+/// pasos debe llamar a esta función primero.
+pub fn valida_config_escribible(destino: &Path, force: bool) -> Result<()> {
+    if destino.exists() && !force {
+        anyhow::bail!(
+            "ya existe una config en {} — repite con --force si de verdad quieres pisarla",
+            destino.display()
+        );
+    }
+    Ok(())
+}
+
 /// Escribe `config.toml`. Se niega si el destino existe y no hay `--force`:
 /// pisar la config de alguien sin avisar es exactamente el tipo de efecto
 /// silencioso que este proyecto persigue.
@@ -101,12 +120,7 @@ pub fn escribe_config(
     db: &Path,
     force: bool,
 ) -> Result<()> {
-    if destino.exists() && !force {
-        anyhow::bail!(
-            "ya existe una config en {} — repite con --force si de verdad quieres pisarla",
-            destino.display()
-        );
-    }
+    valida_config_escribible(destino, force)?;
     if let Some(padre) = destino.parent() {
         std::fs::create_dir_all(padre).with_context(|| format!("crear {}", padre.display()))?;
     }
@@ -175,6 +189,33 @@ pub fn prepara_kb(kb: &Path, force: bool) -> Result<()> {
         anyhow::bail!(
             "{} existe y no está vacía — repite con --force si de verdad quieres volcar encima",
             kb.display()
+        );
+    }
+    Ok(())
+}
+
+/// Exige que en modo CREACIÓN lo indexado cuadre con lo volcado (C2, review
+/// de rama). Antes, `init_cmd` descartaba el `indexer::Resumen` de `indexa` —
+/// una semilla que vuelca 12 ficheros e indexa CERO notas (frontmatter
+/// ilegible, cualquier causa) salía exit 0 con mensaje de éxito. Solo aplica
+/// en creación: en modo ADOPCIÓN la KB es del usuario, `init` no decide su
+/// contenido, y una nota suya sin permalink no es un bug de `init`.
+///
+/// `escritos` son las rutas que devuelve `plantilla::vuelca` — incluye
+/// ficheros no-`.md` (`archive/log/.gitkeep`), que `walk_kb`/`indexa` ni
+/// siquiera ven. Se cuentan solo las `.md` en vez de hardcodear "11": si la
+/// plantilla gana o pierde una nota, la cuenta esperada se mueve con ella en
+/// vez de divergir en silencio.
+pub fn verifica_indexado_completo(escritos: &[PathBuf], indexadas: usize) -> Result<()> {
+    let esperadas = escritos
+        .iter()
+        .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("md"))
+        .count();
+    if indexadas != esperadas {
+        anyhow::bail!(
+            "la KB semilla volcó {esperadas} notas (.md) pero el índice solo indexó {indexadas} \
+             — alguna se saltó en silencio (frontmatter ilegible o similar); revisa las notas de \
+             la plantilla antes de confiar en esta KB"
         );
     }
     Ok(())
