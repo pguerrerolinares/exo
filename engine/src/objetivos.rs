@@ -1,7 +1,11 @@
 //! `exo targets` — candidatas de la KB para un tema, portado de
 //! `kbx/internal/targets`.
 
-use anyhow::{Result, bail};
+use crate::{frontmatter, gitx};
+use anyhow::{Context, Result, bail};
+use rusqlite::Connection;
+use serde::Serialize;
+use std::collections::HashSet;
 use std::path::Path;
 use std::sync::LazyLock;
 
@@ -57,6 +61,117 @@ pub fn extrae_headings(ruta: &Path) -> Vec<String> {
         }
     }
     headings
+}
+
+/// El SQL es el de `kbx/internal/targets` literal, con dos detalles que NO se
+/// tocan:
+///
+/// - `snippet(notas_fts, 1, ...)`: el `1` es el índice ordinal de la columna
+///   `cuerpo` dentro de `notas_fts(titulo, cuerpo, permalink UNINDEXED)`.
+///   Insertar una columna antes de `cuerpo` haría que los snippets salieran de
+///   la columna equivocada **en silencio** — ningún check de esquema mira el
+///   orden ordinal, solo la presencia por nombre.
+/// - **Sin `LIMIT`**: el truncado se aplica en Rust y DESPUÉS del dedup. Meter
+///   `LIMIT ?` aquí es la optimización obvia y rompe la semántica el día que
+///   `notas_fts` deje de ser 1:1 con `notas`: truncaría antes de deduplicar y
+///   devolvería menos candidatas únicas de las que hay.
+const CONSULTA_CANDIDATAS: &str = "SELECT notas.permalink,
+       notas.ruta,
+       COALESCE(snippet(notas_fts, 1, '', '', '…', 12), '') AS snip
+FROM notas_fts
+JOIN notas ON notas.permalink = notas_fts.permalink
+WHERE notas_fts MATCH ?1
+ORDER BY rank";
+
+#[derive(Serialize)]
+pub struct Objetivos {
+    #[serde(rename = "topic")]
+    pub tema: String,
+    #[serde(rename = "candidates")]
+    pub candidatos: Vec<Candidato>,
+}
+
+#[derive(Serialize)]
+pub struct Candidato {
+    pub permalink: String,
+    pub tier: String,
+    #[serde(rename = "size_bytes")]
+    pub tamano_bytes: i64,
+    pub headings: Vec<String>,
+    #[serde(rename = "last_commit")]
+    pub ultimo_commit: String,
+    pub snippet: String,
+}
+
+/// Candidatas de la KB para `tema`, ordenadas por rank bm25.
+///
+/// La asimetría de fallo es deliberada y está cubierta por tests: leer el
+/// fichero de disco (tier, tamaño, headings) es **best-effort** y degrada a
+/// valores vacíos sin excluir a la candidata, porque el índice la conoce;
+/// leer git es **fail-loud** y aborta el resultado entero. Unificar los dos
+/// manejos rompe el contrato.
+pub fn busca_objetivos(
+    conn: &Connection,
+    kb: &Path,
+    tema: &str,
+    limite: usize,
+) -> Result<Objetivos> {
+    if limite < 1 {
+        bail!("targets: --limit tiene que ser >= 1, se recibió {limite}");
+    }
+    let match_query = construye_match_query(tema)?;
+
+    let mut stmt = conn
+        .prepare(CONSULTA_CANDIDATAS)
+        .context("preparar la consulta de candidatas")?;
+    let mut filas = stmt
+        .query(rusqlite::params![match_query])
+        .context("ejecutar la consulta de candidatas")?;
+
+    let mut candidatos = Vec::new();
+    let mut vistas: HashSet<String> = HashSet::new();
+
+    while candidatos.len() < limite {
+        let Some(fila) = filas.next().context("leer una candidata")? else {
+            break;
+        };
+        let permalink: String = fila.get(0)?;
+        let ruta_rel: String = fila.get(1)?;
+        let snippet: String = fila.get(2)?;
+
+        if !vistas.insert(ruta_rel.clone()) {
+            continue;
+        }
+
+        let ultimo_commit = gitx::ultimo_commit(kb, &ruta_rel)?;
+
+        // `read` y no `read_to_string`: `size_bytes` es el tamaño en BYTES y
+        // el gate de paridad lo compara exacto. Un fichero con UTF-8 inválido
+        // le da a Go su tamaño real y a `read_to_string` un Err — es decir, un
+        // 0 silencioso justo en el campo que se está midiendo.
+        let absoluta = kb.join(&ruta_rel);
+        let (tier, tamano_bytes) = match std::fs::read(&absoluta) {
+            Ok(bytes) => {
+                let contenido = String::from_utf8_lossy(&bytes);
+                (frontmatter::tier(&contenido), bytes.len() as i64)
+            }
+            Err(_) => (String::new(), 0),
+        };
+
+        candidatos.push(Candidato {
+            permalink,
+            tier,
+            tamano_bytes,
+            headings: extrae_headings(&absoluta),
+            ultimo_commit,
+            snippet,
+        });
+    }
+
+    Ok(Objetivos {
+        tema: tema.to_string(),
+        candidatos,
+    })
 }
 
 #[cfg(test)]
