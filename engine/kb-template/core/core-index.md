@@ -2,7 +2,7 @@
 permalink: "{{KB_NAME}}/core/core-index"
 title: core-index — mapa y presupuesto de esta KB
 tags: [core, indice]
-tier: stable
+tier: core
 semilla: true
 ---
 
@@ -11,6 +11,14 @@ semilla: true
 Este fichero es lo primero que debe leer un agente al arrancar en esta KB.
 No es la doctrina en sí — es el mapa: qué hay, dónde está, y cuánto puede
 pesar cada cosa antes de que el mantenimiento deje de ser sostenible.
+
+## Contrato de memoria
+
+Cómo debe leer y escribir en esta KB un agente: **canon como delta** (edita
+la nota existente, no dupliques), **bitácora como append** (nunca reescribas
+una entrada de `log/`) y **nota nueva casi nunca**. El contrato completo —
+qué va a cada carpeta — vive en
+[[Contrato de la KB para agentes|AGENTS.md]]: este índice apunta, no repite.
 
 ## Qué hay y dónde
 
@@ -24,10 +32,23 @@ pesar cada cosa antes de que el mantenimiento deje de ser sostenible.
 - **`archive/`** — retirado de circulación activa; no hace falta leerlo en
   el flujo normal.
 
-El contrato completo de routing (qué va a cada carpeta, la regla de "canon
-como delta, bitácora como append, nota nueva casi nunca") está en
-[[Contrato de la KB para agentes|AGENTS.md]], no aquí: este índice apunta, no
-repite.
+## Doctrina compacta
+
+- Delega investigación y ejecución voluminosa a un agente fresco; quédate con la conclusión, no el material crudo.
+- Evidencia antes que afirmación: corre el comando, enseña el resultado, y solo entonces di "hecho".
+- El fallo que no avisa (exit 0, forma válida) es el que importa vigilar, no solo el que grita.
+- Terreno desconocido o error repetido: verifica el supuesto antes de seguir computando.
+- La ambigüedad del encargo es el cuello de botella, no la capacidad del agente.
+
+## Cores
+
+- **[[core-index]]** (esta nota) — el único `tier: core` de la KB semilla;
+  el arranque de `exo recall` sirve siempre su cuerpo completo.
+- Cuando una nota `stable` pase a ser lectura obligada en casi toda sesión,
+  sube su `tier` a `core` y añade aquí una línea con su rol: es la única
+  forma de que el arranque llegue a servirla sin que el agente la busque.
+- Cada `core` nuevo compite por el mismo presupuesto de arranque (siguiente
+  sección): promover de más sale caro en todas las sesiones futuras.
 
 ## Presupuesto por tier
 
@@ -37,8 +58,9 @@ presupuesto si crece sin disciplina. La regla:
 - **`core/core-index`**: cap **6.144 B**, con un 15% de aire exigido sobre
   ese cap — es decir, el contenido vivo no debería superar **5.222 B**. El
   aire es margen de mantenimiento, no invitación a llenarlo.
-- El resto de notas `stable` no tiene un cap numérico fijo, pero sigue el
-  mismo espíritu: un destilado que crece sin podar deja de ser un destilado.
+- El resto de notas `core` y `stable` no tiene un cap numérico fijo, pero
+  sigue el mismo espíritu: un destilado que crece sin podar deja de ser un
+  destilado.
 - Las notas `log` no tienen cap — son append-only por diseño — pero se
   espera que un proceso de consolidación las resuma hacia `stable`
   periódicamente en vez de dejarlas crecer sin límite indefinidamente.

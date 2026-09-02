@@ -37,6 +37,10 @@ más fácil se hace mal si se improvisa.
 Todas las notas llevan un campo `tier` en el frontmatter que indica su
 volatilidad y cómo debe tratarlas un proceso de mantenimiento de la KB:
 
+- **`core`** — el subconjunto mínimo que el arranque de un agente sirve
+  siempre, entero (`exo recall` sin `--query`). Debería haber pocas: cada
+  `core` nuevo compite por el mismo presupuesto de arranque, así que subir
+  una nota de `stable` a `core` es la excepción, no el hábito.
 - **`stable`** — contenido destilado, de baja frecuencia de cambio
   (`core/`, `projects/`, `learnings/`). Cuando cambia, cambia por delta
   editado sobre la nota existente, no por acumulación.
