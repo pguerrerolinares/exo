@@ -273,8 +273,11 @@ eficiencia y portabilidad, no de corrección.
   plugin instalado viene del marketplace de GitHub, no del repo local.
 - Decidir sobre `consolida` + `kbx` en Windows.
 - `exo` en `extraKnownMarketplaces` quedó **sin `autoUpdate`** (equipo-x sí lo tiene).
-- Los commits quedaron firmados con la identidad corporativa de esta máquina
-  (`dev@example.invalid`) en un repo personal.
+- Hubo firma cruzada de identidades entre las máquinas de este runbook:
+  commits hechos en esta máquina quedaron firmados con una identidad
+  corporativa en vez de la personal. Detectado y corregido en el colapso de
+  autoría de B1 (`docs/superpowers/specs/2026-08-26-exo-generico-design.md`
+  §B1).
 - `cargo fmt --check` no es gate en este repo: 90 diffs preexistentes.
 
 ## Actualización 2026-08-26: plugin único exo
