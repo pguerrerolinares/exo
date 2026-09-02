@@ -36,6 +36,10 @@ pub fn construye_match_query(tema: &str) -> Result<String> {
 /// Best-effort a propósito: un fichero ilegible o inexistente devuelve lista
 /// vacía, nunca error. La candidata sigue apareciendo aunque su fichero no se
 /// pueda leer, porque el índice la conoce.
+///
+/// Wrapper delgado sobre `headings_de`: lee el fichero y delega el escaneo.
+/// Se mantiene para no romper a quien ya llama con una ruta en vez de
+/// contenido ya leído (y a los tests que dependen de esta firma).
 pub fn extrae_headings(ruta: &Path) -> Vec<String> {
     // `read` + `from_utf8_lossy` y no `read_to_string`: en Go esto es un
     // `bufio.Scanner` sobre bytes, que sigue produciendo headings en un
@@ -45,7 +49,15 @@ pub fn extrae_headings(ruta: &Path) -> Vec<String> {
     let Ok(bytes) = std::fs::read(ruta) else {
         return Vec::new();
     };
-    let contenido = String::from_utf8_lossy(&bytes);
+    headings_de(&String::from_utf8_lossy(&bytes))
+}
+
+/// Headings de nivel 1-3 de un contenido ya leído, en orden de aparición.
+///
+/// Separada de `extrae_headings` para que `busca_objetivos` pueda reusar el
+/// `contenido` que ya leyó para `tier`/`tamano_bytes` en vez de volver a leer
+/// el mismo fichero de disco.
+pub fn headings_de(contenido: &str) -> Vec<String> {
     let mut headings = Vec::new();
     let mut en_valla = false;
     for linea in contenido.lines() {
@@ -149,20 +161,28 @@ pub fn busca_objetivos(
         // el gate de paridad lo compara exacto. Un fichero con UTF-8 inválido
         // le da a Go su tamaño real y a `read_to_string` un Err — es decir, un
         // 0 silencioso justo en el campo que se está midiendo.
+        //
+        // Una sola lectura de disco para tier, tamano_bytes y headings: las
+        // tres salen del mismo `contenido`, en vez de que `extrae_headings`
+        // vuelva a leer el mismo fichero por su cuenta.
         let absoluta = kb.join(&ruta_rel);
-        let (tier, tamano_bytes) = match std::fs::read(&absoluta) {
+        let (tier, tamano_bytes, headings) = match std::fs::read(&absoluta) {
             Ok(bytes) => {
                 let contenido = String::from_utf8_lossy(&bytes);
-                (frontmatter::tier(&contenido), bytes.len() as i64)
+                (
+                    frontmatter::tier(&contenido),
+                    bytes.len() as i64,
+                    headings_de(&contenido),
+                )
             }
-            Err(_) => (String::new(), 0),
+            Err(_) => (String::new(), 0, Vec::new()),
         };
 
         candidatos.push(Candidato {
             permalink,
             tier,
             tamano_bytes,
-            headings: extrae_headings(&absoluta),
+            headings,
             ultimo_commit,
             snippet,
         });
@@ -274,5 +294,17 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let p = escribe(dir.path(), "a.md", "# uno\r\n## dos\r\n");
         assert_eq!(extrae_headings(&p), vec!["uno", "dos"]);
+    }
+
+    // `extrae_headings` es ahora un wrapper delgado sobre `headings_de`: leer
+    // el fichero y pasar el mismo contenido a `headings_de` tiene que dar
+    // exactamente el mismo resultado que `extrae_headings(&ruta)`. Es lo que
+    // sostiene que unificar la lectura en `busca_objetivos` no cambia nada.
+    #[test]
+    fn extrae_headings_y_headings_de_coinciden_sobre_el_mismo_contenido() {
+        let dir = tempfile::tempdir().unwrap();
+        let contenido = "# real\n#### profundo\n```sh\n# falso\n```\n## otro\n### tres\n";
+        let p = escribe(dir.path(), "a.md", contenido);
+        assert_eq!(extrae_headings(&p), headings_de(contenido));
     }
 }
