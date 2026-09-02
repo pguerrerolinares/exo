@@ -87,6 +87,12 @@ pub fn headings_de(contenido: &str) -> Vec<String> {
 ///   `LIMIT ?` aquí es la optimización obvia y rompe la semántica el día que
 ///   `notas_fts` deje de ser 1:1 con `notas`: truncaría antes de deduplicar y
 ///   devolvería menos candidatas únicas de las que hay.
+/// - **Sin filtro por `notas.tipo`**: kbx tenía `AND note_type = 'note'` en
+///   este mismo SQL y lo retiró porque escondía 57 de 138 notas reales de la
+///   KB (todo lo que no fuera `tipo='note'` — informes, PDFs, lo que sea —
+///   desaparecía de los resultados sin error ni aviso). Añadir ese filtro
+///   aquí reintroduciría el mismo agujero: `tests/objetivos.rs` lo cubre con
+///   `incluye_notas_con_tipo_distinto_de_note`.
 const CONSULTA_CANDIDATAS: &str = "SELECT notas.permalink,
        notas.ruta,
        COALESCE(snippet(notas_fts, 1, '', '', '…', 12), '') AS snip

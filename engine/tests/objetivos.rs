@@ -3,7 +3,13 @@
 use exo::objetivos::busca_objetivos;
 use std::process::Command;
 
-/// KB con tres notas committeadas y su índice SQLite poblado a mano.
+/// KB con cuatro notas committeadas y su índice SQLite poblado a mano.
+///
+/// La cuarta, `informe.pdf` con `tipo='report'`, no es un descuido: kbx tenía
+/// un filtro `note_type='note'` que escondía el 40% de la KB (57 de 138
+/// notas reales) y se retiró por eso (ver rustdoc de `CONSULTA_CANDIDATAS`).
+/// Sin esta fila, un `AND notas.tipo = 'note'` añadido por error pasaría la
+/// suite entera en verde.
 ///
 /// El índice se puebla con SQL directo en vez de con `exo index` porque
 /// indexar de verdad descargaría el modelo ONNX de 615 MB, y estos tests no
@@ -47,6 +53,7 @@ fn kb_con_indice() -> (tempfile::TempDir, std::path::PathBuf) {
         "sin frontmatter\ncuerpo de gamma\n",
     )
     .unwrap();
+    std::fs::write(kb.join("informe.pdf"), "contenido binario simulado").unwrap();
     git(&["init", "-q"]);
     git(&["add", "."]);
     git(&["commit", "-q", "-m", "inicial"]);
@@ -54,15 +61,40 @@ fn kb_con_indice() -> (tempfile::TempDir, std::path::PathBuf) {
     let db = dir.path().join("index.db");
     let conn = exo::abre_db(&db).unwrap();
     exo::schema::crea_schema(&conn).unwrap();
-    for (permalink, rel, titulo, cuerpo) in [
-        ("kb/log/alpha", "log/alpha.md", "alpha", "cuerpo de alpha"),
-        ("kb/log/beta", "log/beta.md", "beta", "cuerpo de beta"),
-        ("kb/log/gamma", "log/gamma.md", "gamma", "cuerpo de gamma"),
+    for (permalink, rel, titulo, tipo, cuerpo) in [
+        (
+            "kb/log/alpha",
+            "log/alpha.md",
+            "alpha",
+            "note",
+            "cuerpo de alpha",
+        ),
+        (
+            "kb/log/beta",
+            "log/beta.md",
+            "beta",
+            "note",
+            "cuerpo de beta",
+        ),
+        (
+            "kb/log/gamma",
+            "log/gamma.md",
+            "gamma",
+            "note",
+            "cuerpo de gamma",
+        ),
+        (
+            "kb/informe",
+            "informe.pdf",
+            "informe",
+            "report",
+            "cuerpo del informe",
+        ),
     ] {
         conn.execute(
             "INSERT INTO notas (permalink, ruta, titulo, tipo, mtime, git_epoch)
-             VALUES (?1, ?2, ?3, 'note', 0.0, NULL)",
-            rusqlite::params![permalink, rel, titulo],
+             VALUES (?1, ?2, ?3, ?4, 0.0, NULL)",
+            rusqlite::params![permalink, rel, titulo, tipo],
         )
         .unwrap();
         conn.execute(
@@ -206,4 +238,18 @@ fn una_nota_sin_frontmatter_aparece_con_tier_vacio() {
     let r = busca_objetivos(&conn, dir.path(), "gamma", 10).unwrap();
     assert_eq!(r.candidatos.len(), 1);
     assert_eq!(r.candidatos[0].tier, "");
+}
+
+// El SQL no filtra por `notas.tipo` a propósito: kbx tenía ese filtro y
+// escondía 57 de 138 notas reales de la KB. Un `AND notas.tipo = 'note'`
+// añadido a `CONSULTA_CANDIDATAS` pondría esta nota en rojo aunque las tres
+// notas del resto del fixture sigan pasando. Nombrado como el
+// `TestSearchIncluyeTipoNoNote` de kbx.
+#[test]
+fn incluye_notas_con_tipo_distinto_de_note() {
+    let (dir, db) = kb_con_indice();
+    let conn = exo::abre_db(&db).unwrap();
+    let r = busca_objetivos(&conn, dir.path(), "informe", 10).unwrap();
+    assert_eq!(r.candidatos.len(), 1);
+    assert_eq!(r.candidatos[0].permalink, "kb/informe");
 }
