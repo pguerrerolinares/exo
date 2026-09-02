@@ -9,6 +9,7 @@ pub mod config;
 pub mod envelope;
 pub mod escritor;
 pub mod frontmatter;
+pub mod gitx;
 pub mod indexer;
 pub mod inicia;
 pub mod nota;
