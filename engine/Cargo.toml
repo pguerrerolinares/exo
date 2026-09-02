@@ -2,6 +2,10 @@
 name = "exo"
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
+# Mínimo verificado empíricamente con cargo check --all-targets --locked:
+# 1.94 falla (libsqlite3-sys usa cfg_select, estable desde 1.95), 1.95 compila.
+rust-version = "1.95"
 
 [dependencies]
 anyhow = "1.0.103"
