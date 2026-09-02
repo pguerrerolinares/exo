@@ -13,6 +13,7 @@ pub mod gitx;
 pub mod indexer;
 pub mod inicia;
 pub mod nota;
+pub mod objetivos;
 pub mod plantilla;
 pub mod recall;
 pub mod schema;
