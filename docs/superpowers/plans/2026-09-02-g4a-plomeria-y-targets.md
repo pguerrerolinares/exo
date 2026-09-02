@@ -334,7 +334,7 @@ pub mod frontmatter;
 - [ ] **Step 4: Correr los tests y verlos pasar**
 
 Run: `cd engine && cargo test --lib frontmatter`
-Expected: PASS, 12 tests.
+Expected: PASS, 13 tests.
 
 Run: `cd engine && cargo fmt --check && cargo clippy --all-targets --locked -- -D warnings`
 Expected: sin salida, exit 0.
@@ -738,7 +738,7 @@ pub mod objetivos;
 - [ ] **Step 4: Correr los tests y verlos pasar**
 
 Run: `cd engine && cargo test --lib objetivos`
-Expected: PASS, 7 tests.
+Expected: PASS, 8 tests.
 
 Run: `cd engine && cargo fmt --check && cargo clippy --all-targets --locked -- -D warnings`
 Expected: sin salida, exit 0.
@@ -874,6 +874,32 @@ fn sin_coincidencias_la_lista_esta_vacia_y_no_hay_error() {
     let conn = exo::abre_db(&db).unwrap();
     let r = busca_objetivos(&conn, dir.path(), "zzz-inexistente", 10).unwrap();
     assert!(r.candidatos.is_empty());
+}
+
+// El test de `construye_match_query` prueba la FORMA de la cadena; este
+// prueba lo único que importa de verdad: que FTS5 la trate como texto. Un
+// operador que se ejecutase daría error de sintaxis o traería resultados
+// semánticos. Los cuatro casos son las cuatro clases de operador.
+//
+// Portado de `TestSearch_Injection` de kbx, que mi plan se había dejado.
+#[test]
+fn ningun_operador_fts5_se_ejecuta_como_operador() {
+    let (dir, db) = kb_con_indice();
+    let conn = exo::abre_db(&db).unwrap();
+    for tema in [
+        "cuerp*",
+        "alpha OR beta",
+        "NEAR(alpha beta)",
+        "titulo:alpha",
+    ] {
+        let r = busca_objetivos(&conn, dir.path(), tema, 10)
+            .unwrap_or_else(|e| panic!("{tema} no debe ser error de sintaxis FTS5: {e:#}"));
+        assert!(
+            r.candidatos.is_empty(),
+            "{tema} se ejecutó como operador y trajo {} candidatas",
+            r.candidatos.len()
+        );
+    }
 }
 
 #[test]
@@ -1089,7 +1115,7 @@ pub fn busca_objetivos(
 - [ ] **Step 4: Correr los tests y verlos pasar**
 
 Run: `cd engine && cargo test --test objetivos`
-Expected: PASS, 8 tests.
+Expected: PASS, 9 tests.
 
 Run: `cd engine && cargo fmt --check && cargo clippy --all-targets --locked -- -D warnings`
 Expected: sin salida, exit 0.

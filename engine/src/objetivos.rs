@@ -90,19 +90,32 @@ mod tests {
         assert!(construye_match_query("\t\n").is_err());
     }
 
-    // Ningún operador FTS5 debe sobrevivir al quoting: ni prefijo, ni OR, ni
-    // NEAR, ni filtro por columna. Todo es texto literal.
+    // Un operador de FTS5 en el tema sale citado como texto, término a
+    // término. Los cuatro casos son las cuatro clases de operador: prefijo,
+    // booleano con comilla suelta, proximidad y filtro por columna.
+    //
+    // Se compara la cadena EXACTA y no `starts_with('"')`: una forma "empieza
+    // y acaba por comilla" la cumpliría también una implementación que no
+    // escapase las comillas internas, que es precisamente el fallo que hay que
+    // descartar aquí.
+    //
+    // Lo que este test NO prueba: que FTS5 trate esa cadena como literal. Eso
+    // solo lo demuestra una query contra el motor de verdad, y vive en
+    // `tests/objetivos.rs::ningun_operador_fts5_se_ejecuta_como_operador`.
     #[test]
-    fn ningun_operador_fts5_sobrevive_al_quoting() {
-        for tema in [
-            "metodolog*",
-            "foo OR bar\"",
-            "NEAR(alpha bitacora)",
-            "title:alpha",
-        ] {
-            let q = construye_match_query(tema).unwrap();
-            assert!(q.starts_with('"'), "{tema} -> {q}");
-            assert!(q.ends_with('"'), "{tema} -> {q}");
+    fn los_operadores_fts5_salen_citados_termino_a_termino() {
+        let casos = [
+            ("metodolog*", r#""metodolog*""#),
+            ("foo OR bar\"", r#""foo" "OR" "bar""""#),
+            ("NEAR(alpha bitacora)", r#""NEAR(alpha" "bitacora)""#),
+            ("title:alpha", r#""title:alpha""#),
+        ];
+        for (tema, esperado) in casos {
+            assert_eq!(
+                construye_match_query(tema).unwrap(),
+                esperado,
+                "tema: {tema}"
+            );
         }
     }
 
