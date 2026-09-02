@@ -118,6 +118,100 @@ fn las_claves_de_search_estan_en_ingles() {
     assert_eq!(v["warnings"][0], "algo");
 }
 
+/// KB con git y su índice poblado a mano, igual que
+/// `tests/targets_cli.rs::kb_con_indice`. No se importa de allí porque cada
+/// fichero de `tests/` es un binario de test distinto; se replica el montaje.
+fn kb_con_indice() -> (tempfile::TempDir, std::path::PathBuf) {
+    let dir = tempfile::tempdir().unwrap();
+    let kb = dir.path().to_path_buf();
+    let cfg = kb.join("gitconfig-vacio");
+    std::fs::write(&cfg, "").unwrap();
+    let git = |args: &[&str]| {
+        let s = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&kb)
+            .args(args)
+            .env("GIT_CONFIG_GLOBAL", &cfg)
+            .env("GIT_CONFIG_SYSTEM", &cfg)
+            .env("GIT_AUTHOR_NAME", "f")
+            .env("GIT_AUTHOR_EMAIL", "f@k.local")
+            .env("GIT_COMMITTER_NAME", "f")
+            .env("GIT_COMMITTER_EMAIL", "f@k.local")
+            .env("GIT_AUTHOR_DATE", "2026-07-01T10:00:00+02:00")
+            .env("GIT_COMMITTER_DATE", "2026-07-01T10:00:00+02:00")
+            .output()
+            .unwrap();
+        assert!(s.status.success(), "git {args:?}");
+    };
+    std::fs::create_dir_all(kb.join("log")).unwrap();
+    std::fs::write(
+        kb.join("log/alpha.md"),
+        "---\ntier: stable\n---\n# alpha\ncuerpo de alpha\n",
+    )
+    .unwrap();
+    git(&["init", "-q"]);
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "inicial"]);
+
+    let db = dir.path().join("index.db");
+    let conn = exo::abre_db(&db).unwrap();
+    exo::schema::crea_schema(&conn).unwrap();
+    conn.execute(
+        "INSERT INTO notas (permalink, ruta, titulo, tipo, mtime, git_epoch)
+         VALUES ('kb/log/alpha', 'log/alpha.md', 'alpha', 'note', 0.0, NULL)",
+        [],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO notas_fts (titulo, cuerpo, permalink)
+         VALUES ('alpha', 'cuerpo de alpha', 'kb/log/alpha')",
+        [],
+    )
+    .unwrap();
+    drop(conn);
+    (dir, db)
+}
+
+#[test]
+fn las_claves_de_targets_estan_en_ingles() {
+    let (dir, db) = kb_con_indice();
+    let conn = exo::abre_db(&db).unwrap();
+    let r = exo::objetivos::busca_objetivos(&conn, dir.path(), "alpha", 10).unwrap();
+    let v = serde_json::to_value(&r).expect("serializar");
+
+    for k in ["topic", "candidates"] {
+        assert!(v.get(k).is_some(), "falta la clave {k} en {v}");
+    }
+    for k in ["tema", "candidatos"] {
+        assert!(v.get(k).is_none(), "sobrevive la clave española {k}");
+    }
+
+    let c = &v["candidates"][0];
+    for k in [
+        "permalink",
+        "tier",
+        "size_bytes",
+        "headings",
+        "last_commit",
+        "snippet",
+    ] {
+        assert!(c.get(k).is_some(), "falta {k} en la candidata: {c}");
+    }
+    for k in ["tamano_bytes", "ultimo_commit"] {
+        assert!(c.get(k).is_none(), "sobrevive la clave española {k}");
+    }
+
+    // Mismo motivo que en recall/search/write: no basta con presencia de
+    // clave, un swap de renames pasaría igual. Se asevera el VALOR.
+    assert_eq!(v["topic"], "alpha");
+    assert_eq!(c["permalink"], "kb/log/alpha");
+    assert_eq!(c["tier"], "stable");
+    assert!(c["size_bytes"].as_i64().unwrap() > 0);
+    assert_eq!(c["headings"][0], "alpha");
+    assert_eq!(c["last_commit"], "2026-07-01T10:00:00+02:00");
+    assert_eq!(c["snippet"], "cuerpo de alpha");
+}
+
 #[test]
 fn las_claves_de_write_estan_en_ingles() {
     let e = exo::escritor::Escritura {
