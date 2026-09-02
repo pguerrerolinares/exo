@@ -55,6 +55,10 @@ enum Comando {
     /// `compose-inject.sh` de reflex (M2-08, M6). NO conoce reflex ni
     /// perfiles de agentes: eso lo compone el consumidor.
     Recall(ArgsRecall),
+    /// Candidatas de la KB para un tema: FTS5 más tier/tamaño/headings de
+    /// disco y último commit de git (spec §4, primer verbo portado del
+    /// núcleo de `kbx`, G4a). Solo lectura: no gatea nada.
+    Targets(ArgsTargets),
 }
 
 #[derive(Subcommand)]
@@ -273,6 +277,24 @@ struct ArgsRecall {
     json: bool,
 }
 
+#[derive(clap::Args)]
+struct ArgsTargets {
+    /// Fichero SQLite del índice. Precedencia: flag > $EXO_DB > config.
+    #[arg(long)]
+    db: Option<PathBuf>,
+    /// Raíz de la KB en disco. Precedencia: flag > $EXO_KB > config.
+    #[arg(long)]
+    kb: Option<PathBuf>,
+    /// Máximo de candidatas. Default 10, igual que `kbx targets`.
+    #[arg(long = "limit", default_value_t = 10)]
+    limite: usize,
+    /// Emite el resultado como envelope JSON (spec §4) en stdout.
+    #[arg(long)]
+    json: bool,
+    /// Tema a buscar.
+    tema: String,
+}
+
 fn main() {
     let cli = Cli::parse();
     // El flag sale del parseo de clap, no de un escaneo de argv: un valor de
@@ -315,6 +337,7 @@ fn quiere_json(c: &Comando) -> bool {
         Comando::Index(a) | Comando::Rebuild(a) => a.json,
         Comando::Search(a) => a.json,
         Comando::Recall(a) => a.json,
+        Comando::Targets(a) => a.json,
         Comando::Write(w) => match w {
             ComandoWrite::New(a) => a.json,
             ComandoWrite::Append(a) => a.json,
@@ -364,6 +387,7 @@ fn ejecuta(comando: Comando) -> Result<()> {
         Comando::Rebuild(args) => corre("rebuild", args, true),
         Comando::Search(args) => busca_cmd(args),
         Comando::Recall(args) => recall_cmd(args),
+        Comando::Targets(args) => targets_cmd(args),
         Comando::Write(sub) => match sub {
             ComandoWrite::New(args) => write_new_cmd(args),
             ComandoWrite::Append(args) => write_append_cmd(args),
@@ -797,6 +821,38 @@ fn busca_cmd(args: ArgsSearch) -> Result<()> {
     } else {
         for r in &resultado.results {
             println!("{}\t{}\t{:.4}", r.permalink, r.tipo, r.score);
+        }
+    }
+    Ok(())
+}
+
+/// Candidatas de la KB para un tema (`exo::objetivos::busca_objetivos`).
+/// Solo lectura: la DB inexistente se comprueba ANTES de abrir para que un
+/// typo en `--db` no la cree como efecto colateral (mismo contrato que
+/// `recall`/`search`).
+fn targets_cmd(args: ArgsTargets) -> Result<()> {
+    let db_ruta = resuelve_db(args.db)?;
+    if !db_ruta.exists() {
+        anyhow::bail!(
+            "DB no encontrada: {} — corre `exo index` primero",
+            db_ruta.display()
+        );
+    }
+    let kb = resuelve_kb(args.kb)?;
+    let conn = exo::abre_db(&db_ruta)?;
+    let resultado = exo::objetivos::busca_objetivos(&conn, &kb, &args.tema, args.limite)?;
+
+    if args.json {
+        envelope::emite("targets", serde_json::to_value(&resultado)?);
+    } else if resultado.candidatos.is_empty() {
+        println!("no candidates");
+    } else {
+        for c in &resultado.candidatos {
+            println!(
+                "{}\ttier={}\tsize={}\tlast_commit={}\theadings={:?}",
+                c.permalink, c.tier, c.tamano_bytes, c.ultimo_commit, c.headings
+            );
+            println!("\t{}", c.snippet);
         }
     }
     Ok(())
