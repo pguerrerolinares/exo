@@ -21,7 +21,7 @@ final es el registro de qué se movió y por qué.
 Antes de ejecutar cualquier paso de este procedimiento, resuelve dos valores
 con el mismo seam que usa `plugins/exo/scripts/test-contrato-engine.sh`:
 
-- `$KB_DEMO` — raíz de la KB:
+- `$KB_ROOT` — raíz de la KB:
   `${EXO_KB:-$(exo config --json | jq -r '.data.kb.path // empty')}`. Si sale
   vacío, es **abstención ruidosa**: para y dile a Paul que ni `$EXO_KB` ni
   `exo config --json` resolvieron nada — no sigas con el procedimiento.
@@ -35,12 +35,12 @@ con el mismo seam que usa `plugins/exo/scripts/test-contrato-engine.sh`:
   `kbx` falta): generalízala al resto de usos de `kbx` en este
   procedimiento.
 
-Todos los comandos de las secciones siguientes usan `$KB_DEMO` y `$KBX_BIN`
+Todos los comandos de las secciones siguientes usan `$KB_ROOT` y `$KBX_BIN`
 — ninguna ruta literal.
 
 ### 0. Rotación de bitácoras (antes de cualquier chequeo)
 
-**Precondición dura:** `git -C $KB_DEMO status --porcelain`
+**Precondición dura:** `git -C $KB_ROOT status --porcelain`
 debe salir **vacío** antes de tocar nada. Si no sale vacío, **para** y pide a
 Paul que commitee o guarde su trabajo antes de rotar — no sigas por tu
 cuenta. El baseline de conservación del punto 2 (`git show HEAD:<ruta>`)
@@ -50,21 +50,21 @@ recuperarlo: con el árbol sucio, ambas cosas quedan mal por construcción.
 
 Corre primero en seco y revisa el resultado:
 
-    $KBX_BIN rotate --kb $KB_DEMO --json
+    $KBX_BIN rotate --kb $KB_ROOT --json
 
-Requiere un build de `kbx` que incluya `rotate` — el binario instalado en esa
-ruta todavía no trae el subcomando, porque la feature vive en una rama sin
-mergear. Si no está disponible, sáltalo y continúa directo al paso 1.
+Requiere un build de `kbx` que incluya `rotate`: el binario instalado puede no
+traer todavía el subcomando, porque la feature vive en una rama sin mergear.
+Si no está disponible, sáltalo y continúa directo al paso 1.
 
 Si `data.rotations` viene vacío, no hay nada que rotar: sigue directo al paso
 1. Si trae entradas, repite con `--apply` y verifica antes de continuar:
 
-1. `git -C $KB_DEMO status --porcelain` —
+1. `git -C $KB_ROOT status --porcelain` —
    deben aparecer las bitácoras modificadas y los nuevos ficheros en
    `archive/log/`.
 2. Conservación: para cada bitácora tocada, compara el número de cabeceras
    `## ` de **antes** de rotar —
-   `git -C $KB_DEMO show HEAD:<ruta-de-la-nota> | grep -c '^## '`
+   `git -C $KB_ROOT show HEAD:<ruta-de-la-nota> | grep -c '^## '`
    (el cambio aún no está commiteado, así que `HEAD` sigue teniendo el
    contenido previo al `--apply`) — contra la suma de cabeceras `## ` en la
    nota viva actual más las del fichero nuevo en `archive/log/`
@@ -73,14 +73,14 @@ Si `data.rotations` viene vacío, no hay nada que rotar: sigue directo al paso
    sigas, revísalo.
 3. Nada se borra, misma regla de oro que el resto de la skill. Si algo salió
    mal y hay que revertir:
-   - Nota viva: `git -C $KB_DEMO checkout -- <ruta-de-la-nota>`
+   - Nota viva: `git -C $KB_ROOT checkout -- <ruta-de-la-nota>`
      (con el pathspec explícito de la nota — `git checkout --` sin ruta detrás
      no hace nada y no avisa).
    - Ficheros nuevos en `archive/log/`: `checkout` no los toca porque están
      sin trackear; bórralos a mano con las rutas exactas que ya listó
      `git status --porcelain` en el punto 1 (p.ej.
      `rm <ruta-nueva-en-archive-log>`).
-   - Verifica con `git -C $KB_DEMO status --porcelain`
+   - Verifica con `git -C $KB_ROOT status --porcelain`
      que no queda nada pendiente, y repórtalo — no continúes al paso 1 con el
      repo en ese estado.
 
@@ -99,7 +99,7 @@ de su `kbx_budget_max: N` de frontmatter es una excepción reconocida: exit 0,
 listada en `waived` (no en `offenders`). Presupuestos por defecto: core=8.500B,
 stable=12.500B, log=sin límite; excluye `archive/`, `docs/`, `.superpowers/`.
 
-> Corre también `$KBX_BIN ratchet --kb $KB_DEMO --json` con el árbol limpio. Los findings
+> Corre también `$KBX_BIN ratchet --kb $KB_ROOT --json` con el árbol limpio. Los findings
 > `no-air-debt` listan las notas cuyo techo está sellado a ras: no bloquean nada
 > (la guarda juzga transiciones, no estado), pero cada una es un mordisco
 > pendiente. Su campo `limit` da el techo que cumpliría y el mensaje el tamaño
@@ -223,7 +223,7 @@ para ver qué notas cambiaron desde la última consolidación.
 es fallo-fuerte: haz un **full scan** (sin `diff-since`) esta vez. Al terminar
 el paso 5 (commit), crea/mueve el tag al HEAD del repo KB:
 
-    git -C $KB_DEMO tag -f distill/last HEAD
+    git -C $KB_ROOT tag -f distill/last HEAD
 
 Es la única mutación del repo KB que hace esta skill más allá de commitear notas.
 
@@ -244,7 +244,7 @@ una escritura silenciosa.
 Actualiza `[[core-index]]` para que refleje los cores y destilados activos (altas,
 bajas de sección, nuevos punteros a bitácoras).
 
-> Tras podar y partir, corre `$KBX_BIN ratchet --kb $KB_DEMO --seal`. Es **atómico**: o
+> Tras podar y partir, corre `$KBX_BIN ratchet --kb $KB_ROOT --seal`. Es **atómico**: o
 > sella todo o no sella nada, y si falla lista cada techo sin 15% de aire con su
 > objetivo de poda. Esa lista no es un error del sello: es trabajo que falta.
 > **Nunca subas un techo para que pase** — el trinquete lo rechazará en el
@@ -252,12 +252,12 @@ bajas de sección, nuevos punteros a bitácoras).
 
 Luego commit scoped con las mismas reglas git de Paul:
 
-- `git -C $KB_DEMO add <ruta1> <ruta2> ...` —
+- `git -C $KB_ROOT add <ruta1> <ruta2> ...` —
   **nunca** `git add -A`, **nunca** `git add .`.
 - **Nunca** `cd` encadenado con `git`; usa siempre `git -C <path>`.
 - **No hagas push** — esa decisión es de Paul.
 - Tras el commit, avanza el marcador de consolidación:
-  `git -C $KB_DEMO tag -f distill/last HEAD`.
+  `git -C $KB_ROOT tag -f distill/last HEAD`.
   (No se pushea; es un marcador local para el `diff-since` de la próxima corrida.)
 
 ## Delegación
