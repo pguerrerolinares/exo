@@ -207,6 +207,33 @@
   (`lint`, `msrv`, `test` en los tres SO) cuando se decida que main debe
   quedar protegida.
 
+- [ ] **Dos endurecimientos del CI que se decidieron NO aplicar en G5a, y por
+      qué.** Hallazgos Minor de la review final de rama; se anotan para que la
+      omisión sea una decisión y no un olvido.
+  - **`HF_HOME` sin fijar.** La ruta del paso de caché
+    (`~/.cache/huggingface/hub/models--jinaai--jina-embeddings-v2-base-es`)
+    depende hoy del **default de `hf-hub` 0.5.0**, que es un detalle de una
+    dependencia: `Cache::from_env` usa `$HF_HOME/hub` si la variable está
+    puesta y `~/.cache/huggingface/hub` si no. Si ese default cambia en un
+    upgrade, o si una imagen de runner empieza a exportar `HF_HOME`, la caché
+    deja de acertar **sin que nada lo reporte** — degradación silenciosa de
+    coste, siempre en verde. No se fijó en esta campaña porque cambiar la
+    variable obliga a cambiar la ruta del paso de caché en el mismo commit, y
+    equivocarse ahí rompe el acierto de caché ya demostrado
+    (`Cache restored from key` en los tres SO, corrida `33621187141`).
+    **Acción:** fijar `HF_HOME` explícito y la ruta derivada de él en un
+    commit propio, verificando el `Cache restored` de los tres SO antes y
+    después.
+  - **`--locked` no llega al job `test`.** `lint` y `msrv` sí lo tienen
+    (`ci.yml:46`, `:63`), pero el job que de verdad corre la suite invoca
+    `engine/scripts/test-hermetico.sh`, que llama a `cargo test` sin
+    `--locked`, y ese script no se toca (es un gate demostrado falsable).
+    Consecuencia: el job que más importa puede resolver un árbol de
+    dependencias distinto del `Cargo.lock` commiteado.
+    **Acción:** entra en la misma campaña que la deuda de diagnosticabilidad
+    del script, arriba — las dos exigen tocarlo y por tanto rehacer su ciclo
+    rojo-verde.
+
 ## Baja
 
 - [ ] **Nombres y ubicaciones.** `docs/superpowers/` como carpeta de docs del
