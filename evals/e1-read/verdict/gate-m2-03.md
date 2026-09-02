@@ -1,7 +1,7 @@
 # Verdict — gate m2-03 (cierra el par M2-02+M2-03, D2)
 
 - **Adjudicador**: consultor fable FRESCO (régimen delegado, config §Ejecución de gates). No participé en ninguna fase de lo juzgado ni en el gate anterior de la campaña; no recibí razonamiento del orquestador.
-- **Fecha**: 2026-07-17 · **Rama**: `m2-03` (HEAD `f7a4b46`, base main `b9fb24c`)
+- **Fecha**: 2026-07-17 · **Rama**: `m2-03` (HEAD `1e63138`, base main `580eef0`)
 - **Adjudicación**: **MERGED**
 
 ## Verificación primaria propia (no delegada)

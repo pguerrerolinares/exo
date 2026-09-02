@@ -63,7 +63,7 @@ cubrir ambas ramas (exit 1 con marca → empty; exit 1 sin marca → error).
 ## 3. No bloqueantes (el plan lo resuelve o se corrige al pasar)
 
 1. **Claim rancio en §2.2/P4: "indexer aún no transaccional, fix H1 pendiente".
-   Falso desde el 18-ago**: `db5e0ae` ("fix(m6): transacción por nota en el
+   Falso desde el 18-ago**: `dfb2893` ("fix(m6): transacción por nota en el
    indexer") es ancestro de HEAD y el binario instalado es del 22-ago. P5 se
    mantiene igual — el bootstrap de minutos bajo timeout de 30 s basta solo —
    pero la justificación debe corregirse para no propagar un hecho falso a la
@@ -110,7 +110,7 @@ cubrir ambas ramas (exit 1 con marca → empty; exit 1 sin marca → error).
 | Coste de `--refresca` en proceso hybrid | **Confirmado** | 0,92-0,96 s con y sin `--refresca` sobre copia de DB (Δ dentro del ruido, consistente con +0-80 ms). DB ausente sin flag: `error: DB no encontrada`, exit 1. Con flag: bootstrap confirmado en código (`lib.rs:115`, "si la DB no existe, la construye") — no lo ejecuté (minutos) |
 | Forma del modo texto (§2.4) | **Confirmado** | Cabecera = exactamente 1 línea (`=== Recall exo (PARCIAL — no sustituye tu brief) ===`), cuerpo `- ruta — título` + `  · snippet`. Sustituir la primera línea basta |
 | Muestreo de §1 | **Confirmado** | FTS-AND "vamos con brainstorm de M6-06" → 0 resultados; FTS "sí" → 114/145 (números exactos de la spec); hybrid corto 0,95-0,97 s ×3 |
-| "indexer no transaccional" (P5) | **CAE como hecho** (no como decisión) | `db5e0ae` en HEAD + binario post-fix. Ver no-bloqueante 1 |
+| "indexer no transaccional" (P5) | **CAE como hecho** (no como decisión) | `dfb2893` en HEAD + binario post-fix. Ver no-bloqueante 1 |
 
 ## 5. Fidelidad al verdict
 

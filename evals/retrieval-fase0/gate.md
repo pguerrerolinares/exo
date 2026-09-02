@@ -32,4 +32,4 @@ cada brazo en su mejor threshold del sweep (mismo procedimiento para todos los b
 ## Baseline sellado (referencia)
 
 hit@5 sobre 55 queries etiquetadas — hybrid 36/55 · text 36/55 · vector 34/55
-(commit 6d74513, results/metrics-baseline.md). 19 misses: 18 both-miss + 1 fusion-miss.
+(commit 8d84cd6, results/metrics-baseline.md). 19 misses: 18 both-miss + 1 fusion-miss.

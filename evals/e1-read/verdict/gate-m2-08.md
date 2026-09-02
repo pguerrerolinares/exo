@@ -2,9 +2,9 @@
 
 **Consultor**: fable delegado, fresco (sin participación previa en esta pieza).
 **Fecha**: 2026-08-17 22:57 CEST.
-**Alcance**: 4 commits sobre `main` (`6a63e7b`): `bf16d7f` (desempate M2-09a),
-`a8b9b4e` (`exo recall`, M2-08), `69834b0` (latencia + verificación),
-`a94d355` (corrida final M2-09).
+**Alcance**: 4 commits sobre `main` (`4abb80c`): `34548d1` (desempate M2-09a),
+`2234887` (`exo recall`, M2-08), `d6ac623` (latencia + verificación),
+`1b69f8c` (corrida final M2-09).
 
 **Régimen aplicado** (config `.superpowers/fabrica/config.md` §ACTUALIZACIÓN
 2026-08-17, literal): "El gate de M2-09 es INFORMATIVO, no bloqueante. Se corre

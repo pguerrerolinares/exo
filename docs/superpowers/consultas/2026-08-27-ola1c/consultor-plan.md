@@ -2,7 +2,7 @@
 
 - **Objeto:** `docs/superpowers/plans/2026-08-27-ola1c-hermeticidad-y-kb-semilla.md` (891 líneas, sin commitear)
 - **Consultor:** independiente, fresco (régimen de gates, spec `2026-07-16-framework-unificado-design.md:153`)
-- **Fecha:** 2026-08-27 · máquina W11 de Paul, repo `C:\proyectos\homework\exo`, branch `main` limpio (HEAD `05df814`)
+- **Fecha:** 2026-08-27 · máquina W11 de Paul, repo `C:\proyectos\homework\exo`, branch `main` limpio (HEAD `20c4b0f`)
 - **Veredicto:** **APROBADO CON CAMBIOS** (4 cambios exigidos, lista al final)
 
 ---

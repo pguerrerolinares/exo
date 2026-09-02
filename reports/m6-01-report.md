@@ -4,7 +4,7 @@ Campaña C6, primer item. Implementado por el ORQUESTADOR (no por un executor:
 en C5 dos de tres subagentes dejaron de responder a mitad y hubo que rematar
 igual; item pequeño, se declara para que conste).
 
-Rama `m6-01`, base `3d7f073`.
+Rama `m6-01`, base `88120c2`.
 
 ## El problema que resuelve
 

@@ -22,7 +22,7 @@ un cambio de default y rollback por binario.
 markdown.
 
 **Spec:** `docs/superpowers/specs/2026-08-18-m6-04-kbx-al-indice-design.md`
-(commit `08e95d6`). **Verdict del consultor:**
+(commit `1e43ce5`). **Verdict del consultor:**
 `docs/superpowers/consultas/2026-08-18-m6-04-kbx/consultor-m6-04.md`.
 
 ## Global Constraints

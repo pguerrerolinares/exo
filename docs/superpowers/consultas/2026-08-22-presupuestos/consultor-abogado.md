@@ -361,7 +361,7 @@ entera** (con un día de matiz a mi favor que no cambia nada):
 - Trinquete: **3-ago** (`41b3959`). ✓
 - Pre-commit bloqueante (F1.b): **nace el 17-ago** en agent-develop
   (`3aebd5d`, "pre-commit hook del gate — juzga el index, no el disco"),
-  entra al monorepo el 18-ago (`7ade295`), symlink instalado en la KB el
+  entra al monorepo el 18-ago (`765711e`), symlink instalado en la KB el
   18-ago 22:39. ✓
 
 Consecuencias, sin anestesia:

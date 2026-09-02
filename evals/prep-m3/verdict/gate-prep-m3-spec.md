@@ -3,7 +3,7 @@
 - **Fecha**: 2026-07-17
 - **Rol**: consultor delegado de gate (régimen framework §8 / config §Ejecución
   de gates), dispatch fresco, sin participación en ninguna fase de la pieza.
-- **Pregunta**: ¿la rama `prep-m3-skills` (6 commits sobre `master@99f38fd`) es
+- **Pregunta**: ¿la rama `prep-m3-skills` (6 commits sobre `master@541bd34`) es
   mergeable como entrega spec-first del ítem prep-M3 (framework §5.3 paso 1 y
   solo paso 1), con el gold como oráculo válido de la implementación futura?
 
@@ -79,7 +79,7 @@ paridad crítica incluida). Todos con base textual literal:
   *"Write → Run (pass) → Revert fix → Run (MUST FAIL) → Restore"*) ✓.
 
 Conclusión del muestreo: el verdict adversarial (`gold-verification.md`,
-commit 70fe3cc) no miente — su cobertura declarada del 100%, sus 13 findings
+commit 59a4502) no miente — su cobertura declarada del 100%, sus 13 findings
 y sus correcciones de línea son consistentes con lo que las fuentes dicen.
 
 ## 3. Spec contra criterio raíz
@@ -105,9 +105,9 @@ y sus correcciones de línea son consistentes con lo que las fuentes dicen.
   (overflow ⇒ reference files ⇒ escalar, nunca recortar checklist; cap 2
   retries ⇒ parar; movimiento sin cita = fallo aunque el resto pase; paridad
   crítica no negociable en retry). Matan de verdad.
-- **Fixes post-review reales**: commit 8d13296 aplica exactamente los 13
+- **Fixes post-review reales**: commit 9d4eb59 aplica exactamente los 13
   menores (conté los hunks contra la lista B1-B2/P1-P2/O1-O5/D1-D3/DOC1);
-  commit a3fcc0f añade el ítem de degradación del memory packet en gold
+  commit a199bbd añade el ítem de degradación del memory packet en gold
   orchestrate, espejo del de documenta línea 10, como exige spec §3.4 ✓.
 
 ## 4. Adjudicación PENDIENTE-CONSULTOR: idioma castellano

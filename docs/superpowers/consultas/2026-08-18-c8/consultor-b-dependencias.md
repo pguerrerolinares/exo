@@ -3,7 +3,7 @@
 - **Fecha**: 2026-08-18 · **Consultor**: fable delegado, fresco (sin participación previa en C8)
 - **Alcance**: barrido de dependencias vivas a `superpowers` (B1), semántica de skill ausente (B2), adjudicación M3-03/fabrica (B3), verificación M3-02 (B4), checklist pre-apagado (B5).
 - **Fuera de alcance** (consultor A/C en paralelo): mecánica de instalación del plugin `process`, sustituto de `using-superpowers` (M3-05), marketplace (M1b). Consigno hechos que les tocan, sin adjudicarlos.
-- **Entorno verificado**: exo `main` @ `89dbe95` (limpio, worktree `c8-m3` @ mismo commit, checkout limpio sin cambios — es espejo, no dependencia). `~/.claude/settings.json:22` = `"superpowers@claude-plugins-official": true`. Caché instalada: superpowers 6.3.0, paul-profile 0.5.0, reflex 0.13.0, workflow-lint 0.1.0 (`installed_plugins.json`). Marketplace `agent-develop` con `autoUpdate: true` desde GitHub.
+- **Entorno verificado**: exo `main` @ `ffac811` (limpio, worktree `c8-m3` @ mismo commit, checkout limpio sin cambios — es espejo, no dependencia). `~/.claude/settings.json:22` = `"superpowers@claude-plugins-official": true`. Caché instalada: superpowers 6.3.0, paul-profile 0.5.0, reflex 0.13.0, workflow-lint 0.1.0 (`installed_plugins.json`). Marketplace `agent-develop` con `autoUpdate: true` desde GitHub.
 
 ---
 

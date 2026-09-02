@@ -8,7 +8,7 @@ use std::path::Path;
 use std::time::Instant;
 
 /// Un resultado de búsqueda, forma EXACTA del contrato §4.1 de
-/// `2026-07-17-indexer-design.md` (sellado, gateado en 52e3080).
+/// `2026-07-17-indexer-design.md` (sellado, gateado en 4912295).
 #[derive(Debug, Serialize, PartialEq)]
 pub struct Resultado {
     pub permalink: String,

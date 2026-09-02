@@ -68,7 +68,7 @@ mecanismo de bump ya está previsto en `engine/src/envelope.rs:4-6`.
 >    `forzado`) y quedó fuera del renombrado. Como `SCHEMA_VERSION` ya estaba
 >    en 2, terminarlo después habría costado un v3 — un segundo cambio
 >    breaking para los terceros que la ola existe para habilitar. Arreglado en
->    `674d368`: `relative_path`, `absolute_path`, `created`,
+>    `0443c39`: `relative_path`, `absolute_path`, `created`,
 >    `frontmatter_filled`, `forced`.
 > 2. **«Un solo consumidor real» era falso.** `documenta/SKILL.md:75` consume
 >    `ruta_abs` del envelope de `write`. Medir mal el blast radius es lo que
@@ -297,8 +297,8 @@ G4 no es «uno más»: es **un tercio largo del total**.
 ## Ola 0 — precondiciones
 
 1. **~~Empujar las tres ramas de portabilidad.~~ YA HECHO.** Los tres fixes
-   están mergeados en `main` (`00b014f`, `55fc426`, `5e5e490`), publicados como
-   reflex `0.17.0` (`67c077d`) e instalados en la caché de esta máquina.
+   están mergeados en `main` (`27c5636`, `6a283fa`, `9ac410a`), publicados como
+   reflex `0.17.0` (`7c92a36`) e instalados en la caché de esta máquina.
    Verificado: `git branch --contains` de las tres da `main`.
 2. **Pasada de `cargo fmt`** en commit propio: **90 diffs preexistentes**,
    contados hoy. Sin esto el gate `fmt --check` de G5 nace rojo.

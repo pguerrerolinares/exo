@@ -97,7 +97,7 @@ Pero **hoy hay dos vías más** que no existían entonces:
    entera, disponible como CLI y usado por el agente a demanda.
 2. **Desde hoy mismo**, un hook `UserPromptSubmit` que inyecta punteros a notas
    relevantes en cada prompt sustantivo, sin que nadie lo pida (M6-06, mergeado
-   en `09a1666`).
+   en `c55644a`).
 
 Pregunta que nadie se ha hecho: **si el contenido llega por retrieval y no por
 inyección de arranque, ¿qué problema resuelve hoy limitar el tamaño de una nota?**

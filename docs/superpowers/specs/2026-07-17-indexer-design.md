@@ -160,7 +160,7 @@ Adjudicación D6, literal en spec M2 §2: mientras dure el side-by-side, el engi
 
 ## 6. Versión pineada de sqlite-vec
 
-**`sqlite-vec = "=0.1.9"`** — fijada por M2-01 (commit `66fc07d`, rama `m2-01`; `cargo add` resolvió 0.1.9 como última estable, excluyendo `0.1.10-alpha.4` por pre-release). **Con `=`, jamás `^`** (spec M2 §2 y §7 riesgo 4: pre-v1 con breaking changes anunciados; un `^` accidental es riesgo silencioso).
+**`sqlite-vec = "=0.1.9"`** — fijada por M2-01 (commit `cb88b70`, rama `m2-01`; `cargo add` resolvió 0.1.9 como última estable, excluyendo `0.1.10-alpha.4` por pre-release). **Con `=`, jamás `^`** (spec M2 §2 y §7 riesgo 4: pre-v1 con breaking changes anunciados; un `^` accidental es riesgo silencioso).
 
 - Dato de compatibilidad: el índice vivo de bm opera `vec0(embedding float[768])` en producción sobre esta misma máquina (probe RO 2026-07-17).
 - MSRV del crate: rustc ≥ 1.97 (`libsqlite3-sys` 0.38.1 usa `cfg_select!`; desviación declarada de M2-01).

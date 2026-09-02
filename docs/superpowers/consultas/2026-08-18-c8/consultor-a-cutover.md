@@ -2,7 +2,7 @@
 
 Consultor independiente, dispatch fresco, 2026-08-18. Adjudica A1..A4 con
 verificación primaria propia. Entorno: Claude Code 2.1.234 (`claude --version`),
-HEAD de exo `89dbe95`, working tree limpio salvo `?? .worktrees/` y sin commits
+HEAD de exo `ffac811`, working tree limpio salvo `?? .worktrees/` y sin commits
 sin push (`git -C exo log origin/main..main` vacío).
 
 ## Contexto verificado (y dónde el brief se desvía)
@@ -15,7 +15,7 @@ sin push (`git -C exo log origin/main..main` vacío).
   agent-develop completo). Confirmado: hoy no es instalable.
 - Paridad: `evals/prep-m3/verdict/gate-prep-m3-impl.md:287-289` — «Paridad
   135/135, 0 movimientos nuevos sin cita, 0 descartes resucitados … VEREDICTO
-  FINAL: MERGED» (tras el fix `fc51e09` del 134/135 inicial). Cierto.
+  FINAL: MERGED» (tras el fix `72d3e92` del 134/135 inicial). Cierto.
 - Visibilidad (gh, primario): `exo` PRIVATE, `agent-develop` PRIVATE,
   `workflow-lint` **PUBLIC** (matiz relevante para A1).
 - `GATE-CALENDARIO-D`: cerrado, no derogado (plan §0, líneas 34-38: D corrida
@@ -294,7 +294,7 @@ solo cache y `installed_plugins.json`; adjudico que ESO no es línea roja):
   plugin.json o registro en marketplace — no existen (find + lectura de
   marketplace.json de agent-develop + installed_plugins.json). El brief es
   correcto ahí. La paridad 135/135 la verifiqué contra el verdict real, no me
-  la creí (RECHAZADA inicial en L9 → fix fc51e09 → MERGED L287).
+  la creí (RECHAZADA inicial en L9 → fix 72d3e92 → MERGED L287).
 - **«Repo privado rompe el source github»** (hipótesis a favor de path local):
   parcialmente refutada — el marketplace privado agent-develop funciona con
   credenciales git del usuario (evidencia local + doc). PERO el único

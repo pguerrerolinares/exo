@@ -3,7 +3,7 @@
 - **Veredicto: MERGED**
 - **Adjudica**: consultor Fable delegado (dispatch fresco: sin participación en la implementación, ni en su review, ni en la spec), régimen de gates de `.superpowers/fabrica/config.md` §"Ejecución de gates". Este gate juzga el MERGE de la implementación; NO es el gate oficial M2-09 (mismo-día, pineado), que sigue pendiente.
 - **Fecha**: 2026-07-18 (madrugada)
-- **Rama juzgada**: `m2-07-impl` (HEAD `ee839ac`, 2 commits sobre `main`@`8299add`): 44 ficheros, +2414/−25. Código: `engine/src/buscador.rs` (+209), `engine/src/main.rs` (+52/−…), `engine/tests/buscador.rs` (+79); harness: `replay-engine.py` extendido + 2 scripts nuevos; el resto son `results/*.jsonl`/`metrics-*.md` de las corridas del sweep + el reporte.
+- **Rama juzgada**: `m2-07-impl` (HEAD `6a83726`, 2 commits sobre `main`@`4b84ee6`): 44 ficheros, +2414/−25. Código: `engine/src/buscador.rs` (+209), `engine/src/main.rs` (+52/−…), `engine/tests/buscador.rs` (+79); harness: `replay-engine.py` extendido + 2 scripts nuevos; el resto son `results/*.jsonl`/`metrics-*.md` de las corridas del sweep + el reporte.
 - **Contrato**: spec sellada `docs/superpowers/specs/2026-07-17-fusion-design.md` (§4 diseño, §5 sweep, §7 tests), mergeada con gate propio (`gate-m2-07-spec.md`). La implementación se juzga contra ella, no contra gusto propio.
 
 ## Verificación primaria propia (re-corrida, no tomada del reporte ni de la review)

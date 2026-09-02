@@ -90,8 +90,8 @@ $ ls -d ~/.claude/plugins/cache/exo/*/*/
 |---|---|---|---|
 | `context7@claude-plugins-official` | `b819188d2eea` | `cache/claude-plugins-official/context7/b819188d2eea` | `6d5f7944…` |
 | `equipo-x@equipo-x-standards` | `1.4.0` | `cache/equipo-x-standards/equipo-x/1.4.0` | `d0fdc4df…` |
-| `process@exo` | `1.0.0` | `cache/exo/process/1.0.0` | `8c58467f…` |
-| `reflex@exo` | `0.17.0` | `cache/exo/reflex/0.17.0` | `67c077db…` |
+| `process@exo` | `1.0.0` | `cache/exo/process/1.0.0` | `54586b3e…` |
+| `reflex@exo` | `0.17.0` | `cache/exo/reflex/0.17.0` | `7c92a363…` |
 
 Nota: `reflex/0.16.0/` sigue en caché pero **no** está en
 `installed_plugins.json` — es residuo del despliegue del 23-08, ya anotado como
@@ -139,7 +139,7 @@ plugin** (Task 8, Step 1½): mucho más fuerte que el argumento del mtime.
 ```
 
 El último eslabón llama a **`exo config`**, un subcomando que **nació en la ola
-1A de hoy** (`43b9e36`). El binario instalado es del 24-08:
+1A de hoy** (`fbb4fde`). El binario instalado es del 24-08:
 
 ```
 $ ~/.local/bin/exo.exe config --json

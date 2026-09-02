@@ -3,7 +3,7 @@
 - **Veredicto: MERGED**
 - **Adjudica**: consultor Fable delegado (dispatch fresco, sin participación en la redacción de la spec ni en su verificación adversarial), régimen de gates de `.superpowers/fabrica/config.md` §"Ejecución de gates" (4 condiciones, cumplimiento al final).
 - **Fecha**: 2026-07-17 (noche)
-- **Rama juzgada**: `m2-07` (HEAD `714500b`), diff vs `main` (d93d362): 3 ficheros, +282/−0 tras fixes — `docs/superpowers/specs/2026-07-17-fusion-design.md` (spec), `evals/e1-read/gate.md` (gate pre-registrado), `reports/m2-07-report.md` (review-package). **Cero código**: `git diff main..HEAD -- engine/` = ∅, verificado.
+- **Rama juzgada**: `m2-07` (HEAD `20e2c32`), diff vs `main` (4ce4128): 3 ficheros, +282/−0 tras fixes — `docs/superpowers/specs/2026-07-17-fusion-design.md` (spec), `evals/e1-read/gate.md` (gate pre-registrado), `reports/m2-07-report.md` (review-package). **Cero código**: `git diff main..HEAD -- engine/` = ∅, verificado.
 - **Criterio citado**: spec madre `2026-07-16-framework-unificado-design.md` §4.2 línea 65 ("Fusión: copiar el **diseño** de basic-memory (fórmula max(v,f)+bonus·min(v,f), clave (type,id), gate FTS, normalización BM25, threshold configurable) — **jamás el código: basic-memory es AGPL-3.0**" — cotejada literal contra la cita de la spec §2) + §4 punto 4 ("comparación pareada, no test de proporciones"; "Re-sweep del threshold por modelo"; "Atribución de cada miss"). Spec M2 `2026-07-17-m2-e1-read-design.md` §1 (no-objetivos), §4 ("analyze.py intacto"), §5 (3 patas; pata 2 literal).
 
 ## Verificación primaria propia (no del reporte, no del verdict previo)
@@ -35,9 +35,9 @@ Cross-check `analyze.py` (segundo oráculo): regenera `metrics-engine-fts.md` y 
 
 - **Pata 2 cotejada palabra a palabra** contra spec M2 §5.2: "engine-hybrid **rompe ≤2 y arregla ≥ las que rompe** vs bm-hybrid (referencia hoy 43/55)…" — transcripción LITERAL, incluida la cláusula "prohibido comparar contra `results/` de julio" y el cierre "los números no se renegocian post-hoc". Patas 1 y 3 ídem, literales.
 - **Separación GATE oficial vs sanity-check 46**: limpia. El sanity ("engine-hybrid < 46/55 señala fusión mal calibrada") queda marcado "informativo, NO es el gate", "no bloquea por sí solo; no sustituye ni endurece el gate oficial". Busqué endurecimiento encubierto (sanity→criterio, subgrupo→gate) y relajación encubierta ("referencia real = mismo día" NO es relajación: es exactamente lo que exige el pareado mismo-día de spec M2 §5): nada.
-- **Congelado**: `git diff c100ce8..HEAD -- evals/e1-read/gate.md` = ∅ — el commit de fixes 714500b NO lo tocó (verificado por diff, no por el mensaje del commit).
+- **Congelado**: `git diff 30979c1..HEAD -- evals/e1-read/gate.md` = ∅ — el commit de fixes 20e2c32 NO lo tocó (verificado por diff, no por el mensaje del commit).
 
-## Fixes 714500b — auditados contra el diff exacto (`git show 714500b`)
+## Fixes 20e2c32 — auditados contra el diff exacto (`git show 20e2c32`)
 
 Un solo fichero (la spec de fusión, +8/−6), los 4 fixes hacen lo que dicen y nada más:
 
@@ -54,9 +54,9 @@ Ninguna decisión (D-f1/D-f2/D-f3) cambió; ningún contenido nuevo fuera de los
 2. **Diseño incoherente** — normalización D-f1: monótona, acotada (0, β], degenerados cubiertos (1 candidato → β; f_max=0 → canal descartado); única compatible con el spread ×49 que yo mismo re-medí (×48.9). Fórmula §4.4 degenera limpiamente con canal ausente = 0 (lo que viabiliza la unión sin casos especiales). D-f3 pre-fusión = misma semántica que `busca_vector` hoy. Sin objeción.
 3. **Viabilidad del gate M2-09 vendida de más** — comprobé la aritmética del argumento: vector puro rompe 3 (>2); de esas, las 2 no-FTS-HIT son both-miss a top-5, solo rescatables por efectos de pool profundo. La spec NO promete pasar el gate; documenta que la fusión debe rescatar `lighthouses…` sin romper hits vectoriales (riesgo §8.1 declarado, con la atribución como red). Honesto. Sin objeción.
 4. **Sobreajuste al eval set** — declarado en §5.3 con la mitigación del precedente M0 (mismo trato a bm, gate pareado, sin gold nuevo — prohibido por spec M2 §3). Riesgo residual real pero pre-registrado. Sin objeción.
-5. **Deferencia al verdict previo** — no deferí: TODOS los números de la tabla de arriba salen de mi propio script contra los jsonl crudos; los cotejos de gate.md y del diff 714500b son míos. El verdict previo (`m2-07-verificacion-adversarial.md`, APROBADA-CON-OBJECIONES-MENORES, 0 bloqueantes) resulta consistente con lo que yo mismo medí — coincidencia por verificación, no por confianza.
+5. **Deferencia al verdict previo** — no deferí: TODOS los números de la tabla de arriba salen de mi propio script contra los jsonl crudos; los cotejos de gate.md y del diff 20e2c32 son míos. El verdict previo (`m2-07-verificacion-adversarial.md`, APROBADA-CON-OBJECIONES-MENORES, 0 bloqueantes) resulta consistente con lo que yo mismo medí — coincidencia por verificación, no por confianza.
 
-**Observación menor registrada (no bloqueante, no exige acción pre-merge)**: `reports/m2-07-report.md` es el snapshot del spec-writer PRE-fixes: conserva "predicción pre-registrada ≤28/55" y "Estado: … lista para verificación adversarial", desactualizados tras 714500b. La fuente normativa (la spec) está corregida; el reporte es artefacto histórico del review-package. Que nadie cite la predicción desde el reporte: la vigente es 28–41 (spec §4.5/§5.1).
+**Observación menor registrada (no bloqueante, no exige acción pre-merge)**: `reports/m2-07-report.md` es el snapshot del spec-writer PRE-fixes: conserva "predicción pre-registrada ≤28/55" y "Estado: … lista para verificación adversarial", desactualizados tras 20e2c32. La fuente normativa (la spec) está corregida; el reporte es artefacto histórico del review-package. Que nadie cite la predicción desde el reporte: la vigente es 28–41 (spec §4.5/§5.1).
 
 ## Cumplimiento de las 4 condiciones del régimen
 

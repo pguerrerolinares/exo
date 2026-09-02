@@ -2,7 +2,7 @@
 
 - **Fecha**: 2026-07-17T16:25:37+02:00
 - **Adjudicador**: consultor fable delegado (régimen config `.superpowers/fabrica/config.md` §Ejecución de gates; dispatch fresco, sin participación en ninguna fase de la pieza).
-- **Deliverable**: rama `prep-m3-impl`, base `master@548e00b`, 9 commits (`a49cc15..a8e6b3a`).
+- **Deliverable**: rama `prep-m3-impl`, base `master@55eb469`, 9 commits (`455f773..9f1a180`).
 - **Criterio**: spec `docs/superpowers/specs/2026-07-17-prep-m3-process-skills-design.md` (§3 formato, §5.x diseño, §9 kill-criteria) + oráculo `evals/prep-m3/gold/*.md` con procedimiento `evals/prep-m3/README.md` (paridad 100%, 0 movimientos nuevos sin cita, 0 descartes resucitados).
 - **Método**: verificación primaria propia — recorrido EXHAUSTIVO de los 135 checkboxes gold contra la implementación real (no muestreo), verificación de ausencia de TODOS los descartes (lectura + greps), barrido inverso, y spot-checks contra las fuentes originales (orchestrate-personal 0.5.0, recon-first 0.9.0, `~/.claude/commands/documenta.md`, SDD SKILL.md/implementer-prompt.md/task-reviewer-prompt.md, executing-plans, dispatching-parallel-agents, scripts). No se ha usado ningún self-report de los implementers como evidencia.
 
@@ -55,7 +55,7 @@ Por qué no es "redacción destilada" sino regla perdida: la cláusula es una pr
 
 ## Adjudicación de la desviación declarada: orchestrate body 54 no-blank vs "~50"
 
-**ACEPTADA (no revoco).** Fundamento: (a) el techo de spec §3.2 lleva tilde ("~30-50"), y 54 es un 8% sobre el extremo con 42 movimientos gold que cubrir — la mayor carga de las 7 con diferencia; (b) el kill-criterio §9.1 ya se ejecutó en la dirección correcta (commit `a8e6b3a`: carne a reference files, −68 líneas netas; la skill ya descarga en 5 reference files); (c) forzar −4 líneas más solo puede salir de recortar movimientos, que es exactamente lo que §9.1 prohíbe ("escalar al consultor-gate, no recortar el checklist" — escalado hecho: yo soy ese gate y lo adjudico así). Los otros seis bodies caben en rango estricto, así que la desviación no es patrón sino coste real de la fusión de 4 fuentes.
+**ACEPTADA (no revoco).** Fundamento: (a) el techo de spec §3.2 lleva tilde ("~30-50"), y 54 es un 8% sobre el extremo con 42 movimientos gold que cubrir — la mayor carga de las 7 con diferencia; (b) el kill-criterio §9.1 ya se ejecutó en la dirección correcta (commit `9f1a180`: carne a reference files, −68 líneas netas; la skill ya descarga en 5 reference files); (c) forzar −4 líneas más solo puede salir de recortar movimientos, que es exactamente lo que §9.1 prohíbe ("escalar al consultor-gate, no recortar el checklist" — escalado hecho: yo soy ese gate y lo adjudico así). Los otros seis bodies caben en rango estricto, así que la desviación no es patrón sino coste real de la fusión de 4 fuentes.
 
 ## Tabla de paridad — resumen por skill (ausentes/dudosos uno a uno)
 
@@ -265,10 +265,10 @@ Un fix de una línea en `documenta` (± las dos explicitaciones recomendadas en 
 
 ---
 
-# ADDENDUM — Re-gate tras el fix `fc51e09`
+# ADDENDUM — Re-gate tras el fix `72d3e92`
 
 - **Fecha**: 2026-07-17 (mismo consultor, re-gate acotado según la consecuencia prescrita arriba).
-- **Alcance verificado**: `git show fc51e09` completo — UN fichero (`plugins/process/skills/documenta/SKILL.md`), 2 inserciones / 1 borrado (parte la línea 32 y añade la cláusula). Nada más tocado; working tree limpio. El resto de la rama es byte-idéntico a lo ya verificado (134/135 + paridad crítica + scope + descartes de las otras 6 skills siguen válidos sin re-verificar).
+- **Alcance verificado**: `git show 72d3e92` completo — UN fichero (`plugins/process/skills/documenta/SKILL.md`), 2 inserciones / 1 borrado (parte la línea 32 y añade la cláusula). Nada más tocado; working tree limpio. El resto de la rama es byte-idéntico a lo ya verificado (134/135 + paridad crítica + scope + descartes de las otras 6 skills siguen válidos sin re-verificar).
 
 ## Re-ejecución del gold de documenta: 16/16 PRESENTES
 
@@ -278,7 +278,7 @@ Un fix de una línea en `documenta` (± las dos explicitaciones recomendadas en 
 
 ## DESCARTES de documenta re-verificados por ausencia
 
-Grep post-fix sobre `documenta/`: sin gramática `- [categoria]`/`tipo_relacion` como estructura, sin `mcp__*` hardcodeado, sin trailer Co-Authored-By, sin `sesiones/`. Único match de `basic-memory`: L8 "vía engine — hoy kbx/basic-memory/filesystem" — es la formulación que la spec §3.4/framework §5.1 exige literalmente, no el hardcode de tools MCP que el descarte prohíbe; ya estaba en la versión gateada y fc51e09 no la toca. **0 descartes resucitados.**
+Grep post-fix sobre `documenta/`: sin gramática `- [categoria]`/`tipo_relacion` como estructura, sin `mcp__*` hardcodeado, sin trailer Co-Authored-By, sin `sesiones/`. Único match de `basic-memory`: L8 "vía engine — hoy kbx/basic-memory/filesystem" — es la formulación que la spec §3.4/framework §5.1 exige literalmente, no el hardcode de tools MCP que el descarte prohíbe; ya estaba en la versión gateada y 72d3e92 no la toca. **0 descartes resucitados.**
 
 ## Qué busqué para objetar (re-gate)
 

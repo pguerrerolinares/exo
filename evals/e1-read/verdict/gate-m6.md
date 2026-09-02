@@ -5,8 +5,8 @@ propia: todos los comandos de abajo los corrí yo; ningún número viene del
 reporte sin recomputar.
 
 Ramas juzgadas:
-- `m6-01` en exo (4 commits sobre `3d7f073`: 8a0e0c1 refresca, d516879
-  cache de embeddings, fc31aaf `--contenido`/`--nota`, 6b3b491 reporte).
+- `m6-01` en exo (4 commits sobre `88120c2`: 12d5b3c refresca, 0404847
+  cache de embeddings, 93d2a3e `--contenido`/`--nota`, fb65261 reporte).
 - `m6-cutover-recall` en agent-develop (a1818ea, reflex 0.13.0:
   SessionStart → `exo-recall.sh`, Stop += `exo-index.sh`).
 
@@ -48,7 +48,7 @@ Ramas juzgadas:
    error queda en el log y el siguiente Stop lo recupera — pérdida de un
    indexado, nunca corrupción.
 
-5. **Cache de embeddings (d516879)** — revisión de código dura:
+5. **Cache de embeddings (0404847)** — revisión de código dura:
    - La clave es el **texto exacto** del trozo (no hash, no posición):
      colisiones imposibles, inserciones que desplazan `orden` siguen
      acertando.

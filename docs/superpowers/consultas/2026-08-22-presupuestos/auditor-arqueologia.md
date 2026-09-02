@@ -235,7 +235,7 @@ olvida":
 **Ausencia total, y documentada como decisión deliberada.** El pre-commit hook
 (`kb-precommit.sh`) se creó el **2026-08-17** (`3aebd5d`, repo `agent-develop`)
 y se instaló como symlink en `kb-demo/.git/hooks/pre-commit` ese mismo día
-(reubicado a `exo/plugins/reflex/scripts/` el 08-18, `7ade295`, sin cambio de
+(reubicado a `exo/plugins/reflex/scripts/` el 08-18, `765711e`, sin cambio de
 contenido). Antes de esa fecha **no existía ningún hook de git** en el repo de
 la KB — ni el de `kbx` ni un `kb-budget-check.sh` anterior (ese script bash,
 creado 07-03 junto con `/consolida`, nunca se conectó a un hook; era invocable
@@ -326,7 +326,7 @@ nace **3-ago** (`41b3959`). El **pre-commit bloqueante** (`kb-precommit.sh`,
 que corre `kbx ratchet --staged` + `kbx budget`) se **creó y commiteó el
 17-ago a las 20:49:40** (`3aebd5d`, repo `agent-develop`) — **35 segundos
 después** del commit del triaje que cerró las brechas (`27f897e`, 20:49:05,
-mismo día, misma sesión). El movimiento a `7ade295` (18-ago) es una
+mismo día, misma sesión). El movimiento a `765711e` (18-ago) es una
 **reubicación de fichero** cuando reflex entra en el monorepo exo, no la
 instalación original — el script no cambia de contenido. `.git/hooks/pre-commit`
 no está versionado, así que no hay commit que fije la hora exacta en que el

@@ -5,11 +5,11 @@
 Worktree `/home/paul/Documentos/proyectos/exo/.worktrees/m2-06`, rama `m2-06`.
 
 Commits:
-- `1b21559` — feat(engine): chunker propio de trozos + embedder batch de proceso
-- `52b015c` — feat(engine): helpers de bajo nivel sobre vectores (vec0) + verificación de API
-- `29fb0e4` — feat(engine): puebla trozos+vectores al indexar, cascada de borrado extendida
-- `a61c787` — feat(engine): exo search --type vector
-- `bd7d78a` — feat(evals): arm engine-vector en el harness
+- `c931d1c` — feat(engine): chunker propio de trozos + embedder batch de proceso
+- `0cc7430` — feat(engine): helpers de bajo nivel sobre vectores (vec0) + verificación de API
+- `6fcc188` — feat(engine): puebla trozos+vectores al indexar, cascada de borrado extendida
+- `bce6246` — feat(engine): exo search --type vector
+- `a3987e6` — feat(evals): arm engine-vector en el harness
 - `<pendiente>` — docs(m2): reporte final + verificación de idempotencia (este commit)
 
 ## Task 1 — Chunker (`engine/src/trozos.rs`)
@@ -304,4 +304,4 @@ exit=0
 - `kb-demo/log/exo-bitacora`
 - `kb-demo/learnings/desarrollo-agentico`
 
-GATE: MERGED (consultor fable, 2026-07-17T22:56:04+02:00, verdict=evals/e1-read/verdict/gate-m2-06.md@312da73)
+GATE: MERGED (consultor fable, 2026-07-17T22:56:04+02:00, verdict=evals/e1-read/verdict/gate-m2-06.md@42dc534)

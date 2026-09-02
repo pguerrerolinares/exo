@@ -145,7 +145,7 @@
   alias.
 
 - [ ] **Barrer los hallazgos vivos del gate M4** (`evals/e1-read/verdict/gate-m4.md`).
-  Cerrados en `acb312e`: traversal por `..` en `--dir`/`--titulo`, `--force` sin
+  Cerrados en `2f5f545`: traversal por `..` en `--dir`/`--titulo`, `--force` sin
   rastro en el envelope, flag muerto `--min-similitud` en `write new`. Cerrado
   en la Task 9 de ola 1A (2026-08-26): **#3** — el rechazo exit 3 ahora emite
   envelope con `--json` (`{"command":"write","data":{"reason":...}}`, claves en
@@ -334,7 +334,7 @@
   `cargo test` no sale 0 (sin tubería: mide el exit code de `cargo`
   directamente, no el del último comando de un pipe). Verificado falsable con
   un ciclo red-green real: revertido `engine/tests/indexer.rs` al commit
-  anterior a su hermetización (`8d512fc2bd7a30fdde1c08cdfdce311b18b566a6`), el
+  anterior a su hermetización (`2f7d8ec541fa5b26b199d1323e7562753883509b`), el
   gate dio `EXIT_ROJO=1` citando `--test indexer` en el diagnóstico; restaurado
   el fichero (`restaurado OK`), el gate volvió a dar `EXIT_VERDE=0`. Este será
   el gate que consuma el CI de G5.
@@ -357,7 +357,7 @@
   `--db` explícitos pero no `EXO_CONFIG`; bajo `test-hermetico.sh` el padre
   lleva esa variable a una ruta inexistente a propósito, el hijo la heredaba
   y moría leyendo la config de embeddings — ninguna pista podía verlo sola,
-  porque cada una era verde en su propio worktree. Arreglado en `c723311`
+  porque cada una era verde en su propio worktree. Arreglado en `01225ff`
   (`.env("EXO_CONFIG", &config)` explícito en el test). Es el argumento
   entero a favor del punto de encuentro único: un fallo de composición
   invisible a cualquiera de las dos pistas por separado.

@@ -163,7 +163,7 @@ exit 2 (medido). Los demás flags llevan valores que controlamos nosotros.
   `--refresca` dispararía un bootstrap de **minutos** bajo un timeout de 30 s: un
   kill a mitad de un turno no es forma de construir un índice. Sin DB: abstención
   logueada, nunca bootstrap. (El agravante original de esta regla —"el indexer no es
-  transaccional"— **ya no aplica**: `db5e0ae` metió transacción por nota y es
+  transaccional"— **ya no aplica**: `dfb2893` metió transacción por nota y es
   ancestro de HEAD. La regla se mantiene por el timeout, que basta solo.)
 - **Motor**: no hay alternativa viva. FTS-AND no encuentra nada (§1), FTS-OR exige
   bifurcar el engine y revalidar las 56 queries en dos modos, el escalonado está

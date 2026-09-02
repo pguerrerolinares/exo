@@ -48,7 +48,7 @@ Precisiones:
   del evento. Refuerza la conclusión, no la debilita.
 - El claim "las `edit_note` son todas anteriores a C7" sobrevive **por 3
   horas**: las últimas son del 17-ago 21:36 local y el merge de C7 es del
-  18-ago 00:48 (`89dbe95`, verificado con `git log --format=%cI`). Cierto, pero
+  18-ago 00:48 (`ffac811`, verificado con `git log --format=%cI`). Cierto, pero
   la spec debería decir "anteriores al merge de C7" sin más épica: la ventana
   post-cutover del write-path es de horas, no de días.
 
@@ -119,9 +119,9 @@ escribirlo como fix, no como lectura.
 ### Claim 5 — Estado de milestones → **SOBREVIVE**
 
 Verificado contra `git log` con timestamps:
-`3d7f073` (M2-08/09, E1 read, 17-ago 22:59) · `06ad42c` (M6-01/02, 17-ago
-23:52) · `89dbe95` (C7/M4, 18-ago 00:48) · `4f05e8e` (C8/M3+M1b, 18-ago 07:50)
-· cabeza `72ae7f3` (la propia spec). El runbook de C8 declara cutover
+`88120c2` (M2-08/09, E1 read, 17-ago 22:59) · `6904d15` (M6-01/02, 17-ago
+23:52) · `ffac811` (C7/M4, 18-ago 00:48) · `fe0096b` (C8/M3+M1b, 18-ago 07:50)
+· cabeza `9152c12` (la propia spec). El runbook de C8 declara cutover
 ejecutado y verificado, incluido el probe M3-02 verde
 (`inject-emitted type=reflex:executor perfil=reducido bytes=997`). Todo en
 ~9 horas del 17 a la mañana del 18 — otro recordatorio de que "un día

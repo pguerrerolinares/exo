@@ -3,7 +3,7 @@
 - **Veredicto: MERGED**
 - **Adjudica**: consultor Fable delegado (dispatch fresco, sin participación en ninguna fase de m2-06), régimen de gates de `.superpowers/fabrica/config.md` §"Ejecución de gates" (4 condiciones, todas cumplidas abajo).
 - **Fecha**: 2026-07-17 (~22:20 local)
-- **Rama juzgada**: `m2-06` (HEAD `91ef641`), diff vs `main`: 12 ficheros, +1353/−78.
+- **Rama juzgada**: `m2-06` (HEAD `7f96709`), diff vs `main`: 12 ficheros, +1353/−78.
 - **Criterio citado**: spec M2 `docs/superpowers/specs/2026-07-17-m2-e1-read-design.md` §3 (fila M2-06: "hit@5 vector vía harness; referencia bm 43/55"), §4, §7.1; spec indexer `docs/superpowers/specs/2026-07-17-indexer-design.md` §2, §2.1, §3, §4.1.
 
 ## Oráculos re-corridos (verificación primaria propia, no del reporte)

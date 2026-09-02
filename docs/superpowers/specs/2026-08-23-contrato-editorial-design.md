@@ -3,7 +3,7 @@
 Fecha: 2026-08-23. Origen: expediente de auditoría del sistema de presupuestos
 de la KB (`docs/superpowers/consultas/2026-08-22-presupuestos/`), propuesta v2,
 puntos **Pata A.2, A.3, A.4 y A.5** más el test del título de §1.4.
-Estado: **implementada** (2026-08-23). `ba636b3` en exo (SKILL.md de
+Estado: **implementada** (2026-08-23). `02a5913` en exo (SKILL.md de
 `/consolida`, las seis piezas) y `0a008ce` en kb-demo (core-index + el
 precedente de Wikipedia appendeado a `log/doctrina-agentes-bitacora.md`).
 Verificado sobre el bloque real, no sobre el fichero: **6.570 → 6.084 B**, deja

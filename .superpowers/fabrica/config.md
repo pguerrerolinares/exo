@@ -55,7 +55,7 @@ criterio, pero el orden ejecutable lo fija el plan (C5→C10, con M6 adelantado
 sobre M4 por razón escrita en el plan).
 
 **Estado real (git es la verdad, 2026-08-17)**: M0 cerrado · M1a completo ·
-M2-01..07 mergeados y pusheados (`main` == `origin/main` en `1c824b5`) ·
+M2-01..07 mergeados y pusheados (`main` == `origin/main` en `67d37c7`) ·
 `exo index/rebuild/search --type fts|vector|hybrid` vivos, 72 tests verdes ·
 hybrid sellado `bonus=0.0 / β=0.6 / thr=0.40`, 49/55 diagnóstico. Falta M2-08
 (`exo recall`) y M2-09 (corrida final) para cerrar E1.
@@ -83,7 +83,7 @@ hybrid sellado `bonus=0.0 / β=0.6 / thr=0.40`, 49/55 diagnóstico. Falta M2-08
 **Estado a fecha de redacción original de este config (2026-07-17)** — histórico,
 reconciliar contra el bloque de arriba:
 - **M0 — CERRADO.** Verdict firmado (`evals/retrieval-fase0/verdict/m0-verdict.md`,
-  commit `f80393a`/`dc74d26` en rama `m0-fase0`): jina-es/768/threshold-0.35 en
+  commit `51e104b`/`2a8c034` en rama `m0-fase0`): jina-es/768/threshold-0.35 en
   producción, Rust firmado como lenguaje del engine (spec §10 decisión 1).
   **Pendiente solo el merge de `m0-fase0` → `master`** (en curso al redactar este
   config); al reconciliar (§0.2 del skill), git es la verdad — si el merge ya
@@ -117,7 +117,7 @@ reconciliar contra el bloque de arriba:
      SIEMPRE por el régimen de gates (§Ejecución de gates), nunca por clase
      pre-autorizada.
   3. **M2 — E1 read**: `GATE-HUECO-M2` ABIERTO por Paul 2026-07-17 (commit
-     `45faf41`). ADJUDICABLE. Fuente de items: spec
+     `f97c0fd`). ADJUDICABLE. Fuente de items: spec
      `docs/superpowers/specs/2026-07-17-m2-e1-read-design.md` §3 (M2-01..09,
      lanes y oráculos adjudicados por consultor fable, veredicto FIRMADO en
      `docs/superpowers/consultas/2026-07-17-m2-breakdown/consultor-verdict.md`).
@@ -198,7 +198,7 @@ reconciliar contra el bloque de arriba:
   verde").
 - **M0 — retrieval eval** (ya cerrado, referencia para M2): `evals/retrieval-fase0/harness/analyze.py`
   + `harness/replay.py` + `harness/stratify.py` sobre los `.jsonl` de
-  `results/`. Última corrida verde: commit `dc74d26` (verdict aplicado). Reusar
+  `results/`. Última corrida verde: commit `2a8c034` (verdict aplicado). Reusar
   este harness como base del side-by-side de E1 (spec §4.4-E1) cuando se abra
   M2 — no reinventar el arnés.
 - **kbx suite** (si M1a toca código de kbx al absorberlo "tal cual"):

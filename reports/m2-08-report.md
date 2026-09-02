@@ -2,11 +2,11 @@
 
 ## Estado: EN CURSO (Tareas 1 y 2 completas y verificadas; Tarea 3 pendiente del índice completo)
 
-Worktree `/home/paul/Documentos/proyectos/exo/.worktrees/m2-08`, rama `m2-08`, base `6a63e7b`.
+Worktree `/home/paul/Documentos/proyectos/exo/.worktrees/m2-08`, rama `m2-08`, base `4abb80c`.
 
 Commits:
-- `bf16d7f` — fix(m2-09a): desempate determinista por permalink en busca_vector y fusiona
-- `a8b9b4e` — feat(m2-08): comando exo recall (arranque + consulta)
+- `34548d1` — fix(m2-09a): desempate determinista por permalink en busca_vector y fusiona
+- `2234887` — feat(m2-08): comando exo recall (arranque + consulta)
 - `<pendiente>` — docs(m2-08): reporte final + números de latencia
 
 ## Tarea 1 — Desempate determinista (M2-09a)
