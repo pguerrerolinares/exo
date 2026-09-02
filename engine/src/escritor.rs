@@ -247,8 +247,8 @@ pub fn dup_candidatas(slug_nuevo: &str, permalinks: &[String]) -> Vec<(String, f
 /// `Rechazo::Duplicada` sin tocar el disco.
 // Ocho parámetros contra el umbral de 7 de clippy. Se declara en vez de
 // refactorizar: agrupar en una struct de parámetros toca el camino de
-// escritura y sus tests, y esto es una tarea de CI. Anotado como deuda en
-// docs/backlog.md.
+// escritura y sus tests, y el cambio que trajo este `allow` era montar el CI
+// (G5a, 2026-09-02). La deuda es la struct de parámetros, no el `allow`.
 #[allow(clippy::too_many_arguments)]
 pub fn escribe_nueva(
     kb: &Path,
