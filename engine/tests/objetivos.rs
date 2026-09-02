@@ -187,11 +187,19 @@ fn un_limite_menor_que_uno_es_error() {
 }
 
 // El dedup es por `notas.ruta`, no por permalink, y se queda con la PRIMERA
-// fila — que por `ORDER BY rank` es la de mejor rank. Hoy `notas_fts` es 1:1
-// con `notas` y el dedup es un no-op, pero se mantiene para el día en que el
-// FTS indexe trozos.
+// fila que llega. Hoy `notas_fts` es 1:1 con `notas` y el dedup es un no-op,
+// pero se mantiene para el día en que el FTS indexe trozos.
+//
+// El nombre dice "colapsa la ruta duplicada" y no "conserva la de mejor rank"
+// porque esto último **este fixture no puede demostrarlo**: medido el
+// 2026-09-02, las dos filas empatan en bm25 (`-0.000001375` las dos), así que
+// cuál sobrevive lo decide un tie-break de SQLite que ningún contrato
+// garantiza. kbx sí lo asevera, con un fixture cuyas filas rankean distinto.
+// Aseverar aquí el snippet superviviente seria fijar un comportamiento
+// accidental. Pendiente: un fixture con ranks separados de verdad — anotado
+// en el backlog de G4b.
 #[test]
-fn deduplica_por_ruta_conservando_la_fila_de_mejor_rank() {
+fn deduplica_la_ruta_duplicada_en_una_sola_candidata() {
     let (dir, db) = kb_con_indice();
     let conn = exo::abre_db(&db).unwrap();
     conn.execute(
