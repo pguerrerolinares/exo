@@ -135,9 +135,9 @@ pub fn busca_objetivos(
         let Some(fila) = filas.next().context("leer una candidata")? else {
             break;
         };
-        let permalink: String = fila.get(0)?;
-        let ruta_rel: String = fila.get(1)?;
-        let snippet: String = fila.get(2)?;
+        let permalink: String = fila.get(0).context("leer la columna permalink")?;
+        let ruta_rel: String = fila.get(1).context("leer la columna ruta")?;
+        let snippet: String = fila.get(2).context("leer el snippet")?;
 
         if !vistas.insert(ruta_rel.clone()) {
             continue;
