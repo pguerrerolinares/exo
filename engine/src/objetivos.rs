@@ -100,8 +100,10 @@ mod tests {
     // descartar aquí.
     //
     // Lo que este test NO prueba: que FTS5 trate esa cadena como literal. Eso
-    // solo lo demuestra una query contra el motor de verdad, y vive en
+    // solo lo demuestra una query contra el motor de verdad, y **todavía no
+    // existe** — lo añade la Task 4 del plan de G4a como
     // `tests/objetivos.rs::ningun_operador_fts5_se_ejecuta_como_operador`.
+    // Hasta entonces, la neutralización está razonada, no medida.
     #[test]
     fn los_operadores_fts5_salen_citados_termino_a_termino() {
         let casos = [
