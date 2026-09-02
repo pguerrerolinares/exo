@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  lint:
+    name: fmt + clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+      - name: cargo fmt --check
+        working-directory: engine
+        run: cargo fmt --check
+      - name: cargo clippy -D warnings
+        working-directory: engine
+        run: cargo clippy --all-targets -- -D warnings
+
+  msrv:
+    name: MSRV declarada (1.95)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # La MSRV está declarada en engine/Cargo.toml con una nota empírica y
+      # hasta hoy nada la comprobaba. Este job la hace falsable.
+      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+          key: msrv
+      - name: cargo check con la MSRV
+        working-directory: engine
+        run: cargo check --all-targets --locked
+
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+      # Nueve suites indexan cuerpos no vacíos y eso descarga el ONNX de
+      # jina-es (615 MB medidos) vía hf-hub. NO se marcan `#[ignore]`: un CI
+      # que no ejerce indexer ni buscador es verde sin significado. La clave
+      # lleva la revisión pineada del modelo, así que es inmutable: un acierto
+      # de caché no vuelve a subir nada.
+      - name: Caché del modelo jina-es (revisión pineada)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface/hub/models--jinaai--jina-embeddings-v2-base-es
+          key: hf-jina-es-8e2d780d-${{ runner.os }}
+      # El gate ya existe y ya se demostró falsable (2026-08-27). El CI lo
+      # consume tal cual en vez de reinventar el comando de test.
+      - name: Gate hermético — suite completa sin ~/.exo/config.toml
+        shell: bash
+        run: ./engine/scripts/test-hermetico.sh
