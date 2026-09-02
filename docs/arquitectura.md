@@ -499,25 +499,23 @@ Deriva relevante encontrada al escribir este documento (el código manda):
    el recall en el punto de uso (M6-06, `recall-inject.sh`) está implementado
    y cableado; la tabla de estado del backlog (revisión 2026-08-18) también es
    anterior a la fusión del plugin.
-2. **La semilla no tiene ninguna nota `tier: core`** (todas son `stable` o
-   `log`), pero `exo recall` en modo arranque selecciona por `tier: core`, y
-   la ayuda del CLI documenta `core|stable|log`. En una KB recién creada con
-   `exo init`, el modo arranque sin `--note` no sirve ningún bloque de cores;
-   los hooks lo esquivan pidiendo `--note <kb>/core/core-index` explícito.
-   `AGENTS.md` (el contrato de la semilla) solo define `stable` y `log`.
-3. **Dos guardas de los hooks están calibradas contra la KB del autor, no
-   contra la semilla** (conclusión por lectura de código, no ejecutada):
-   `exo-recall.sh` valida el bloque buscando la frase `Contrato de memoria`,
-   que no aparece en ningún fichero de `kb-template/` — sobre una KB semilla
-   ese guard cae siempre al fallback embebido. Y `compose-inject.sh` extrae
-   las secciones `## Doctrina compacta` y `## Cores` del core-index, que en el
-   core-index de la semilla no existen (sus headings son otros), de modo que
-   los perfiles de inyección degradan a doctrina + rutas.
-4. **El chunking que la spec del indexer declara "provisional, parámetro del
+2. **La semilla no cumplía el contrato que el propio sistema espera de ella
+   — detectado y corregido al escribir este documento.** El `core-index` de
+   `kb-template/` era `tier: stable`, pero `exo recall` en modo arranque
+   selecciona por `tier: core`; y le faltaban tanto la frase-guarda
+   `Contrato de memoria` con la que `exo-recall.sh` valida el bloque como las
+   secciones `## Doctrina compacta` y `## Cores` que extrae
+   `compose-inject.sh`. Una KB recién creada con `exo init` arrancaba, por
+   tanto, con el fallback embebido —dejando evento en el log, no en
+   silencio— en vez de con su propio mapa. La semilla cumple ya las tres
+   cosas, y `AGENTS.md` documenta el tier `core` que antes omitía;
+   verificado ejecutando `exo init` sobre un directorio limpio, no leyendo
+   el código.
+3. **El chunking que la spec del indexer declara "provisional, parámetro del
    sweep" quedó sellado de facto** (900 chars, sin solape) sin doc posterior
    que lo consolide; la fuente de verdad son los comentarios de `trozos.rs` y
    los resultados del sweep en `evals/retrieval-fase0/results/`.
-5. Menor pero fácil de malentender: **el default de `exo search` es `fts`**,
+4. Menor pero fácil de malentender: **el default de `exo search` es `fts`**,
    no `hybrid` — el modo calibrado y medido (48/55) solo se obtiene con
    `--type hybrid`, y con el umbral 0.40 pasado explícito. El recall en modo
    consulta sí usa hybrid con los defaults sellados.
