@@ -11,25 +11,33 @@ lectura de `~/.basic-memory/config.json` que queda es `exo init --from-basic-mem
 una migración explícita y de una sola vez). La capa thin (`plugins/exo/`)
 invoca ese binario desde hooks y scripts de shell.
 
+- Cómo funciona el sistema, derivado del código: `docs/arquitectura.md`
+- Cómo compilarlo e instalarlo: `docs/instalacion.md`
 - Spec de diseño original: `docs/superpowers/specs/2026-07-16-framework-unificado-design.md`
 - Spec de exo genérico (config propia, D8/D9): `docs/superpowers/specs/2026-08-26-exo-generico-design.md`
 - Audit trail de consultorías: `docs/superpowers/consultas/`
 - Plan de cierre (M2-08 → M5b): `docs/superpowers/plans/2026-08-17-cierre-exo-m2-a-m5b.md`
 - **Deuda abierta y hallazgos sin barrer: `docs/backlog.md`** — léelo antes de asumir
   que algo está terminado solo porque este README lo menciona.
-- Estado (2026-08-26): M0, M1a y M2 (E1 read) cerrados · M4 (E2 write) cerrado —
-  `exo write new|append` escribe la KB y `/document` ya va por el engine · M6-01/02
-  hechos: `exo recall` sirve el arranque de cada sesión · **ola 1A cerrada**: el
-  engine tiene config propia (`engine/src/config.rs`, precedencia
-  `flag > env > config > error accionable`), cero código de producción lee ya
-  `~/.basic-memory/config.json`, el envelope JSON usa claves en inglés
-  (`SCHEMA_VERSION` 2) y los flags largos del CLI están en inglés (con alias
-  oculto español durante el cutover — ver backlog, "Retirar los aliases
-  españoles del CLI en 1.1"). Restan M6-03/04/05, el resto de M5a (MCP propio)
-  y M5b (desinstalar basic-memory). Ver `docs/backlog.md` para las cuatro
-  deudas que dejó abiertas la ola 1A, entre ellas que la suite de tests no es
-  hermética fuera de esta máquina y que el cutover binario↔scripts no tiene
-  ninguna guardia de orden todavía.
+- Estado (2026-09-02): M0, M1a, M2 (E1 read), M4 (E2 write) y **M6 completo**
+  cerrados — `exo write new|append` escribe la KB, `/document` va por el engine
+  y `exo recall` sirve el arranque de sesión y el recall en el punto de uso
+  (`recall-inject.sh` en cada prompt); los subagentes reciben su bloque de
+  inyección por perfil (`subagent-inject.sh`). Las tres
+  olas de exo genérico también: **1A** config propia (`engine/src/config.rs`,
+  precedencia `flag > env > config > error accionable`; cero código de
+  producción lee `~/.basic-memory/config.json`; envelope JSON con claves en
+  inglés, `schema_version` 2; flags largos en inglés con alias español oculto
+  hasta 1.1), **1B** fusión y cutover del plugin único `plugins/exo/`, y
+  **1C** hermeticidad de la suite respecto a `~/.exo/config.toml`, con gate
+  falsable (`engine/scripts/test-hermetico.sh`) y KB semilla propia de
+  `exo init`. El privacy-pass de publicación (B1) está ejecutado sobre la
+  historia completa. Suite: 200 tests verdes en 28 binarios — sin CI que los
+  corra todavía, y la hermeticidad cubre la config, no la caché del modelo de
+  embeddings (un runner limpio descarga ~0,6 GB la primera vez, o falla sin
+  red). Pendiente: MCP propio (M5a), desinstalar basic-memory (M5b), y toda la
+  distribución de G5 — CI, releases, `exo doctor` (incluido el check de
+  desfase binario↔plugin, que hoy no existe) y `exo budget`.
 
 ## Capa thin: el plugin `exo`
 
