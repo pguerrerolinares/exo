@@ -163,10 +163,10 @@ min_similarity = {}
 /// los tests de adopción leerían el `~/.basic-memory/config.json` real de la
 /// máquina y dejarían de ser herméticos.
 pub fn ruta_basic_memory() -> Result<PathBuf> {
-    if let Ok(v) = std::env::var("EXO_BASIC_MEMORY_JSON") {
-        if !v.is_empty() {
-            return Ok(PathBuf::from(v));
-        }
+    if let Ok(v) = std::env::var("EXO_BASIC_MEMORY_JSON")
+        && !v.is_empty()
+    {
+        return Ok(PathBuf::from(v));
     }
     Ok(dirs::home_dir()
         .context("sin HOME")?

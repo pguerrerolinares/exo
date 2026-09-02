@@ -26,8 +26,18 @@ static REG: Once = Once::new();
 fn registra_vec() {
     REG.call_once(|| unsafe {
         // Registro estático de sqlite-vec (patrón documentado del crate sqlite-vec).
-        rusqlite::ffi::sqlite3_auto_extension(Some(std::mem::transmute(
-            sqlite_vec::sqlite3_vec_init as *const (),
+        // Anotación explícita del tipo destino (clippy::missing_transmute_annotations):
+        // en una línea `unsafe`, dejar que el compilador lo infiera esconde
+        // exactamente el dato que hay que poder auditar.
+        rusqlite::ffi::sqlite3_auto_extension(Some(std::mem::transmute::<
+            *const (),
+            unsafe extern "C" fn(
+                *mut rusqlite::ffi::sqlite3,
+                *mut *mut std::os::raw::c_char,
+                *const rusqlite::ffi::sqlite3_api_routines,
+            ) -> std::os::raw::c_int,
+        >(
+            sqlite_vec::sqlite3_vec_init as *const ()
         )));
     });
 }
@@ -247,7 +257,7 @@ impl Embedder {
     /// `exo search --type vector` como batch de 1).
     pub fn embebe_batch(&mut self, textos: &[String]) -> Result<Vec<Vec<f32>>> {
         self.te
-            .embed(textos.to_vec(), None)
+            .embed(textos, None)
             .context("embed batch con fastembed")
     }
 }

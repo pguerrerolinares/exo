@@ -331,10 +331,10 @@ fn resuelve_db(flag: Option<PathBuf>) -> Result<PathBuf> {
     if let Some(p) = flag {
         return Ok(p);
     }
-    if let Ok(v) = std::env::var("EXO_DB") {
-        if !v.is_empty() {
-            return Ok(exo::config::expande_tilde(Path::new(&v)));
-        }
+    if let Ok(v) = std::env::var("EXO_DB")
+        && !v.is_empty()
+    {
+        return Ok(exo::config::expande_tilde(Path::new(&v)));
     }
     let cfg = exo::config::carga()?;
     Ok(exo::config::expande_tilde(&cfg.index.db))
@@ -345,10 +345,10 @@ fn resuelve_kb(flag: Option<PathBuf>) -> Result<PathBuf> {
     if let Some(p) = flag {
         return Ok(p);
     }
-    if let Ok(v) = std::env::var("EXO_KB") {
-        if !v.is_empty() {
-            return Ok(exo::config::expande_tilde(Path::new(&v)));
-        }
+    if let Ok(v) = std::env::var("EXO_KB")
+        && !v.is_empty()
+    {
+        return Ok(exo::config::expande_tilde(Path::new(&v)));
     }
     exo::kb_desde_config()
 }
@@ -409,9 +409,9 @@ fn versiona_kb(kb: &Path) -> bool {
 
 /// `exo init`: dos modos. ADOPCIÓN (`--from-basic-memory`) apunta a una KB
 /// **ya existente y poblada** — no se toca ni un byte dentro de ella: nada
-/// de `prepara_kb`, nada de plantilla, nada de `git init`. CREACIÓN (`--kb`
-/// + `--name`) es la que nace aquí: valida el destino, vuelca la semilla, la
-/// versiona con git (best-effort) y la indexa.
+/// de `prepara_kb`, nada de plantilla, nada de `git init`. CREACIÓN
+/// (`--kb` + `--name`) es la que nace aquí: valida el destino, vuelca la
+/// semilla, la versiona con git (best-effort) y la indexa.
 fn init_cmd(args: ArgsInit) -> Result<()> {
     let destino = exo::config::ruta_config()?;
     let db_default = dirs::home_dir().context("sin HOME")?.join(".exo/index.db");

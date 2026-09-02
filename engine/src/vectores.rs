@@ -51,8 +51,10 @@ pub fn lee(conn: &Connection, rowid: i64) -> Result<Option<Vec<f32>>> {
     // ausente hace que se re-embeba, que es siempre recuperable.
     const BYTES_ESPERADOS: usize = 768 * 4;
     Ok(blob.filter(|b| b.len() == BYTES_ESPERADOS).map(|b| {
-        b.chunks_exact(4)
-            .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+        b.as_chunks::<4>()
+            .0
+            .iter()
+            .map(|c| f32::from_le_bytes(*c))
             .collect()
     }))
 }

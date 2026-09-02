@@ -245,6 +245,11 @@ pub fn dup_candidatas(slug_nuevo: &str, permalinks: &[String]) -> Vec<(String, f
 /// `dup_candidatas` lo calcula el llamador (el CLI, con `busca_hybrid`): este
 /// módulo no conoce el índice, solo el filesystem. Si llega no vacío,
 /// `Rechazo::Duplicada` sin tocar el disco.
+// Ocho parámetros contra el umbral de 7 de clippy. Se declara en vez de
+// refactorizar: agrupar en una struct de parámetros toca el camino de
+// escritura y sus tests, y esto es una tarea de CI. Anotado como deuda en
+// docs/backlog.md.
+#[allow(clippy::too_many_arguments)]
 pub fn escribe_nueva(
     kb: &Path,
     proyecto: &str,
