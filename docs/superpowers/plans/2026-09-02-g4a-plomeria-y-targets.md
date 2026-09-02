@@ -458,12 +458,13 @@ mod tests {
     }
 
     // notas.ruta se guarda con el separador nativo (indexer::ruta_relativa no
-    // normaliza), así que en Windows llega con `\`. git quiere un pathspec con
-    // `/`: sin la conversión, el pathspec no matchea, git sale 0 con stdout
-    // vacío y last_commit degrada a "" en silencio — justo en la función que
-    // existe para no degradar en silencio.
+    // normaliza), así que en Windows llega con `\`. Este test comprueba el
+    // camino end-to-end con separador nativo; NO falsa el replace() — medido
+    // el 2026-09-02, Git for Windows acepta el backslash en el pathspec y sin
+    // la conversión los cuatro tests siguen verdes. La conversión se queda por
+    // determinismo entre versiones de git, declarada como guarda defensiva.
     #[test]
-    fn normaliza_el_separador_nativo_a_pathspec_de_git() {
+    fn una_ruta_con_separador_nativo_encuentra_su_commit() {
         let dir = repo("log/a.md", "cuerpo\n");
         let nativa = format!("log{}a.md", std::path::MAIN_SEPARATOR);
         assert_eq!(

@@ -15,8 +15,11 @@ use std::process::Command;
 ///
 /// `ruta_rel` es un **pathspec de git**, no una ruta de disco: se normaliza a
 /// `/` porque `notas.ruta` viaja con el separador nativo y en Windows llegaría
-/// con `\`, que git no matchea (saldría 0 con stdout vacío y el campo
-/// degradaría a "" sin que nadie se entere).
+/// con `\`. La normalización es **defensiva**, no un invariante demostrado:
+/// medido el 2026-09-02, Git for Windows acepta el `\` en el pathspec y sin
+/// la conversión los tests siguen verdes. Se mantiene para que el pathspec sea
+/// determinista frente a versiones y configuraciones de git que no tienen por
+/// qué compartir esa tolerancia.
 ///
 /// - stdout vacío con exit 0 ⇒ `Ok("")`: el fichero existe pero no tiene
 ///   commits. Es un caso legítimo, no un fallo.
