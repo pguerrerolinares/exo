@@ -7,10 +7,13 @@ use serde_json::Value;
 pub const SCHEMA_VERSION: u32 = 2;
 
 /// Emite `{"schema_version":2,"command":<command>,"data":<data>}` como una
-/// única línea JSON, newline-terminada, a **stdout** — stdout es exclusivo
-/// del envelope; todo lo humano/warnings va a stderr (spec §4, adopción del
-/// patrón `envelope.Write` de kbx). Los consumidores gatean por exit code,
-/// jamás por campos de `data`.
+/// única línea JSON, newline-terminada, a **stdout**. La convención real no
+/// es "stdout exclusivo del envelope": con `--json` sí lo es, pero sin el
+/// flag la salida humana de cada comando (`println!`) también va a stdout —
+/// es el resultado primario. Lo que SIEMPRE va a stderr, con o sin `--json`,
+/// son los avisos y el progreso (spec §4, adopción del patrón
+/// `envelope.Write` de kbx). Los consumidores gatean por exit code, jamás
+/// por campos de `data`.
 pub fn emite(command: &str, data: Value) {
     let envoltorio = serde_json::json!({
         "schema_version": SCHEMA_VERSION,

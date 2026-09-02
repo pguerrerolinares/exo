@@ -21,6 +21,10 @@ use std::time::UNIX_EPOCH;
 /// (nuevo, aún no versionado) o si `git` falla por cualquier motivo — la
 /// columna `notas.git_epoch` admite NULL para este caso, no es un error de
 /// indexado.
+///
+/// Este es el idioma git **fail-silent**. Si necesitas el idioma
+/// **fail-loud** (un fallo de git aborta en vez de degradar), usa
+/// `gitx::ultimo_commit` — así lo hace `objetivos::busca_objetivos`.
 pub fn git_epoch_de(kb: &Path, ruta_rel: &Path) -> Option<i64> {
     let salida = Command::new("git")
         .arg("-C")

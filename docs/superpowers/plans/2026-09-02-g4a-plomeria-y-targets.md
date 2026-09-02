@@ -49,8 +49,11 @@ binario Go.
   `targets` es superficie **nueva**: añadir un `command` nuevo no es un cambio
   breaking del envelope. Claves de `data` en **inglés** (D8), campos Rust en
   castellano con `#[serde(rename)]`.
-- **stdout es exclusivo del envelope.** Todo lo humano y todo aviso va por
-  `eprintln!`, con o sin `--json`. Regla ya gateada por tests existentes.
+- **Avisos y progreso a stderr, resultado primario a stdout.** No es "stdout
+  exclusivo del envelope": `targets_cmd` y el resto de comandos imprimen su
+  salida humana por `println!` a stdout cuando no hay `--json`, y hay tests
+  que lo aseveran. Lo que va SIEMPRE por `eprintln!`, con o sin `--json`, son
+  los avisos y el progreso. Regla ya gateada por tests existentes.
 - **Naming**: identificadores Rust en castellano (`objetivos`, `busca_objetivos`,
   `ultimo_commit`), claves JSON y verbos del CLI en inglés (D7).
   Comentarios en castellano, explicando el **porqué**.
