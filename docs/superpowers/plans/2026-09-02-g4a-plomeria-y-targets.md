@@ -373,8 +373,20 @@ dos funciones distintas a propósito.
 
 `ruta_rel` es `&str`, no `&Path`, y **siempre con `/`**: es un *pathspec* de
 git, no una ruta de disco. `notas.ruta` se guarda con el separador nativo
-(`indexer::ruta_relativa` no normaliza), así que en Windows llega con `\` y
-hay que convertirlo antes de dárselo a git.
+(`indexer::ruta_relativa` no normaliza), así que en Windows llega con `\` y se
+convierte antes de dárselo a git.
+
+> **Corregido el 2026-09-02, al ejecutar la tarea.** Este plan afirmaba que
+> sin la conversión el pathspec **no matchearía** y `last_commit` degradaría a
+> `""` en silencio. **Medido, es falso**: quitando el `replace` en Git for
+> Windows los cuatro tests siguen verdes, porque git acepta el `\` en el
+> pathspec. La conversión se queda —hace el pathspec determinista frente a
+> versiones y configs de git que no tienen por qué compartir esa tolerancia, y
+> cuesta una línea— pero es una **guarda defensiva sin test que la ejercite**,
+> no un invariante demostrado, y el test se renombró para no prometer lo que
+> no prueba. La lección es la de siempre en este repo: un hecho sobre el
+> entorno que nadie vuelve a medir sobrevive a las revisiones porque suena
+> plausible.
 
 - [ ] **Step 1: Escribir los tests que fallan**
 

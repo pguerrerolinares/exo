@@ -108,13 +108,23 @@ mod tests {
         assert!(ultimo_commit(dir.path(), "a.md").is_err());
     }
 
-    // notas.ruta se guarda con el separador nativo (indexer::ruta_relativa no
-    // normaliza), así que en Windows llega con `\`. git quiere un pathspec con
-    // `/`: sin la conversión, el pathspec no matchea, git sale 0 con stdout
-    // vacío y last_commit degrada a "" en silencio — justo en la función que
-    // existe para no degradar en silencio.
+    // `notas.ruta` se guarda con el separador nativo (`indexer::ruta_relativa`
+    // no normaliza), así que en Windows llega con `\`. Este test comprueba que
+    // una ruta con separador nativo funciona de punta a punta.
+    //
+    // Lo que este test NO hace, y conviene decirlo en vez de dejarlo creer: no
+    // falsa el `replace('\\', "/")` de `ultimo_commit`. Medido el 2026-09-02
+    // en Git for Windows quitando la conversión — los 4 tests siguen verdes,
+    // porque git acepta el `\` como separador en el pathspec. El plan de G4a
+    // afirmaba que sin la conversión el pathspec no matchearía y `last_commit`
+    // degradaría a "" en silencio; sobre esta máquina eso es **falso**.
+    //
+    // La conversión se queda igualmente, y no por inercia: hace el pathspec
+    // determinista frente a versiones y configuraciones de git que no tienen
+    // por qué compartir esa tolerancia, y cuesta una línea. Pero es una guarda
+    // defensiva sin test que la ejercite, no un invariante demostrado.
     #[test]
-    fn normaliza_el_separador_nativo_a_pathspec_de_git() {
+    fn una_ruta_con_separador_nativo_encuentra_su_commit() {
         let dir = repo("log/a.md", "cuerpo\n");
         let nativa = format!("log{}a.md", std::path::MAIN_SEPARATOR);
         assert_eq!(
