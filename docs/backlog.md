@@ -198,24 +198,6 @@
   declarando que se queda indexado. Llevar la decisión abierta indefinidamente es
   peor que cualquiera de las dos opciones.
 
-- [ ] **Privacy-pass — va en la MISMA pasada de `filter-repo` que B1.** Las
-  queries del eval son reales y están trackeadas; el snapshot del log está en
-  `.gitignore`, el eval set no. Spec §6.6, espíritu clean-room.
-  **Ampliado y resecuenciado el 2026-08-27** (adjudicación de B1, ver la spec
-  de exo genérico): el alcance no es solo `evals/`. Hay **35 ficheros
-  trackeados** que mencionan «empresa-x» — 3 correos literales en
-  `specs/2026-08-26-exo-generico-design.md` y en
-  `runbooks/2026-08-24-integracion-equipo-trabajo-windows.md`, y el resto
-  corpora de evals derivados de la KB.
-  **Por qué comparte pasada con B1:** `--mailmap` corrige la autoría, no el
-  contenido. Si el privacy-pass se hace después editando ficheros en HEAD,
-  esos strings siguen vivos en los diffs históricos y el gate
-  `git log --all -p | grep -ci 'empresa-x\|universidad\|dev'` → 0 no puede
-  pasar nunca. Y dos pasadas de filter-repo remapean dos veces los 137 SHAs
-  citados en prosa. Una sola pasada: `--mailmap` + reescritura de contenido.
-  **Es gate duro de publicación**: ningún push público antes de que ese grep
-  dé 0.
-
 - [ ] **`kb-demo` como fixture por defecto en 8 ficheros de test.** Medido
   el 2026-09-01: `engine/tests/{buscador,config,escritor,indexer,inicia,nota,
   recall,recall_contenido}.rs` usan literalmente `"kb-demo"` como nombre
@@ -229,6 +211,26 @@
 ---
 
 ## Cerrado con evidencia (para no re-proponer)
+
+- [x] **Privacy-pass + colapso de autoría (B1): cerrado el 2026-09-02.** Una
+  sola pasada de `git filter-repo` sobre un clon fresco combinó `--mailmap`
+  (colapsa cinco identidades de autoría a una), `--replace-text` +
+  `--replace-message` (redacta contenido y mensajes de commit) y
+  `--paths-from-file --invert-paths` (borra de la historia **35 ficheros** de
+  corpora crudos derivados de la KB privada — el eval set de
+  `evals/e1-read/` y `evals/retrieval-fase0/`). `--prune-empty auto` podó
+  además los 2 commits que solo tocaban esos corpora: **278 commits antes de
+  la pasada, 276 después**.
+  **Los cuatro gates de publicación**, medidos rojo antes y verde después
+  sobre tres superficies de fuga (contenido en diffs, mensajes de commit,
+  objetos del repo) más identidades:
+  **G1 = 3525 → 0 · G2 = 27 → 0 · G3 = 4724 → 0 · G4 = 5 identidades → 2**
+  (`Paul Guerrero <pguerrerolinares@gmail.com>` de autor, `GitHub
+  <noreply@github.com>` de committer conservado — el único commit hecho por
+  la web UI).
+  Suite verde tras la pasada: Σ 200 tests, 28 binarios, 0 fallos. Detalle
+  completo, decisiones adjudicadas y el ensayo previo sobre clon desechable en
+  `docs/superpowers/specs/2026-08-26-exo-generico-design.md` §B1.
 
 - [x] **M5a-02 config propia: cerrado el 2026-08-26.** El engine arranca con
   `~/.exo/config.toml` (`engine/src/config.rs`), con precedencia
