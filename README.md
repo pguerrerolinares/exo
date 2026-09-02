@@ -32,12 +32,15 @@ invoca ese binario desde hooks y scripts de shell.
   **1C** hermeticidad de la suite respecto a `~/.exo/config.toml`, con gate
   falsable (`engine/scripts/test-hermetico.sh`) y KB semilla propia de
   `exo init`. El privacy-pass de publicación (B1) está ejecutado sobre la
-  historia completa. Suite: 200 tests verdes en 28 binarios — sin CI que los
-  corra todavía, y la hermeticidad cubre la config, no la caché del modelo de
-  embeddings (un runner limpio descarga ~0,6 GB la primera vez, o falla sin
-  red). Pendiente: MCP propio (M5a), desinstalar basic-memory (M5b), y toda la
-  distribución de G5 — CI, releases, `exo doctor` (incluido el check de
-  desfase binario↔plugin, que hoy no existe) y `exo budget`.
+  historia completa. Suite: 200 tests verdes en 28 binarios, corridos por
+  `.github/workflows/ci.yml` en ubuntu-latest / windows-latest / macos-latest
+  vía el gate hermético (`engine/scripts/test-hermetico.sh`), con la caché del
+  modelo de embeddings pineada por revisión del modelo (no por rama, así que
+  no vuelve a subir nada) — más `fmt --check`, `clippy -D warnings` y un
+  check de la MSRV declarada (1.95). Pendiente: MCP propio (M5a), desinstalar
+  basic-memory (M5b), y toda la distribución de G5 — release, instaladores,
+  `exo doctor` (incluido el check de desfase binario↔plugin, que hoy no
+  existe) y `exo budget`.
 
 ## Capa thin: el plugin `exo`
 

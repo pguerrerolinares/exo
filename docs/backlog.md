@@ -7,7 +7,8 @@
 > duplicar. Cada item cita su evidencia; un item sin evidencia verificable no
 > entra.
 >
-> Última revisión: **2026-08-18** (apertura — valoración del repo completo).
+> Última revisión: **2026-09-02** (G5a — CI mínimo cerrado con evidencia,
+> deuda nueva de la ola anotada).
 
 ## Estado
 
@@ -16,7 +17,7 @@
 | **Cerradas** | C5 (M2-08+09, cierra E1 read) · C6 (M6, cutover del recall) · C7 (M4, write-path) |
 | **Pendientes** | C8 (M3+M1b, cutover de skills) → C9 (M5a, MCP + config propia) → C10 (M5b, desinstalar basic-memory) |
 | **Medido** | engine-hybrid **48/55** hit@5 vs bm-hybrid 39/55, mismo día, paridad de corpus ∅, recall <2s (`evals/e1-read/verdict/m2-09-corrida.md`) |
-| **Tests** | 111 verdes / 0 rojos en la rama de M4, 98 en main previo (contados por el consultor del gate, no por CI — no hay CI) |
+| **Tests** | 111 verdes / 0 rojos en la rama de M4, 98 en main previo (contados por el consultor del gate en esa ola; el CI que los corre solo llegó después, en G5a — 200 tests / 28 binarios, ver `## Cerrado con evidencia`) |
 
 ---
 
@@ -100,38 +101,33 @@
 
 ## Media
 
-- [ ] **CI mínimo — el gate que falta.** No hay `.github/`, ni `rustfmt.toml`, ni
-  `clippy.toml`, ni `rust-version` en `Cargo.toml` (el plan afirma MSRV ≥ 1.97 y
-  nada lo comprueba), ni `LICENSE` en la raíz. Todo lo verifica un consultor a
-  mano, por gate. Verificado 2026-08-18: **el crate no compila en el portátil de
-  trabajo** — `cargo check --all-targets` falla con
-  `cc-rs: failed to find tool "gcc.exe"` (rusqlite bundled + sqlite-vec exigen
-  toolchain C, ausente en el target GNU de esa máquina). Nada verifica el build
-  fuera de la máquina de desarrollo.
-  **Acción:** workflow con `cargo test` + `fmt --check` + `clippy -D warnings`,
-  declarar `rust-version`, LICENSE en raíz. En un proyecto cuya tesis es "gates y
-  evidencia", este es el gate más barato de todos.
+- [ ] **`#[allow(clippy::too_many_arguments)]` en `escritor.rs` — la struct de
+  parámetros que no se hizo aquí.** `escribe_nueva` toma 8 parámetros contra
+  el umbral de 7 de clippy; declarado en `engine/src/escritor.rs:252` en vez
+  de refactorizar, porque agrupar en una struct de parámetros toca el camino
+  de escritura y sus tests, y G5a era una tarea de CI, no de refactor.
+  **Acción:** introducir una struct de parámetros para `escribe_nueva` (y
+  revisar sus llamadores y tests) cuando se toque ese camino por otra razón.
+  Localizable con `grep -rn too_many_arguments docs/backlog.md` — el comentario
+  de `escritor.rs` cita esta entrada por nombre.
 
-- [ ] **Caché del modelo de embeddings — segunda dependencia de entorno sin
-  cerrar, para G5.** El gate de hermeticidad
-  (`engine/scripts/test-hermetico.sh`, cerrado arriba) solo cubre
-  `~/.exo/config.toml`. Nueve suites indexan cuerpos no vacíos, y eso carga
-  el modelo ONNX de embeddings (~0,6 GB) vía `hf_hub`
-  (`engine/src/indexer.rs:330` → `con_embedder_de_proceso`) la primera vez
-  que corren en la máquina. En un runner de verdad limpio — sin caché de
-  HuggingFace previa — esas nueve suites siguen en rojo, solo que por otra
-  razón que la que el gate mide.
-  **Precedente de convención:** `engine/tests/smoke.rs:31` ya marca su test
-  `jina_es_embebe_a_768` con `#[ignore]` precisamente porque descarga el
-  modelo y "se corre explícito, no en CI de cada merge". Las nueve suites
-  afectadas — `indexer`, `buscador`, `recall_contenido`, `guarda_modelo`,
-  `recall`, `refresca`, `cache_embeddings`, `rechazo_envelope`,
-  `write_create_permalink` — no siguen esa convención: indexan cuerpos no
-  vacíos sin `#[ignore]` ni fixture de caché propia.
-  **Acción, para quien monte el CI en los tres SO (G5):** cachear el modelo
-  entre runs del CI, o extender la convención de `#[ignore]` / un flag de
-  entorno a las nueve suites, o fijar un fixture de vectores pre-calculados
-  que no dispare la descarga. Decisión de diseño, no de este cierre.
+- [ ] **Los scripts `test-*.sh` de `plugins/exo/scripts/` no entran en CI.**
+  Medido 2026-09-02: hay **10** scripts `test-*.sh` en ese directorio, de los
+  que **5 referencian rutas de esta máquina** —
+  `grep -nE 'paul|C:[/\\]Users|/home/[a-z]+/' plugins/exo/scripts/test-*.sh`
+  marca `test-a1-gate.sh`, `test-compose-inject.sh` (ambos vía el default
+  `$HOME/.claude/...` de `a1-gate.sh`/`compose-inject.sh` cuando no se
+  sobreescribe por variable de entorno), `test-contrato-engine.sh`
+  (`C:/Users/paul/.exo/index.db`, `C:/proyectos/homework/kb-demo`
+  hardcodeados), `test-git-c-bash.sh`
+  (`/home/paul/Documentos/proyectos/code-graph-go`) y
+  `test-subagent-inject.sh` (mismo default de `$HOME/.claude` que
+  `test-a1-gate.sh`, vía `subagent-inject.sh`). El engine ya tiene CI
+  (`.github/workflows/ci.yml`); la capa thin — hooks y scripts, la mitad del
+  producto — sigue sin gate automático.
+  **Acción:** fixture propia por script (índice + KB + `$HOME` de prueba,
+  igual que ya hacen los otros 5 de esta misma carpeta) antes de cablear un
+  job de CI para `plugins/exo/`.
 
 - [ ] **Retirar los aliases españoles del CLI en 1.1.** Los diez flags
   renombrados en la ola 1A (`--limite`→`--limit`, `--titulo`→`--title`,
@@ -211,6 +207,64 @@
 ---
 
 ## Cerrado con evidencia (para no re-proponer)
+
+- [x] **CI mínimo — el gate que faltaba: cerrado el 2026-09-02 (G5a).**
+  `.github/workflows/ci.yml` corre en cada PR contra `main`: cinco jobs —
+  `fmt + clippy` (`lint`), `MSRV declarada (1.95)` (`msrv`) y `test` en
+  `ubuntu-latest`, `windows-latest`, `macos-latest`. Verificado contra la API
+  de GitHub del PR #1 (`g5a-ci` → `main`), no de oídas:
+
+  | Corrida | SHA | Conclusión | Qué demuestra |
+  |---|---|---|---|
+  | `33619260543` | `e378cbc` | success | los 5 jobs verdes en frío |
+  | `33619930840` | `9958218` | failure | gate de **fmt** dispara; `clippy` queda `skipped` |
+  | `33620326356` | `e378cbc` | success | verde de vuelta tras retirar la rotura |
+  | `33620849572` | `5151872` | failure | gate de **clippy** dispara solo: `fmt --check` success, `clippy -D warnings` failure citando `ptr_arg` |
+  | `33621187141` | `e378cbc` | success | verde final, 5/5 jobs |
+
+  **La falsabilidad se demostró en dos pasadas, no en una.** La primera
+  rotura (`9958218`) tumbaba fmt y clippy a la vez; como los steps del job
+  `lint` son secuenciales, `fmt --check` falló primero y `clippy -D warnings`
+  quedó **`skipped`** — la mitad del gate en la que se invirtió toda la Task 2
+  (los 12 avisos de clippy a cero) no se había visto disparar todavía. Hizo
+  falta una segunda rotura, rustfmt-limpia y que solo violara clippy
+  (`5151872`), para probar esa mitad (corrida `33620849572`). Un backlog que
+  solo contara el verde final habría dejado ese hueco sin registrar.
+
+  **Duración del job `test`, en frío → con caché** (`Swatinem/rust-cache@v2`
+  + caché del modelo pineada por revisión): ubuntu `4m20s → 2m3s` · macos
+  `5m57s → 3m6s` · windows `7m1s → 3m44s`. La caché recorta ~50% en los tres
+  SO.
+
+  **Añadido sobre lo pedido por el ítem original:** el job `msrv` corre
+  `cargo check --all-targets --locked` bajo el toolchain **1.95.0** exacto y
+  pasa en verde — la MSRV declarada en `engine/Cargo.toml` (`rust-version =
+  "1.95"`) deja de ser una afirmación sin comprobar. De paso confirma que
+  `as_chunks` (introducido en la Task 2 de esta misma ola) está disponible
+  bajo 1.95 sin necesitar fallback.
+
+  **Acción tomada:** workflow con `cargo fmt --check` + `cargo clippy
+  --all-targets -- -D warnings` + `cargo check --all-targets --locked` (MSRV)
+  + `./engine/scripts/test-hermetico.sh` (el gate hermético de la Task 1C, sin
+  reinventar el comando de test) en los tres SO. `rust-version` ya estaba
+  declarado en `Cargo.toml`; `LICENSE` en la raíz, ver el commit
+  `a6a2a11`.
+
+- [x] **Caché del modelo de embeddings: cerrado el 2026-09-02 (G5a).** El job
+  `test` de `.github/workflows/ci.yml` cachea
+  `~/.cache/huggingface/hub/models--jinaai--jina-embeddings-v2-base-es` con
+  `actions/cache@v4` y clave `hf-jina-es-8e2d780d-${{ runner.os }}` — el sha
+  del snapshot pineado (`8e2d780d…`, ya cerrado como ítem de este backlog),
+  no la rama ni el commit, así que un acierto de caché no vuelve a subir
+  nada. **Decisión: cachear, no marcar `#[ignore]`.** Las nueve suites
+  (`indexer`, `buscador`, `recall_contenido`, `guarda_modelo`, `recall`,
+  `refresca`, `cache_embeddings`, `rechazo_envelope`,
+  `write_create_permalink`) siguen ejerciendo indexer y buscador de verdad en
+  cada corrida — un CI que no los ejerce es verde sin significado. El coste
+  es una descarga de ~615 MB en la primera corrida por SO (miss de caché);
+  las siguientes son hit. Verificado con la duración medida arriba (frío →
+  caché caliente, ~50% menos en los tres SO): el hit de caché es real, no
+  solo teórico.
 
 - [x] **Privacy-pass + colapso de autoría (B1): cerrado el 2026-09-02.** Una
   sola pasada de `git filter-repo` sobre un clon fresco combinó `--mailmap`
@@ -350,7 +404,8 @@
   HuggingFace, la suite sigue en rojo — por esa razón, no por config.
   `engine/tests/smoke.rs:31` marca esa dependencia con `#[ignore]`; las nueve
   suites de indexado no siguen esa convención. Anotado como item nuevo del
-  backlog, adjudicado a G5 (Media, «Caché del modelo de embeddings…»).
+  backlog, adjudicado a G5 — cerrado el 2026-09-02, ver arriba «Caché del
+  modelo de embeddings».
 
   **El punto de encuentro nació rojo:** la primera corrida de la fusión de
   las dos pistas dio `HERMETICO=1`, no verde.
