@@ -108,8 +108,10 @@
   de escritura y sus tests, y G5a era una tarea de CI, no de refactor.
   **Acción:** introducir una struct de parámetros para `escribe_nueva` (y
   revisar sus llamadores y tests) cuando se toque ese camino por otra razón.
-  Localizable con `grep -rn too_many_arguments docs/backlog.md` — el comentario
-  de `escritor.rs` cita esta entrada por nombre.
+  Esta entrada es localizable con `grep -rn too_many_arguments docs/backlog.md`;
+  el `#[allow(clippy::too_many_arguments)]` en sí vive en
+  `engine/src/escritor.rs:252` — el comentario de código no cita esta entrada
+  del backlog por nombre.
 
 - [ ] **Los scripts `test-*.sh` de `plugins/exo/scripts/` no entran en CI.**
   Medido 2026-09-02: hay **10** scripts `test-*.sh` en ese directorio, de los
@@ -172,6 +174,31 @@
   persona) esta suite no corre nunca.
   **Acción:** CI necesita un fixture propio (índice + KB de prueba mínimos)
   para que la suite deje de abstenerse fuera de esta máquina.
+
+- [ ] **Un rojo del job `test` no se puede diagnosticar desde el CI.**
+  `engine/scripts/test-hermetico.sh:19` manda toda la salida de `cargo test`
+  a `$TMP/out.txt` y el `trap ... EXIT` de la línea 16 la borra al salir. En
+  fallo (líneas 23-26) solo se emiten las líneas que casan `^test result:
+  FAILED|targets failed|--test `: nombre del binario y recuento, cero
+  nombres de test, cero aserciones, cero backtrace. El workflow pone
+  `RUST_BACKTRACE: 1` y el script tira esa salida igualmente. Peor: un error
+  de COMPILACIÓN de la suite no casa ninguno de los tres patrones y se vería
+  como una sola línea de exit. Consecuencia: un rojo exclusivo de
+  `windows-latest` o de macOS arm64 es irreproducible en la máquina del
+  autor e ilegible en el CI.
+  **Acción propuesta:** campaña propia — `tee` o un `EXO_HERMETICO_LOG`
+  opt-in en el script (con su propio ciclo rojo-verde, porque el script es
+  un gate ya demostrado falsable y tocarlo invalida esa evidencia), más
+  `actions/upload-artifact` en el job. No se arregla aquí, solo se anota.
+
+- [ ] **Hoy el CI no bloquea nada.** Paul decidió explícitamente no proteger
+  `main` por ahora — no hay branch protection ni required status checks.
+  Consecuencia: un PR rojo se puede mergear igualmente, así que el CI hoy es
+  una notificación, no un gate de merge. Ver la matización añadida al item
+  cerrado «CI mínimo — el gate que faltaba» en `## Cerrado con evidencia`.
+  **Acción:** activar branch protection con required status checks
+  (`lint`, `msrv`, `test` en los tres SO) cuando se decida que main debe
+  quedar protegida.
 
 ## Baja
 
@@ -250,6 +277,12 @@
   declarado en `Cargo.toml`; `LICENSE` en la raíz, ver el commit
   `a6a2a11`.
 
+  **Matización (2026-09-02):** este gate hoy **notifica, no bloquea**. Paul
+  decidió explícitamente no proteger `main` por ahora — no hay branch
+  protection ni required status checks — así que un PR rojo se puede
+  mergear igualmente. Ver el nuevo item de deuda en `## Media` («hoy el CI
+  no bloquea nada»).
+
 - [x] **Caché del modelo de embeddings: cerrado el 2026-09-02 (G5a).** El job
   `test` de `.github/workflows/ci.yml` cachea
   `~/.cache/huggingface/hub/models--jinaai--jina-embeddings-v2-base-es` con
@@ -262,9 +295,24 @@
   `write_create_permalink`) siguen ejerciendo indexer y buscador de verdad en
   cada corrida — un CI que no los ejerce es verde sin significado. El coste
   es una descarga de ~615 MB en la primera corrida por SO (miss de caché);
-  las siguientes son hit. Verificado con la duración medida arriba (frío →
-  caché caliente, ~50% menos en los tres SO): el hit de caché es real, no
-  solo teórico.
+  las siguientes son hit.
+
+  **El hit de caché del modelo está verificado por log, no por el delta de
+  duración.** El delta de duración medido arriba (frío → caché caliente,
+  ~50% menos en los tres SO) **no aísla la caché del modelo**: la misma
+  medición incluye `Swatinem/rust-cache@v2` cacheando `target/` de cargo, y
+  en un crate que compila `rusqlite` bundled + `ort` + `fastembed` en
+  `--release`, la recompilación domina esos minutos. Esa cifra se conserva
+  como dato de coste total del job, no como prueba de la caché del modelo.
+  La prueba real está en los logs de GitHub Actions del propio step de
+  caché: en la corrida fría (`33619260543`), el paso «Caché del modelo
+  jina-es (revisión pineada)» registra `Cache not found for input keys:
+  hf-jina-es-8e2d780d-Linux` / `-Windows` / `-macOS`, y su paso Post
+  `Cache saved with key: hf-jina-es-8e2d780d-{Linux,Windows,macOS}`; en la
+  corrida caliente (`33621187141`) el mismo paso registra `Cache restored
+  from key: hf-jina-es-8e2d780d-Linux` / `-Windows` / `-macOS`, los tres SO.
+  Eso es lo que prueba el hit de caché del modelo — no el delta de
+  duración.
 
 - [x] **Privacy-pass + colapso de autoría (B1): cerrado el 2026-09-02.** Una
   sola pasada de `git filter-repo` sobre un clon fresco combinó `--mailmap`

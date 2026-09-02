@@ -11,7 +11,10 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Solo en PR: con `on.push.branches: [main]`, dos merges seguidos cancelan
+  # la corrida del primero y ese commit de main queda sin veredicto — un run
+  # `cancelled` no se lee como rojo, se lee como nada.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   CARGO_TERM_COLOR: always
@@ -21,6 +24,7 @@ jobs:
   lint:
     name: fmt + clippy
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -32,13 +36,19 @@ jobs:
       - name: cargo fmt --check
         working-directory: engine
         run: cargo fmt --check
+      # `if: always()`: en la corrida 33619930840, `cargo fmt --check` falló y
+      # este step quedó `skipped` — la mitad del gate (los 12 avisos de
+      # clippy llevados a cero) no reportó nada. Sin este `if`, un fmt roto
+      # esconde una rotura de clippy real detrás.
       - name: cargo clippy -D warnings
+        if: always()
         working-directory: engine
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --all-targets --locked -- -D warnings
 
   msrv:
     name: MSRV declarada (1.95)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       # La MSRV está declarada en engine/Cargo.toml con una nota empírica y
@@ -71,6 +81,12 @@ jobs:
       # que no ejerce indexer ni buscador es verde sin significado. La clave
       # lleva la revisión pineada del modelo, así que es inmutable: un acierto
       # de caché no vuelve a subir nada.
+      # La fuente de verdad de la revisión pineada es `engine/src/lib.rs`
+      # (`REVISION_JINA_ES`, hoy `8e2d780d...`). Si se bumpea la revisión hay
+      # que bumpear también la clave de aquí abajo (`8e2d780d` en `key:`) a
+      # mano — `actions/cache` nunca sobrescribe una clave ya guardada, así
+      # que el olvido produce descarga fría permanente, invisible, y el job
+      # sigue en verde.
       - name: Caché del modelo jina-es (revisión pineada)
         uses: actions/cache@v4
         with:

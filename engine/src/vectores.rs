@@ -51,6 +51,9 @@ pub fn lee(conn: &Connection, rowid: i64) -> Result<Option<Vec<f32>>> {
     // ausente hace que se re-embeba, que es siempre recuperable.
     const BYTES_ESPERADOS: usize = 768 * 4;
     Ok(blob.filter(|b| b.len() == BYTES_ESPERADOS).map(|b| {
+        // `.0` descarta el remainder de `as_chunks`: seguro porque el filter
+        // de arriba ya garantiza `b.len() == BYTES_ESPERADOS` (768*4), múltiplo
+        // exacto de 4 — el remainder es vacío por construcción, no por suerte.
         b.as_chunks::<4>()
             .0
             .iter()
