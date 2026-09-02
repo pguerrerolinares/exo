@@ -58,56 +58,31 @@ fn kb_arranque() -> tempfile::TempDir {
     commitea_con_epoch(
         kb.path(),
         "core-b.md",
-        &nota_md(
-            "kb-demo/core-b",
-            "Core B",
-            Some("core"),
-            "contenido core b",
-        ),
+        &nota_md("kb-demo/core-b", "Core B", Some("core"), "contenido core b"),
         1_700_000_000,
     );
     commitea_con_epoch(
         kb.path(),
         "core-a.md",
-        &nota_md(
-            "kb-demo/core-a",
-            "Core A",
-            Some("core"),
-            "contenido core a",
-        ),
+        &nota_md("kb-demo/core-a", "Core A", Some("core"), "contenido core a"),
         1_700_000_001,
     );
     commitea_con_epoch(
         kb.path(),
         "r-viejo.md",
-        &nota_md(
-            "kb-demo/r-viejo",
-            "Reciente viejo",
-            None,
-            "contenido viejo",
-        ),
+        &nota_md("kb-demo/r-viejo", "Reciente viejo", None, "contenido viejo"),
         1_700_000_002,
     );
     commitea_con_epoch(
         kb.path(),
         "r-medio.md",
-        &nota_md(
-            "kb-demo/r-medio",
-            "Reciente medio",
-            None,
-            "contenido medio",
-        ),
+        &nota_md("kb-demo/r-medio", "Reciente medio", None, "contenido medio"),
         1_700_000_003,
     );
     commitea_con_epoch(
         kb.path(),
         "r-nuevo.md",
-        &nota_md(
-            "kb-demo/r-nuevo",
-            "Reciente nuevo",
-            None,
-            "contenido nuevo",
-        ),
+        &nota_md("kb-demo/r-nuevo", "Reciente nuevo", None, "contenido nuevo"),
         1_700_000_004,
     );
 

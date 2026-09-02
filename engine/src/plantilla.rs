@@ -10,16 +10,46 @@ pub const PLACEHOLDER: &str = "{{KB_NAME}}";
 
 pub const FICHEROS: &[(&str, &str)] = &[
     ("README.md", include_str!("../kb-template/README.md")),
-    ("core/core-index.md", include_str!("../kb-template/core/core-index.md")),
-    ("core/doctrina.md", include_str!("../kb-template/core/doctrina.md")),
-    ("learnings/_template.md", include_str!("../kb-template/learnings/_template.md")),
-    ("learnings/orquestador-limpio.md", include_str!("../kb-template/learnings/orquestador-limpio.md")),
-    ("learnings/recon-first.md", include_str!("../kb-template/learnings/recon-first.md")),
-    ("learnings/fallo-silencioso.md", include_str!("../kb-template/learnings/fallo-silencioso.md")),
-    ("learnings/el-brief-es-el-cuello-de-botella.md", include_str!("../kb-template/learnings/el-brief-es-el-cuello-de-botella.md")),
-    ("projects/_template.md", include_str!("../kb-template/projects/_template.md")),
-    ("log/_template.md", include_str!("../kb-template/log/_template.md")),
-    ("archive/log/.gitkeep", include_str!("../kb-template/archive/log/.gitkeep")),
+    (
+        "core/core-index.md",
+        include_str!("../kb-template/core/core-index.md"),
+    ),
+    (
+        "core/doctrina.md",
+        include_str!("../kb-template/core/doctrina.md"),
+    ),
+    (
+        "learnings/_template.md",
+        include_str!("../kb-template/learnings/_template.md"),
+    ),
+    (
+        "learnings/orquestador-limpio.md",
+        include_str!("../kb-template/learnings/orquestador-limpio.md"),
+    ),
+    (
+        "learnings/recon-first.md",
+        include_str!("../kb-template/learnings/recon-first.md"),
+    ),
+    (
+        "learnings/fallo-silencioso.md",
+        include_str!("../kb-template/learnings/fallo-silencioso.md"),
+    ),
+    (
+        "learnings/el-brief-es-el-cuello-de-botella.md",
+        include_str!("../kb-template/learnings/el-brief-es-el-cuello-de-botella.md"),
+    ),
+    (
+        "projects/_template.md",
+        include_str!("../kb-template/projects/_template.md"),
+    ),
+    (
+        "log/_template.md",
+        include_str!("../kb-template/log/_template.md"),
+    ),
+    (
+        "archive/log/.gitkeep",
+        include_str!("../kb-template/archive/log/.gitkeep"),
+    ),
     ("AGENTS.md", include_str!("../kb-template/AGENTS.md")),
 ];
 
@@ -34,8 +64,7 @@ pub fn vuelca(destino: &Path, kb_name: &str) -> Result<Vec<PathBuf>> {
     for (rel, contenido) in FICHEROS {
         let ruta = destino.join(rel);
         if let Some(padre) = ruta.parent() {
-            std::fs::create_dir_all(padre)
-                .with_context(|| format!("crear {}", padre.display()))?;
+            std::fs::create_dir_all(padre).with_context(|| format!("crear {}", padre.display()))?;
         }
         std::fs::write(&ruta, render(contenido, kb_name))
             .with_context(|| format!("escribir {}", ruta.display()))?;

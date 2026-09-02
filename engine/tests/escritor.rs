@@ -76,10 +76,7 @@ fn nueva_genera_frontmatter_completo_y_ruta_correcta() {
     )
     .unwrap();
 
-    assert_eq!(
-        esc.permalink,
-        "kb-demo/projects/proyecto-nuevo-de-prueba"
-    );
+    assert_eq!(esc.permalink, "kb-demo/projects/proyecto-nuevo-de-prueba");
     assert_eq!(esc.ruta_rel, "projects/Proyecto Nuevo — de prueba.md");
     assert!(esc.creada);
 

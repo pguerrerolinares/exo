@@ -200,7 +200,8 @@ fn un_nombre_con_salto_de_linea_es_rechazado_por_la_validacion() {
 #[test]
 fn los_nombres_habituales_siguen_pasando_la_validacion() {
     for nombre in ["demo", "kb-demo", "mi-kb.v2", "kb_2"] {
-        exo::inicia::valida_nombre(nombre).unwrap_or_else(|e| panic!("{nombre:?} debería pasar: {e}"));
+        exo::inicia::valida_nombre(nombre)
+            .unwrap_or_else(|e| panic!("{nombre:?} debería pasar: {e}"));
     }
 }
 
@@ -232,7 +233,10 @@ fn init_con_nombre_invalido_no_escribe_nada() {
         !kb.exists() || std::fs::read_dir(&kb).unwrap().next().is_none(),
         "init escribió en el destino a pesar de rechazar el nombre"
     );
-    assert!(!config.exists(), "init escribió la config a pesar de rechazar el nombre");
+    assert!(
+        !config.exists(),
+        "init escribió la config a pesar de rechazar el nombre"
+    );
 }
 
 /// Con un nombre válido, la nota canónica de la semilla vuelca un frontmatter

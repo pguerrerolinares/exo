@@ -391,7 +391,8 @@ fn busca_vector_desempate_determinista_por_permalink() {
         let r2 = busca_vector(&db2, "cualquier query", 10, Some(-2.0)).unwrap();
 
         for r in [&r1, &r2] {
-            let permalinks: Vec<&str> = r.results.iter().map(|res| res.permalink.as_str()).collect();
+            let permalinks: Vec<&str> =
+                r.results.iter().map(|res| res.permalink.as_str()).collect();
             assert_eq!(
                 permalinks,
                 vec!["x", "y", "z"],
