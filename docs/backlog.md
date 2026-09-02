@@ -186,6 +186,13 @@
   como una sola línea de exit. Consecuencia: un rojo exclusivo de
   `windows-latest` o de macOS arm64 es irreproducible en la máquina del
   autor e ilegible en el CI.
+  **Ya no es una predicción por lectura de código: está medido.** La rotura
+  deliberada de `fee361d` metió un `#[test]` que hace `panic!` con un mensaje
+  explícito, y en la corrida `33624081143` los tres jobs `test` fallaron
+  emitiendo exactamente `test result: FAILED. 4 passed; 1 failed` y
+  `` `--test flags` `` — el binario y el recuento. **Ni el nombre del test ni
+  el mensaje del panic aparecen en ningún log de CI**, aun estando el panic
+  puesto a propósito para ser encontrado.
   **Acción propuesta:** campaña propia — `tee` o un `EXO_HERMETICO_LOG`
   opt-in en el script (con su propio ciclo rojo-verde, porque el script es
   un gate ya demostrado falsable y tocarlo invalida esa evidencia), más
@@ -247,7 +254,22 @@
   | `33619930840` | `9958218` | failure | gate de **fmt** dispara; `clippy` queda `skipped` |
   | `33620326356` | `e378cbc` | success | verde de vuelta tras retirar la rotura |
   | `33620849572` | `5151872` | failure | gate de **clippy** dispara solo: `fmt --check` success, `clippy -D warnings` failure citando `ptr_arg` |
-  | `33621187141` | `e378cbc` | success | verde final, 5/5 jobs |
+  | `33621187141` | `e378cbc` | success | verde 5/5 tras cerrar las Tasks 1-4 |
+  | `33624081143` | `fee361d` | failure | los **cuatro jobs restantes** disparan, cada uno por su causa; `lint` verde |
+  | `33624497824` | `9da4272` | success | verde final, 5/5 jobs |
+
+  **Los cinco jobs se han visto rojos por su propia causa.** Hallazgo de la
+  review final de rama: tras las cuatro tareas había **un gate demostrado y
+  cuatro afirmados** — solo `lint` había fallado nunca. `test`×3 y `msrv` son
+  precisamente los que ejercen lo que no se puede probar en local (Git Bash en
+  Windows, el `cd` y el bit de ejecución del script en macOS/Linux, ONNX
+  Runtime en `aarch64-apple-darwin`, la caché del modelo). Se cerró con una
+  rotura única (`fee361d`) de dos causas distintas: un `#[test]` que hace
+  `panic!` y `rust-version = "1.98"` en `engine/Cargo.toml`. Resultado medido
+  en `33624081143` — `msrv` rojo citando `requires rustc 1.98`, los tres
+  `test` rojos, y **`lint` verde en la misma corrida**, que de paso demuestra
+  que los jobs son independientes. Rotura retirada con `reset --hard` +
+  `--force-with-lease`; no está en la rama.
 
   **La falsabilidad se demostró en dos pasadas, no en una.** La primera
   rotura (`9958218`) tumbaba fmt y clippy a la vez; como los steps del job
