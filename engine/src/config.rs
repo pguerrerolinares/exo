@@ -63,10 +63,10 @@ pub fn ruta_config() -> Result<PathBuf> {
 /// —incluidas las absolutas de Windows, que llevan dos puntos y no tilde.
 pub fn expande_tilde(p: &Path) -> PathBuf {
     let s = p.to_string_lossy();
-    if let Some(resto) = s.strip_prefix("~/").or_else(|| s.strip_prefix("~\\")) {
-        if let Some(home) = dirs::home_dir() {
-            return home.join(resto);
-        }
+    if let Some(resto) = s.strip_prefix("~/").or_else(|| s.strip_prefix("~\\"))
+        && let Some(home) = dirs::home_dir()
+    {
+        return home.join(resto);
     }
     p.to_path_buf()
 }

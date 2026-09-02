@@ -1,11 +1,11 @@
 //! M6-02: `exo recall --content`.
 //!
 //! El hook de arranque que esto sustituye NO inyecta una lista de ficheros:
-//! inyecta el CUERPO del core-index (contrato de memoria + doctrina compacta
-//! + mapa de cores) más un digest de actividad reciente. Servir solo rutas
-//! sería una regresión funcional silenciosa — el agente perdería la doctrina
-//! en todas las sesiones y nadie lo notaría hasta que empezara a comportarse
-//! peor.
+//! inyecta el CUERPO del core-index (contrato de memoria + doctrina
+//! compacta + mapa de cores) más un digest de actividad reciente. Servir
+//! solo rutas sería una regresión funcional silenciosa — el agente perdería
+//! la doctrina en todas las sesiones y nadie lo notaría hasta que empezara
+//! a comportarse peor.
 
 mod common;
 
