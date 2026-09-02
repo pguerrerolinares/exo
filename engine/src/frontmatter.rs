@@ -124,6 +124,19 @@ mod tests {
         assert_eq!(tier(c), "core");
     }
 
+    // El test de arriba NO falsa la guarda: `str::lines()` ya se come el `\r`
+    // de un `\r\n`, así que pasaría igual con `es_delimitador` comparando
+    // contra `"---"` a pelo. Este sí la falsa. Un `\r` que `lines()` no
+    // absorbe —el primero de un `\r\r\n`— deja la línea como `"---\r"`, que
+    // es exactamente lo que Go ve al partir por `"\n"` y lo que motivó el
+    // commit `5c7eb3d`. Quita el `trim_end_matches` de `es_delimitador` y
+    // este test se pone rojo; el otro no.
+    #[test]
+    fn el_trim_del_delimitador_es_lo_que_sostiene_el_caso_crlf() {
+        let c = "---\r\r\ntier: core\r\r\n---\r\r\n";
+        assert_eq!(tier(c), "core");
+    }
+
     // Go hace stripWhitespace (tr -d '[:space:]'), no un trim: replica el awk
     // original de kb-budget-check.sh. Un tier con espacios internos se
     // normaliza en vez de fallar.
