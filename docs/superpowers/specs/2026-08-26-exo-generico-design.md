@@ -146,26 +146,32 @@ de la ecuación y deja `exo-plugins` privado con `paul-profile` dentro.
 argumento de producto de este proyecto).
 
 **Alcance ampliado respecto al B1 original.** El planteamiento de arriba solo
-contempla las dos identidades corporativas. El mailmap colapsa **las cinco**:
+contempla las dos identidades corporativas. El mailmap colapsa **cinco
+identidades de autoría a una sola**, con este reparto de commits (278 commits
+totales, medidos el 2026-09-01, con el commit del `.gitignore` de la Task 0
+del plan de ejecución ya incluido):
 
-| Correo | Commits |
+| Identidad | Commits |
 |---|---|
-| `dev@example.invalid` | 189 |
-| `pguerrerolinares@gmail.com` | 32 |
-| `dev@example.invalid` | 9 |
-| `dev@example.invalid` | 1 |
-| `dev@example.invalid` | 1 |
+| Correo académico (universidad) | 189 |
+| Personal (Gmail — identidad final) | 78 |
+| Correo corporativo del empleador, cuenta 1 | 9 |
+| Correo corporativo del empleador, cuenta 2 | 1 |
+| Personal antiguo (correo previo, retirado) | 1 |
 
 Existe una sexta identidad en el campo *committer* — `GitHub
 <noreply@github.com>`, 1 commit hecho por la web UI — que **se conserva**: es
 la marca honesta de dónde se hizo ese commit, no una identidad personal.
 
-**Coste medido, no estimado:** 71 SHAs únicos citados en prosa, 137
-ocurrencias — 115 en este repo (`docs/`, `evals/`, `reports/`,
-`.superpowers/`, más un comentario en `engine/src/buscador.rs:11`) y 22 en la
-KB. Ni los mensajes de commit ni los ficheros contienen los correos de
-autoría, así que `--mailmap` basta; el remapeo de las citas se automatiza con
-el `commit-map` que genera filter-repo, que se commitea en `docs/history/`.
+**Coste medido, no estimado (re-medido al ejecutar, 2026-09-01):** 79 SHAs
+únicos citados en prosa, en 91 líneas de 36 ficheros. **`--mailmap` NO basta
+por sí solo** — la primera versión de este plan lo asumía y era falso: los
+correos vivían también dentro del *contenido* de varios ficheros, incluida
+esta misma spec y el runbook de integración de W11, así que hizo falta
+redactar contenido con `--replace-text`, además de `--replace-message` para
+los mensajes de commit (que `--replace-text` no toca). El remapeo de las
+citas de SHA se automatizó con el `commit-map` que genera filter-repo,
+commiteado en `docs/history/`.
 
 **EJECUCIÓN DIFERIDA — B1 y el privacy-pass van en la MISMA pasada.** La
 decisión está tomada; la ejecución espera. `--mailmap` corrige la *autoría*,
