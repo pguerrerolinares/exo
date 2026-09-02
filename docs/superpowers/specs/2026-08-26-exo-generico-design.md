@@ -142,7 +142,7 @@ de la ecuación y deja `exo-plugins` privado con `paul-profile` dentro.
 **Decisión (Paul, 2026-08-27):** se reescribe la autoría a una única identidad,
 `Paul Guerrero <pguerrerolinares@gmail.com>`. Rechazadas: *publicar tal cual*
 (dos correos del empleador en la autoría de un repo personal público) y
-*colapsar la historia* (destruye 232 commits de audit trail, que es el
+*colapsar la historia* (destruye 278 commits de audit trail, que es el
 argumento de producto de este proyecto).
 
 **Alcance ampliado respecto al B1 original.** El planteamiento de arriba solo
