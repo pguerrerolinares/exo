@@ -8,6 +8,7 @@ pub mod buscador;
 pub mod config;
 pub mod envelope;
 pub mod escritor;
+pub mod frontmatter;
 pub mod indexer;
 pub mod inicia;
 pub mod nota;
