@@ -1,12 +1,10 @@
 # Arquitectura de exo
 
-> Este documento describe el sistema **tal como está implementado** en el código
-> a fecha 2026-09-02. Cuando discrepa de las specs y planes de
-> `docs/superpowers/` (que son audit trail histórico, con deriva reconocida en
-> el `README.md`), manda el código, y la discrepancia se señala. Todo lo
-> afirmado aquí está verificado leyendo `engine/src/`, `plugins/exo/`,
-> `engine/kb-template/` y `evals/`; lo que no se pudo verificar se marca
-> explícitamente.
+> Este documento describe el sistema **tal como está implementado**, a fecha
+> 2026-09-02, derivado de la lectura de `engine/src/`, `plugins/exo/`,
+> `engine/kb-template/` y `evals/`. Las specs y planes de `docs/superpowers/`
+> son el registro histórico de diseño; la deuda abierta vive en
+> `docs/backlog.md`.
 
 ## 1. Qué es exo
 
@@ -133,8 +131,10 @@ Decisiones que conviene conocer:
 - **Troceado** (`engine/src/trozos.rs`): la unidad es el bloque Markdown
   (separado por línea en blanco o heading ATX); bloques consecutivos se
   empaquetan greedy hasta 900 caracteres por trozo; un bloque que por sí solo
-  excede se corta duro; sin solape. Los propios comentarios lo declaran
-  provisional — fue un parámetro del sweep de calibración.
+  excede se corta duro; sin solape. Los parámetros vigentes son los de
+  `trozos.rs`: salen del sweep de calibración de M2-07 (resultados en
+  `evals/retrieval-fase0/results/`) y no hay mecanismo de recalibración
+  para otra KB.
 - **Cache de embeddings por contenido**: antes de borrar los trozos viejos de
   una nota se leen sus vectores indexados por texto exacto; un trozo cuyo
   texto no cambió reutiliza su embedding sin pasar por el modelo. Editar una
@@ -189,9 +189,13 @@ motivos, tal como los declara el código:
 
 ### 3.5 Pipeline de búsqueda
 
-`exo search` tiene tres modos reales (`--type fts|vector|hybrid`, default
-`fts`), implementados en `engine/src/buscador.rs`. Todos devuelven resultados
-**a nivel de nota** (`type: "entity"`), nunca de trozo.
+`exo search` tiene tres modos (`--type fts|vector|hybrid`, default `fts`),
+implementados en `engine/src/buscador.rs`. Todos devuelven resultados
+**a nivel de nota** (`type: "entity"`), nunca de trozo. Ojo con el default:
+el modo calibrado y medido (48/55 hit@5, §6) es `--type hybrid` **con el
+umbral pasado explícito** (`--min-similarity 0.40`); `fts` a secas es el modo
+léxico barato, no el medido. `exo recall --query` sí usa hybrid con los
+parámetros sellados de serie.
 
 ```mermaid
 flowchart TD
@@ -274,7 +278,7 @@ queda registrada (`forced: true`) para ser auditable.
 
 ### 3.8 Superficie de CLI
 
-Extraída del parser de clap en `engine/src/main.rs` (no de la documentación):
+Extraída del parser de clap (`engine/src/main.rs`):
 
 | Comando | Qué hace | Flags principales |
 |---|---|---|
@@ -404,7 +408,7 @@ claves de más no rompen) consume:
 permalink: "mi-kb/core/core-index"   # OBLIGATORIO para indexarse; el indexer jamás lo genera
 title: core-index — mapa de esta KB  # opcional (cae al nombre del fichero)
 type: note                            # opcional
-tier: stable                          # stable | log (el engine también entiende core; ver §8)
+tier: stable                          # stable | log | core (core marca las notas de arranque; §3.6)
 tags: [core, indice]                  # tolerado, no lo consume el engine
 ---
 ```
@@ -424,6 +428,15 @@ tags: [core, indice]                  # tolerado, no lo consume el engine
 - El core-index declara además una disciplina de presupuesto: cap de bytes por
   nota-índice con 15% de aire, y "retirar entradas muertas, no comprimir las
   vivas" — es contrato editorial de la KB, no lo impone el engine.
+
+La semilla cumple el contrato de arranque que los hooks esperan de una KB: su
+`core-index` es `tier: core` (lo que `exo recall` selecciona en modo
+arranque), contiene la frase-guarda `Contrato de memoria` con la que
+`exo-recall.sh` valida el bloque, y las secciones `## Doctrina compacta` y
+`## Cores` que extrae `compose-inject.sh`; `AGENTS.md` documenta el tier
+`core`. Una KB recién creada con `exo init` arranca, por tanto, con su propio
+mapa, no con el fallback embebido — verificado ejecutando `exo init` sobre un
+directorio limpio.
 
 ## 6. Cómo se mide la calidad del retrieval
 
@@ -453,29 +466,29 @@ corrida, y los números no se renegocian.
   es mecánico: checklists gold por skill (`gold/*.md`, con sección DESCARTES
   de lo que se tira a propósito) verificadas por un revisor fresco.
 
-Un límite honesto: el fichero de queries (`eval.jsonl`, referenciado por el
+Un límite declarado: el fichero de queries (`eval.jsonl`, referenciado por el
 harness) y la KB contra la que se midió **no están en el repo** — son
 privados. Los evals publicados son audit trail verificable de método y
 resultados, no un benchmark reproducible por un tercero tal cual.
 
 ## 7. Qué NO está implementado
 
-Bordes explícitos, verificados en el código y en `docs/backlog.md`:
+Bordes explícitos del sistema; el detalle y el siguiente paso de cada uno
+viven en `docs/backlog.md`:
 
-- **`exo budget` y `exo doctor` no existen.** El README los lista como
-  planeados; el parser de `main.rs` no los tiene. En particular, el check de
-  desfase binario↔scripts del plugin (que el backlog asigna a `exo doctor`)
-  no existe: si los scripts nuevos corren contra un binario viejo, el hook de
-  arranque degrada al fallback embebido **con forma válida**, sin gritar.
+- **`exo budget` y `exo doctor` no existen todavía** (planeados). En
+  particular, el check de desfase binario↔scripts del plugin (asignado a
+  `exo doctor`) no existe: si los scripts nuevos corren contra un binario
+  viejo, el hook de arranque degrada al fallback embebido **con forma
+  válida**, sin gritar.
 - **MCP propio (M5a) y desinstalación de basic-memory (M5b)**: pendientes. El
   engine ya no depende de basic-memory para funcionar (la única lectura que
   queda es la migración explícita `exo init --from-basic-memory`), pero el
   plan de retirada completa no está ejecutado.
-- **Sin CI**: no hay `.github/`, ni `rust-version` en `Cargo.toml`, ni
-  `LICENSE` en la raíz del repo (la licencia MIT presente es la de
-  atribución a superpowers). Verificado en el backlog: el crate ni siquiera
-  compila en una segunda máquina sin toolchain C (rusqlite bundled +
-  sqlite-vec lo exigen).
+- **Sin CI**: no hay `.github/` — ningún gate automático compila ni corre la
+  suite fuera de la máquina de desarrollo. Compilar exige toolchain C
+  (rusqlite bundled + sqlite-vec); sin él, el build muere en `cc-rs`. Los
+  requisitos completos están en `docs/instalacion.md`.
 - **La suite de tests no es hermética fuera de la máquina de desarrollo**: los
   tests que embeben texto dependen del cache local del modelo ONNX (~0,6 GB);
   el gate de hermeticidad (`engine/scripts/test-hermetico.sh`) cubre la config
@@ -489,33 +502,3 @@ Bordes explícitos, verificados en el código y en `docs/backlog.md`:
 - El bloque de arranque de la KB del autor va al ~96% de su cap de 6.144 B y
   el desbordamiento se trunca por el final (el engine avisa por stderr y el
   hook lo loguea, pero nada lo impide) — item abierto en el backlog.
-
-## 8. Donde el código y los documentos discrepan
-
-Deriva relevante encontrada al escribir este documento (el código manda):
-
-1. **El párrafo de estado del README raíz está desactualizado** — lo reconoce
-   él mismo remitiendo a `docs/backlog.md`. Dice "restan M6-03/04/05" cuando
-   el recall en el punto de uso (M6-06, `recall-inject.sh`) está implementado
-   y cableado; la tabla de estado del backlog (revisión 2026-08-18) también es
-   anterior a la fusión del plugin.
-2. **La semilla no cumplía el contrato que el propio sistema espera de ella
-   — detectado y corregido al escribir este documento.** El `core-index` de
-   `kb-template/` era `tier: stable`, pero `exo recall` en modo arranque
-   selecciona por `tier: core`; y le faltaban tanto la frase-guarda
-   `Contrato de memoria` con la que `exo-recall.sh` valida el bloque como las
-   secciones `## Doctrina compacta` y `## Cores` que extrae
-   `compose-inject.sh`. Una KB recién creada con `exo init` arrancaba, por
-   tanto, con el fallback embebido —dejando evento en el log, no en
-   silencio— en vez de con su propio mapa. La semilla cumple ya las tres
-   cosas, y `AGENTS.md` documenta el tier `core` que antes omitía;
-   verificado ejecutando `exo init` sobre un directorio limpio, no leyendo
-   el código.
-3. **El chunking que la spec del indexer declara "provisional, parámetro del
-   sweep" quedó sellado de facto** (900 chars, sin solape) sin doc posterior
-   que lo consolide; la fuente de verdad son los comentarios de `trozos.rs` y
-   los resultados del sweep en `evals/retrieval-fase0/results/`.
-4. Menor pero fácil de malentender: **el default de `exo search` es `fts`**,
-   no `hybrid` — el modo calibrado y medido (48/55) solo se obtiene con
-   `--type hybrid`, y con el umbral 0.40 pasado explícito. El recall en modo
-   consulta sí usa hybrid con los defaults sellados.
