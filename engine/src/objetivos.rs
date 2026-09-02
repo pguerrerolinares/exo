@@ -31,32 +31,17 @@ pub fn construye_match_query(tema: &str) -> Result<String> {
     Ok(terminos.join(" "))
 }
 
-/// Headings de nivel 1-3 del fichero, en orden de aparición.
-///
-/// Best-effort a propósito: un fichero ilegible o inexistente devuelve lista
-/// vacía, nunca error. La candidata sigue apareciendo aunque su fichero no se
-/// pueda leer, porque el índice la conoce.
-///
-/// Wrapper delgado sobre `headings_de`: lee el fichero y delega el escaneo.
-/// Se mantiene para no romper a quien ya llama con una ruta en vez de
-/// contenido ya leído (y a los tests que dependen de esta firma).
-pub fn extrae_headings(ruta: &Path) -> Vec<String> {
-    // `read` + `from_utf8_lossy` y no `read_to_string`: en Go esto es un
-    // `bufio.Scanner` sobre bytes, que sigue produciendo headings en un
-    // fichero con UTF-8 inválido. `read_to_string` fallaría y devolvería lista
-    // vacía — una divergencia silenciosa con el binario contra el que se mide
-    // la paridad.
-    let Ok(bytes) = std::fs::read(ruta) else {
-        return Vec::new();
-    };
-    headings_de(&String::from_utf8_lossy(&bytes))
-}
-
 /// Headings de nivel 1-3 de un contenido ya leído, en orden de aparición.
 ///
-/// Separada de `extrae_headings` para que `busca_objetivos` pueda reusar el
-/// `contenido` que ya leyó para `tier`/`tamano_bytes` en vez de volver a leer
-/// el mismo fichero de disco.
+/// Toma `contenido` y no una ruta: `busca_objetivos` ya leyó el fichero para
+/// `tier`/`tamano_bytes` y reusa ese mismo `contenido`, en vez de que esta
+/// función vuelva a leer el fichero de disco por su cuenta (hasta el
+/// refactor de una sola lectura, `extrae_headings(ruta)` sí releía; se borró
+/// por no tener llamantes de producción).
+///
+/// El caso "fichero ilegible ⇒ headings vacíos" es best-effort de
+/// `busca_objetivos`, no de esta función: se cubre en
+/// `tests/objetivos.rs::una_candidata_con_fichero_ilegible_sigue_apareciendo`.
 pub fn headings_de(contenido: &str) -> Vec<String> {
     let mut headings = Vec::new();
     let mut en_valla = false;
@@ -262,17 +247,10 @@ mod tests {
         }
     }
 
-    fn escribe(dir: &std::path::Path, nombre: &str, contenido: &str) -> std::path::PathBuf {
-        let p = dir.join(nombre);
-        std::fs::write(&p, contenido).unwrap();
-        p
-    }
-
     #[test]
-    fn extrae_headings_de_nivel_1_a_3_en_orden() {
-        let dir = tempfile::tempdir().unwrap();
-        let p = escribe(dir.path(), "a.md", "# uno\ntexto\n## dos\n### tres\n");
-        assert_eq!(extrae_headings(&p), vec!["uno", "dos", "tres"]);
+    fn headings_de_nivel_1_a_3_en_orden() {
+        let contenido = "# uno\ntexto\n## dos\n### tres\n";
+        assert_eq!(headings_de(contenido), vec!["uno", "dos", "tres"]);
     }
 
     // Nivel 4+ no matchea porque tras tres `#` el patrón exige un espacio
@@ -280,37 +258,13 @@ mod tests {
     // código no es un heading.
     #[test]
     fn ignora_el_nivel_4_y_lo_que_hay_dentro_de_una_valla() {
-        let dir = tempfile::tempdir().unwrap();
-        let p = escribe(
-            dir.path(),
-            "a.md",
-            "# real\n#### profundo\n```sh\n# falso\n```\n## otro\n",
-        );
-        assert_eq!(extrae_headings(&p), vec!["real", "otro"]);
-    }
-
-    #[test]
-    fn un_fichero_ilegible_da_lista_vacia_nunca_error() {
-        let dir = tempfile::tempdir().unwrap();
-        assert!(extrae_headings(&dir.path().join("no-existe.md")).is_empty());
+        let contenido = "# real\n#### profundo\n```sh\n# falso\n```\n## otro\n";
+        assert_eq!(headings_de(contenido), vec!["real", "otro"]);
     }
 
     #[test]
     fn los_headings_sobreviven_a_crlf() {
-        let dir = tempfile::tempdir().unwrap();
-        let p = escribe(dir.path(), "a.md", "# uno\r\n## dos\r\n");
-        assert_eq!(extrae_headings(&p), vec!["uno", "dos"]);
-    }
-
-    // `extrae_headings` es ahora un wrapper delgado sobre `headings_de`: leer
-    // el fichero y pasar el mismo contenido a `headings_de` tiene que dar
-    // exactamente el mismo resultado que `extrae_headings(&ruta)`. Es lo que
-    // sostiene que unificar la lectura en `busca_objetivos` no cambia nada.
-    #[test]
-    fn extrae_headings_y_headings_de_coinciden_sobre_el_mismo_contenido() {
-        let dir = tempfile::tempdir().unwrap();
-        let contenido = "# real\n#### profundo\n```sh\n# falso\n```\n## otro\n### tres\n";
-        let p = escribe(dir.path(), "a.md", contenido);
-        assert_eq!(extrae_headings(&p), headings_de(contenido));
+        let contenido = "# uno\r\n## dos\r\n";
+        assert_eq!(headings_de(contenido), vec!["uno", "dos"]);
     }
 }
