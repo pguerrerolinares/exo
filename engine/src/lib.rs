@@ -12,6 +12,7 @@ pub mod frontmatter;
 pub mod gitx;
 pub mod indexer;
 pub mod inicia;
+pub mod lint;
 pub mod nota;
 pub mod objetivos;
 pub mod plantilla;
