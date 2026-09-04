@@ -15,6 +15,7 @@ pub mod inicia;
 pub mod nota;
 pub mod objetivos;
 pub mod plantilla;
+pub mod presupuesto;
 pub mod recall;
 pub mod schema;
 pub mod trozos;
