@@ -18,6 +18,18 @@ fn nota(tier: &str, extra: &str, relleno: usize) -> String {
     format!("{cabecera}{cuerpo}")
 }
 
+/// Indexa una nota en `notas`. Desde la Task 9, `analiza` compara el índice
+/// contra el disco (`index_stale`): los fixtures que esperan `ok` ya no pueden
+/// dejar el índice vacío con notas en disco, hay que indexarlas de verdad.
+fn indexa(conn: &rusqlite::Connection, ruta: &str) {
+    conn.execute(
+        "INSERT INTO notas (permalink, ruta, titulo, tipo, mtime, git_epoch)
+         VALUES (?1, ?2, ?1, 'note', 0.0, NULL)",
+        rusqlite::params![format!("kb/{ruta}"), ruta],
+    )
+    .unwrap();
+}
+
 #[test]
 fn el_override_dispara_aunque_el_tier_sea_ilimitado() {
     // LA regresión de paridad de kbx: `tier: log` (nominal 0) con
@@ -278,9 +290,19 @@ fn el_informe_de_lint_es_ok_con_solo_waived() {
     // rompería esto: un waiver es una declaración aceptada, no debe mover el
     // gate. Los dos tests existentes de `analiza` tienen `waived` vacío en su
     // fixture y no pillarían esa mutación.
-    let dir = kb_con(&[("core/w.md", nota("core", "kbx_budget_max: 20000\n", 12_000))]);
+    let dir = kb_con(&[(
+        "core/w.md",
+        nota(
+            "core",
+            "kbx_budget_max: 20000\nkbx_orphan_ok: true\n",
+            12_000,
+        ),
+    )]);
     let conn = exo::abre_db_en_memoria().unwrap();
     exo::schema::crea_schema(&conn).unwrap();
+    // `kbx_orphan_ok`, si no, la única nota del índice sin ninguna arista sale
+    // huérfana de verdad y ensucia `hallazgos` por un motivo ajeno a este test.
+    indexa(&conn, "core/w.md");
     let informe =
         lint::analiza(&conn, dir.path(), NOMINALES, &exo::presupuesto::EXCLUIDOS).unwrap();
     assert!(informe.hallazgos.is_empty());
@@ -293,9 +315,14 @@ fn el_informe_de_lint_es_ok_con_solo_waived() {
 
 #[test]
 fn el_informe_de_lint_es_ok_solo_sin_hallazgos() {
-    let dir = kb_con(&[("core/ok.md", nota("core", "", 100))]);
+    let dir = kb_con(&[("core/ok.md", nota("core", "kbx_orphan_ok: true\n", 100))]);
     let conn = exo::abre_db_en_memoria().unwrap();
     exo::schema::crea_schema(&conn).unwrap();
+    // Task 9: un índice vacío con notas en disco ya no puede salir `ok`
+    // (`index_stale`), así que este fixture tiene que indexar de verdad.
+    // `kbx_orphan_ok` porque, ya indexada y sin ninguna arista, la nota
+    // saldría huérfana por un motivo que este test no quiere probar.
+    indexa(&conn, "core/ok.md");
     let informe =
         lint::analiza(&conn, dir.path(), NOMINALES, &exo::presupuesto::EXCLUIDOS).unwrap();
     assert!(informe.ok);

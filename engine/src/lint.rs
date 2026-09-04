@@ -1,8 +1,13 @@
-//! Los seis checks de deriva de la KB, portados de `kbx doctor` en bare mode.
+//! Los checks de deriva de la KB, portados de `kbx doctor` en bare mode, más
+//! `index_stale`, que kbx no tiene.
 //!
-//! Son SEIS y no siete: `schema_drift` muere aquí (A7 del plan de G4b). Existía
-//! porque kbx y exo eran dos binarios contra un schema compartido; con un solo
-//! binario deja de tener objeto.
+//! De los seis de kbx sobreviven cinco tal cual y `orphan` cambia de vecino:
+//! `schema_drift` muere aquí (A7 del plan de G4b) — existía porque kbx y exo
+//! eran dos binarios contra un schema compartido, y con un solo binario deja
+//! de tener objeto. `index_stale` es nuevo (divergencia 8 del pre-registro):
+//! tapa el agujero por el que `orphan`, único check que lee el índice, sale en
+//! silencio sobre un índice vacío o desfasado. El recuento sigue en siete
+//! tipos a cada lado, pero no son los mismos siete.
 
 use anyhow::{Context, Result};
 use serde::Serialize;
@@ -325,6 +330,65 @@ pub fn deriva_de_prosa(
     Ok(hallazgos)
 }
 
+/// Notas que están en disco y el índice no conoce.
+///
+/// El check `orphan` es el único de los seis que lee el índice, así que sobre un
+/// índice vacío o desfasado **no encuentra nada y `lint` sale verde**: el
+/// instrumento no puede ver y responde "limpio". kbx tiene el mismo agujero;
+/// aquí no, porque `analiza` ya tiene el walk de disco delante y compararlos es
+/// barato.
+///
+/// El índice **vacío** se reporta como UN hallazgo, no uno por nota: es una
+/// condición del entorno con una sola acción (`exo index`), y N hallazgos
+/// idénticos convierten un informe accionable en ruido.
+pub fn indice_rancio(conn: &rusqlite::Connection, rutas: &[String]) -> Result<Vec<Hallazgo>> {
+    let mut stmt = conn
+        .prepare("SELECT ruta FROM notas")
+        .context("leer rutas del índice")?;
+    let indexadas: std::collections::BTreeSet<String> = stmt
+        .query_map([], |f| f.get::<_, String>(0))
+        .context("consultar rutas del índice")?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .context("leer fila del índice")?
+        .into_iter()
+        // Mismo motivo que en `huerfanas`: `notas.ruta` lleva separador nativo.
+        .map(|r| r.replace('\\', "/"))
+        .collect();
+
+    if rutas.is_empty() {
+        return Ok(Vec::new());
+    }
+    if indexadas.is_empty() {
+        return Ok(vec![Hallazgo::nuevo(
+            "index_stale",
+            "",
+            format!(
+                "{} nota(s) en disco y el índice vacío — corre `exo index`",
+                rutas.len()
+            ),
+        )]);
+    }
+
+    let mut hallazgos: Vec<Hallazgo> = rutas
+        .iter()
+        .filter(|r| !indexadas.contains(*r))
+        .map(|r| {
+            Hallazgo::nuevo(
+                "index_stale",
+                r.clone(),
+                "en disco y no en el índice — corre `exo index`",
+            )
+        })
+        .collect();
+    // Defensiva, no falsable con los tests actuales: mismo caso que en
+    // `presupuesto_excedido` y `deriva_de_prosa` — `rutas` llega alfabética
+    // desde `walk_kb_excluyendo`, así que `filter` ya preserva ese orden sin
+    // este `sort_by`. Se deja explícito por si el contrato de orden de
+    // `rutas` cambia algún día y deja de garantizarlo.
+    hallazgos.sort_by(|a, b| a.ruta.cmp(&b.ruta));
+    Ok(hallazgos)
+}
+
 /// El informe completo de `lint`: `ok` es cierto solo si `hallazgos` está
 /// vacío (los `waived` no gatean, por definición). Clave JSON `findings` en
 /// vez de `hallazgos`: el consumidor es el envelope, en inglés, igual que el
@@ -337,9 +401,12 @@ pub struct InformeLint {
     pub waived: Vec<Hallazgo>,
 }
 
-/// El pipeline de los SEIS checks, en orden fijo:
+/// El pipeline de los siete checks, en orden fijo:
 /// `duplicate_dir → orphan → bad_frontmatter → root_file → budget_exceeded →
-/// budget_prose_drift`. `schema_drift` no está y no vuelve (A7).
+/// budget_prose_drift → index_stale`. `schema_drift` no está y no vuelve (A7);
+/// `index_stale` sí es nuevo frente a kbx (divergencia 8 del pre-registro): es
+/// el único de los siete que compara el índice contra el disco en vez de leer
+/// solo uno de los dos.
 pub fn analiza(
     conn: &rusqlite::Connection,
     kb: &Path,
@@ -361,6 +428,7 @@ pub fn analiza(
     hallazgos.extend(h);
     waived.extend(w);
     hallazgos.extend(deriva_de_prosa(kb, &rutas, presupuestos, excluidos)?);
+    hallazgos.extend(indice_rancio(conn, &rutas)?);
 
     Ok(InformeLint {
         ok: hallazgos.is_empty(),
