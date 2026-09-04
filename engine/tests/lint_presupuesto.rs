@@ -37,6 +37,49 @@ fn el_override_dispara_aunque_el_tier_sea_ilimitado() {
     );
     assert!(w.is_empty());
     assert_eq!(h[0].tipo, "budget_exceeded");
+    // Minor: sus tests solo comprobaban `tipo`. Un typo en el formato del
+    // detalle (que el gate de paridad compara contra el de kbx) no lo cogía
+    // nadie.
+    assert_eq!(h[0].detalle, "400B > 50B (log)");
+}
+
+#[test]
+fn presupuesto_excedido_respeta_la_exclusion_con_rutas_sin_filtrar() {
+    // La guarda `if excluida(rel, excluidos) { continue; }` es muda con
+    // `rutas` real: `walk_notas`/`walk_kb_excluyendo` ya filtran, así que
+    // ningún test que use esas rutas puede falsarla (mismo hallazgo ya
+    // cerrado para `frontmatter_malo`). Aquí `rutas` se construye a mano, sin
+    // filtrar, con una nota bajo un top-level excluido que SÍ se reportaría
+    // (12.000B > 8.500B nominal core) si la guarda desapareciera.
+    let dir = kb_con(&[("archive/grande.md", nota("core", "", 12_000))]);
+    let rutas = vec!["archive/grande.md".to_string()];
+    let (h, w) =
+        lint::presupuesto_excedido(dir.path(), &rutas, NOMINALES, &exo::presupuesto::EXCLUIDOS)
+            .unwrap();
+    assert!(h.is_empty(), "archive/ no debe reportarse: {h:?}");
+    assert!(w.is_empty());
+}
+
+#[test]
+fn presupuesto_excedido_no_reporta_sin_aire() {
+    // `Clase::SinAire { .. } | Clase::Ok => {}` fusiona dos ramas a
+    // propósito: el aviso de aire es de `budget`, no un gate de `lint`. Si
+    // `SinAire` se moviera a la rama de `Infractora`, `exo lint` empezaría a
+    // gatear sobre notas que solo están a ras de su nominal sin excederlo
+    // (del orden de 19 notas en la KB real) — el falso positivo que la doc
+    // del módulo dice evitar. Ninguno de los fixtures de arriba cae en la
+    // banda sin-aire, y `lint_y_budget_no_pueden_discrepar` compara por
+    // `path` así que tampoco la pillaría.
+    //
+    // objetivo_poda(8500) = 7.391, así que 7.392..=8.500 es la banda sin aire
+    // para una nota `core` sin override. 8.000 cae dentro.
+    let dir = kb_con(&[("core/al_limite.md", nota("core", "", 8_000))]);
+    let rutas = exo::walker::walk_notas(dir.path(), &exo::presupuesto::EXCLUIDOS).unwrap();
+    let (h, w) =
+        lint::presupuesto_excedido(dir.path(), &rutas, NOMINALES, &exo::presupuesto::EXCLUIDOS)
+            .unwrap();
+    assert!(h.is_empty(), "sin aire no debe gatear: {h:?}");
+    assert!(w.is_empty());
 }
 
 #[test]
@@ -80,6 +123,8 @@ fn lint_y_budget_no_pueden_discrepar() {
     // haría caer. `core/w.md` es la única waived de este fixture (determinista
     // por el sort_by), así que este assert sí lo cubre.
     assert_eq!(w[0].tipo, "budget_exceeded");
+    // Minor: mismo razonamiento que en el test de infractora de arriba.
+    assert_eq!(w[0].detalle, "12000B ≤ 20000B (waived: kbx_budget_max)");
 }
 
 #[test]
@@ -210,6 +255,40 @@ fn la_deriva_de_prosa_no_matchea_si_la_cifra_no_va_pegada_al_tier() {
         h.is_empty(),
         "el 'es' entre tier y cifra no debe contar como cita: {h:?}"
     );
+}
+
+#[test]
+fn deriva_de_prosa_respeta_la_exclusion_con_rutas_sin_filtrar() {
+    // Misma guarda muda que en `presupuesto_excedido`, mismo remedio: `rutas`
+    // a mano, sin filtrar, con una nota `core` bajo un top-level excluido que
+    // SÍ citaría una deriva (1000 != 8500) si la guarda desapareciera.
+    let dir = kb_con(&[(
+        "docs/c.md",
+        "---\ntier: core\n---\n\nPresupuesto: core 1.000 B.\n".to_string(),
+    )]);
+    let rutas = vec!["docs/c.md".to_string()];
+    let h =
+        lint::deriva_de_prosa(dir.path(), &rutas, NOMINALES, &exo::presupuesto::EXCLUIDOS).unwrap();
+    assert!(h.is_empty(), "docs/ no debe reportarse: {h:?}");
+}
+
+#[test]
+fn el_informe_de_lint_es_ok_con_solo_waived() {
+    // `ok: hallazgos.is_empty() && waived.is_empty()` es la mutación que
+    // rompería esto: un waiver es una declaración aceptada, no debe mover el
+    // gate. Los dos tests existentes de `analiza` tienen `waived` vacío en su
+    // fixture y no pillarían esa mutación.
+    let dir = kb_con(&[("core/w.md", nota("core", "kbx_budget_max: 20000\n", 12_000))]);
+    let conn = exo::abre_db_en_memoria().unwrap();
+    exo::schema::crea_schema(&conn).unwrap();
+    let informe =
+        lint::analiza(&conn, dir.path(), NOMINALES, &exo::presupuesto::EXCLUIDOS).unwrap();
+    assert!(informe.hallazgos.is_empty());
+    assert!(
+        !informe.waived.is_empty(),
+        "el fixture debe producir un waived"
+    );
+    assert!(informe.ok, "un waiver no debe apagar ok");
 }
 
 #[test]
