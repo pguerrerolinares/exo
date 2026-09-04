@@ -256,3 +256,79 @@ fn las_claves_de_write_estan_en_ingles() {
     assert_eq!(v["frontmatter_filled"][0], "tier");
     assert_eq!(v["forced"], false);
 }
+
+#[test]
+fn las_claves_de_budget_estan_en_ingles() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(dir.path().join("core")).unwrap();
+    std::fs::write(
+        dir.path().join("core/big.md"),
+        format!("---\ntier: core\n---\n{}", "x".repeat(9000)),
+    )
+    .unwrap();
+    let informe = exo::presupuesto::analiza(
+        dir.path(),
+        exo::presupuesto::NOMINALES,
+        &exo::presupuesto::EXCLUIDOS,
+    )
+    .unwrap();
+    let v = serde_json::to_value(&informe).unwrap();
+
+    for k in ["tiers", "offenders", "waived", "no_air", "notier"] {
+        assert!(v.get(k).is_some(), "falta {k} en el informe: {v}");
+    }
+    for k in ["infractoras", "sin_aire"] {
+        assert!(v.get(k).is_none(), "sobrevive la clave española {k}");
+    }
+    let o = &v["offenders"][0];
+    assert_eq!(o["path"], "core/big.md");
+    assert_eq!(o["tier"], "core");
+    assert_eq!(o["budget"], 8500);
+    // El swap que la presencia sola no vería: size_bytes y budget son ambos
+    // enteros, así que se comprueba cuál es cuál.
+    assert!(o["size_bytes"].as_i64().unwrap() > o["budget"].as_i64().unwrap());
+    let f = &v["tiers"][0];
+    assert_eq!(f["tier"], "core");
+    assert_eq!(f["budget"], 8500);
+    for k in ["notes", "bytes", "delta", "exceeded"] {
+        assert!(f.get(k).is_some(), "falta {k} en tiers[]: {f}");
+    }
+    for k in ["notas", "presupuesto", "excedido"] {
+        assert!(f.get(k).is_none(), "sobrevive la clave española {k}");
+    }
+}
+
+#[test]
+fn las_claves_de_lint_estan_en_ingles() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("suelto.txt"), "x").unwrap();
+    let conn = exo::abre_db_en_memoria().unwrap();
+    exo::schema::crea_schema(&conn).unwrap();
+    let informe = exo::lint::analiza(
+        &conn,
+        dir.path(),
+        exo::presupuesto::NOMINALES,
+        &exo::presupuesto::EXCLUIDOS,
+    )
+    .unwrap();
+    let v = serde_json::to_value(&informe).unwrap();
+
+    for k in ["ok", "findings", "waived"] {
+        assert!(v.get(k).is_some(), "falta {k}: {v}");
+    }
+    assert!(
+        v.get("hallazgos").is_none(),
+        "sobrevive la clave española hallazgos"
+    );
+    assert_eq!(v["ok"], false);
+    let h = &v["findings"][0];
+    for k in ["type", "path", "detail"] {
+        assert!(h.get(k).is_some(), "falta {k}: {h}");
+    }
+    for k in ["tipo", "ruta", "detalle"] {
+        assert!(h.get(k).is_none(), "sobrevive la clave española {k}");
+    }
+    // type y path son ambos strings: sin comprobar el valor, un swap pasaría.
+    assert_eq!(h["type"], "root_file");
+    assert_eq!(h["path"], "suelto.txt");
+}

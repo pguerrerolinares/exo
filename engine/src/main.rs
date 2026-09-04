@@ -59,6 +59,14 @@ enum Comando {
     /// disco y último commit de git (spec §4, primer verbo portado del
     /// núcleo de `kbx`, G4a). Solo lectura: no gatea nada.
     Targets(ArgsTargets),
+    /// Presupuestos por tier sobre el árbol de ficheros (`presupuesto::analiza`,
+    /// G4b). Emite el informe entero y LUEGO gatea: exit 3 si hay
+    /// infractoras o notas sin tier legal, nunca por el aviso de aire.
+    Budget(ArgsBudget),
+    /// Los siete checks de deriva de la KB (`lint::analiza`, G4b), sucesor de
+    /// `kbx doctor` en bare mode. Emite el informe entero y LUEGO gatea:
+    /// exit 3 si `ok` es falso.
+    Lint(ArgsLint),
 }
 
 #[derive(Subcommand)]
@@ -295,6 +303,31 @@ struct ArgsTargets {
     tema: String,
 }
 
+#[derive(clap::Args)]
+struct ArgsBudget {
+    /// Raíz de la KB. Precedencia: flag > $EXO_KB > config.
+    #[arg(long)]
+    kb: Option<PathBuf>,
+    /// Emite el resultado como envelope JSON (spec §4) en stdout.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(clap::Args)]
+struct ArgsLint {
+    /// Fichero SQLite del índice. Precedencia: flag > $EXO_DB > config. A
+    /// diferencia de `budget`, `lint` sí lo necesita: los checks `orphan` e
+    /// `index_stale` leen `notas`.
+    #[arg(long)]
+    db: Option<PathBuf>,
+    /// Raíz de la KB. Precedencia: flag > $EXO_KB > config.
+    #[arg(long)]
+    kb: Option<PathBuf>,
+    /// Emite el resultado como envelope JSON (spec §4) en stdout.
+    #[arg(long)]
+    json: bool,
+}
+
 fn main() {
     let cli = Cli::parse();
     // El flag sale del parseo de clap, no de un escaneo de argv: un valor de
@@ -320,6 +353,15 @@ fn main() {
                 }
                 std::process::exit(3);
             }
+            // `budget`/`lint`: "la KB está mal" tampoco es un error del
+            // sistema, pero aquí no hay un segundo envelope que emitir — el
+            // informe entero ya salió por stdout ANTES de gatear (`gate.rs`).
+            // Con `--json` esto solo añade la línea a stderr; el envelope no
+            // se repite.
+            if let Some(gate) = e.downcast_ref::<exo::gate::GateFallido>() {
+                eprintln!("rechazado: {gate}");
+                std::process::exit(3);
+            }
             eprintln!("error: {e:#}");
             std::process::exit(1);
         }
@@ -338,6 +380,8 @@ fn quiere_json(c: &Comando) -> bool {
         Comando::Search(a) => a.json,
         Comando::Recall(a) => a.json,
         Comando::Targets(a) => a.json,
+        Comando::Budget(a) => a.json,
+        Comando::Lint(a) => a.json,
         Comando::Write(w) => match w {
             ComandoWrite::New(a) => a.json,
             ComandoWrite::Append(a) => a.json,
@@ -388,6 +432,8 @@ fn ejecuta(comando: Comando) -> Result<()> {
         Comando::Search(args) => busca_cmd(args),
         Comando::Recall(args) => recall_cmd(args),
         Comando::Targets(args) => targets_cmd(args),
+        Comando::Budget(args) => budget_cmd(args),
+        Comando::Lint(args) => lint_cmd(args),
         Comando::Write(sub) => match sub {
             ComandoWrite::New(args) => write_new_cmd(args),
             ComandoWrite::Append(args) => write_append_cmd(args),
@@ -854,6 +900,110 @@ fn targets_cmd(args: ArgsTargets) -> Result<()> {
             );
             println!("\t{}", c.snippet);
         }
+    }
+    Ok(())
+}
+
+/// `exo budget`: presupuestos por tier sobre el árbol de ficheros. Solo lee
+/// disco (sin `--db`: `budget` no toca el índice, a diferencia de `lint`).
+///
+/// El informe se emite ENTERO antes de gatear: quien lo consume necesita
+/// saber QUÉ falló, no solo que falló.
+fn budget_cmd(args: ArgsBudget) -> Result<()> {
+    let kb = resuelve_kb(args.kb)?;
+    let informe = exo::presupuesto::analiza(
+        &kb,
+        exo::presupuesto::NOMINALES,
+        &exo::presupuesto::EXCLUIDOS,
+    )?;
+
+    if args.json {
+        envelope::emite("budget", serde_json::to_value(&informe)?);
+    } else {
+        for fila in &informe.tiers {
+            println!(
+                "{}\tnotas={}\tbytes={}\tpresupuesto={}\tdelta={}",
+                fila.tier, fila.notas, fila.bytes, fila.presupuesto, fila.delta
+            );
+        }
+        for o in &informe.infractoras {
+            println!(
+                "offender: {} ({}) {}/{} bytes",
+                o.ruta, o.tier, o.tamano_bytes, o.presupuesto
+            );
+        }
+        for w in &informe.waived {
+            println!(
+                "waived: {} ({}) {}/{} bytes",
+                w.ruta, w.tier, w.tamano_bytes, w.presupuesto
+            );
+        }
+        for na in &informe.sin_aire {
+            println!(
+                "no-air: {} ({}) {}/{} bytes a ras — poda a {} para el 15% de aire",
+                na.ruta,
+                na.tier,
+                na.tamano_bytes,
+                na.presupuesto,
+                exo::presupuesto::objetivo_poda(na.presupuesto)
+            );
+        }
+        for n in &informe.notier {
+            println!("notier: {n}");
+        }
+    }
+
+    if informe.excedido() {
+        return Err(exo::gate::GateFallido {
+            comando: "budget",
+            detalle: format!(
+                "{} nota(s) sobre presupuesto, {} sin tier legal",
+                informe.infractoras.len(),
+                informe.notier.len()
+            ),
+        }
+        .into());
+    }
+    Ok(())
+}
+
+/// `exo lint`: los siete checks de deriva de la KB. A diferencia de `budget`
+/// sí necesita `--db`: `orphan` e `index_stale` leen `notas`. Misma DB
+/// inexistente = error real (exit 1, no exit 3): el binario no puede
+/// trabajar, que es distinto de "la KB está mal" (`index_stale` sí es exit 3).
+fn lint_cmd(args: ArgsLint) -> Result<()> {
+    let db_ruta = resuelve_db(args.db)?;
+    if !db_ruta.exists() {
+        anyhow::bail!(
+            "DB no encontrada: {} — corre `exo index` primero",
+            db_ruta.display()
+        );
+    }
+    let kb = resuelve_kb(args.kb)?;
+    let conn = exo::abre_db(&db_ruta)?;
+    let informe = exo::lint::analiza(
+        &conn,
+        &kb,
+        exo::presupuesto::NOMINALES,
+        &exo::presupuesto::EXCLUIDOS,
+    )?;
+
+    if args.json {
+        envelope::emite("lint", serde_json::to_value(&informe)?);
+    } else if informe.hallazgos.is_empty() {
+        println!("ok");
+    } else {
+        for h in &informe.hallazgos {
+            println!("{}\t{}\t{}", h.tipo, h.ruta, h.detalle);
+        }
+    }
+
+    if !informe.ok {
+        return Err(exo::gate::GateFallido {
+            comando: "lint",
+            detalle: format!("{} hallazgo(s)", informe.hallazgos.len()),
+        }
+        .into());
     }
     Ok(())
 }
