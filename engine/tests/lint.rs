@@ -79,6 +79,35 @@ fn frontmatter_malo_detecta_presencia_con_valor_no_con_tier_vacio() {
 }
 
 #[test]
+fn frontmatter_malo_respeta_la_exclusion_y_ordena_con_rutas_sin_filtrar() {
+    // A diferencia de los dos tests de `dirs_duplicados` y de los de arriba
+    // para `frontmatter_malo`, aquí `rutas` NO sale de `walk_notas` (que ya
+    // aplicó `excluida` y ya llega ordenado). Se construye a mano, sin
+    // filtrar y a propósito desordenado, para que el
+    // `if excluida(rel, excluidos) { continue; }` y el `sort_by` final de
+    // `frontmatter_malo` tengan algo real que hacer: sin la guarda de
+    // exclusión, "archive/mala.md" se colaría; sin el sort_by, el orden
+    // saldría "z.md, a.md" (orden de inserción) en vez del esperado.
+    let dir = kb_con(&[
+        ("archive/mala.md", "---\ntier: inventado\n---\n"),
+        ("z.md", "---\ntier: inventado\n---\n"),
+        ("a.md", "---\ntier: inventado\n---\n"),
+    ]);
+    let rutas = vec![
+        "archive/mala.md".to_string(),
+        "z.md".to_string(),
+        "a.md".to_string(),
+    ];
+    let h = lint::frontmatter_malo(dir.path(), &rutas, &exo::presupuesto::EXCLUIDOS).unwrap();
+    let rutas_reportadas: Vec<&str> = h.iter().map(|f| f.ruta.as_str()).collect();
+    assert_eq!(
+        rutas_reportadas,
+        vec!["a.md", "z.md"],
+        "archive/mala.md no debe reportarse, y el resto debe salir ordenado"
+    );
+}
+
+#[test]
 fn ficheros_en_raiz_solo_mira_profundidad_cero() {
     let dir = kb_con(&[
         ("nota.md", "---\ntier: core\n---\n"),
@@ -90,6 +119,23 @@ fn ficheros_en_raiz_solo_mira_profundidad_cero() {
     let rutas: Vec<&str> = h.iter().map(|f| f.ruta.as_str()).collect();
     assert_eq!(rutas, vec!["suelto.txt"]);
     assert_eq!(h[0].tipo, "root_file");
+}
+
+#[test]
+fn ficheros_en_raiz_ordena_por_ruta_aunque_read_dir_no_lo_garantice() {
+    // El orden de `std::fs::read_dir` no lo garantiza el sistema operativo.
+    // En NTFS, además, la enumeración es case-insensitive ("a" antes que
+    // "Z"), mientras que `sort_by(|a, b| a.ruta.cmp(&b.ruta))` ordena por
+    // bytes UTF-8 ("Z" antes que "a", porque 'Z' = 0x5A < 'a' = 0x61). Este
+    // fixture explota justo ese desacuerdo: sin el sort_by, el resultado
+    // saldría en el orden crudo de read_dir ("a.txt", "Z.txt"); con él, sale
+    // en el orden que el código promete.
+    let dir = kb_con(&[("nota.md", "---\ntier: core\n---\n")]);
+    fs::write(dir.path().join("Z.txt"), "x").unwrap();
+    fs::write(dir.path().join("a.txt"), "x").unwrap();
+    let h = lint::ficheros_en_raiz(dir.path()).unwrap();
+    let rutas: Vec<&str> = h.iter().map(|f| f.ruta.as_str()).collect();
+    assert_eq!(rutas, vec!["Z.txt", "a.txt"]);
 }
 
 #[test]

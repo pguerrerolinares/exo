@@ -8,14 +8,18 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use std::path::Path;
 
+// `doctor.go:31-37` deja escrito «do not reintroduce a second copy of it»
+// sobre el predicado de scope: dos copias con tolerancias que derivan es el
+// modo de fallo que esa nota documenta. Por eso `excluida` y `es_md` se
+// importan de `walker` en vez de reimplementarse aquí.
 use crate::frontmatter::{tier, valor};
 use crate::presupuesto::TIERS;
 use crate::walker::{es_md, excluida, lee_nota};
 
-/// `doctor.go:31-37` deja escrito «do not reintroduce a second copy of it»
-/// sobre el predicado de scope: dos copias con tolerancias que derivan es el
-/// modo de fallo que esa nota documenta. Por eso `excluida` y `es_md` se
-/// importan de `walker` en vez de reimplementarse aquí.
+/// Un hallazgo de lint: qué check lo produjo (`tipo`), qué ruta relativa
+/// afecta (`ruta`) y el detalle legible del porqué (`detalle`). Las claves
+/// serializan en inglés (`type`/`path`/`detail`) porque el consumidor es el
+/// envelope JSON, no un lector en castellano.
 #[derive(Serialize, Debug, Clone)]
 pub struct Hallazgo {
     #[serde(rename = "type")]
@@ -57,6 +61,10 @@ pub fn dirs_duplicados(dirs: &[(String, String)], excluidos: &[&str]) -> Result<
         rutas.sort();
         hallazgos.push(Hallazgo::nuevo("duplicate_dir", basename, rutas.join(", ")));
     }
+    // Defensiva, no falsable: `grupos` es un BTreeMap<String, _> y ya itera
+    // por basename en orden, así que `hallazgos` sale de la línea de arriba
+    // sorted por `ruta` (= basename) sin este sort_by. Se deja explícito por
+    // si el tipo de `grupos` cambia algún día y deja de garantizarlo.
     hallazgos.sort_by(|a, b| a.ruta.cmp(&b.ruta));
     Ok(hallazgos)
 }
