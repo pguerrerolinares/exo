@@ -990,11 +990,23 @@ fn lint_cmd(args: ArgsLint) -> Result<()> {
 
     if args.json {
         envelope::emite("lint", serde_json::to_value(&informe)?);
-    } else if informe.hallazgos.is_empty() {
-        println!("ok");
     } else {
-        for h in &informe.hallazgos {
-            println!("{}\t{}\t{}", h.tipo, h.ruta, h.detalle);
+        if informe.hallazgos.is_empty() {
+            println!("ok");
+        } else {
+            for h in &informe.hallazgos {
+                println!("{}\t{}\t{}", h.tipo, h.ruta, h.detalle);
+            }
+        }
+        // Los waived son la superficie de auditoría humana de las excepciones
+        // reconocidas y se imprimen SIEMPRE, incluso en un run limpio
+        // (informe.hallazgos vacío / "ok"): mismo contrato que budget_cmd
+        // arriba, que a su vez porta el de emitDoctorReport en el kbx
+        // original (cmd/kbx/main.go): "Waived items surface even on a clean
+        // (ok:true) run: they are the human-facing audit surface for
+        // recognized exceptions (spec §10)".
+        for w in &informe.waived {
+            println!("waived\t{}\t{}\t{}", w.tipo, w.ruta, w.detalle);
         }
     }
 

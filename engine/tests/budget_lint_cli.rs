@@ -216,6 +216,71 @@ fn lint_con_hallazgos_sale_tres_y_lint_limpio_sale_cero() {
 }
 
 #[test]
+fn lint_limpio_igual_imprime_los_waived_en_modo_humano() {
+    // Important 2 de la code review: `lint_cmd` en modo humano imprimía "ok" y
+    // se callaba `informe.waived` — a diferencia de `budget_cmd`, que sí los
+    // imprime incluso en verde. Ese comportamiento es a propósito, no un
+    // accidente: `emitDoctorReport` en el `kbx` original (cmd/kbx/main.go)
+    // dice literalmente "Waived items surface even on a clean (ok:true) run:
+    // they are the human-facing audit surface for recognized exceptions
+    // (spec §10)". Este test fija que `lint` en Rust respeta el mismo
+    // contrato: el caso limpio (hallazgos vacíos, exit 0, "ok") tiene que
+    // llevar la línea `waived` igualmente.
+    //
+    // `core/grande.md` rebasa el nominal del tier core (8500B) pero declara
+    // `kbx_budget_max: 20000` por encima de su tamaño real: cae en
+    // `Clase::Waived` (presupuesto.rs::clasifica), no en infractora. Enlazada
+    // desde `core/hub.md` para que `orphan` no la marque — el mismo patrón de
+    // arista real que usa `lint_con_hallazgos_sale_tres_y_lint_limpio_sale_cero`
+    // arriba, para no mezclar ruido de `orphan`/`index_stale` en un test que
+    // solo le interesa el waiver de budget.
+    let grande = format!(
+        "---\ntier: core\nkbx_budget_max: 20000\n---\n{}",
+        "x".repeat(9000)
+    );
+    let dir = kb(&[
+        ("core/hub.md", "---\ntier: core\n---\n[[grande]]\n"),
+        ("core/grande.md", grande.as_str()),
+    ]);
+    let dir_db = tempfile::tempdir().unwrap();
+    let db = db_con(dir_db.path(), &["core/hub.md", "core/grande.md"]);
+    {
+        let conn = exo::abre_db(&db).unwrap();
+        conn.execute(
+            "INSERT INTO aristas (origen, destino_texto, destino_permalink)
+             VALUES ('kb/core/hub.md', 'grande', 'kb/core/grande.md')",
+            [],
+        )
+        .unwrap();
+    }
+
+    let salida = Command::new(bin())
+        .args(["lint"])
+        .arg("--kb")
+        .arg(dir.path())
+        .arg("--db")
+        .arg(&db)
+        .output()
+        .unwrap();
+    assert!(
+        salida.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&salida.stdout),
+        String::from_utf8_lossy(&salida.stderr)
+    );
+    let texto = String::from_utf8_lossy(&salida.stdout);
+    let lineas: Vec<&str> = texto.trim_end().lines().collect();
+    assert_eq!(
+        lineas,
+        vec![
+            "ok",
+            "waived\tbudget_exceeded\tcore/grande.md\t9041B ≤ 20000B (waived: kbx_budget_max)",
+        ],
+        "el caso limpio tiene que imprimir 'ok' Y la línea waived, no callarla"
+    );
+}
+
+#[test]
 fn una_db_inexistente_es_error_uno_no_gate_tres() {
     // La distinción que justifica los dos códigos: "la KB está mal" (3) frente
     // a "el binario no pudo trabajar" (1).
