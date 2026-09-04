@@ -11,6 +11,44 @@ use anyhow::{Context, Result, bail};
 use std::path::Path;
 use std::process::Command;
 
+/// ¿Es `dir` **la raíz** de un work tree de git? Es una **condición de la
+/// KB**, no un fallo: `exo init --from-basic-memory` crea KBs sin versionar,
+/// donde `search`, `recall` e `index` funcionan perfectamente. Distinguirla
+/// de un fallo de git por fichero es lo que convierte un mensaje inútil en
+/// uno accionable (A2 del plan de G4b).
+///
+/// **La raíz, no "dentro de algún repo".** `--is-inside-work-tree` devuelve
+/// `true` para una KB anidada en un repo ajeno —un `$HOME` con los dotfiles
+/// versionados—, y ahí `git log` sobre cada nota resuelve sin error y
+/// devuelve cadena vacía: `last_commit` sale vacío para TODAS las notas, en
+/// silencio. Comparar con `--show-toplevel` cierra esa puerta.
+pub fn es_repo_git(dir: &Path) -> Result<bool> {
+    let salida = Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args(["rev-parse", "--show-toplevel"])
+        .output()
+        .with_context(|| format!("invocar git en {}", dir.display()))?;
+    if !salida.status.success() {
+        return Ok(false);
+    }
+    let raiz = String::from_utf8_lossy(&salida.stdout).trim().to_string();
+    // Guarda defensiva sin test que la ejercite: probado el 2026-09-04 contra
+    // un repo bare, que es el candidato obvio a "éxito con stdout vacío", y
+    // `--show-toplevel` ahí falla con exit 128 en vez de salir vacío. No se
+    // encontró ninguna forma de que git real dispare esta rama; se mantiene
+    // igualmente porque parsear un stdout vacío como ruta y compararlo contra
+    // `dir` sería, si algún día ocurre, un `Ok(true)` falso por accidente de
+    // `canonicalize("")`.
+    if raiz.is_empty() {
+        return Ok(false);
+    }
+    // `canonicalize` en los dos lados: git devuelve la ruta con `/` y resuelve
+    // symlinks, y en Windows además difiere en el prefijo de unidad.
+    let (a, b) = (std::fs::canonicalize(dir), std::fs::canonicalize(&raiz));
+    Ok(matches!((a, b), (Ok(a), Ok(b)) if a == b))
+}
+
 /// Fecha ISO-8601 del último commit que tocó `ruta_rel` dentro de la KB.
 ///
 /// `ruta_rel` es un **pathspec de git**, no una ruta de disco: se normaliza a
@@ -134,5 +172,26 @@ mod tests {
             ultimo_commit(dir.path(), &nativa).unwrap(),
             "2026-07-01T10:00:00+02:00"
         );
+    }
+
+    // Las tres ramas de `es_repo_git`: git falla (no es un repo en absoluto),
+    // salida vacía, y toplevel distinto de la raíz (KB anidada en repo ajeno).
+    #[test]
+    fn es_repo_git_es_falso_fuera_de_cualquier_repo() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(!es_repo_git(dir.path()).unwrap());
+    }
+
+    #[test]
+    fn es_repo_git_es_verdadero_en_la_raiz_de_un_work_tree() {
+        let dir = repo("log/a.md", "cuerpo\n");
+        assert!(es_repo_git(dir.path()).unwrap());
+    }
+
+    #[test]
+    fn es_repo_git_es_falso_en_un_subdirectorio_anidado() {
+        let dir = repo("log/a.md", "cuerpo\n");
+        let anidado = dir.path().join("log");
+        assert!(!es_repo_git(&anidado).unwrap());
     }
 }

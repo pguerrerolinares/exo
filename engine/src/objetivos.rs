@@ -122,6 +122,19 @@ pub fn busca_objetivos(
     if limite < 1 {
         bail!("targets: --limit tiene que ser >= 1, se recibió {limite}");
     }
+
+    // Una vez, no una por candidata: el fail-loud de `ultimo_commit` es
+    // correcto para un fallo de git sobre una nota, pero una KB sin
+    // versionar no es eso — es una condición de la KB (A2 del plan de G4b).
+    if !gitx::es_repo_git(kb)? {
+        bail!(
+            "la KB {} no está versionada —o cuelga de un repo ajeno, que para esto es \
+             lo mismo— y `targets` necesita git para last_commit. Corre `git init` en \
+             la raíz de la KB, o usa `exo search` / `exo recall`, que no lo necesitan",
+            kb.display()
+        );
+    }
+
     let match_query = construye_match_query(tema)?;
 
     let mut stmt = conn

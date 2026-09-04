@@ -64,6 +64,86 @@ fn kb_con_indice() -> (tempfile::TempDir, std::path::PathBuf) {
     (dir, db)
 }
 
+/// Copia de `kb_con_indice()` sin `git init`/`add`/`commit`: el caso real de
+/// `exo init --from-basic-memory`, que crea KBs sin versionar. Sin closure de
+/// git ni las variables de entorno que solo servían para él — si se quedan,
+/// son variables sin usar y `clippy -D warnings` deja la tarea en rojo.
+fn kb_con_indice_sin_git() -> (tempfile::TempDir, std::path::PathBuf) {
+    let dir = tempfile::tempdir().unwrap();
+    let kb = dir.path().to_path_buf();
+    std::fs::create_dir_all(kb.join("log")).unwrap();
+    std::fs::write(
+        kb.join("log/alpha.md"),
+        "---\ntier: stable\n---\n# alpha\ncuerpo de alpha\n",
+    )
+    .unwrap();
+
+    let db = dir.path().join("index.db");
+    let conn = exo::abre_db(&db).unwrap();
+    exo::schema::crea_schema(&conn).unwrap();
+    conn.execute(
+        "INSERT INTO notas (permalink, ruta, titulo, tipo, mtime, git_epoch)
+         VALUES ('kb/log/alpha', 'log/alpha.md', 'alpha', 'note', 0.0, NULL)",
+        [],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO notas_fts (titulo, cuerpo, permalink)
+         VALUES ('alpha', 'cuerpo de alpha', 'kb/log/alpha')",
+        [],
+    )
+    .unwrap();
+    drop(conn);
+    (dir, db)
+}
+
+// `exo init --from-basic-memory` crea KBs sin git. Ahí `search`, `recall` e
+// `index` funcionan y `targets` reventaba en la primera candidata con un
+// mensaje de fallo de git por fichero, que no dice qué hacer. Ahora la
+// condición se detecta una vez, antes del bucle (A2).
+#[test]
+fn una_kb_sin_git_da_un_error_accionable_y_no_un_fallo_por_fichero() {
+    let (dir, db) = kb_con_indice_sin_git();
+    let salida = Command::new(bin())
+        .args(["targets", "--json", "--limit", "5"])
+        .arg("--db")
+        .arg(&db)
+        .arg("--kb")
+        .arg(dir.path())
+        .arg("alpha")
+        .output()
+        .unwrap();
+
+    assert_eq!(salida.status.code(), Some(1), "es un error, no un gate");
+    let stderr = String::from_utf8_lossy(&salida.stderr);
+    assert!(
+        stderr.contains("no está versionada") || stderr.contains("git init"),
+        "el error tiene que nombrar la condición y la salida: {stderr}"
+    );
+    // Y una sola vez, no una por candidata.
+    assert_eq!(stderr.matches("git init").count(), 1);
+    assert!(salida.stdout.is_empty());
+}
+
+#[test]
+fn es_repo_git_distingue_las_dos_condiciones() {
+    let sin = tempfile::tempdir().unwrap();
+    assert!(!exo::gitx::es_repo_git(sin.path()).unwrap());
+    let (con, _db) = kb_con_indice();
+    assert!(exo::gitx::es_repo_git(con.path()).unwrap());
+}
+
+// `--is-inside-work-tree` diría true aquí, `git log` resolvería sin error y
+// last_commit saldría vacío para TODAS las notas, en silencio. Es el caso
+// real de un $HOME con los dotfiles versionados.
+#[test]
+fn una_kb_anidada_en_un_repo_ajeno_no_cuenta_como_versionada() {
+    let (repo, _db) = kb_con_indice();
+    let anidada = repo.path().join("kb-dentro");
+    std::fs::create_dir_all(&anidada).unwrap();
+    assert!(!exo::gitx::es_repo_git(&anidada).unwrap());
+}
+
 #[test]
 fn el_envelope_lleva_command_targets_y_schema_version_2() {
     let (dir, db) = kb_con_indice();
