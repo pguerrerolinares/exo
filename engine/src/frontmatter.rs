@@ -175,11 +175,39 @@ mod tests {
         assert_eq!(tier(contenido), "co\u{a0}re");
     }
 
+    // El predecesor de este test ("los seis, en cualquier posición") metía
+    // los seis caracteres en una sola cadena con el '\r' pegado al '\n' de
+    // cierre. `str::lines()` ya absorbe ese '\r' como parte del terminador
+    // `\r\n` antes de que `escanea` vea la línea, así que nunca llegaba al
+    // filtro de `tier()`: borra '\r' de `ESPACIOS_ASCII` y este test seguía
+    // en verde. Una cadena única tampoco habría delatado cuál faltaba —falla
+    // en bloque—, así que aquí cada carácter se falsa por separado.
+    //
+    // De los seis de `ESPACIOS_ASCII` solo cinco son alcanzables: `escanea`
+    // extrae el crudo de una única línea (`contenido.lines()`), y una línea
+    // por definición no puede contener un '\n' interno —es el propio
+    // separador—. Insertarlo en "tier: c\nore" no cuela un '\n' hasta el
+    // filtro: parte la clave en dos líneas ("tier: c" y "ore"), y `escanea`
+    // ve `crudo == "c"`, nunca "c\nore". No hay fixture que haga llegar un
+    // '\n' al filtro, así que no es falsable y no entra en el bucle. Se queda
+    // en `ESPACIOS_ASCII` solo por paridad literal con el `stripWhitespace`
+    // de Go (switch sobre ' ', '\t', '\n', '\r', '\v', '\f'), no porque haya
+    // un hueco de cobertura ni un candidato a que alguien lo "limpie".
     #[test]
-    fn el_tier_sigue_filtrando_los_seis_espacios_ascii() {
-        // Paridad con stripWhitespace de kbx: los seis, en cualquier posición.
-        let contenido = "---\ntier:  c o\tr\u{b}e\u{c}\r\n---\n";
-        assert_eq!(tier(contenido), "core");
+    fn el_tier_filtra_cada_espacio_ascii_alcanzable_por_separado() {
+        let alcanzables = [' ', '\t', '\r', '\u{b}', '\u{c}'];
+        for c in alcanzables {
+            // El carácter va en medio de "c<c>ore", nunca al final de la
+            // línea: un '\r' como último carácter de la línea sí lo absorbe
+            // `lines()` (es la trampa del test anterior), pero uno seguido de
+            // más contenido antes del '\n' sobrevive intacto hasta `crudo`.
+            let contenido = format!("---\ntier: c{c}ore\n---\n");
+            assert_eq!(
+                tier(&contenido),
+                "core",
+                "el caracter {c:?} deberia haber sido filtrado de tier()"
+            );
+        }
     }
 
     #[test]
