@@ -346,7 +346,34 @@ pub fn deriva_de_prosa(
 /// señala una nota concreta (ninguna de las de disco tiene más derecho que
 /// otra a cargar con el aviso), señala la KB entera. Convención de este
 /// módulo, no un valor por defecto sin decidir.
-pub fn indice_rancio(conn: &rusqlite::Connection, rutas: &[String]) -> Result<Vec<Hallazgo>> {
+///
+/// El resto de notas no indexadas SÍ reciben remedio real, y no siempre el
+/// mismo. `rutas` llega del walk de `lint` (`walk_kb_excluyendo` → `es_md`,
+/// A5, case-insensitive), pero el indexer real nunca ve el mundo así: su walk
+/// (`walker::walk_kb`) compara `Some("md")` exacto — case-sensitive, deuda ya
+/// declarada en `docs/backlog.md`, fuera de esta ola — y su parser
+/// (`nota::parsea_nota`, `nota.rs:49-51`) descarta en silencio (bueno, con
+/// `eprintln!`, ver `indexer.rs:183-190`) cualquier nota sin `permalink:` en
+/// el frontmatter (§6.2 regla 1). Antes de este comentario, `indice_rancio`
+/// no distinguía: cualquier ruta en disco y ausente de `notas` recibía el
+/// mismo `"en disco y no en el índice — corre \`exo index\`"`, remedio FALSO
+/// para esas dos clases — correr `exo index`, aunque sea dos veces, jamás las
+/// mete en el índice, y `lint` se quedaba en rojo permanente gritando un
+/// arreglo que no arregla nada. Es el mismo modo de fallo que tenía
+/// `es_repo_git` antes de separar sus dos condiciones (`gitx.rs`) y
+/// exactamente el que describe el comentario de `deriva_de_prosa` sobre la
+/// línea no parseada, más arriba en este fichero: «un gate que grita y acaba
+/// ignorado». La alternativa — filtrar esas dos clases del check en silencio
+/// — se descartó a propósito: callar el síntoma no es distinto de que
+/// `orphan` calle sobre un índice vacío, y este módulo existe justo para no
+/// hacer eso (de ahí `index_stale`). Se optó por diagnosticar la causa real
+/// por nota, un hallazgo por causa, cada uno con su remedio verdadero (o sin
+/// remedio automático cuando no lo hay, como en el caso de la extensión).
+pub fn indice_rancio(
+    conn: &rusqlite::Connection,
+    kb: &Path,
+    rutas: &[String],
+) -> Result<Vec<Hallazgo>> {
     let mut stmt = conn
         .prepare("SELECT ruta FROM notas")
         .context("leer rutas del índice")?;
@@ -377,14 +404,44 @@ pub fn indice_rancio(conn: &rusqlite::Connection, rutas: &[String]) -> Result<Ve
     let mut hallazgos: Vec<Hallazgo> = rutas
         .iter()
         .filter(|r| !indexadas.contains(*r))
-        .map(|r| {
-            Hallazgo::nuevo(
+        .map(|r| -> Result<Hallazgo> {
+            // Causa (a): extensión que el walk del indexer no reconoce
+            // (case-sensitive, `Some("md")` exacto) aunque `es_md` (A5, este
+            // check) sí la vea como nota. Sin lectura de disco: la extensión
+            // sola ya certifica que jamás entrará en `notas`.
+            if Path::new(r.as_str()).extension().and_then(|e| e.to_str()) != Some("md") {
+                return Ok(Hallazgo::nuevo(
+                    "index_stale",
+                    r.clone(),
+                    "extensión distinta de `.md` en minúscula (el walk del indexer \
+                     compara exacto, case-sensitive) — no entrará en el índice hasta \
+                     que se renombre",
+                ));
+            }
+            // Causa (b): extensión correcta pero sin `permalink:` indexable
+            // — `parsea_nota` la salta a propósito (§6.2 regla 1), así que
+            // ni un `exo index` nuevo la va a meter mientras no se le añada
+            // la clave.
+            let contenido = lee_nota(&kb.join(r))?;
+            if valor(&contenido, "permalink").is_none() {
+                return Ok(Hallazgo::nuevo(
+                    "index_stale",
+                    r.clone(),
+                    "sin `permalink` en el frontmatter — el indexer la salta a \
+                     propósito (nota.rs, §6.2 regla 1); añádele la clave para que el \
+                     próximo paso por el indexador la recoja",
+                ));
+            }
+            // Causa (c): extensión correcta, permalink presente — deriva
+            // genuina, el único caso donde el remedio SÍ es correr `exo
+            // index`. Texto sin tocar respecto a antes de este cambio.
+            Ok(Hallazgo::nuevo(
                 "index_stale",
                 r.clone(),
                 "en disco y no en el índice — corre `exo index`",
-            )
+            ))
         })
-        .collect();
+        .collect::<Result<Vec<_>>>()?;
     // Defensiva, no falsable con los tests actuales: mismo caso que en
     // `presupuesto_excedido` y `deriva_de_prosa` — `rutas` llega alfabética
     // desde `walk_kb_excluyendo`, así que `filter` ya preserva ese orden sin
@@ -433,7 +490,7 @@ pub fn analiza(
     hallazgos.extend(h);
     waived.extend(w);
     hallazgos.extend(deriva_de_prosa(kb, &rutas, presupuestos, excluidos)?);
-    hallazgos.extend(indice_rancio(conn, &rutas)?);
+    hallazgos.extend(indice_rancio(conn, kb, &rutas)?);
 
     Ok(InformeLint {
         ok: hallazgos.is_empty(),

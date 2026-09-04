@@ -7,7 +7,15 @@ fn kb_y_conn(notas: &[&str], indexadas: &[&str]) -> (tempfile::TempDir, rusqlite
     for rel in notas {
         let ruta = dir.path().join(rel);
         fs::create_dir_all(ruta.parent().unwrap()).unwrap();
-        fs::write(ruta, "---\ntier: log\n---\n# x\n").unwrap();
+        // `permalink:` real: desde el fix de `indice_rancio`, la causa de
+        // "no indexada" se decide leyendo la nota en disco, y sin esta clave
+        // cualquier nota de este fixture caería en la rama "sin permalink"
+        // en vez de en la de deriva genuina que estos tests quieren probar.
+        fs::write(
+            ruta,
+            format!("---\ntier: log\npermalink: kb/{rel}\n---\n# x\n"),
+        )
+        .unwrap();
     }
     let conn = exo::abre_db_en_memoria().unwrap();
     exo::schema::crea_schema(&conn).unwrap();
@@ -55,8 +63,13 @@ fn un_indice_vacio_sobre_una_kb_con_notas_no_puede_dar_verde() {
 
 #[test]
 fn una_nota_en_disco_que_el_indice_no_conoce_es_un_hallazgo_por_nota() {
-    let (_dir, conn) = kb_y_conn(&["a.md", "b.md", "c.md"], &["a.md"]);
-    let h = lint::indice_rancio(&conn, &["a.md".into(), "b.md".into(), "c.md".into()]).unwrap();
+    let (dir, conn) = kb_y_conn(&["a.md", "b.md", "c.md"], &["a.md"]);
+    let h = lint::indice_rancio(
+        &conn,
+        dir.path(),
+        &["a.md".into(), "b.md".into(), "c.md".into()],
+    )
+    .unwrap();
     let rutas: Vec<&str> = h.iter().map(|f| f.ruta.as_str()).collect();
     assert_eq!(rutas, vec!["b.md", "c.md"]);
     assert!(h.iter().all(|f| f.tipo == "index_stale"));
@@ -90,7 +103,7 @@ fn un_indice_al_dia_no_dice_nada() {
     )
     .unwrap();
 
-    let h = lint::indice_rancio(&conn, &["a.md".into()]).unwrap();
+    let h = lint::indice_rancio(&conn, dir.path(), &["a.md".into()]).unwrap();
     assert!(h.is_empty(), "índice al día: {h:?}");
     // Y el informe entero sale limpio.
     let informe =
@@ -103,14 +116,14 @@ fn el_separador_de_windows_del_indice_no_inventa_deriva() {
     // `notas.ruta` viene con separador nativo; si no se normaliza, en W11 toda
     // nota en subdirectorio parecería no indexada y `index_stale` gritaría
     // sobre una KB perfectamente al día.
-    let (_dir, conn) = kb_y_conn(&["sub/a.md"], &[]);
+    let (dir, conn) = kb_y_conn(&["sub/a.md"], &[]);
     conn.execute(
         "INSERT INTO notas (permalink, ruta, titulo, tipo, mtime, git_epoch)
          VALUES ('kb/sub/a', 'sub\\a.md', 'a', 'note', 0.0, NULL)",
         [],
     )
     .unwrap();
-    let h = lint::indice_rancio(&conn, &["sub/a.md".into()]).unwrap();
+    let h = lint::indice_rancio(&conn, dir.path(), &["sub/a.md".into()]).unwrap();
     assert!(
         h.is_empty(),
         "el `\\` del índice se leyó como nota distinta: {h:?}"

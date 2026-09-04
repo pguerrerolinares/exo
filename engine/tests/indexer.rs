@@ -646,3 +646,86 @@ fn indexa_dos_veces_no_duplica_kb_root() {
         assert_eq!(filas, 1, "kb_root debe ser upsert, no insert repetido");
     });
 }
+
+/// Repro del bug de review (Important 1, G4b): antes del fix, `lint::index_stale`
+/// decía "corre `exo index`" sobre CUALQUIER nota en disco y ausente de
+/// `notas` — incluida una nota `.MD` (extensión que `walker::walk_kb` nunca
+/// reconoce, case-sensitive) o una nota sin `permalink:` (que
+/// `nota::parsea_nota` salta a propósito, §6.2 regla 1). Correr `exo index`
+/// sobre esas dos, aunque sea dos veces como aquí, no las mete jamás en el
+/// índice — el remedio era falso y `lint` se quedaba en rojo permanente. Este
+/// test usa el indexer REAL (no filas de `notas` insertadas a mano) porque lo
+/// que hay que probar es su comportamiento real: que estas dos notas quedan
+/// fuera de `notas` pase lo que pase, y que `lint` ya no promete un arreglo
+/// que no arregla nada.
+#[test]
+fn index_stale_no_promete_reindexar_lo_que_el_indexer_nunca_metera() {
+    let kb = tempfile::tempdir().expect("tempdir kb");
+    // Sin permalink: `parsea_nota` la salta con un `eprintln!`, nunca entra.
+    std::fs::write(
+        kb.path().join("sin-permalink.md"),
+        "---\ntitle: Sin permalink\n---\n# contenido\n",
+    )
+    .expect("escribir nota sin permalink");
+    // Extensión en mayúsculas: `es_md` (lint, A5) la ve como nota; el walk
+    // del indexer (`Some("md")` exacto) no. Permalink válido a propósito,
+    // para que la única causa de que quede fuera sea la extensión.
+    std::fs::write(
+        kb.path().join("MAYUSCULA.MD"),
+        "---\ntitle: Mayúscula\npermalink: kb/mayuscula\n---\n# contenido\n",
+    )
+    .expect("escribir nota .MD");
+    // Contraste: una nota normal, que sí debe acabar indexada.
+    std::fs::write(
+        kb.path().join("normal.md"),
+        "---\ntitle: Normal\npermalink: kb/normal\n---\n# contenido\n",
+    )
+    .expect("escribir nota normal");
+
+    let dbdir = tempfile::tempdir().expect("tempdir db");
+    let db = dbdir.path().join("indice.db");
+
+    common::con_config(kb.path(), "kb-test", &db, || {
+        // Dos corridas, como en el repro del informe: si el remedio fuera
+        // real, la segunda ya habría limpiado el hallazgo.
+        indexa(kb.path(), &db).expect("primera corrida");
+        indexa(kb.path(), &db).expect("segunda corrida");
+
+        let conn = exo::abre_db(&db).expect("abrir db");
+        let indexadas: std::collections::BTreeSet<String> = {
+            let mut stmt = conn.prepare("SELECT ruta FROM notas").expect("prepare");
+            stmt.query_map([], |r| r.get::<_, String>(0))
+                .expect("query")
+                .collect::<rusqlite::Result<_>>()
+                .expect("filas")
+        };
+        assert!(
+            !indexadas.contains("sin-permalink.md") && !indexadas.contains("MAYUSCULA.MD"),
+            "el repro asume que estas dos NUNCA se indexan: {indexadas:?}"
+        );
+
+        let rutas =
+            exo::walker::walk_notas(kb.path(), &exo::presupuesto::EXCLUIDOS).expect("walk de lint");
+        let informe = exo::lint::analiza(
+            &conn,
+            kb.path(),
+            exo::presupuesto::NOMINALES,
+            &exo::presupuesto::EXCLUIDOS,
+        )
+        .expect("lint::analiza");
+
+        let mentirosos: Vec<_> = informe
+            .hallazgos
+            .iter()
+            .filter(|h| {
+                (h.ruta == "sin-permalink.md" || h.ruta == "MAYUSCULA.MD")
+                    && h.detalle.contains("corre `exo index`")
+            })
+            .collect();
+        assert!(
+            mentirosos.is_empty(),
+            "index_stale prometió `exo index` sobre notas que el indexer \
+             nunca va a meter: {mentirosos:?} (rutas vistas por lint: {rutas:?})"
+        );
+    });
+}
