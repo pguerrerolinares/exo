@@ -12,9 +12,9 @@ use std::path::Path;
 // sobre el predicado de scope: dos copias con tolerancias que derivan es el
 // modo de fallo que esa nota documenta. Por eso `excluida` y `es_md` se
 // importan de `walker` en vez de reimplementarse aquí.
-use crate::frontmatter::{orphan_ok, tier, valor};
-use crate::presupuesto::TIERS;
-use crate::walker::{es_md, excluida, lee_nota};
+use crate::frontmatter::{budget_max, orphan_ok, tier, valor};
+use crate::presupuesto::{Clase, Presupuestos, TIERS};
+use crate::walker::{es_md, excluida, lee_nota, walk_kb_excluyendo};
 
 /// Un hallazgo de lint: qué check lo produjo (`tipo`), qué ruta relativa
 /// afecta (`ruta`) y el detalle legible del porqué (`detalle`). Las claves
@@ -196,6 +196,177 @@ pub fn huerfanas(
         }
     }
     Ok((hallazgos, waived))
+}
+
+/// Notas que rebasan su presupuesto. **No reimplementa la clasificación**:
+/// llama a `presupuesto::clasifica`, la misma que usa `exo budget`. En kbx eran
+/// dos implementaciones (`budget.Run` y `doctor.budgetExceededFindings`)
+/// vigiladas por una regresión dirigida; aquí no pueden divergir porque solo
+/// hay una.
+///
+/// Las notas sin tier o con tier ilegal se saltan: ya disparan
+/// `bad_frontmatter`. Una deriva, un tipo de hallazgo.
+pub fn presupuesto_excedido(
+    kb: &Path,
+    rutas: &[String],
+    presupuestos: Presupuestos,
+    excluidos: &[&str],
+) -> Result<(Vec<Hallazgo>, Vec<Hallazgo>)> {
+    let (mut hallazgos, mut waived) = (Vec::new(), Vec::new());
+    for rel in rutas {
+        if excluida(rel, excluidos) {
+            continue;
+        }
+        let absoluta = kb.join(rel);
+        let contenido = lee_nota(&absoluta)?;
+        let t = tier(&contenido);
+        let Some(tier_presupuesto) = presupuestos.para_tier(&t) else {
+            continue;
+        };
+        let tamano = std::fs::metadata(&absoluta)
+            .with_context(|| format!("stat de {}", absoluta.display()))?
+            .len() as i64;
+        match crate::presupuesto::clasifica(tier_presupuesto, budget_max(&contenido), tamano) {
+            Clase::Infractora { presupuesto } => hallazgos.push(Hallazgo::nuevo(
+                "budget_exceeded",
+                rel.clone(),
+                format!("{tamano}B > {presupuesto}B ({t})"),
+            )),
+            Clase::Waived { presupuesto } => waived.push(Hallazgo::nuevo(
+                "budget_exceeded",
+                rel.clone(),
+                format!("{tamano}B ≤ {presupuesto}B (waived: kbx_budget_max)"),
+            )),
+            // El aviso de aire es de `budget`, no de `lint`: lint gatea y el
+            // aire no debe gatear.
+            Clase::SinAire { .. } | Clase::Ok => {}
+        }
+    }
+    // Defensiva, no falsable con los tests de integración actuales: `rutas`
+    // llega de `walk_notas`/`walk_kb_excluyendo`, que ya la entrega ordenada
+    // alfabéticamente (`ficheros.sort()` en `walker.rs`), así que `hallazgos`
+    // y `waived` salen ya en orden de `ruta` sin este `sort_by`. Mismo caso
+    // que el de `dirs_duplicados` más arriba: se deja explícito por si el
+    // contrato de orden de `rutas` cambia algún día y deja de garantizarlo.
+    hallazgos.sort_by(|a, b| a.ruta.cmp(&b.ruta));
+    waived.sort_by(|a, b| a.ruta.cmp(&b.ruta));
+    Ok((hallazgos, waived))
+}
+
+/// Una línea habla de presupuestos si menciona "presupuesto"/"budget". Solo
+/// esas se escanean: acota el check a prosa que dice estar citando un
+/// presupuesto, en vez de a cualquier número que caiga cerca de un tier.
+static LINEA_DE_PRESUPUESTO: std::sync::LazyLock<regex::Regex> =
+    std::sync::LazyLock::new(|| regex::Regex::new(r"(?i)presupuesto|budget").unwrap());
+
+/// Un tier seguido inmediatamente de una cifra: "core 8.500 B", "stable 12500".
+/// El "." como separador de miles porque la KB está escrita en castellano.
+/// Exigir que la cifra vaya pegada al tier es lo que evita que la frase
+/// "el presupuesto y las 3 notas core" cuente como cita.
+static TIER_Y_CIFRA: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+    regex::Regex::new(r"\b(core|stable|log)\b[:\s]+([0-9]+(?:\.[0-9]{3})*)\s*(?:B\b|bytes\b)?")
+        .unwrap()
+});
+
+/// Notas `core` cuya prosa cita una cifra de presupuesto que ya no es la que el
+/// binario aplica. El caso motivador: un `core-index.md` diciendo "≤3.900
+/// bytes" cuando el tool aplicaba 8.500 — una cifra fantasma que no imponía
+/// nadie.
+///
+/// Solo `core`: son las notas que se inyectan cada sesión, donde un número
+/// obsoleto hace daño real. Sin waiver posible: si una nota necesita citar una
+/// cifra histórica a propósito, eso va en una `stable`/`log`, que este check no
+/// mira.
+pub fn deriva_de_prosa(
+    kb: &Path,
+    rutas: &[String],
+    presupuestos: Presupuestos,
+    excluidos: &[&str],
+) -> Result<Vec<Hallazgo>> {
+    let mut hallazgos = Vec::new();
+    for rel in rutas {
+        if excluida(rel, excluidos) {
+            continue;
+        }
+        let absoluta = kb.join(rel);
+        let contenido = lee_nota(&absoluta)?;
+        if tier(&contenido) != "core" {
+            continue;
+        }
+        for linea in contenido.lines() {
+            if !LINEA_DE_PRESUPUESTO.is_match(linea) {
+                continue;
+            }
+            for c in TIER_Y_CIFRA.captures_iter(linea) {
+                let tier_citado = &c[1];
+                // Una cifra que no parsea se salta: inventar un hallazgo desde
+                // una línea no parseada es cómo un gate empieza a gritar y
+                // acaba ignorado.
+                let Ok(citada) = c[2].replace('.', "").parse::<i64>() else {
+                    continue;
+                };
+                let aplicada = presupuestos.para_tier(tier_citado).unwrap_or(0);
+                if citada != aplicada {
+                    hallazgos.push(Hallazgo::nuevo(
+                        "budget_prose_drift",
+                        rel.clone(),
+                        format!("cita {tier_citado} {citada}B, el tool aplica {aplicada}B"),
+                    ));
+                }
+            }
+        }
+    }
+    // Defensiva, no falsable con los tests de integración actuales: mismo
+    // razonamiento que en `presupuesto_excedido` — `rutas` ya llega alfabética
+    // de `walk_notas`, así que el orden de `hallazgos` coincide con el de
+    // `rutas` (y, dentro de un mismo fichero, con el de aparición de las
+    // líneas) sin este `sort_by`.
+    hallazgos.sort_by(|a, b| a.ruta.cmp(&b.ruta));
+    Ok(hallazgos)
+}
+
+/// El informe completo de `lint`: `ok` es cierto solo si `hallazgos` está
+/// vacío (los `waived` no gatean, por definición). Clave JSON `findings` en
+/// vez de `hallazgos`: el consumidor es el envelope, en inglés, igual que el
+/// resto de tipos serializables del módulo.
+#[derive(Serialize)]
+pub struct InformeLint {
+    pub ok: bool,
+    #[serde(rename = "findings")]
+    pub hallazgos: Vec<Hallazgo>,
+    pub waived: Vec<Hallazgo>,
+}
+
+/// El pipeline de los SEIS checks, en orden fijo:
+/// `duplicate_dir → orphan → bad_frontmatter → root_file → budget_exceeded →
+/// budget_prose_drift`. `schema_drift` no está y no vuelve (A7).
+pub fn analiza(
+    conn: &rusqlite::Connection,
+    kb: &Path,
+    presupuestos: Presupuestos,
+    excluidos: &[&str],
+) -> Result<InformeLint> {
+    // Un solo walk del árbol para los seis checks. `root_file` lee la raíz
+    // aparte porque solo mira profundidad 0.
+    let (dirs, rutas) = walk_kb_excluyendo(kb, excluidos)?;
+    let (mut hallazgos, mut waived) = (Vec::new(), Vec::new());
+
+    hallazgos.extend(dirs_duplicados(&dirs, excluidos)?);
+    let (h, w) = huerfanas(conn, kb, excluidos)?;
+    hallazgos.extend(h);
+    waived.extend(w);
+    hallazgos.extend(frontmatter_malo(kb, &rutas, excluidos)?);
+    hallazgos.extend(ficheros_en_raiz(kb)?);
+    let (h, w) = presupuesto_excedido(kb, &rutas, presupuestos, excluidos)?;
+    hallazgos.extend(h);
+    waived.extend(w);
+    hallazgos.extend(deriva_de_prosa(kb, &rutas, presupuestos, excluidos)?);
+
+    Ok(InformeLint {
+        ok: hallazgos.is_empty(),
+        hallazgos,
+        waived,
+    })
 }
 
 #[cfg(test)]
