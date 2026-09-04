@@ -341,6 +341,11 @@ pub fn deriva_de_prosa(
 /// El índice **vacío** se reporta como UN hallazgo, no uno por nota: es una
 /// condición del entorno con una sola acción (`exo index`), y N hallazgos
 /// idénticos convierten un informe accionable en ruido.
+///
+/// Ese hallazgo agregado lleva `ruta` vacía a propósito, no por omisión: no
+/// señala una nota concreta (ninguna de las de disco tiene más derecho que
+/// otra a cargar con el aviso), señala la KB entera. Convención de este
+/// módulo, no un valor por defecto sin decidir.
 pub fn indice_rancio(conn: &rusqlite::Connection, rutas: &[String]) -> Result<Vec<Hallazgo>> {
     let mut stmt = conn
         .prepare("SELECT ruta FROM notas")

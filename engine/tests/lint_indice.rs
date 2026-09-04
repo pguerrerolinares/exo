@@ -42,10 +42,15 @@ fn un_indice_vacio_sobre_una_kb_con_notas_no_puede_dar_verde() {
         1,
         "el índice vacío es UN hallazgo, no uno por nota"
     );
-    assert!(
-        stale[0].detalle.contains("exo index"),
-        "el detalle tiene que decir qué hacer"
+    // El conteo va en el detalle: un `rutas.len()` mutado a un literal fijo
+    // seguiría conteniendo "exo index" y este test no lo vería.
+    assert_eq!(
+        stale[0].detalle,
+        "2 nota(s) en disco y el índice vacío — corre `exo index`"
     );
+    // El hallazgo agregado no apunta a una nota concreta, apunta a la KB
+    // entera: `ruta` vacía es la convención, no un descuido.
+    assert_eq!(stale[0].ruta, "");
 }
 
 #[test]
@@ -55,6 +60,10 @@ fn una_nota_en_disco_que_el_indice_no_conoce_es_un_hallazgo_por_nota() {
     let rutas: Vec<&str> = h.iter().map(|f| f.ruta.as_str()).collect();
     assert_eq!(rutas, vec!["b.md", "c.md"]);
     assert!(h.iter().all(|f| f.tipo == "index_stale"));
+    assert!(
+        h.iter()
+            .all(|f| f.detalle == "en disco y no en el índice — corre `exo index`")
+    );
 }
 
 #[test]
@@ -62,20 +71,21 @@ fn un_indice_al_dia_no_dice_nada() {
     // Error del brief: `kb_y_conn` indexa "a.md" sin ninguna arista, y con la
     // nota YA en el índice `huerfanas` (el otro check que lee `notas`) la
     // marca huérfana — el informe salía sucio por un motivo ajeno a
-    // `index_stale`. Se waiva con `kbx_orphan_ok` para que este test pruebe
-    // solo lo que dice probar: un índice al día no dispara `index_stale`, y
-    // el hallazgo waivado no gatea `ok` (waived != hallazgos).
+    // `index_stale`. Se le da una arista real para que este test pruebe
+    // solo lo que dice probar: un índice al día no dispara `index_stale`.
     let dir = tempfile::tempdir().unwrap();
-    fs::write(
-        dir.path().join("a.md"),
-        "---\ntier: log\nkbx_orphan_ok: true\n---\n# x\n",
-    )
-    .unwrap();
+    fs::write(dir.path().join("a.md"), "---\ntier: log\n---\n# x\n").unwrap();
     let conn = exo::abre_db_en_memoria().unwrap();
     exo::schema::crea_schema(&conn).unwrap();
     conn.execute(
         "INSERT INTO notas (permalink, ruta, titulo, tipo, mtime, git_epoch)
          VALUES ('kb/a.md', 'a.md', 'kb/a.md', 'note', 0.0, NULL)",
+        [],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO aristas (origen, destino_texto, destino_permalink)
+         VALUES ('kb/a.md', 'destino', NULL)",
         [],
     )
     .unwrap();

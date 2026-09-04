@@ -30,6 +30,20 @@ fn indexa(conn: &rusqlite::Connection, ruta: &str) {
     .unwrap();
 }
 
+/// Le da a una nota ya indexada una arista real, para que `huerfanas` no la
+/// marque huérfana. Alternativa a `kbx_orphan_ok`: ese waiver es una segunda
+/// fuente de `waived` independiente de la que el fixture quiere probar, y un
+/// test que solo le interesa el budget (o el índice) no debe acoplarse al
+/// mecanismo de waiver de huérfanas.
+fn da_arista_real(conn: &rusqlite::Connection, ruta: &str) {
+    conn.execute(
+        "INSERT INTO aristas (origen, destino_texto, destino_permalink)
+         VALUES (?1, 'destino', NULL)",
+        rusqlite::params![format!("kb/{ruta}")],
+    )
+    .unwrap();
+}
+
 #[test]
 fn el_override_dispara_aunque_el_tier_sea_ilimitado() {
     // LA regresión de paridad de kbx: `tier: log` (nominal 0) con
@@ -290,19 +304,15 @@ fn el_informe_de_lint_es_ok_con_solo_waived() {
     // rompería esto: un waiver es una declaración aceptada, no debe mover el
     // gate. Los dos tests existentes de `analiza` tienen `waived` vacío en su
     // fixture y no pillarían esa mutación.
-    let dir = kb_con(&[(
-        "core/w.md",
-        nota(
-            "core",
-            "kbx_budget_max: 20000\nkbx_orphan_ok: true\n",
-            12_000,
-        ),
-    )]);
+    let dir = kb_con(&[("core/w.md", nota("core", "kbx_budget_max: 20000\n", 12_000))]);
     let conn = exo::abre_db_en_memoria().unwrap();
     exo::schema::crea_schema(&conn).unwrap();
-    // `kbx_orphan_ok`, si no, la única nota del índice sin ninguna arista sale
-    // huérfana de verdad y ensucia `hallazgos` por un motivo ajeno a este test.
     indexa(&conn, "core/w.md");
+    // Arista real, no `kbx_orphan_ok`: ese waiver metería una segunda fuente
+    // de `waived` independiente del budget, y el fixture dejaría de falsar la
+    // mutación de `Clase::Waived` que silencia el hallazgo de presupuesto —
+    // el waiver de huérfana lo taparía sin que este test se diera cuenta.
+    da_arista_real(&conn, "core/w.md");
     let informe =
         lint::analiza(&conn, dir.path(), NOMINALES, &exo::presupuesto::EXCLUIDOS).unwrap();
     assert!(informe.hallazgos.is_empty());
@@ -315,14 +325,15 @@ fn el_informe_de_lint_es_ok_con_solo_waived() {
 
 #[test]
 fn el_informe_de_lint_es_ok_solo_sin_hallazgos() {
-    let dir = kb_con(&[("core/ok.md", nota("core", "kbx_orphan_ok: true\n", 100))]);
+    let dir = kb_con(&[("core/ok.md", nota("core", "", 100))]);
     let conn = exo::abre_db_en_memoria().unwrap();
     exo::schema::crea_schema(&conn).unwrap();
     // Task 9: un índice vacío con notas en disco ya no puede salir `ok`
     // (`index_stale`), así que este fixture tiene que indexar de verdad.
-    // `kbx_orphan_ok` porque, ya indexada y sin ninguna arista, la nota
-    // saldría huérfana por un motivo que este test no quiere probar.
     indexa(&conn, "core/ok.md");
+    // Arista real, no `kbx_orphan_ok`: ya indexada y sin ninguna arista, la
+    // nota saldría huérfana por un motivo que este test no quiere probar.
+    da_arista_real(&conn, "core/ok.md");
     let informe =
         lint::analiza(&conn, dir.path(), NOMINALES, &exo::presupuesto::EXCLUIDOS).unwrap();
     assert!(informe.ok);
@@ -334,7 +345,8 @@ fn el_informe_de_lint_es_ok_solo_sin_hallazgos() {
 
 #[test]
 fn lint_no_emite_schema_drift() {
-    // A7: son seis tipos, no siete.
+    // A7: `schema_drift` murió y no vuelve; `index_stale` ocupa su hueco.
+    // Siete tipos otra vez, pero un siete distinto.
     let dir = kb_con(&[("suelto.txt", "x".to_string())]);
     let conn = exo::abre_db_en_memoria().unwrap();
     exo::schema::crea_schema(&conn).unwrap();
