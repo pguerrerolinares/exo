@@ -12,7 +12,7 @@ use std::path::Path;
 // sobre el predicado de scope: dos copias con tolerancias que derivan es el
 // modo de fallo que esa nota documenta. Por eso `excluida` y `es_md` se
 // importan de `walker` en vez de reimplementarse aquí.
-use crate::frontmatter::{tier, valor};
+use crate::frontmatter::{orphan_ok, tier, valor};
 use crate::presupuesto::TIERS;
 use crate::walker::{es_md, excluida, lee_nota};
 
@@ -133,6 +133,69 @@ pub fn ficheros_en_raiz(kb: &Path) -> Result<Vec<Hallazgo>> {
     }
     hallazgos.sort_by(|a, b| a.ruta.cmp(&b.ruta));
     Ok(hallazgos)
+}
+
+/// Notas sin ninguna relación en el índice, en ninguna de las dos direcciones.
+///
+/// **`AND destino_permalink IS NOT NULL` es load-bearing, no limpieza.** Con
+/// una sola arista sin resolver, `NOT IN` sobre un subquery que contiene NULL
+/// evalúa a NULL para TODAS las filas y la query devuelve cero huérfanas: verde,
+/// en silencio, con el check apagado. Medido en kbx: 0 sin la guarda, 7 con
+/// ella, sobre 23 aristas sin resolver de 573.
+///
+/// **Sin filtro por `tipo`.** El viejo `note_type = 'note'` decía excluir
+/// assets y en realidad escondía 57 de 138 notas markdown reales. Retirado en
+/// M6-04 T3 como cambio de scope deliberado.
+///
+/// Único de los seis checks que lee `notas.ruta` de la DB en vez del walk del
+/// disco: `indexer::ruta_relativa` la guarda con el separador NATIVO, así que
+/// en Windows llega como `archive\x.md` y hay que normalizarla antes de pasarla
+/// por `excluida` o de devolverla en un `Hallazgo` (el JSON del envelope no
+/// debe llevar `\`).
+pub fn huerfanas(
+    conn: &rusqlite::Connection,
+    kb: &Path,
+    excluidos: &[&str],
+) -> Result<(Vec<Hallazgo>, Vec<Hallazgo>)> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT ruta, permalink
+             FROM notas
+             WHERE permalink NOT IN (SELECT origen FROM aristas)
+               AND permalink NOT IN (
+                     SELECT destino_permalink FROM aristas WHERE destino_permalink IS NOT NULL
+                   )
+             ORDER BY ruta",
+        )
+        .context("preparar la query de huérfanas")?;
+    let filas = stmt
+        .query_map([], |f| Ok((f.get::<_, String>(0)?, f.get::<_, String>(1)?)))
+        .context("consultar huérfanas")?;
+
+    let (mut hallazgos, mut waived) = (Vec::new(), Vec::new());
+    for fila in filas {
+        let (ruta, permalink) = fila.context("leer fila de huérfana")?;
+        let ruta = ruta.replace('\\', "/");
+        if excluida(&ruta, excluidos) {
+            continue;
+        }
+        // Fallo hacia rojo: una nota ilegible (deriva índice/disco) NO se
+        // absuelve — el marcador que la absolvería es justo lo que no se puede
+        // leer.
+        let absuelta = std::fs::read(kb.join(&ruta))
+            .map(|b| orphan_ok(&String::from_utf8_lossy(&b)))
+            .unwrap_or(false);
+        if absuelta {
+            waived.push(Hallazgo::nuevo(
+                "orphan",
+                ruta,
+                format!("{permalink} (waived: kbx_orphan_ok)"),
+            ));
+        } else {
+            hallazgos.push(Hallazgo::nuevo("orphan", ruta, permalink));
+        }
+    }
+    Ok((hallazgos, waived))
 }
 
 #[cfg(test)]
