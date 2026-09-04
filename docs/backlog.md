@@ -7,8 +7,8 @@
 > duplicar. Cada item cita su evidencia; un item sin evidencia verificable no
 > entra.
 >
-> Última revisión: **2026-09-02** (G5a — CI mínimo cerrado con evidencia,
-> deuda nueva de la ola anotada).
+> Última revisión: **2026-09-04** (G4b — budget+lint cerrado, residuo
+> declarado de la ola anotado).
 
 ## Estado
 
@@ -233,6 +233,84 @@
     **Acción:** entra en la misma campaña que la deuda de diagnosticabilidad
     del script, arriba — las dos exigen tocarlo y por tanto rehacer su ciclo
     rojo-verde.
+
+- [ ] **`walker::walk_kb` frente a `walk_kb_excluyendo`: conviven con semánticas
+  distintas desde G4b.** Verificado en `engine/src/walker.rs`: `walk_kb`
+  (`:11-40`, la que usa `indexer::indexa` en `indexer.rs:158`) compara la
+  extensión con `== Some("md")` sin normalizar mayúsculas — un `NOTA.MD` no se
+  indexa — y solo excluye `.claude/`, `.omc/` y `.superpowers/`
+  (`DOTDIRS_EXCLUIDOS`, `:5`), así que camina dentro de `.git/` sin nada que lo
+  frene. `walk_kb_excluyendo` (`:85-140`), nacida en esta misma ola para
+  `lint`, usa `es_md` (case-insensitive, A5, `:61-65`) y su `recorre` salta
+  cualquier directorio que empiece por `.` (`:124`), `.git/` incluido. Las dos
+  funciones nuevas no tienen ninguno de los dos problemas; la asimetría vive
+  dentro del mismo módulo. Alinearlas es un cambio de comportamiento del
+  índice (una `NOTA.MD` empezaría a indexarse; `.git/*.md` dejaría de
+  recorrerse), no una limpieza de estilo, así que no se toca en G4b.
+  **Acción:** cuando se toque `indexer::indexa` por otra razón, decidir si
+  adopta la semántica de `walk_kb_excluyendo` (candidata natural a fusionar
+  en una sola función) o si la divergencia es deliberada y se documenta como
+  tal.
+
+- [ ] **`indexer::ruta_relativa` guarda `notas.ruta` con el separador nativo
+  del SO.** `engine/src/indexer.rs:461-473` arma la ruta relativa con
+  `to_string_lossy()` sin `.replace('\\', "/")`, así que en Windows la DB
+  persiste `notas.ruta` con `\`. G4b lo normaliza **al leer**, en los dos
+  únicos consumidores de `notas.ruta` que toca este plan: `lint::huerfanas`
+  (`lint.rs:183`) y `lint::indice_rancio` (`lint.rs:360`, con comentario
+  explícito — «Mismo motivo que en `huerfanas`: `notas.ruta` lleva separador
+  nativo»). La causa sigue en el indexer; el próximo consumidor de
+  `notas.ruta` que no conozca este parche vuelve a tropezar en Windows.
+  **Acción:** normalizar en `ruta_relativa` al escribir, no en cada lector, y
+  borrar entonces los dos `.replace('\\', "/")` de `lint.rs`.
+
+- [ ] **`budget_prose_drift` tiene dos límites conocidos, ninguno arreglado
+  aquí.** Los dos viven en la misma pareja regex+parse de
+  `engine/src/lint.rs` (`TIER_Y_CIFRA`, `:271-274`, y el parse de
+  `deriva_de_prosa`, `:310`).
+  - **Punto ciego por adyacencia (medido 2026-09-04).** La regex exige que la
+    cifra vaya pegada al tier (`\b(core|stable|log)\b[:\s]+([0-9]+...)`), así
+    que en la KB real `core/doctrina-agentes.md:54` («`core` (… 8.500 B …)»)
+    es invisible para el check, mientras que `core-index.md:19` («core
+    8.500») sí se ve. Es el precio deliberado de no tener falsos positivos
+    (`la_deriva_de_prosa_calla_ante_una_mencion_vaga`,
+    `engine/tests/lint_presupuesto.rs:234`: «Falsos positivos son peores que
+    fallos aquí: un gate que grita se ignora»), pero no estaba declarado como
+    límite conocido hasta ahora.
+  - **Trunca en vez de rechazar una cifra mal agrupada (medido 2026-09-04,
+    review de la Task 8).** La captura de `TIER_Y_CIFRA` solo admite grupos
+    de tres dígitos exactos tras el punto: `"core 1.2345 B"` captura
+    `"1.234"` (verificado con la regex equivalente), y el parse de `:310`
+    produce el hallazgo *"cita core 1234B"* — una cifra que no está en el
+    texto. Es un falso positivo en el único check cuyo test de regresión
+    declara que los falsos positivos pesan más que los fallos. **Es heredado
+    literal del Go**: `internal/doctor/doctor.go:397` en `fe46443` tiene la
+    misma regex y el mismo parse
+    (`strconv.ParseInt(strings.ReplaceAll(rawFigure, ".", ""), 10, 64)`), y
+    `doctor_test.go` no cubre una cifra mal agrupada en ninguno de sus cinco
+    tests de `budgetProseDrift` — ni la suite Rust (`lint_presupuesto.rs`) lo
+    hace tampoco. Arreglarlo aquí divergiría del binario de referencia y
+    abriría una décima divergencia en un gate que todavía no se ha podido
+    correr ni una vez contra Go. Decisión de no arreglarlo tomada en la
+    review de la Task 8 (2026-09-04).
+  **Acción:** ampliar la regex, o rechazar explícitamente una captura que no
+  consume toda la cifra, es trabajo para cuando una cita real mal formada
+  haga daño de verdad, o para cuando exista el gate de paridad con Go y el
+  fix se pueda decidir en los dos binarios a la vez.
+
+- [ ] **La campaña de evicción de la KB está descalibrada (A3, G4b).** El
+  censo "19 de 58 notas stable" y el objetivo de poda de 10.625 (medidos el
+  2026-09-02) salen de la fórmula huérfana del commit local `f0d0564` de kbx
+  (`objetivo_poda = tier - tier*15/100`). G4b adjudicó A3: la fórmula
+  canónica es la de `fe46443` (`techo*100 >= tamaño*115`,
+  `objetivo_poda(techo) = techo*100/115`), ya portada a
+  `engine/src/presupuesto.rs`. Con la canónica los umbrales son **10.869**
+  (stable) y **7.391** (core) — 244 B más de margen por nota en stable, y un
+  censo menor: las notas entre 10.626 y 10.869 dejan de estar en poda. Este
+  plan no toca la KB.
+  **Acción:** rehacer el censo y el objetivo de poda con `exo budget` sobre
+  la KB real, con los umbrales canónicos (10.869 stable / 7.391 core), antes
+  de ejecutar cualquier evicción.
 
 ## Baja
 
