@@ -51,6 +51,14 @@ fn es_delimitador(linea: &str) -> bool {
     linea.trim_end_matches([' ', '\t', '\r']) == "---"
 }
 
+/// Los seis caracteres que kbx borra del `tier`
+/// (`internal/frontmatter/frontmatter.go`, `stripWhitespace`). ASCII a
+/// propósito, no `char::is_whitespace()`: un NBSP dentro de `tier: co<NBSP>re`
+/// debe dejar el tier ILEGAL (⇒ `notier`, gate visible) en vez de repararlo en
+/// silencio y colarlo como `core`. Degradación hacia rojo, como el resto del
+/// módulo (A1 del plan de G4b).
+const ESPACIOS_ASCII: [char; 6] = [' ', '\t', '\n', '\r', '\u{b}', '\u{c}'];
+
 /// El `tier` declarado, o `""` si no hay clave.
 ///
 /// Quita **todo** el whitespace, no solo los extremos: mimetiza el
@@ -61,7 +69,10 @@ pub fn tier(contenido: &str) -> String {
     let mut salida = String::new();
     escanea(contenido, |clave, crudo| {
         if clave == "tier" {
-            salida = crudo.chars().filter(|c| !c.is_whitespace()).collect();
+            salida = crudo
+                .chars()
+                .filter(|c| !ESPACIOS_ASCII.contains(c))
+                .collect();
             return true;
         }
         false
@@ -152,6 +163,28 @@ mod tests {
     fn tier_deja_pasar_un_valor_ilegal_tal_cual() {
         let c = "---\ntier: banana\n---\n";
         assert_eq!(tier(c), "banana");
+    }
+
+    #[test]
+    fn el_tier_no_absuelve_el_whitespace_unicode() {
+        // A1: el NBSP NO se filtra, así que el tier queda ilegal y la nota cae en
+        // `notier` — el gate salta y se ve. Filtrarlo (char::is_whitespace) la
+        // colaría como `core` en silencio: degradación hacia verde, justo lo que
+        // el resto de este módulo evita a propósito.
+        let contenido = "---\ntier: co\u{a0}re\n---\n";
+        assert_eq!(tier(contenido), "co\u{a0}re");
+    }
+
+    #[test]
+    fn el_tier_sigue_filtrando_los_seis_espacios_ascii() {
+        // Paridad con stripWhitespace de kbx: los seis, en cualquier posición.
+        let contenido = "---\ntier:  c o\tr\u{b}e\u{c}\r\n---\n";
+        assert_eq!(tier(contenido), "core");
+    }
+
+    #[test]
+    fn el_tier_limpio_no_cambia() {
+        assert_eq!(tier("---\ntier: stable\n---\n"), "stable");
     }
 
     #[test]
