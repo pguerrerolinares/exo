@@ -6,6 +6,10 @@
 //! `budget`, con una regresión dirigida vigilando que no divergieran. Aquí hay
 //! una sola de cada, y `budget` y `lint` las consumen las dos.
 
+use anyhow::{Context, Result};
+use serde::Serialize;
+use std::path::Path;
+
 /// Los tres tiers legales, en orden de reporte.
 pub const TIERS: [&str; 3] = ["core", "stable", "log"];
 
@@ -129,6 +133,151 @@ pub fn clasifica(tier_presupuesto: i64, override_max: Option<i64>, tamano: i64) 
         };
     }
     Clase::Ok
+}
+
+/// Una fila del reporte por tier. Cuenta de notas, bytes acumulados,
+/// presupuesto nominal, delta y si algún miembro del tier infringió.
+#[derive(Serialize)]
+pub struct FilaTier {
+    pub tier: String,
+    #[serde(rename = "notes")]
+    pub notas: usize,
+    pub bytes: i64,
+    #[serde(rename = "budget")]
+    pub presupuesto: i64,
+    pub delta: i64,
+    #[serde(rename = "exceeded")]
+    pub excedido: bool,
+}
+
+/// Una nota reportada en `infractoras`, `waived` o `sin_aire`. `presupuesto`
+/// es el efectivo según la `Clase` que la produjo (ver `clasifica`).
+#[derive(Serialize)]
+pub struct Infractora {
+    #[serde(rename = "path")]
+    pub ruta: String,
+    pub tier: String,
+    #[serde(rename = "size_bytes")]
+    pub tamano_bytes: i64,
+    #[serde(rename = "budget")]
+    pub presupuesto: i64,
+}
+
+/// El informe completo de `exo budget`.
+#[derive(Serialize)]
+pub struct Informe {
+    pub tiers: Vec<FilaTier>,
+    #[serde(rename = "offenders")]
+    pub infractoras: Vec<Infractora>,
+    pub waived: Vec<Infractora>,
+    #[serde(rename = "no_air")]
+    pub sin_aire: Vec<Infractora>,
+    pub notier: Vec<String>,
+}
+
+impl Informe {
+    /// Qué mueve el exit code: infractoras y notier. El aire y los waivers,
+    /// jamás — el aire es un aviso y el waiver es una declaración aceptada.
+    pub fn excedido(&self) -> bool {
+        !self.infractoras.is_empty() || !self.notier.is_empty()
+    }
+}
+
+/// Recorre la KB y clasifica cada nota. El tamaño sale de `metadata().len()`
+/// —bytes del fichero entero en disco, frontmatter incluido—, nunca del índice:
+/// es lo que hace el informe comparable con el de kbx y lo que hace que el
+/// gate mida lo que de verdad pesa la nota en el repo.
+pub fn analiza(kb: &Path, presupuestos: Presupuestos, excluidos: &[&str]) -> Result<Informe> {
+    let rutas = crate::walker::walk_notas(kb, excluidos)?;
+
+    let mut bytes_por_tier = std::collections::HashMap::new();
+    let mut notas_por_tier = std::collections::HashMap::new();
+    let mut excedido_por_tier = std::collections::HashMap::new();
+    let (mut infractoras, mut waived, mut sin_aire) = (Vec::new(), Vec::new(), Vec::new());
+    let mut notier = Vec::new();
+
+    for rel in rutas {
+        let absoluta = kb.join(&rel);
+        let contenido = crate::walker::lee_nota(&absoluta)?;
+        let tamano = std::fs::metadata(&absoluta)
+            .with_context(|| format!("stat de {}", absoluta.display()))?
+            .len() as i64;
+
+        let tier = crate::frontmatter::tier(&contenido);
+        let Some(tier_presupuesto) = presupuestos.para_tier(&tier) else {
+            notier.push(rel);
+            continue;
+        };
+
+        *bytes_por_tier.entry(tier.clone()).or_insert(0i64) += tamano;
+        *notas_por_tier.entry(tier.clone()).or_insert(0usize) += 1;
+
+        let fila = |presupuesto| Infractora {
+            ruta: rel.clone(),
+            tier: tier.clone(),
+            tamano_bytes: tamano,
+            presupuesto,
+        };
+        match clasifica(
+            tier_presupuesto,
+            crate::frontmatter::budget_max(&contenido),
+            tamano,
+        ) {
+            Clase::Infractora { presupuesto } => {
+                excedido_por_tier.insert(tier.clone(), true);
+                infractoras.push(fila(presupuesto));
+            }
+            Clase::Waived { presupuesto } => waived.push(fila(presupuesto)),
+            Clase::SinAire { presupuesto } => sin_aire.push(fila(presupuesto)),
+            Clase::Ok => {}
+        }
+    }
+
+    let tiers = TIERS
+        .iter()
+        .map(|t| {
+            let presupuesto = presupuestos.para_tier(t).unwrap_or(0);
+            let bytes = *bytes_por_tier.get(*t).unwrap_or(&0);
+            FilaTier {
+                tier: (*t).to_string(),
+                notas: *notas_por_tier.get(*t).unwrap_or(&0),
+                bytes,
+                presupuesto,
+                // Sin presupuesto no hay exceso: reportar `bytes - 0` sería el
+                // tamaño entero disfrazado de delta.
+                delta: if presupuesto > 0 {
+                    bytes - presupuesto
+                } else {
+                    0
+                },
+                excedido: *excedido_por_tier.get(*t).unwrap_or(&false),
+            }
+        })
+        .collect();
+
+    // Infractoras y waived por exceso descendente, desempatando por ruta;
+    // el aire por tamaño descendente. Determinista: el informe se difea.
+    let por_exceso = |a: &Infractora, b: &Infractora| {
+        (b.tamano_bytes - b.presupuesto)
+            .cmp(&(a.tamano_bytes - a.presupuesto))
+            .then_with(|| a.ruta.cmp(&b.ruta))
+    };
+    infractoras.sort_by(por_exceso);
+    waived.sort_by(por_exceso);
+    sin_aire.sort_by(|a, b| {
+        b.tamano_bytes
+            .cmp(&a.tamano_bytes)
+            .then_with(|| a.ruta.cmp(&b.ruta))
+    });
+    notier.sort();
+
+    Ok(Informe {
+        tiers,
+        infractoras,
+        waived,
+        sin_aire,
+        notier,
+    })
 }
 
 #[cfg(test)]
