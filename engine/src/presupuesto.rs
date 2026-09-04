@@ -183,6 +183,27 @@ impl Informe {
     }
 }
 
+/// Orden de reporte para `infractoras` y `waived`: exceso descendente,
+/// desempatando por ruta ascendente. Nombrada a nivel de módulo (y no un
+/// closure inline en `analiza`) para que el test unitario pueda ejercerla
+/// con un `Vec` construido a mano y deliberadamente desordenado: `walk_notas`
+/// entrega las rutas ya alfabéticas, así que un `Vec` que nace en ese mismo
+/// orden no falsa el desempate si se borra — `sort_by` es estable y el orden
+/// de salida coincidiría igual con el desempate ausente.
+fn orden_por_exceso(a: &Infractora, b: &Infractora) -> std::cmp::Ordering {
+    (b.tamano_bytes - b.presupuesto)
+        .cmp(&(a.tamano_bytes - a.presupuesto))
+        .then_with(|| a.ruta.cmp(&b.ruta))
+}
+
+/// Orden de reporte para `sin_aire`: tamaño descendente, desempatando por
+/// ruta ascendente. Misma razón que `orden_por_exceso` para vivir aparte.
+fn orden_por_tamano(a: &Infractora, b: &Infractora) -> std::cmp::Ordering {
+    b.tamano_bytes
+        .cmp(&a.tamano_bytes)
+        .then_with(|| a.ruta.cmp(&b.ruta))
+}
+
 /// Recorre la KB y clasifica cada nota. El tamaño sale de `metadata().len()`
 /// —bytes del fichero entero en disco, frontmatter incluido—, nunca del índice:
 /// es lo que hace el informe comparable con el de kbx y lo que hace que el
@@ -257,18 +278,9 @@ pub fn analiza(kb: &Path, presupuestos: Presupuestos, excluidos: &[&str]) -> Res
 
     // Infractoras y waived por exceso descendente, desempatando por ruta;
     // el aire por tamaño descendente. Determinista: el informe se difea.
-    let por_exceso = |a: &Infractora, b: &Infractora| {
-        (b.tamano_bytes - b.presupuesto)
-            .cmp(&(a.tamano_bytes - a.presupuesto))
-            .then_with(|| a.ruta.cmp(&b.ruta))
-    };
-    infractoras.sort_by(por_exceso);
-    waived.sort_by(por_exceso);
-    sin_aire.sort_by(|a, b| {
-        b.tamano_bytes
-            .cmp(&a.tamano_bytes)
-            .then_with(|| a.ruta.cmp(&b.ruta))
-    });
+    infractoras.sort_by(orden_por_exceso);
+    waived.sort_by(orden_por_exceso);
+    sin_aire.sort_by(orden_por_tamano);
     notier.sort();
 
     Ok(Informe {
@@ -429,5 +441,46 @@ mod tests {
             clasifica(8500, None, 8501),
             Clase::Infractora { presupuesto: 8500 }
         ));
+    }
+
+    fn fila(ruta: &str, tamano_bytes: i64, presupuesto: i64) -> Infractora {
+        Infractora {
+            ruta: ruta.to_string(),
+            tier: "core".to_string(),
+            tamano_bytes,
+            presupuesto,
+        }
+    }
+
+    #[test]
+    fn orden_por_exceso_desempata_por_ruta_con_entrada_desordenada() {
+        // A diferencia del test de integración homónimo en tests/presupuesto.rs,
+        // aquí el `Vec` de partida NO nace en orden alfabético: "z.md" va antes
+        // que "a.md" dentro del empate. Si se borra `.then_with(|| a.ruta.cmp(&b.ruta))`,
+        // `sort_by` (estable) conserva ese orden de entrada y el resultado sale
+        // ["core/grande.md", "core/z.md", "core/a.md"], que el assert de abajo
+        // detecta como distinto del esperado.
+        let mut infractoras = [
+            fila("core/grande.md", 20_000, 8500), // exceso 11.500, sin empate
+            fila("core/z.md", 10_000, 8500),      // exceso 1.500, empatada
+            fila("core/a.md", 10_000, 8500),      // exceso 1.500, empatada
+        ];
+        infractoras.sort_by(orden_por_exceso);
+        let rutas: Vec<&str> = infractoras.iter().map(|o| o.ruta.as_str()).collect();
+        assert_eq!(rutas, vec!["core/grande.md", "core/a.md", "core/z.md"]);
+    }
+
+    #[test]
+    fn orden_por_tamano_desempata_por_ruta_con_entrada_desordenada() {
+        // Mismo razonamiento que el test anterior, para el comparador de
+        // `sin_aire`: el empate entra en orden inverso al alfabético.
+        let mut sin_aire = [
+            fila("core/grande.md", 20_000, 8500), // sin empate: tamaño mayor
+            fila("core/z.md", 10_000, 8500),      // empatada
+            fila("core/a.md", 10_000, 8500),      // empatada
+        ];
+        sin_aire.sort_by(orden_por_tamano);
+        let rutas: Vec<&str> = sin_aire.iter().map(|o| o.ruta.as_str()).collect();
+        assert_eq!(rutas, vec!["core/grande.md", "core/a.md", "core/z.md"]);
     }
 }

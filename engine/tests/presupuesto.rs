@@ -36,7 +36,15 @@ fn una_nota_sin_tier_legal_va_a_notier_y_gatea() {
 }
 
 #[test]
-fn las_infractoras_van_por_exceso_descendente_y_desempatan_por_ruta() {
+fn las_infractoras_van_por_exceso_descendente_end_to_end() {
+    // No falsa el desempate por ruta: walk_notas entrega las rutas ya en
+    // orden alfabético y Vec::sort_by es estable, así que el orden relativo
+    // de las notas empatadas coincide con el de ruta ANTES del sort — borrar
+    // `.then_with(|| a.ruta.cmp(&b.ruta))` deja este test igual de verde. Lo
+    // que sí falsa esa comparación (entrada deliberadamente desordenada) es
+    // `orden_por_exceso_desempata_por_ruta_con_entrada_desordenada`, inline
+    // en engine/src/presupuesto.rs. Este test cubre el camino end-to-end:
+    // que `analiza` clasifica y ordena por exceso descendente de verdad.
     let dir = tempfile::tempdir().unwrap();
     nota(dir.path(), "core/mucho.md", "core", "", 12_000);
     nota(dir.path(), "core/poco.md", "core", "", 9_000);
