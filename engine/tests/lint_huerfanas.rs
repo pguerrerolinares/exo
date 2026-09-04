@@ -85,6 +85,10 @@ fn las_huerfanas_sobreviven_a_las_aristas_sin_resolver() {
         !rutas.contains(&"hub.md"),
         "el origen de una arista no es huérfano"
     );
+    assert!(
+        hallazgos.iter().all(|h| h.tipo == "orphan"),
+        "el tipo de hallazgo debe ser \"orphan\": {hallazgos:?}"
+    );
 }
 
 #[test]
@@ -95,7 +99,11 @@ fn el_marcador_manda_la_huerfana_a_waived_y_no_a_hallazgos() {
     assert!(!hallazgos.iter().any(|h| h.ruta == "waivada.md"));
     assert_eq!(waived.len(), 1);
     assert_eq!(waived[0].ruta, "waivada.md");
-    assert!(waived[0].detalle.contains("waived: kbx_orphan_ok"));
+    assert_eq!(waived[0].tipo, "orphan");
+    // Igualdad exacta, no `.contains`: falsa tanto el permalink como el
+    // formato — borrar `{permalink} ` del `format!` dejaría solo
+    // "(waived: kbx_orphan_ok)" y un `.contains` no lo notaría.
+    assert_eq!(waived[0].detalle, "kb/waivada (waived: kbx_orphan_ok)");
 }
 
 #[test]
@@ -160,4 +168,39 @@ fn no_hay_filtro_por_tipo_de_nota() {
     .unwrap();
     let (hallazgos, _) = lint::huerfanas(&conn, dir.path(), &exo::presupuesto::EXCLUIDOS).unwrap();
     assert!(hallazgos.iter().any(|h| h.ruta == "huerfana.md"));
+}
+
+#[test]
+fn las_huerfanas_salen_ordenadas_por_ruta_no_por_insercion() {
+    // Ningún otro test de este fichero produce dos huérfanas a la vez, así
+    // que ninguna aserción depende del orden: el `ORDER BY ruta` del SQL
+    // podría borrarse "por limpieza" y los demás seguirían en verde. Aquí se
+    // inserta primero la fila que va DESPUÉS alfabéticamente para que, sin
+    // el ORDER BY, SQLite devuelva el orden de inserción ("z.md", "a.md") en
+    // vez del esperado.
+    let dir = tempfile::tempdir().unwrap();
+    for rel in ["z.md", "a.md"] {
+        fs::write(
+            dir.path().join(rel),
+            format!("---\ntier: log\n---\n# {rel}\n"),
+        )
+        .unwrap();
+    }
+    let conn = exo::abre_db_en_memoria().unwrap();
+    exo::schema::crea_schema(&conn).unwrap();
+    for (permalink, ruta) in [("kb/z", "z.md"), ("kb/a", "a.md")] {
+        conn.execute(
+            "INSERT INTO notas (permalink, ruta, titulo, tipo, mtime, git_epoch)
+             VALUES (?1, ?2, ?1, 'note', 0.0, NULL)",
+            rusqlite::params![permalink, ruta],
+        )
+        .unwrap();
+    }
+    let (hallazgos, _) = lint::huerfanas(&conn, dir.path(), &exo::presupuesto::EXCLUIDOS).unwrap();
+    let rutas: Vec<&str> = hallazgos.iter().map(|h| h.ruta.as_str()).collect();
+    assert_eq!(
+        rutas,
+        vec!["a.md", "z.md"],
+        "sin ORDER BY ruta saldría en orden de inserción (z.md, a.md): {hallazgos:?}"
+    );
 }
