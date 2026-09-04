@@ -125,6 +125,40 @@ fn una_kb_sin_git_da_un_error_accionable_y_no_un_fallo_por_fichero() {
     assert!(salida.stdout.is_empty());
 }
 
+// Regresión real de la review de la Task 11: un fallo de git que NO es
+// "esto no es un repo" —aquí, dubious ownership de git >= 2.35.2— tiene que
+// llegar al usuario con el mensaje real de git, nunca disfrazado del genérico
+// de A2 ("corre git init"). GIT_TEST_ASSUME_DIFFERENT_OWNER=1 fuerza el
+// chequeo real sin montar el repo con otra cuenta de sistema; se pasa sobre
+// el Command que lanza el binario `exo`, no sobre el proceso de test, para no
+// contaminar otros tests que corren en paralelo en el mismo binario.
+#[test]
+fn un_fallo_de_git_que_no_es_falta_de_repo_no_se_disfraza_de_git_init() {
+    let (dir, db) = kb_con_indice();
+    let salida = Command::new(bin())
+        .args(["targets", "--json", "--limit", "5"])
+        .arg("--db")
+        .arg(&db)
+        .arg("--kb")
+        .arg(dir.path())
+        .arg("alpha")
+        .env("GIT_TEST_ASSUME_DIFFERENT_OWNER", "1")
+        .output()
+        .unwrap();
+
+    assert_eq!(salida.status.code(), Some(1), "es un error, no un gate");
+    let stderr = String::from_utf8_lossy(&salida.stderr);
+    assert!(
+        stderr.contains("dubious ownership") || stderr.contains("safe.directory"),
+        "el mensaje tiene que traer el problema y el remedio reales de git: {stderr}"
+    );
+    assert!(
+        !stderr.contains("git init"),
+        "no puede disfrazarse del mensaje generico de A2: {stderr}"
+    );
+    assert!(salida.stdout.is_empty());
+}
+
 #[test]
 fn es_repo_git_distingue_las_dos_condiciones() {
     let sin = tempfile::tempdir().unwrap();

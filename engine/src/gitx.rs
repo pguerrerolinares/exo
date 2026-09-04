@@ -27,10 +27,39 @@ pub fn es_repo_git(dir: &Path) -> Result<bool> {
         .arg("-C")
         .arg(dir)
         .args(["rev-parse", "--show-toplevel"])
+        // Los mensajes de git están localizados: sin esto, discriminar por
+        // texto de stderr fallaría en una máquina en castellano. LC_ALL/LANG
+        // a C fuerza el mensaje en inglés de forma determinista.
+        .env("LC_ALL", "C")
+        .env("LANG", "C")
         .output()
         .with_context(|| format!("invocar git en {}", dir.display()))?;
     if !salida.status.success() {
-        return Ok(false);
+        let stderr = String::from_utf8_lossy(&salida.stderr);
+        // "fatal: not a git repository (or any of the parent directories): .git"
+        // es el ÚNICO fallo que A2 viene a cubrir: una KB sin `.git`. Cualquier
+        // otro fallo de git —el relevante en la práctica: "detected dubious
+        // ownership" de git >= 2.35.2— tiene que llegar al usuario con el
+        // mensaje real de git, que trae el remedio
+        // (`git config --global --add safe.directory ...`). Colapsar todo a
+        // Ok(false) tapaba ese mensaje detrás del genérico "corre git init",
+        // que para dubious ownership es un consejo activamente equivocado.
+        //
+        // Se mantiene la firma Result<bool>: la tercera condición ("git falló
+        // por algo que no es 'no soy un repo'") se codifica como Err con
+        // contexto, no como una variante nueva de un enum — Result ya tiene
+        // dos casillas (Ok/Err) y la semántica existente de este módulo
+        // (fail-loud, ver el comentario de módulo) es justo "fallo real de
+        // git = Err". Un enum de tres estados solo añadiría un tipo que
+        // ningún llamador necesita: busca_objetivos ya propaga el Err con `?`.
+        if stderr.contains("not a git repository") {
+            return Ok(false);
+        }
+        bail!(
+            "git rev-parse --show-toplevel en {}: {}",
+            dir.display(),
+            stderr.trim()
+        );
     }
     let raiz = String::from_utf8_lossy(&salida.stdout).trim().to_string();
     // Guarda defensiva sin test que la ejercite: probado el 2026-09-04 contra
