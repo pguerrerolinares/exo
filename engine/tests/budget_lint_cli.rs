@@ -86,6 +86,52 @@ fn budget_con_infractoras_sale_tres_y_emite_igual() {
 }
 
 #[test]
+fn budget_gatea_por_notier_sin_infractoras_y_el_detalle_no_cruza_numeros() {
+    // Important 1: `informe.excedido()` mira infractoras Y notier. Sin este
+    // test, cambiar el gate por `!informe.infractoras.is_empty()` (que borra
+    // el gate de notier en silencio) dejaba los seis tests del CLI en verde:
+    // una KB con solo notas sin tier legal salía 0 en vez de 3.
+    let dir_notier = kb(&[("inventado.md", "---\ntier: inventado\n---\nx\n")]);
+    let solo_notier = Command::new(bin())
+        .args(["budget", "--json"])
+        .arg("--kb")
+        .arg(dir_notier.path())
+        .output()
+        .unwrap();
+    assert_eq!(
+        solo_notier.status.code(),
+        Some(3),
+        "notier gatea sin infractoras"
+    );
+    let v: serde_json::Value = serde_json::from_slice(&solo_notier.stdout).unwrap();
+    assert_eq!(v["data"]["offenders"].as_array().unwrap().len(), 0);
+    assert_eq!(v["data"]["notier"][0], "inventado.md");
+
+    // Important 2: el detalle del mensaje ("N sobre presupuesto, M sin tier
+    // legal") no estaba falsado — cruzar `infractoras.len()` y `notier.len()`
+    // en el `format!` sobrevivía. Conteos asimétricos (1 infractora, 2
+    // notier) a propósito: con conteos iguales el cruce produce el mismo
+    // texto y el test no lo vería.
+    let grande = format!("---\ntier: core\n---\n{}", "x".repeat(9000));
+    let dir_mixto = kb(&[
+        ("core/big.md", grande.as_str()),
+        ("inventado.md", "---\ntier: inventado\n---\nx\n"),
+        ("otro.md", "---\ntier: otro\n---\nx\n"),
+    ]);
+    let mixto = Command::new(bin())
+        .args(["budget", "--json"])
+        .arg("--kb")
+        .arg(dir_mixto.path())
+        .output()
+        .unwrap();
+    assert_eq!(mixto.status.code(), Some(3));
+    assert_eq!(
+        String::from_utf8_lossy(&mixto.stderr).trim(),
+        "rechazado: budget: 1 nota(s) sobre presupuesto, 2 sin tier legal"
+    );
+}
+
+#[test]
 fn el_aire_solo_nunca_saca_del_cero() {
     // stable a ras (12.000 de 12.500, objetivo de poda 10.869): aviso, no gate.
     let ras = format!("---\ntier: stable\n---\n{}", "x".repeat(11_950));
@@ -157,7 +203,16 @@ fn lint_con_hallazgos_sale_tres_y_lint_limpio_sale_cero() {
     // El brief no aseveraba el stderr de `lint` (a diferencia del de
     // `budget`, arriba): un `GateFallido.comando` mutado a "lintz" o a
     // "budget" pasaba en verde. Mismo motivo que el assert de `budget`.
-    assert!(String::from_utf8_lossy(&sucio.stderr).contains("rechazado: lint:"));
+    //
+    // El detalle completo, no solo el prefijo: `InformeLint` tiene un
+    // `waived` además de `hallazgos`, y poner `waived.len()` donde va
+    // `hallazgos.len()` en el `format!` sobrevivía si solo se miraba el
+    // prefijo. Aquí `waived` está vacío y `hallazgos` tiene uno: el número
+    // exacto ata el mensaje al campo correcto.
+    assert_eq!(
+        String::from_utf8_lossy(&sucio.stderr).trim(),
+        "rechazado: lint: 1 hallazgo(s)"
+    );
 }
 
 #[test]
@@ -181,16 +236,81 @@ fn una_db_inexistente_es_error_uno_no_gate_tres() {
 }
 
 #[test]
-fn la_salida_humana_no_lleva_json() {
-    let dir = kb(&[("core/ok.md", "---\ntier: core\n---\nx\n")]);
+fn la_salida_humana_de_budget_no_lleva_json() {
+    // Important 3b: `texto.contains("core")` a secas sobrevivía a reordenar
+    // los campos del `println!` de la fila de tier (siguen conteniendo la
+    // subcadena "core"). Cada assert de abajo ata TODAS las columnas a sus
+    // valores, en el orden exacto que imprime `budget_cmd`: reordenar
+    // cualquier campo de cualquiera de las cuatro líneas lo tumba.
+    let grande = format!("---\ntier: core\n---\n{}", "x".repeat(9000));
+    let ras = format!("---\ntier: stable\n---\n{}", "x".repeat(11_950));
+    let dir = kb(&[
+        ("core/big.md", grande.as_str()),
+        ("s.md", ras.as_str()),
+        ("inventado.md", "---\ntier: inventado\n---\nx\n"),
+    ]);
     let salida = Command::new(bin())
         .args(["budget"])
         .arg("--kb")
         .arg(dir.path())
         .output()
         .unwrap();
-    assert!(salida.status.success());
+    assert_eq!(salida.status.code(), Some(3));
     let texto = String::from_utf8_lossy(&salida.stdout);
-    assert!(texto.contains("core"));
     assert!(!texto.trim_start().starts_with('{'));
+    assert!(texto.contains("core\tnotas=1\tbytes=9019\tpresupuesto=8500\tdelta=519"));
+    assert!(texto.contains("offender: core/big.md (core) 9019/8500 bytes"));
+    assert!(texto.contains(
+        "no-air: s.md (stable) 11971/12500 bytes a ras — poda a 10869 para el 15% de aire"
+    ));
+    assert!(texto.contains("notier: inventado.md"));
+}
+
+#[test]
+fn la_salida_humana_de_lint_no_lleva_json() {
+    // Important 3a: `la_salida_humana_no_lleva_json` solo cubría `budget`.
+    // Sin este test, reordenar el `println!("{}\t{}\t{}", h.tipo, h.ruta,
+    // h.detalle)` de `lint_cmd`, o cambiar el `"ok"` del caso limpio, no lo
+    // detecta nadie.
+    let dir = kb(&[
+        ("core/hub.md", "---\ntier: core\n---\n[[ok]]\n"),
+        ("core/ok.md", "---\ntier: core\n---\nx\n"),
+    ]);
+    let dir_db = tempfile::tempdir().unwrap();
+    let db = db_con(dir_db.path(), &["core/hub.md", "core/ok.md"]);
+    {
+        let conn = exo::abre_db(&db).unwrap();
+        conn.execute(
+            "INSERT INTO aristas (origen, destino_texto, destino_permalink)
+             VALUES ('kb/core/hub.md', 'ok', 'kb/core/ok.md')",
+            [],
+        )
+        .unwrap();
+    }
+
+    let limpio = Command::new(bin())
+        .args(["lint"])
+        .arg("--kb")
+        .arg(dir.path())
+        .arg("--db")
+        .arg(&db)
+        .output()
+        .unwrap();
+    assert!(limpio.status.success());
+    assert_eq!(String::from_utf8_lossy(&limpio.stdout).trim(), "ok");
+
+    fs::write(dir.path().join("suelto.txt"), "x").unwrap();
+    let sucio = Command::new(bin())
+        .args(["lint"])
+        .arg("--kb")
+        .arg(dir.path())
+        .arg("--db")
+        .arg(&db)
+        .output()
+        .unwrap();
+    assert_eq!(sucio.status.code(), Some(3));
+    assert_eq!(
+        String::from_utf8_lossy(&sucio.stdout).trim(),
+        "root_file\tsuelto.txt\tfichero no-nota en la raíz"
+    );
 }
