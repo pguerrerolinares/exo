@@ -290,6 +290,7 @@ Extraída del parser de clap (`engine/src/main.rs`):
 | `exo write new` | Nota nueva con dup-gate | `--dir`, `--title`, `--from`, `--tier`, `--force`, `--db`, `--kb`, `--json` |
 | `exo write append <permalink>` | Append a bitácora con gate de tier | `--from`, `--create`, `--force`, `--db`, `--kb`, `--json` |
 | `exo recall` | Bloque de arranque o consulta híbrida | `--query`, `--limit` (5), `--cap-bytes` (2048), `--content`, `--note`, `--refresh`, `--min-similarity`, `--db`, `--kb`, `--json` |
+| `exo targets <tema>` | Candidatas de la KB para un tema, portado de `kbx targets` | `--limit` (10), `--db`, `--kb`, `--json` |
 
 Los flags largos están en inglés con **alias ocultos en español**
 (`--limite`, `--titulo`, `--crea`, `--min-similitud`, `--escala-fts`) durante
