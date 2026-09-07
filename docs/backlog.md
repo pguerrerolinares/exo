@@ -7,8 +7,11 @@
 > duplicar. Cada item cita su evidencia; un item sin evidencia verificable no
 > entra.
 >
-> Última revisión: **2026-09-02** (G5a — CI mínimo cerrado con evidencia,
-> deuda nueva de la ola anotada).
+> Última revisión: **2026-09-04** (revisión crítica externa del repo completo:
+> diez items nuevos marcados «(revisión 2026-09-04)», tres de ellos en Alta;
+> ninguno duplica los que ya estaban — `test-*.sh` fuera de CI,
+> `test-contrato-engine.sh` atado a esta máquina, aliases españoles y
+> `kb-demo` en los tests del engine ya tenían entrada y se dejan como están).
 
 ## Estado
 
@@ -22,6 +25,63 @@
 ---
 
 ## Alta
+
+- [ ] **(revisión 2026-09-04) El 48/55 del hybrid es un resultado in-sample:
+  los parámetros se eligieron sobre las mismas 55 queries que lo reportan.**
+  Evidencia: `engine/src/main.rs:12-25` documenta que `BONUS_SELLADO` y
+  `ESCALA_FTS_SELLADA` son los ganadores del sweep de 15 celdas por «max
+  hit@5=49/55» sobre `eval.jsonl`, y el umbral 0.40 se fijó por el mismo
+  criterio; `arquitectura.md` §6 reporta 48/55 vs 39/55 sobre ese mismo
+  fichero. No hay conjunto held-out, no hay intervalo de confianza (n=55) y
+  el set es privado, así que la cifra no es reproducible por un tercero. La
+  mejora es plausible; lo que no está es la evidencia de que generalice a
+  queries que no participaron en la selección. Relacionado: el tamaño de
+  trozo (900) y el default `--type fts` de `exo search`
+  (`main.rs:197`) frente al modo medido (`hybrid` + `--min-similarity 0.40`).
+  **Acción:** (a) redactar y congelar un held-out de queries nuevas ANTES de
+  volver a tocar β, bonus, umbral o troceado; (b) reportar in-sample y
+  held-out por separado en el próximo verdict; (c) decidir si el default de
+  `exo search` pasa a ser el modo medido o si el README deja de presentar el
+  48/55 como «lo que hace exo».
+
+- [ ] **(revisión 2026-09-04) La documentación de referencia contradice el
+  repo el mismo día en que se escribió.** Medido el 2026-09-04:
+  `docs/arquitectura.md:489` afirma «**Sin CI**: no hay `.github/`» y la
+  sección 7 sigue listando la suite como no hermética fuera de la máquina de
+  desarrollo, cuando `.github/workflows/ci.yml` existe desde el 2026-09-02
+  (`e378cbc`) y el README describe esa misma corrida en tres SO. Segundo
+  caso: `.claude-plugin/marketplace.json:4,8` y
+  `plugins/exo/.claude-plugin/plugin.json:4` publican `"version": "1.0.0"`
+  mientras `engine/Cargo.toml:3` es `0.1.0` y no existe ninguna release. Un
+  documento «derivado del código» que se desactualiza en 48 horas indica que
+  el volumen documental supera lo que una persona mantiene sincronizado.
+  **Acción:** (a) corregir §7 de `arquitectura.md` y el item de hermeticidad;
+  (b) alinear las tres versiones (o documentar por qué el plugin versiona
+  aparte del engine); (c) añadir al `verify` de cierre un grep de las
+  afirmaciones de estado más frágiles («Sin CI», recuento de tests,
+  versiones) contra el árbol real.
+
+- [ ] **(revisión 2026-09-04) «exo genérico» sigue siendo el plugin de Paul
+  para Paul.** Medido el 2026-09-04 sobre `plugins/exo/`: la cadena `Paul`
+  aparece en 4 ficheros vivos del plugin (`skills/distill/SKILL.md` ×7,
+  `scripts/recall-inject.sh` ×2, `scripts/git-add-all-guard.sh`,
+  `scripts/kb-precommit.sh`); `kb-demo` en 8 ficheros del plugin, dos de
+  ellos hooks de producción (`exo-recall.sh`, `recall-inject.sh`) y uno el
+  pre-commit de la KB; y `kbx` —binario Go externo, no incluido en el repo,
+  sin build decidido en Windows según la propia skill— es dependencia
+  operativa de `distill` (11 menciones, pasos que se «saltan» si falta) y de
+  `document` (`SKILL.md:9,24,82`). Súmese la barrera de instalación
+  (`docs/instalacion.md`: Rust ≥1.95, toolchain C, Git Bash, jq, descarga de
+  0,6 GB, sin binario ni `install.sh`). Hoy no hay tercero que pueda adoptar
+  el plugin sin leer la documentación entera. Es distinto del item de Baja
+  «`kb-demo` como fixture en los tests del engine»: aquí son hooks y skills
+  de producción.
+  **Acción:** (a) sustituir «Paul» por «el usuario»/«el dueño de la KB» y
+  `kb-demo` por el nombre resuelto vía `exo config` en los cuatro scripts y
+  dos skills; (b) o bien portar a exo lo que `distill` necesita de `kbx`
+  (G4 ya empezó por `targets`), o bien declarar `kbx` como dependencia
+  opcional en `instalacion.md` y hacer que `distill` se abstenga entera sin
+  él; (c) la release con binario de G5 es el prerequisito de todo lo demás.
 
 - [ ] **El bloque de arranque va al 96% de su cap, y desborda en silencio.**
   Medido el 2026-08-27 al validar la Task 6 de la ola 1B: el bloque que
@@ -100,6 +160,65 @@
   esta máquina ahora mismo.
 
 ## Media
+
+- [ ] **(revisión 2026-09-04) `tier` no se persiste en el índice y cada
+  arranque relee el frontmatter de TODAS las notas desde disco.**
+  `engine/src/nota.rs:14` lo declara: «el índice NO lo persiste (no hay
+  columna nueva en `schema.rs` — forzaría un rebuild de las DB
+  existentes)». Consecuencia en `engine/src/recall.rs:235`:
+  `recall_arranque` llama a `tier_de(&ruta_abs)` por cada fila de `notas`,
+  es decir, N lecturas y N parseos YAML en cada `SessionStart` solo para
+  encontrar las notas `core`. Evitar una migración de esquema a cambio de N
+  lecturas de disco por arranque es deuda disfrazada de prudencia; con 138
+  notas no se nota, con miles sí, y `exo rebuild` ya existe como primera
+  clase.
+  **Acción:** columna `tier` en `notas` (+ bump de `meta` para que `verifica_
+  modelo`/una guarda equivalente exija `exo rebuild` a los índices viejos) y
+  `recall_arranque` filtrando en SQL. Borrar `tier_de` y su relectura.
+
+- [ ] **(revisión 2026-09-04) Techos de escala declarados, sin camino ni
+  medición.** Cuatro decisiones del engine son O(N) por operación y están
+  documentadas como deliberadas, pero ninguna tiene medida más allá de la KB
+  del autor (138 notas): KNN exhaustivo con `k = COUNT(*)`
+  (`engine/src/buscador.rs:286`); un `HashMap` con TODOS los trozos cargado
+  en memoria por query (`buscador.rs:290`); tres aperturas de la DB por
+  búsqueda hybrid (`busca` + `busca_vector` + `buscador.rs:461`); y un
+  proceso `git log -1` por nota indexada (`engine/src/indexer.rs:192`), que
+  en un `rebuild` son N spawns de git, caros en Windows. Ninguna es un bug
+  hoy; lo que falta es saber a qué tamaño de KB deja de valer cada una.
+  **Acción:** generar una KB sintética de 5.000 notas y medir `exo rebuild`,
+  `exo recall --content` y `exo search --type hybrid` en Linux y Windows.
+  Con los números, o se documenta el techo soportado en `arquitectura.md`
+  o se abre la campaña (índice particionado en vec0, `git log` en batch,
+  una conexión por comando).
+
+- [ ] **(revisión 2026-09-04) El coste del hook completo en Windows no está
+  medido; solo el del binario.** `plugins/exo/hooks/hooks.json` cablea
+  **tres** scripts bash en cada `PreToolUse:Bash` (`git-c-bash.sh`,
+  `git-add-all-guard.sh`, `verify-before-commit.sh`) y uno en cada
+  `UserPromptSubmit` (`recall-inject.sh`) que lanza `exo recall --refresh`,
+  `exo config --json` y del orden de seis invocaciones de `jq`/`sed`/`tr`.
+  Las cifras publicadas («~10 ms», `exo-recall.sh` cabecera; «~25 ms sin
+  cambios», `exo-index.sh`) miden el binario, no el hook: bajo Git Bash cada
+  spawn de proceso cuesta decenas de milisegundos, así que el coste real por
+  prompt y por comando Bash en Windows es desconocido.
+  **Acción:** instrumentar `_reflex-log.sh` con la duración del hook (o
+  medir a mano con `time` sobre un `INPUT` real) en Windows y Linux, y
+  publicar la cifra en `plugins/exo/README.md`. Si el `PreToolUse:Bash`
+  triple supera ~200 ms, fusionar los tres scripts en uno con un único
+  parseo del JSON de entrada.
+
+- [ ] **(revisión 2026-09-04) La MSRV declarada supera el toolchain de la
+  máquina de trabajo.** Medido el 2026-09-04: `cargo check --all-targets
+  --locked` en `engine/` falla con «exo@0.1.0 requires rustc 1.95» sobre
+  `rustc 1.94.1`. La MSRV es correcta (la fija `libsqlite3-sys` vía
+  `cfg_select`, ver `Cargo.toml:6-7`) y el CI la comprueba; lo que falta es
+  que el repo diga al toolchain local qué versión usar en vez de fallar
+  después de resolver dependencias.
+  **Acción:** `rustup update stable` en la máquina y, en el repo, un
+  `engine/rust-toolchain.toml` con `channel = "stable"` o la MSRV, para que
+  rustup lo resuelva solo. Anotar el requisito en `instalacion.md` §1 con la
+  salida exacta del error para que sea googleable.
 
 - [ ] **`#[allow(clippy::too_many_arguments)]` en `escritor.rs` — la struct de
   parámetros que no se hizo aquí.** `escribe_nueva` toma 8 parámetros contra
@@ -235,6 +354,52 @@
     rojo-verde.
 
 ## Baja
+
+- [ ] **(revisión 2026-09-04) Decisión abierta: proceso frente a producto.**
+  Medido el 2026-09-04 con `wc -l` sobre `git ls-files`: **30.547** líneas de
+  markdown en `docs/` + `evals/` + `reports/` frente a **5.224** de Rust en
+  `engine/src/` (ratio 6:1), más 5.629 de tests Rust y 4.545 de shell. 320
+  commits en 15 días de actividad, un solo autor, picos de 77 commits/día.
+  El item de Alta sobre deriva documental es el síntoma: el volumen ya
+  supera lo que se mantiene sincronizado a mano. No es deuda técnica en sí;
+  es una decisión sin tomar que genera deuda. Si exo es una herramienta
+  personal, el proceso (consultorías, gates, runbooks por cutover) está
+  sobredimensionado y conviene congelarlo. Si aspira a usuarios, la
+  prioridad es la release de G5 y purgar lo personal (item de Alta), no más
+  documentación.
+  **Acción:** escribir la respuesta en el README en dos frases («para quién
+  es exo hoy») y derivar de ella qué carpetas de `docs/superpowers/` pasan a
+  archivo histórico. Se cruza con el item «Nombres y ubicaciones» de abajo.
+
+- [ ] **(revisión 2026-09-04) Idioma mezclado sin criterio único.** Medido
+  sobre `engine/src/`: identificadores y módulos en español (`buscador`,
+  `trozos`, `aristas`, `escritor`, `objetivos`, `inicia`), claves JSON y
+  flags largos en inglés desde D8 (`SCHEMA_VERSION` 2), aliases ocultos en
+  español, commits, docs y comentarios en español. Cada capa eligió distinto
+  y el resultado es que un contribuidor externo necesita las dos lenguas y
+  un lector del envelope no reconoce los nombres del código que lo emite
+  (`Busqueda.avisos` ↔ `"warnings"`, `Resumen.indexadas` ↔ `"indexed"`).
+  **Acción:** decidir por escrito (una línea en `arquitectura.md` §3.8 o en
+  `CONTRIBUTING`) qué idioma llevan identificadores de código, y aplicarlo
+  solo a módulos nuevos hasta que un refactor toque los viejos. No renombrar
+  en masa: el coste hoy es de coherencia, no de corrección.
+
+- [ ] **(revisión 2026-09-04) Los comentarios del engine son un segundo
+  changelog, y referencian briefs que no están en el repo.** Medido el
+  2026-09-04: **1.370** de las 5.224 líneas de `engine/src/*.rs` son líneas
+  de comentario (26 %); `main.rs` 241/881, `recall.rs` 155/671, `lib.rs`
+  131/333. Buena parte narra historia («hallazgo del gate M6», «review opus
+  m2-01», «§5.2.6 de la spec de fusión», «Task 3 del brief») en vez de
+  describir el contrato actual, y las referencias apuntan a briefs y
+  consultorías que un lector externo no puede resolver. Un comentario que
+  cuenta por qué se cambió algo envejece igual que el README de la sección
+  de Alta; ya hay un caso medido (`exo-recall.sh` decía «ronda los 4,5 KB»
+  cuando eran 5.921 B, ver primer item de Alta).
+  **Acción:** al tocar un módulo por otra razón, dejar en el código el
+  invariante y su consecuencia («recencia = git, no mtime: un clone fresco
+  resetea mtimes») y mover el relato («hallazgo del gate M6, 2026-08-22») al
+  verdict o al plan correspondiente con un enlace. Candidatos primeros por
+  densidad: `lib.rs` y `main.rs`.
 
 - [ ] **Nombres y ubicaciones.** `docs/superpowers/` como carpeta de docs del
   proyecto cuyo objetivo declarado es jubilar superpowers, y `reports/` colgando
