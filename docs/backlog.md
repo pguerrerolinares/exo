@@ -32,6 +32,22 @@
 > y una se confirmó. Corregidas in situ y con cita `fichero:línea`: sin el
 > clone, tres de las cuatro habrían entrado mal.
 >
+> Tercera pasada del 09-09, tras clonar y leer el fuente de
+> `DietrichGebert/ponytail` y `JuliusBrussee/caveman` —las dos herramientas
+> virales de 2026 que el equipo usa a diario—: **dos cruces anotados, cero
+> items nuevos.** Van al item del truncado mudo (precedente fail-closed con
+> handle durable) y al del 48/55 in-sample (base de evidencia por cifra y
+> evals de tres brazos). Un candidato a item nuevo —«los nueve hooks son
+> never-block por política, sin justificar la dirección hook a hook»— se cayó
+> al verificarlo: el único `exit 1` de la cadena de hooks
+> (`compose-inject.sh:16-18`) lo absorbe `subagent-inject.sh:35` dentro de un
+> `if` con `2>/dev/null`, así que el hook se abstiene y el invariante aguanta.
+> Igual que con ECC: leer el README daba tres afirmaciones que el clone
+> corrigió —la inyección en Claude Code es `SessionStart`+`SubagentStart`, no
+> `UserPromptSubmit`+`PreToolUse`; los adaptadores multi-host no se generan (1
+> de 11); y el escalón «inferred→replayed→verified» que la prensa les
+> atribuye no existe en el código.
+>
 > Anterior: **2026-09-04** (revisión crítica externa del repo completo:
 > diez items nuevos marcados «(revisión 2026-09-04)», tres de ellos en Alta;
 > ninguno duplica los que ya estaban — `test-*.sh` fuera de CI,
@@ -71,6 +87,25 @@
   held-out por separado en el próximo verdict; (c) decidir si el default de
   `exo search` pasa a ser el modo medido o si el README deja de presentar el
   48/55 como «lo que hace exo».
+  **Cruce (2026-09-09, 2ª fuente):** dos precedentes de forma en
+  `JuliusBrussee/caveman` (leído en el árbol clonado, no en su README),
+  aplicables a las acciones (a) y (b). Primero, **base de evidencia explícita
+  por cifra**: `docs/technical/accounting-and-evidence.md:9-17` tipa siete bases
+  (`measured / inferred / provider_reported / benchmark_counterfactual /
+  observed / verified / unpriced`) y **prohíbe que el runtime local marque su
+  propio output como `verified`** —solo lo computa el servidor—, con
+  `basis="inferred"` hardcodeado y el comentario de por qué en
+  `packages/sdk/python/caveman_cloud/core.py:144` y
+  `engine/ccr/store_sqlite.go:666`. El paralelo es directo: el motor de exo no
+  puede firmar su propia calidad de retrieval, y hoy el 48/55 se reporta sin
+  base declarada. Segundo, **diseño de tres brazos contra el baseline fácil**:
+  sus evals comparan `__baseline__` / `__terse__` / skill (`CLAUDE.md:376-387`)
+  justamente para no medirse contra un baseline sin instrucciones, con corpus y
+  runner committeados (`evals/`, `benchmarks/`) — la forma que le falta al
+  held-out de (a). Calibración de la propia fuente, para no copiar de más:
+  `docs/HONEST-NUMBERS.md:31-37` publica los casos de **pérdida neta** con
+  cifras (4,3M tokens con la herramienta vs 1M sin). Lo que se copia es
+  reportar la fila en rojo, no el número.
 
 - [ ] **(revisión 2026-09-04) La documentación de referencia contradice el
   repo el mismo día en que se escribió.** Medido el 2026-09-04:
@@ -148,6 +183,25 @@
   **anidado en `diagnostics`**, no en la raíz de la respuesta; sí está en raíz
   en su `memory_doctor` (`memory-mcp.mjs:333`). Decidir dónde va el nuestro es
   parte de la acción, no un detalle.
+  **Cruce (2026-09-09, 2ª fuente):** el mismo patrón está resuelto
+  **fail-closed** en `JuliusBrussee/caveman` (BSL-1.1, leído en el árbol
+  clonado): `engine/engine.go:116-129` — si falla la escritura del backup del
+  payload original, devuelve los bytes **sin transformar** más el error, con el
+  comentario «a caller must never receive transformed bytes without a durable
+  handle»; los metadatos de la transformación se publican solo después de que
+  el backup haya ido bien (`engine.go:132`). El backup vive en SQLite
+  (`~/.caveman/ccr.db`, handle = `ccr_` + 16 bytes de SHA-256 del contenido) y
+  se recupera por handle. Traducido a exo: el truncado del bloque de arranque es
+  hoy fail-open y sin handle —recorta y calla—, la dirección contraria.
+  La pregunta que trae el precedente, y que ningún `fail-*` del harness tiene
+  contestada por escrito: **¿qué es más caro aquí, pasarse o quedarse corto?**
+  Los nueve hooks son never-block por política global
+  (`arquitectura.md:320-323`), no por una decisión razonada hook a hook, y la
+  asimetría no apunta igual en todos: en la inyección a subagentes abstenerse es
+  barato —`DietrichGebert/ponytail` elige ahí fail-open a propósito y lo
+  comenta, `hooks/ponytail-subagent.js:31-38`— pero en el bloque de arranque lo
+  barato es gritar. No es item nuevo: es el criterio que le falta a la acción
+  (a).
 
 - [ ] **`inject-emitted` se emite aunque no se inyecte nada.** Medido el
   2026-08-27 al validar la Task 3-bis de la ola 1B: con la KB sin resolver, el
