@@ -315,7 +315,7 @@ tareas acotadas con la doctrina en su system prompt. El catálogo destila
 [`obra/superpowers`](https://github.com/obra/superpowers) (MIT) más doctrina
 propia; el reparto exacto está en `plugins/exo/README.md`.
 
-**Hooks** (9 comandos cableados en `plugins/exo/hooks/hooks.json`). Son los
+**Hooks** (10 comandos cableados en `plugins/exo/hooks/hooks.json`). Son los
 "reflejos": guardrails deterministas que activan el conocimiento en el punto
 de acción. Invariantes de todos ellos: **never-block** (exit 0 siempre; como
 mucho `additionalContext` o un rewrite silencioso de alta confianza),
@@ -328,6 +328,7 @@ El camino por el que el contexto recuperado llega al punto de uso:
 flowchart TD
     subgraph sesion["Ciclo de vida de una sesión"]
         SS["SessionStart"] --> ERS["exo-recall.sh"]
+        SS --> EDS["estilo-directo.sh"]
         UP["UserPromptSubmit"] --> RIS["recall-inject.sh"]
         SA["SubagentStart"] --> SIS["subagent-inject.sh"]
         ST["Stop"] --> EIS["exo-index.sh"] & DRS["document-remind.sh"]
@@ -335,6 +336,7 @@ flowchart TD
 
     ERS -->|"exo recall --content --note (kb)/core/core-index --cap-bytes 6144"| ENG["binario exo"]
     ERS -->|"bloque: cuerpo del core-index + actividad reciente por git; fallback embebido si el engine no sirve"| SS
+    EDS -->|"bloque estático de estilo desde estilo-directo.md, cap ~700 B"| SS
 
     RIS -->|"gate léxico: calla ante acks y comandos (lista STOP de 127 tokens)"| RIS2["exo recall --query=(prompt) --min-similarity 0.40 --limit 4 --refresh --json"]
     RIS2 --> ENG
@@ -357,6 +359,10 @@ Detalles que el diagrama no cuenta:
   embebido y deja un evento greppable con la razón (`no-engine`, `no-index`,
   `no-contract`…). Tras una compactación de contexto, reafirma las reglas de
   los reflejos que ya dispararon en la sesión.
+- **`estilo-directo.sh`** (SessionStart) inyecta una directiva de estilo de
+  respuesta fija: texto estático desde `estilo-directo.md`, no depende del
+  engine ni de la KB. Mismo never-block que los demás; cap ~700 B
+  independiente del cap de `exo-recall.sh`.
 - **`recall-inject.sh`** (UserPromptSubmit) es "recall en el punto de uso": el
   transporte es mecánico, el modelo no decide si buscar. Un gate léxico
   (traducción literal del artefacto normativo

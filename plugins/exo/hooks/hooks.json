@@ -36,6 +36,14 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/exo-recall.sh"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/estilo-directo.sh"
+          }
+        ]
       }
     ],
     "Stop": [
