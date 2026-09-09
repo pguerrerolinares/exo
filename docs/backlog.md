@@ -48,6 +48,19 @@
 > de 11); y el escalón «inferred→replayed→verified» que la prensa les
 > atribuye no existe en el código.
 >
+> Cuarta pasada del 09-09, esta vez de **coste de tokens** y con medición
+> propia sobre los transcripts de esta máquina (549 sesiones, 331 MB):
+> **cuatro items nuevos**, greppables por «pasada de coste 2026-09-09». Uno en
+> Alta —el bucle de coste de la inyección, que resulta estar a un `join` por
+> `session_id` de distancia porque `recall-inject.sh` ya loguea los bytes que
+> emite—, dos en Media —la colisión de nombre de `exo budget` y el rediseño de
+> M5a contra el spec MCP stateless de 2026-07-28— y uno en Baja que es
+> explícitamente **sinergia sin dueño**, no deuda. La medición también
+> **cierra una vía**: el hit rate de cache es 97,7% (98,2% en `claude-opus-5`),
+> así que no hay margen en afinar caching. Nada de esto duplica items
+> existentes: el grep de `cache_read` / `prompt caching` / coste de tokens
+> sobre este fichero daba cero antes de la pasada.
+>
 > Anterior: **2026-09-04** (revisión crítica externa del repo completo:
 > diez items nuevos marcados «(revisión 2026-09-04)», tres de ellos en Alta;
 > ninguno duplica los que ya estaban — `test-*.sh` fuera de CI,
@@ -276,6 +289,46 @@
   original. Para `exo doctor` la mitad valiosa es la **detección** del desfase;
   el reponer-al-sello, que es lo que haría el trinquete, ahí no está y habría
   que ponerlo. **Lo cierra G5 si lo adopta.**
+
+- [ ] **(pasada de coste 2026-09-09) El bucle de coste de la inyección está
+  a un `join` de distancia: el emisor ya loguea los bytes que emite y nadie los
+  ha cruzado con lo que cuestan.**
+  Evidencia: `recall-inject.sh:335` loguea por prompt
+  `emitted n_hits=$N bytes=$BYTES permalinks=$PERMALINKS`, y
+  `_reflex-log.sh:15-27` le estampa `session_id` antes de escribir a
+  `$HOME/.claude/reflex-log.jsonl` (`_reflex-log.sh:13`). El propio helper
+  declara para qué existe —«para poder medir FP-rate por reflejo (paso 3 del
+  proyecto reflejos)», `_reflex-log.sh:2-3`—: el paso de medición está
+  **declarado, no ejecutado**. La otra mitad del cruce ya existe fuera del
+  repo: Claude Code escribe `~/.claude/projects/<slug>/<session_id>.jsonl` con
+  un `message.usage` por mensaje (`input_tokens`,
+  `cache_creation_input_tokens`, `cache_read_input_tokens`, `output_tokens`,
+  `output_tokens_details.thinking_tokens`). **La clave del join, `session_id`,
+  está en los dos lados.**
+  Medido el 2026-09-09 sobre las 60 sesiones mayores de esta máquina (549 en
+  total, 331 MB, 7.920 mensajes de assistant): 2.266M tokens de input, de los
+  cuales **97,7% son `cache_read`** (2.213,13M) y 2,3% `cache_creation`; hit
+  rate 98,2% en `claude-opus-5`. Lectura: el coste no está en **fallar** la
+  cache —ahí no hay margen— sino en **releer un prefijo grande a lo largo de
+  miles de turnos**, que es exactamente la línea que `recall-inject` alimenta
+  en cada prompt. exo ya trata la inyección como recurso presupuestado
+  (`engine/src/presupuesto.rs`, lint `budget_prose_drift`, techo del bloque de
+  arranque); lo que no tiene es el lado del **coste**.
+  **Acción:** (a) pre-registrar el gate ANTES de medir, como en
+  `evals/e1-read/gate.md` — la pregunta no es si el bloque es útil cuando
+  acierta, sino si ahorra turnos y tool-calls suficientes para pagar su
+  presencia en el prefijo cacheado de **todos** los turnos siguientes; (b) un
+  harness que cruce `reflex-log.jsonl` por `session_id` contra los transcripts
+  y reporte bytes inyectados frente a tokens por sesión; (c) decidir si eso
+  vive en `evals/` o pasa a verbo del engine (ver el item de naming de
+  `budget` en Media).
+  **Aviso de medición:** exo **no está instalado en esta máquina** —
+  `~/.claude/plugins/` solo tiene `kbi@kbi-standards` habilitado y `~/.exo` no
+  existe—, así que aquí no hay `reflex-log.jsonl` y **su ausencia no prueba
+  nada** sobre el emisor: el cruce hay que correrlo donde exo corre de verdad.
+  Y ojo con el diseño best-effort del sink (`|| true`, `2>/dev/null`,
+  `_reflex-log.sh:4`): un log ausente es indistinguible de cero disparos, así
+  que el harness debe **exigir** el fichero, no tolerar su falta.
 
 ## Media
 
@@ -592,6 +645,48 @@
   la KB real, con los umbrales canónicos (10.869 stable / 7.391 core), antes
   de ejecutar cualquier evicción.
 
+- [ ] **(pasada de coste 2026-09-09) `exo budget` va a colisionar de nombre:
+  el planeado mide tamaño de KB y el que hace falta mide coste de tokens.**
+  Evidencia: `docs/arquitectura.md:486` y `docs/instalacion.md:119-120` listan
+  `exo budget` como planeado y remiten su diseño a la sección G5 de
+  `docs/superpowers/specs/2026-08-26-exo-generico-design.md`. La semántica
+  heredada es **tamaño de nota**: `kbx budget/stale/doctor`
+  (`docs/2026-08-02-foto-as-is-framework.md:21`), los umbrales en bytes de
+  `engine/src/presupuesto.rs` (10.869 stable / 7.391 core, ver el item de poda
+  en Media) y el lint `budget_prose_drift`. **Nada de ese diseño cubre coste
+  de API.** Con el item de Alta encima de la mesa, el repo necesita las dos
+  medidas a la vez y `budget` solo puede significar una.
+  **Acción:** (a) fijar el vocabulario antes de que G5 lo implemente —
+  propuesta: `budget` = bytes de KB (lo ya diseñado), `cost` = tokens gastados
+  (nuevo); (b) si se decide un solo verbo, que la distinción viaje en el
+  envelope y no en un `--flag`, para que el consumidor no adivine; (c) dejar
+  la decisión escrita en la spec de G5, no solo aquí.
+
+- [ ] **(pasada de coste 2026-09-09) M5a (MCP propio) se diseñó contra un MCP
+  con estado; la revisión 2026-07-28 del spec lo abarató y dejó el diseño sin
+  releer.**
+  Evidencia: `docs/arquitectura.md` §7 lista «MCP propio (M5a) y
+  desinstalación de basic-memory (M5b): pendientes», y el `## Estado` de este
+  backlog lo encadena como C9. La revisión **2026-07-28** del spec de MCP
+  convierte el protocolo en request/response **sin estado**: retira el
+  intercambio `initialize`/`initialized` y la cabecera `Mcp-Session-Id`,
+  elimina el endpoint GET de stream, exige cabeceras `Mcp-Method` y `Mcp-Name`
+  en todo POST de Streamable HTTP, y hace **cacheables** las respuestas de
+  `tools/list`, `prompts/list`, `resources/list` y `resources/read` vía
+  `ttlMs` y `cacheScope`. El ejercicio pasa de implementar una máquina de
+  estados con handshake a implementar **un endpoint HTTP**. Fuente de segunda
+  mano — el análisis «Los 15 build your own de AI Engineering», fuera de este
+  repo (árbol `proyectos/IA/pocs/`), §«MCP crudo», que cita el blog oficial
+  del spec; **verificar contra el spec antes de implementar**, no contra ese
+  análisis.
+  **Acción:** (a) releer la sección M5a de la spec de C9/G5 contra la revisión
+  nueva antes de escribir código — cualquier diseño de handshake es ya peso
+  muerto; (b) `ttlMs`/`cacheScope` sobre `list` toca directamente el item de
+  Alta: las respuestas de `list` **son prefijo**, así que cachearlas es la
+  misma palanca medida allí; (c) evaluar `defer_loading` para los tools poco
+  usados, que los mantiene fuera del prefijo cacheado y solo entran cuando el
+  modelo los busca.
+
 ## Baja
 
 - [ ] **(revisión 2026-09-04 · cifras RE-MEDIDAS el 2026-09-09) Decisión
@@ -688,6 +783,31 @@
   **Cruce (2026-09-09):** lo cierra —y lo mantiene cerrado— el mismo validador
   de nombres y rutas personales anotado en el item de `test-*.sh` fuera de CI
   (Media). **Lo cierra G5 si lo adopta.**
+
+- [ ] **(pasada de coste 2026-09-09) Sinergias anotadas, dueño sin decidir: el
+  mecanismo de guards de exo sirve para delegar I/O, y el método de evals de
+  exo sirve fuera de exo.**
+  Evidencia: `plugins/exo/hooks/hooks.json:3-27` ya cablea tres
+  `PreToolUse:Bash` en producción (`git-c-bash.sh` en `:18`,
+  `git-add-all-guard.sh` en `:22`, `verify-before-commit.sh` en `:26`); **no
+  hay guard sobre el tamaño de un `Read`**. El patrón de delegación de I/O de
+  Spotify (análisis fuera de este repo, árbol `proyectos/IA/pocs/`, §3.2) usa
+  exactamente ese mecanismo: bloquear la lectura cara y redirigir a un worker
+  barato, dejando pasar las lecturas dirigidas (`offset`/`limit`, pipes).
+  Medido el 2026-09-09 sobre repos reales, el umbral de 350 líneas es un
+  Pareto casi perfecto: en `backend-finnk` 4,4% de los ficheros concentran
+  34,1% de las líneas; en `NorlinePlus` 8,8% concentran 48,7% (15.638
+  ficheros, 2,5M líneas, máximo 16.675); en `frontend-web-privada` 3,4%
+  concentran 25,6%. En la dirección contraria, el método de evals de este repo
+  —gate pre-registrado (`evals/e1-read/gate.md`), `verdict/` separado del
+  harness, atribución cruzada
+  (`evals/retrieval-fase0/harness/atribucion-cruzada.py`)— es transferible a
+  cualquier catálogo de skills, no solo al de exo.
+  **Acción:** ninguna en exo por ahora — **esto queda anotado como sinergia,
+  no como deuda**. Antes de construir hay que decidir dueño: el mecanismo de
+  hooks vive aquí, pero el worker barato vive fuera (plataforma on-prem) y el
+  catálogo de skills a evaluar también. Si se decide que exo asume delegación,
+  esto sube a item propio con su gate; si no, se cierra como «no es de exo».
 
 ---
 
