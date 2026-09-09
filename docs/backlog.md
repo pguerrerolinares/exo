@@ -15,6 +15,23 @@
 > 09-04 perdió su prefijo `> Última revisión:` y su `>`, y se salía del
 > blockquote—, arreglada aquí).
 >
+> Segunda pasada ese mismo día, tras comparar el repo con `affaan-m/ECC`
+> (MIT): **ocho cruces anotados, cero items nuevos**. Los dos del truncado
+> mudo —«el bloque de arranque va al 96%» y «`inject-emitted` se emite aunque
+> no se inyecte nada»— se marcan como la **misma clase de fallo con una sola
+> forma de arreglo** (un campo del envelope, no dos avisos). Otros seis —el
+> cutover binario↔scripts, los dos de fixtures atadas a esta máquina, los dos
+> de endurecimiento del CI y el de `kb-demo` como fixture— quedan marcados
+> **«lo cierra / lo subsume G5»**, greppables por esa cadena. La comparativa
+> no añadió deuda: reordenó la que ya estaba escrita.
+>
+> Las afirmaciones sobre ECC se anotaron primero leyendo ficheros sueltos por
+> HTTP y se **re-verificaron después contra un clone pineado en
+> `5064474d4d762dc9640234a41617cccb79185cec`** (2026-09-07, v2.2.1). De las
+> cuatro, una era **falsa** (qué hace su `repair`), dos había que **acotarlas**
+> y una se confirmó. Corregidas in situ y con cita `fichero:línea`: sin el
+> clone, tres de las cuatro habrían entrado mal.
+>
 > Anterior: **2026-09-04** (revisión crítica externa del repo completo:
 > diez items nuevos marcados «(revisión 2026-09-04)», tres de ellos en Alta;
 > ninguno duplica los que ya estaban — `test-*.sh` fuera de CI,
@@ -119,6 +136,18 @@
   índice: se retiran entradas, no se comprimen las vivas) — la propia entrada de
   exo está rancia, sigue diciendo «Frente: C10/M5a-02 config propia», que se
   cerró hoy; (c) revisar si el cap de 6.144 sigue siendo el correcto.
+  **Cruce (2026-09-09):** misma clase de fallo que «`inject-emitted` se emite
+  aunque no se inyecte nada», justo abajo — el instrumento no reporta lo que no
+  hizo. Las dos acciones convergen en **un campo del envelope** (truncado /
+  vacío) que el hook lea y loguee, en vez de dos avisos ad hoc por separado;
+  el envelope ya existe (`schema_version == 2`). Precedente de forma verificado
+  en `affaan-m/ECC` (clone `5064474`): su `memory_search` devuelve
+  `diagnostics.truncated: true` al exceder el tope de escaneo —5.000 ficheros
+  o 16 MiB, `scripts/lib/memory-vault.js:32-33`— en vez de recortar callando
+  (`memory-vault.js:642-653`, `scripts/memory-mcp.mjs:294-301`). El campo va
+  **anidado en `diagnostics`**, no en la raíz de la respuesta; sí está en raíz
+  en su `memory_doctor` (`memory-mcp.mjs:333`). Decidir dónde va el nuestro es
+  parte de la acción, no un detalle.
 
 - [ ] **`inject-emitted` se emite aunque no se inyecte nada.** Medido el
   2026-08-27 al validar la Task 3-bis de la ola 1B: con la KB sin resolver, el
@@ -137,6 +166,9 @@
   bloque no supera el tamaño de la cabecera. Mientras el nombre del evento
   afirme más que lo ocurrido, el log no es evidencia. Detalle y medidas en
   `runbooks/2026-08-26-cutover-plugin-exo.md`.
+  **Cruce (2026-09-09):** misma clase de fallo que «el bloque de arranque va al
+  96% de su cap, y desborda en silencio», arriba — la forma de arreglo
+  compartida (un campo del envelope, no dos avisos) está descrita allí.
 
 - [ ] **`exo-recall.sh` no tiene suite de test.** Es el hook de SessionStart —
   lo que inyecta la KB al arrancar cada sesión — y la ola 1A lo modificó dos
@@ -172,6 +204,24 @@
   Medido ese mismo día: `~/.local/bin/exo.exe` es del 24-08 17:11, anterior al
   merge de la ola 1A (27-08 10:13) — el desfase no es hipotético, está vivo en
   esta máquina ahora mismo.
+  **Cruce (2026-09-09):** la mitad viva —el check permanente en `exo doctor`—
+  no hay que diseñarla entera: `affaan-m/ECC` (MIT) la tiene hecha como
+  **install-state** —término literal suyo, `scripts/lib/install-state.js:11-13`,
+  con schema `ecc.install.v1`—. Verificado contra clone `5064474`: fingerprint
+  **SHA-256 por fichero** instalado (`install-lifecycle.js:203-205`, guardado
+  como `contentSha256`) y un `doctor` que reporta el drift con severidad
+  `ok|warning|error` (`install-lifecycle.js:1552-1571`, impresas en
+  `scripts/doctor.js:44-53`; hay un cuarto estado `'missing'`, `:1605`, para
+  cuando no hay install-state en absoluto).
+  **Corrección de una lectura previa equivocada:** su `repair` **no** repone el
+  byte sellado. En el camino normal recalcula el plan deseado contra los
+  manifiestos **actuales** del repo usando solo la selección grabada en
+  `state.request` (`install-lifecycle.js:1791-1826`) y reescribe únicamente lo
+  `missing` o `drifted` por hash (`:1906-2151`) — así que si el manifiesto
+  cambió desde la instalación, «repara» hacia el contenido nuevo, no hacia el
+  original. Para `exo doctor` la mitad valiosa es la **detección** del desfase;
+  el reponer-al-sello, que es lo que haría el trinquete, ahí no está y habría
+  que ponerlo. **Lo cierra G5 si lo adopta.**
 
 ## Media
 
@@ -270,6 +320,24 @@
   **Acción:** fixture propia por script (índice + KB + `$HOME` de prueba,
   igual que ya hacen los otros 5 de esta misma carpeta) antes de cablear un
   job de CI para `plugins/exo/`.
+  **Cruce (2026-09-09):** la mitad de «rutas de esta máquina» no necesita
+  fixture, necesita **un validador**: `affaan-m/ECC` encadena en su `npm test`
+  (`package.json:472`) un `scripts/ci/validate-no-personal-paths.js`. Con un
+  gate equivalente, la limpieza que pide el item de Alta «"exo genérico" sigue
+  siendo el plugin de Paul» **deja de poder regresar** —hoy es una limpieza
+  puntual que se pudre al siguiente hook— y con ella cae el item de Baja de
+  `kb-demo` como fixture.
+  **Copiarlo tal cual no basta, y esto solo se supo al leerlo** (clone
+  `5064474`): sus regex (`validate-no-personal-paths.js:41-42`) cubren
+  `/Users/<nombre>` y `C:\Users\<nombre>`, **pero no `/home/<user>`**. De los
+  cinco scripts que este item señala, `test-git-c-bash.sh` ofende justamente
+  por `/home/paul/Documentos/proyectos/code-graph-go`: el validador de ECC,
+  copiado literal, **no lo cazaría**. Hay que añadirle el patrón POSIX y la
+  lista de nombres propios. Segundo robable de la misma cadena:
+  `scripts/ci/validate-hooks.js`, que valida `hooks/hooks.json` contra
+  `schemas/hooks.schema.json` con Ajv (`:9,12,144-145`);
+  `plugins/exo/hooks/hooks.json` tiene nueve hooks y ninguna validación.
+  **Lo cierra G5 si lo adopta.**
 
 - [ ] **Retirar los aliases españoles del CLI en 1.1.** Los diez flags
   renombrados en la ola 1A (`--limite`→`--limit`, `--titulo`→`--title`,
@@ -314,6 +382,9 @@
   persona) esta suite no corre nunca.
   **Acción:** CI necesita un fixture propio (índice + KB de prueba mínimos)
   para que la suite deje de abstenerse fuera de esta máquina.
+  **Cruce (2026-09-09):** el fixture que pide este item y el que pide
+  «los scripts `test-*.sh` no entran en CI» son el mismo (índice + KB de
+  prueba); hacerlo una vez sirve a los dos. **Lo cierra G5 si lo adopta.**
 
 - [ ] **Un rojo del job `test` no se puede diagnosticar desde el CI.**
   `engine/scripts/test-hermetico.sh:19` manda toda la salida de `cargo test`
@@ -346,10 +417,25 @@
   **Acción:** activar branch protection con required status checks
   (`lint`, `msrv`, `test` en los tres SO) cuando se decida que main debe
   quedar protegida.
+  **Cruce (2026-09-09):** con una cadena de release como la de `affaan-m/ECC`
+  esto deja de ser una decisión suelta: su job de verificación exige que el
+  commit del tag sea **exactamente `origin/main`** antes de empaquetar, con lo
+  que la protección de rama pasa a ser precondición del release. Verificado
+  contra clone `5064474`: `.github/workflows/release.yml:30-37`, step «Require
+  the release commit to equal origin main», compara `git rev-parse HEAD` contra
+  `git rev-parse origin/main` y sale con `exit 1` si difieren, en el job
+  `verify`, antes de cualquier paso de empaquetado.
+  **Lo subsume G5 si adopta esa cadena.**
 
 - [ ] **Dos endurecimientos del CI que se decidieron NO aplicar en G5a, y por
       qué.** Hallazgos Minor de la review final de rama; se anotan para que la
       omisión sea una decisión y no un olvido.
+      **Cruce (2026-09-09):** los dos son precondiciones de un release
+      reproducible, no mejoras de higiene sueltas. Si G5 monta la cadena de
+      custodia del artefacto —`--locked` en el job que de verdad corre la
+      suite, `HF_HOME` explícito y su ruta de caché derivada— entran con ella
+      en vez de necesitar campaña propia. **Lo subsume G5 si adopta esa
+      cadena.**
   - **`HF_HOME` sin fijar.** La ruta del paso de caché
     (`~/.cache/huggingface/hub/models--jinaai--jina-embeddings-v2-base-es`)
     depende hoy del **default de `hf-hub` 0.5.0**, que es un detalle de una
@@ -545,6 +631,9 @@
   **Acción:** renombrar a un fixture neutro (`kb-test`, ya en uso en algunos
   tests hermetizados de la Pista A, es candidato natural) antes de publicar.
   Deuda menor — no bloquea nada hoy.
+  **Cruce (2026-09-09):** lo cierra —y lo mantiene cerrado— el mismo validador
+  de nombres y rutas personales anotado en el item de `test-*.sh` fuera de CI
+  (Media). **Lo cierra G5 si lo adopta.**
 
 ---
 
