@@ -7,13 +7,21 @@
 > duplicar. Cada item cita su evidencia; un item sin evidencia verificable no
 > entra.
 >
-> Última revisión: **2026-09-02** (G5a — CI mínimo cerrado con evidencia,
-> deuda nueva de la ola anotada).
-(revisión crítica externa del repo completo:
+> Última revisión: **2026-09-09** (re-verificación de los diez items de la
+> revisión crítica externa contra el árbol de `f86167a`: **nueve siguen vivos
+> y sin tocar**, uno caducó a medias —la MSRV— y tres traían cifras ya
+> movidas. Corregido in situ; los items retocados lo dicen en su cabecera.
+> De paso: esta cabecera venía **rota del merge `f86167a`** —el bloque del
+> 09-04 perdió su prefijo `> Última revisión:` y su `>`, y se salía del
+> blockquote—, arreglada aquí).
+>
+> Anterior: **2026-09-04** (revisión crítica externa del repo completo:
 > diez items nuevos marcados «(revisión 2026-09-04)», tres de ellos en Alta;
 > ninguno duplica los que ya estaban — `test-*.sh` fuera de CI,
 > `test-contrato-engine.sh` atado a esta máquina, aliases españoles y
 > `kb-demo` en los tests del engine ya tenían entrada y se dejan como están).
+> Antes: **2026-09-02** (G5a — CI mínimo cerrado con evidencia, deuda nueva
+> de la ola anotada).
 
 ## Estado
 
@@ -37,9 +45,10 @@
   fichero. No hay conjunto held-out, no hay intervalo de confianza (n=55) y
   el set es privado, así que la cifra no es reproducible por un tercero. La
   mejora es plausible; lo que no está es la evidencia de que generalice a
-  queries que no participaron en la selección. Relacionado: el tamaño de
-  trozo (900) y el default `--type fts` de `exo search`
-  (`main.rs:197`) frente al modo medido (`hybrid` + `--min-similarity 0.40`).
+  queries que no participaron en la selección. Relacionado: el tamaño de trozo
+  (900) y el default `--type fts` de `exo search` (`main.rs:205`,
+  re-verificado el 09-09) frente al modo medido (`hybrid` + `--min-similarity
+  0.40`).
   **Acción:** (a) redactar y congelar un held-out de queries nuevas ANTES de
   volver a tocar β, bonus, umbral o troceado; (b) reportar in-sample y
   held-out por separado en el próximo verdict; (c) decidir si el default de
@@ -67,17 +76,20 @@
   para Paul.** Medido el 2026-09-04 sobre `plugins/exo/`: la cadena `Paul`
   aparece en 4 ficheros vivos del plugin (`skills/distill/SKILL.md` ×7,
   `scripts/recall-inject.sh` ×2, `scripts/git-add-all-guard.sh`,
-  `scripts/kb-precommit.sh`); `kb-demo` en 8 ficheros del plugin, dos de
-  ellos hooks de producción (`exo-recall.sh`, `recall-inject.sh`) y uno el
+  `scripts/kb-precommit.sh`); `kb-demo` en 8 ficheros del plugin, dos de ellos
+  hooks de producción (`exo-recall.sh`, `recall-inject.sh`) y uno el
   pre-commit de la KB; y `kbx` —binario Go externo, no incluido en el repo,
   sin build decidido en Windows según la propia skill— es dependencia
-  operativa de `distill` (11 menciones, pasos que se «saltan» si falta) y de
-  `document` (`SKILL.md:9,24,82`). Súmese la barrera de instalación
-  (`docs/instalacion.md`: Rust ≥1.95, toolchain C, Git Bash, jq, descarga de
-  0,6 GB, sin binario ni `install.sh`). Hoy no hay tercero que pueda adoptar
-  el plugin sin leer la documentación entera. Es distinto del item de Baja
-  «`kb-demo` como fixture en los tests del engine»: aquí son hooks y skills
-  de producción.
+  operativa de `distill` (11 menciones, pasos que se «saltan» si falta), de
+  `document` (`SKILL.md:9,24,82`) y de `agents/executor.md` — re-verificado el
+  09-09: `kbx` aparece en **7 ficheros** del plugin, no en los dos que este
+  item citaba (los otros: `kb-precommit.sh`, `recall-inject.sh`,
+  `test-recall-inject.sh`, `document/routing.md`). Súmese la barrera de
+  instalación (`docs/instalacion.md`: Rust ≥1.95, toolchain C, Git Bash, jq,
+  descarga de 0,6 GB, sin binario ni `install.sh`). Hoy no hay tercero que
+  pueda adoptar el plugin sin leer la documentación entera. Es distinto del
+  item de Baja «`kb-demo` como fixture en los tests del engine»: aquí son
+  hooks y skills de producción.
   **Acción:** (a) sustituir «Paul» por «el usuario»/«el dueño de la KB» y
   `kb-demo` por el nombre resuelto vía `exo config` en los cuatro scripts y
   dos skills; (b) o bien portar a exo lo que `distill` necesita de `kbx`
@@ -210,17 +222,24 @@
   triple supera ~200 ms, fusionar los tres scripts en uno con un único
   parseo del JSON de entrada.
 
-- [ ] **(revisión 2026-09-04) La MSRV declarada supera el toolchain de la
-  máquina de trabajo.** Medido el 2026-09-04: `cargo check --all-targets
-  --locked` en `engine/` falla con «exo@0.1.0 requires rustc 1.95» sobre
-  `rustc 1.94.1`. La MSRV es correcta (la fija `libsqlite3-sys` vía
-  `cfg_select`, ver `Cargo.toml:6-7`) y el CI la comprueba; lo que falta es
-  que el repo diga al toolchain local qué versión usar en vez de fallar
-  después de resolver dependencias.
-  **Acción:** `rustup update stable` en la máquina y, en el repo, un
-  `engine/rust-toolchain.toml` con `channel = "stable"` o la MSRV, para que
-  rustup lo resuelva solo. Anotar el requisito en `instalacion.md` §1 con la
-  salida exacta del error para que sea googleable.
+- [ ] **(revisión 2026-09-04 · CADUCADO A MEDIAS el 2026-09-09) El repo no
+  le dice al toolchain local qué versión usar: falta `rust-toolchain.toml`.**
+  Medido el 2026-09-04: `cargo check --all-targets --locked` en `engine/`
+  fallaba con «exo@0.1.0 requires rustc 1.95» sobre `rustc 1.94.1`. La MSRV
+  es correcta (la fija `libsqlite3-sys` vía `cfg_select`, ver
+  `Cargo.toml:6-7`) y el CI la comprueba.
+  **Lo que caducó (mitad de máquina)**: el 2026-09-09 esta máquina corre
+  `rustc 1.98.0` / `cargo 1.98.0`, así que el fallo ya no reproduce. Se
+  arregló solo, por actualización, no por acción sobre el repo.
+  **Lo que sigue vivo (mitad de repo)**: `engine/rust-toolchain.toml` no
+  existe. El repo sigue sin declarar el toolchain, así que la próxima máquina
+  —o esta tras un `rustup default` distinto— repite el mismo tropiezo, y
+  además falla **después** de resolver dependencias, que es lo que lo hacía
+  caro de diagnosticar.
+  **Acción:** `engine/rust-toolchain.toml` con `channel = "stable"` o la
+  MSRV, para que rustup lo resuelva solo. Anotar el requisito en
+  `instalacion.md` §1 con la salida exacta del error para que sea googleable.
+  (El `rustup update stable` de la acción original ya está hecho.)
 
 - [ ] **`#[allow(clippy::too_many_arguments)]` en `escritor.rs` — la struct de
   parámetros que no se hizo aquí.** `escribe_nueva` toma 8 parámetros contra
@@ -435,11 +454,18 @@
 
 ## Baja
 
-- [ ] **(revisión 2026-09-04) Decisión abierta: proceso frente a producto.**
+- [ ] **(revisión 2026-09-04 · cifras RE-MEDIDAS el 2026-09-09) Decisión
+  abierta: proceso frente a producto.**
   Medido el 2026-09-04 con `wc -l` sobre `git ls-files`: **30.547** líneas de
   markdown en `docs/` + `evals/` + `reports/` frente a **5.224** de Rust en
   `engine/src/` (ratio 6:1), más 5.629 de tests Rust y 4.545 de shell. 320
   commits en 15 días de actividad, un solo autor, picos de 77 commits/día.
+  **Re-medido el 2026-09-09: 35.527 markdown · 6.682 Rust en `engine/src/` ·
+  7.381 de tests Rust · 4.692 de shell → ratio docs/código 6:1 → 5,3:1.** En
+  cinco días el código creció un 28% y la documentación un 16%: la tendencia
+  que este item denunciaba **se ha invertido**, aunque la decisión de fondo
+  siga sin tomarse. 345 commits en total, autoría única confirmada (342 bajo
+  el mismo nombre), pico de 77 commits/día el 2026-07-17.
   El item de Alta sobre deriva documental es el síntoma: el volumen ya
   supera lo que se mantiene sincronizado a mano. No es deuda técnica en sí;
   es una decisión sin tomar que genera deuda. Si exo es una herramienta
@@ -464,22 +490,32 @@
   solo a módulos nuevos hasta que un refactor toque los viejos. No renombrar
   en masa: el coste hoy es de coherencia, no de corrección.
 
-- [ ] **(revisión 2026-09-04) Los comentarios del engine son un segundo
-  changelog, y referencian briefs que no están en el repo.** Medido el
-  2026-09-04: **1.370** de las 5.224 líneas de `engine/src/*.rs` son líneas
-  de comentario (26 %); `main.rs` 241/881, `recall.rs` 155/671, `lib.rs`
-  131/333. Buena parte narra historia («hallazgo del gate M6», «review opus
-  m2-01», «§5.2.6 de la spec de fusión», «Task 3 del brief») en vez de
-  describir el contrato actual, y las referencias apuntan a briefs y
-  consultorías que un lector externo no puede resolver. Un comentario que
-  cuenta por qué se cambió algo envejece igual que el README de la sección
-  de Alta; ya hay un caso medido (`exo-recall.sh` decía «ronda los 4,5 KB»
-  cuando eran 5.921 B, ver primer item de Alta).
+- [ ] **(revisión 2026-09-04 · re-medido y ACOTADO el 2026-09-09) El relato
+  de campaña en los comentarios se concentra en `main.rs` y `buscador.rs`, y
+  referencia briefs que no están en el repo.** Medido el 2026-09-04: **1.370**
+  de las 5.224 líneas de `engine/src/*.rs` eran comentario (26 %); `main.rs`
+  241/881, `recall.rs` 155/671, `lib.rs` 131/333. **Re-medido el 2026-09-09
+  con criterio explícito `^\s*(//|///|//!)`: 1.815/6.682 = 27,2 %**
+  (`main.rs` 275/1043, `recall.rs` 155/671 clavado, `lib.rs` 131/336). El
+  criterio del auditor es reproducible y la densidad no baja pese al código
+  nuevo — pero el porcentaje **no era el hallazgo**, y el muestreo lo acota:
+  la mayoría de esos comentarios sí enuncian el invariante y solo le añaden
+  la procedencia. `lib.rs:29-31` dice «(deferred de campaña 1, review opus
+  m2-01: `sqlite3_auto_extension` es acumulativo — registrar dos veces
+  duplica el extension point)», que es exactamente lo que la Acción de abajo
+  pide **conservar**, no lo que pide mover. Contando líneas de comentario con
+  marcador de brief/spec/§/Task, el relato puro vive en **`main.rs` (32) y
+  `buscador.rs` (30)**; `lib.rs` (11) sale exonerado. Sigue en pie el riesgo
+  de fondo: un comentario que cuenta por qué se cambió algo envejece igual
+  que el README de la sección de Alta, y ya hay un caso medido
+  (`exo-recall.sh` decía «ronda los 4,5 KB» cuando eran 5.921 B, ver primer
+  item de Alta).
   **Acción:** al tocar un módulo por otra razón, dejar en el código el
   invariante y su consecuencia («recencia = git, no mtime: un clone fresco
   resetea mtimes») y mover el relato («hallazgo del gate M6, 2026-08-22») al
-  verdict o al plan correspondiente con un enlace. Candidatos primeros por
-  densidad: `lib.rs` y `main.rs`.
+  verdict o al plan correspondiente con un enlace. Candidatos por densidad de
+  relato **medida**: `main.rs` y `buscador.rs` (el item original decía
+  `lib.rs` y `main.rs`).
 
 - [ ] **Nombres y ubicaciones.** `docs/superpowers/` como carpeta de docs del
   proyecto cuyo objetivo declarado es jubilar superpowers, y `reports/` colgando
