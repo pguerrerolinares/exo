@@ -785,26 +785,26 @@ struct ArgsRatchet {
 }
 ```
 
-- [ ] Añadir `Ratchet(ArgsRatchet)` a `Comando`, la rama en `ejecuta`, y **la
+- [x] Añadir `Ratchet(ArgsRatchet)` a `Comando`, la rama en `ejecuta`, y **la
       rama en `quiere_json`** — que es exhaustivo sin `_ =>`, así que el
       compilador va a exigirla. Verlo fallar primero (test que invoca
       `exo ratchet --help`).
-- [ ] Implementar `ratchet_cmd`: resolver KB, recolectar (staged o no),
+- [x] Implementar `ratchet_cmd`: resolver KB, recolectar (staged o no),
       comprobar, emitir el informe **entero antes de gatear** (mismo contrato
       que `budget_cmd` y `lint_cmd`), y devolver
       `gate::GateFallido { comando: "ratchet", detalle: ... }` si
       `informe.fallido()`.
-- [ ] Salida de texto: la causa primero, la deuda resumida en una línea al
+- [x] Salida de texto: la causa primero, la deuda resumida en una línea al
       final. Portado de `TestTextOutputLeadsWithTheCauseAndSummarisesTheDebt`:
       la deuda **no** se mezcla con lo que rompe, porque si se mezcla nadie
       distingue lo que tiene que arreglar hoy de lo que arrastra desde hace
       meses.
-- [ ] Test `ratchet_sin_git_sale_cero`: abstención → exit 0.
-- [ ] Test `ratchet_con_un_waiver_sobre_su_sello_sale_tres`.
-- [ ] Test `ratchet_seal_y_staged_juntos_son_error_de_uso`: exit 2 (clap).
-- [ ] Test `el_envelope_json_lleva_command_ratchet` y valida contra el contrato
+- [x] Test `ratchet_sin_git_sale_cero`: abstención → exit 0.
+- [x] Test `ratchet_con_un_waiver_sobre_su_sello_sale_tres`.
+- [x] Test `ratchet_seal_y_staged_juntos_son_error_de_uso`: exit 2 (clap).
+- [x] Test `el_envelope_json_lleva_command_ratchet` y valida contra el contrato
       de `envelope` (mismo patrón que `budget_lint_cli.rs`).
-- [ ] Verlos pasar. `cargo clippy --all-targets --locked -- -D warnings` y
+- [x] Verlos pasar. `cargo clippy --all-targets --locked -- -D warnings` y
       `cargo fmt --check`. Commit.
 
 ---
