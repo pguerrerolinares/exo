@@ -20,6 +20,7 @@ pub mod plantilla;
 pub mod presupuesto;
 pub mod recall;
 pub mod schema;
+pub mod trinquete;
 pub mod trozos;
 pub mod vectores;
 pub mod walker;
