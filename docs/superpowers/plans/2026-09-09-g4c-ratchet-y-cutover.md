@@ -264,29 +264,29 @@ exit ≠ 0 como `Ok`, y el doc-comment tiene que decir por qué: el llamador
 (`carga_head`) necesita distinguir "no hay sello en HEAD" de "no hay HEAD", y
 esa distinción se hace encadenando `head_resuelve`, no mirando el stderr.
 
-- [ ] Escribir el test `es_shallow_detecta_un_clone_truncado`: `git init` un
+- [x] Escribir el test `es_shallow_detecta_un_clone_truncado`: `git init` un
       repo con un commit, clonarlo con `--depth 1` vía `file://`, y comprobar
       `es_shallow(clon) == Ok(true)` y `es_shallow(origen) == Ok(false)`. Si el
       clone falla en la máquina (no siempre se puede), el test hace `return`
       anotándolo — igual que el `t.Skipf` del test Go equivalente. Verlo fallar.
-- [ ] Implementar `es_shallow`: `rev-parse --is-shallow-repository`, `Ok(true)`
+- [x] Implementar `es_shallow`: `rev-parse --is-shallow-repository`, `Ok(true)`
       si stdout trim es `"true"`. **Un error de git aquí es `Ok(true)`, no
       `Err`**: la abstención es el lado seguro, y esa es la semántica del Go
       (`err != nil || stdout == "true"` → abstiene). Comentar esa asimetría:
       es la única función del módulo que degrada hacia la abstención a
       propósito.
-- [ ] Verlo pasar. Commit.
-- [ ] Test `muestra_devuelve_none_cuando_el_objeto_no_esta`: repo con un
+- [x] Verlo pasar. Commit.
+- [x] Test `muestra_devuelve_none_cuando_el_objeto_no_esta`: repo con un
       commit, `muestra(repo, "HEAD:./no-existe.json")` → `Ok(None)`.
       Test `muestra_devuelve_el_contenido_committeado`: fichero commiteado y
       luego modificado en el working tree; `muestra` devuelve **lo commiteado**.
       Verlos fallar.
-- [ ] Implementar `muestra` y `es_work_tree` (`rev-parse
+- [x] Implementar `muestra` y `es_work_tree` (`rev-parse
       --is-inside-work-tree`, mismo patrón que `es_repo_git` pero sin la
       comparación con `--show-toplevel`: aquí sí vale "dentro de un repo",
       porque el sello se resuelve con `./` contra el `-C`) y `head_resuelve`
       (`rev-parse --verify HEAD`, `bool`).
-- [ ] Verlos pasar. `cargo clippy --all-targets --locked -- -D warnings` y
+- [x] Verlos pasar. `cargo clippy --all-targets --locked -- -D warnings` y
       `cargo fmt --check` limpios. Commit.
 
 ---

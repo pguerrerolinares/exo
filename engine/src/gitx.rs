@@ -114,6 +114,107 @@ pub fn ultimo_commit(kb: &Path, ruta_rel: &str) -> Result<String> {
         .to_string())
 }
 
+/// ¿Es `dir` un clon truncado (`--depth`)? Un clon shallow puede no tener el
+/// objeto de un commit anterior a la trunca, y leer un sello vacío de ahí
+/// haría pasar en verde cualquier subida de techo — el trinquete necesita
+/// saber que no puede confiar en lo que ve.
+///
+/// **Asimetría deliberada, la única del módulo**: un error de git aquí es
+/// `Ok(true)`, no `Err`. Es la semántica del Go (`err != nil || stdout ==
+/// "true"` → abstiene): si no se puede ni preguntar si el repo es shallow,
+/// la postura segura es tratarlo como si lo fuera y abstenerse aguas arriba,
+/// no propagar un `Err` que en este punto del pipeline sería fail-loud sobre
+/// algo que el trinquete puede simplemente no juzgar. El resto de este
+/// módulo es fail-loud (ver el comentario de cabecera); esta función es la
+/// excepción con nombre y razón.
+pub fn es_shallow(dir: &Path) -> Result<bool> {
+    let salida = Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args(["rev-parse", "--is-shallow-repository"])
+        .env("LC_ALL", "C")
+        .env("LANG", "C")
+        .output();
+    let Ok(salida) = salida else {
+        return Ok(true);
+    };
+    if !salida.status.success() {
+        return Ok(true);
+    }
+    Ok(String::from_utf8_lossy(&salida.stdout).trim() == "true")
+}
+
+/// ¿Está `dir` dentro de un work tree de git (en cualquier profundidad, no
+/// solo en la raíz)? Mismo patrón fail-loud que `es_repo_git` —distinguir
+/// "no es un repo" de "git falló por otra razón"— pero **sin** la
+/// comparación con `--show-toplevel`: aquí sí vale "dentro de un repo",
+/// porque el trinquete siempre resuelve el sello con `HEAD:./<fichero>`
+/// contra el `-C` (A8/A2), y esa resolución funciona igual desde cualquier
+/// subdirectorio del work tree. No hace falta que `dir` sea la raíz.
+pub fn es_work_tree(dir: &Path) -> Result<bool> {
+    let salida = Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args(["rev-parse", "--is-inside-work-tree"])
+        .env("LC_ALL", "C")
+        .env("LANG", "C")
+        .output()
+        .with_context(|| format!("invocar git en {}", dir.display()))?;
+    if !salida.status.success() {
+        let stderr = String::from_utf8_lossy(&salida.stderr);
+        if stderr.contains("not a git repository") {
+            return Ok(false);
+        }
+        bail!(
+            "git rev-parse --is-inside-work-tree en {}: {}",
+            dir.display(),
+            stderr.trim()
+        );
+    }
+    Ok(String::from_utf8_lossy(&salida.stdout).trim() == "true")
+}
+
+/// `git show <objeto>`. Devuelve `Ok(None)` cuando git sale con código ≠ 0
+/// —en este módulo esa salida es señal semántica ("ese objeto no está en el
+/// árbol"), no un fallo— y `Err` solo si el proceso git no se pudo ni
+/// invocar. Es la **única** función de `gitx` que trata un exit ≠ 0 como
+/// `Ok`: el llamador (`carga_head`) necesita distinguir "no hay sello en
+/// HEAD" de "no hay HEAD", y esa distinción se hace encadenando
+/// `head_resuelve`, no mirando el stderr de este comando — el stderr de un
+/// `git show` que falla ("path does not exist", "bad revision", etc.) es
+/// ruido de depuración, no información que el llamador tenga que parsear.
+pub fn muestra(dir: &Path, objeto: &str) -> Result<Option<String>> {
+    let salida = Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args(["show", objeto])
+        .env("LC_ALL", "C")
+        .env("LANG", "C")
+        .output()
+        .with_context(|| format!("invocar git show {objeto} en {}", dir.display()))?;
+    if !salida.status.success() {
+        return Ok(None);
+    }
+    Ok(Some(String::from_utf8_lossy(&salida.stdout).to_string()))
+}
+
+/// ¿Resuelve `HEAD` a un commit? Falso en un repo recién iniciado sin
+/// commits (o fuera de un repo git). Devuelve `bool`, no `Result`: no hay
+/// distinción de fallo útil más allá de sí/no para el llamador — es
+/// `carga_head` quien decide, encadenando `es_work_tree` antes, si "HEAD no
+/// resuelve" significa "no hay repo" o "hay repo pero sin commits todavía".
+pub fn head_resuelve(dir: &Path) -> bool {
+    Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args(["rev-parse", "--verify", "HEAD"])
+        .env("LC_ALL", "C")
+        .env("LANG", "C")
+        .output()
+        .map(|salida| salida.status.success())
+        .unwrap_or(false)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -222,5 +323,134 @@ mod tests {
         let dir = repo("log/a.md", "cuerpo\n");
         let anidado = dir.path().join("log");
         assert!(!es_repo_git(&anidado).unwrap());
+    }
+
+    // `es_shallow` necesita un origen con AL MENOS dos commits: medido el
+    // 2026-09-09, un origen de un solo commit clonado con --depth 1 no deja
+    // `.git/shallow` (no hay historia que truncar), y el test pasaría en
+    // verde sin ejercitar nada. Se añade un segundo commit al fixture
+    // exclusivamente para este test.
+    #[test]
+    fn es_shallow_detecta_un_clone_truncado() {
+        let origen = repo("log/a.md", "primero\n");
+        let raiz = origen.path();
+        let cfg = raiz.join("gitconfig-vacio");
+        let corre = |args: &[&str]| {
+            let salida = Command::new("git")
+                .arg("-C")
+                .arg(raiz)
+                .args(args)
+                .env("GIT_CONFIG_GLOBAL", &cfg)
+                .env("GIT_CONFIG_SYSTEM", &cfg)
+                .env("GIT_AUTHOR_NAME", "f")
+                .env("GIT_AUTHOR_EMAIL", "f@k.local")
+                .env("GIT_COMMITTER_NAME", "f")
+                .env("GIT_COMMITTER_EMAIL", "f@k.local")
+                .env("GIT_AUTHOR_DATE", "2026-07-01T10:01:00+02:00")
+                .env("GIT_COMMITTER_DATE", "2026-07-01T10:01:00+02:00")
+                .output()
+                .unwrap();
+            assert!(salida.status.success(), "git {args:?} falló");
+        };
+        std::fs::write(raiz.join("log/a.md"), "segundo\n").unwrap();
+        corre(&["add", "."]);
+        corre(&["commit", "-q", "-m", "segundo"]);
+
+        // file:// con el separador nativo convertido a `/`: en Windows la
+        // ruta llega con `\` y un drive letter, y git solo entiende `/` en
+        // la URL.
+        let url = format!("file:///{}", raiz.display().to_string().replace('\\', "/"));
+        let clon = tempfile::tempdir().unwrap();
+        let destino = clon.path().join("clon");
+        let salida = Command::new("git")
+            .args(["clone", "--depth", "1", "-q", &url])
+            .arg(&destino)
+            .env("GIT_CONFIG_GLOBAL", &cfg)
+            .env("GIT_CONFIG_SYSTEM", &cfg)
+            .output()
+            .unwrap();
+        if !salida.status.success() {
+            // Igual que el t.Skipf del test Go: no siempre se puede clonar
+            // por file:// en esta máquina (política de seguridad de git,
+            // permisos). Se anota y no se falla — pero tampoco se finge
+            // haber ejercitado la rama.
+            eprintln!(
+                "es_shallow_detecta_un_clone_truncado: clone por file:// falló, \
+                 test no ejercitado en esta máquina: {}",
+                String::from_utf8_lossy(&salida.stderr)
+            );
+            return;
+        }
+
+        assert!(es_shallow(&destino).unwrap());
+        assert!(!es_shallow(raiz).unwrap());
+    }
+
+    // `es_work_tree` difiere de `es_repo_git` justo en el punto que A2/A8
+    // documentan: no compara con `--show-toplevel`, así que un subdirectorio
+    // dentro del repo también cuenta. Es la propiedad que necesita el
+    // trinquete, que siempre resuelve el sello con `HEAD:./<fichero>` contra
+    // el `-C` — no le hace falta que `dir` sea la raíz.
+    #[test]
+    fn es_work_tree_es_falso_fuera_de_cualquier_repo() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(!es_work_tree(dir.path()).unwrap());
+    }
+
+    #[test]
+    fn es_work_tree_es_verdadero_en_la_raiz_de_un_repo() {
+        let dir = repo("log/a.md", "cuerpo\n");
+        assert!(es_work_tree(dir.path()).unwrap());
+    }
+
+    #[test]
+    fn es_work_tree_es_verdadero_en_un_subdirectorio_anidado() {
+        // Contraste deliberado con `es_repo_git_es_falso_en_un_subdirectorio_anidado`:
+        // ahí es `false` porque compara con `--show-toplevel`; aquí es `true`
+        // porque "dentro de un repo" ya basta (A2/A8).
+        let dir = repo("log/a.md", "cuerpo\n");
+        let anidado = dir.path().join("log");
+        assert!(es_work_tree(&anidado).unwrap());
+    }
+
+    #[test]
+    fn muestra_devuelve_none_cuando_el_objeto_no_esta() {
+        let dir = repo("fichero.json", "{}\n");
+        assert_eq!(muestra(dir.path(), "HEAD:./no-existe.json").unwrap(), None);
+    }
+
+    #[test]
+    fn muestra_devuelve_el_contenido_committeado() {
+        let dir = repo("fichero.json", "original\n");
+        // Modificar el working tree DESPUÉS del commit: si `muestra` leyera
+        // disco en vez de HEAD, este test no falsaría nada.
+        std::fs::write(dir.path().join("fichero.json"), "modificado\n").unwrap();
+        assert_eq!(
+            muestra(dir.path(), "HEAD:./fichero.json").unwrap(),
+            Some("original\n".to_string())
+        );
+    }
+
+    #[test]
+    fn head_resuelve_es_falso_en_un_repo_recien_iniciado_sin_commits() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("gitconfig-vacio");
+        std::fs::write(&cfg, "").unwrap();
+        let salida = Command::new("git")
+            .arg("-C")
+            .arg(dir.path())
+            .args(["init", "-q"])
+            .env("GIT_CONFIG_GLOBAL", &cfg)
+            .env("GIT_CONFIG_SYSTEM", &cfg)
+            .output()
+            .unwrap();
+        assert!(salida.status.success());
+        assert!(!head_resuelve(dir.path()));
+    }
+
+    #[test]
+    fn head_resuelve_es_verdadero_tras_un_commit() {
+        let dir = repo("log/a.md", "cuerpo\n");
+        assert!(head_resuelve(dir.path()));
     }
 }
