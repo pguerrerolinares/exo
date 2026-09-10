@@ -821,18 +821,18 @@ struct ArgsRatchet {
 **Nada de esta tarea toca `kbx_budget_max`, `kbx_orphan_ok` ni
 `.kbx-ratchet.json`** (A6). Migra invocaciones de binario y solo eso.
 
-- [ ] `kb-precommit.sh`: `$KBX ratchet --kb "$KB" --staged` →
+- [x] `kb-precommit.sh`: `$KBX ratchet --kb "$KB" --staged` →
       `$EXO ratchet --kb "$KB" --staged`; `$KBX budget --kb "$snap"` →
       `$EXO budget --kb "$snap"`. Ajustar la variable
       (`EXO="${EXO_BIN:-$HOME/.local/bin/exo}"`) y el guard de la línea 17.
       **La degradación se conserva literal**: binario ausente ⇒ `exit 0` ⇒
       commit permitido. Cambiarla a bloqueante aquí sería un cambio de política
       colado en un cutover.
-- [ ] `kb-precommit.sh` línea 58: el mensaje de remediación cita
+- [x] `kb-precommit.sh` línea 58: el mensaje de remediación cita
       `kbx rotate --kb <kb> --apply`. **Se queda como `kbx`** — es el binario
       que hay que invocar de verdad para eso, porque `exo rotate` no existe.
       Añadir una nota de una línea diciendo que ese verbo sigue en kbx.
-- [ ] `distill/SKILL.md`: migrar `budget` → `exo budget`,
+- [x] `distill/SKILL.md`: migrar `budget` → `exo budget`,
       `ratchet` → `exo ratchet`, `doctor` → `exo lint`. **Dejar `rotate` y
       `stale` en `$KBX_BIN`** y escribir explícitamente, en el propio SKILL,
       que el skill invoca dos binarios y por qué (A7). Verificar que la
@@ -840,15 +840,15 @@ struct ArgsRatchet {
       lo dice en una línea visible, no falla-fuerte — el fallo-fuerte dejaría la
       skill inservible en Windows, que es el estado que esta ola viene a
       arreglar.
-- [ ] `document/SKILL.md` (línea 24), `document/routing.md` (línea 10),
+- [x] `document/SKILL.md` (línea 24), `document/routing.md` (línea 10),
       `agents/executor.md` (línea 13): `kbx targets` → `exo targets`. Los tres
       son prosa o una invocación con flags; ninguno tiene verbo sin destino.
-- [ ] Verificación de campo, no solo de grep: instalar el binario nuevo
+- [x] Verificación de campo, no solo de grep: instalar el binario nuevo
       (`cargo build --release` + copiar a `~/.local/bin/exo`), hacer un commit
       de prueba en un **clon desechable** de la KB con una subida de techo
       staged, y comprobar que el pre-commit la bloquea. Un cutover que solo se
       verifica con `grep` es un cutover no verificado.
-- [ ] Commit.
+- [x] Commit.
 
 ---
 

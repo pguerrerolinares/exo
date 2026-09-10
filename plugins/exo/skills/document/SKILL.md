@@ -21,7 +21,7 @@ Probe del engine antes de rutear: `exo search --db <db> --type hybrid --json
 "<topic>"` devuelve por candidata `permalink`, `score` y **`ruta`**. Elige
 "nota X, sección Y" y lee SOLO la ganadora antes de escribir. La `ruta` es
 imprescindible: el permalink NO es invertible (el slug come acentos, espacios
-y em-dashes), así que sin ella no puedes localizar el fichero. `kbx targets`
+y em-dashes), así que sin ella no puedes localizar el fichero. `exo targets`
 sigue sirviendo para ver headings sin body mientras exista. Degradación con
 aviso visible: si el engine falla, cae a búsqueda por texto y añade una línea
 al resumen final (`<engine> unavailable → fallback`) — nunca bloquees el
