@@ -834,7 +834,7 @@ fn con_db_vacia_el_check_reporta_los_bytes_del_fichero_que_miro() {
     // Una DB de verdad, con su schema: el check tiene que leerla, no
     // conformarse con que exista un fichero con ese nombre.
     let conn = exo::abre_db(&db).unwrap();
-    exo::schema::crea(&conn).unwrap();
+    exo::schema::crea_schema(&conn).unwrap();
     drop(conn);
     let informe = analiza(&entorno_con_config(dir.path()));
     let c = check(&informe, "index_db");
@@ -858,7 +858,7 @@ fn una_kb_mas_nueva_que_el_indice_sale_como_rancia() {
     fs::write(kb.join("core").join("a.md"), "---\ntier: core\n---\nx\n").unwrap();
     let db = dir.path().join("index.db");
     let conn = exo::abre_db(&db).unwrap();
-    exo::schema::crea(&conn).unwrap();
+    exo::schema::crea_schema(&conn).unwrap();
     drop(conn);
     // La nota se marca en el futuro en vez de dormir: con granularidad de
     // mtime de un segundo, un test que escribe seguido compara iguales y sale
@@ -879,11 +879,6 @@ fn una_kb_mas_nueva_que_el_indice_sale_como_rancia() {
     );
 }
 ```
-
-> **Nota para el ejecutor:** `exo::schema::crea` es el nombre asumido de la
-> función que crea el schema (`engine/src/schema.rs`, cuyo oráculo es
-> `engine/tests/schema.rs`). Si la firma real difiere, usa la de ese test y
-> **no cambies nada más** del test de aquí.
 
 - [ ] **Step 2: Correr el test y verificar que falla**
 
@@ -929,7 +924,7 @@ fn check_kb(cfg: Option<&crate::config::Config>) -> Check {
             "la raíz de la KB no existe o no es un directorio",
         );
     }
-    match crate::walker::visita(&kb) {
+    match crate::walker::walk_kb(&kb) {
         Ok(notas) => Check::nuevo(
             "kb_readable",
             Estado::Ok,
@@ -1006,7 +1001,7 @@ fn check_indice(cfg: Option<&crate::config::Config>) -> Check {
 /// recorrer: la ranciedad no se puede afirmar, y afirmarla a ciegas sería
 /// justo el tipo de veredicto sin artefacto que este comando evita.
 fn mtime_mas_reciente(kb: &std::path::Path) -> Option<std::time::SystemTime> {
-    let notas = crate::walker::visita(kb).ok()?;
+    let notas = crate::walker::walk_kb(kb).ok()?;
     notas
         .iter()
         .filter_map(|n| std::fs::metadata(n).ok())
@@ -1015,11 +1010,12 @@ fn mtime_mas_reciente(kb: &std::path::Path) -> Option<std::time::SystemTime> {
 }
 ```
 
-> **Nota para el ejecutor:** `crate::walker::visita` es la función de recorrido
-> que ya usa el indexer (`engine/src/walker.rs`, oráculo en
-> `engine/tests/walker.rs`). Usa su firma real; si devuelve algo que no sea un
-> `Vec` de rutas, adapta el `.len()` y el `.iter()` de `mtime_mas_reciente` —
-> y **nada más**.
+> **Verificado en recon (2026-09-10):** `walker::walk_kb(raiz: &Path) ->
+> Result<Vec<PathBuf>>` (`engine/src/walker.rs:11`) devuelve las rutas
+> absolutas de todos los `.md` en orden determinista, excluyendo `.claude/`,
+> `.omc/` y `.superpowers/` en cualquier nivel e **incluyendo** `archive/`.
+> Es exactamente lo que estos dos checks necesitan; no uses `walk_notas`, que
+> devuelve `Vec<String>` relativos.
 
 - [ ] **Step 4: Correr el test y verificar que pasa**
 
@@ -1700,37 +1696,53 @@ fn todo_estado_esta_en_el_vocabulario_de_cuatro_y_ok_es_la_ausencia_de_fail() {
 }
 ```
 
-Añadir a `engine/tests/contrato_envelope.rs` (siguiendo el estilo del fichero:
-si sus casos se declaran en una tabla o helper, añade el de `doctor` ahí; si
-son funciones sueltas, añade esta):
+Añadir a `engine/tests/contrato_envelope.rs`. **Recon (2026-09-10):** ese
+fichero comprueba el contrato sobre `serde_json::to_value` de structs
+construidos a mano, NO sobre una corrida del binario — su cabecera lo declara:
+*«el contrato es de FORMA, y una corrida real lo ataría además a tener índice y
+modelo en la máquina»*. El caso de `doctor` sigue esa forma y no shellea:
 
 ```rust
 #[test]
-fn doctor_v2_las_claves_de_data_y_de_cada_check() {
-    let dir = tempfile::tempdir().unwrap();
-    let cfg = dir.path().join("no-existe.toml");
-    let salida = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
-        .args(["doctor", "--json"])
-        .env("EXO_CONFIG", &cfg)
-        .output()
-        .unwrap();
-    let v: serde_json::Value = serde_json::from_slice(&salida.stdout).unwrap();
-    assert_eq!(v["schema_version"], 2);
-    assert_eq!(v["command"], "doctor");
+fn las_claves_de_doctor_estan_en_ingles() {
+    let informe = exo::doctor::InformeDoctor {
+        ok: false,
+        plataforma: "linux",
+        checks: vec![exo::doctor::Check {
+            id: "config",
+            estado: exo::doctor::Estado::Fail,
+            artefacto: "/home/x/.exo/config.toml".into(),
+            detalle: "no existe".into(),
+        }],
+    };
+    let v = serde_json::to_value(&informe).expect("serializar");
+    let obj = v.as_object().expect("objeto");
 
-    let data = v["data"].as_object().unwrap();
-    let mut claves: Vec<&str> = data.keys().map(|k| k.as_str()).collect();
+    let mut claves: Vec<&str> = obj.keys().map(|k| k.as_str()).collect();
     claves.sort_unstable();
     assert_eq!(
         claves,
         vec!["checks", "ok", "platform"],
         "renombrar una clave de data exige subir SCHEMA_VERSION"
     );
+    assert!(!obj.contains_key("plataforma"), "sobrevive `plataforma`");
 
-    let check = v["data"]["checks"][0].as_object().unwrap();
+    let check = v["checks"][0].as_object().expect("objeto");
     let mut claves: Vec<&str> = check.keys().map(|k| k.as_str()).collect();
     claves.sort_unstable();
     assert_eq!(claves, vec!["artifact", "detail", "id", "status"]);
+    for k in ["estado", "artefacto", "detalle"] {
+        assert!(!check.contains_key(k), "sobrevive la clave española {k}");
+    }
+
+    // El vocabulario de cuatro estados es contrato: los consumidores filtran
+    // por estas cadenas, y `Na` serializando como "Na" en vez de "na" las
+    // rompería sin que ningún test de forma lo notara.
+    assert_eq!(check["status"], "fail");
+    assert_eq!(
+        serde_json::to_value(exo::doctor::Estado::Na).unwrap(),
+        "na"
+    );
 }
 ```
 
@@ -1930,13 +1942,22 @@ jobs:
 
 - [ ] **Step 2: Verificar la sintaxis sin cortar ningún tag**
 
-Run: `gh workflow list --repo pguerrerolinares/exo`
-Expected: tras el push del commit, `Release` aparece listado. Un YAML inválido
-no se registra como workflow — es el único chequeo barato antes del tag real.
+**Corrección de pre-flight (2026-09-10):** `gh workflow list` solo ve los
+workflows de la **rama por defecto**, así que en `g5b-release-doctor` no
+serviría de nada — daría vacío tanto con un YAML válido como con uno roto. El
+chequeo barato es local:
 
-Run: `git add .github/workflows/release.yml && git commit -m … && git push`
-(el push es necesario para que `gh workflow list` lo vea; el workflow no se
-dispara: no hay tag).
+Run: `python -c "import yaml,sys; yaml.safe_load(open('.github/workflows/release.yml',encoding='utf-8')); print('yaml ok')"`
+Expected: `yaml ok`. Un error de indentación sale aquí como
+`yaml.scanner.ScannerError` con línea y columna.
+
+Run: `python -c "import yaml; d=yaml.safe_load(open('.github/workflows/release.yml',encoding='utf-8')); print(sorted(d['jobs'])); print(d['jobs']['build']['strategy']['matrix']['include'])"`
+Expected: `['build', 'publish']` y las tres entradas de la matriz con sus
+`target`/`bin`. Verifica que la estructura es la que `install.sh` espera, no
+solo que el YAML parsea.
+
+El gate de verdad del workflow es la Task 12; esto solo impide llegar allí con
+un fichero que ni siquiera carga.
 
 - [ ] **Step 3: Commit**
 
