@@ -1,0 +1,140 @@
+//! Preflight de **entorno**: `lint` juzga la KB, `doctor` juzga la máquina.
+//!
+//! Contrato, y es el punto entero del comando: **cada check reporta el
+//! artefacto que miró** —la ruta, la versión, los bytes— y **ninguno
+//! desaparece del informe**. Lo que no aplica a esta plataforma sale como
+//! `na` con lo que miró, porque una fila ausente no se distingue de un check
+//! que nunca existió. Es la lección literal de los seis casos del runbook de
+//! W11 (`docs/superpowers/runbooks/2026-08-24-integracion-equipo-trabajo-windows.md`):
+//! «el código de salida no es evidencia; lo que valió fue mirar el artefacto
+//! real».
+use serde::Serialize;
+use std::path::PathBuf;
+
+/// Estado de un check. `Na` NO es `Ok`: es «aquí esto no se mide».
+#[derive(Serialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum Estado {
+    Ok,
+    Warn,
+    Fail,
+    Na,
+}
+
+impl std::fmt::Display for Estado {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Estado::Ok => "ok",
+            Estado::Warn => "warn",
+            Estado::Fail => "fail",
+            Estado::Na => "na",
+        })
+    }
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct Check {
+    pub id: &'static str,
+    #[serde(rename = "status")]
+    pub estado: Estado,
+    /// Lo que se miró: ruta absoluta, comando resuelto, versión, tamaño.
+    #[serde(rename = "artifact")]
+    pub artefacto: String,
+    #[serde(rename = "detail")]
+    pub detalle: String,
+}
+
+impl Check {
+    fn nuevo(
+        id: &'static str,
+        estado: Estado,
+        artefacto: impl Into<String>,
+        detalle: impl Into<String>,
+    ) -> Self {
+        Self {
+            id,
+            estado,
+            artefacto: artefacto.into(),
+            detalle: detalle.into(),
+        }
+    }
+}
+
+#[derive(Serialize)]
+pub struct InformeDoctor {
+    pub ok: bool,
+    #[serde(rename = "platform")]
+    pub plataforma: &'static str,
+    pub checks: Vec<Check>,
+}
+
+impl InformeDoctor {
+    fn nuevo(checks: Vec<Check>) -> Self {
+        // `warn` informa y NO gatea: una DB rancia o el modelo sin cachear son
+        // deuda con arreglo conocido, no una máquina rota.
+        let ok = !checks.iter().any(|c| c.estado == Estado::Fail);
+        Self {
+            ok,
+            plataforma: std::env::consts::OS,
+            checks,
+        }
+    }
+
+    pub fn fallidos(&self) -> usize {
+        self.checks
+            .iter()
+            .filter(|c| c.estado == Estado::Fail)
+            .count()
+    }
+}
+
+/// El entorno que doctor juzga, inyectable entero: un test no puede mover el
+/// HOME ni el PATH del proceso, y sin inyección estos checks solo se podrían
+/// probar en la máquina del que los escribió.
+pub struct Entorno {
+    pub home: PathBuf,
+    pub config: PathBuf,
+    pub cache_hf: PathBuf,
+    pub path: String,
+}
+
+impl Entorno {
+    /// El entorno real del proceso. La caché replica lo que hace `hf_hub`
+    /// (`Cache::from_env`): `$HF_HOME/hub`, y si no `~/.cache/huggingface/hub`.
+    pub fn del_proceso() -> Self {
+        let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+        let cache_hf = match std::env::var_os("HF_HOME") {
+            Some(h) => PathBuf::from(h).join("hub"),
+            None => home.join(".cache").join("huggingface").join("hub"),
+        };
+        Self {
+            config: crate::config::ruta_config()
+                .unwrap_or_else(|_| home.join(".exo").join("config.toml")),
+            home,
+            cache_hf,
+            path: std::env::var("PATH").unwrap_or_default(),
+        }
+    }
+}
+
+pub fn analiza(entorno: &Entorno) -> InformeDoctor {
+    InformeDoctor::nuevo(vec![check_config(entorno)])
+}
+
+fn check_config(entorno: &Entorno) -> Check {
+    let ruta = entorno.config.display().to_string();
+    match crate::config::carga_desde(&entorno.config) {
+        Ok(c) => Check::nuevo(
+            "config",
+            Estado::Ok,
+            ruta,
+            format!(
+                "schema_version={} kb={} db={}",
+                c.schema_version,
+                c.kb.path.display(),
+                c.index.db.display()
+            ),
+        ),
+        Err(e) => Check::nuevo("config", Estado::Fail, ruta, format!("{e:#}")),
+    }
+}
