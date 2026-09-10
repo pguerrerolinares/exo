@@ -118,7 +118,90 @@ impl Entorno {
 }
 
 pub fn analiza(entorno: &Entorno) -> InformeDoctor {
-    InformeDoctor::nuevo(vec![check_config(entorno)])
+    InformeDoctor::nuevo(vec![
+        check_config(entorno),
+        check_binario_en_path(entorno),
+        check_fallback_del_hook(entorno),
+    ])
+}
+
+/// Primera coincidencia de `nombre` (o `nombre.exe` en Windows) en un PATH
+/// dado. No usa la crate `which`: el PATH es inyectable a propósito, y una
+/// dependencia nueva para quince líneas no se paga.
+fn busca_en_path(path: &str, nombre: &str) -> Option<PathBuf> {
+    let candidatos: Vec<String> = if cfg!(windows) {
+        vec![format!("{nombre}.exe"), nombre.to_string()]
+    } else {
+        vec![nombre.to_string()]
+    };
+    for dir in std::env::split_paths(path) {
+        for c in &candidatos {
+            let ruta = dir.join(c);
+            if ruta.is_file() {
+                return Some(ruta);
+            }
+        }
+    }
+    None
+}
+
+fn check_binario_en_path(entorno: &Entorno) -> Check {
+    match busca_en_path(&entorno.path, "exo") {
+        Some(ruta) => Check::nuevo(
+            "binary_on_path",
+            Estado::Ok,
+            ruta.display().to_string(),
+            "los hooks lo resuelven con `command -v exo`",
+        ),
+        None => Check::nuevo(
+            "binary_on_path",
+            Estado::Warn,
+            format!("PATH={}", entorno.path),
+            "`command -v exo` no lo encuentra; los hooks caerán al fallback \
+             $HOME/.local/bin/exo",
+        ),
+    }
+}
+
+/// El fallback literal de `plugins/exo/scripts/kb-precommit.sh:18`
+/// (`EXO="${EXO_BIN:-$HOME/.local/bin/exo}"`). Si ese fichero no está, la
+/// línea 20 del hook sale **0**: commit permitido, gate apagado, sin romper
+/// nada. Por eso esto es `fail` y no `warn`.
+///
+/// Se reporta QUÉ fichero existe: medido el 2026-09-10 en el Git Bash de W11,
+/// msys resuelve `exo` → `exo.exe` en `stat()` y el test `-x` sobre la ruta
+/// sin extensión da verdadero, al revés de lo que afirma la spec. Un check
+/// que diera por buena cualquiera de las dos versiones estaría adivinando;
+/// este mira.
+fn check_fallback_del_hook(entorno: &Entorno) -> Check {
+    let base = entorno.home.join(".local").join("bin");
+    let literal = base.join("exo");
+    let con_exe = base.join("exo.exe");
+    let existe_literal = literal.is_file();
+    let existe_exe = con_exe.is_file();
+    let artefacto = format!(
+        "{} (existe={}) · {} (existe={})",
+        literal.display(),
+        existe_literal,
+        con_exe.display(),
+        existe_exe
+    );
+    if existe_literal || existe_exe {
+        Check::nuevo(
+            "hook_fallback_binary",
+            Estado::Ok,
+            artefacto,
+            "kb-precommit.sh encuentra el binario y el gate de la KB muerde",
+        )
+    } else {
+        Check::nuevo(
+            "hook_fallback_binary",
+            Estado::Fail,
+            artefacto,
+            "kb-precommit.sh:20 sale 0 sin gate — COMMIT PERMITIDO en silencio. \
+             Instala con install.sh/install.ps1 o copia el binario ahí",
+        )
+    }
 }
 
 fn check_config(entorno: &Entorno) -> Check {
