@@ -505,17 +505,17 @@ trata como 0 (sin techo), igual que `log`. La distinción `None` vs `Some(0)` qu
 `budget` necesita aquí no aporta — lo que el trinquete hace con un tier sin
 presupuesto es marcar el waiver como inerte, y eso vale para los dos casos.
 
-- [ ] Test `recolecta_trae_toda_declaracion_no_solo_las_infractoras`: KB de
+- [x] Test `recolecta_trae_toda_declaracion_no_solo_las_infractoras`: KB de
       fixture con una nota `stable` de 1 KB y `kbx_budget_max: 12000`
       (muy por debajo de su tier) → aparece en el resultado. Verlo fallar.
-- [ ] Test `recolecta_respeta_los_excluidos`: una nota con techo dentro de
+- [x] Test `recolecta_respeta_los_excluidos`: una nota con techo dentro de
       `archive/` no aparece.
-- [ ] Test `recolecta_ignora_las_notas_sin_techo_declarado`.
-- [ ] Test `el_tamano_es_el_del_fichero_en_bytes`: nota de tamaño conocido; el
+- [x] Test `recolecta_ignora_las_notas_sin_techo_declarado`.
+- [x] Test `el_tamano_es_el_del_fichero_en_bytes`: nota de tamaño conocido; el
       campo `tamano` coincide con `metadata().len()`. **Ojo con CRLF**: el
       fixture se escribe con `\n` explícito para que el tamaño sea el mismo en
       los tres SO del CI.
-- [ ] Implementar. Ordenar por `ruta` antes de devolver. Verlos pasar. Commit.
+- [x] Implementar. Ordenar por `ruta` antes de devolver. Verlos pasar. Commit.
 
 ---
 

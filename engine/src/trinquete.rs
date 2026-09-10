@@ -261,6 +261,64 @@ pub fn violaciones(head: &Sellos, actual: &Sellos) -> Vec<Hallazgo> {
     hallazgos
 }
 
+/// Una nota que declara techo (`kbx_budget_max`), tal cual está en el árbol
+/// actual — no un hallazgo, no una comparación con `HEAD`. Es la materia
+/// prima de la que salen las nueve variantes de `Tipo` en tareas
+/// posteriores del mismo módulo.
+#[derive(Clone, Debug)]
+pub struct Declarada {
+    pub ruta: String,
+    pub tier: String,
+    pub max: i64,
+    pub tier_presupuesto: i64,
+    pub tamano: i64,
+}
+
+/// Recorre la KB y trae toda nota que declare `kbx_budget_max`, sin filtrar
+/// por si infringe nada: a diferencia de `presupuesto::analiza`, el trinquete
+/// juzga declaraciones, no tamaños, así que una nota muy por debajo de su
+/// tier igual aparece aquí (y `budget` nunca la reportaría).
+///
+/// Las notas sin techo declarado se saltan enteras — no se mira si tienen
+/// aire o no, eso es cosa de `budget`. `tier_presupuesto` es
+/// `presupuestos.para_tier(tier).unwrap_or(0)`: un tier ilegal se trata como
+/// 0 (sin techo), igual que `log`; la distinción `None`/`Some(0)` que
+/// `budget` necesita no aporta aquí porque lo único que el trinquete hace
+/// con un tier sin presupuesto es marcar el waiver como inerte, y eso vale
+/// para los dos casos.
+pub fn recolecta(
+    kb: &Path,
+    presupuestos: crate::presupuesto::Presupuestos,
+    excluidos: &[&str],
+) -> Result<Vec<Declarada>> {
+    let rutas = crate::walker::walk_notas(kb, excluidos)?;
+
+    let mut declaradas = Vec::new();
+    for rel in rutas {
+        let absoluta = kb.join(&rel);
+        let contenido = crate::walker::lee_nota(&absoluta)?;
+        let Some(max) = crate::frontmatter::budget_max(&contenido) else {
+            continue;
+        };
+        let tamano = std::fs::metadata(&absoluta)
+            .with_context(|| format!("stat de {}", absoluta.display()))?
+            .len() as i64;
+        let tier = crate::frontmatter::tier(&contenido);
+        let tier_presupuesto = presupuestos.para_tier(&tier).unwrap_or(0);
+
+        declaradas.push(Declarada {
+            ruta: rel,
+            tier,
+            max,
+            tier_presupuesto,
+            tamano,
+        });
+    }
+
+    declaradas.sort_by(|a, b| a.ruta.cmp(&b.ruta));
+    Ok(declaradas)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
