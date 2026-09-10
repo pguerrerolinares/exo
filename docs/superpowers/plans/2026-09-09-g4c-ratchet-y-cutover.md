@@ -458,16 +458,16 @@ argumento que `quiere_json` en `main.rs`, y es estrictamente mejor que el
 `f.Kind != ... && f.Kind != ...` del Go, que ante un Kind nuevo lo trataría como
 rompiente por accidente.
 
-- [ ] Test `un_techo_que_sube_es_violacion` / `un_techo_que_baja_no_lo_es` /
+- [x] Test `un_techo_que_sube_es_violacion` / `un_techo_que_baja_no_lo_es` /
       `un_sello_nuevo_no_es_violacion`. Verlos fallar.
-- [ ] Test `borrar_un_sello_equivale_a_subirlo_a_infinito`: presente en `head`,
+- [x] Test `borrar_un_sello_equivale_a_subirlo_a_infinito`: presente en `head`,
       ausente en `actual` → `SelloRetirado` con `era` poblado y `ahora` en 0.
       Es el sub-invariante 1 del ítem 7 de la spec.
-- [ ] Test `las_violaciones_salen_ordenadas_por_ruta`.
-- [ ] Implementar `pub fn violaciones(head: &Sellos, actual: &Sellos) -> Vec<Hallazgo>`.
+- [x] Test `las_violaciones_salen_ordenadas_por_ruta`.
+- [x] Implementar `pub fn violaciones(head: &Sellos, actual: &Sellos) -> Vec<Hallazgo>`.
       El orden sale gratis del `BTreeMap` (A4), pero el test lo falsa igualmente
       porque el contrato es el orden, no el tipo que lo produce.
-- [ ] Verlos pasar. Commit.
+- [x] Verlos pasar. Commit.
 
 ---
 

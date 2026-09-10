@@ -7,7 +7,7 @@
 
 use crate::gitx;
 use anyhow::{Context, Result};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -146,4 +146,177 @@ pub fn carga_head(kb: &Path) -> Result<Option<Sellos>> {
 pub fn anclado_en_head(kb: &Path) -> bool {
     let objeto = format!("HEAD:./{FICHERO_SELLO}");
     matches!(gitx::muestra(kb, &objeto), Ok(Some(_)))
+}
+
+/// Los nueve tipos de hallazgo que el trinquete puede producir. Las claves
+/// JSON (inglés, D7/D8) son las de kbx: cambiarlas rompería a quien ya
+/// parsea el envelope de `exo lint`.
+#[derive(Serialize, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Tipo {
+    #[serde(rename = "seal-raised")]
+    SelloSubido,
+    #[serde(rename = "seal-removed")]
+    SelloRetirado,
+    #[serde(rename = "over-seal")]
+    SobreSello,
+    #[serde(rename = "first-declaration-too-high")]
+    PrimeraMuyAlta,
+    #[serde(rename = "inert-log-waiver")]
+    WaiverLogInerte,
+    #[serde(rename = "sealed-escaped-tier")]
+    SelladaEscapadaDeTier,
+    #[serde(rename = "no-air")]
+    SinAire,
+    #[serde(rename = "born-too-big")]
+    NaceDemasiadoGrande,
+    #[serde(rename = "no-air-debt")]
+    DeudaSinAire,
+}
+
+impl Tipo {
+    /// Los siete que rompen el gate (exit 3). `WaiverLogInerte` y
+    /// `DeudaSinAire` son información: existen para verse, no para
+    /// bloquear. Exhaustivo y sin `_ =>` a propósito (ver brief de Task 5):
+    /// una variante nueva obliga a decidir aquí, no a colarse como
+    /// rompiente (o no) por accidente.
+    pub fn rompe(self) -> bool {
+        match self {
+            Tipo::SelloSubido => true,
+            Tipo::SelloRetirado => true,
+            Tipo::SobreSello => true,
+            Tipo::PrimeraMuyAlta => true,
+            Tipo::WaiverLogInerte => false,
+            Tipo::SelladaEscapadaDeTier => true,
+            Tipo::SinAire => true,
+            Tipo::NaceDemasiadoGrande => true,
+            Tipo::DeudaSinAire => false,
+        }
+    }
+}
+
+/// `true` si el valor es el `i64` por defecto: usado solo como predicado de
+/// `skip_serializing_if` en `Hallazgo`, para que un campo no aplicable
+/// (p.ej. `limite` en una subida de techo, que no tiene tope de tier) no
+/// aparezca en el JSON en vez de aparecer como `0` engañoso.
+fn es_cero(v: &i64) -> bool {
+    *v == 0
+}
+
+/// Un hallazgo del trinquete: una ruta, su tipo, y hasta tres cifras de
+/// contexto que solo tienen sentido según el tipo (de ahí que las tres sean
+/// opcionales en el JSON). Claves JSON `path`/`kind`/`was`/`now`/`limit`
+/// (inglés, D7/D8).
+#[derive(Serialize, Clone, Debug)]
+pub struct Hallazgo {
+    #[serde(rename = "path")]
+    pub ruta: String,
+    #[serde(rename = "kind")]
+    pub tipo: Tipo,
+    #[serde(rename = "was", skip_serializing_if = "es_cero")]
+    pub era: i64,
+    #[serde(rename = "now", skip_serializing_if = "es_cero")]
+    pub ahora: i64,
+    #[serde(rename = "limit", skip_serializing_if = "es_cero")]
+    pub limite: i64,
+}
+
+/// Compara los sellos de `HEAD` contra los del árbol actual y devuelve todo
+/// lo que cambió para peor: techos que suben (`SelloSubido`) y sellos que
+/// desaparecen (`SelloRetirado`, sub-invariante 1 del ítem 7 de la spec —
+/// borrar un sello es indistinguible de subirlo a infinito, así que sale
+/// con el mismo tipo que una subida). Un sello nuevo, o uno que baja, no es
+/// violación: el trinquete solo mira hacia arriba.
+pub fn violaciones(head: &Sellos, actual: &Sellos) -> Vec<Hallazgo> {
+    let mut hallazgos = Vec::new();
+    for (ruta, &ahora) in actual {
+        if let Some(&era) = head.get(ruta)
+            && ahora > era
+        {
+            hallazgos.push(Hallazgo {
+                ruta: ruta.clone(),
+                tipo: Tipo::SelloSubido,
+                era,
+                ahora,
+                limite: 0,
+            });
+        }
+    }
+    for (ruta, &era) in head {
+        if !actual.contains_key(ruta) {
+            hallazgos.push(Hallazgo {
+                ruta: ruta.clone(),
+                tipo: Tipo::SelloRetirado,
+                era,
+                ahora: 0,
+                limite: 0,
+            });
+        }
+    }
+    // El `BTreeMap` de origen ya itera en orden alfabético (A4), pero aquí
+    // se combinan dos pasadas sobre dos mapas distintos (subidas desde
+    // `actual`, bajas desde `head`), así que ese orden no sobrevive gratis
+    // al resultado combinado. El contrato es el orden final, no cómo se
+    // llega a él.
+    hallazgos.sort_by(|a, b| a.ruta.cmp(&b.ruta));
+    hallazgos
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sellos(pares: &[(&str, i64)]) -> Sellos {
+        pares.iter().map(|(r, t)| (r.to_string(), *t)).collect()
+    }
+
+    #[test]
+    fn un_techo_que_sube_es_violacion() {
+        let head = sellos(&[("a.md", 100)]);
+        let actual = sellos(&[("a.md", 200)]);
+        let hallazgos = violaciones(&head, &actual);
+        assert_eq!(hallazgos.len(), 1);
+        assert_eq!(hallazgos[0].ruta, "a.md");
+        assert_eq!(hallazgos[0].tipo, Tipo::SelloSubido);
+        assert_eq!(hallazgos[0].era, 100);
+        assert_eq!(hallazgos[0].ahora, 200);
+    }
+
+    #[test]
+    fn un_techo_que_baja_no_lo_es() {
+        let head = sellos(&[("a.md", 200)]);
+        let actual = sellos(&[("a.md", 100)]);
+        assert!(violaciones(&head, &actual).is_empty());
+    }
+
+    #[test]
+    fn un_sello_nuevo_no_es_violacion() {
+        let head = sellos(&[]);
+        let actual = sellos(&[("a.md", 100)]);
+        assert!(violaciones(&head, &actual).is_empty());
+    }
+
+    #[test]
+    fn borrar_un_sello_equivale_a_subirlo_a_infinito() {
+        let head = sellos(&[("a.md", 100)]);
+        let actual = sellos(&[]);
+        let hallazgos = violaciones(&head, &actual);
+        assert_eq!(hallazgos.len(), 1);
+        assert_eq!(hallazgos[0].ruta, "a.md");
+        assert_eq!(hallazgos[0].tipo, Tipo::SelloRetirado);
+        assert_eq!(hallazgos[0].era, 100);
+        assert_eq!(hallazgos[0].ahora, 0);
+    }
+
+    #[test]
+    fn las_violaciones_salen_ordenadas_por_ruta() {
+        // `a.md` se borra (SelloRetirado) y `z.md` sube (SelloSubido): dos
+        // tipos distintos, producidos por dos pasadas distintas sobre el
+        // mapa. El orden alfabético del resultado es el contrato, no un
+        // efecto secundario de qué pasada corre primero.
+        let head = sellos(&[("a.md", 100), ("z.md", 50)]);
+        let actual = sellos(&[("z.md", 999)]);
+        let hallazgos = violaciones(&head, &actual);
+        let rutas: Vec<&str> = hallazgos.iter().map(|h| h.ruta.as_str()).collect();
+        assert_eq!(rutas, vec!["a.md", "z.md"]);
+    }
 }
