@@ -132,6 +132,7 @@ pub fn analiza(entorno: &Entorno) -> InformeDoctor {
         check_jq(entorno),
         check_git_bash(entorno),
         check_detach(entorno),
+        check_hook_precommit(cfg.as_ref()),
     ])
 }
 
@@ -478,6 +479,61 @@ fn check_detach(entorno: &Entorno) -> Check {
         format!("PATH={}", entorno.path),
         "ni setsid ni cmd: exo-index.sh dejará evento \
          index-fallback / reason=no-detach y el índice no se refrescará solo",
+    )
+}
+
+/// El shim `pre-commit` de la KB. Tres estados con consecuencias distintas, y
+/// por eso no se colapsan: **no instalado** es deuda (`warn`), **instalado y
+/// colgando** es el fallo de V6 —git lo ejecuta, no encuentra el destino y el
+/// commit pasa— y eso es `fail`.
+fn check_hook_precommit(cfg: Option<&crate::config::Config>) -> Check {
+    let Some(cfg) = cfg else {
+        return Check::nuevo(
+            "kb_precommit_hook",
+            Estado::Fail,
+            "(sin config)",
+            "no hay config legible, así que no se sabe en qué KB mirar el hook",
+        );
+    };
+    let kb = crate::config::expande_tilde(&cfg.kb.path);
+    let git = kb.join(".git");
+    if !git.exists() {
+        return Check::nuevo(
+            "kb_precommit_hook",
+            Estado::Warn,
+            git.display().to_string(),
+            "la KB no está versionada: sin git no hay gate de pre-commit",
+        );
+    }
+    let hook = git.join("hooks").join("pre-commit");
+    if !hook.exists() {
+        // `exists()` sigue el symlink: un shim colgante da false aquí, así que
+        // se distingue antes de dar el veredicto.
+        if let Ok(destino) = std::fs::read_link(&hook) {
+            return Check::nuevo(
+                "kb_precommit_hook",
+                Estado::Fail,
+                format!("{} -> {}", hook.display(), destino.display()),
+                "el shim existe y apunta a un script que NO está: git lo \
+                 ejecuta, falla al resolverlo y el commit pasa sin gate",
+            );
+        }
+        return Check::nuevo(
+            "kb_precommit_hook",
+            Estado::Warn,
+            hook.display().to_string(),
+            "gate no instalado — instálalo con: \
+             ln -sf <repo>/plugins/exo/scripts/kb-precommit.sh <kb>/.git/hooks/pre-commit",
+        );
+    }
+    let destino = std::fs::read_link(&hook)
+        .map(|d| format!(" -> {}", d.display()))
+        .unwrap_or_default();
+    Check::nuevo(
+        "kb_precommit_hook",
+        Estado::Ok,
+        format!("{}{destino}", hook.display()),
+        "el gate de presupuestos y trinquete corre en cada commit de la KB",
     )
 }
 

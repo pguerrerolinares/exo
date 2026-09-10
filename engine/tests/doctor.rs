@@ -370,3 +370,55 @@ fn con_el_onnx_en_cache_reporta_la_ruta_y_los_bytes_del_fichero() {
         c.detalle
     );
 }
+
+#[test]
+fn una_kb_sin_hook_instalado_avisa_con_el_comando_para_instalarlo() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("kb").join(".git").join("hooks")).unwrap();
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "kb_precommit_hook");
+    assert_eq!(c.estado, Estado::Warn, "no instalado es deuda, no rotura");
+    assert!(
+        c.detalle.contains("ln -sf"),
+        "dice cómo instalarlo: {}",
+        c.detalle
+    );
+}
+
+#[test]
+fn con_el_hook_instalado_el_check_es_ok_y_reporta_la_ruta() {
+    let dir = tempfile::tempdir().unwrap();
+    let hooks = dir.path().join("kb").join(".git").join("hooks");
+    fs::create_dir_all(&hooks).unwrap();
+    fs::write(hooks.join("pre-commit"), b"#!/usr/bin/env bash\nexit 0\n").unwrap();
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "kb_precommit_hook");
+    assert_eq!(c.estado, Estado::Ok);
+    assert!(
+        c.artefacto.contains("pre-commit"),
+        "artefacto: {}",
+        c.artefacto
+    );
+}
+
+/// El fallo de V6 convertido en check permanente: el shim existe, git lo
+/// ejecuta, y apunta a un script que no está. Solo se prueba en unix porque
+/// el `ln -sf` de Git Bash **copia** el fichero por defecto (winsymlinks), y
+/// crear un symlink real en Windows exige privilegios: el caso colgante no se
+/// puede fabricar ahí sin mentir sobre lo que se está midiendo.
+#[cfg(unix)]
+#[test]
+fn un_shim_que_apunta_a_un_script_inexistente_es_fail() {
+    let dir = tempfile::tempdir().unwrap();
+    let hooks = dir.path().join("kb").join(".git").join("hooks");
+    fs::create_dir_all(&hooks).unwrap();
+    std::os::unix::fs::symlink(dir.path().join("no-existe.sh"), hooks.join("pre-commit")).unwrap();
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "kb_precommit_hook");
+    assert_eq!(c.estado, Estado::Fail);
+    assert!(
+        c.artefacto.contains("no-existe.sh"),
+        "reporta a DÓNDE apunta el shim roto: {}",
+        c.artefacto
+    );
+}
