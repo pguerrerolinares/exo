@@ -251,6 +251,96 @@ fn sin_modelo_en_cache_avisa_con_el_tamano_de_la_descarga_que_viene() {
 }
 
 #[test]
+fn sin_jq_es_fail_porque_los_hooks_del_plugin_lo_exigen() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("kb")).unwrap();
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "jq");
+    assert_eq!(c.estado, Estado::Fail);
+    assert!(
+        c.detalle.contains("recall-inject"),
+        "dice QUÉ se rompe sin jq: {}",
+        c.detalle
+    );
+}
+
+#[test]
+fn con_jq_en_el_path_el_check_reporta_la_ruta_resuelta() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("kb")).unwrap();
+    let nombre = if cfg!(windows) { "jq.exe" } else { "jq" };
+    let bindir = binario_falso(&dir.path().join("bin"), nombre);
+    let mut env = entorno_con_config(dir.path());
+    env.path = bindir.display().to_string();
+    let informe = analiza(&env);
+    let c = check(&informe, "jq");
+    assert_ne!(
+        c.estado,
+        Estado::Fail,
+        "está presente; que no se pueda ejecutar el falso es warn, no fail"
+    );
+    assert_eq!(c.artefacto, bindir.join(nombre).display().to_string());
+}
+
+#[test]
+fn un_jq_de_windowsapps_es_fail_porque_es_el_alias_de_la_store() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("kb")).unwrap();
+    let nombre = if cfg!(windows) { "jq.exe" } else { "jq" };
+    let bindir = binario_falso(
+        &dir.path()
+            .join("AppData")
+            .join("Local")
+            .join("Microsoft")
+            .join("WindowsApps"),
+        nombre,
+    );
+    let mut env = entorno_con_config(dir.path());
+    env.path = bindir.display().to_string();
+    let informe = analiza(&env);
+    let c = check(&informe, "jq");
+    assert_eq!(c.estado, Estado::Fail);
+    assert!(
+        c.detalle.contains("WindowsApps"),
+        "nombra la trampa: {}",
+        c.detalle
+    );
+}
+
+#[test]
+fn git_bash_sale_na_fuera_de_windows_y_no_desaparece_del_informe() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("kb")).unwrap();
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "git_bash");
+    if cfg!(windows) {
+        assert_eq!(c.estado, Estado::Fail, "sin bash en el PATH de un Windows");
+    } else {
+        assert_eq!(
+            c.estado,
+            Estado::Na,
+            "no aplica, pero SALE: una fila ausente no se distingue de un \
+             check que nunca existió"
+        );
+        assert!(!c.artefacto.is_empty(), "hasta el `na` dice qué miró");
+    }
+}
+
+#[test]
+fn sin_via_de_detach_el_check_nombra_el_evento_que_deja_el_hook() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("kb")).unwrap();
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "detach");
+    assert_ne!(c.estado, Estado::Ok, "PATH vacío: no hay setsid ni cmd");
+    assert!(
+        c.detalle.contains("no-detach"),
+        "nombra el evento que deja exo-index.sh: {}",
+        c.detalle
+    );
+}
+
+#[test]
 fn con_el_onnx_en_cache_reporta_la_ruta_y_los_bytes_del_fichero() {
     let dir = tempfile::tempdir().unwrap();
     fs::create_dir_all(dir.path().join("kb")).unwrap();

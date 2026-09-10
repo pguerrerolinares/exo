@@ -129,6 +129,9 @@ pub fn analiza(entorno: &Entorno) -> InformeDoctor {
         check_kb(cfg.as_ref()),
         check_indice(cfg.as_ref()),
         check_modelo(entorno, cfg.as_ref()),
+        check_jq(entorno),
+        check_git_bash(entorno),
+        check_detach(entorno),
     ])
 }
 
@@ -364,6 +367,118 @@ fn check_modelo(entorno: &Entorno, cfg: Option<&crate::config::Config>) -> Check
             ),
         ),
     }
+}
+
+/// `jq` es requisito declarado del camino «desde release». Los hooks del
+/// plugin lo usan para componer y leer el envelope
+/// (`plugins/exo/scripts/recall-inject.sh`, `exo-recall.sh`), así que sin él
+/// el bloque de recall no se inyecta: `fail`, no `warn`.
+///
+/// Dos trampas medidas, ambas del runbook de W11: el `jq` de la Store es un
+/// **alias de ejecución** bajo `WindowsApps` que no es un jq, y el `jq`
+/// nativo de winget emite **CRLF**, que solo muerde leyendo con `while read`
+/// desde process substitution (`a1-gate.sh:201-202`, 22 checks caídos).
+fn check_jq(entorno: &Entorno) -> Check {
+    let Some(ruta) = busca_en_path(&entorno.path, "jq") else {
+        return Check::nuevo(
+            "jq",
+            Estado::Fail,
+            format!("PATH={}", entorno.path),
+            "sin jq: recall-inject.sh y exo-recall.sh no pueden leer el envelope",
+        );
+    };
+    let artefacto = ruta.display().to_string();
+    if artefacto.contains("WindowsApps") {
+        return Check::nuevo(
+            "jq",
+            Estado::Fail,
+            artefacto,
+            "es el alias de ejecución de WindowsApps, no un jq real — instala \
+             uno de verdad (winget install jqlang.jq) y ponlo antes en el PATH",
+        );
+    }
+    match std::process::Command::new(&ruta).arg("--version").output() {
+        Ok(o) if o.stdout.contains(&b'\r') => Check::nuevo(
+            "jq",
+            Estado::Warn,
+            artefacto,
+            "jq nativo: emite CRLF. Muerde en `while read` desde process \
+             substitution (a1-gate.sh:201-202); con $(...) bash come el \\r",
+        ),
+        Ok(o) => Check::nuevo(
+            "jq",
+            Estado::Ok,
+            artefacto,
+            String::from_utf8_lossy(&o.stdout).trim().to_string(),
+        ),
+        Err(e) => Check::nuevo(
+            "jq",
+            Estado::Warn,
+            artefacto,
+            format!("está en el PATH pero no se pudo ejecutar: {e}"),
+        ),
+    }
+}
+
+/// Claude Code usa Git Bash como shell de hooks en Windows: sin él los
+/// `.sh` del plugin no corren. Fuera de Windows sale `na` —no desaparece—
+/// porque una fila ausente no se distingue de un check que nunca existió.
+fn check_git_bash(entorno: &Entorno) -> Check {
+    if !cfg!(windows) {
+        return Check::nuevo(
+            "git_bash",
+            Estado::Na,
+            format!("plataforma={}", std::env::consts::OS),
+            "solo se mide en Windows: fuera de ahí el shell de los hooks ya es bash",
+        );
+    }
+    match busca_en_path(&entorno.path, "bash") {
+        Some(ruta) => Check::nuevo(
+            "git_bash",
+            Estado::Ok,
+            ruta.display().to_string(),
+            "Claude Code puede correr los hooks .sh del plugin",
+        ),
+        None => Check::nuevo(
+            "git_bash",
+            Estado::Fail,
+            format!("PATH={}", entorno.path),
+            "sin Git Bash los hooks .sh del plugin no corren",
+        ),
+    }
+}
+
+/// La vía de detach del reindexado (`plugins/exo/scripts/exo-index.sh`):
+/// `setsid` donde lo haya, y en msys `cmd //c start //b`. Sin ninguna de las
+/// dos el hook deja evento `index-fallback / reason=no-detach` — que es
+/// justamente lo que se añadió después de meses de sesiones en Windows sin
+/// refrescar el índice y sin un solo rastro.
+fn check_detach(entorno: &Entorno) -> Check {
+    if let Some(ruta) = busca_en_path(&entorno.path, "setsid") {
+        return Check::nuevo(
+            "detach",
+            Estado::Ok,
+            ruta.display().to_string(),
+            "exo-index.sh reindexa en segundo plano vía setsid",
+        );
+    }
+    if cfg!(windows)
+        && let Some(ruta) = busca_en_path(&entorno.path, "cmd")
+    {
+        return Check::nuevo(
+            "detach",
+            Estado::Ok,
+            ruta.display().to_string(),
+            "sin setsid, exo-index.sh detacha vía `cmd //c start //b`",
+        );
+    }
+    Check::nuevo(
+        "detach",
+        Estado::Warn,
+        format!("PATH={}", entorno.path),
+        "ni setsid ni cmd: exo-index.sh dejará evento \
+         index-fallback / reason=no-detach y el índice no se refrescará solo",
+    )
 }
 
 fn check_config(entorno: &Entorno) -> Check {
