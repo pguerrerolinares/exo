@@ -8,7 +8,7 @@
 use crate::gitx;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 /// El nombre del fichero de sello **no cambia** al portar a Rust: es el
@@ -319,12 +319,228 @@ pub fn recolecta(
     Ok(declaradas)
 }
 
+/// ¿Existió de verdad `ruta` en `HEAD`? Sin esta comprobación, un sello
+/// huérfano podría hacer de rename — ver `empareja_renames`, que es quien la
+/// usa. El Go (`existedInHEAD`, `internal/ratchet/check.go`) resuelve con
+/// `git rev-parse HEAD:./<ruta>`, que trae la entrada del árbol sin el blob;
+/// aquí se reutiliza `gitx::muestra` (que sí trae el blob) en vez de añadir un
+/// verbo nuevo a `gitx` para una sola llamada — más caro, semánticamente
+/// equivalente para este uso: solo importa si el objeto existe, no su
+/// contenido.
+///
+/// `#[allow(dead_code)]` temporal: `comprueba_contra` (Task 9) es quien la
+/// invoca en producción; hasta entonces solo la ejercitan los tests de esta
+/// misma tarea.
+#[allow(dead_code)]
+fn existio_en_head(kb: &Path, ruta: &str) -> bool {
+    gitx::muestra(kb, &format!("HEAD:./{ruta}"))
+        .ok()
+        .flatten()
+        .is_some()
+}
+
+/// El emparejamiento de renames: absuelve un sello retirado y uno fresco que
+/// nacen en el mismo commit por culpa de `git mv`, y solo por eso. Puerto del
+/// bloque de renames de `checkAgainst` (`internal/ratchet/check.go`, kbx
+/// `fe46443`).
+///
+/// **Absolución de renames** (prosa escrita aquí por primera vez, A2): `git
+/// mv nota-vieja.md nota-nueva.md` retira un sello y declara otro en el mismo
+/// commit. Sin tratamiento, eso es a la vez un `SelloRetirado` (rojo: borrar
+/// un sello sube el techo a infinito) y una primera declaración sujeta al cap
+/// de 2× tier (rojo otra vez, Task 8) — un rename legítimo saldría en rojo
+/// doble. El trinquete empareja cada sello retirado con un sello fresco de
+/// techo **menor o igual**, y absuelve a los dos. Es heurístico por
+/// construcción: sin mirar contenido, un rename y un borrar+crear son
+/// indistinguibles.
+///
+/// **El sello huérfano que no puede lavar** (`0ae126d`): un sello "retirado"
+/// solo cuenta como candidato a rename si la nota **existió de verdad en
+/// HEAD** (`existio_en_head`). Sin esa comprobación, un sello huérfano —de
+/// una nota que nunca se commiteó, dejado atrás por un borrado antiguo—
+/// serviría de coartada: retirarlo en el mismo commit que declara cualquier
+/// techo nuevo absolvería esa declaración de la guarda de aire (Task 8) y del
+/// cap de 2×, sin un solo hallazgo. No hace falta mala intención: limpiar un
+/// sello obsoleto a la vez que se añade una nota lo dispara por accidente.
+///
+/// **Tie-break**, portado literal de `checkAgainst`: los retirados y los
+/// frescos se ordenan por `(techo, ruta)` ascendente; para cada retirado, en
+/// ese orden, se elige entre los frescos aún libres con techo `<=` el suyo
+/// **el mayor que quepa**. No es una cuestión de empaquetado sino de
+/// identidad: un rename **conserva** su techo, así que el candidato correcto
+/// es el más cercano (por abajo) al retirado, y "el mayor que quepa" siempre
+/// elige la coincidencia exacta cuando existe. Emparejar por el menor
+/// absolvería una declaración nueva del mismo día y dejaría el rename
+/// legítimo contra el cap.
+///
+/// Devuelve `(sellos_frescos_absueltos, sellos_retirados_emparejados)`.
+///
+/// `#[allow(dead_code)]` temporal, mismo motivo que `existio_en_head`:
+/// consumida por `comprueba_contra` desde la Task 9.
+#[allow(dead_code)]
+fn empareja_renames(
+    kb: &Path,
+    head: &Sellos,
+    actual: &Sellos,
+) -> (BTreeSet<String>, BTreeSet<String>) {
+    struct Ref {
+        ruta: String,
+        techo: i64,
+    }
+    let ordena = |v: &mut Vec<Ref>| {
+        v.sort_by(|a, b| a.techo.cmp(&b.techo).then_with(|| a.ruta.cmp(&b.ruta)))
+    };
+
+    let mut retirados: Vec<Ref> = head
+        .iter()
+        .filter(|(ruta, _)| !actual.contains_key(*ruta) && existio_en_head(kb, ruta))
+        .map(|(ruta, &techo)| Ref {
+            ruta: ruta.clone(),
+            techo,
+        })
+        .collect();
+    let mut frescos: Vec<Ref> = actual
+        .iter()
+        .filter(|(ruta, _)| !head.contains_key(*ruta))
+        .map(|(ruta, &techo)| Ref {
+            ruta: ruta.clone(),
+            techo,
+        })
+        .collect();
+    ordena(&mut retirados);
+    ordena(&mut frescos);
+
+    let mut frescos_absueltos = BTreeSet::new();
+    let mut retirados_emparejados = BTreeSet::new();
+    for rem in &retirados {
+        // `frescos` está ordenado ascendente: no se corta el bucle al
+        // encontrar el primero que encaja porque el último que encaje es el
+        // mayor — "el mayor que quepa".
+        let mut mejor: Option<usize> = None;
+        for (i, fr) in frescos.iter().enumerate() {
+            if frescos_absueltos.contains(&fr.ruta) || fr.techo > rem.techo {
+                continue;
+            }
+            mejor = Some(i);
+        }
+        if let Some(i) = mejor {
+            frescos_absueltos.insert(frescos[i].ruta.clone());
+            retirados_emparejados.insert(rem.ruta.clone());
+        }
+    }
+    (frescos_absueltos, retirados_emparejados)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn sellos(pares: &[(&str, i64)]) -> Sellos {
         pares.iter().map(|(r, t)| (r.to_string(), *t)).collect()
+    }
+
+    fn conjunto(rutas: &[&str]) -> BTreeSet<String> {
+        rutas.iter().map(|r| r.to_string()).collect()
+    }
+
+    /// Repo git real y aislado, con `commiteadas` ya commiteadas en HEAD.
+    /// Mismo aislamiento que `gitx::tests::repo`: `GIT_CONFIG_GLOBAL` apunta
+    /// a un fichero vacío real (no `/dev/null`, que en Windows no vale para
+    /// esta variable) e identidad de autor/committer fija por env var.
+    fn repo_con(commiteadas: &[&str]) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        let raiz = dir.path();
+        let cfg = raiz.join("gitconfig-vacio");
+        std::fs::write(&cfg, "").unwrap();
+        let corre = |args: &[&str]| {
+            let salida = std::process::Command::new("git")
+                .arg("-C")
+                .arg(raiz)
+                .args(args)
+                .env("GIT_CONFIG_GLOBAL", &cfg)
+                .env("GIT_CONFIG_SYSTEM", &cfg)
+                .env("GIT_AUTHOR_NAME", "f")
+                .env("GIT_AUTHOR_EMAIL", "f@k.local")
+                .env("GIT_COMMITTER_NAME", "f")
+                .env("GIT_COMMITTER_EMAIL", "f@k.local")
+                .env("GIT_AUTHOR_DATE", "2026-07-01T10:00:00+02:00")
+                .env("GIT_COMMITTER_DATE", "2026-07-01T10:00:00+02:00")
+                .output()
+                .unwrap();
+            assert!(salida.status.success(), "git {args:?} falló");
+        };
+        corre(&["init", "-q"]);
+        // Marcador siempre presente: si `commiteadas` viene vacío, sigue
+        // habiendo algo que commitear y HEAD resuelve igualmente.
+        std::fs::write(raiz.join(".gitkeep"), "").unwrap();
+        for ruta in commiteadas {
+            let absoluta = raiz.join(ruta);
+            if let Some(padre) = absoluta.parent() {
+                std::fs::create_dir_all(padre).unwrap();
+            }
+            std::fs::write(&absoluta, "contenido\n").unwrap();
+        }
+        corre(&["add", "."]);
+        corre(&["commit", "-q", "-m", "inicial"]);
+        dir
+    }
+
+    // Task 7 — el emparejamiento de renames.
+
+    #[test]
+    fn un_sello_retirado_absuelve_a_uno_solo_no_a_dos() {
+        let repo = repo_con(&["old.md"]);
+        let head = sellos(&[("old.md", 100)]);
+        let actual = sellos(&[("new1.md", 90), ("new2.md", 90)]);
+        let (frescos, retirados) = empareja_renames(repo.path(), &head, &actual);
+        assert_eq!(frescos.len(), 1, "un retirado no puede absolver a dos");
+        assert_eq!(retirados, conjunto(&["old.md"]));
+    }
+
+    // El corazón de la tarea (0ae126d / f0d0564): fixture literal del plan —
+    // `core/junk.md` NUNCA se commitea, así que es un sello huérfano en
+    // `head`. Si la guarda no comprueba `existio_en_head`, este sello
+    // absolvería `core/attack.md` (45.000 B de techo para una nota real de
+    // 44.000 B, 1,3% de aire) y el gate saldría verde sin un solo hallazgo.
+    // Aquí solo se comprueba el emparejamiento en sí: que el huérfano no
+    // pueda absolver nada. El "cero hallazgos" completo del bug se falsa en
+    // `trinquete_declaraciones.rs`/`trinquete_aire.rs`, una vez existe
+    // `comprueba` (Task 9).
+    #[test]
+    fn un_sello_huerfano_no_puede_hacer_de_rename() {
+        let repo = repo_con(&["otro.md"]); // core/junk.md no está aquí.
+        let head = sellos(&[("core/junk.md", 45000)]);
+        let actual = sellos(&[("core/attack.md", 45000)]);
+        let (frescos, retirados) = empareja_renames(repo.path(), &head, &actual);
+        assert!(frescos.is_empty(), "el huérfano no debe absolver nada");
+        assert!(retirados.is_empty());
+    }
+
+    // Misma forma que el test anterior, pero `core/junk.md` SÍ está
+    // commiteado: sin este test, la guarda de `existio_en_head` podría
+    // implementarse "rechazando siempre" y el test del huérfano pasaría
+    // igual de verde.
+    #[test]
+    fn un_rename_real_sigue_absuelto_tras_la_guarda() {
+        let repo = repo_con(&["core/junk.md"]);
+        let head = sellos(&[("core/junk.md", 45000)]);
+        let actual = sellos(&[("core/attack.md", 45000)]);
+        let (frescos, retirados) = empareja_renames(repo.path(), &head, &actual);
+        assert_eq!(frescos, conjunto(&["core/attack.md"]));
+        assert_eq!(retirados, conjunto(&["core/junk.md"]));
+    }
+
+    #[test]
+    fn el_emparejamiento_prefiere_el_techo_que_conservo() {
+        let repo = repo_con(&["old.md"]);
+        let head = sellos(&[("old.md", 100)]);
+        // `exact.md` conserva el mismo techo que `old.md` tenía; `low.md` es
+        // una declaración distinta y más pequeña. El emparejamiento debe
+        // preferir el que coincide, no el que más "cabe holgado".
+        let actual = sellos(&[("low.md", 30), ("exact.md", 100)]);
+        let (frescos, retirados) = empareja_renames(repo.path(), &head, &actual);
+        assert_eq!(frescos, conjunto(&["exact.md"]));
+        assert_eq!(retirados, conjunto(&["old.md"]));
     }
 
     #[test]

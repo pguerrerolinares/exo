@@ -557,17 +557,17 @@ Tie-break, portado literal: los retirados y los frescos se ordenan por
 techo `<=` el suyo, **el mayor**. "El mayor que quepa": el test
 `TestRenamePairingPrefersTheCeilingItKept` lo fija.
 
-- [ ] Test `un_sello_retirado_absuelve_a_uno_solo_no_a_dos`. Verlo fallar.
-- [ ] Test `un_sello_huerfano_no_puede_hacer_de_rename`: el fixture del párrafo
+- [x] Test `un_sello_retirado_absuelve_a_uno_solo_no_a_dos`. Verlo fallar.
+- [x] Test `un_sello_huerfano_no_puede_hacer_de_rename`: el fixture del párrafo
       anterior, con la nota `core/junk.md` **nunca commiteada**. Debe salir
       `NaceDemasiadoGrande` (o al menos un hallazgo que rompa), no verde. Este
       test es el corazón de la tarea: si pasa en verde, el port nació con el
       agujero de `f0d0564`.
-- [ ] Test `un_rename_real_sigue_absuelto_tras_la_guarda`: misma forma, pero la
+- [x] Test `un_rename_real_sigue_absuelto_tras_la_guarda`: misma forma, pero la
       nota vieja **sí** está commiteada → verde. Sin este test, la guarda podría
       implementarse "rechazando siempre" y el otro test pasaría igual.
-- [ ] Test `el_emparejamiento_prefiere_el_techo_que_conservo` (tie-break).
-- [ ] Implementar `existio_en_head(kb, ruta) -> bool` (`muestra` con
+- [x] Test `el_emparejamiento_prefiere_el_techo_que_conservo` (tie-break).
+- [x] Implementar `existio_en_head(kb, ruta) -> bool` (`muestra` con
       `"HEAD:./" + ruta`, `is_some()`) y `empareja_renames`. Verlos pasar.
       Commit.
 
