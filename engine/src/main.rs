@@ -67,6 +67,11 @@ enum Comando {
     /// `kbx doctor` en bare mode. Emite el informe entero y LUEGO gatea:
     /// exit 3 si `ok` es falso.
     Lint(ArgsLint),
+    /// El trinquete de techos declarados (`trinquete::comprueba`, G4c),
+    /// sucesor de `kbx ratchet`. Emite el informe entero y LUEGO gatea: exit
+    /// 3 si `informe.fallido()`. Abstención (sin historia de git utilizable)
+    /// sale 0, no 3: es información, no un fallo.
+    Ratchet(ArgsRatchet),
 }
 
 #[derive(Subcommand)]
@@ -328,6 +333,25 @@ struct ArgsLint {
     json: bool,
 }
 
+#[derive(clap::Args)]
+struct ArgsRatchet {
+    /// Raíz de la KB. Precedencia: flag > $EXO_KB > config.
+    #[arg(long)]
+    kb: Option<PathBuf>,
+    /// Escribe `.kbx-ratchet.json` con `min(sello, declarado)`. Atómico: o
+    /// sella todo, o el fichero no cambia. Incompatible con `--staged`: sellar
+    /// es una decisión sobre el árbol de trabajo, no sobre lo que se va a
+    /// commitear.
+    #[arg(long, conflicts_with = "staged")]
+    seal: bool,
+    /// Juzga el índice de git en vez del working tree (para el pre-commit).
+    #[arg(long)]
+    staged: bool,
+    /// Emite el resultado como envelope JSON (spec §4) en stdout.
+    #[arg(long)]
+    json: bool,
+}
+
 fn main() {
     let cli = Cli::parse();
     // El flag sale del parseo de clap, no de un escaneo de argv: un valor de
@@ -382,6 +406,7 @@ fn quiere_json(c: &Comando) -> bool {
         Comando::Targets(a) => a.json,
         Comando::Budget(a) => a.json,
         Comando::Lint(a) => a.json,
+        Comando::Ratchet(a) => a.json,
         Comando::Write(w) => match w {
             ComandoWrite::New(a) => a.json,
             ComandoWrite::Append(a) => a.json,
@@ -434,6 +459,7 @@ fn ejecuta(comando: Comando) -> Result<()> {
         Comando::Targets(args) => targets_cmd(args),
         Comando::Budget(args) => budget_cmd(args),
         Comando::Lint(args) => lint_cmd(args),
+        Comando::Ratchet(args) => ratchet_cmd(args),
         Comando::Write(sub) => match sub {
             ComandoWrite::New(args) => write_new_cmd(args),
             ComandoWrite::Append(args) => write_append_cmd(args),
@@ -1016,6 +1042,203 @@ fn lint_cmd(args: ArgsLint) -> Result<()> {
             detalle: format!("{} hallazgo(s)", informe.hallazgos.len()),
         }
         .into());
+    }
+    Ok(())
+}
+
+/// Etiqueta JSON del tipo (kebab-case, D7/D8). Se reutiliza el `#[serde(rename)]`
+/// que ya lleva `trinquete::Tipo` en vez de duplicar las nueve cadenas a mano
+/// aquí: un rename en el tipo no puede divergir en silencio de lo que el texto
+/// humano imprime.
+fn tipo_str(t: exo::trinquete::Tipo) -> String {
+    serde_json::to_value(t)
+        .ok()
+        .and_then(|v| v.as_str().map(str::to_string))
+        .unwrap_or_default()
+}
+
+/// Una línea por hallazgo, con la cifra sobre la que hay que actuar — no solo
+/// las que el check comparó: para un fallo de aire es el tamaño al que hay que
+/// podar la nota, que es el objeto entero de la guarda. Puerto de
+/// `formatFinding` (`cmd/kbx/ratchet.go`, kbx `fe46443`).
+fn formatea_hallazgo(h: &exo::trinquete::Hallazgo) -> String {
+    use exo::trinquete::Tipo;
+    let tipo = tipo_str(h.tipo);
+    match h.tipo {
+        Tipo::SinAire => format!(
+            "{}: {tipo} — techo {}, poda la nota a ≤ {} B (o sella ≥ {})",
+            h.ruta,
+            h.ahora,
+            exo::presupuesto::objetivo_poda(h.ahora),
+            h.limite
+        ),
+        Tipo::DeudaSinAire => format!(
+            "{}: {tipo} — techo {} a ras; con 15% de aire sería {} (deuda, no bloquea)",
+            h.ruta, h.ahora, h.limite
+        ),
+        Tipo::NaceDemasiadoGrande => format!(
+            "{}: {tipo} — mide {} B y el cap de su tier es {}: pártela, o adelgázala a ≤ {} B",
+            h.ruta,
+            h.ahora,
+            h.limite,
+            exo::presupuesto::objetivo_poda(h.limite)
+        ),
+        // Los tipos del propio trinquete (subida/retirada de sello, waiver
+        // sobre el sello, primera declaración, sello escapado de tier)
+        // comparan un antes y un después; los de aire no tienen "era", y
+        // hubiera impreso "era 0" como si fuera un cero real.
+        _ if h.era != 0 => format!(
+            "{}: {tipo} (era {}, ahora {}, límite {})",
+            h.ruta, h.era, h.ahora, h.limite
+        ),
+        _ => format!(
+            "{}: {tipo} (ahora {}, límite {})",
+            h.ruta, h.ahora, h.limite
+        ),
+    }
+}
+
+/// Salida de texto de `exo ratchet`: la causa primero, la deuda resumida al
+/// final. Portado de `TestTextOutputLeadsWithTheCauseAndSummarisesTheDebt`
+/// (`cmd/kbx/ratchet_test.go`, kbx `fe46443`): los hallazgos que rompen el
+/// gate (`Tipo::rompe`) se listan enteros arriba; los informativos
+/// (`DeudaSinAire`, `WaiverLogInerte`) NO se mezclan con ellos — si hay algo
+/// que rompe, la deuda se resume en una sola línea, porque en la KB real hay
+/// once sellos con deuda y mezclarla con la única causa real enterraría la
+/// línea que importa. Si nada rompe, la deuda sí se lista entera: es un
+/// informe, no un gate, y es la cola de trabajo de la siguiente pasada.
+fn imprime_informe_ratchet(informe: &exo::trinquete::Informe) {
+    if !informe.aplicado {
+        println!(
+            "ratchet: abstención — {}",
+            informe.razon.as_deref().unwrap_or("sin razón")
+        );
+        return;
+    }
+    if informe.hallazgos.is_empty() {
+        println!("ratchet: limpio");
+        return;
+    }
+    let (rompe, informativos): (Vec<_>, Vec<_>) =
+        informe.hallazgos.iter().partition(|h| h.tipo.rompe());
+    for h in &rompe {
+        println!("{}", formatea_hallazgo(h));
+    }
+    if rompe.is_empty() {
+        for h in &informativos {
+            println!("{}", formatea_hallazgo(h));
+        }
+    } else if !informativos.is_empty() {
+        println!(
+            "\n({} hallazgo(s) más sin romper el gate — `exo ratchet --kb <kb> --json` los lista)",
+            informativos.len()
+        );
+    }
+}
+
+/// `exo ratchet`: el trinquete de techos declarados. Solo lee disco (`--kb`),
+/// sin `--db`: igual que `budget`, el trinquete no toca el índice.
+///
+/// El informe se emite ENTERO antes de gatear (mismo contrato que
+/// `budget_cmd`/`lint_cmd`): quien lo consume necesita saber QUÉ rompió, no
+/// solo que rompió. La abstención (`!informe.aplicado`) nunca gatea —
+/// `Informe::fallido` ya lo garantiza — así que sale 0 igual que un informe
+/// limpio.
+fn ratchet_cmd(args: ArgsRatchet) -> Result<()> {
+    let kb = resuelve_kb(args.kb)?;
+    let presupuestos = exo::presupuesto::NOMINALES;
+    let excluidos = exo::presupuesto::EXCLUIDOS;
+
+    if args.seal {
+        return ratchet_seal_cmd(&kb, presupuestos, &excluidos, args.json);
+    }
+
+    let declaradas = if args.staged {
+        exo::trinquete::recolecta_staged(&kb, presupuestos, &excluidos)?
+    } else {
+        exo::trinquete::recolecta(&kb, presupuestos, &excluidos)?
+    };
+    let informe = if args.staged {
+        exo::trinquete::comprueba_staged(&kb, &declaradas, presupuestos)?
+    } else {
+        exo::trinquete::comprueba(&kb, &declaradas, presupuestos)?
+    };
+
+    if args.json {
+        envelope::emite("ratchet", serde_json::to_value(&informe)?);
+    } else {
+        imprime_informe_ratchet(&informe);
+    }
+
+    if informe.fallido() {
+        return Err(exo::gate::GateFallido {
+            comando: "ratchet",
+            detalle: format!(
+                "{} hallazgo(s) rompen el gate",
+                informe.hallazgos.iter().filter(|h| h.tipo.rompe()).count()
+            ),
+        }
+        .into());
+    }
+    Ok(())
+}
+
+/// `exo ratchet --seal`: escribe `.kbx-ratchet.json` con `min(sello,
+/// declarado)`. Atómico (A contrato de la Task 11): se calcula el siguiente
+/// estado y SUS violaciones de aire ANTES de tocar disco, y solo se escribe
+/// si la lista viene vacía — "o sella todo o no sella nada", porque quien
+/// está podando necesita la lista entera de infractores para hacer una
+/// pasada, no N pasadas reintentando `--seal` una nota a la vez.
+///
+/// Las violaciones de `violaciones_de_aire` son siempre de un tipo que rompe
+/// (`SinAire`/`NaceDemasiadoGrande`, nunca `DeudaSinAire`: esa función solo
+/// juzga transiciones), así que se reutiliza `imprime_informe_ratchet` sin
+/// tener que distinguir causa de deuda aquí — no hay deuda que mezclar.
+fn ratchet_seal_cmd(
+    kb: &Path,
+    presupuestos: exo::presupuesto::Presupuestos,
+    excluidos: &[&str],
+    json: bool,
+) -> Result<()> {
+    let declaradas = exo::trinquete::recolecta(kb, presupuestos, excluidos)?;
+    let actual = exo::trinquete::carga(kb)?;
+    let siguiente = exo::trinquete::sella(&actual, &declaradas);
+    let violaciones = exo::trinquete::violaciones_de_aire(&actual, &siguiente, &declaradas);
+
+    if !violaciones.is_empty() {
+        let informe = exo::trinquete::Informe {
+            aplicado: true,
+            razon: None,
+            hallazgos: violaciones,
+        };
+        if json {
+            envelope::emite("ratchet", serde_json::to_value(&informe)?);
+        } else {
+            imprime_informe_ratchet(&informe);
+        }
+        return Err(exo::gate::GateFallido {
+            comando: "ratchet",
+            detalle: format!(
+                "{} techo(s) sin aire, no se selló nada",
+                informe.hallazgos.len()
+            ),
+        }
+        .into());
+    }
+
+    exo::trinquete::escribe_sellos(kb, &siguiente)?;
+
+    if json {
+        envelope::emite(
+            "ratchet",
+            serde_json::json!({ "applied": true, "sealed": siguiente.len() }),
+        );
+    } else {
+        println!(
+            "ratchet: sellados {} techo(s) en {}",
+            siguiente.len(),
+            exo::trinquete::FICHERO_SELLO
+        );
     }
     Ok(())
 }

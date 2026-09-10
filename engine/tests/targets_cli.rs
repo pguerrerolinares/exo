@@ -143,11 +143,38 @@ fn un_fallo_de_git_que_no_es_falta_de_repo_no_se_disfraza_de_git_init() {
         .arg(dir.path())
         .arg("alpha")
         .env("GIT_TEST_ASSUME_DIFFERENT_OWNER", "1")
+        // Sin aislar la config de git, este test depende de la máquina. Los
+        // runners de CI llevan `safe.directory` configurado, y una entrada que
+        // cubra este directorio **anula** `GIT_TEST_ASSUME_DIFFERENT_OWNER`:
+        // git no comprueba el propietario, no falla, y el binario sale con 0
+        // donde el test espera 1. Medido el 2026-09-10 en un contenedor
+        // Linux: sin `safe.directory` → exit 128 «dubious ownership»; con
+        // `safe.directory=*` → exit 0 y sin stderr, que es exactamente el
+        // fallo que el CI llevaba días dando en ubuntu y macOS mientras en
+        // Windows y en Linux limpio pasaba 10/10.
+        //
+        // El `gitconfig-vacio` lo crea `kb_con_indice`, que ya aísla así los
+        // comandos git del montaje; lo que faltaba era aislar **la invocación
+        // del binario**, que es quien acaba llamando a git de verdad.
+        .env("GIT_CONFIG_GLOBAL", dir.path().join("gitconfig-vacio"))
+        .env("GIT_CONFIG_SYSTEM", dir.path().join("gitconfig-vacio"))
         .output()
         .unwrap();
 
-    assert_eq!(salida.status.code(), Some(1), "es un error, no un gate");
+    // El stderr se captura ANTES de la primera aserción a propósito: si el
+    // exit code no es el esperado, lo único que permite diagnosticar es lo que
+    // git dijo, y un `assert_eq!` de códigos a secas lo tira. Medido el
+    // 2026-09-10: este test llevaba días en rojo en el CI de ubuntu/macOS con
+    // `left: Some(0), right: Some(1)` y ni una pista del porqué, porque el
+    // mensaje no traía el stderr. Un assert que no dice qué pasó obliga a
+    // reproducir en una plataforma que quizá no tienes.
     let stderr = String::from_utf8_lossy(&salida.stderr);
+    let stdout_diag = String::from_utf8_lossy(&salida.stdout);
+    assert_eq!(
+        salida.status.code(),
+        Some(1),
+        "es un error, no un gate.\n--- stderr: {stderr}\n--- stdout: {stdout_diag}"
+    );
     assert!(
         stderr.contains("dubious ownership") || stderr.contains("safe.directory"),
         "el mensaje tiene que traer el problema y el remedio reales de git: {stderr}"

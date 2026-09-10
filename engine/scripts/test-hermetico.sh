@@ -21,7 +21,19 @@ EC=$?
 
 if [ "$EC" -ne 0 ]; then
   echo "test-hermetico: la suite NO corre sin ~/.exo/config.toml (exit $EC)." >&2
-  grep -E '^test result: FAILED|targets failed|--test ' "$TMP/out.txt" >&2
+  # Los NOMBRES de los tests que fallaron, no solo el binario. El grep
+  # anterior emitía `test result: FAILED` y `--test <binario>` y se dejaba
+  # fuera lo único accionable: qué test cayó y con qué aserción. Eso convertía
+  # un fallo del CI en "algo de targets_cli falla" y obligaba a reproducir a
+  # ciegas en una plataforma que quizá no tienes — medido el 2026-09-10, con
+  # el CI de main llevando 7 corridas en rojo sin que el log dijera el nombre.
+  # Un gate que no dice QUÉ falló delega el diagnóstico en quien lo lea.
+  echo "--- tests que fallaron ---" >&2
+  grep -E '^test .* \.\.\. FAILED$' "$TMP/out.txt" >&2 || true
+  # El bloque `failures:` de cargo trae la aserción y el panic de cada uno.
+  sed -n '/^failures:$/,/^test result: FAILED/p' "$TMP/out.txt" >&2 || true
+  echo "--- resumen ---" >&2
+  grep -E '^test result: FAILED|--test ' "$TMP/out.txt" >&2 || true
   exit 1
 fi
 echo "test-hermetico: OK — la suite corre sin ~/.exo/config.toml; NO cubre la caché del modelo ONNX (~0,6 GB), que las suites de indexado siguen exigiendo."

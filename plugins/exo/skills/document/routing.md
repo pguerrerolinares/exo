@@ -7,7 +7,7 @@ de la sesión (Paso 2 de `SKILL.md`). Destilado de
 Los nombres concretos de notas de la instancia (el destilado canónico de
 un proyecto, la nota de backlog, la nota de perfil del dueño, la nota de
 doctrina de agentes) no se hardcodean aquí — resuélvelos vía probe contra
-la KB de la instancia (`kbx targets` o una búsqueda). Esta tabla usa
+la KB de la instancia (`exo targets` o una búsqueda). Esta tabla usa
 placeholders entre corchetes.
 
 ## Destino por tipo de pieza

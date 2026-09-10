@@ -1,25 +1,28 @@
 #!/usr/bin/env bash
 # Pre-commit gate de la KB kb-demo (spec F1.b).
 #
-# Juzga el INDEX, no el working tree: `kbx ratchet --staged` lee lo que el
+# Juzga el INDEX, no el working tree: `exo ratchet --staged` lee lo que el
 # commit va a contener. Sin eso hay dos fallos — rechazos por una nota que otra
 # sesión edita en paralelo, y (peor) falsos OK, porque stagear un techo subido y
 # restaurar el fichero en disco mete la subida en HEAD en verde, y el fichero de
 # sellos solo vigila la transición: lo que entra queda blanqueado.
+#
+# Desde G4c (2026-09-10) el gate depende de `exo`, no de `kbx` — cutover de
+# invocaciones de binario, el formato de `.kbx-ratchet.json` no cambia.
 #
 # Instalar:  ln -sf <este fichero> <kb>/.git/hooks/pre-commit
 # Saltar:    git commit --no-verify   (declarado: es un gate contra el descuido)
 set -uo pipefail
 
 KB="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
-KBX="${KBX_BIN:-$HOME/.local/bin/kbx}"
+EXO="${EXO_BIN:-$HOME/.local/bin/exo}"
 
-[ -x "$KBX" ] || { echo "kb-precommit: no encuentro kbx en $KBX — commit permitido" >&2; exit 0; }
+[ -x "$EXO" ] || { echo "kb-precommit: no encuentro exo en $EXO — instálalo con 'cargo build --release' en engine/ y copia el binario a \$HOME/.local/bin/exo(.exe) — commit permitido sin gate" >&2; exit 0; }
 
 fail=0
 
 # --- Trinquete: los techos de waiver solo bajan --------------------------------
-if ! out="$("$KBX" ratchet --kb "$KB" --staged 2>&1)"; then
+if ! out="$("$EXO" ratchet --kb "$KB" --staged 2>&1)"; then
   echo "$out" >&2
   fail=1
 fi
@@ -30,7 +33,7 @@ fi
 snap="$(mktemp -d)"
 trap 'rm -rf "$snap"' EXIT
 if git -C "$KB" checkout-index -a --prefix="$snap/" 2>/dev/null; then
-  if ! out="$("$KBX" budget --kb "$snap" 2>&1)"; then
+  if ! out="$("$EXO" budget --kb "$snap" 2>&1)"; then
     echo "$out" >&2
     fail=1
   fi
@@ -56,7 +59,8 @@ QUÉ HACER, en orden:
   1. Si la nota creció con histórico: PÁRTELA. Mueve lo fechado a su
      bitácora (log/<slug>-bitacora.md). El canon se queda con el destilado.
   2. Si la bitácora es la que ha crecido: kbx rotate --kb <kb> --apply
-     archiva su cola fría en archive/log/.
+     archiva su cola fría en archive/log/. (Sigue en kbx: exo no tiene
+     todavía el verbo rotate.)
   3. Si nada de eso aplica: deja el commit pendiente y díselo a Paul.
      Un commit sin hacer se arregla en un minuto; una nota mutilada, no.
 ────────────────────────────────────────────────────────────────────────

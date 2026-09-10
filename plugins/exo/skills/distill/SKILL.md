@@ -32,11 +32,18 @@ con el mismo seam que usa `plugins/exo/scripts/test-contrato-engine.sh`:
   vez de fingir que corrió — no hay abstención silenciosa que valga para un
   paso que simplemente no se ejecutó. Es la misma disciplina que ya aplica
   el paso "Falla-fuerte" del Budget check (para con mensaje accionable si
-  `kbx` falta): generalízala al resto de usos de `kbx` en este
+  el binario que toca falta): generalízala al resto de usos de `kbx` en este
   procedimiento.
+- `$EXO_BIN` — binario `exo`: `${EXO_BIN:-$(command -v exo)}`.
 
-Todos los comandos de las secciones siguientes usan `$KB_ROOT` y `$KBX_BIN`
-— ninguna ruta literal.
+**Este skill invoca dos binarios, y lo dice por escrito**: `exo` para
+`budget`/`ratchet`/`lint` (cutover G4c) y `kbx` para `rotate`/`stale`/
+`diff-since`, que todavía no tienen destino en `exo`. Un skill que finge
+haber migrado del todo es una trampa para el día que `kbx` no esté
+instalado — mejor declarar la frontera tal cual está.
+
+Todos los comandos de las secciones siguientes usan `$KB_ROOT`, `$KBX_BIN` y
+`$EXO_BIN` — ninguna ruta literal.
 
 ### 0. Rotación de bitácoras (antes de cualquier chequeo)
 
@@ -90,7 +97,7 @@ reducido.
 
 ### 1. Budget check
 
-Corre `$KBX_BIN budget --json`. Devuelve
+Corre `$EXO_BIN budget --json`. Devuelve
 `{data:{tiers:[{tier,notes,bytes,budget,delta,exceeded}], offenders:[{path,tier,size_bytes,budget}], waived:[{path,tier,size_bytes,budget}]}}`
 y **exit 1 si hay algún offender** (incluye NOTIER: nota sin `tier:` o con tier
 ilegal), exit 0 si limpio — mismas semantics que el viejo `kb-budget-check.sh`,
@@ -99,13 +106,13 @@ de su `kbx_budget_max: N` de frontmatter es una excepción reconocida: exit 0,
 listada en `waived` (no en `offenders`). Presupuestos por defecto: core=8.500B,
 stable=12.500B, log=sin límite; excluye `archive/`, `docs/`, `.superpowers/`.
 
-> Corre también `$KBX_BIN ratchet --kb $KB_ROOT --json` con el árbol limpio. Los findings
+> Corre también `$EXO_BIN ratchet --kb $KB_ROOT --json` con el árbol limpio. Los findings
 > `no-air-debt` listan las notas cuyo techo está sellado a ras: no bloquean nada
 > (la guarda juzga transiciones, no estado), pero cada una es un mordisco
 > pendiente. Su campo `limit` da el techo que cumpliría y el mensaje el tamaño
 > objetivo de poda. Es la cola de trabajo de esta pasada.
 
-Y en el mismo paso 1, la otra mitad de la misma deuda: `kbx budget` reporta en
+Y en el mismo paso 1, la otra mitad de la misma deuda: `exo budget` reporta en
 `no_air` (línea `no-air:` en texto) las notas **sin waiver** que están a menos
 del 15% de su nominal de tier. La guarda del ratchet solo cubre techos
 declarados, así que sin esto una nota que vive de su nominal puede quedarse a
@@ -119,15 +126,16 @@ Revisa `waived`: ¿siguen justificadas las excepciones reconocidas? (p.ej. un
 sí solo).
 
 **Falla-fuerte:** si el binario no está o el schema-canary rompe (lo verás como
-un `schema_drift` en `doctor`, ver abajo), **para** con un mensaje accionable
-(`kbx no está → make install`, "schema drift → el binario kbx y el binario exo
+un `schema_drift` en `lint`, ver abajo), **para** con un mensaje accionable
+(`exo no está → cargo build --release en engine/ + copia a
+$HOME/.local/bin/exo(.exe)`, "schema drift → el binario kbx y el binario exo
 están desincronizados: reinstala el que vaya atrasado (`make install` en kbx,
 `cargo build --release` + copia en exo) y vuelve a correr"). No degrades a mano:
 /distill es offline y deliberado, el fallo ruidoso es correcto.
 
 ### 1b. Gate de deriva + priorización
 
-- **Deriva:** corre `$KBX_BIN doctor --json`
+- **Deriva:** corre `$EXO_BIN lint --json`
   (`{data:{ok,findings:[{type,path,detail}], waived:[{type,path,detail}]}}`).
   `ok:true` significa limpio de findings NO waived. Las excepciones
   reconocidas (`orphan` con `kbx_orphan_ok: true`, `budget_exceeded` dentro de
@@ -244,7 +252,7 @@ una escritura silenciosa.
 Actualiza `[[core-index]]` para que refleje los cores y destilados activos (altas,
 bajas de sección, nuevos punteros a bitácoras).
 
-> Tras podar y partir, corre `$KBX_BIN ratchet --kb $KB_ROOT --seal`. Es **atómico**: o
+> Tras podar y partir, corre `$EXO_BIN ratchet --kb $KB_ROOT --seal`. Es **atómico**: o
 > sella todo o no sella nada, y si falla lista cada techo sin 15% de aire con su
 > objetivo de poda. Esa lista no es un error del sello: es trabajo que falta.
 > **Nunca subas un techo para que pase** — el trinquete lo rechazará en el
