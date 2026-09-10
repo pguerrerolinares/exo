@@ -389,25 +389,25 @@ Definición en prosa, escrita aquí por primera vez (A2), y que va al doc-commen
   saldría en rojo por sellos que nadie ha tenido ocasión de podar. Una vez el
   fichero está en HEAD, el ancla existe y la exención se acaba para siempre.
 
-- [ ] Test `sin_git_se_abstiene`: directorio temporal sin `.git` →
+- [x] Test `sin_git_se_abstiene`: directorio temporal sin `.git` →
       `carga_head` devuelve `Ok(None)`. Verlo fallar.
-- [ ] Test `un_repo_shallow_se_abstiene` (mismo montaje que en Task 2).
-- [ ] Test `sin_fichero_committeado_aplica_con_sellos_vacios`: repo sano con un
+- [x] Test `un_repo_shallow_se_abstiene` (mismo montaje que en Task 2).
+- [x] Test `sin_fichero_committeado_aplica_con_sellos_vacios`: repo sano con un
       commit que **no** incluye el sello → `Ok(Some(vacío))`. **Es la
       distinción que separa el ancla de la abstención**, y confundirlas es el
       bug: abstenerse aquí desactivaría el trinquete en toda KB nueva.
-- [ ] Test `el_sello_se_resuelve_contra_la_kb_no_contra_la_raiz_del_repo` (A8):
+- [x] Test `el_sello_se_resuelve_contra_la_kb_no_contra_la_raiz_del_repo` (A8):
       crear repo, dentro un subdirectorio `kb/`, poner el sello **en `kb/`**,
       commitear desde la raíz, y comprobar que `carga_head(repo/kb)` devuelve el
       techo. Sin el `./` este test devuelve vacío y pasa en verde el resto de la
       suite: es el test que justifica A8.
-- [ ] Test `un_sello_corrupto_en_head_es_error_no_abstencion`: commitear
+- [x] Test `un_sello_corrupto_en_head_es_error_no_abstencion`: commitear
       `{"ceilings":{` → `Err`, no `Ok(None)`.
-- [ ] Implementar `carga_head` en el orden exacto del Go: `es_work_tree` →
+- [x] Implementar `carga_head` en el orden exacto del Go: `es_work_tree` →
       `es_shallow` → `muestra("HEAD:./" + FICHERO_SELLO)`; si `None`, decidir
       con `head_resuelve` entre `Ok(None)` (repo sin HEAD) y
       `Ok(Some(vacío))` (HEAD sano, sello no commiteado).
-- [ ] Implementar `anclado_en_head`: `muestra(kb, "HEAD:./" + FICHERO_SELLO)`
+- [x] Implementar `anclado_en_head`: `muestra(kb, "HEAD:./" + FICHERO_SELLO)`
       es `Some`. Verlos pasar. Commit.
 
 ---
