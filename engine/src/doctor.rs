@@ -128,6 +128,7 @@ pub fn analiza(entorno: &Entorno) -> InformeDoctor {
         check_fallback_del_hook(entorno),
         check_kb(cfg.as_ref()),
         check_indice(cfg.as_ref()),
+        check_modelo(entorno, cfg.as_ref()),
     ])
 }
 
@@ -317,6 +318,52 @@ fn mtime_mas_reciente(kb: &std::path::Path) -> Option<std::time::SystemTime> {
         .filter_map(|n| std::fs::metadata(n).ok())
         .filter_map(|m| m.modified().ok())
         .max()
+}
+
+/// El `model.onnx` bajo cualquier snapshot del modelo. `metadata` sigue el
+/// symlink —en la caché de HF los ficheros del snapshot apuntan a `blobs/`—,
+/// así que la longitud es la real, no la del enlace.
+fn onnx_en_cache(dir_modelo: &std::path::Path) -> Option<(PathBuf, u64)> {
+    let entradas = std::fs::read_dir(dir_modelo.join("snapshots")).ok()?;
+    for e in entradas.flatten() {
+        let cand = e.path().join("onnx").join("model.onnx");
+        if let Ok(m) = std::fs::metadata(&cand)
+            && m.len() > 0
+        {
+            return Some((cand, m.len()));
+        }
+    }
+    None
+}
+
+/// Presencia del modelo de embeddings en la caché de `hf_hub`. `warn`, no
+/// `fail`: sin él la primera indexación baja 615 MB y tarda unos minutos —es
+/// deuda de tiempo, no una máquina rota—, pero decirlo AQUÍ es la diferencia
+/// entre un `exo index` que parece colgado y uno que se sabe descargando.
+fn check_modelo(entorno: &Entorno, cfg: Option<&crate::config::Config>) -> Check {
+    let modelo = cfg
+        .map(|c| c.embeddings.model.as_str())
+        .unwrap_or(crate::MODELO_JINA_ES);
+    let dir = entorno
+        .cache_hf
+        .join(format!("models--{}", modelo.replace('/', "--")));
+    match onnx_en_cache(&dir) {
+        Some((ruta, bytes)) => Check::nuevo(
+            "embeddings_model",
+            Estado::Ok,
+            ruta.display().to_string(),
+            format!("{modelo} · {bytes} bytes en caché"),
+        ),
+        None => Check::nuevo(
+            "embeddings_model",
+            Estado::Warn,
+            dir.display().to_string(),
+            format!(
+                "{modelo} no está en la caché: la primera indexación se baja \
+                 ~615 MB (unos minutos en frío)"
+            ),
+        ),
+    }
 }
 
 fn check_config(entorno: &Entorno) -> Check {

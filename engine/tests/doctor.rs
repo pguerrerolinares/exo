@@ -230,3 +230,53 @@ fn una_kb_mas_nueva_que_el_indice_sale_como_rancia() {
         c.detalle
     );
 }
+
+#[test]
+fn sin_modelo_en_cache_avisa_con_el_tamano_de_la_descarga_que_viene() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("kb")).unwrap();
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "embeddings_model");
+    assert_eq!(
+        c.estado,
+        Estado::Warn,
+        "el modelo se baja solo en la primera indexación; no es una máquina rota"
+    );
+    assert!(
+        c.artefacto
+            .contains("models--jinaai--jina-embeddings-v2-base-es"),
+        "reporta el directorio de caché que miró: {}",
+        c.artefacto
+    );
+}
+
+#[test]
+fn con_el_onnx_en_cache_reporta_la_ruta_y_los_bytes_del_fichero() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("kb")).unwrap();
+    let snap = dir
+        .path()
+        .join("home")
+        .join(".cache")
+        .join("huggingface")
+        .join("hub")
+        .join("models--jinaai--jina-embeddings-v2-base-es")
+        .join("snapshots")
+        .join("8e2d780d8fd38f81ca9123ee28e4c5a968aaf21e")
+        .join("onnx");
+    fs::create_dir_all(&snap).unwrap();
+    fs::write(snap.join("model.onnx"), vec![0u8; 4096]).unwrap();
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "embeddings_model");
+    assert_eq!(c.estado, Estado::Ok);
+    assert!(
+        c.artefacto.contains("model.onnx"),
+        "reporta el fichero, no el directorio: {}",
+        c.artefacto
+    );
+    assert!(
+        c.detalle.contains("4096"),
+        "reporta los bytes que midió: {}",
+        c.detalle
+    );
+}
