@@ -748,19 +748,19 @@ pub fn sella(actual: &Sellos, declaradas: &[Declarada]) -> Sellos;
 pub fn violaciones_de_aire(actual: &Sellos, siguiente: &Sellos, declaradas: &[Declarada]) -> Vec<Hallazgo>;
 ```
 
-- [ ] Test `sellar_toma_el_valor_menor_y_nunca_sube`: sello 12000, declaración
+- [x] Test `sellar_toma_el_valor_menor_y_nunca_sube`: sello 12000, declaración
       15000 → queda 12000. Verlo fallar.
-- [ ] Test `sellar_se_niega_y_no_escribe_nada_si_falta_aire`: dos notas, una con
+- [x] Test `sellar_se_niega_y_no_escribe_nada_si_falta_aire`: dos notas, una con
       aire y otra sin él. Tras el intento, el fichero **no ha cambiado** —ni
       siquiera para la que sí cumplía. La atomicidad es el contrato: *"o sella
       todo o no sella nada"*.
-- [ ] Test `sellar_lista_todos_los_infractores_no_solo_el_primero`.
-- [ ] Test `sellar_escribe_cuando_todo_tiene_aire`, comprobando además que el
+- [x] Test `sellar_lista_todos_los_infractores_no_solo_el_primero`.
+- [x] Test `sellar_escribe_cuando_todo_tiene_aire`, comprobando además que el
       fichero resultante parsea y conserva las entradas que no se tocaron.
-- [ ] Test `las_violaciones_de_aire_solo_juzgan_techos_que_cambian`: un sello
+- [x] Test `las_violaciones_de_aire_solo_juzgan_techos_que_cambian`: un sello
       intacto sin aire no aparece. Es la misma regla de la Task 8, del otro
       lado.
-- [ ] Implementar. Verlos pasar. Commit.
+- [x] Implementar. Verlos pasar. Commit.
 
 ---
 

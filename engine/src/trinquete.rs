@@ -792,6 +792,97 @@ fn comprueba_contra(
     })
 }
 
+/// `min(sello_actual, declarado)`: el techo que `--seal` escribiría. Para
+/// cada `Declarada`, el resultado se queda con el menor entre el sello que
+/// ya había y lo que la nota declara — un techo existente **nunca sube**,
+/// ni aunque la nota declare uno más alto. Un sello sin `Declarada` (un
+/// huérfano, o cualquier ruta que nadie declara en esta pasada) se
+/// **conserva tal cual**: retirarlo devolvería el margen que el trinquete
+/// existe para retener. Puerto de `Seal` (`internal/ratchet/collect.go`,
+/// kbx `fe46443`).
+pub fn sella(actual: &Sellos, declaradas: &[Declarada]) -> Sellos {
+    let mut siguiente = actual.clone();
+    for d in declaradas {
+        match siguiente.get(&d.ruta) {
+            Some(&existente) if d.max < existente => {
+                siguiente.insert(d.ruta.clone(), d.max);
+            }
+            None => {
+                siguiente.insert(d.ruta.clone(), d.max);
+            }
+            // Ya existe y `d.max >= existente`: no se toca. Es la mitad del
+            // contrato que un `min` ingenuo (sobrescribir siempre) rompería.
+            _ => {}
+        }
+    }
+    siguiente
+}
+
+/// Los sellos de `siguiente` que la transición dejaría sin aire —
+/// restringido a los que **cambian** respecto a `actual`: un techo que
+/// nadie toca no es una transición, y esta guarda no lo juzga. Es lo que
+/// deja que un `--seal` que parte dos notas selle esas dos limpio mientras
+/// otras nueve, intactas, siguen en deuda sin bloquear nada. Puerto de
+/// `AirViolations` (`internal/ratchet/collect.go`, kbx `fe46443`).
+///
+/// La atomicidad de `--seal` no vive aquí: esta función es pura y no toca
+/// disco. Es el llamador (Task 12, `exo ratchet --seal`) quien tiene que
+/// escribir `siguiente` con `escribe_sellos` únicamente si el resultado de
+/// esta función viene vacío — "o sella todo o no sella nada".
+///
+/// Los sellos huérfanos que `sella` conserva no llevan `Declarada`, así que
+/// nunca cambian de valor (siguen exactamente en `actual`) y nunca llegan a
+/// esta guarda.
+pub fn violaciones_de_aire(
+    actual: &Sellos,
+    siguiente: &Sellos,
+    declaradas: &[Declarada],
+) -> Vec<Hallazgo> {
+    let por_ruta: BTreeMap<&str, &Declarada> =
+        declaradas.iter().map(|d| (d.ruta.as_str(), d)).collect();
+
+    let mut hallazgos = Vec::new();
+    for (ruta, &techo) in siguiente {
+        let existia = actual.get(ruta);
+        if let Some(&era) = existia
+            && techo == era
+        {
+            continue; // no es una transición.
+        }
+        let Some(&d) = por_ruta.get(ruta.as_str()) else {
+            continue; // sin declaración, no hay tamaño que juzgar.
+        };
+        if crate::presupuesto::tiene_aire(techo, d.tamano) {
+            continue;
+        }
+        if existia.is_none()
+            && d.tier_presupuesto > 0
+            && crate::presupuesto::techo_minimo(d.tamano)
+                > d.tier_presupuesto * FACTOR_PRIMERA_DECLARACION
+        {
+            // Zona muerta, igual que en `comprueba_contra`: ninguna nota de
+            // este tamaño puede tener a la vez aire y respetar el cap de 2×.
+            hallazgos.push(Hallazgo {
+                ruta: ruta.clone(),
+                tipo: Tipo::NaceDemasiadoGrande,
+                era: 0,
+                ahora: d.tamano,
+                limite: d.tier_presupuesto * FACTOR_PRIMERA_DECLARACION,
+            });
+            continue;
+        }
+        hallazgos.push(Hallazgo {
+            ruta: ruta.clone(),
+            tipo: Tipo::SinAire,
+            era: 0,
+            ahora: techo,
+            limite: crate::presupuesto::techo_minimo(d.tamano),
+        });
+    }
+    hallazgos.sort_by(|a, b| a.ruta.cmp(&b.ruta));
+    hallazgos
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
