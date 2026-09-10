@@ -446,6 +446,18 @@
   `plugins/exo/hooks/hooks.json` tiene nueve hooks y ninguna validación.
   **Lo cierra G5 si lo adopta.**
 
+- [ ] **(G4c, Task 13) `kb-precommit.sh` depende de que `exo` esté instalado
+  en cada máquina — si no, el gate degrada a "commit permitido" en
+  silencio.** `plugins/exo/scripts/kb-precommit.sh:18,20`: si el binario no
+  está en `$EXO_BIN` ni en `$HOME/.local/bin/exo(.exe)`, imprime un aviso en
+  stderr y sale `exit 0` — el commit pasa como si el gate no existiera. Tras
+  el cutover kbx→exo de la Task 13, esto ya no es hipotético: cualquier
+  máquina donde Paul retome G4d o trabajo sobre la KB sin haber instalado
+  `exo` en esa ruta tiene el hook enlazado pero sin protección real.
+  **Acción:** verificar `exo` instalado como parte de arrancar trabajo en una
+  máquina nueva, o subir el aviso de stderr a algo que no pase desapercibido
+  (el hook está enlazado, pero el gate no protege nada).
+
 - [ ] **Retirar los aliases españoles del CLI en 1.1.** Los diez flags
   renombrados en la ola 1A (`--limite`→`--limit`, `--titulo`→`--title`,
   `--contenido`→`--content`, `--nota`→`--note`, `--refresca`→`--refresh`,
@@ -808,6 +820,47 @@
   hooks vive aquí, pero el worker barato vive fuera (plataforma on-prem) y el
   catálogo de skills a evaluar también. Si se decide que exo asume delegación,
   esto sube a item propio con su gate; si no, se cierra como «no es de exo».
+
+- [ ] **(G4c, Task 14) Gate de paridad `ratchet`+`targets`: pendiente de
+  máquina Linux, mismo prerequisito.** Ninguno de los dos corre en W11 sin
+  toolchain Go (ver "Residuo declarado",
+  `docs/superpowers/plans/2026-09-09-g4c-ratchet-y-cutover.md:874-875`);
+  comparten prerequisito — compilar kbx en `fe46443` — así que conviene
+  correrlos juntos en la misma sesión Linux, no por separado. El repo `kbx`
+  local está divergido de `fe46443` (`f0d0564`, 1 por delante y 18 por
+  detrás, conflicto en `budget.go`, mismo plan:876-877): quien vaya a
+  compilar `fe46443` para el gate necesita saberlo.
+
+- [ ] **(G4c, Task 14) "Los nueve invariantes de la spec" era un lapsus —
+  son siete.** El plan de G4a
+  (`docs/superpowers/plans/2026-08-26-g4a-plomeria-y-targets.md:1614-1616`)
+  hablaba de nueve; esa lista no existe en ningún documento del repo
+  (adjudicación A1,
+  `docs/superpowers/plans/2026-09-09-g4c-ratchet-y-cutover.md:71-92`). Lo que
+  existe son los siete *"Invariantes portables — tests obligatorios
+  (V13/H7)"* de `docs/superpowers/specs/2026-08-26-exo-generico-design.md:
+  578-606` (la propia spec los llama así en `:705-706`); de los siete, solo
+  el ítem 7 es del ratchet (cuatro sub-invariantes: sello borrado = subir a
+  infinito, sello huérfano no lava una declaración, sello corrupto en HEAD
+  es error no abstención, aritmética entera de aire). Anotado para que nadie
+  vuelva a buscar la lista de nueve que no existe.
+
+- [ ] **(G4c, Task 14) El cutover kbx→exo es parcial: `rotate`, `stale`,
+  `history` y `diff-since` siguen sin portar.** Verificado hoy: `exo --help`
+  no lista esos cuatro verbos.
+  `plugins/exo/skills/distill/SKILL.md` sigue necesitando el binario `kbx`
+  por `rotate` (`:60`), `stale` (`:146`) y `diff-since` (`:225`). `rotate` es
+  el candidato natural a G4d, y no es cosmético: es el remedio que
+  `kb-precommit.sh` prescribe en su mensaje de rechazo (`kbx rotate --kb <kb>
+  --apply`) cuando el gate muerde — mientras no exista en `exo`, ese remedio
+  sigue exigiendo tener `kbx` instalado.
+
+- [ ] **(G4c, Task 14) Las 2 rutas `/home/paul/…` de
+  `test-git-c-bash.sh:74-75` siguen ahí.** Fixtures de test hardcodeadas a
+  `/home/paul/Documentos/proyectos/code-graph-go`, verificado hoy sin
+  cambios. Deuda de higiene de test-fixtures personales — ya hay un item
+  hermano en Media sobre "nombres y rutas personales" (el de `test-*.sh`
+  fuera de CI, que ya cita este mismo script) que la cierra si se adopta.
 
 ---
 

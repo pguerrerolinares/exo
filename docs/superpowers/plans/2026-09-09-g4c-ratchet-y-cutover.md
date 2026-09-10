@@ -857,7 +857,7 @@ struct ArgsRatchet {
 **Files**
 - Modify: `docs/backlog.md`
 
-- [ ] Anotar, con una línea cada uno: (a) el gate de paridad de `ratchet` queda
+- [x] Anotar, con una línea cada uno: (a) el gate de paridad de `ratchet` queda
       **pendiente de la máquina Linux**, junto con el de `targets`, y los dos
       comparten prerequisito (compilar kbx `fe46443`); (b) "los nueve
       invariantes" era un lapsus — son siete, uno del ratchet (A1); (c) el
@@ -865,7 +865,7 @@ struct ArgsRatchet {
       portar, y `distill` sigue necesitando el binario `kbx` por los dos
       primeros; (d) las 2 rutas `/home/paul/…` de
       `plugins/exo/scripts/test-git-c-bash.sh:74-75` siguen ahí.
-- [ ] Commit.
+- [x] Commit.
 
 ---
 
