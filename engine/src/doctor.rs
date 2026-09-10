@@ -134,7 +134,12 @@ fn busca_en_path(path: &str, nombre: &str) -> Option<PathBuf> {
     } else {
         vec![nombre.to_string()]
     };
-    for dir in std::env::split_paths(path) {
+    // `split_paths("")` devuelve UN componente vacío, no cero, y `"".join(x)`
+    // es una ruta relativa: sin este filtro, un PATH vacío hace que el check
+    // busque en el **cwd del proceso**. Medido el 2026-09-10: plantando un
+    // `exo.exe` en `engine/`, el test del PATH vacío pasa de verde a rojo — es
+    // decir, estaba midiendo el directorio actual, no el PATH.
+    for dir in std::env::split_paths(path).filter(|d| !d.as_os_str().is_empty()) {
         for c in &candidatos {
             let ruta = dir.join(c);
             if ruta.is_file() {
