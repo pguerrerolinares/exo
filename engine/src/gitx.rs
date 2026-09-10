@@ -198,6 +198,80 @@ pub fn muestra(dir: &Path, objeto: &str) -> Result<Option<String>> {
     Ok(Some(String::from_utf8_lossy(&salida.stdout).to_string()))
 }
 
+/// `git show <objeto>`, en bytes crudos. Mismo contrato que `muestra`
+/// (`Ok(None)` si el objeto no está, `Err` solo si git no se pudo invocar),
+/// pero sin pasar por `from_utf8_lossy`.
+///
+/// Existe porque `muestra` no vale para medir tamaño: `String::len()` sobre
+/// un `String` construido con `from_utf8_lossy` NO cuenta los bytes reales —
+/// cada secuencia UTF-8 inválida se sustituye por U+FFFD, que ocupa 3 bytes
+/// en UTF-8, así que un blob con un solo byte inválido mediría un tamaño
+/// distinto del real. El trinquete en modo `--staged` mide el tamaño de una
+/// nota con `git show :./<ruta>` (Task 10), y el Go mide `len(res.Stdout)`
+/// sobre bytes crudos (`sizeFromIndex`, `internal/ratchet/staged.go`) — esta
+/// función es el equivalente exacto. El contenido sigue leyéndose con
+/// `muestra` (String) donde solo hace falta parsear, nunca medir.
+pub fn muestra_bytes(dir: &Path, objeto: &str) -> Result<Option<Vec<u8>>> {
+    let salida = Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args(["show", objeto])
+        .env("LC_ALL", "C")
+        .env("LANG", "C")
+        .output()
+        .with_context(|| format!("invocar git show {objeto} en {}", dir.display()))?;
+    if !salida.status.success() {
+        return Ok(None);
+    }
+    Ok(Some(salida.stdout))
+}
+
+/// Rutas (relativas, con `/`, nunca separador nativo) de los ficheros `.md`
+/// staged en el índice: `git diff --cached --no-renames --name-only
+/// --diff-filter=ACMR` (A3). `--no-renames` es flag de `diff`, no de `git` —
+/// sin él, qué ficheros salen (una entrada `R` vs. un `A`+`D`) depende de la
+/// config `diff.renames` de la máquina; con él, el resultado es el mismo en
+/// cualquier entorno. El emparejamiento de renames del trinquete es
+/// heurístico sobre los sellos (`empareja_renames`, Task 7) y no usa la
+/// detección de renames de git, así que quitarla no le quita información a
+/// nadie (adjudicación A3 del plan).
+///
+/// El filtro de extensión (`.md`, case-insensitive) es aquí y no en
+/// `trinquete`: es una propiedad del nombre del fichero, no del dominio de la
+/// KB — igual que `walker::es_md`. La exclusión por directorio (`archive`,
+/// `.superpowers`, ...) sigue siendo cosa del llamador, que sí conoce
+/// `excluidos`.
+pub fn md_staged(dir: &Path) -> Result<Vec<String>> {
+    let salida = Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args([
+            "diff",
+            "--cached",
+            "--no-renames",
+            "--name-only",
+            "--diff-filter=ACMR",
+        ])
+        .env("LC_ALL", "C")
+        .env("LANG", "C")
+        .output()
+        .with_context(|| format!("invocar git diff --cached en {}", dir.display()))?;
+    if !salida.status.success() {
+        bail!(
+            "git diff --cached --name-only en {}: {}",
+            dir.display(),
+            String::from_utf8_lossy(&salida.stderr).trim()
+        );
+    }
+    Ok(String::from_utf8_lossy(&salida.stdout)
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .filter(|l| l.to_ascii_lowercase().ends_with(".md"))
+        .map(str::to_string)
+        .collect())
+}
+
 /// ¿Resuelve `HEAD` a un commit? Falso en un repo recién iniciado sin
 /// commits (o fuera de un repo git). Devuelve `bool`, no `Result`: no hay
 /// distinción de fallo útil más allá de sí/no para el llamador — es

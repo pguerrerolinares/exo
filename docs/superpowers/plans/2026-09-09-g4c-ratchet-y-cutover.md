@@ -720,14 +720,14 @@ El tamaño bajo `--staged` sale del índice (`git show :./<ruta>`), no del disco
 Es la diferencia que da sentido al modo: el pre-commit juzga lo que se va a
 commitear, no lo que hay en el árbol.
 
-- [ ] Test `el_modo_staged_ve_el_indice_no_el_working_tree`: stagear una subida
+- [x] Test `el_modo_staged_ve_el_indice_no_el_working_tree`: stagear una subida
       de techo y luego restaurar el disco; `carga` miente, `carga_staged` dice la
       verdad. Verlo fallar.
-- [ ] Test `staged_caza_la_subida_que_el_working_tree_esconde`: mismo montaje,
+- [x] Test `staged_caza_la_subida_que_el_working_tree_esconde`: mismo montaje,
       `comprueba` pasa limpio y `comprueba_staged` la caza.
-- [ ] Test `staged_juzga_el_tamano_del_indice_no_el_del_disco`.
-- [ ] Test `sin_sello_staged_el_mapa_es_vacio`.
-- [ ] Implementar. Un fichero staged como borrado (`git show :./x` falla) se
+- [x] Test `staged_juzga_el_tamano_del_indice_no_el_del_disco`.
+- [x] Test `sin_sello_staged_el_mapa_es_vacio`.
+- [x] Implementar. Un fichero staged como borrado (`git show :./x` falla) se
       **salta**, no rompe. Verlos pasar. Commit.
 
 ---

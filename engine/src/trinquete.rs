@@ -148,6 +148,28 @@ pub fn anclado_en_head(kb: &Path) -> bool {
     matches!(gitx::muestra(kb, &objeto), Ok(Some(_)))
 }
 
+/// Carga el sello desde el índice de git (`:./<fichero>`), no de HEAD ni del
+/// disco. Puerto de `LoadStaged` (`internal/ratchet/staged.go` de kbx,
+/// `fe46443`): es lo que hace `--staged` juzgar lo que el commit se va a
+/// llevar y no lo que hay en el árbol de trabajo — stagear una subida de
+/// techo y luego restaurar el disco no basta para escapar del gate.
+///
+/// Cualquier fallo al leer el índice (fichero no staged, no hay repo, sello
+/// nunca stageado) se traga en silencio y devuelve mapa vacío: así lo hace
+/// el Go, que descarta el error de `gitx.Run` entero (`err != nil => return
+/// Seals{}, nil`). Un JSON staged que SÍ existe pero está corrupto sigue
+/// siendo `Err`: la única puerta de parseo es `parsea_sellos`, y el
+/// sub-invariante 3 del ítem 7 de la spec no distingue de dónde vino el
+/// sello.
+pub fn carga_staged(kb: &Path) -> Result<Sellos> {
+    let objeto = format!(":./{FICHERO_SELLO}");
+    match gitx::muestra(kb, &objeto) {
+        Ok(Some(datos)) => parsea_sellos(&datos),
+        Ok(None) => Ok(Sellos::new()),
+        Err(_) => Ok(Sellos::new()),
+    }
+}
+
 /// Los nueve tipos de hallazgo que el trinquete puede producir. Las claves
 /// JSON (inglés, D7/D8) son las de kbx: cambiarlas rompería a quien ya
 /// parsea el envelope de `exo lint`.
@@ -319,6 +341,55 @@ pub fn recolecta(
     Ok(declaradas)
 }
 
+/// `recolecta`, pero sobre el índice de git en vez del árbol de trabajo: las
+/// rutas salen de `gitx::md_staged` (el diff cacheado, A3) y el contenido de
+/// cada una sale de `git show :./<ruta>`, no de disco. Puerto de
+/// `CollectStaged` (`internal/ratchet/staged.go`, kbx `fe46443`).
+///
+/// El tamaño se mide en bytes crudos del índice (`gitx::muestra_bytes`), no
+/// con la `String` lossy de `gitx::muestra`: es el motivo que documenta
+/// `gitx::muestra_bytes`, y aquí importa igual que allí — una `Declarada`
+/// con un tamaño equivocado hace que la guarda de aire compare contra un
+/// número que no es el que el commit se va a llevar.
+///
+/// Un fichero staged como borrado (`git show :./x` falla) se salta, no
+/// rompe: la misma exención que documenta `gitx::muestra_bytes` para
+/// `sizeFromIndex`.
+pub fn recolecta_staged(
+    kb: &Path,
+    presupuestos: crate::presupuesto::Presupuestos,
+    excluidos: &[&str],
+) -> Result<Vec<Declarada>> {
+    let rutas = gitx::md_staged(kb)?;
+
+    let mut declaradas = Vec::new();
+    for rel in rutas {
+        if crate::walker::excluida(&rel, excluidos) {
+            continue;
+        }
+        let Some(bytes) = gitx::muestra_bytes(kb, &format!(":./{rel}"))? else {
+            continue; // staged como borrado: el objeto no está en el índice.
+        };
+        let contenido = String::from_utf8_lossy(&bytes);
+        let Some(max) = crate::frontmatter::budget_max(&contenido) else {
+            continue;
+        };
+        let tier = crate::frontmatter::tier(&contenido);
+        let tier_presupuesto = presupuestos.para_tier(&tier).unwrap_or(0);
+
+        declaradas.push(Declarada {
+            ruta: rel,
+            tier,
+            max,
+            tier_presupuesto,
+            tamano: bytes.len() as i64,
+        });
+    }
+
+    declaradas.sort_by(|a, b| a.ruta.cmp(&b.ruta));
+    Ok(declaradas)
+}
+
 /// ¿Existió de verdad `ruta` en `HEAD`? Sin esta comprobación, un sello
 /// huérfano podría hacer de rename — ver `empareja_renames`, que es quien la
 /// usa. El Go (`existedInHEAD`, `internal/ratchet/check.go`) resuelve con
@@ -470,6 +541,31 @@ pub fn comprueba(
     presupuestos: crate::presupuesto::Presupuestos,
 ) -> Result<Informe> {
     comprueba_contra(kb, declaradas, presupuestos, carga, tamano_de_disco)
+}
+
+/// Tamaño de una nota en el índice de git, en bytes crudos. `None` si el
+/// objeto no está en el índice (fichero no staged, staged como borrado): la
+/// guarda de aire se salta el sello en vez de inventar un tamaño
+/// (`sizeFromIndex`, `internal/ratchet/staged.go`).
+fn tamano_de_indice(kb: &Path, ruta: &str) -> Option<i64> {
+    gitx::muestra_bytes(kb, &format!(":./{ruta}"))
+        .ok()
+        .flatten()
+        .map(|b| b.len() as i64)
+}
+
+/// Corre el trinquete sobre el índice de git: los sellos actuales salen de
+/// `carga_staged` y el tamaño de cada nota de `tamano_de_indice` — las dos
+/// leen la misma revisión (el índice), que es la condición que
+/// `comprueba_contra` exige (mezclar un techo del índice con un tamaño del
+/// disco compararía dos mundos distintos). Puerto de `CheckStaged`
+/// (`internal/ratchet/staged.go`).
+pub fn comprueba_staged(
+    kb: &Path,
+    declaradas: &[Declarada],
+    presupuestos: crate::presupuesto::Presupuestos,
+) -> Result<Informe> {
+    comprueba_contra(kb, declaradas, presupuestos, carga_staged, tamano_de_indice)
 }
 
 /// El núcleo del trinquete, parametrizado por de dónde salen los sellos
