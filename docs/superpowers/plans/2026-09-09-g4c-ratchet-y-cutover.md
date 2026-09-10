@@ -609,24 +609,24 @@ Las cuatro ramas, en el orden exacto del Go:
    `NaceDemasiadoGrande` si es fresco y `techo_minimo(tamano) > tier*2`, si no
    `SinAire`.
 
-- [ ] Test `un_sello_fresco_con_aire_suficiente_esta_limpio` y
+- [x] Test `un_sello_fresco_con_aire_suficiente_esta_limpio` y
       `un_sello_fresco_a_un_byte_del_aire_falla`: el borde exacto es
       `techo_minimo(10000) == 11500`; 11500 pasa, 11499 no. Verlos fallar.
-- [ ] Test `un_sello_bajado_sin_aire_falla`.
-- [ ] Test `un_sello_intacto_sin_aire_es_deuda_no_fallo`: emite `DeudaSinAire` y
+- [x] Test `un_sello_bajado_sin_aire_falla`.
+- [x] Test `un_sello_intacto_sin_aire_es_deuda_no_fallo`: emite `DeudaSinAire` y
       `fallido() == false`. **El test que sostiene la instalabilidad del
       trinquete.**
-- [ ] Test `un_techo_subido_no_se_etiqueta_como_deuda` (rama 2).
-- [ ] Test `la_corrida_de_activacion_esta_exenta_del_aire` (ancla, Task 4).
-- [ ] Test `un_sello_renombrado_sin_aire_esta_exento` (rename, Task 7).
-- [ ] Test `una_primera_declaracion_en_zona_muerta_dice_parte_la_nota`
+- [x] Test `un_techo_subido_no_se_etiqueta_como_deuda` (rama 2).
+- [x] Test `la_corrida_de_activacion_esta_exenta_del_aire` (ancla, Task 4).
+- [x] Test `un_sello_renombrado_sin_aire_esta_exento` (rename, Task 7).
+- [x] Test `una_primera_declaracion_en_zona_muerta_dice_parte_la_nota`
       (`NaceDemasiadoGrande`) y `el_borde_de_la_zona_muerta_esta_limpio`
       (14.782 B en core).
-- [ ] Test `un_sello_huerfano_sin_fichero_se_salta`: sello sin nota en disco →
+- [x] Test `un_sello_huerfano_sin_fichero_se_salta`: sello sin nota en disco →
       no se inventa tamaño, se salta.
-- [ ] Test `una_nota_log_sellada_sigue_necesitando_aire`: `log` no tiene
+- [x] Test `una_nota_log_sellada_sigue_necesitando_aire`: `log` no tiene
       presupuesto, pero un sello ya puesto sí se juzga.
-- [ ] Implementar el bloque de aire dentro de `comprueba_contra` (Task 9).
+- [x] Implementar el bloque de aire dentro de `comprueba_contra` (Task 9).
       Verlos pasar. Commit.
 
 ---
@@ -680,18 +680,18 @@ Las tres familias de hallazgo sobre declaraciones:
   Detectado recorriendo los sellos que **no** tienen `Declarada`, leyendo el
   tier del fichero.
 
-- [ ] Test `un_waiver_por_encima_de_su_sello_falla` /
+- [x] Test `un_waiver_por_encima_de_su_sello_falla` /
       `un_waiver_igual_o_por_debajo_pasa`. Verlos fallar.
-- [ ] Test `una_primera_declaracion_se_capa_a_dos_veces_el_tier`
+- [x] Test `una_primera_declaracion_se_capa_a_dos_veces_el_tier`
       (tier 8500 → límite 17000).
-- [ ] Test `un_waiver_en_tier_log_es_inerte_no_fallo`: emite `WaiverLogInerte` y
+- [x] Test `un_waiver_en_tier_log_es_inerte_no_fallo`: emite `WaiverLogInerte` y
       `fallido() == false`.
-- [ ] Test `una_nota_sellada_que_escapa_a_log_se_marca`.
-- [ ] Test `sin_git_el_informe_no_se_aplica`: `aplicado == false`, `razon`
+- [x] Test `una_nota_sellada_que_escapa_a_log_se_marca`.
+- [x] Test `sin_git_el_informe_no_se_aplica`: `aplicado == false`, `razon`
       poblada, `fallido() == false`, y **exit 0** aguas arriba. La abstención es
       información, no fallo.
-- [ ] Test `los_hallazgos_salen_ordenados_por_ruta`.
-- [ ] Implementar `comprueba_contra` con el bloque de aire de la Task 8 y el
+- [x] Test `los_hallazgos_salen_ordenados_por_ruta`.
+- [x] Implementar `comprueba_contra` con el bloque de aire de la Task 8 y el
       emparejamiento de la Task 7. Verlos pasar. Commit.
 
 ---

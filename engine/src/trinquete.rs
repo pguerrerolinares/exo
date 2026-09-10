@@ -327,11 +327,6 @@ pub fn recolecta(
 /// verbo nuevo a `gitx` para una sola llamada — más caro, semánticamente
 /// equivalente para este uso: solo importa si el objeto existe, no su
 /// contenido.
-///
-/// `#[allow(dead_code)]` temporal: `comprueba_contra` (Task 9) es quien la
-/// invoca en producción; hasta entonces solo la ejercitan los tests de esta
-/// misma tarea.
-#[allow(dead_code)]
 fn existio_en_head(kb: &Path, ruta: &str) -> bool {
     gitx::muestra(kb, &format!("HEAD:./{ruta}"))
         .ok()
@@ -374,10 +369,6 @@ fn existio_en_head(kb: &Path, ruta: &str) -> bool {
 /// legítimo contra el cap.
 ///
 /// Devuelve `(sellos_frescos_absueltos, sellos_retirados_emparejados)`.
-///
-/// `#[allow(dead_code)]` temporal, mismo motivo que `existio_en_head`:
-/// consumida por `comprueba_contra` desde la Task 9.
-#[allow(dead_code)]
 fn empareja_renames(
     kb: &Path,
     head: &Sellos,
@@ -429,6 +420,280 @@ fn empareja_renames(
         }
     }
     (frescos_absueltos, retirados_emparejados)
+}
+
+/// Una primera declaración no puede sellar más de 2× el nominal de su tier.
+/// Con el 15% de aire (`presupuesto::tiene_aire`), el techo legal de una nota
+/// nueva sale en `tier*2/1,15 = 1,739×` su tier: 14.782 B en core, 21.739 B
+/// en stable. Por encima no hay techo legal que valga, y el remedio no es un
+/// techo más alto: es partir la nota (`Tipo::NaceDemasiadoGrande`).
+const FACTOR_PRIMERA_DECLARACION: i64 = 2;
+
+/// Tamaño de una nota en el árbol de trabajo, en bytes. `None` si no se
+/// puede leer (nota borrada, permisos): la guarda de aire se salta el sello
+/// en vez de inventar un tamaño (`sizeFromDisk`, `internal/ratchet/check.go`).
+fn tamano_de_disco(kb: &Path, ruta: &str) -> Option<i64> {
+    std::fs::metadata(kb.join(ruta))
+        .ok()
+        .map(|meta| meta.len() as i64)
+}
+
+/// El informe del trinquete: `aplicado: false` significa que se abstuvo y
+/// sus hallazgos no tienen autoridad ninguna — ni siquiera si la lista viene
+/// vacía. Claves JSON `applied`/`reason`/`findings` (D7/D8, las de kbx).
+#[derive(Serialize, Debug)]
+pub struct Informe {
+    #[serde(rename = "applied")]
+    pub aplicado: bool,
+    #[serde(rename = "reason", skip_serializing_if = "Option::is_none")]
+    pub razon: Option<String>,
+    #[serde(rename = "findings")]
+    pub hallazgos: Vec<Hallazgo>,
+}
+
+impl Informe {
+    /// `true` si el gate debe salir con exit ≠ 0. Un informe abstenido nunca
+    /// falla (la abstención es información, no fallo), y los hallazgos
+    /// informativos (`WaiverLogInerte`, `DeudaSinAire`) tampoco cuentan:
+    /// `Tipo::rompe` es la única fuente de verdad sobre qué rompe.
+    pub fn fallido(&self) -> bool {
+        self.aplicado && self.hallazgos.iter().any(|h| h.tipo.rompe())
+    }
+}
+
+/// Corre el trinquete sobre el árbol de trabajo: los sellos actuales salen
+/// de `.kbx-ratchet.json` en disco, y el tamaño de cada nota sale de
+/// `metadata().len()`. Puerto de `Check` (`internal/ratchet/check.go`).
+pub fn comprueba(
+    kb: &Path,
+    declaradas: &[Declarada],
+    presupuestos: crate::presupuesto::Presupuestos,
+) -> Result<Informe> {
+    comprueba_contra(kb, declaradas, presupuestos, carga, tamano_de_disco)
+}
+
+/// El núcleo del trinquete, parametrizado por de dónde salen los sellos
+/// actuales y el tamaño de una nota — exactamente como `checkAgainst` en kbx.
+/// `comprueba` pasa el árbol de trabajo (`carga`, `tamano_de_disco`); la
+/// variante `--staged` (Task 10) pasará el índice de git con las mismas dos
+/// funciones parametrizadas, y por eso la firma ya las lleva aunque hoy solo
+/// exista un llamador.
+///
+/// Los sellos actuales y los tamaños **tienen que venir de la misma
+/// revisión** — mezclar un techo del índice con un tamaño del disco compara
+/// dos mundos distintos y la guarda de aire deja de significar nada.
+fn comprueba_contra(
+    kb: &Path,
+    declaradas: &[Declarada],
+    presupuestos: crate::presupuesto::Presupuestos,
+    carga_actual: impl Fn(&Path) -> Result<Sellos>,
+    tamano_de: impl Fn(&Path, &str) -> Option<i64>,
+) -> Result<Informe> {
+    let Some(head) = carga_head(kb)? else {
+        return Ok(Informe {
+            aplicado: false,
+            razon: Some(
+                "no git history available (missing repo, unreadable history, or shallow clone)"
+                    .to_string(),
+            ),
+            hallazgos: Vec::new(),
+        });
+    };
+    let actual = carga_actual(kb)?;
+
+    // Renames (Task 7): cada retirado emparejado se resta de `violaciones`
+    // (el techo viajó, no desapareció) y cada fresco emparejado queda exento
+    // del cap de primera declaración más abajo — carga su techo, no lo
+    // declara de cero.
+    let (frescos_absueltos, retirados_emparejados) = empareja_renames(kb, &head, &actual);
+
+    let mut hallazgos: Vec<Hallazgo> = violaciones(&head, &actual)
+        .into_iter()
+        .filter(|v| !(v.tipo == Tipo::SelloRetirado && retirados_emparejados.contains(&v.ruta)))
+        .collect();
+
+    // El ancla de activación (Task 4): sin sello commiteado en HEAD, esta
+    // corrida es la que instala el trinquete y consagra lo que ya existía.
+    let activacion = !anclado_en_head(kb);
+
+    let declaradas_por_ruta: BTreeMap<&str, &Declarada> =
+        declaradas.iter().map(|d| (d.ruta.as_str(), d)).collect();
+
+    // La guarda de aire (Task 8): juzga TRANSICIONES, no estado. Un sello
+    // que nadie toca no se juzga aunque no tenga aire — se reporta como
+    // deuda, que no rompe. Sin eso, los 11 sellos reales de la KB (ninguno
+    // con 15% de aire, medido) dejarían el repo en rojo permanente el día de
+    // la instalación.
+    let mut nacio_demasiado_grande: BTreeSet<String> = BTreeSet::new();
+    for (ruta, &techo) in &actual {
+        let declarada = declaradas_por_ruta.get(ruta.as_str()).copied();
+        let tamano = match declarada {
+            Some(d) => d.tamano,
+            // Sin declaración: el tamaño sale del disco. Si no se puede leer
+            // (nota borrada, sello huérfano sin fichero), se salta — no se
+            // inventa un tamaño.
+            None => match tamano_de(kb, ruta) {
+                Some(t) => t,
+                None => continue,
+            },
+        };
+        if crate::presupuesto::tiene_aire(techo, tamano) {
+            continue; // rama 1: tiene aire, nada que reportar.
+        }
+        let era = head.get(ruta).copied();
+        if let Some(era) = era
+            && techo > era
+        {
+            // rama 2: ya rompió como SelloSubido; etiquetarlo además como
+            // deuda mal-clasificaría una decisión de hoy como preexistente.
+            continue;
+        }
+        let cambio = match era {
+            None => true,
+            Some(era) => techo < era,
+        };
+        if !cambio {
+            // rama 3: intacto desde HEAD. Deuda, no fallo.
+            hallazgos.push(Hallazgo {
+                ruta: ruta.clone(),
+                tipo: Tipo::DeudaSinAire,
+                era: 0,
+                ahora: techo,
+                limite: crate::presupuesto::techo_minimo(tamano),
+            });
+            continue;
+        }
+        // rama 4: cambió (fresco o bajado). La activación consagra lo que
+        // ya existía; un rename carga su techo — ninguno es una decisión
+        // nueva sobre el margen.
+        if activacion || frescos_absueltos.contains(ruta) {
+            continue;
+        }
+        let fresco = era.is_none();
+        if fresco
+            && let Some(d) = declarada
+            && d.tier_presupuesto > 0
+            && crate::presupuesto::techo_minimo(tamano)
+                > d.tier_presupuesto * FACTOR_PRIMERA_DECLARACION
+        {
+            // Zona muerta: ninguna nota de este tamaño puede tener a la vez
+            // aire y respetar el cap de 2×. El remedio es partir la nota, no
+            // un techo más alto.
+            hallazgos.push(Hallazgo {
+                ruta: ruta.clone(),
+                tipo: Tipo::NaceDemasiadoGrande,
+                era: 0,
+                ahora: tamano,
+                limite: d.tier_presupuesto * FACTOR_PRIMERA_DECLARACION,
+            });
+            nacio_demasiado_grande.insert(ruta.clone());
+            continue;
+        }
+        hallazgos.push(Hallazgo {
+            ruta: ruta.clone(),
+            tipo: Tipo::SinAire,
+            era: 0,
+            ahora: techo,
+            limite: crate::presupuesto::techo_minimo(tamano),
+        });
+    }
+
+    // Las tres familias sobre declaraciones. Una nota ya marcada
+    // NaceDemasiadoGrande no recibe además estos checks: ya tiene el único
+    // hallazgo que aconseja bien, y el Go la salta con el mismo set.
+    let mut rutas_declaradas: BTreeSet<&str> = BTreeSet::new();
+    for d in declaradas {
+        rutas_declaradas.insert(d.ruta.as_str());
+        if nacio_demasiado_grande.contains(&d.ruta) {
+            continue;
+        }
+        match actual.get(&d.ruta) {
+            Some(&sello) => {
+                // El cap de 2× sobre una nota ya sellada: no aplica en la
+                // corrida de activación, si ya estaba en HEAD, o si es un
+                // fresco absuelto por rename (carga su techo, no lo declara).
+                if !activacion
+                    && !head.contains_key(&d.ruta)
+                    && !frescos_absueltos.contains(&d.ruta)
+                    && d.tier_presupuesto > 0
+                {
+                    let limite = d.tier_presupuesto * FACTOR_PRIMERA_DECLARACION;
+                    if sello > limite {
+                        hallazgos.push(Hallazgo {
+                            ruta: d.ruta.clone(),
+                            tipo: Tipo::PrimeraMuyAlta,
+                            era: 0,
+                            ahora: sello,
+                            limite,
+                        });
+                    }
+                }
+                // El waiver no puede rebasar el trinquete.
+                if d.max > sello {
+                    hallazgos.push(Hallazgo {
+                        ruta: d.ruta.clone(),
+                        tipo: Tipo::SobreSello,
+                        era: sello,
+                        ahora: d.max,
+                        limite: sello,
+                    });
+                }
+            }
+            None if d.tier_presupuesto <= 0 => {
+                // Waiver en un tier sin presupuesto (p.ej. log): inerte, no
+                // hay techo que rebasar. Información, no fallo.
+                hallazgos.push(Hallazgo {
+                    ruta: d.ruta.clone(),
+                    tipo: Tipo::WaiverLogInerte,
+                    era: 0,
+                    ahora: d.max,
+                    limite: 0,
+                });
+            }
+            None => {
+                let limite = d.tier_presupuesto * FACTOR_PRIMERA_DECLARACION;
+                if d.max > limite {
+                    hallazgos.push(Hallazgo {
+                        ruta: d.ruta.clone(),
+                        tipo: Tipo::PrimeraMuyAlta,
+                        era: 0,
+                        ahora: d.max,
+                        limite,
+                    });
+                }
+            }
+        }
+    }
+
+    // Una nota sellada que ya no declara waiver y cuyo tier ACTUAL no tiene
+    // presupuesto se reclasificó a `log` para escapar del gate: el sello es
+    // la prueba de que tuvo techo. Solo mira los sellos SIN Declarada — con
+    // Declarada ya pasó por el bloque de arriba.
+    for (ruta, &sello) in &actual {
+        if rutas_declaradas.contains(ruta.as_str()) {
+            continue;
+        }
+        let Ok(contenido) = std::fs::read_to_string(kb.join(ruta)) else {
+            continue; // nota borrada: el sello huérfano se queda, nada que mirar.
+        };
+        let tier = crate::frontmatter::tier(&contenido);
+        if !tier.is_empty() && presupuestos.para_tier(&tier).unwrap_or(0) <= 0 {
+            hallazgos.push(Hallazgo {
+                ruta: ruta.clone(),
+                tipo: Tipo::SelladaEscapadaDeTier,
+                era: sello,
+                ahora: 0,
+                limite: 0,
+            });
+        }
+    }
+
+    hallazgos.sort_by(|a, b| a.ruta.cmp(&b.ruta));
+    Ok(Informe {
+        aplicado: true,
+        razon: None,
+        hallazgos,
+    })
 }
 
 #[cfg(test)]
