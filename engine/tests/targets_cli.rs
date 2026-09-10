@@ -143,6 +143,21 @@ fn un_fallo_de_git_que_no_es_falta_de_repo_no_se_disfraza_de_git_init() {
         .arg(dir.path())
         .arg("alpha")
         .env("GIT_TEST_ASSUME_DIFFERENT_OWNER", "1")
+        // Sin aislar la config de git, este test depende de la máquina. Los
+        // runners de CI llevan `safe.directory` configurado, y una entrada que
+        // cubra este directorio **anula** `GIT_TEST_ASSUME_DIFFERENT_OWNER`:
+        // git no comprueba el propietario, no falla, y el binario sale con 0
+        // donde el test espera 1. Medido el 2026-09-10 en un contenedor
+        // Linux: sin `safe.directory` → exit 128 «dubious ownership»; con
+        // `safe.directory=*` → exit 0 y sin stderr, que es exactamente el
+        // fallo que el CI llevaba días dando en ubuntu y macOS mientras en
+        // Windows y en Linux limpio pasaba 10/10.
+        //
+        // El `gitconfig-vacio` lo crea `kb_con_indice`, que ya aísla así los
+        // comandos git del montaje; lo que faltaba era aislar **la invocación
+        // del binario**, que es quien acaba llamando a git de verdad.
+        .env("GIT_CONFIG_GLOBAL", dir.path().join("gitconfig-vacio"))
+        .env("GIT_CONFIG_SYSTEM", dir.path().join("gitconfig-vacio"))
         .output()
         .unwrap();
 
