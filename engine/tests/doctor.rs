@@ -106,3 +106,127 @@ fn con_el_binario_en_local_bin_el_check_reporta_el_fichero_real() {
         c.artefacto
     );
 }
+
+/// Entorno con config válida en el tempdir, apuntando a `kb/` e `index.db`.
+fn entorno_con_config(dir: &Path) -> Entorno {
+    let home = dir.join("home");
+    let kb = dir.join("kb");
+    let db = dir.join("index.db");
+    fs::create_dir_all(&home).unwrap();
+    let cfg = home.join("config.toml");
+    fs::write(
+        &cfg,
+        format!(
+            "schema_version = 1\n\n[kb]\npath = \"{}\"\nname = \"kb-demo\"\n\n\
+             [index]\ndb = \"{}\"\n\n[embeddings]\n\
+             model = \"jinaai/jina-embeddings-v2-base-es\"\ndims = 768\n\
+             min_similarity = 0.35\n",
+            kb.display().to_string().replace('\\', "/"),
+            db.display().to_string().replace('\\', "/"),
+        ),
+    )
+    .unwrap();
+    Entorno {
+        config: cfg,
+        cache_hf: home.join(".cache").join("huggingface").join("hub"),
+        home,
+        path: String::new(),
+    }
+}
+
+#[test]
+fn una_kb_que_no_existe_es_fail_y_el_check_dice_que_ruta_miro() {
+    let dir = tempfile::tempdir().unwrap();
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "kb_readable");
+    assert_eq!(c.estado, Estado::Fail);
+    assert!(c.artefacto.ends_with("kb"), "artefacto: {}", c.artefacto);
+}
+
+#[test]
+fn una_kb_con_notas_es_ok_y_reporta_cuantas_conto() {
+    let dir = tempfile::tempdir().unwrap();
+    let kb = dir.path().join("kb");
+    fs::create_dir_all(kb.join("core")).unwrap();
+    fs::write(kb.join("core").join("a.md"), "---\ntier: core\n---\nx\n").unwrap();
+    fs::write(kb.join("core").join("b.md"), "---\ntier: core\n---\ny\n").unwrap();
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "kb_readable");
+    assert_eq!(c.estado, Estado::Ok);
+    assert!(c.detalle.contains('2'), "cuenta las notas: {}", c.detalle);
+}
+
+#[test]
+fn sin_db_el_check_avisa_pero_no_gatea() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("kb")).unwrap();
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "index_db");
+    assert_eq!(
+        c.estado,
+        Estado::Warn,
+        "una DB ausente se arregla con `exo index`; no es una máquina rota"
+    );
+    assert!(
+        c.detalle.contains("exo index"),
+        "dice el remedio: {}",
+        c.detalle
+    );
+}
+
+#[test]
+fn con_db_vacia_el_check_reporta_los_bytes_del_fichero_que_miro() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("kb")).unwrap();
+    let db = dir.path().join("index.db");
+    // Una DB de verdad, con su schema: el check tiene que leerla, no
+    // conformarse con que exista un fichero con ese nombre.
+    let conn = exo::abre_db(&db).unwrap();
+    exo::schema::crea_schema(&conn).unwrap();
+    drop(conn);
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "index_db");
+    assert_eq!(
+        c.estado,
+        Estado::Warn,
+        "0 notas indexadas sigue siendo deuda"
+    );
+    assert!(
+        c.artefacto.contains("bytes"),
+        "reporta el tamaño del fichero que miró: {}",
+        c.artefacto
+    );
+}
+
+/// «DB no rancia» del primer bullet de G5. El caso que muerde de verdad está
+/// medido: en W11 `setsid` no existía, `exo-index.sh` fallaba, el `|| true` se
+/// lo tragaba y hubo **meses de sesiones sin refrescar el índice, sin un solo
+/// rastro**. Esta fila es ese rastro.
+#[test]
+fn una_kb_mas_nueva_que_el_indice_sale_como_rancia() {
+    let dir = tempfile::tempdir().unwrap();
+    let kb = dir.path().join("kb");
+    fs::create_dir_all(kb.join("core")).unwrap();
+    fs::write(kb.join("core").join("a.md"), "---\ntier: core\n---\nx\n").unwrap();
+    let db = dir.path().join("index.db");
+    let conn = exo::abre_db(&db).unwrap();
+    exo::schema::crea_schema(&conn).unwrap();
+    drop(conn);
+    // La nota se marca en el futuro en vez de dormir: con granularidad de
+    // mtime de un segundo, un test que escribe seguido compara iguales y sale
+    // verde por accidente.
+    let f = fs::File::options()
+        .write(true)
+        .open(kb.join("core").join("a.md"))
+        .unwrap();
+    f.set_modified(std::time::SystemTime::now() + std::time::Duration::from_secs(3600))
+        .unwrap();
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "index_db");
+    assert_eq!(c.estado, Estado::Warn);
+    assert!(
+        c.detalle.contains("más nuevos"),
+        "dice que la KB va por delante del índice: {}",
+        c.detalle
+    );
+}

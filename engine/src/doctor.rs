@@ -118,10 +118,16 @@ impl Entorno {
 }
 
 pub fn analiza(entorno: &Entorno) -> InformeDoctor {
+    // La config se carga UNA vez y se pasa a los checks que dependen de ella:
+    // releerla por check daría informes internamente incoherentes si alguien
+    // la edita a mitad de corrida.
+    let cfg = crate::config::carga_desde(&entorno.config).ok();
     InformeDoctor::nuevo(vec![
         check_config(entorno),
         check_binario_en_path(entorno),
         check_fallback_del_hook(entorno),
+        check_kb(cfg.as_ref()),
+        check_indice(cfg.as_ref()),
     ])
 }
 
@@ -207,6 +213,110 @@ fn check_fallback_del_hook(entorno: &Entorno) -> Check {
              Instala con install.sh/install.ps1 o copia el binario ahí",
         )
     }
+}
+
+fn check_kb(cfg: Option<&crate::config::Config>) -> Check {
+    let Some(cfg) = cfg else {
+        return Check::nuevo(
+            "kb_readable",
+            Estado::Fail,
+            "(sin config)",
+            "no hay config legible, así que no se sabe qué KB mirar",
+        );
+    };
+    let kb = crate::config::expande_tilde(&cfg.kb.path);
+    let artefacto = kb.display().to_string();
+    if !kb.is_dir() {
+        return Check::nuevo(
+            "kb_readable",
+            Estado::Fail,
+            artefacto,
+            "la raíz de la KB no existe o no es un directorio",
+        );
+    }
+    match crate::walker::walk_kb(&kb) {
+        Ok(notas) => Check::nuevo(
+            "kb_readable",
+            Estado::Ok,
+            artefacto,
+            format!("{} nota(s) .md bajo la raíz", notas.len()),
+        ),
+        Err(e) => Check::nuevo("kb_readable", Estado::Fail, artefacto, format!("{e:#}")),
+    }
+}
+
+fn check_indice(cfg: Option<&crate::config::Config>) -> Check {
+    let Some(cfg) = cfg else {
+        return Check::nuevo(
+            "index_db",
+            Estado::Fail,
+            "(sin config)",
+            "no hay config legible, así que no se sabe qué DB mirar",
+        );
+    };
+    let db = crate::config::expande_tilde(&cfg.index.db);
+    if !db.is_file() {
+        return Check::nuevo(
+            "index_db",
+            Estado::Warn,
+            db.display().to_string(),
+            "no hay índice todavía — córrelo con `exo index`",
+        );
+    }
+    let bytes = std::fs::metadata(&db).map(|m| m.len()).unwrap_or(0);
+    let artefacto = format!("{} ({bytes} bytes)", db.display());
+    let notas: i64 = match crate::abre_db(&db)
+        .and_then(|c| Ok(c.query_row("SELECT count(*) FROM notas", [], |r| r.get(0))?))
+    {
+        Ok(n) => n,
+        Err(e) => return Check::nuevo("index_db", Estado::Fail, artefacto, format!("{e:#}")),
+    };
+    // «No rancia»: la DB es al menos tan nueva como la nota más reciente.
+    // Heurística de mtime, la misma que usa el indexer incremental; no
+    // pretende detectar un borrado, sino el caso medido en W11 —el hook de
+    // reindexado muerto durante meses sin un solo rastro—.
+    let kb = crate::config::expande_tilde(&cfg.kb.path);
+    if let Some(nota) = mtime_mas_reciente(&kb)
+        && let Ok(indice) = std::fs::metadata(&db).and_then(|m| m.modified())
+        && nota > indice
+    {
+        return Check::nuevo(
+            "index_db",
+            Estado::Warn,
+            artefacto,
+            format!(
+                "{notas} nota(s) indexadas, pero la KB tiene cambios más nuevos \
+                 que el índice — corre `exo index`"
+            ),
+        );
+    }
+    if notas == 0 {
+        Check::nuevo(
+            "index_db",
+            Estado::Warn,
+            artefacto,
+            "el índice existe pero está vacío — corre `exo index`",
+        )
+    } else {
+        Check::nuevo(
+            "index_db",
+            Estado::Ok,
+            artefacto,
+            format!("{notas} nota(s) indexadas"),
+        )
+    }
+}
+
+/// El mtime de la nota más reciente de la KB. `None` si la KB no se puede
+/// recorrer: la ranciedad no se puede afirmar, y afirmarla a ciegas sería
+/// justo el tipo de veredicto sin artefacto que este comando evita.
+fn mtime_mas_reciente(kb: &std::path::Path) -> Option<std::time::SystemTime> {
+    let notas = crate::walker::walk_kb(kb).ok()?;
+    notas
+        .iter()
+        .filter_map(|n| std::fs::metadata(n).ok())
+        .filter_map(|m| m.modified().ok())
+        .max()
 }
 
 fn check_config(entorno: &Entorno) -> Check {
