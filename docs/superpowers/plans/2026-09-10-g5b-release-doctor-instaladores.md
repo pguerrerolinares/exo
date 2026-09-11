@@ -2863,7 +2863,22 @@ Expected: el binario en `~/.local/bin/exo`, `doctor` con su informe. Anota
 literalmente las filas `fail`/`warn`: son el estado real de esa máquina y el
 punto de partida de G4d.
 
-- [ ] **Step 6: Escribir el runbook y commitear**
+- [ ] **Step 6: Retirar los avisos de «esto todavía no funciona»**
+
+Con `v0.1.0` publicada, tres textos dejan de ser ciertos y hay que quitarlos
+en el mismo commit que cierra la release — un aviso caduco es tan mentira como
+la promesa que vino a corregir:
+
+- el bloque de cita bajo `## Instalar` en `README.md`;
+- el bloque de cita bajo `## 2. Instalar desde release (recomendado)` en
+  `docs/instalacion.md`;
+- el bullet «**La release `v0.1.0` no está cortada.**» de
+  `docs/instalacion.md`, sección `## 7. Lo que NO hay todavía`.
+
+Run: `grep -rn "todavía no funciona\|no está cortada\|dan 404" README.md docs/instalacion.md`
+Expected: sin salida.
+
+- [ ] **Step 7: Escribir el runbook y commitear**
 
 `docs/superpowers/runbooks/2026-09-10-g5b-release-v0.1.0.md` con, como mínimo:
 la corrida del workflow (id y duración), los seis assets con sus SHA256, la
