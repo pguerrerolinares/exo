@@ -72,6 +72,11 @@ enum Comando {
     /// 3 si `informe.fallido()`. Abstención (sin historia de git utilizable)
     /// sale 0, no 3: es información, no un fallo.
     Ratchet(ArgsRatchet),
+    /// Preflight de ENTORNO —la máquina—, no de la KB: eso es `lint`. Emite
+    /// el informe entero y LUEGO gatea: exit 3 si algún check sale `fail`.
+    /// Los `warn` informan sin gatear y los `na` declaran lo que no se mide
+    /// en esta plataforma, en vez de desaparecer de la lista.
+    Doctor(ArgsDoctor),
 }
 
 #[derive(Subcommand)]
@@ -334,6 +339,21 @@ struct ArgsLint {
 }
 
 #[derive(clap::Args)]
+struct ArgsDoctor {
+    /// Fichero SQLite del índice que juzga `index_db`. Precedencia: flag >
+    /// $EXO_DB > config.
+    #[arg(long)]
+    db: Option<PathBuf>,
+    /// Raíz de la KB que juzgan `kb_readable` y `kb_precommit_hook`.
+    /// Precedencia: flag > $EXO_KB > config.
+    #[arg(long)]
+    kb: Option<PathBuf>,
+    /// Emite el resultado como envelope JSON (spec §4) en stdout.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(clap::Args)]
 struct ArgsRatchet {
     /// Raíz de la KB. Precedencia: flag > $EXO_KB > config.
     #[arg(long)]
@@ -407,6 +427,7 @@ fn quiere_json(c: &Comando) -> bool {
         Comando::Budget(a) => a.json,
         Comando::Lint(a) => a.json,
         Comando::Ratchet(a) => a.json,
+        Comando::Doctor(a) => a.json,
         Comando::Write(w) => match w {
             ComandoWrite::New(a) => a.json,
             ComandoWrite::Append(a) => a.json,
@@ -460,6 +481,7 @@ fn ejecuta(comando: Comando) -> Result<()> {
         Comando::Budget(args) => budget_cmd(args),
         Comando::Lint(args) => lint_cmd(args),
         Comando::Ratchet(args) => ratchet_cmd(args),
+        Comando::Doctor(args) => doctor_cmd(args),
         Comando::Write(sub) => match sub {
             ComandoWrite::New(args) => write_new_cmd(args),
             ComandoWrite::Append(args) => write_append_cmd(args),
@@ -1040,6 +1062,44 @@ fn lint_cmd(args: ArgsLint) -> Result<()> {
         return Err(exo::gate::GateFallido {
             comando: "lint",
             detalle: format!("{} hallazgo(s)", informe.hallazgos.len()),
+        }
+        .into());
+    }
+    Ok(())
+}
+
+/// `exo doctor`: preflight de la máquina, no de la KB. Emite el informe
+/// entero SIEMPRE y solo después gatea: exit 3 si algún check sale `fail`.
+fn doctor_cmd(args: ArgsDoctor) -> Result<()> {
+    let mut entorno = exo::doctor::Entorno::del_proceso();
+    // Misma precedencia que el resto de verbos (`resuelve_kb`/`resuelve_db`:
+    // flag > $EXO_KB/$EXO_DB > config). A diferencia de `search`/`index`, un
+    // fallo de resolución aquí NO aborta el comando con `?`: `analiza` no
+    // puede devolver `Result` —un check que no sabe qué artefacto mirar es
+    // una fila `fail`, nunca un error que mate `doctor`—, así que se queda
+    // en `None` y los checks que dependen de `kb`/`db` caen a la `Config`
+    // que `analiza` carga por su cuenta, reportando `fail` si tampoco hay
+    // eso. Antes de este arreglo `doctor` ni siquiera intentaba `$EXO_KB`/
+    // `$EXO_DB`: con la env puesta, dictaminaba sobre una KB que ningún otro
+    // verbo estaba tocando (review final de rama, 2026-09-11).
+    entorno.kb = resuelve_kb(args.kb).ok();
+    entorno.db = resuelve_db(args.db).ok();
+    let informe = exo::doctor::analiza(&entorno);
+
+    // El informe entero sale SIEMPRE, pase lo que pase con el gate: un
+    // preflight que se calla justo cuando algo va mal no sirve de nada.
+    if args.json {
+        envelope::emite("doctor", serde_json::to_value(&informe)?);
+    } else {
+        for c in &informe.checks {
+            println!("{}\t{}\t{}\t{}", c.estado, c.id, c.artefacto, c.detalle);
+        }
+    }
+
+    if !informe.ok {
+        return Err(exo::gate::GateFallido {
+            comando: "doctor",
+            detalle: format!("{} check(s) en fail", informe.fallidos()),
         }
         .into());
     }

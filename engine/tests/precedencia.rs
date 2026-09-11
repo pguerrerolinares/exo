@@ -171,6 +171,130 @@ fn el_flag_gana_a_la_env_y_la_env_gana_a_la_config_para_kb() {
     );
 }
 
+/// El entregable de la Task 13a (G5b): `doctor` resolvía la KB y la DB SOLO
+/// desde la config (`config::carga_desde`), ignorando `$EXO_KB`/`$EXO_DB` —
+/// mientras el resto de verbos sí los honraban (`resuelve_db`/`resuelve_kb`,
+/// arriba en este mismo fichero). Con `$EXO_KB` puesta, `exo index`/`exo
+/// search` trabajaban sobre una KB y `exo doctor` dictaminaba sobre otra:
+/// un informe impecable sobre un artefacto que nadie estaba tocando. Se
+/// prueba por CLI, no por unidad, por la misma razón que el resto del
+/// fichero: la precedencia vive en `main.rs`, no en `doctor::analiza`.
+#[test]
+fn doctor_honra_kb_por_flag_env_y_config_en_ese_orden() {
+    // Normaliza separadores: la KB que viene de la config pasó por TOML con
+    // `/` literales (`cfg_temporal_kb`), y en Windows `PathBuf::display()`
+    // no los reescribe a `\`, así que comparar el string crudo contra el de
+    // `dir.path().join(...)` (que sí lleva `\` nativos) daría un falso
+    // negativo que no tiene nada que ver con la precedencia que se prueba.
+    fn norm(p: &std::path::Path) -> String {
+        p.display().to_string().replace('\\', "/")
+    }
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let kb_config = dir.path().join("kb-de-config");
+    std::fs::create_dir_all(&kb_config).unwrap();
+    let db = dir.path().join("indice-de-prueba.db");
+    let cfg = cfg_temporal_kb(dir.path(), &kb_config, &db);
+
+    let kb_readable = |stdout: &[u8]| -> String {
+        let v: serde_json::Value = serde_json::from_slice(stdout).expect("json");
+        v["data"]["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["id"] == "kb_readable")
+            .expect("el informe lleva kb_readable")["artifact"]
+            .as_str()
+            .unwrap()
+            .replace('\\', "/")
+    };
+
+    // Sin flag ni env: `kb_readable` reporta la KB de la config.
+    let out = Command::new(bin())
+        .args(["doctor", "--json"])
+        .env("EXO_CONFIG", &cfg)
+        .env_remove("EXO_KB")
+        .output()
+        .expect("correr");
+    assert_eq!(kb_readable(&out.stdout), norm(&kb_config));
+
+    // Con $EXO_KB: gana la env, no la config. Este es el caso que estaba
+    // roto: antes del arreglo, `doctor` seguía reportando `kb_config` aquí.
+    let kb_env = dir.path().join("kb-de-env");
+    std::fs::create_dir_all(&kb_env).unwrap();
+    let out = Command::new(bin())
+        .args(["doctor", "--json"])
+        .env("EXO_CONFIG", &cfg)
+        .env("EXO_KB", &kb_env)
+        .output()
+        .expect("correr");
+    assert_eq!(
+        kb_readable(&out.stdout),
+        norm(&kb_env),
+        "doctor tiene que honrar $EXO_KB como el resto de verbos"
+    );
+
+    // Con --kb: gana el flag, aunque la env esté puesta.
+    let kb_flag = dir.path().join("kb-de-flag");
+    std::fs::create_dir_all(&kb_flag).unwrap();
+    let out = Command::new(bin())
+        .args(["doctor", "--json", "--kb"])
+        .arg(&kb_flag)
+        .env("EXO_CONFIG", &cfg)
+        .env("EXO_KB", &kb_env)
+        .output()
+        .expect("correr");
+    assert_eq!(kb_readable(&out.stdout), norm(&kb_flag));
+}
+
+/// Mismo contrato que el test de arriba, para `index_db`.
+#[test]
+fn doctor_honra_db_por_flag_env_y_config_en_ese_orden() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let kb = dir.path().join("kb-de-config");
+    std::fs::create_dir_all(&kb).unwrap();
+    let db_config = dir.path().join("db-de-config.sqlite");
+    let cfg = cfg_temporal_kb(dir.path(), &kb, &db_config);
+
+    let index_db_artefacto = |stdout: &[u8]| -> String {
+        let v: serde_json::Value = serde_json::from_slice(stdout).expect("json");
+        v["data"]["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["id"] == "index_db")
+            .expect("el informe lleva index_db")["artifact"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    };
+
+    // Con $EXO_DB: gana la env, no la config.
+    let db_env = dir.path().join("db-de-env.sqlite");
+    let out = Command::new(bin())
+        .args(["doctor", "--json"])
+        .env("EXO_CONFIG", &cfg)
+        .env("EXO_DB", &db_env)
+        .output()
+        .expect("correr");
+    assert!(
+        index_db_artefacto(&out.stdout).starts_with(&db_env.display().to_string()),
+        "doctor tiene que honrar $EXO_DB como el resto de verbos: {}",
+        index_db_artefacto(&out.stdout)
+    );
+
+    // Con --db: gana el flag, aunque la env esté puesta.
+    let db_flag = dir.path().join("db-de-flag.sqlite");
+    let out = Command::new(bin())
+        .args(["doctor", "--json", "--db"])
+        .arg(&db_flag)
+        .env("EXO_CONFIG", &cfg)
+        .env("EXO_DB", &db_env)
+        .output()
+        .expect("correr");
+    assert!(index_db_artefacto(&out.stdout).starts_with(&db_flag.display().to_string()));
+}
+
 #[test]
 fn sin_config_ni_flag_el_error_dice_que_hacer() {
     let dir = tempfile::tempdir().expect("tempdir");

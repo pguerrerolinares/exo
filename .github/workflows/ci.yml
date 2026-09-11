@@ -97,3 +97,36 @@ jobs:
       - name: Gate hermético — suite completa sin ~/.exo/config.toml
         shell: bash
         run: ./engine/scripts/test-hermetico.sh
+
+  install-gate:
+    name: install gate (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            script: bash scripts/test-install.sh
+          - os: macos-latest
+            script: bash scripts/test-install.sh
+          # scripts/test-install.ps1 lleva su propio gate: sale 0 solo si el
+          # caso "checksum correcto instala" Y el caso "checksum manipulado
+          # aborta sin dejar binario" pasan los dos.
+          - os: windows-latest
+            script: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-install.ps1
+    steps:
+      - uses: actions/checkout@v4
+      # No hace falta toolchain de Rust ni la caché del modelo ONNX: estos
+      # tests no compilan el engine ni lo ejecutan — sirven una release falsa
+      # por file:// contra install.sh/install.ps1. `shell: bash` en los tres
+      # SO (igual que hace el job `test` de arriba): en windows-latest invoca
+      # powershell.exe desde Git Bash, que es un ejecutable normal en el PATH.
+      #
+      # Ninguno de los dos gates se disparaba antes de esto (2026-09-11): el
+      # de bash existía sin CI que lo corriera, y el de PowerShell no existía
+      # — install.ps1 llevaba tres correcciones medidas a mano y sin red de
+      # regresión.
+      - name: Gate de instalador — checksum manipulado aborta sin dejar binario
+        shell: bash
+        run: ${{ matrix.script }}

@@ -1,0 +1,192 @@
+//! La superficie de CLI de `exo doctor`: envelope v2, informe ANTES del gate,
+//! exit 3 cuando algún check sale `fail`.
+//!
+//! Los tests NO asertan exit 0: en un runner limpio faltan la DB y el modelo,
+//! y eso es precisamente lo que doctor tiene que reportar. Lo determinista
+//! —y lo que se aserta aquí— es el caso config-ausente.
+use std::fs;
+use std::process::Command;
+
+fn bin() -> &'static str {
+    env!("CARGO_BIN_EXE_exo")
+}
+
+/// Config mínima válida en un tempdir. Se apunta con `$EXO_CONFIG` para no
+/// tocar el `~/.exo/config.toml` de la máquina (gate hermético).
+fn config_valida(dir: &std::path::Path) -> std::path::PathBuf {
+    let kb = dir.join("kb");
+    fs::create_dir_all(&kb).unwrap();
+    let ruta = dir.join("config.toml");
+    fs::write(
+        &ruta,
+        format!(
+            "schema_version = 1\n\n[kb]\npath = \"{}\"\nname = \"kb-demo\"\n\n\
+             [index]\ndb = \"{}\"\n\n[embeddings]\n\
+             model = \"jinaai/jina-embeddings-v2-base-es\"\ndims = 768\n\
+             min_similarity = 0.35\n",
+            kb.display().to_string().replace('\\', "/"),
+            dir.join("index.db")
+                .display()
+                .to_string()
+                .replace('\\', "/"),
+        ),
+    )
+    .unwrap();
+    ruta
+}
+
+#[test]
+fn doctor_emite_envelope_v2_con_el_comando_y_la_plataforma() {
+    let dir = tempfile::tempdir().unwrap();
+    let cfg = config_valida(dir.path());
+    let salida = Command::new(bin())
+        .args(["doctor", "--json"])
+        .env("EXO_CONFIG", &cfg)
+        .output()
+        .unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&salida.stdout).unwrap();
+    assert_eq!(v["schema_version"], 2);
+    assert_eq!(v["command"], "doctor");
+    assert!(v["data"]["checks"].is_array());
+    assert!(
+        v["data"]["platform"].is_string(),
+        "el informe declara la plataforma que midió"
+    );
+    let checks = v["data"]["checks"].as_array().unwrap();
+    let config = checks.iter().find(|c| c["id"] == "config").unwrap();
+    assert_eq!(config["status"], "ok");
+    assert_eq!(
+        config["artifact"],
+        cfg.display().to_string(),
+        "el check reporta el fichero que miró, no un veredicto pelado"
+    );
+}
+
+#[test]
+fn sin_config_el_informe_sale_igual_y_luego_gatea_con_exit_tres() {
+    let dir = tempfile::tempdir().unwrap();
+    let salida = Command::new(bin())
+        .args(["doctor", "--json"])
+        .env("EXO_CONFIG", dir.path().join("no-existe.toml"))
+        .output()
+        .unwrap();
+    assert_eq!(
+        salida.status.code(),
+        Some(3),
+        "config ausente es gate de dominio, no error de sistema"
+    );
+    let v: serde_json::Value = serde_json::from_slice(&salida.stdout).unwrap();
+    assert_eq!(
+        v["data"]["ok"], false,
+        "el informe entero se emite ANTES de gatear"
+    );
+    let checks = v["data"]["checks"].as_array().unwrap();
+    let config = checks.iter().find(|c| c["id"] == "config").unwrap();
+    assert_eq!(config["status"], "fail");
+}
+
+#[test]
+fn la_salida_humana_lleva_estado_id_y_artefacto_en_cada_linea() {
+    let dir = tempfile::tempdir().unwrap();
+    let cfg = config_valida(dir.path());
+    let salida = Command::new(bin())
+        .arg("doctor")
+        .env("EXO_CONFIG", &cfg)
+        .output()
+        .unwrap();
+    let texto = String::from_utf8_lossy(&salida.stdout);
+    let linea = texto
+        .lines()
+        .find(|l| l.contains("\tconfig\t"))
+        .expect("hay una línea del check config");
+    let campos: Vec<&str> = linea.split('\t').collect();
+    assert_eq!(campos.len(), 4, "estado\tid\tartefacto\tdetalle");
+    assert_eq!(campos[0], "ok");
+    assert_eq!(campos[1], "config");
+    assert_eq!(campos[2], cfg.display().to_string());
+}
+
+/// Los diez ids son contrato público, en este orden. Existe para que un check
+/// no pueda desaparecer en silencio: es exactamente el fallo que doctor
+/// combate —una fila ausente no se distingue de un check que nunca existió—,
+/// aplicado al propio doctor.
+#[test]
+fn la_lista_de_checks_es_contrato_y_no_puede_encoger() {
+    let dir = tempfile::tempdir().unwrap();
+    let cfg = config_valida(dir.path());
+    let salida = Command::new(bin())
+        .args(["doctor", "--json"])
+        .env("EXO_CONFIG", &cfg)
+        .output()
+        .unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&salida.stdout).unwrap();
+    let ids: Vec<&str> = v["data"]["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        ids,
+        vec![
+            "config",
+            "binary_on_path",
+            "hook_fallback_binary",
+            "kb_readable",
+            "index_db",
+            "embeddings_model",
+            "jq",
+            "git_bash",
+            "detach",
+            "kb_precommit_hook",
+        ]
+    );
+}
+
+#[test]
+fn todo_estado_esta_en_el_vocabulario_de_cuatro_y_ok_es_la_ausencia_de_fail() {
+    // Este test deriva lo esperado del MISMO run que evalúa, y eso es
+    // deliberado: varios checks leen el entorno real del proceso, así que la
+    // rama que ejercita depende de la máquina. En la de Paul —con `exo` en
+    // `~/.local/bin`, jq y Git Bash— no hay ningún `fail` y verifica
+    // `ok → exit 0`; en los runners limpios del CI faltan las tres cosas, hay
+    // `fail` y verifica `fail → exit 3`. Entre los tres SO de la matriz se
+    // ejercen las dos ramas.
+    //
+    // Lo que NO se apoya en esa lotería es el mapeo crítico: `fail → exit 3`
+    // tiene su test determinista aparte, en
+    // `sin_config_el_informe_sale_igual_y_luego_gatea_con_exit_tres`, que
+    // fuerza el fallo y hardcodea el 3. Decisión de Paul (2026-09-11) tras el
+    // review de la Task 7.
+    let dir = tempfile::tempdir().unwrap();
+    let cfg = config_valida(dir.path());
+    let salida = Command::new(bin())
+        .args(["doctor", "--json"])
+        .env("EXO_CONFIG", &cfg)
+        .output()
+        .unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&salida.stdout).unwrap();
+    let checks = v["data"]["checks"].as_array().unwrap();
+    let mut hay_fail = false;
+    for c in checks {
+        let s = c["status"].as_str().unwrap();
+        assert!(
+            matches!(s, "ok" | "warn" | "fail" | "na"),
+            "estado fuera del vocabulario: {s}"
+        );
+        if s == "fail" {
+            hay_fail = true;
+        }
+    }
+    assert_eq!(
+        v["data"]["ok"].as_bool().unwrap(),
+        !hay_fail,
+        "`ok` es exactamente «ningún check en fail»: los warn no gatean"
+    );
+    let esperado = if hay_fail { Some(3) } else { Some(0) };
+    assert_eq!(
+        salida.status.code(),
+        esperado,
+        "el exit code sigue a `ok`, no al revés"
+    );
+}

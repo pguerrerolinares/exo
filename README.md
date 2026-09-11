@@ -1,9 +1,24 @@
 # exo
 
 Framework de trabajo agéntico con memoria persistente. Tres capas:
-**thin** (skills-router, hooks) → **engine** (hoy: `init`/`config`/`index`/`rebuild`/
-`search`/`write`/`recall`, ver `exo --help` · planeado: `budget`, `doctor`) →
-**thick** (KB markdown+frontmatter ≈OKF).
+**thin** (skills-router, hooks) → **engine** (`init`/`config`/`index`/`rebuild`/
+`search`/`write`/`recall`/`doctor`/`budget`/`lint`/`ratchet`/`targets`, ver
+`exo --help`) → **thick** (KB markdown+frontmatter ≈OKF).
+
+## Instalar
+
+> **Todavía no funciona, y decirlo es el punto.** El instalador y el workflow
+> de release viven en la rama `g5b-release-doctor`, sin mergear, y **no hay
+> ningún tag cortado**: hoy esa URL da 404 y `releases/latest` no resuelve a
+> nada. Hasta que se publique `v0.1.0`, el camino real es compilar desde
+> fuente — ver [`docs/instalacion.md`](docs/instalacion.md).
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/pguerrerolinares/exo/main/install.sh | bash
+```
+
+Requisitos: `git` y `jq`. Ni Rust ni toolchain C. Detalle y camino desde
+fuente: [`docs/instalacion.md`](docs/instalacion.md).
 
 El engine es un binario Rust (`exo`) que se construye desde `engine/` y arranca con
 `~/.exo/config.toml` — sin dependencia de `basic-memory` para funcionar (la única
@@ -34,15 +49,58 @@ invoca ese binario desde hooks y scripts de shell.
   **1C** hermeticidad de la suite respecto a `~/.exo/config.toml`, con gate
   falsable (`engine/scripts/test-hermetico.sh`) y KB semilla propia de
   `exo init`. El privacy-pass de publicación (B1) está ejecutado sobre la
-  historia completa. Suite: 200 tests verdes en 28 binarios, corridos por
+  historia completa. Suite: 434 tests verdes en 44 binarios (2 ignorados), corridos por
   `.github/workflows/ci.yml` en ubuntu-latest / windows-latest / macos-latest
   vía el gate hermético (`engine/scripts/test-hermetico.sh`), con la caché del
   modelo de embeddings pineada por revisión del modelo (no por rama, así que
   no vuelve a subir nada) — más `fmt --check`, `clippy -D warnings` y un
   check de la MSRV declarada (1.95). Pendiente: MCP propio (M5a), desinstalar
-  basic-memory (M5b), y toda la distribución de G5 — release, instaladores,
-  `exo doctor` (incluido el check de desfase binario↔plugin, que hoy no
-  existe) y `exo budget`.
+  basic-memory (M5b).
+
+  G5b entregó la **maquinaria** de release, los instaladores y `exo doctor`;
+  falta cortar el primer tag para que exista una release de verdad. Queda
+  G4d (`rotate`, `stale`) y el check de desfase binario↔plugin.
+
+## Arquitectura
+
+```mermaid
+flowchart TB
+    subgraph host["Claude Code (host)"]
+        direction TB
+        skills["skills/<br/>exo:brainstorm · plan · orchestrate · tdd<br/>debug · verify · document · distill · recon-first"]
+        agent["agents/<br/>exo:executor"]
+        hooks["hooks/<br/>SessionStart · UserPromptSubmit<br/>SubagentStart · Stop · PreToolUse"]
+    end
+
+    subgraph bin["exo — binario Rust, sin runtime"]
+        direction TB
+        c1["init · config · doctor"]
+        c2["index · rebuild · search · recall · write"]
+        c3["targets · budget · lint · ratchet"]
+    end
+
+    cfg[("~/.exo/config.toml")]
+    db[("~/.exo/index.db<br/>SQLite: FTS5 + sqlite-vec")]
+    kb[("KB markdown + git<br/>core/ learnings/ projects/<br/>log/ archive/log/")]
+    tpl["kb-template/<br/>embebido en el binario"]
+    pc["pre-commit de la KB"]
+
+    host -->|"CLI, envelope JSON v2"| bin
+    pc -->|"budget · ratchet --staged"| bin
+    bin -->|lee| cfg
+    bin -->|lee/escribe| db
+    bin -->|lee/escribe| kb
+    tpl -.->|"exo init"| kb
+    tpl -.->|"exo init"| cfg
+```
+
+## Idioma
+
+exo es un producto **en español**: el default de embeddings es
+`jina-embeddings-v2-base-es` y la línea base del eval de retrieval está medida
+en español. El modelo es configurable (`[embeddings] model` en
+`~/.exo/config.toml`), pero **multiidioma es un frente futuro, no una
+promesa**: nadie ha medido el retrieval de exo en otra lengua.
 
 ## Capa thin: el plugin `exo`
 

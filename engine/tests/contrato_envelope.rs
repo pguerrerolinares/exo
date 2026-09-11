@@ -332,3 +332,54 @@ fn las_claves_de_lint_estan_en_ingles() {
     assert_eq!(h["type"], "root_file");
     assert_eq!(h["path"], "suelto.txt");
 }
+
+#[test]
+fn las_claves_de_doctor_estan_en_ingles() {
+    let informe = exo::doctor::InformeDoctor {
+        ok: false,
+        plataforma: "linux",
+        checks: vec![exo::doctor::Check {
+            id: "config",
+            estado: exo::doctor::Estado::Fail,
+            artefacto: "/home/x/.exo/config.toml".into(),
+            detalle: "no existe".into(),
+        }],
+    };
+    let v = serde_json::to_value(&informe).expect("serializar");
+    let obj = v.as_object().expect("objeto");
+
+    let mut claves: Vec<&str> = obj.keys().map(|k| k.as_str()).collect();
+    claves.sort_unstable();
+    assert_eq!(
+        claves,
+        vec!["checks", "ok", "platform"],
+        "renombrar una clave de data exige subir SCHEMA_VERSION"
+    );
+    assert!(!obj.contains_key("plataforma"), "sobrevive `plataforma`");
+
+    let check = v["checks"][0].as_object().expect("objeto");
+    let mut claves: Vec<&str> = check.keys().map(|k| k.as_str()).collect();
+    claves.sort_unstable();
+    assert_eq!(claves, vec!["artifact", "detail", "id", "status"]);
+    for k in ["estado", "artefacto", "detalle"] {
+        assert!(!check.contains_key(k), "sobrevive la clave española {k}");
+    }
+
+    // No basta con que las claves existan: `id`, `artifact` y `detail` son los
+    // tres de tipo texto, así que dos `#[serde(rename)]` intercambiados
+    // dejarían las cuatro claves presentes, ninguna española viva, y este test
+    // verde con el contrato invertido. Por eso se aserta el VALOR de cada una
+    // —el mismo patrón que ya siguen `recall`, `index` y `budget` en este
+    // fichero—.
+    assert_eq!(check["id"], "config");
+    assert_eq!(check["artifact"], "/home/x/.exo/config.toml");
+    assert_eq!(check["detail"], "no existe");
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["platform"], "linux");
+
+    // El vocabulario de cuatro estados es contrato: los consumidores filtran
+    // por estas cadenas, y `Na` serializando como "Na" en vez de "na" las
+    // rompería sin que ningún test de forma lo notara.
+    assert_eq!(check["status"], "fail");
+    assert_eq!(serde_json::to_value(exo::doctor::Estado::Na).unwrap(), "na");
+}
