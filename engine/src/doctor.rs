@@ -229,18 +229,29 @@ fn check_binario_en_path(entorno: &Entorno) -> Check {
 /// `[ -x ruta ]` tal y como lo evalua el hook: existe, es fichero y —en unix—
 /// lleva bit de ejecucion. En Windows no hay tal bit: ahi `-x` de msys mira la
 /// extension, asi que `is_file()` es la equivalencia correcta.
+///
+/// El bit va en una función aparte por plataforma en vez de en un bloque
+/// `#[cfg]` dentro de esta: el `return` que ese bloque exigía es
+/// `clippy::needless_return` al compilarse en unix, y **el clippy de una
+/// máquina Windows no lo ve**, porque no compila ese `cfg`. Lo cazó el CI en
+/// ubuntu (run 34581824820) — mismo punto ciego que impide correr aquí los
+/// tests `#[cfg(unix)]`.
 fn es_ejecutable(ruta: &std::path::Path) -> bool {
-    if !ruta.is_file() {
-        return false;
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        return std::fs::metadata(ruta)
-            .map(|m| m.permissions().mode() & 0o111 != 0)
-            .unwrap_or(false);
-    }
-    #[cfg(not(unix))]
+    ruta.is_file() && tiene_bit_de_ejecucion(ruta)
+}
+
+#[cfg(unix)]
+fn tiene_bit_de_ejecucion(ruta: &std::path::Path) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::metadata(ruta)
+        .map(|m| m.permissions().mode() & 0o111 != 0)
+        .unwrap_or(false)
+}
+
+/// En Windows no hay bit de ejecución: el `-x` de msys mira la extensión, así
+/// que `is_file()` ya es la equivalencia completa.
+#[cfg(not(unix))]
+fn tiene_bit_de_ejecucion(_ruta: &std::path::Path) -> bool {
     true
 }
 
