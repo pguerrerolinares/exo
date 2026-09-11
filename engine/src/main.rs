@@ -206,6 +206,11 @@ struct ArgsSearch {
     /// (`~/.exo/config.toml`). Precedencia: flag > $EXO_DB > config.
     #[arg(long)]
     db: Option<PathBuf>,
+    /// Raíz de la KB. Solo la usa la salida humana, que emite rutas absolutas
+    /// (el `--json` sigue dando la relativa). Precedencia: flag > $EXO_KB >
+    /// config, igual que en `recall` y `targets`.
+    #[arg(long)]
+    kb: Option<PathBuf>,
     /// Máximo de resultados. Default 10 (replay-engine pasa el suyo
     /// explícito; flags > config).
     #[arg(long = "limit", alias = "limite", default_value_t = 10)]
@@ -913,8 +918,37 @@ fn busca_cmd(args: ArgsSearch) -> Result<()> {
     if args.json {
         envelope::emite("search", serde_json::to_value(&resultado)?);
     } else {
+        // La humana da la ruta ABSOLUTA: el cwd del agente es el repo en el que
+        // trabaja, no la KB, así que una relativa no se le puede pasar a `Edit`
+        // sin resolver antes la raíz — y eso devolvería el jq que esta columna
+        // existe para quitar. Mismo criterio que `exo write`.
+        let kb = resuelve_kb(args.kb).context(
+            "la salida humana de `exo search` emite rutas absolutas y necesita la \
+             raíz de la KB: pasa --kb, o corre `exo init`",
+        )?;
+        let raiz = exo::walker::ruta_portable(&kb.display().to_string());
+        let raiz = raiz.trim_end_matches('/');
+
+        let mut sin_ruta = 0usize;
         for r in &resultado.results {
-            println!("{}\t{}\t{:.4}", r.permalink, r.tipo, r.score);
+            let ruta = match &r.ruta {
+                Some(rel) => format!("{raiz}/{}", exo::walker::ruta_portable(rel)),
+                None => {
+                    sin_ruta += 1;
+                    // Un token, sin espacios: `awk '{print $4}'` sin -F es el
+                    // hábito más común y partiría un marcador con espacios.
+                    "(sin-ruta:rebuild)".to_string()
+                }
+            };
+            println!("{}\t{}\t{:.4}\t{}", r.permalink, r.tipo, r.score, ruta);
+        }
+        if sin_ruta > 0 {
+            // A stderr y FUERA de `warnings`: `path: null` ya es inferible
+            // desde `results`, y el envelope no cambia por esto.
+            eprintln!(
+                "aviso: {sin_ruta} de {} resultados sin ruta (índice inconsistente): exo rebuild",
+                resultado.results.len()
+            );
         }
     }
     Ok(())
