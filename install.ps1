@@ -43,15 +43,21 @@ try {
     Invoke-WebRequest -Uri "$BaseUrl/$asset"        -OutFile $binTmp -UseBasicParsing
     Invoke-WebRequest -Uri "$BaseUrl/$asset.sha256" -OutFile $shaTmp -UseBasicParsing
 
-    # El fichero lo escribe `shasum -a 256`: "<hash>  <fichero>". Se compara
-    # ANTES de copiar nada al destino: un fallo no deja binario a medias.
+    # El fichero viene en uno de los DOS formatos estandar, y la release
+    # publica los dos a la vez: `shasum -a 256` escribe "<hash>  <fichero>" y
+    # `sha256sum` escribe "<hash> *<fichero>", donde el `*` marca modo binario
+    # y NO es parte del nombre. En v0.1.0 el asset de Windows lo firmo
+    # `sha256sum` (el fallback del workflow, porque `shasum` no existe en el
+    # bash de windows-latest) y los de Linux y macOS `shasum`. Sin quitar ese
+    # `*`, este instalador rechaza su propio binario — medido contra la
+    # release real el 2026-09-11. `shasum -c` del camino bash lo entiende
+    # nativamente; aqui hay que decirlo.
+    # Se compara ANTES de copiar nada: un fallo no deja binario a medias.
     $campos   = (Get-Content $shaTmp -Raw).Trim() -split '\s+'
     $esperado = $campos[0]
-    # `shasum -c` valida ademas que el nombre del fichero del .sha256 sea el
-    # que se esta verificando; aqui se hace explicito para no quedarse con una
-    # comprobacion mas debil que la del camino bash.
-    if ($campos.Count -ge 2 -and $campos[-1] -ne $asset) {
-        throw "install: el .sha256 es de '$($campos[-1])', no de '$asset'. NO se ha instalado nada."
+    $firmado  = $campos[-1] -replace '^\*', ''
+    if ($campos.Count -ge 2 -and $firmado -ne $asset) {
+        throw "install: el .sha256 es de '$firmado', no de '$asset'. NO se ha instalado nada."
     }
     $real     = (Get-FileHash -Path $binTmp -Algorithm SHA256).Hash.ToLower()
     if ($real -ne $esperado.ToLower()) {

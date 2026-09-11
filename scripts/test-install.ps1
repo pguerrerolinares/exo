@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   Gate de install.ps1, sin red: fabrica una "release" falsa en disco y la
@@ -52,14 +52,24 @@ New-PayloadReal -Destino $payload
 $payloadBytes = [System.IO.File]::ReadAllBytes($payload)
 
 function New-Release {
-    # Mismo formato que `shasum -a 256`: "<hash>  <fichero>", que es lo que
-    # install.ps1 parsea (campos[0] = hash, campos[-1] = nombre de fichero).
-    param([string]$Dir)
+    # Los DOS formatos estandar, porque la release de v0.1.0 publica los dos:
+    #   `shasum -a 256` -> "<hash>  <fichero>"   (dos espacios)
+    #   `sha256sum`     -> "<hash> *<fichero>"   (`*` = modo binario)
+    # El asset de Windows lo firma `sha256sum` (el fallback del workflow,
+    # porque `shasum` no existe en el bash de windows-latest) y los de Linux y
+    # macOS los firma `shasum`. Un instalador que solo entienda uno rechaza su
+    # propio binario: paso de verdad contra la release real el 2026-09-11.
+    param([string]$Dir, [switch]$FormatoSha256sum)
     New-Item -ItemType Directory -Force -Path $Dir | Out-Null
     $destAsset = Join-Path $Dir $asset
     [System.IO.File]::WriteAllBytes($destAsset, $payloadBytes)
     $hash = (Get-FileHash -Path $destAsset -Algorithm SHA256).Hash.ToLower()
-    Set-Content -Path "$destAsset.sha256" -Value "$hash  $asset" -Encoding ascii -NoNewline
+    if ($FormatoSha256sum) {
+        $linea = "$hash *$asset"
+    } else {
+        $linea = "$hash  $asset"
+    }
+    Set-Content -Path "$destAsset.sha256" -Value $linea -Encoding ascii -NoNewline
 }
 
 function Get-FileUrl {
@@ -131,11 +141,37 @@ if ($ec2 -eq 0) {
     }
 }
 
+# --- Caso 3: el .sha256 en formato `sha256sum` ("<hash> *<fichero>") instala
+# igual. Es regresion de un fallo REAL: install.ps1 tomaba el `*` como parte
+# del nombre y rechazaba el binario que la propia release publica.
+$rel3 = Join-Path $tmp 'release-sha256sum'
+$dest3 = Join-Path $tmp 'bin-sha256sum'
+New-Release -Dir $rel3 -FormatoSha256sum
+$env:EXO_BASE_URL = Get-FileUrl -Dir $rel3
+$env:EXO_DIR = $dest3
+$log3 = Join-Path $tmp 'sha256sum.log'
+# Mismo blindaje que los otros dos casos: stderr del hijo no puede abortar
+# este script bajo 'Stop'.
+$ErrorActionPreference = 'Continue'
+& powershell -NoProfile -ExecutionPolicy Bypass -File $installScript *> $log3
+$ec3 = $LASTEXITCODE
+$ErrorActionPreference = 'Stop'
+if ($ec3 -ne 0) {
+    Write-Output "test-install: FALLO - formato sha256sum rechazado (exit $ec3)"
+    $fallos = 1
+} elseif (-not (Test-Path (Join-Path $dest3 'exo.exe'))) {
+    Write-Output "test-install: FALLO - formato sha256sum salio 0 pero no instalo"
+    $fallos = 1
+} else {
+    Write-Output "test-install: OK - el formato de sha256sum tambien instala"
+}
+
 Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
+
 
 if ($fallos -ne 0) {
     Write-Output "test-install: hay fallos"
     exit 1
 }
-Write-Output "test-install: OK - los dos casos"
+Write-Output "test-install: OK - los tres casos"
 exit 0
