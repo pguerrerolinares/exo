@@ -25,8 +25,10 @@ jobs:
     timeout-minutes: 60
     strategy:
       # Sin fail-fast: si macOS cae, se quiere ver si linux y windows
-      # compilaron. El gate de inventario del job `publish` impide que una
-      # release coja llegue a publicarse.
+      # compilaron. Quien impide que una release coja se publique NO es el
+      # gate de inventario de `publish`, sino su `needs: build`: si cualquier
+      # leg de la matriz falla, el job `build` concluye en `failure` y
+      # `publish` ni arranca. El inventario es la segunda línea.
       fail-fast: false
       matrix:
         include:
@@ -92,10 +94,12 @@ jobs:
         run: |
           set -euo pipefail
           ls -l dist
-          # Seis ficheros exactos: 3 binarios + 3 .sha256. Menos significa que
-          # un runner cayó, y sin este gate la release saldría coja en verde:
-          # install.sh de esa plataforma daría 404 y nadie lo sabría hasta que
-          # alguien intentara instalar.
+          # Seis ficheros exactos: 3 binarios + 3 .sha256. Defensa en
+          # profundidad, no la defensa principal: un runner caído ya lo para
+          # `needs: build` antes de llegar aquí. Esto cubre lo que aquel no ve
+          # —un artifact que sube de menos, un cambio de nombres— y el daño
+          # que evita es el mismo: install.sh daría 404 en esa plataforma y
+          # nadie lo sabría hasta que alguien intentara instalar.
           n="$(ls dist | wc -l)"
           [ "$n" -eq 6 ] || { echo "esperaba 6 ficheros en dist, hay $n" >&2; exit 1; }
       - name: Publicar la release
