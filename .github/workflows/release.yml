@@ -1,0 +1,126 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  # Re-publicar un tag ya existente sin volver a moverlo: un push de tag no se
+  # repite, y borrar y re-empujar un tag público es peor que un botón.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag ya existente a publicar (p. ej. v0.1.0)'
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      # Sin fail-fast: si macOS cae, se quiere ver si linux y windows
+      # compilaron. El gate de inventario del job `publish` impide que una
+      # release coja llegue a publicarse.
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            bin: exo
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin: exo.exe
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            bin: exo
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+          key: release-${{ matrix.target }}
+      - name: cargo build --release
+        working-directory: engine
+        run: cargo build --release --locked --target ${{ matrix.target }}
+      - name: Empaquetar y calcular el SHA256
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          src="engine/target/${{ matrix.target }}/release/${{ matrix.bin }}"
+          # Sin este test, un cambio de layout de cargo publicaría una release
+          # con cero binarios y el job seguiría verde.
+          [ -f "$src" ] || { echo "no existe $src" >&2; exit 1; }
+          out="exo-${{ matrix.target }}"
+          case "${{ matrix.bin }}" in *.exe) out="$out.exe";; esac
+          cp "$src" "dist/$out"
+          # `shasum -a 256`, no `sha256sum`: este último NO existe en el
+          # runner de macOS.
+          ( cd dist && shasum -a 256 "$out" > "$out.sha256" )
+          cat "dist/$out.sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exo-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Inventario de lo que se va a publicar
+        shell: bash
+        run: |
+          set -euo pipefail
+          ls -l dist
+          # Seis ficheros exactos: 3 binarios + 3 .sha256. Menos significa que
+          # un runner cayó, y sin este gate la release saldría coja en verde:
+          # install.sh de esa plataforma daría 404 y nadie lo sabría hasta que
+          # alguien intentara instalar.
+          n="$(ls dist | wc -l)"
+          [ "$n" -eq 6 ] || { echo "esperaba 6 ficheros en dist, hay $n" >&2; exit 1; }
+      - name: Publicar la release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "exo $TAG" \
+            --notes "Binarios para linux-x86_64, windows-x86_64 y macos-arm64, cada uno con su \`.sha256\`.
+
+          Instalación (requiere \`git\` y \`jq\`; ni Rust ni toolchain C):
+
+          \`\`\`bash
+          curl -fsSL https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$TAG/install.sh | bash
+          \`\`\`
+
+          En PowerShell:
+
+          \`\`\`powershell
+          irm https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$TAG/install.ps1 | iex
+          \`\`\`
+
+          Detalle: \`docs/instalacion.md\`."
