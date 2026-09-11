@@ -84,8 +84,11 @@ bash (Git Bash en Windows) · PowerShell 5.1.
   Sale de `[package] name = "exo"` + `src/main.rs`; no hay `[[bin]]` explícito.
 - **`.gitattributes` de la raíz fuerza `* text=auto eol=lf`.** `install.sh`
   entra en LF; no añadir pasos de normalización de finales de línea.
-- **`sha256sum` NO existe en los runners de macOS.** Se usa `shasum -a 256`,
-  que sí está en los tres.
+- **Ninguna de las dos herramientas de checksum está en los tres runners.**
+  `sha256sum` no existe en macOS, y `shasum` **no existe en el bash de
+  `windows-latest`** — esto último era un supuesto falso de este plan, y
+  costó la primera corrida de release de `v0.1.0` (run 34584773325, exit 127).
+  Se prueba `shasum` y se cae a `sha256sum`, igual que hace `install.sh`.
 - **Modelo pineado:** `jinaai/jina-embeddings-v2-base-es`, revisión
   `8e2d780d8fd38f81ca9123ee28e4c5a968aaf21e` (`engine/src/lib.rs:166-167`).
   La caché la resuelve `hf_hub` internamente: `$HF_HOME/hub` si la variable

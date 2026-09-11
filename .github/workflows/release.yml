@@ -85,9 +85,16 @@ jobs:
           out="exo-${{ matrix.target }}"
           case "${{ matrix.bin }}" in *.exe) out="$out.exe";; esac
           cp "$src" "dist/$out"
-          # `shasum -a 256`, no `sha256sum`: este último NO existe en el
-          # runner de macOS.
-          ( cd dist && shasum -a 256 "$out" > "$out.sha256" )
+          # Ninguna de las dos herramientas esta en los tres runners:
+          # `sha256sum` NO existe en macOS, y `shasum` NO existe en el bash de
+          # windows-latest — medido, exit 127 en el run 34584773325, que dejo
+          # la release de v0.1.0 sin publicar. `install.sh` ya llevaba este
+          # fallback; el workflow que le da de comer, no.
+          if command -v shasum >/dev/null 2>&1; then
+            ( cd dist && shasum -a 256 "$out" > "$out.sha256" )
+          else
+            ( cd dist && sha256sum "$out" > "$out.sha256" )
+          fi
           cat "dist/$out.sha256"
       - uses: actions/upload-artifact@v4
         with:
