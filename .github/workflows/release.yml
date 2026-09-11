@@ -52,9 +52,27 @@ jobs:
         with:
           workspaces: engine
           key: release-${{ matrix.target }}
+      # Mismo pineado que ci.yml (fuente de verdad: REVISION_JINA_ES en
+      # engine/src/lib.rs). Las tres plataformas de esta matriz son nativas
+      # (host == target: no hay cross-compile), así que
+      # engine/scripts/test-hermetico.sh corre los tests tal cual sin tocar
+      # `--target`.
+      - name: Caché del modelo jina-es (revisión pineada)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface/hub/models--jinaai--jina-embeddings-v2-base-es
+          key: hf-jina-es-8e2d780d-${{ runner.os }}
       - name: cargo build --release
         working-directory: engine
         run: cargo build --release --locked --target ${{ matrix.target }}
+      # Sin esto, un binario que compila pero no pasa la suite se publicaba
+      # igual: `cargo build` no ejerce ni un test. El gate ya existe y ya se
+      # demostró falsable (2026-08-27); se consume tal cual, ANTES de
+      # empaquetar, para que ningún binario publicado pueda no haber pasado
+      # la suite en su propio SO.
+      - name: Gate hermético — suite completa sin ~/.exo/config.toml
+        shell: bash
+        run: ./engine/scripts/test-hermetico.sh
       - name: Empaquetar y calcular el SHA256
         shell: bash
         run: |
