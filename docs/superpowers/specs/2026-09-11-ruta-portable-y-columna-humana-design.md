@@ -302,10 +302,12 @@ el binario real, con la misma abstención exit≠0 que ya usa para `recall`.
 solo lanza `engine/scripts/test-hermetico.sh`, que verifica otra cosa (que la
 suite corra sin `~/.exo/config.toml`). Hoy la cabecera lo insinúa; la spec lo fija.
 
-**`kb_con_indice()` a `engine/tests/common/mod.rs`**: hoy está duplicado en
-`targets_cli.rs:16`, `contrato_envelope.rs:124` y `objetivos.rs:17`. La excusa de
-`targets_cli.rs:3-6` («declarar el módulo sin usarlo sería warning») está caducada:
-`common/mod.rs:10` lleva `#![allow(dead_code)]`. Se mueve antes de la 4ª copia.
+**`kb_con_indice()` NO se mueve a `engine/tests/common/mod.rs`** (revisado al
+planificar, 2026-09-11). Las tres «copias» no son copias: `objetivos.rs:17` monta
+alpha + beta + gamma + `informe.pdf`, mientras `targets_cli.rs:16` y
+`contrato_envelope.rs:124` montan solo alpha. Unificarlas no es deduplicar, es
+cambiar el fixture de suites que dependen de él — riesgo real a cambio de estética.
+`buscador_cli.rs` lleva su helper local, como el resto. Ver backlog.
 
 ## 4. Fuera de alcance (backlog, no este trabajo)
 
@@ -317,6 +319,10 @@ suite corra sin `~/.exo/config.toml`). Hoy la cabecera lo insinúa; la spec lo f
 - `walker.rs:131` normaliza `\`→`/` incondicionalmente: en Unix `\` es legal en un
   nombre de fichero. Un ítem que cubre walker **e** indexer (ver D0).
 - `exo targets` no da `path` en ningún modo (`objetivos.rs:98-107`).
+- Unificar el fixture `kb_con_indice()` de `objetivos.rs` / `targets_cli.rs` /
+  `contrato_envelope.rs` en `tests/common/mod.rs`: hoy montan KBs distintas
+  (una con beta/gamma/pdf, dos con solo alpha), así que es un trabajo de
+  unificación de fixtures, no un `git mv`.
 - Semántica de `path` desigual entre comandos bajo la misma clave: relativa en
   `search --json`, absoluta en `recall --json`.
 - La spec sellada §4.1 (`docs/superpowers/specs/2026-07-17-indexer-design.md`)
