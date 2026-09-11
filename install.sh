@@ -20,7 +20,15 @@ necesito uname
 
 case "$(uname -s)" in
   Linux)
-    target=x86_64-unknown-linux-gnu; bin=exo ;;
+    # El guard de arquitectura es simétrico al de Darwin, y por la misma razón:
+    # la release solo publica x86_64 para Linux. Sin él, en un ARM el checksum
+    # CUADRA —el fichero baja entero, solo que es de otra arquitectura—, el
+    # binario se copia encima de `~/.local/bin/exo` y el fallo llega tarde y
+    # mal, como un «Exec format error» del `--version`.
+    case "$(uname -m)" in
+      x86_64|amd64) target=x86_64-unknown-linux-gnu; bin=exo ;;
+      *) echo "install: no hay binario publicado para Linux $(uname -m); compila desde fuente (docs/instalacion.md)" >&2; exit 1 ;;
+    esac ;;
   Darwin)
     case "$(uname -m)" in
       arm64|aarch64) target=aarch64-apple-darwin; bin=exo ;;
