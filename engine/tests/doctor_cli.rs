@@ -145,6 +145,19 @@ fn la_lista_de_checks_es_contrato_y_no_puede_encoger() {
 
 #[test]
 fn todo_estado_esta_en_el_vocabulario_de_cuatro_y_ok_es_la_ausencia_de_fail() {
+    // Este test deriva lo esperado del MISMO run que evalúa, y eso es
+    // deliberado: varios checks leen el entorno real del proceso, así que la
+    // rama que ejercita depende de la máquina. En la de Paul —con `exo` en
+    // `~/.local/bin`, jq y Git Bash— no hay ningún `fail` y verifica
+    // `ok → exit 0`; en los runners limpios del CI faltan las tres cosas, hay
+    // `fail` y verifica `fail → exit 3`. Entre los tres SO de la matriz se
+    // ejercen las dos ramas.
+    //
+    // Lo que NO se apoya en esa lotería es el mapeo crítico: `fail → exit 3`
+    // tiene su test determinista aparte, en
+    // `sin_config_el_informe_sale_igual_y_luego_gatea_con_exit_tres`, que
+    // fuerza el fallo y hardcodea el 3. Decisión de Paul (2026-09-11) tras el
+    // review de la Task 7.
     let dir = tempfile::tempdir().unwrap();
     let cfg = config_valida(dir.path());
     let salida = Command::new(bin())

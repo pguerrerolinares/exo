@@ -365,6 +365,18 @@ fn las_claves_de_doctor_estan_en_ingles() {
         assert!(!check.contains_key(k), "sobrevive la clave española {k}");
     }
 
+    // No basta con que las claves existan: `id`, `artifact` y `detail` son los
+    // tres de tipo texto, así que dos `#[serde(rename)]` intercambiados
+    // dejarían las cuatro claves presentes, ninguna española viva, y este test
+    // verde con el contrato invertido. Por eso se aserta el VALOR de cada una
+    // —el mismo patrón que ya siguen `recall`, `index` y `budget` en este
+    // fichero—.
+    assert_eq!(check["id"], "config");
+    assert_eq!(check["artifact"], "/home/x/.exo/config.toml");
+    assert_eq!(check["detail"], "no existe");
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["platform"], "linux");
+
     // El vocabulario de cuatro estados es contrato: los consumidores filtran
     // por estas cadenas, y `Na` serializando como "Na" en vez de "na" las
     // rompería sin que ningún test de forma lo notara.
