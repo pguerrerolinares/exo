@@ -132,7 +132,7 @@ pub fn analiza(entorno: &Entorno) -> InformeDoctor {
         check_jq(entorno),
         check_git_bash(entorno),
         check_detach(entorno),
-        check_hook_precommit(cfg.as_ref()),
+        check_hook_precommit(entorno, cfg.as_ref()),
     ])
 }
 
@@ -482,11 +482,16 @@ fn check_detach(entorno: &Entorno) -> Check {
     )
 }
 
-/// El shim `pre-commit` de la KB. Tres estados con consecuencias distintas, y
-/// por eso no se colapsan: **no instalado** es deuda (`warn`), **instalado y
+/// El shim `pre-commit` de la KB. Cuatro estados con consecuencias distintas,
+/// y por eso no se colapsan: **no instalado** es deuda (`warn`), **symlink
 /// colgando** es el fallo de V6 —git lo ejecuta, no encuentra el destino y el
-/// commit pasa— y eso es `fail`.
-fn check_hook_precommit(cfg: Option<&crate::config::Config>) -> Check {
+/// commit pasa— (`fail`), **shim que no resuelve a ningún script** es el
+/// mismo fallo en máquinas con `core.symlinks=false` (`fail`), **shim que
+/// solo resuelve al plugin `reflex` viejo** es deuda de migración (`warn`), y
+/// **un `pre-commit` que no menciona `kb-precommit.sh`** es de otro dueño, no
+/// el gate de la KB (`warn`): atribuirse un hook ajeno sería el mismo
+/// veredicto-sin-artefacto que este comando existe para no dar.
+fn check_hook_precommit(entorno: &Entorno, cfg: Option<&crate::config::Config>) -> Check {
     let Some(cfg) = cfg else {
         return Check::nuevo(
             "kb_precommit_hook",
@@ -526,15 +531,81 @@ fn check_hook_precommit(cfg: Option<&crate::config::Config>) -> Check {
              ln -sf <repo>/plugins/exo/scripts/kb-precommit.sh <kb>/.git/hooks/pre-commit",
         );
     }
-    let destino = std::fs::read_link(&hook)
-        .map(|d| format!(" -> {}", d.display()))
-        .unwrap_or_default();
-    Check::nuevo(
-        "kb_precommit_hook",
-        Estado::Ok,
-        format!("{}{destino}", hook.display()),
-        "el gate de presupuestos y trinquete corre en cada commit de la KB",
-    )
+    // El hook existe. Un symlink se juzga por su destino; un fichero regular
+    // es un shim —el caso real en máquinas con `core.symlinks=false`— y hay
+    // que resolver a dónde lleva. Decir `ok` aquí sin mirarlo sería el
+    // veredicto-sin-artefacto que este comando existe para no dar.
+    if let Ok(destino) = std::fs::read_link(&hook) {
+        return Check::nuevo(
+            "kb_precommit_hook",
+            Estado::Ok,
+            format!("{} -> {}", hook.display(), destino.display()),
+            "el gate de presupuestos y trinquete corre en cada commit de la KB",
+        );
+    }
+    let contenido = std::fs::read_to_string(&hook).unwrap_or_default();
+    if !contenido.contains("kb-precommit.sh") {
+        return Check::nuevo(
+            "kb_precommit_hook",
+            Estado::Warn,
+            hook.display().to_string(),
+            "hay un pre-commit instalado, pero no menciona kb-precommit.sh: no es el gate de la KB",
+        );
+    }
+    match script_del_plugin(&entorno.home) {
+        Some((script, true)) => Check::nuevo(
+            "kb_precommit_hook",
+            Estado::Ok,
+            format!("{} -> {}", hook.display(), script.display()),
+            "el shim resuelve al kb-precommit.sh del plugin exo",
+        ),
+        Some((script, false)) => Check::nuevo(
+            "kb_precommit_hook",
+            Estado::Warn,
+            format!("{} -> {}", hook.display(), script.display()),
+            "el shim solo encuentra el plugin reflex (viejo) — migra a exo",
+        ),
+        None => Check::nuevo(
+            "kb_precommit_hook",
+            Estado::Fail,
+            hook.display().to_string(),
+            "el shim está instalado pero no resuelve a ningún kb-precommit.sh: el gate de la KB no puede correr",
+        ),
+    }
+}
+
+/// ¿A qué `kb-precommit.sh` resolvería el shim? Replica el glob del shim real
+/// instalado en la KB: el plugin `exo` primero y el `reflex` viejo como
+/// fallback declarado del cutover. Devuelve la ruta y si viene de `exo`.
+///
+/// El shim se queda con la versión más alta por `sort -V`; aquí basta con que
+/// **alguna** resuelva, así que se ordena lexicográficamente y se toma la
+/// última. La diferencia importaría para decir QUÉ versión corre, no para
+/// decir si el gate puede correr, que es lo que este check afirma.
+///
+/// Sin la crate `glob`: dos `read_dir` no pagan una dependencia.
+fn script_del_plugin(home: &std::path::Path) -> Option<(PathBuf, bool)> {
+    for (familia, es_exo) in [("exo", true), ("reflex", false)] {
+        let base = home
+            .join(".claude")
+            .join("plugins")
+            .join("cache")
+            .join("exo")
+            .join(familia);
+        let Ok(entradas) = std::fs::read_dir(&base) else {
+            continue;
+        };
+        let mut candidatos: Vec<PathBuf> = entradas
+            .flatten()
+            .map(|e| e.path().join("scripts").join("kb-precommit.sh"))
+            .filter(|p| p.is_file())
+            .collect();
+        candidatos.sort();
+        if let Some(ultimo) = candidatos.pop() {
+            return Some((ultimo, es_exo));
+        }
+    }
+    None
 }
 
 fn check_config(entorno: &Entorno) -> Check {

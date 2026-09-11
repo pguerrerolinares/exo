@@ -387,10 +387,13 @@ fn una_kb_sin_hook_instalado_avisa_con_el_comando_para_instalarlo() {
 
 #[test]
 fn con_el_hook_instalado_el_check_es_ok_y_reporta_la_ruta() {
+    // Un `exit 0` a secas ya no basta: el hook tiene que mencionar
+    // `kb-precommit.sh` y el shim tiene que resolver a un script real, o el
+    // veredicto no es un `ok` con artefacto. Esto es justo lo que esta tarea
+    // vino a corregir en este mismo test.
     let dir = tempfile::tempdir().unwrap();
-    let hooks = dir.path().join("kb").join(".git").join("hooks");
-    fs::create_dir_all(&hooks).unwrap();
-    fs::write(hooks.join("pre-commit"), b"#!/usr/bin/env bash\nexit 0\n").unwrap();
+    shim_precommit(&dir.path().join("kb"), SHIM_DE_LA_KB);
+    plugin_con_script(&dir.path().join("home"), "exo", "1.0.0");
     let informe = analiza(&entorno_con_config(dir.path()));
     let c = check(&informe, "kb_precommit_hook");
     assert_eq!(c.estado, Estado::Ok);
@@ -398,6 +401,102 @@ fn con_el_hook_instalado_el_check_es_ok_y_reporta_la_ruta() {
         c.artefacto.contains("pre-commit"),
         "artefacto: {}",
         c.artefacto
+    );
+}
+
+/// Escribe un `pre-commit` que es un shim (fichero regular, no symlink) — el
+/// caso real de una máquina con `core.symlinks=false`.
+fn shim_precommit(kb: &Path, cuerpo: &str) {
+    let hooks = kb.join(".git").join("hooks");
+    fs::create_dir_all(&hooks).unwrap();
+    fs::write(hooks.join("pre-commit"), cuerpo).unwrap();
+}
+
+/// Instala un `kb-precommit.sh` falso en el layout del plugin bajo `home`.
+fn plugin_con_script(home: &Path, familia: &str, version: &str) -> PathBuf {
+    let dir = home
+        .join(".claude")
+        .join("plugins")
+        .join("cache")
+        .join("exo")
+        .join(familia)
+        .join(version)
+        .join("scripts");
+    fs::create_dir_all(&dir).unwrap();
+    let ruta = dir.join("kb-precommit.sh");
+    fs::write(&ruta, b"#!/usr/bin/env bash\nexit 0\n").unwrap();
+    ruta
+}
+
+const SHIM_DE_LA_KB: &str = "#!/usr/bin/env bash\nexec bash \"$script\" # kb-precommit.sh\n";
+
+#[test]
+fn un_shim_que_no_resuelve_a_ningun_script_es_fail() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("kb")).unwrap();
+    shim_precommit(&dir.path().join("kb"), SHIM_DE_LA_KB);
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "kb_precommit_hook");
+    assert_eq!(
+        c.estado,
+        Estado::Fail,
+        "el hook existe, pero el script al que llama no está en ningún sitio"
+    );
+    assert!(
+        c.detalle.contains("no resuelve"),
+        "dice que el problema es la resolución, no la ausencia: {}",
+        c.detalle
+    );
+}
+
+#[test]
+fn un_shim_que_resuelve_al_plugin_exo_es_ok_y_reporta_el_script() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("kb")).unwrap();
+    shim_precommit(&dir.path().join("kb"), SHIM_DE_LA_KB);
+    let script = plugin_con_script(&dir.path().join("home"), "exo", "1.1.1");
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "kb_precommit_hook");
+    assert_eq!(c.estado, Estado::Ok);
+    assert!(
+        c.artefacto.contains(&script.display().to_string()),
+        "reporta el script al que resuelve, no solo el hook: {}",
+        c.artefacto
+    );
+}
+
+#[test]
+fn un_shim_que_solo_encuentra_el_plugin_viejo_avisa() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("kb")).unwrap();
+    shim_precommit(&dir.path().join("kb"), SHIM_DE_LA_KB);
+    plugin_con_script(&dir.path().join("home"), "reflex", "0.17.0");
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "kb_precommit_hook");
+    assert_eq!(c.estado, Estado::Warn);
+    assert!(
+        c.detalle.contains("reflex"),
+        "nombra el plugin viejo: {}",
+        c.detalle
+    );
+}
+
+#[test]
+fn un_pre_commit_ajeno_no_se_hace_pasar_por_el_gate_de_la_kb() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("kb")).unwrap();
+    shim_precommit(&dir.path().join("kb"), "#!/usr/bin/env bash\nnpm test\n");
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "kb_precommit_hook");
+    assert_eq!(
+        c.estado,
+        Estado::Warn,
+        "hay un pre-commit, pero no es el de la KB: decirlo es el trabajo"
+    );
+    assert!(
+        c.detalle.contains("no es el gate de la KB"),
+        "detalle: {}",
+        c.detalle
     );
 }
 
