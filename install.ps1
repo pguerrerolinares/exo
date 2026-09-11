@@ -40,7 +40,14 @@ try {
 
     # El fichero lo escribe `shasum -a 256`: "<hash>  <fichero>". Se compara
     # ANTES de copiar nada al destino: un fallo no deja binario a medias.
-    $esperado = ((Get-Content $shaTmp -Raw).Trim() -split '\s+')[0]
+    $campos   = (Get-Content $shaTmp -Raw).Trim() -split '\s+'
+    $esperado = $campos[0]
+    # `shasum -c` valida ademas que el nombre del fichero del .sha256 sea el
+    # que se esta verificando; aqui se hace explicito para no quedarse con una
+    # comprobacion mas debil que la del camino bash.
+    if ($campos.Count -ge 2 -and $campos[-1] -ne $asset) {
+        throw "install: el .sha256 es de '$($campos[-1])', no de '$asset'. NO se ha instalado nada."
+    }
     $real     = (Get-FileHash -Path $binTmp -Algorithm SHA256).Hash.ToLower()
     if ($real -ne $esperado.ToLower()) {
         throw "install: el SHA256 no cuadra. Esperado $esperado, calculado $real. NO se ha instalado nada."
@@ -57,11 +64,26 @@ try {
         Write-Warning "install: $Dir no está en tu PATH; añádelo para que 'exo' se resuelva solo"
     }
 
+    # El exit code de un proceso NATIVO no lanza excepcion en PowerShell, ni
+    # siquiera con $ErrorActionPreference='Stop': hay que mirar $LASTEXITCODE a
+    # mano. Sin esto, un binario que arranca pero devuelve != 0 dejaria la
+    # instalacion "en verde" sin senal alguna — y `install.sh`, bajo
+    # `set -euo pipefail`, si aborta en ese mismo caso.
     & $destino --version
+    if ($LASTEXITCODE -ne 0) {
+        throw "install: el binario instalado en $destino no responde a --version (exit $LASTEXITCODE)."
+    }
 
     $cfg = if ($env:EXO_CONFIG) { $env:EXO_CONFIG } else { Join-Path $HOME '.exo\config.toml' }
     if (Test-Path $cfg) {
         Write-Host "install: config ya existente en $cfg — no se toca"
+    } elseif ($env:EXO_INIT_KB -and $env:EXO_INIT_NAME) {
+        # Paridad con install.sh: si el usuario da KB y nombre por entorno, se
+        # encadena `exo init`. Sin eso no se inventa una KB por defecto.
+        & $destino init --kb $env:EXO_INIT_KB --name $env:EXO_INIT_NAME
+        if ($LASTEXITCODE -ne 0) {
+            throw "install: exo init fallo (exit $LASTEXITCODE)."
+        }
     } else {
         Write-Host "install: no hay config en $cfg. Créala con:"
         Write-Host "  $destino init --kb <ruta-de-tu-kb> --name <nombre>"
