@@ -105,3 +105,75 @@ fn la_salida_humana_lleva_estado_id_y_artefacto_en_cada_linea() {
     assert_eq!(campos[1], "config");
     assert_eq!(campos[2], cfg.display().to_string());
 }
+
+/// Los diez ids son contrato público, en este orden. Existe para que un check
+/// no pueda desaparecer en silencio: es exactamente el fallo que doctor
+/// combate —una fila ausente no se distingue de un check que nunca existió—,
+/// aplicado al propio doctor.
+#[test]
+fn la_lista_de_checks_es_contrato_y_no_puede_encoger() {
+    let dir = tempfile::tempdir().unwrap();
+    let cfg = config_valida(dir.path());
+    let salida = Command::new(bin())
+        .args(["doctor", "--json"])
+        .env("EXO_CONFIG", &cfg)
+        .output()
+        .unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&salida.stdout).unwrap();
+    let ids: Vec<&str> = v["data"]["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        ids,
+        vec![
+            "config",
+            "binary_on_path",
+            "hook_fallback_binary",
+            "kb_readable",
+            "index_db",
+            "embeddings_model",
+            "jq",
+            "git_bash",
+            "detach",
+            "kb_precommit_hook",
+        ]
+    );
+}
+
+#[test]
+fn todo_estado_esta_en_el_vocabulario_de_cuatro_y_ok_es_la_ausencia_de_fail() {
+    let dir = tempfile::tempdir().unwrap();
+    let cfg = config_valida(dir.path());
+    let salida = Command::new(bin())
+        .args(["doctor", "--json"])
+        .env("EXO_CONFIG", &cfg)
+        .output()
+        .unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&salida.stdout).unwrap();
+    let checks = v["data"]["checks"].as_array().unwrap();
+    let mut hay_fail = false;
+    for c in checks {
+        let s = c["status"].as_str().unwrap();
+        assert!(
+            matches!(s, "ok" | "warn" | "fail" | "na"),
+            "estado fuera del vocabulario: {s}"
+        );
+        if s == "fail" {
+            hay_fail = true;
+        }
+    }
+    assert_eq!(
+        v["data"]["ok"].as_bool().unwrap(),
+        !hay_fail,
+        "`ok` es exactamente «ningún check en fail»: los warn no gatean"
+    );
+    let esperado = if hay_fail { Some(3) } else { Some(0) };
+    assert_eq!(
+        salida.status.code(),
+        esperado,
+        "el exit code sigue a `ok`, no al revés"
+    );
+}
