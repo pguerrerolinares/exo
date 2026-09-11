@@ -21,11 +21,11 @@
 # exactamente el fallo silencioso que esta tarea persigue cerrar (ver
 # kb-demo: "Fallo silencioso — el instrumento que no grita").
 #
-# G5 (cuando haya CI): este test depende de estado de ESTA máquina
-# (C:/Users/paul/.exo/index.db, C:/proyectos/homework/kb-demo). No hay
-# fixture reproducible todavía — CI necesitará uno propio (índice + KB de
-# ejemplo) para poder correr esto en el pipeline. Hasta entonces es un gate
-# local, de máquina de desarrollo.
+# GATE LOCAL, NO DE CI (verificado 2026-09-11): `.github/workflows/ci.yml:99`
+# solo lanza `engine/scripts/test-hermetico.sh`, que verifica otra cosa (que la
+# suite corra sin ~/.exo/config.toml). Este script depende del estado de ESTA
+# máquina —índice y KB reales— y no hay fixture reproducible todavía. Corrérlo
+# es responsabilidad del que toca el contrato del engine; el CI no lo hará por ti.
 #
 # Solo lee: `exo recall` no escribe nada, así que este test no necesita
 # aislamiento de KB/índice como el resto de la suite de scripts.
@@ -144,6 +144,43 @@ fi
 if printf '%s' "$SALIDA" | jq -e '.schema_version == 2' >/dev/null 2>&1; then
   pass "contrato: schema_version == 2"
 else fail "contrato: schema_version == 2" "$(printf '%s' "$SALIDA" | jq -c '.schema_version' 2>/dev/null)"; fi
+
+# --- Los predicados de los que vive la prosa de `search --json` --------------
+# La receta que documentan document/SKILL.md y arquitectura.md es
+# `.data.results[] | .permalink, .path`. Si el envelope deriva, esa prosa pasa a
+# mentir en silencio (un `.ruta` devolvía `null` sin error de jq durante meses).
+SALIDA_S="$(timeout "${EXO_CONTRATO_TIMEOUT:-15}" "$EXO_BIN" search --type hybrid \
+              --json --limit 3 --db "$EXO_INDEX" --kb "$EXO_KB" "doctrina" 2>/dev/null)"
+RC_S=$?
+if [ "$RC_S" -ne 0 ] || [ -z "$SALIDA_S" ]; then
+  abstenerse "search --json salió con rc=$RC_S o sin salida"
+fi
+
+if printf '%s' "$SALIDA_S" | jq -e '.data.results | type == "array"' >/dev/null 2>&1; then
+  pass "contrato search: .data.results es un array"
+else fail "contrato search: .data.results es un array" "$(printf '%s' "$SALIDA_S" | jq -c '.data | keys' 2>/dev/null)"; fi
+
+if printf '%s' "$SALIDA_S" | jq -e '
+      .data.results[0] as $r
+      | ($r.permalink|type) == "string" and ($r.permalink|length) > 0
+      and ($r.path|type) == "string" and ($r.path|length) > 0
+    ' >/dev/null 2>&1; then
+  pass "contrato search: el primer resultado trae permalink y path no vacíos"
+else
+  fail "contrato search: el primer resultado trae permalink y path no vacíos" \
+    "$(printf '%s' "$SALIDA_S" | jq -c '.data.results[0]' 2>/dev/null)"
+fi
+
+# `ruta` es el nombre del campo RUST; el envelope emite `path`. Si algún día
+# reaparece, la prosa que lo citaba vuelve a ser correcta y este gate debe caer.
+if printf '%s' "$SALIDA_S" | jq -e '.data.results[0] | has("ruta") | not' >/dev/null 2>&1; then
+  pass "contrato search: el envelope NO trae 'ruta' (es 'path')"
+else fail "contrato search: el envelope NO trae 'ruta'" "$(printf '%s' "$SALIDA_S" | jq -c '.data.results[0]' 2>/dev/null)"; fi
+
+# La ruta del envelope no lleva separador nativo.
+if printf '%s' "$SALIDA_S" | jq -e '[.data.results[].path | select(. != null) | contains("\\")] | any | not' >/dev/null 2>&1; then
+  pass "contrato search: ninguna path del envelope lleva barra invertida"
+else fail "contrato search: ninguna path lleva barra invertida" "$(printf '%s' "$SALIDA_S" | jq -c '[.data.results[].path]' 2>/dev/null)"; fi
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
