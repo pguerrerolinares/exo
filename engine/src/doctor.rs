@@ -189,12 +189,34 @@ fn check_binario_en_path(entorno: &Entorno) -> Check {
 /// sin extensión da verdadero, al revés de lo que afirma la spec. Un check
 /// que diera por buena cualquiera de las dos versiones estaría adivinando;
 /// este mira.
+/// `[ -x ruta ]` tal y como lo evalua el hook: existe, es fichero y —en unix—
+/// lleva bit de ejecucion. En Windows no hay tal bit: ahi `-x` de msys mira la
+/// extension, asi que `is_file()` es la equivalencia correcta.
+fn es_ejecutable(ruta: &std::path::Path) -> bool {
+    if !ruta.is_file() {
+        return false;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        return std::fs::metadata(ruta)
+            .map(|m| m.permissions().mode() & 0o111 != 0)
+            .unwrap_or(false);
+    }
+    #[cfg(not(unix))]
+    true
+}
+
 fn check_fallback_del_hook(entorno: &Entorno) -> Check {
     let base = entorno.home.join(".local").join("bin");
     let literal = base.join("exo");
     let con_exe = base.join("exo.exe");
-    let existe_literal = literal.is_file();
-    let existe_exe = con_exe.is_file();
+    // `is_file()` no es lo que mira el hook: su linea 20 evalua `[ -x ]`. En
+    // unix un fichero sin bit de ejecucion daba `ok` aqui mientras el gate
+    // estaba apagado — justo el escenario para el que existe este check.
+    // `install.sh` hace `chmod 0755` precisamente porque ese bit se pierde.
+    let existe_literal = es_ejecutable(&literal);
+    let existe_exe = es_ejecutable(&con_exe);
     let artefacto = format!(
         "{} (existe={}) · {} (existe={})",
         literal.display(),
@@ -482,7 +504,7 @@ fn check_detach(entorno: &Entorno) -> Check {
     )
 }
 
-/// El shim `pre-commit` de la KB. Cuatro estados con consecuencias distintas,
+/// El shim `pre-commit` de la KB. Cinco estados con consecuencias distintas,
 /// y por eso no se colapsan: **no instalado** es deuda (`warn`), **symlink
 /// colgando** es el fallo de V6 —git lo ejecuta, no encuentra el destino y el
 /// commit pasa— (`fail`), **shim que no resuelve a ningún script** es el
@@ -536,10 +558,38 @@ fn check_hook_precommit(entorno: &Entorno, cfg: Option<&crate::config::Config>) 
     // que resolver a dónde lleva. Decir `ok` aquí sin mirarlo sería el
     // veredicto-sin-artefacto que este comando existe para no dar.
     if let Ok(destino) = std::fs::read_link(&hook) {
+        // El destino existe (el colgante ya salio arriba), pero eso no basta:
+        // un symlink a CUALQUIER script daba `ok` y afirmaba que el gate
+        // corre. La rama de shim si comprobaba el nombre; esta no. Mismo
+        // estado de maquina, dos veredictos opuestos segun `core.symlinks`.
+        let es_el_gate = destino
+            .file_name()
+            .map(|n| n == "kb-precommit.sh")
+            .unwrap_or(false);
+        let artefacto = format!("{} -> {}", hook.display(), destino.display());
+        if !es_el_gate {
+            return Check::nuevo(
+                "kb_precommit_hook",
+                Estado::Warn,
+                artefacto,
+                "hay un pre-commit instalado, pero apunta a otro script: no es \
+                 el gate de la KB",
+            );
+        }
+        let viejo = destino.components().any(|c| c.as_os_str() == "reflex");
+        if viejo {
+            return Check::nuevo(
+                "kb_precommit_hook",
+                Estado::Warn,
+                artefacto,
+                "el symlink apunta al kb-precommit.sh del plugin reflex \
+                 (viejo) — migra a exo",
+            );
+        }
         return Check::nuevo(
             "kb_precommit_hook",
             Estado::Ok,
-            format!("{} -> {}", hook.display(), destino.display()),
+            artefacto,
             "el gate de presupuestos y trinquete corre en cada commit de la KB",
         );
     }

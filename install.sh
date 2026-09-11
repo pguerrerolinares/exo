@@ -101,4 +101,10 @@ fi
 # doctor cierra la instalación diciendo qué falta en ESTA máquina. No hace
 # fallar al instalador: su exit 3 significa "la máquina tiene deuda", no "la
 # instalación falló". El informe se imprime entero, que es el punto.
-"$EXO_DIR/$bin" doctor || true
+# El exit 3 de doctor significa «esta máquina tiene deuda», no «la instalación
+# falló», así que no se propaga — pero tampoco se traga en silencio:
+# install.ps1 lo dice, y este no puede ser el más callado de los dos.
+if ! "$EXO_DIR/$bin" doctor; then
+  ec=$?
+  echo "install: doctor ha marcado deuda (exit $ec) — mira las filas 'fail' de arriba" >&2
+fi

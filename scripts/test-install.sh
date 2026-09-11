@@ -23,7 +23,14 @@ fabrica_release() {
   local dir="$1" contenido="$2"
   mkdir -p "$dir"
   printf '%s' "$contenido" > "$dir/$asset"
-  ( cd "$dir" && shasum -a 256 "$asset" > "$asset.sha256" )
+  # Mismo fallback que install.sh: si el test exigiera `shasum` donde el
+  # instalador funciona con `sha256sum`, no podria correr en maquinas que el
+  # producto si soporta.
+  if command -v shasum >/dev/null 2>&1; then
+    ( cd "$dir" && shasum -a 256 "$asset" > "$asset.sha256" )
+  else
+    ( cd "$dir" && sha256sum "$asset" > "$asset.sha256" )
+  fi
 }
 
 # file_url: construye un file:// que el curl instalado sepa abrir. En

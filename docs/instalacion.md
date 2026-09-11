@@ -138,7 +138,7 @@ tiene su deuda: el check de desfase binario↔plugin sigue sin existir en
 
 ```bash
 cd engine
-cargo test            # suite completa: 200 tests en 28 binarios
+cargo test            # suite completa: 434 tests en 44 binarios
 scripts/test-hermetico.sh   # gate: la suite entera sin ~/.exo/config.toml
 ```
 
@@ -160,8 +160,11 @@ Dos avisos honestos, ambos anotados en `docs/backlog.md`:
   así que el §2 todavía no se puede seguir. Es el único punto de esta lista
   que se resuelve solo: en cuanto exista el tag, el §2 funciona y este bullet
   desaparece.
-- **Binario para macOS Intel.** Solo se publica `aarch64-apple-darwin`; en un
-  Mac Intel toca compilar desde fuente.
+- **Binario para macOS Intel, ni para Linux ARM.** Solo se publican
+  `x86_64-unknown-linux-gnu`, `x86_64-pc-windows-msvc` y
+  `aarch64-apple-darwin`; en un Mac Intel o en un Linux aarch64 toca compilar
+  desde fuente. Los instaladores lo detectan y abortan diciéndolo, en vez de
+  dejar un binario que no arranca.
 - **`exo rotate` y `exo stale`.** Siguen viviendo en `kbx` (Go). El remedio
   que la doctrina manda aplicar cuando el gate de presupuestos muerde
   —rotar la bitácora— exige por tanto `kbx` instalado. `exo:distill` lo

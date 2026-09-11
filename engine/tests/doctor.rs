@@ -521,3 +521,79 @@ fn un_shim_que_apunta_a_un_script_inexistente_es_fail() {
         c.artefacto
     );
 }
+
+/// La rama symlink del check del pre-commit no tenía NINGÚN test que cubriera
+/// su `ok` — lo señaló el review final de rama, y es la misma clase de hueco
+/// que la Task 6b arregló en la rama de al lado del mismo `if`.
+///
+/// `#[cfg(unix)]` por lo mismo que el test del shim colgante: el `ln -sf` de
+/// Git Bash copia el fichero por defecto y crear un symlink real en Windows
+/// exige privilegios.
+#[cfg(unix)]
+#[test]
+fn un_symlink_al_kb_precommit_del_plugin_es_ok() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("kb").join(".git").join("hooks")).unwrap();
+    let script = plugin_con_script(&dir.path().join("home"), "exo", "1.1.1");
+    std::os::unix::fs::symlink(
+        &script,
+        dir.path()
+            .join("kb")
+            .join(".git")
+            .join("hooks")
+            .join("pre-commit"),
+    )
+    .unwrap();
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "kb_precommit_hook");
+    assert_eq!(c.estado, Estado::Ok);
+    assert!(
+        c.artefacto.contains("kb-precommit.sh"),
+        "reporta a dónde apunta: {}",
+        c.artefacto
+    );
+}
+
+/// Un symlink a OTRO script no es el gate de la KB. Antes de este arreglo
+/// devolvía `ok` afirmando que el gate corre en cada commit — mientras la
+/// rama de shim, ante el mismo estado de máquina, decía `warn`. Dos veredictos
+/// opuestos según `core.symlinks`.
+#[cfg(unix)]
+#[test]
+fn un_symlink_a_otro_script_no_se_hace_pasar_por_el_gate() {
+    let dir = tempfile::tempdir().unwrap();
+    let hooks = dir.path().join("kb").join(".git").join("hooks");
+    fs::create_dir_all(&hooks).unwrap();
+    let ajeno = dir.path().join("prettier-hook.sh");
+    fs::write(&ajeno, b"#!/usr/bin/env bash\nexit 0\n").unwrap();
+    std::os::unix::fs::symlink(&ajeno, hooks.join("pre-commit")).unwrap();
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "kb_precommit_hook");
+    assert_eq!(c.estado, Estado::Warn);
+    assert!(
+        c.detalle.contains("no es el gate de la KB"),
+        "detalle: {}",
+        c.detalle
+    );
+}
+
+/// El hook evalúa `[ -x ]`, no «existe». En unix un binario sin bit de
+/// ejecución dejaba el check en `ok` mientras el gate estaba apagado.
+#[cfg(unix)]
+#[test]
+fn un_exo_sin_bit_de_ejecucion_no_cuenta_como_instalado() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let bindir = dir.path().join("home").join(".local").join("bin");
+    fs::create_dir_all(&bindir).unwrap();
+    let ruta = bindir.join("exo");
+    fs::write(&ruta, b"#!/bin/sh\nexit 0\n").unwrap();
+    fs::set_permissions(&ruta, fs::Permissions::from_mode(0o644)).unwrap();
+    let informe = analiza(&entorno(dir.path()));
+    let c = check(&informe, "hook_fallback_binary");
+    assert_eq!(
+        c.estado,
+        Estado::Fail,
+        "el fichero está, pero `[ -x ]` del hook diría que no"
+    );
+}

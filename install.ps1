@@ -11,7 +11,12 @@
 [CmdletBinding()]
 param(
     [string]$Version = $(if ($env:EXO_VERSION) { $env:EXO_VERSION } else { 'latest' }),
-    [string]$Dir     = $(if ($env:EXO_DIR)     { $env:EXO_DIR }     else { Join-Path $HOME '.local\bin' }),
+    # OJO: `$HOME` de PowerShell sale de USERPROFILE/HOMEDRIVE+HOMEPATH y NO
+    # mira `$env:HOME`, que Git Bash sí hereda. En una máquina con HOME puesto
+    # a mano, los dos instaladores escribirían en sitios distintos y el
+    # `~/.local/bin/exo` que busca kb-precommit.sh quedaría vacío: commit
+    # permitido sin gate, en silencio. Se prefiere $env:HOME cuando existe.
+    [string]$Dir     = $(if ($env:EXO_DIR)     { $env:EXO_DIR }     else { Join-Path $(if ($env:HOME) { $env:HOME } else { $HOME }) '.local\bin' }),
     [string]$Repo    = $(if ($env:EXO_REPO)    { $env:EXO_REPO }    else { 'pguerrerolinares/exo' }),
     [string]$BaseUrl = $env:EXO_BASE_URL
 )
