@@ -1604,6 +1604,256 @@ git commit -m "feat(doctor): el shim pre-commit de la KB — el fallo de V6 como
 
 ---
 
+### Task 6b: el shim que resuelve de verdad — el hueco que destapó conducir el producto
+
+> **Por qué existe esta tarea, escrito antes de implementarla.** La Task 6 se
+> diseñó para el caso `ln -sf`, y al conducir `doctor` contra la KB real
+> (2026-09-10) el veredicto fue `ok kb_precommit_hook … el gate de
+> presupuestos y trinquete corre en cada commit de la KB` — una afirmación que
+> el check **no había comprobado**. El hook de esa KB no es un symlink: es un
+> shim, porque en esa máquina `core.symlinks=false`, y resuelve el script del
+> plugin por glob en cada commit. Un `ok` ahí es el veredicto-sin-artefacto que
+> este comando entero existe para no dar, y la spec pedía literalmente que «el
+> shim resuelve a un script existente». Decisión de Paul (2026-09-10):
+> extender el check. El acoplamiento de `doctor` al layout del plugin es real y
+> se acepta: es justo el acoplamiento que este check vigila.
+
+**Files:**
+- Modify: `engine/src/doctor.rs` (`check_hook_precommit` pasa a recibir
+  `&Entorno`; añadir `script_del_plugin`)
+- Test: `engine/tests/doctor.rs`
+
+**Interfaces:**
+- Consumes: `exo::doctor::{analiza, Entorno, Estado}`; `exo::config::expande_tilde`.
+- Produces: `fn script_del_plugin(home: &Path) -> Option<(PathBuf, bool)>` —
+  la ruta del `kb-precommit.sh` que el shim resolvería y si viene del plugin
+  `exo` (`true`) o del `reflex` viejo (`false`). El id `kb_precommit_hook` no
+  cambia, así que **la lista de diez de la Task 7 no se toca**.
+
+- [ ] **Step 1: Escribir los tests que fallan**
+
+Añadir a `engine/tests/doctor.rs`:
+
+```rust
+/// Escribe un `pre-commit` que es un shim (fichero regular, no symlink) — el
+/// caso real de una máquina con `core.symlinks=false`.
+fn shim_precommit(kb: &Path, cuerpo: &str) {
+    let hooks = kb.join(".git").join("hooks");
+    fs::create_dir_all(&hooks).unwrap();
+    fs::write(hooks.join("pre-commit"), cuerpo).unwrap();
+}
+
+/// Instala un `kb-precommit.sh` falso en el layout del plugin bajo `home`.
+fn plugin_con_script(home: &Path, familia: &str, version: &str) -> PathBuf {
+    let dir = home
+        .join(".claude")
+        .join("plugins")
+        .join("cache")
+        .join("exo")
+        .join(familia)
+        .join(version)
+        .join("scripts");
+    fs::create_dir_all(&dir).unwrap();
+    let ruta = dir.join("kb-precommit.sh");
+    fs::write(&ruta, b"#!/usr/bin/env bash\nexit 0\n").unwrap();
+    ruta
+}
+
+const SHIM_DE_LA_KB: &str = "#!/usr/bin/env bash\nexec bash \"$script\" # kb-precommit.sh\n";
+
+#[test]
+fn un_shim_que_no_resuelve_a_ningun_script_es_fail() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("kb")).unwrap();
+    shim_precommit(&dir.path().join("kb"), SHIM_DE_LA_KB);
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "kb_precommit_hook");
+    assert_eq!(
+        c.estado,
+        Estado::Fail,
+        "el hook existe, pero el script al que llama no está en ningún sitio"
+    );
+    assert!(
+        c.detalle.contains("no resuelve"),
+        "dice que el problema es la resolución, no la ausencia: {}",
+        c.detalle
+    );
+}
+
+#[test]
+fn un_shim_que_resuelve_al_plugin_exo_es_ok_y_reporta_el_script() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("kb")).unwrap();
+    shim_precommit(&dir.path().join("kb"), SHIM_DE_LA_KB);
+    let script = plugin_con_script(&dir.path().join("home"), "exo", "1.1.1");
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "kb_precommit_hook");
+    assert_eq!(c.estado, Estado::Ok);
+    assert!(
+        c.artefacto.contains(&script.display().to_string()),
+        "reporta el script al que resuelve, no solo el hook: {}",
+        c.artefacto
+    );
+}
+
+#[test]
+fn un_shim_que_solo_encuentra_el_plugin_viejo_avisa() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("kb")).unwrap();
+    shim_precommit(&dir.path().join("kb"), SHIM_DE_LA_KB);
+    plugin_con_script(&dir.path().join("home"), "reflex", "0.17.0");
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "kb_precommit_hook");
+    assert_eq!(c.estado, Estado::Warn);
+    assert!(
+        c.detalle.contains("reflex"),
+        "nombra el plugin viejo: {}",
+        c.detalle
+    );
+}
+
+#[test]
+fn un_pre_commit_ajeno_no_se_hace_pasar_por_el_gate_de_la_kb() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("kb")).unwrap();
+    shim_precommit(
+        &dir.path().join("kb"),
+        "#!/usr/bin/env bash\nnpm test\n",
+    );
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "kb_precommit_hook");
+    assert_eq!(
+        c.estado,
+        Estado::Warn,
+        "hay un pre-commit, pero no es el de la KB: decirlo es el trabajo"
+    );
+    assert!(
+        c.detalle.contains("no es el gate de la KB"),
+        "detalle: {}",
+        c.detalle
+    );
+}
+```
+
+- [ ] **Step 2: Correr los tests y verificar que fallan**
+
+Run: `cd engine && cargo test --test doctor`
+Expected: FAIL — los cuatro nuevos revientan; los tres primeros dan
+`left: Ok` donde esperan `Fail`/`Warn`. Ese `Ok` es exactamente el falso
+veredicto que esta tarea viene a matar.
+
+- [ ] **Step 3: Implementación mínima**
+
+En `engine/src/doctor.rs`, cambiar la llamada dentro de `analiza`:
+
+```rust
+        check_hook_precommit(entorno, cfg.as_ref()),
+```
+
+Cambiar la firma de `check_hook_precommit` y su rama final. Los casos «sin
+config», «KB sin git» y «hook ausente» se quedan **exactamente igual**:
+
+```rust
+fn check_hook_precommit(entorno: &Entorno, cfg: Option<&crate::config::Config>) -> Check {
+```
+
+```rust
+    // El hook existe. Un symlink se juzga por su destino; un fichero regular
+    // es un shim —el caso real en máquinas con `core.symlinks=false`— y hay
+    // que resolver a dónde lleva. Decir `ok` aquí sin mirarlo sería el
+    // veredicto-sin-artefacto que este comando existe para no dar.
+    if let Ok(destino) = std::fs::read_link(&hook) {
+        return Check::nuevo(
+            "kb_precommit_hook",
+            Estado::Ok,
+            format!("{} -> {}", hook.display(), destino.display()),
+            "el gate de presupuestos y trinquete corre en cada commit de la KB",
+        );
+    }
+    let contenido = std::fs::read_to_string(&hook).unwrap_or_default();
+    if !contenido.contains("kb-precommit.sh") {
+        return Check::nuevo(
+            "kb_precommit_hook",
+            Estado::Warn,
+            hook.display().to_string(),
+            "hay un pre-commit instalado, pero no menciona kb-precommit.sh: no es el gate de la KB",
+        );
+    }
+    match script_del_plugin(&entorno.home) {
+        Some((script, true)) => Check::nuevo(
+            "kb_precommit_hook",
+            Estado::Ok,
+            format!("{} -> {}", hook.display(), script.display()),
+            "el shim resuelve al kb-precommit.sh del plugin exo",
+        ),
+        Some((script, false)) => Check::nuevo(
+            "kb_precommit_hook",
+            Estado::Warn,
+            format!("{} -> {}", hook.display(), script.display()),
+            "el shim solo encuentra el plugin reflex (viejo) — migra a exo",
+        ),
+        None => Check::nuevo(
+            "kb_precommit_hook",
+            Estado::Fail,
+            hook.display().to_string(),
+            "el shim está instalado pero NO resuelve a ningún kb-precommit.sh: el gate de la KB no puede correr",
+        ),
+    }
+}
+
+/// ¿A qué `kb-precommit.sh` resolvería el shim? Replica el glob del shim real
+/// instalado en la KB: el plugin `exo` primero y el `reflex` viejo como
+/// fallback declarado del cutover. Devuelve la ruta y si viene de `exo`.
+///
+/// El shim se queda con la versión más alta por `sort -V`; aquí basta con que
+/// **alguna** resuelva, así que se ordena lexicográficamente y se toma la
+/// última. La diferencia importaría para decir QUÉ versión corre, no para
+/// decir si el gate puede correr, que es lo que este check afirma.
+///
+/// Sin la crate `glob`: dos `read_dir` no pagan una dependencia.
+fn script_del_plugin(home: &std::path::Path) -> Option<(PathBuf, bool)> {
+    for (familia, es_exo) in [("exo", true), ("reflex", false)] {
+        let base = home
+            .join(".claude")
+            .join("plugins")
+            .join("cache")
+            .join("exo")
+            .join(familia);
+        let Ok(entradas) = std::fs::read_dir(&base) else {
+            continue;
+        };
+        let mut candidatos: Vec<PathBuf> = entradas
+            .flatten()
+            .map(|e| e.path().join("scripts").join("kb-precommit.sh"))
+            .filter(|p| p.is_file())
+            .collect();
+        candidatos.sort();
+        if let Some(ultimo) = candidatos.pop() {
+            return Some((ultimo, es_exo));
+        }
+    }
+    None
+}
+```
+
+- [ ] **Step 4: Correr los tests y verificar que pasan**
+
+Run: `cd engine && cargo test --test doctor --test doctor_cli`
+Expected: PASS — 22 tests en `doctor` en Windows (23 en unix, con el shim
+colgante), 3 en `doctor_cli`.
+
+Run: `cd engine && cargo fmt --check && cargo clippy --all-targets --locked -- -D warnings`
+Expected: sin salida, exit 0.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add engine/src/doctor.rs engine/tests/doctor.rs
+git commit -m "feat(doctor): el shim pre-commit resuelve de verdad, no solo existe (G5b Task 6b)"
+```
+
+---
+
 ### Task 7: el contrato público de `doctor` y la falsabilidad del gate
 
 **Files:**
