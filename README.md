@@ -7,6 +7,12 @@ Framework de trabajo agéntico con memoria persistente. Tres capas:
 
 ## Instalar
 
+> **Todavía no funciona, y decirlo es el punto.** El instalador y el workflow
+> de release viven en la rama `g5b-release-doctor`, sin mergear, y **no hay
+> ningún tag cortado**: hoy esa URL da 404 y `releases/latest` no resuelve a
+> nada. Hasta que se publique `v0.1.0`, el camino real es compilar desde
+> fuente — ver [`docs/instalacion.md`](docs/instalacion.md).
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/pguerrerolinares/exo/main/install.sh | bash
 ```
@@ -41,7 +47,7 @@ invoca ese binario desde hooks y scripts de shell.
   **1C** hermeticidad de la suite respecto a `~/.exo/config.toml`, con gate
   falsable (`engine/scripts/test-hermetico.sh`) y KB semilla propia de
   `exo init`. El privacy-pass de publicación (B1) está ejecutado sobre la
-  historia completa. Suite: 200 tests verdes en 28 binarios, corridos por
+  historia completa. Suite: 434 tests verdes en 44 binarios (2 ignorados), corridos por
   `.github/workflows/ci.yml` en ubuntu-latest / windows-latest / macos-latest
   vía el gate hermético (`engine/scripts/test-hermetico.sh`), con la caché del
   modelo de embeddings pineada por revisión del modelo (no por rama, así que
@@ -49,8 +55,9 @@ invoca ese binario desde hooks y scripts de shell.
   check de la MSRV declarada (1.95). Pendiente: MCP propio (M5a), desinstalar
   basic-memory (M5b).
 
-  G5b entregó release, instaladores y `exo doctor`; queda G4d (`rotate`,
-  `stale`) y el check de desfase binario↔plugin.
+  G5b entregó la **maquinaria** de release, los instaladores y `exo doctor`;
+  falta cortar el primer tag para que exista una release de verdad. Queda
+  G4d (`rotate`, `stale`) y el check de desfase binario↔plugin.
 
 ## Arquitectura
 
@@ -65,7 +72,7 @@ flowchart TB
 
     subgraph bin["exo — binario Rust, sin runtime"]
         direction TB
-        c1["init · doctor"]
+        c1["init · config · doctor"]
         c2["index · rebuild · search · recall · write"]
         c3["targets · budget · lint · ratchet"]
     end
