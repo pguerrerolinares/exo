@@ -774,7 +774,7 @@ fn la_migracion_normaliza_y_es_idempotente() {
 
 #[test]
 fn tras_migrar_la_fila_casa_con_lo_que_calcula_el_incremental() {
-    // El defecto que este test existe para impedir: `indexa_incremental`
+    // El defecto que este test existe para impedir: `indexa`
     // compara por cadena exacta (`indexer.rs`, `existentes` vs `vistas`). Si
     // la migración y `ruta_relativa` no producen LA MISMA cadena, cada nota se
     // ve nueva y cada fila vieja se ve borrada → reindex completo con

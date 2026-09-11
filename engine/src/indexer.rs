@@ -464,7 +464,7 @@ fn verifica_modelo(conn: &Connection, modelo_actual: &str) -> Result<()> {
 
 /// Ruta de `ruta_abs` relativa a la raíz de la KB, **siempre con `/`**.
 ///
-/// Pública porque es la cadena exacta que `indexa_incremental` compara contra
+/// Pública porque es la cadena exacta que `indexa` compara contra
 /// `notas.ruta`: el gate necesita poder aseverar esa igualdad sin reimplementarla.
 pub fn ruta_relativa(kb: &Path, ruta_abs: &Path) -> Result<String> {
     Ok(crate::walker::ruta_portable(

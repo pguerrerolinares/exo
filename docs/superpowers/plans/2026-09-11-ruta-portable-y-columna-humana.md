@@ -39,7 +39,7 @@ Toda tarea los hereda.
 - Toda **emisión** de ruta absoluta concatena con `/`. Si vas a `display()` una
   ruta que sale por stdout o por el envelope, ese `display()` es el bug. El
   `PathBuf` sigue usándose para E/S sin tocar.
-- La migración corre **solo en el camino de escritura** (`indexa_incremental`).
+- La migración corre **solo en el camino de escritura** (`indexa`).
   **Nunca en `abre_db`**: los comandos de solo lectura de este repo no escriben.
 - `clippy` es gate duro (`-D warnings`): nada de imports, variables o helpers
   sin usar.
@@ -114,7 +114,7 @@ fn la_migracion_normaliza_y_es_idempotente() {
 
 #[test]
 fn tras_migrar_la_fila_casa_con_lo_que_calcula_el_incremental() {
-    // El defecto que este test existe para impedir: `indexa_incremental`
+    // El defecto que este test existe para impedir: `indexa`
     // compara por cadena exacta (`indexer.rs`, `existentes` vs `vistas`). Si
     // la migración y `ruta_relativa` no producen LA MISMA cadena, cada nota se
     // ve nueva y cada fila vieja se ve borrada → reindex completo con
@@ -185,7 +185,7 @@ En `engine/src/indexer.rs`, `ruta_relativa` pasa a pública y normaliza:
 ```rust
 /// Ruta de `ruta_abs` relativa a la raíz de la KB, **siempre con `/`**.
 ///
-/// Pública porque es la cadena exacta que `indexa_incremental` compara contra
+/// Pública porque es la cadena exacta que `indexa` compara contra
 /// `notas.ruta`: el gate necesita poder aseverar esa igualdad sin reimplementarla.
 pub fn ruta_relativa(kb: &Path, ruta_abs: &Path) -> Result<String> {
     Ok(crate::walker::ruta_portable(
@@ -228,7 +228,7 @@ pub fn migra_rutas_portables(conn: &rusqlite::Connection) -> Result<usize> {
 }
 ```
 
-Y la llamada, en `indexa_incremental`, **antes** de leer `existentes`
+Y la llamada, en `indexa`, **antes** de leer `existentes`
 (hoy `engine/src/indexer.rs:160`, justo tras los `INSERT INTO meta`):
 
 ```rust

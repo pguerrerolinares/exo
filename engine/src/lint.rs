@@ -153,10 +153,11 @@ pub fn ficheros_en_raiz(kb: &Path) -> Result<Vec<Hallazgo>> {
 /// M6-04 T3 como cambio de scope deliberado.
 ///
 /// Único de los seis checks que lee `notas.ruta` de la DB en vez del walk del
-/// disco: `indexer::ruta_relativa` la guarda con el separador NATIVO, así que
-/// en Windows llega como `archive\x.md` y hay que normalizarla antes de pasarla
-/// por `excluida` o de devolverla en un `Hallazgo` (el JSON del envelope no
-/// debe llevar `\`).
+/// disco. Desde 2026-09-11 `indexer::ruta_relativa` ya normaliza a `/`, así que
+/// el `replace` de aquí abajo es un no-op sobre un índice al día; se mantiene
+/// como cinturón para una DB escrita por un binario anterior que todavía no
+/// haya pasado por `migra_rutas_portables` (el JSON del envelope no debe llevar
+/// `\` en ningún caso).
 pub fn huerfanas(
     conn: &rusqlite::Connection,
     kb: &Path,

@@ -153,7 +153,7 @@ en `ruta_relativa`, una capa más arriba.
 
 ### D0c — migración en sitio, idempotente, en el camino de escritura
 
-`indexa_incremental` compara por cadena exacta (`indexer.rs:178` y `:242`:
+`indexa` compara por cadena exacta (`indexer.rs:178` y `:242`:
 `existentes` del índice contra `vistas` recién calculadas). El día que
 `ruta_relativa` devuelva `/`, las filas viejas con `\` no casan: cada nota se ve
 nueva **y** cada fila vieja se ve borrada → reindex completo con re-embedding.
@@ -167,7 +167,7 @@ UPDATE notas SET ruta = replace(ruta, '\', '/') WHERE ruta LIKE '%\%';
 Idempotente (la segunda corrida afecta 0 filas) y sin colisión posible con
 `UNIQUE(ruta)`: una fila tiene un solo separador, no dos variantes de sí misma.
 
-**Dónde corre:** en el camino de **escritura** (`indexa_incremental`, y por tanto
+**Dónde corre:** en el camino de **escritura** (`indexa`, y por tanto
 `exo index` / `exo rebuild`). **No en `abre_db`**: ahí la pagarían también
 `search`, `targets` y `recall`, y este repo tiene la regla contraria — los
 comandos de solo lectura no escriben (precedente y test:
