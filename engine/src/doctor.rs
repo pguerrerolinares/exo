@@ -96,11 +96,27 @@ pub struct Entorno {
     pub config: PathBuf,
     pub cache_hf: PathBuf,
     pub path: String,
+    /// KB ya resuelta por la cadena `flag > $EXO_KB > config` de `main.rs`
+    /// (`resuelve_kb`). `None` si esa cadena no resolvió nada —sin flag, sin
+    /// env, sin config legible—: en ese caso los checks caen a lo que diga
+    /// la `Config` que `analiza` carga por su cuenta, el mismo camino que
+    /// existía antes de esta tarea. Doctor resolvía la KB SOLO desde la
+    /// config e ignoraba `$EXO_KB`: con la env puesta, `index`/`search`
+    /// trabajaban sobre una KB y `doctor` dictaminaba sobre otra (review
+    /// final de rama, 2026-09-11).
+    pub kb: Option<PathBuf>,
+    /// DB ya resuelta por `flag > $EXO_DB > config` (`resuelve_db`). Mismo
+    /// contrato que `kb`.
+    pub db: Option<PathBuf>,
 }
 
 impl Entorno {
     /// El entorno real del proceso. La caché replica lo que hace `hf_hub`
     /// (`Cache::from_env`): `$HF_HOME/hub`, y si no `~/.cache/huggingface/hub`.
+    ///
+    /// `kb`/`db` salen en `None`: este constructor no conoce flags de CLI, así
+    /// que quien lo invoque (`doctor_cmd`) los rellena aplicando la misma
+    /// precedencia que el resto de verbos.
     pub fn del_proceso() -> Self {
         let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
         let cache_hf = match std::env::var_os("HF_HOME") {
@@ -113,8 +129,29 @@ impl Entorno {
             home,
             cache_hf,
             path: std::env::var("PATH").unwrap_or_default(),
+            kb: None,
+            db: None,
         }
     }
+}
+
+/// La KB que juzgan `kb_readable` y `kb_precommit_hook`: la ya resuelta en
+/// `entorno.kb` (flag > $EXO_KB > config) si la hay, y si no, lo que diga la
+/// `cfg` cargada por `analiza` — el mismo fallback que corría antes de esta
+/// tarea cuando ni flag ni env aplican.
+fn kb_efectiva(entorno: &Entorno, cfg: Option<&crate::config::Config>) -> Option<PathBuf> {
+    entorno
+        .kb
+        .clone()
+        .or_else(|| cfg.map(|c| crate::config::expande_tilde(&c.kb.path)))
+}
+
+/// La DB que juzga `index_db`. Mismo contrato que `kb_efectiva`.
+fn db_efectiva(entorno: &Entorno, cfg: Option<&crate::config::Config>) -> Option<PathBuf> {
+    entorno
+        .db
+        .clone()
+        .or_else(|| cfg.map(|c| crate::config::expande_tilde(&c.index.db)))
 }
 
 pub fn analiza(entorno: &Entorno) -> InformeDoctor {
@@ -126,8 +163,8 @@ pub fn analiza(entorno: &Entorno) -> InformeDoctor {
         check_config(entorno),
         check_binario_en_path(entorno),
         check_fallback_del_hook(entorno),
-        check_kb(cfg.as_ref()),
-        check_indice(cfg.as_ref()),
+        check_kb(entorno, cfg.as_ref()),
+        check_indice(entorno, cfg.as_ref()),
         check_modelo(entorno, cfg.as_ref()),
         check_jq(entorno),
         check_git_bash(entorno),
@@ -242,8 +279,8 @@ fn check_fallback_del_hook(entorno: &Entorno) -> Check {
     }
 }
 
-fn check_kb(cfg: Option<&crate::config::Config>) -> Check {
-    let Some(cfg) = cfg else {
+fn check_kb(entorno: &Entorno, cfg: Option<&crate::config::Config>) -> Check {
+    let Some(kb) = kb_efectiva(entorno, cfg) else {
         return Check::nuevo(
             "kb_readable",
             Estado::Fail,
@@ -251,7 +288,6 @@ fn check_kb(cfg: Option<&crate::config::Config>) -> Check {
             "no hay config legible, así que no se sabe qué KB mirar",
         );
     };
-    let kb = crate::config::expande_tilde(&cfg.kb.path);
     let artefacto = kb.display().to_string();
     if !kb.is_dir() {
         return Check::nuevo(
@@ -272,8 +308,8 @@ fn check_kb(cfg: Option<&crate::config::Config>) -> Check {
     }
 }
 
-fn check_indice(cfg: Option<&crate::config::Config>) -> Check {
-    let Some(cfg) = cfg else {
+fn check_indice(entorno: &Entorno, cfg: Option<&crate::config::Config>) -> Check {
+    let Some(db) = db_efectiva(entorno, cfg) else {
         return Check::nuevo(
             "index_db",
             Estado::Fail,
@@ -281,7 +317,6 @@ fn check_indice(cfg: Option<&crate::config::Config>) -> Check {
             "no hay config legible, así que no se sabe qué DB mirar",
         );
     };
-    let db = crate::config::expande_tilde(&cfg.index.db);
     if !db.is_file() {
         return Check::nuevo(
             "index_db",
@@ -302,8 +337,10 @@ fn check_indice(cfg: Option<&crate::config::Config>) -> Check {
     // Heurística de mtime, la misma que usa el indexer incremental; no
     // pretende detectar un borrado, sino el caso medido en W11 —el hook de
     // reindexado muerto durante meses sin un solo rastro—.
-    let kb = crate::config::expande_tilde(&cfg.kb.path);
-    if let Some(nota) = mtime_mas_reciente(&kb)
+    // Sin KB resuelta (ni entorno ni config) no se puede afirmar ranciedad:
+    // se salta la comprobación en vez de adivinar sobre una ruta que no hay.
+    if let Some(kb) = kb_efectiva(entorno, cfg)
+        && let Some(nota) = mtime_mas_reciente(&kb)
         && let Ok(indice) = std::fs::metadata(&db).and_then(|m| m.modified())
         && nota > indice
     {
@@ -514,7 +551,7 @@ fn check_detach(entorno: &Entorno) -> Check {
 /// el gate de la KB (`warn`): atribuirse un hook ajeno sería el mismo
 /// veredicto-sin-artefacto que este comando existe para no dar.
 fn check_hook_precommit(entorno: &Entorno, cfg: Option<&crate::config::Config>) -> Check {
-    let Some(cfg) = cfg else {
+    let Some(kb) = kb_efectiva(entorno, cfg) else {
         return Check::nuevo(
             "kb_precommit_hook",
             Estado::Fail,
@@ -522,7 +559,6 @@ fn check_hook_precommit(entorno: &Entorno, cfg: Option<&crate::config::Config>) 
             "no hay config legible, así que no se sabe en qué KB mirar el hook",
         );
     };
-    let kb = crate::config::expande_tilde(&cfg.kb.path);
     let git = kb.join(".git");
     if !git.exists() {
         return Check::nuevo(

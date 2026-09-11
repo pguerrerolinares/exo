@@ -16,6 +16,8 @@ fn entorno(dir: &Path) -> Entorno {
         cache_hf: home.join(".cache").join("huggingface").join("hub"),
         home,
         path: String::new(),
+        kb: None,
+        db: None,
     }
 }
 
@@ -131,6 +133,8 @@ fn entorno_con_config(dir: &Path) -> Entorno {
         cache_hf: home.join(".cache").join("huggingface").join("hub"),
         home,
         path: String::new(),
+        kb: None,
+        db: None,
     }
 }
 
@@ -154,6 +158,53 @@ fn una_kb_con_notas_es_ok_y_reporta_cuantas_conto() {
     let c = check(&informe, "kb_readable");
     assert_eq!(c.estado, Estado::Ok);
     assert!(c.detalle.contains('2'), "cuenta las notas: {}", c.detalle);
+}
+
+/// El entregable de la Task 13a (G5b): antes de este arreglo, `check_kb`
+/// leía la KB SOLO desde `cfg`, ignorando `$EXO_KB` — mientras el resto de
+/// verbos (`index`, `search`...) sí lo honraban. Con `entorno.kb` puesto (lo
+/// que rellena `doctor_cmd` resolviendo `flag > $EXO_KB > config`), el check
+/// tiene que reportar ESA ruta, no la de la config: la config de este test
+/// apunta a una KB que ni existe (`dir/kb`, nunca creada aquí), así que si el
+/// bug reapareciera este test fallaría con `kb_readable` en `fail` en vez de
+/// `ok`.
+#[test]
+fn con_kb_en_el_entorno_el_check_reporta_esa_kb_no_la_de_la_config() {
+    let dir = tempfile::tempdir().unwrap();
+    let kb_entorno = dir.path().join("kb-del-entorno");
+    fs::create_dir_all(&kb_entorno).unwrap();
+    let mut env = entorno_con_config(dir.path());
+    env.kb = Some(kb_entorno.clone());
+    let informe = analiza(&env);
+    let c = check(&informe, "kb_readable");
+    assert_eq!(
+        c.estado,
+        Estado::Ok,
+        "la KB de la config ({}) no existe; solo sale ok si miró la del entorno",
+        dir.path().join("kb").display()
+    );
+    assert_eq!(c.artefacto, kb_entorno.display().to_string());
+}
+
+/// Mismo contrato que el test de arriba, para `index_db`: `entorno.db` tiene
+/// que ganarle a `cfg.index.db`.
+#[test]
+fn con_db_en_el_entorno_el_check_reporta_esa_db_no_la_de_la_config() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("kb")).unwrap();
+    let db_entorno = dir.path().join("db-del-entorno.sqlite");
+    let conn = exo::abre_db(&db_entorno).unwrap();
+    exo::schema::crea_schema(&conn).unwrap();
+    drop(conn);
+    let mut env = entorno_con_config(dir.path());
+    env.db = Some(db_entorno.clone());
+    let informe = analiza(&env);
+    let c = check(&informe, "index_db");
+    assert!(
+        c.artefacto.starts_with(&db_entorno.display().to_string()),
+        "reportó la DB de config, no la del entorno: {}",
+        c.artefacto
+    );
 }
 
 #[test]

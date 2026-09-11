@@ -340,6 +340,14 @@ struct ArgsLint {
 
 #[derive(clap::Args)]
 struct ArgsDoctor {
+    /// Fichero SQLite del índice que juzga `index_db`. Precedencia: flag >
+    /// $EXO_DB > config.
+    #[arg(long)]
+    db: Option<PathBuf>,
+    /// Raíz de la KB que juzgan `kb_readable` y `kb_precommit_hook`.
+    /// Precedencia: flag > $EXO_KB > config.
+    #[arg(long)]
+    kb: Option<PathBuf>,
     /// Emite el resultado como envelope JSON (spec §4) en stdout.
     #[arg(long)]
     json: bool,
@@ -1063,7 +1071,19 @@ fn lint_cmd(args: ArgsLint) -> Result<()> {
 /// `exo doctor`: preflight de la máquina, no de la KB. Emite el informe
 /// entero SIEMPRE y solo después gatea: exit 3 si algún check sale `fail`.
 fn doctor_cmd(args: ArgsDoctor) -> Result<()> {
-    let entorno = exo::doctor::Entorno::del_proceso();
+    let mut entorno = exo::doctor::Entorno::del_proceso();
+    // Misma precedencia que el resto de verbos (`resuelve_kb`/`resuelve_db`:
+    // flag > $EXO_KB/$EXO_DB > config). A diferencia de `search`/`index`, un
+    // fallo de resolución aquí NO aborta el comando con `?`: `analiza` no
+    // puede devolver `Result` —un check que no sabe qué artefacto mirar es
+    // una fila `fail`, nunca un error que mate `doctor`—, así que se queda
+    // en `None` y los checks que dependen de `kb`/`db` caen a la `Config`
+    // que `analiza` carga por su cuenta, reportando `fail` si tampoco hay
+    // eso. Antes de este arreglo `doctor` ni siquiera intentaba `$EXO_KB`/
+    // `$EXO_DB`: con la env puesta, dictaminaba sobre una KB que ningún otro
+    // verbo estaba tocando (review final de rama, 2026-09-11).
+    entorno.kb = resuelve_kb(args.kb).ok();
+    entorno.db = resuelve_db(args.db).ok();
     let informe = exo::doctor::analiza(&entorno);
 
     // El informe entero sale SIEMPRE, pase lo que pase con el gate: un
