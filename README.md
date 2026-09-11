@@ -34,6 +34,8 @@ invoca ese binario desde hooks y scripts de shell.
 - Plan de cierre (M2-08 → M5b): `docs/superpowers/plans/2026-08-17-cierre-exo-m2-a-m5b.md`
 - **Deuda abierta y hallazgos sin barrer: `docs/backlog.md`** — léelo antes de asumir
   que algo está terminado solo porque este README lo menciona.
+- Revisión crítica externa del repo completo (veredicto, lo que está bien, nueve
+  críticas argumentadas y su mapa al backlog): `docs/2026-09-04-revision-critica-externa.md`
 - Estado (2026-09-02): M0, M1a, M2 (E1 read), M4 (E2 write) y **M6 completo**
   cerrados — `exo write new|append` escribe la KB, `/document` va por el engine
   y `exo recall` sirve el arranque de sesión y el recall en el punto de uso
