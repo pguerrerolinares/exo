@@ -29,13 +29,6 @@
 
 ## 2. Instalar desde release (recomendado)
 
-> **Este camino todavía no está disponible.** `install.sh`, `install.ps1` y el
-> workflow de release existen en la rama `g5b-release-doctor`, pero no están
-> en `main` y **no hay ningún tag publicado**, así que las dos URLs de abajo
-> dan 404 y `releases/latest` no resuelve a nada. Mientras tanto, el camino
-> real es el **§3, compilar desde fuente**. Este aviso se retira al cortar
-> `v0.1.0`.
-
 ```bash
 curl -fsSL https://raw.githubusercontent.com/pguerrerolinares/exo/main/install.sh | bash
 ```
@@ -155,11 +148,6 @@ Dos avisos honestos, ambos anotados en `docs/backlog.md`:
 
 ## 7. Lo que NO hay todavía
 
-- **La release `v0.1.0` no está cortada.** El workflow y los dos instaladores
-  existen, pero viven en una rama sin mergear y no hay ningún tag publicado,
-  así que el §2 todavía no se puede seguir. Es el único punto de esta lista
-  que se resuelve solo: en cuanto exista el tag, el §2 funciona y este bullet
-  desaparece.
 - **Binario para macOS Intel, ni para Linux ARM.** Solo se publican
   `x86_64-unknown-linux-gnu`, `x86_64-pc-windows-msvc` y
   `aarch64-apple-darwin`; en un Mac Intel o en un Linux aarch64 toca compilar
