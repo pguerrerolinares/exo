@@ -181,10 +181,17 @@ fn recall_consulta_devuelve_score_y_snippet_no_nulos() {
         }
 
         resuelve_rutas_absolutas(&mut bruto, kb.path());
+        // Forma portable (`/`), no `kb.path().display()` literal: en Windows
+        // ese `display()` lleva `\` y es justo lo que `resuelve_rutas_absolutas`
+        // ya no produce tras el fix del separador interior.
+        let raiz_portable = exo::walker::ruta_portable(&kb.path().display().to_string());
         assert!(
-            bruto.notas[0]
-                .ruta
-                .starts_with(&kb.path().display().to_string()),
+            bruto.notas[0].ruta.starts_with(&raiz_portable),
+            "{}",
+            bruto.notas[0].ruta
+        );
+        assert!(
+            !bruto.notas[0].ruta.contains('\\'),
             "{}",
             bruto.notas[0].ruta
         );
@@ -227,4 +234,31 @@ fn renderiza_produce_bloque_de_texto_con_cabecera_y_notas() {
         assert!(resultado.texto.starts_with("=== Recall exo"));
         assert!(resultado.texto.contains("core-a.md"));
     });
+}
+
+#[test]
+fn la_ruta_absoluta_de_recall_no_lleva_barra_invertida() {
+    // El bug real: `kb.join(&nota.ruta)` con `kb` en "/" (viene de config) y
+    // `ruta` relativa produce, en Windows, un separador `\` INTERIOR. Por eso
+    // se asevera la cadena entera, no el prefijo: un test que mirara solo el
+    // principio bendice exactamente el defecto que existe para cazar.
+    let mut bruto = exo::recall::RecallBruto {
+        modo: "consulta".into(),
+        query: Some("alpha".into()),
+        notas: vec![exo::recall::NotaRecall {
+            permalink: "kb/log/alpha".into(),
+            ruta: "log/alpha.md".into(),
+            titulo: "alpha".into(),
+            tier: Some("stable".into()),
+            score: Some(1.0),
+            snippet: None,
+        }],
+    };
+    exo::recall::resuelve_rutas_absolutas(&mut bruto, std::path::Path::new("C:/kb"));
+    assert!(
+        !bruto.notas[0].ruta.contains('\\'),
+        "ruta: {}",
+        bruto.notas[0].ruta
+    );
+    assert_eq!(bruto.notas[0].ruta, "C:/kb/log/alpha.md");
 }

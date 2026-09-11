@@ -371,3 +371,35 @@ fn new_forzado_queda_registrado_en_el_envelope() {
     .unwrap();
     assert!(esc.forzado, "--force debe ser auditable en el envelope");
 }
+
+#[test]
+fn el_absolute_path_de_write_no_lleva_barra_invertida() {
+    let dir = tempfile::tempdir().unwrap();
+    let kb = dir.path();
+    std::fs::create_dir_all(kb.join("log")).unwrap();
+
+    // `tier: log`, no `stable`: `escribe_append` sin `--force` rechaza el
+    // append a cualquier tier que no sea `log` (gate `AppendACanon`, §7.1 de
+    // escritor.rs) y este test no quiere ejercer ese gate, solo la forma de
+    // las rutas emitidas.
+    let e = exo::escritor::escribe_nueva(
+        kb,
+        "kb",
+        "log",
+        "alpha",
+        "cuerpo\n",
+        Some("log"),
+        &[],
+        false,
+    )
+    .unwrap();
+
+    assert!(!e.ruta_abs.contains('\\'), "absolute_path: {}", e.ruta_abs);
+    assert!(!e.ruta_rel.contains('\\'), "relative_path: {}", e.ruta_rel);
+
+    // `write append` llega a `ruta_abs` por otro camino (la ruta relativa sale
+    // del índice, no se compone), así que se ejerce aparte.
+    let a = exo::escritor::escribe_append(kb, "log/alpha.md", "\nmás cuerpo\n", false).unwrap();
+    assert!(!a.ruta_abs.contains('\\'), "absolute_path: {}", a.ruta_abs);
+    assert!(!a.ruta_rel.contains('\\'), "relative_path: {}", a.ruta_rel);
+}
