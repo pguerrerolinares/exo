@@ -1,18 +1,17 @@
 # Instalación de exo
 
-> Hoy el único camino real es **compilar desde fuente**. No hay releases
-> publicadas, ni binarios precompilados, ni `install.sh`, ni CI: el camino
-> "desde release" está diseñado (spec de exo genérico, sección G5) pero no
-> existe todavía. Este documento describe lo que hay.
+> Dos caminos: **desde release** (binario precompilado, sin Rust ni toolchain
+> C — el recomendado) y **desde fuente**. Este documento describe los dos y
+> declara al final lo que sigue sin existir.
 
 ## 1. Requisitos
 
 | Camino | Requisitos |
 |---|---|
-| **Desde fuente** (el único disponible hoy) | Rust estable (ver mínimo abajo) + toolchain C. En Windows, MSVC. |
+| **Desde fuente** | Rust estable (ver mínimo abajo) + toolchain C. En Windows, MSVC. |
 | **Primera indexación** | Red para descargar el modelo de embeddings (~0,6 GB); en frío tarda unos minutos. |
 | **Capa thin (plugin de Claude Code)** | `git` y `jq` ejecutables desde bash. En Windows, Git Bash (Claude Code lo usa para los hooks; no hacen falta wrappers `.cmd`). |
-| **Desde release** (planeado) | Cuando exista: `git` y `jq`, sin Rust ni toolchain C. |
+| **Desde release** (recomendado) | `git` y `jq`. **Ni Rust ni toolchain C.** |
 
 - **Toolchain C obligatorio**: `rusqlite` (SQLite bundled) y `sqlite-vec`
   compilan C durante el build. Sin compilador C, `cargo build` falla — está
@@ -28,7 +27,41 @@
   (1.94 falla — `libsqlite3-sys` usa `cfg_select`, estable desde 1.95 —
   y 1.95 compila el crate con todos sus targets).
 
-## 2. Compilar el engine
+## 2. Instalar desde release (recomendado)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/pguerrerolinares/exo/main/install.sh | bash
+```
+
+En Windows, desde PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/pguerrerolinares/exo/main/install.ps1 | iex
+```
+
+Los dos hacen lo mismo: detectan la plataforma, bajan el binario de la última
+release, **verifican su SHA256 antes de copiar nada**, lo dejan en
+`~/.local/bin/exo` (`exo.exe` en Windows) y cierran corriendo `exo doctor`.
+
+**Por qué `~/.local/bin` y no otro sitio del PATH:** es la ruta literal que
+mira el pre-commit de la KB (`plugins/exo/scripts/kb-precommit.sh:18`). Si el
+binario no está ahí, ese hook sale 0 —commit permitido, sin gate— y no rompe
+nada al hacerlo. `exo doctor` tiene un check dedicado a eso
+(`hook_fallback_binary`).
+
+Variables reconocidas: `EXO_DIR` (destino), `EXO_VERSION` (un tag concreto en
+vez de `latest`), `EXO_INIT_KB` + `EXO_INIT_NAME` (encadenan `exo init`).
+
+### Verificar la instalación
+
+```bash
+exo doctor
+```
+
+Diez checks de entorno; cada uno dice **el artefacto que miró**. `warn`
+informa, `fail` sale con código 3. Con `--json` emite el envelope v2.
+
+## 3. Compilar el engine
 
 ```bash
 git clone https://github.com/pguerrerolinares/exo
@@ -49,7 +82,7 @@ cp target/release/exo ~/.local/bin/       # Linux / macOS
 cp target/release/exo.exe ~/.local/bin/   # Windows (Git Bash); ~/.local/bin en PATH
 ```
 
-## 3. Crear (o adoptar) una KB
+## 4. Crear (o adoptar) una KB
 
 El engine arranca con `~/.exo/config.toml`; sin config no hay defaults
 inventados, solo un error que nombra el comando que la crea:
@@ -78,7 +111,7 @@ exo search "doctrina" --type hybrid --min-similarity 0.40 --limit 5
 exo recall --limit 5
 ```
 
-## 4. Instalar el plugin de Claude Code (capa thin)
+## 5. Instalar el plugin de Claude Code (capa thin)
 
 El repo es su propio marketplace (`.claude-plugin/marketplace.json` sirve
 `plugins/exo/`, id `exo@exo`):
@@ -88,13 +121,13 @@ claude plugin marketplace add pguerrerolinares/exo
 claude plugin install exo@exo
 ```
 
-Los hooks del plugin necesitan el binario ya instalado (sección 2) y `jq`.
+Los hooks del plugin necesitan el binario ya instalado (sección 3) y `jq`.
 Si el engine no está, el plugin no rompe la sesión: degrada a fallbacks
 embebidos y lo deja anotado en `~/.claude/reflex-log.jsonl`. Ese silencio
-tiene su deuda: el check de desfase binario↔plugin (`exo doctor`) está
-planeado, no implementado — ver `docs/backlog.md`.
+tiene su deuda: el check de desfase binario↔plugin sigue sin existir en
+`exo doctor` — ver `docs/backlog.md`.
 
-## 5. Correr los tests
+## 6. Correr los tests
 
 ```bash
 cd engine
@@ -113,10 +146,12 @@ Dos avisos honestos, ambos anotados en `docs/backlog.md`:
   entorno (descarga del modelo, índice real); se corren explícitos con
   `--ignored`.
 
-## 6. Lo que NO hay todavía
+## 7. Lo que NO hay todavía
 
-Para que nadie lo busque: no hay GitHub Releases, ni `install.sh` /
-`install.ps1`, ni workflow de CI, ni `exo doctor` (el preflight de entorno) ni
-`exo budget`. Todo eso está diseñado en la sección G5 de
-`docs/superpowers/specs/2026-08-26-exo-generico-design.md` y pendiente de
-ejecutar; el estado real de la deuda vive en `docs/backlog.md`.
+- **Binario para macOS Intel.** Solo se publica `aarch64-apple-darwin`; en un
+  Mac Intel toca compilar desde fuente.
+- **`exo rotate` y `exo stale`.** Siguen viviendo en `kbx` (Go). El remedio
+  que la doctrina manda aplicar cuando el gate de presupuestos muerde
+  —rotar la bitácora— exige por tanto `kbx` instalado. `exo:distill` lo
+  detecta y lo dice en una línea visible en vez de callarse.
+- **`exo diff-since` y `exo history`.** No portados y sin fecha.

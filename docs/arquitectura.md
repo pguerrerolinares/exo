@@ -291,6 +291,7 @@ Extraída del parser de clap (`engine/src/main.rs`):
 | `exo write append <permalink>` | Append a bitácora con gate de tier | `--from`, `--create`, `--force`, `--db`, `--kb`, `--json` |
 | `exo recall` | Bloque de arranque o consulta híbrida | `--query`, `--limit` (5), `--cap-bytes` (2048), `--content`, `--note`, `--refresh`, `--min-similarity`, `--db`, `--kb`, `--json` |
 | `exo targets <tema>` | Candidatas de la KB para un tema, portado de `kbx targets` | `--limit` (10), `--db`, `--kb`, `--json` |
+| `exo doctor` | Preflight de **entorno** (la máquina), frente a `lint`, que es de la KB. Diez checks; cada uno reporta el artefacto que miró y ninguno desaparece del informe: lo que no aplica sale como `na`. Emite el informe entero y luego gatea (exit 3 si hay algún `fail`; los `warn` no gatean) | `--json` |
 
 Los flags largos están en inglés con **alias ocultos en español**
 (`--limite`, `--titulo`, `--crea`, `--min-similitud`, `--escala-fts`) durante
@@ -483,19 +484,14 @@ resultados, no un benchmark reproducible por un tercero tal cual.
 Bordes explícitos del sistema; el detalle y el siguiente paso de cada uno
 viven en `docs/backlog.md`:
 
-- **`exo budget` y `exo doctor` no existen todavía** (planeados). En
-  particular, el check de desfase binario↔scripts del plugin (asignado a
-  `exo doctor`) no existe: si los scripts nuevos corren contra un binario
-  viejo, el hook de arranque degrada al fallback embebido **con forma
-  válida**, sin gritar.
+- **El check de desfase binario↔scripts del plugin no existe.** No está entre
+  los diez checks de `exo doctor` (§3.8): si los scripts nuevos corren contra
+  un binario viejo, el hook de arranque degrada al fallback embebido **con
+  forma válida**, sin gritar.
 - **MCP propio (M5a) y desinstalación de basic-memory (M5b)**: pendientes. El
   engine ya no depende de basic-memory para funcionar (la única lectura que
   queda es la migración explícita `exo init --from-basic-memory`), pero el
   plan de retirada completa no está ejecutado.
-- **Sin CI**: no hay `.github/` — ningún gate automático compila ni corre la
-  suite fuera de la máquina de desarrollo. Compilar exige toolchain C
-  (rusqlite bundled + sqlite-vec); sin él, el build muere en `cc-rs`. Los
-  requisitos completos están en `docs/instalacion.md`.
 - **La suite de tests no es hermética fuera de la máquina de desarrollo**: los
   tests que embeben texto dependen del cache local del modelo ONNX (~0,6 GB);
   el gate de hermeticidad (`engine/scripts/test-hermetico.sh`) cubre la config
