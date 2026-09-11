@@ -7,12 +7,6 @@ Framework de trabajo agéntico con memoria persistente. Tres capas:
 
 ## Instalar
 
-> **Todavía no funciona, y decirlo es el punto.** El instalador y el workflow
-> de release viven en la rama `g5b-release-doctor`, sin mergear, y **no hay
-> ningún tag cortado**: hoy esa URL da 404 y `releases/latest` no resuelve a
-> nada. Hasta que se publique `v0.1.0`, el camino real es compilar desde
-> fuente — ver [`docs/instalacion.md`](docs/instalacion.md).
-
 ```bash
 curl -fsSL https://raw.githubusercontent.com/pguerrerolinares/exo/main/install.sh | bash
 ```
@@ -57,9 +51,9 @@ invoca ese binario desde hooks y scripts de shell.
   check de la MSRV declarada (1.95). Pendiente: MCP propio (M5a), desinstalar
   basic-memory (M5b).
 
-  G5b entregó la **maquinaria** de release, los instaladores y `exo doctor`;
-  falta cortar el primer tag para que exista una release de verdad. Queda
-  G4d (`rotate`, `stale`) y el check de desfase binario↔plugin.
+  G5b entregó release, instaladores y `exo doctor`, y **`v0.1.0` está
+  publicada** con binarios para linux-x86_64, windows-x86_64 y macos-arm64.
+  Queda G4d (`rotate`, `stale`) y el check de desfase binario↔plugin.
 
 ## Arquitectura
 

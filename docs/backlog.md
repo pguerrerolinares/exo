@@ -7,7 +7,20 @@
 > duplicar. Cada item cita su evidencia; un item sin evidencia verificable no
 > entra.
 >
-> Última revisión: **2026-09-09** (re-verificación de los diez items de la
+> Última revisión: **2026-09-11** (alineación con el árbol real tras G5b, a
+> raíz de corregir el informe de la revisión crítica
+> —`docs/2026-09-04-revision-critica-externa.md`—. La re-verificación que ese
+> informe hizo el 09-11 por la mañana se corrió contra `bf4ba7a` **creyendo
+> que era `main`**, cuando `main` estaba en `a0d538b` desde el 09-10 11:25:
+> cuatro de sus afirmaciones salieron falsas. Aquí se propagan las tres que
+> tocan a items —`kbx`, la MSRV y el ratio docs/código— y se re-mide lo que
+> había cambiado. **Ningún item se cierra**; dos pierden parte de su
+> evidencia, uno gana un hermano nuevo (`tier` en los docs del repo) y la
+> release `v0.1.0` entra en `## Cerrado con evidencia`. Los seis marcados
+> «lo cierra / lo subsume G5» siguen abiertos: **G5b cerró sin adoptar
+> ninguno**.)
+>
+> Anterior: **2026-09-09** (re-verificación de los diez items de la
 > revisión crítica externa contra el árbol de `f86167a`: **nueve siguen vivos
 > y sin tocar**, uno caducó a medias —la MSRV— y tres traían cifras ya
 > movidas. Corregido in situ; los items retocados lo dicen en su cabecera.
@@ -61,12 +74,12 @@
 > existentes: el grep de `cache_read` / `prompt caching` / coste de tokens
 > sobre este fichero daba cero antes de la pasada.
 >
-> Anterior: **2026-09-04** (revisión crítica externa del repo completo:
+> Antes: **2026-09-04** (revisión crítica externa del repo completo:
 > diez items nuevos marcados «(revisión 2026-09-04)», tres de ellos en Alta;
 > ninguno duplica los que ya estaban — `test-*.sh` fuera de CI,
 > `test-contrato-engine.sh` atado a esta máquina, aliases españoles y
 > `kb-demo` en los tests del engine ya tenían entrada y se dejan como están).
-> Antes: **2026-09-02** (G5a — CI mínimo cerrado con evidencia, deuda nueva
+> Y antes: **2026-09-02** (G5a — CI mínimo cerrado con evidencia, deuda nueva
 > de la ola anotada).
 
 ## Estado
@@ -76,7 +89,8 @@
 | **Cerradas** | C5 (M2-08+09, cierra E1 read) · C6 (M6, cutover del recall) · C7 (M4, write-path) |
 | **Pendientes** | C8 (M3+M1b, cutover de skills) → C9 (M5a, MCP + config propia) → C10 (M5b, desinstalar basic-memory) |
 | **Medido** | engine-hybrid **48/55** hit@5 vs bm-hybrid 39/55, mismo día, paridad de corpus ∅, recall <2s (`evals/e1-read/verdict/m2-09-corrida.md`) |
-| **Tests** | 111 verdes / 0 rojos en la rama de M4, 98 en main previo (contados por el consultor del gate en esa ola; el CI que los corre solo llegó después, en G5a — 200 tests / 28 binarios, ver `## Cerrado con evidencia`) |
+| **Tests** | 111 verdes / 0 rojos en la rama de M4, 98 en main previo (contados por el consultor del gate en esa ola; el CI que los corre solo llegó después, en G5a — 200 tests / 28 binarios). **El 2026-09-11: 434 tests verdes en 44 binarios, 2 ignorados** (`README.md:46`), ver `## Cerrado con evidencia` |
+| **Release** | `v0.1.0` publicada el **2026-09-11** — tres binarios y sus tres `.sha256`, instalables por `install.sh` / `install.ps1`. Ver `## Cerrado con evidencia` |
 
 ---
 
@@ -131,11 +145,34 @@
   mientras `engine/Cargo.toml:3` es `0.1.0` y no existe ninguna release. Un
   documento «derivado del código» que se desactualiza en 48 horas indica que
   el volumen documental supera lo que una persona mantiene sincronizado.
-  **Acción:** (a) corregir §7 de `arquitectura.md` y el item de hermeticidad;
+  **Re-verificado el 2026-09-11 (tarde): la acción (a) está hecha, la (b) y
+  la (c) no, y el item gana dos instancias nuevas.**
+  - (a) **hecha**: `3673059` retiró «Sin CI» de `arquitectura.md` el 09-11 a
+    las 09:49. `grep "Sin CI" docs/arquitectura.md` → vacío. La afirmación
+    hermana (suite no hermética fuera de esta máquina) sigue en `:495` y
+    sigue siendo **cierta**, así que no era deriva.
+  - (b) **abierta**, y con un número más: `marketplace.json:4` `1.0.0`,
+    `marketplace.json:8` y `plugin.json:4` `1.1.1` (`ae1f470`),
+    `Cargo.toml:3` `0.1.0`. Ahora además existe una release `v0.1.0`
+    publicada, así que el crate y el tag sí concuerdan y el plugin es el que
+    se sale.
+  - (c) **abierta, y es lo único estructural que queda.** Su alcance ya está
+    definido: los cuatro ficheros que deben ser verdad hoy (`README.md`,
+    `docs/{instalacion,arquitectura,backlog}.md`, 1.939 líneas), no los 224
+    `.md` del repo. Cruza con el item nuevo de `tier` en Media, que es lo que
+    hace greppable ese conjunto.
+  - **Instancia nueva y ya cerrada el mismo día**: `docs/instalacion.md` §2 y
+    §7 afirmaron durante una hora que los instaladores «viven en una rama sin
+    mergear» y que «no hay ningún tag publicado», cuando G5b ya estaba en
+    `main` (11:27) y el tag existía. `0c81e87` (12:25) los retiró junto con
+    los del README. Cierta un día, falsa una hora: es la instancia más corta
+    que tiene el repo, y solo se cerró porque retirar los avisos era un paso
+    escrito del plan, no porque nada lo comprobara.
+  **Acción:** (a) ~~corregir §7 de `arquitectura.md`~~ hecha el 09-11;
   (b) alinear las tres versiones (o documentar por qué el plugin versiona
   aparte del engine); (c) añadir al `verify` de cierre un grep de las
   afirmaciones de estado más frágiles («Sin CI», recuento de tests,
-  versiones) contra el árbol real.
+  versiones) contra el árbol real, **acotado a los cuatro ficheros `core`**.
 
 - [ ] **(revisión 2026-09-04) «exo genérico» sigue siendo el plugin de Paul
   para Paul.** Medido el 2026-09-04 sobre `plugins/exo/`: la cadena `Paul`
@@ -155,12 +192,32 @@
   pueda adoptar el plugin sin leer la documentación entera. Es distinto del
   item de Baja «`kb-demo` como fixture en los tests del engine»: aquí son
   hooks y skills de producción.
+  **Re-verificado el 2026-09-11 (tarde): la acción (c) está hecha, la (b) a
+  medias, la (a) intacta.**
+  - **`kbx`: de 7 ficheros a 5**, y el grueso ya no es dependencia real.
+    `kb-precommit.sh` cortó a `exo ratchet --staged` + `exo budget` en el
+    cutover de G4c (`e76e9f9`, 09-10, en `main` desde el 09-10 11:25).
+    **`agents/executor.md` no contiene la cadena `kbx`**: esa cita del item
+    era falsa. De los 5 que quedan, dos son texto de ejemplo y nombre de un
+    caso de test; la dependencia viva es `distill` y `document` llamando a
+    `kbx` por `rotate` y `stale`, que ya tiene su propio item en Baja
+    («(G4c, Task 14) El cutover kbx→exo es parcial»).
+  - **(c) hecha**: la release `v0.1.0` está publicada desde el 09-11 12:10,
+    con `install.sh` e `install.ps1` resolviendo `releases/latest`. **Cae la
+    barrera de instalación** que este item citaba (Rust, toolchain C, 0,6 GB
+    y compilar desde fuente ya no son el único camino), y con ella la frase
+    «hoy no hay tercero que pueda adoptar el plugin».
+  - **Lo que sigue vivo, sin un solo cambio**: `Paul` en los mismos 4
+    ficheros con los mismos conteos (`distill/SKILL.md` ×7,
+    `recall-inject.sh` ×2, `git-add-all-guard.sh`, `kb-precommit.sh`);
+    `kb-demo` en 8 ficheros, tres de ellos de producción (`exo-recall.sh`,
+    `recall-inject.sh`, `kb-precommit.sh`). El item sigue en Alta por esto.
   **Acción:** (a) sustituir «Paul» por «el usuario»/«el dueño de la KB» y
   `kb-demo` por el nombre resuelto vía `exo config` en los cuatro scripts y
-  dos skills; (b) o bien portar a exo lo que `distill` necesita de `kbx`
-  (G4 ya empezó por `targets`), o bien declarar `kbx` como dependencia
-  opcional en `instalacion.md` y hacer que `distill` se abstenga entera sin
-  él; (c) la release con binario de G5 es el prerequisito de todo lo demás.
+  dos skills; (b) lo que queda de `kbx` (`rotate`, `stale`) lo lleva el item
+  de Baja de G4c Task 14: o se porta, o se declara dependencia opcional en
+  `instalacion.md` y `distill` se abstiene entera sin él;
+  (c) ~~la release con binario de G5~~ **hecha el 2026-09-11**.
 
 - [ ] **El bloque de arranque va al 96% de su cap, y desborda en silencio.**
   Medido el 2026-08-27 al validar la Task 6 de la ola 1B: el bloque que
@@ -288,7 +345,7 @@
   cambió desde la instalación, «repara» hacia el contenido nuevo, no hacia el
   original. Para `exo doctor` la mitad valiosa es la **detección** del desfase;
   el reponer-al-sello, que es lo que haría el trinquete, ahí no está y habría
-  que ponerlo. **Lo cierra G5 si lo adopta.**
+  que ponerlo. **Lo cierra G5 si lo adopta.** **(2026-09-11: G5b cerró sin adoptarlo — release `v0.1.0` publicada, ver `## Cerrado con evidencia`. La marca queda huérfana: necesita dueño o campaña propia.)**
 
 - [ ] **(pasada de coste 2026-09-09) El bucle de coste de la inyección está
   a un `join` de distancia: el emisor ya loguea los bytes que emite y nadie los
@@ -368,7 +425,10 @@
   **tres** scripts bash en cada `PreToolUse:Bash` (`git-c-bash.sh`,
   `git-add-all-guard.sh`, `verify-before-commit.sh`) y uno en cada
   `UserPromptSubmit` (`recall-inject.sh`) que lanza `exo recall --refresh`,
-  `exo config --json` y del orden de seis invocaciones de `jq`/`sed`/`tr`.
+  `exo config --json` y **trece** invocaciones de `jq`/`sed`/`tr` (re-contado
+  el 2026-09-11 sobre las 339 líneas del script: 7 `jq`, 2 `sed`, 4 `tr`; el
+  «del orden de seis» original se quedaba corto a la mitad, en contra del
+  propio argumento del item).
   Las cifras publicadas («~10 ms», `exo-recall.sh` cabecera; «~25 ms sin
   cambios», `exo-index.sh`) miden el binario, no el hook: bajo Git Bash cada
   spawn de proceso cuesta decenas de milisegundos, así que el coste real por
@@ -393,10 +453,47 @@
   —o esta tras un `rustup default` distinto— repite el mismo tropiezo, y
   además falla **después** de resolver dependencias, que es lo que lo hacía
   caro de diagnosticar.
+  **Re-confirmado el 2026-09-11**: `rustc 1.98.0` / `cargo 1.98.0`, toolchain
+  `stable` activo y por defecto, instalado el 2026-08-24 según
+  `~/.rustup/toolchains` —o sea, **antes** de la revisión del 09-04, cuya
+  lectura de 1.94.1 venía de un `rustup default` dejado en el bisect de MSRV
+  del 09-02—. `find . -iname "rust-toolchain*"` sigue vacío. La marca
+  «CADUCADO A MEDIAS» de este item era **correcta**; el informe de la revisión
+  crítica la revirtió por error el 09-11 por la mañana y se ha corregido en su
+  §5.9. `docs/instalacion.md:25-28` ya documenta el mecanismo del corte, así
+  que de la acción solo queda el fichero.
   **Acción:** `engine/rust-toolchain.toml` con `channel = "stable"` o la
-  MSRV, para que rustup lo resuelva solo. Anotar el requisito en
-  `instalacion.md` §1 con la salida exacta del error para que sea googleable.
-  (El `rustup update stable` de la acción original ya está hecho.)
+  MSRV, para que rustup lo resuelva solo. (El `rustup update stable` de la
+  acción original ya está hecho, y la anotación en `instalacion.md` también.)
+
+- [ ] **(revisión 2026-09-11) Los documentos del repo no llevan `tier`, así
+  que nada distingue lo que debe ser verdad hoy de lo que solo fue verdad un
+  día.** Medido el 2026-09-11: `docs/` tiene **35.892** líneas de markdown en
+  74 ficheros, de las que **33.469 (el 93 %) viven en `docs/superpowers/`** y
+  **69 de los 74 llevan la fecha en el nombre** —specs, planes, verdicts,
+  consultorías, runbooks: instantáneas que nadie tiene que mantener—. La
+  superficie que sí debe ser verdad hoy son cuatro ficheros y **1.939
+  líneas**: `docs/backlog.md` (1.114), `docs/arquitectura.md` (507),
+  `docs/instalacion.md` (172) y `README.md` (146). Contra las 9.043 de Rust
+  en `engine/src/`, eso es **0,21 líneas de documentación viva por línea de
+  código**. Y sin embargo **de los 74 documentos solo uno lleva `tier:` en el
+  frontmatter**: exo implementa `tier: core/stable/log`, techo por nota y
+  `exo ratchet` para la KB, y no se lo aplica a su propio repo. Dos
+  consecuencias medidas: los dos únicos fallos de deriva que se han podido
+  probar (el «Sin CI» de `arquitectura.md` y los avisos de `instalacion.md`)
+  están **los dos dentro de esas 1.939 líneas**, no en el 93 % restante; y hay
+  **17 referencias** desde los cuatro ficheros vivos hacia `docs/superpowers/`
+  (`grep -rn "docs/superpowers" README.md docs/{arquitectura,instalacion,backlog}.md
+  | wc -l`), es decir, lo que se declara archivo está siendo citado como
+  autoridad por lo que se declara vigente.
+  **Acción:** (a) `tier: log` en la cabecera de todo `docs/superpowers/` y de
+  cualquier documento con fecha en el nombre —incluido el informe de la
+  revisión crítica—; (b) `tier: core` en los cuatro vivos; (c) el grep de
+  afirmaciones frágiles del item de Alta corriendo **solo sobre los `core`**.
+  Es la forma barata de cerrar la deriva documental: 1.939 líneas caben en un
+  job de CI, 35.892 no. Cruza con «Decisión abierta: proceso frente a
+  producto» (Baja), cuya evidencia —el ratio docs/código— este item
+  reemplaza.
 
 - [ ] **`#[allow(clippy::too_many_arguments)]` en `escritor.rs` — la struct de
   parámetros que no se hizo aquí.** `escribe_nueva` toma 8 parámetros contra
@@ -411,7 +508,16 @@
   del backlog por nombre.
 
 - [ ] **Los scripts `test-*.sh` de `plugins/exo/scripts/` no entran en CI.**
-  Medido 2026-09-02: hay **10** scripts `test-*.sh` en ese directorio, de los
+  **Re-medido el 2026-09-11: son 11 scripts** (el nuevo es
+  `test-estilo-directo.sh`, del 2026-09-09) sobre 4.713 líneas de shell, y **siguen los 11
+  fuera del CI**: `ci.yml` tiene cuatro jobs (`lint`, `msrv`, `test`,
+  `install-gate`) y ninguno toca `plugins/exo/scripts/`. Novedad que juega a
+  favor: `654c757` cableó `install-gate`, que ejercita `scripts/test-install.sh`
+  y `scripts/test-install.ps1` en ubuntu, macOS y Windows contra una release
+  falsa servida por `file://`. **El patrón de fixture que este item pide ya se
+  ha escrito una vez en este repo, para otro gate** — deja de ser un diseño
+  por inventar.
+  Medido 2026-09-02: había **10** scripts `test-*.sh` en ese directorio, de los
   que **5 referencian rutas de esta máquina** —
   `grep -nE 'paul|C:[/\\]Users|/home/[a-z]+/' plugins/exo/scripts/test-*.sh`
   marca `test-a1-gate.sh`, `test-compose-inject.sh` (ambos vía el default
@@ -444,7 +550,7 @@
   `scripts/ci/validate-hooks.js`, que valida `hooks/hooks.json` contra
   `schemas/hooks.schema.json` con Ajv (`:9,12,144-145`);
   `plugins/exo/hooks/hooks.json` tiene nueve hooks y ninguna validación.
-  **Lo cierra G5 si lo adopta.**
+  **Lo cierra G5 si lo adopta.** **(2026-09-11: G5b cerró sin adoptarlo — release `v0.1.0` publicada, ver `## Cerrado con evidencia`. La marca queda huérfana: necesita dueño o campaña propia.)**
 
 - [ ] **(G4c, Task 13) `kb-precommit.sh` depende de que `exo` esté instalado
   en cada máquina — si no, el gate degrada a "commit permitido" en
@@ -503,7 +609,7 @@
   para que la suite deje de abstenerse fuera de esta máquina.
   **Cruce (2026-09-09):** el fixture que pide este item y el que pide
   «los scripts `test-*.sh` no entran en CI» son el mismo (índice + KB de
-  prueba); hacerlo una vez sirve a los dos. **Lo cierra G5 si lo adopta.**
+  prueba); hacerlo una vez sirve a los dos. **Lo cierra G5 si lo adopta.** **(2026-09-11: G5b cerró sin adoptarlo — release `v0.1.0` publicada, ver `## Cerrado con evidencia`. La marca queda huérfana: necesita dueño o campaña propia.)**
 
 - [ ] **Un rojo del job `test` no se puede diagnosticar desde el CI.**
   `engine/scripts/test-hermetico.sh:19` manda toda la salida de `cargo test`
@@ -544,7 +650,7 @@
   the release commit to equal origin main», compara `git rev-parse HEAD` contra
   `git rev-parse origin/main` y sale con `exit 1` si difieren, en el job
   `verify`, antes de cualquier paso de empaquetado.
-  **Lo subsume G5 si adopta esa cadena.**
+  **Lo subsume G5 si adopta esa cadena.** **(2026-09-11: G5b cerró sin adoptarlo — release `v0.1.0` publicada, ver `## Cerrado con evidencia`. La marca queda huérfana: necesita dueño o campaña propia.)**
 
 - [ ] **Dos endurecimientos del CI que se decidieron NO aplicar en G5a, y por
       qué.** Hallazgos Minor de la review final de rama; se anotan para que la
@@ -554,7 +660,7 @@
       custodia del artefacto —`--locked` en el job que de verdad corre la
       suite, `HF_HOME` explícito y su ruta de caché derivada— entran con ella
       en vez de necesitar campaña propia. **Lo subsume G5 si adopta esa
-      cadena.**
+      cadena.** **(2026-09-11: G5b cerró sin adoptarlo — release `v0.1.0` publicada, ver `## Cerrado con evidencia`. La marca queda huérfana: necesita dueño o campaña propia.)**
   - **`HF_HOME` sin fijar.** La ruta del paso de caché
     (`~/.cache/huggingface/hub/models--jinaai--jina-embeddings-v2-base-es`)
     depende hoy del **default de `hf-hub` 0.5.0**, que es un detalle de una
@@ -713,16 +819,29 @@
   que este item denunciaba **se ha invertido**, aunque la decisión de fondo
   siga sin tomarse. 345 commits en total, autoría única confirmada (342 bajo
   el mismo nombre), pico de 77 commits/día el 2026-07-17.
-  El item de Alta sobre deriva documental es el síntoma: el volumen ya
-  supera lo que se mantiene sincronizado a mano. No es deuda técnica en sí;
-  es una decisión sin tomar que genera deuda. Si exo es una herramienta
-  personal, el proceso (consultorías, gates, runbooks por cutover) está
-  sobredimensionado y conviene congelarlo. Si aspira a usuarios, la
-  prioridad es la release de G5 y purgar lo personal (item de Alta), no más
-  documentación.
+  **Re-medido el 2026-09-11 (tarde), y la evidencia de este item se retira:**
+  36.922 markdown · **9.043** Rust en `engine/src/` · 10.210 de tests · 4.713
+  de shell → ratio **4,1:1**. Cayó de 5,4 a 4,1 **en un solo día y sin que
+  nadie tocara una línea de documentación**, porque G5b metió código: un
+  número que se mueve un 25 % por razones ajenas a lo que dice medir no
+  sostiene un item. Y el desglose que faltaba lo invierte del todo: el 93 % de
+  ese markdown son instantáneas fechadas y la documentación **viva** son 1.939
+  líneas, 0,21 por línea de código. Por volumen exo no está sobredocumentado;
+  lo que está sobredimensionado es el exhaust de proceso, que se paga al
+  generarlo y no al mantenerlo. **La evidencia medible de esta decisión pasa
+  al item nuevo de `tier` (Media)**; lo que queda aquí es la decisión de fondo,
+  que sigue sin tomarse.
+  Dos costes que sí resisten la medición: el **coste por unidad entregada**
+  (un brief y un informe por tarea, commit por micro-paso, mensajes-ensayo:
+  402 commits en 19 días) y la **frontera rota** de las 17 referencias desde
+  los cuatro ficheros vivos hacia `docs/superpowers/`. En contra, el dato que
+  este item nunca tuvo: el plan de 105 KB de G5b entregó `exo doctor`, dos
+  instaladores, el workflow de release y la release publicada en dos días,
+  con tests — el aparato de proceso está pagando por sí mismo.
   **Acción:** escribir la respuesta en el README en dos frases («para quién
-  es exo hoy») y derivar de ella qué carpetas de `docs/superpowers/` pasan a
-  archivo histórico. Se cruza con el item «Nombres y ubicaciones» de abajo.
+  es exo hoy»). De la mitad operativa —qué carpetas dejan de mantenerse— se
+  encarga el marcado por `tier`. Se cruza con «Nombres y ubicaciones» de
+  abajo.
 
 - [ ] **(revisión 2026-09-04) Idioma mezclado sin criterio único.** Medido
   sobre `engine/src/`: identificadores y módulos en español (`buscador`,
@@ -794,7 +913,7 @@
   Deuda menor — no bloquea nada hoy.
   **Cruce (2026-09-09):** lo cierra —y lo mantiene cerrado— el mismo validador
   de nombres y rutas personales anotado en el item de `test-*.sh` fuera de CI
-  (Media). **Lo cierra G5 si lo adopta.**
+  (Media). **Lo cierra G5 si lo adopta.** **(2026-09-11: G5b cerró sin adoptarlo — release `v0.1.0` publicada, ver `## Cerrado con evidencia`. La marca queda huérfana: necesita dueño o campaña propia.)**
 
 - [ ] **(pasada de coste 2026-09-09) Sinergias anotadas, dueño sin decidir: el
   mecanismo de guards de exo sirve para delegar I/O, y el método de evals de
@@ -865,6 +984,44 @@
 ---
 
 ## Cerrado con evidencia (para no re-proponer)
+
+- [x] **Release `v0.1.0` — el binario que no existía: cerrado el 2026-09-11
+  (G5b).** `install.sh`, `install.ps1`, `.github/workflows/release.yml` y
+  `exo doctor` entraron en `main` con el PR #6 (`f001667`, 11:27). La release
+  está publicada y tiene **seis artefactos**: `exo-x86_64-unknown-linux-gnu`,
+  `exo-x86_64-pc-windows-msvc.exe`, `exo-aarch64-apple-darwin` y sus tres
+  `.sha256`. Los instaladores resuelven `releases/latest`, verifican el
+  SHA256 **antes** de copiar nada y abortan en macOS Intel y Linux ARM en vez
+  de dejar un binario que no arranca.
+
+  **No salió a la primera, y eso es la mitad del valor de esta entrada:**
+
+  | Corrida | Disparo | Conclusión | Qué demuestra |
+  |---|---|---|---|
+  | `34584773325` | push del tag `v0.1.0` | failure | `shasum: command not found`, exit 127, en el runner `x86_64-pc-windows-msvc`. El workflow usaba `shasum -a 256` —y no `sha256sum`— con un comentario explicando que el segundo no existe en macOS: la elección resolvió macOS y rompió Windows. Falló **después** de pasar la suite y `publish` quedó `skipped`: ninguna release a medias. Fix en PR #7 (`360175c`) |
+  | — | — | failure en local | `install.ps1` **rechazaba el binario de Windows de su propia release**: `sha256sum` firma con `*` delante del nombre y `shasum` con dos espacios, y el instalador solo aceptaba un formato. Fix en PR #8 (`8a86832`) |
+  | `34586964204` | `workflow_dispatch` sobre `main` | success | 11m24s, seis artefactos publicados |
+
+  Tercer tropiezo, registrado en el runbook: **el clippy de una máquina
+  Windows no ve el código `#[cfg(unix)]`**, así que salía limpio en local con
+  un `needless_return` que el CI de ubuntu sí caza (`45a8bc3`).
+
+  **Verificado en W11 con el binario de la release** —no con el del
+  `target/release` local—: diez filas de `exo doctor`, cero `fail`, búsqueda
+  híbrida con resultados y el gate de la KB corriendo sin bloquear. El binario
+  que había instalado era anterior a G5b y no tenía `doctor`. Queda pendiente
+  la máquina Linux, que no bloquea. Detalle completo:
+  `docs/superpowers/runbooks/2026-09-11-g5b-release-v0.1.0.md`.
+
+  **Los tres fallos son la misma familia** —dos plataformas que discrepan en
+  una herramienta, una que oculta código al linter— y **ninguno lo habría
+  cazado un CI verde**: los cazó ejercer el artefacto publicado. Es el mismo
+  argumento que sostienen los items abiertos de fixtures y de `test-*.sh`
+  fuera de CI.
+
+  **Lo que esta release NO cierra**: los seis items marcados «lo cierra / lo
+  subsume G5». G5b se cerró sin adoptar ninguno — siguen abiertos y ahora sin
+  campaña asignada.
 
 - [x] **CI mínimo — el gate que faltaba: cerrado el 2026-09-02 (G5a).**
   `.github/workflows/ci.yml` corre en cada PR contra `main`: cinco jobs —
