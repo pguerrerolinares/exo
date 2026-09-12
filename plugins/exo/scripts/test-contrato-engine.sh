@@ -85,7 +85,8 @@ fi
 # Modo arranque (sin --query): no depende del modelo de embeddings y basta
 # para ejercer la forma del envelope que consume recall-inject.sh.
 ERR_TMP="$(mktemp)" || ERR_TMP=""
-SALIDA="$(timeout "${EXO_CONTRATO_TIMEOUT:-15}" "$EXO_BIN" recall --json \
+. "$SCRIPT_DIR/_timeout.sh"
+SALIDA="$(con_timeout "${EXO_CONTRATO_TIMEOUT:-15}" "$EXO_BIN" recall --json \
             --db "$EXO_INDEX" --kb "$EXO_KB" 2>"${ERR_TMP:-/dev/null}")"
 RC=$?
 ERR=""
