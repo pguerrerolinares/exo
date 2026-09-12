@@ -130,13 +130,17 @@ fi
 # que sustituye al core-index filtrado) desaparecía antes de llegar al hook. Con
 # 4000 o más, cero truncados sobre la misma muestra.
 EXO_INJECT_TIMEOUT="${EXO_INJECT_TIMEOUT:-5}"
+# `con_timeout` y no `timeout`: macOS no trae `timeout` y el hook moría con
+# rc=127 en cada prompt. Si el helper no carga, `con_timeout` no existe, el rc
+# es 127 igualmente y sale por la rama `degraded` de abajo, con rastro.
+. "$SCRIPT_DIR/_timeout.sh" 2>/dev/null
 ERR_TMP="$(mktemp)" || ERR_TMP=""
 
 # `--query=` y no `--query ` : el prompt es texto arbitrario del usuario, y si
 # empieza por guion clap lo parsea como flag (medido: "- revisa X" da exit 2,
 # "unexpected argument"). La forma con `=` quita la ambigüedad. Los demás flags
 # llevan valores que controlamos nosotros, así que no la necesitan.
-SALIDA="$(timeout "$EXO_INJECT_TIMEOUT" "$EXO_BIN" recall \
+SALIDA="$(con_timeout "$EXO_INJECT_TIMEOUT" "$EXO_BIN" recall \
             --db "$EXO_INDEX" --query="$PROMPT" \
             --min-similarity 0.40 --limit 4 --cap-bytes 4000 \
             --refresh --json 2>"${ERR_TMP:-/dev/null}")"
@@ -146,7 +150,7 @@ ERR=""
 [ -n "$ERR_TMP" ] && ERR="$(head -c 300 "$ERR_TMP" 2>/dev/null)"; rm -f "$ERR_TMP"
 
 if [ "$RC" -eq 124 ]; then
-  # `timeout` usa 124. Que el guard sea nuestro y no del harness es lo que hace
+  # `con_timeout` usa 124, como `timeout`. Que el guard sea nuestro y no del harness es lo que hace
   # este caso visible: un timeout del harness no dejaría rastro en el log.
   log_ri "degraded" "reason=timeout-guard t=${EXO_INJECT_TIMEOUT}s"
   exit 0
