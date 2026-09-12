@@ -21,11 +21,9 @@
 # exactamente el fallo silencioso que esta tarea persigue cerrar (ver
 # kb-demo: "Fallo silencioso — el instrumento que no grita").
 #
-# G5 (cuando haya CI): este test depende de estado de ESTA máquina
-# (C:/Users/paul/.exo/index.db, C:/proyectos/homework/kb-demo). No hay
-# fixture reproducible todavía — CI necesitará uno propio (índice + KB de
-# ejemplo) para poder correr esto en el pipeline. Hasta entonces es un gate
-# local, de máquina de desarrollo.
+# En CI lo corre scripts/test-contrato-ci.sh, que monta un fixture propio
+# (KB semilla de `exo init` + índice) con EXO_CONFIG aislado. En local, sin
+# ese wrapper, resuelve índice y KB de la config de la máquina.
 #
 # Solo lee: `exo recall` no escribe nada, así que este test no necesita
 # aislamiento de KB/índice como el resto de la suite de scripts.
@@ -35,11 +33,14 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 # Mismo seam EXO_BIN que el resto de scripts, pero el DEFAULT es el binario
-# CONSTRUIDO DEL REPO (engine/target/release/exo.exe), no
-# `$(command -v exo)` / `~/.local/bin/exo`: ese instalado en esta máquina
-# sigue siendo v1 a propósito (decisión de pre-flight de esta ola), y un
-# default que cayera ahí daría un resultado que no dice nada de este cambio.
-EXO_BIN="${EXO_BIN:-$REPO_ROOT/engine/target/release/exo.exe}"
+# CONSTRUIDO DEL REPO (engine/target/release/exo[.exe]), no
+# `$(command -v exo)` / `~/.local/bin/exo`: el instalado puede ir por detrás
+# del repo, y un default que cayera ahí daría un resultado que no dice nada
+# del cambio en curso. El `.exe` solo existe en Windows: con el literal
+# anterior, en Linux/macOS este test se abstenía siempre.
+BIN_REPO="$REPO_ROOT/engine/target/release/exo"
+[ -e "$BIN_REPO.exe" ] && BIN_REPO="$BIN_REPO.exe"
+EXO_BIN="${EXO_BIN:-$BIN_REPO}"
 
 # Rutas estilo Windows: el binario es nativo y no entiende `/c/Users/...`.
 # Índice y KB salen de `exo config --json` (Task 8), no de un literal — pero
@@ -49,7 +50,7 @@ EXO_BIN="${EXO_BIN:-$REPO_ROOT/engine/target/release/exo.exe}"
 # dejaría índice/KB vacíos y el test abstendría en vez de fallar en rojo por
 # la causa real (el contrato de `recall`). El seam de entorno (EXO_INDEX,
 # EXO_KB) sigue mandando si algo los define, igual que antes.
-CONFIG_BIN="$REPO_ROOT/engine/target/release/exo.exe"
+CONFIG_BIN="$BIN_REPO"
 CONFIG_JSON="$("$CONFIG_BIN" config --json 2>/dev/null)" || CONFIG_JSON=""
 EXO_INDEX="${EXO_INDEX:-$(printf '%s' "$CONFIG_JSON" | jq -r '.data.index.db // empty' 2>/dev/null)}"
 EXO_KB="${EXO_KB:-$(printf '%s' "$CONFIG_JSON" | jq -r '.data.kb.path // empty' 2>/dev/null)}"
