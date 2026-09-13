@@ -120,8 +120,8 @@
 | **Medido** | engine-hybrid **48/55** hit@5 vs bm-hybrid 39/55, mismo día, paridad de corpus ∅, recall <2s (`evals/e1-read/verdict/m2-09-corrida.md`) |
 | **Tests** | 111 verdes / 0 rojos en la rama de M4, 98 en main previo (contados por el consultor del gate en esa ola; el CI que los corre solo llegó después, en G5a — 200 tests / 28 binarios). **El 2026-09-13 (cierre de campaña B), `cargo test --release --locked --no-fail-fast` en `engine/`: 478 tests verdes en 48 binarios, 2 ignorados, 0 rojos** |
 | **Release** | `v0.1.0` publicada el **2026-09-11** — tres binarios y sus tres `.sha256`, instalables por `install.sh` / `install.ps1`. Ver `## Cerrado con evidencia` |
-| **Campaña A** | ejecutada el **2026-09-13** salvo Tasks 12 y 15 (esperan la medición W11 de Paul) — rama `campana-a`, sin PR aún; veredicto en `evals/recall-coste/verdict/2026-09-campana-a.md` |
-| **Campaña B** | ejecutada el **2026-09-13**, las 13 tasks (H6, H8, H9, H11, H12, H13, H15, H16, H18, H20, H21, H22, H26) integradas en `campana-b-t13` — sin PR a `main` aún; plan en `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md`; H25 queda como checklist externo de Paul |
+| **Campaña A** | ejecutada el **2026-09-13** salvo Tasks 12 y 15 (esperan la medición W11 de Paul) — mergeada a `main` el **2026-09-13** vía PR #13 (`ef5100b`); veredicto en `evals/recall-coste/verdict/2026-09-campana-a.md` |
+| **Campaña B** | ejecutada el **2026-09-13**, las 13 tasks (H6, H8, H9, H11, H12, H13, H15, H16, H18, H20, H21, H22, H26) integradas en la rama `campana-b` — **a fecha 2026-09-13, pendiente del gate de Paul, sin PR a `main` aún**; plan en `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md`; H25 queda como checklist externo de Paul |
 
 ---
 
@@ -224,7 +224,13 @@
   para Paul.** Medido el 2026-09-04 sobre `plugins/exo/`: la cadena `Paul`
   aparece en 4 ficheros vivos del plugin (`skills/distill/SKILL.md` ×7,
   `scripts/recall-inject.sh` ×2, `scripts/git-add-all-guard.sh`,
-  `scripts/kb-precommit.sh`); `kb-demo` en 8 ficheros del plugin, dos de ellos
+  `scripts/kb-precommit.sh`) — **re-medido el 2026-09-13 (`git grep -c Paul
+  -- plugins/exo`) tras el split de `distill`: 5 ficheros de lógica
+  (`skills/distill/SKILL.md` ×6, `skills/distill/chequeos.md` ×1 —nuevo del
+  split—, `scripts/recall-inject.sh` ×2, `scripts/git-add-all-guard.sh` ×1,
+  `scripts/kb-precommit.sh` ×1); el grep también da `.claude-plugin/
+  plugin.json` ×1, pero es el campo `author.name` (metadata legítima, fuera
+  del alcance de esta acción)**; `kb-demo` en 8 ficheros del plugin, dos de ellos
   hooks de producción (`exo-recall.sh`, `recall-inject.sh`) y uno el
   pre-commit de la KB; y `kbx` —binario Go externo, no incluido en el repo,
   sin build decidido en Windows según la propia skill— es dependencia
@@ -253,11 +259,15 @@
     barrera de instalación** que este item citaba (Rust, toolchain C, 0,6 GB
     y compilar desde fuente ya no son el único camino), y con ella la frase
     «hoy no hay tercero que pueda adoptar el plugin».
-  - **Lo que sigue vivo, sin un solo cambio**: `Paul` en los mismos 4
-    ficheros con los mismos conteos (`distill/SKILL.md` ×7,
+  - **Lo que sigue vivo, sin un solo cambio (a fecha 09-11)**: `Paul` en los
+    mismos 4 ficheros con los mismos conteos (`distill/SKILL.md` ×7,
     `recall-inject.sh` ×2, `git-add-all-guard.sh`, `kb-precommit.sh`);
     `kb-demo` en 8 ficheros, tres de ellos de producción (`exo-recall.sh`,
     `recall-inject.sh`, `kb-precommit.sh`). El item sigue en Alta por esto.
+    **Re-medido el 2026-09-13, tras H22 (`e5398d5`+`1018802`) partir
+    `distill/SKILL.md` en `SKILL.md` + `chequeos.md`:** el conteo cambia de
+    forma (`git grep -c Paul -- plugins/exo`) pero no de fondo — ver el
+    detalle arriba, en la entrada del 2026-09-04.
   **Acción:** (a) sustituir «Paul» por «el usuario»/«el dueño de la KB» y
   `kb-demo` por el nombre resuelto vía `exo config` en los cuatro scripts y
   dos skills; (b) lo que queda de `kbx` (`rotate`, `stale`) lo lleva el item
@@ -434,6 +444,27 @@
   que el harness debe **exigir** el fichero, no tolerar su falta.
 
 ## Media
+
+- [ ] **(NUEVO, revisión final campaña B, 2026-09-13) En `release.yml`, el
+  check de versiones corre DESPUÉS de los tres builds (hasta 3×60 min),
+  no antes.** `publish` (`.github/workflows/release.yml:105-136`) declara
+  `needs: build` (la matriz linux/windows/macos, `timeout-minutes: 60`
+  cada leg) y solo dentro de `publish`, tras el inventario de artifacts,
+  corre «El tag casa con `engine/Cargo.toml`»
+  (`.github/workflows/release.yml:131-136`: `bash scripts/test-versiones.sh
+  "$TAG"`) — un check de segundos que no toca ningún artifact de build.
+  Agravante medido el 2026-09-13: `scripts/test-versiones.sh` no existe en
+  el árbol del único tag publicado (`v0.1.0`) — se añadió después, en
+  `3bc05aa` (campaña B, H16) — así que un `workflow_dispatch` con `tag:
+  v0.1.0` haría `checkout ref: v0.1.0` (`release.yml:45-47` para `build`,
+  `:111-112` para `publish`), correría los tres builds completos, y
+  fallaría en `publish` con el script inexistente: hasta 3 horas-runner
+  gastadas antes de descubrir un desajuste que un job previo barato habría
+  cazado en segundos.
+  **Acción (no aplicada aquí):** mover el check de versiones a un job
+  previo y barato (o al principio de `build`) del que `publish` (y
+  arguably los propios legs de `build`) dependan con `needs:`, para que
+  falle rápido sin gastar la matriz.
 
 - [ ] **(revisión 2026-09-04) `tier` no se persiste en el índice y cada
   arranque relee el frontmatter de TODAS las notas desde disco.**
@@ -616,7 +647,8 @@
   máquina nueva, o subir el aviso de stderr a algo que no pase desapercibido
   (el hook está enlazado, pero el gate no protege nada).
 
-- [ ] **Retirar los aliases españoles del CLI en 1.1.** Los diez flags
+- [ ] **Retirar los aliases españoles del CLI en la 1.1 del engine** (versión
+  propia del engine, distinta de la del plugin). Los diez flags
   renombrados en la ola 1A (`--limite`→`--limit`, `--titulo`→`--title`,
   `--contenido`→`--content`, `--nota`→`--note`, `--refresca`→`--refresh`,
   `--crea`→`--create`, `--min-similitud`→`--min-similarity`,
@@ -961,6 +993,23 @@
   tienen — o se parametriza por comando (`init` → menciona `$EXO_DB`,
   `index`/`rebuild` → menciona `--db`), o se reescribe genérico («usa otro
   índice para esta KB: `--db` en `index`/`rebuild`, `$EXO_DB` en `init`»).
+  **Deuda hermana (revisión final campaña B, 2026-09-13): `exo init` no
+  respeta `$EXO_DB` al escribir `[index] db` en la config.** `init_cmd`
+  calcula `db_objetivo` con la precedencia `$EXO_DB` > default
+  (`engine/src/main.rs:560-563`) y lo usa para la indexación inicial
+  (`resuelve_db(None)` en `engine/src/main.rs:629`), pero
+  `escribe_config` recibe `db_default` — SIEMPRE `~/.exo/index.db`, nunca
+  `db_objetivo` — como el valor que graba en `[index] db`
+  (`engine/src/main.rs:622`, `exo::inicia::escribe_config` en
+  `engine/src/inicia.rs:131-171`). Medido el 2026-09-13 en un `HOME`
+  aislado: `EXO_CONFIG=~/.exo/otra-kb.toml EXO_DB=~/.exo/otra-kb.db exo
+  init --kb ~/otra-kb --name otra-kb` indexa `otra-kb.db` en el `init`,
+  pero `otra-kb.toml` queda con `db = "~/.exo/index.db"` — un `exo search`
+  posterior con solo `EXO_CONFIG` (sin `EXO_DB`) sale 0 y responde desde el
+  índice de la PRIMERA KB, sin avisar. Receta que sí funciona (editar
+  `[index] db` a mano tras el `init`) documentada en `docs/instalacion.md`
+  §4. **Acción:** que `escribe_config` reciba y grabe `db_objetivo`, no
+  `db_default`.
 
 - [ ] **(NUEVO, campaña B, 2026-09-13, H15) `trinquete::sellos_escapados_de_tier`
   lee el tier del disco también en `--staged`.** El propio código lo
@@ -978,6 +1027,38 @@
   ciegas un gate que ya se demostró falsable.
 
 ## Baja
+
+- [ ] **(NUEVO, revisión final campaña B, 2026-09-13) El bash inline de
+  `run:` en `.github/workflows/*.yml` no pasa por ningún gate.**
+  `scripts/test-shellcheck.sh` solo analiza ficheros `.sh` versionados (y
+  ejecutables sin extensión con shebang sh/bash bajo `plugins/`) — su propio
+  comentario dice «Qué NO entra» y los workflows no están en la lista. Ya
+  rompió una release real: `sha256sum` (GNU) vs `shasum` (macOS/BSD) en
+  `release.yml` tumbó el push del tag `v0.1.0` en el runner de Windows
+  (`shasum: command not found`, exit 127; fix PR #7 `360175c`) y, ya
+  arreglado hacia el otro lado, rompió `install.ps1` (formato de firma
+  distinto según el comando; fix PR #8 `8a86832`) — tabla de corridas en
+  `## Cerrado con evidencia`, «Release `v0.1.0` — el binario que no
+  existía». **Acción:** extender
+  `test-shellcheck.sh` (o un gate hermano) a los bloques `run: |` de
+  `.github/workflows/*.yml` — extraerlos a ficheros temporales o usar el
+  soporte de shellcheck para YAML embebido — o documentar explícitamente
+  que ese bash queda fuera de todo gate y por qué.
+
+- [ ] **(NUEVO, revisión final campaña B, 2026-09-13) El job `lint` de
+  `ci.yml` se llama «fmt + clippy» pero ya corre shellcheck y el gate de
+  versiones.** `.github/workflows/ci.yml:24-61`: el job `lint` (`name: fmt +
+  clippy`) tiene cuatro steps — `cargo fmt --check`, `cargo clippy`,
+  shellcheck sobre el bash versionado, y «Versiones coherentes
+  (`plugin.json` == `marketplace.json`)» (`bash scripts/test-versiones.sh`)
+  — dos de los cuales no son ni fmt ni clippy. **No renombrar a ciegas:**
+  si GitHub tiene branch protection con required status checks por nombre
+  de job (`lint`) o de step, renombrar el job rompe la protección hasta que
+  alguien actualice la config del repo (fuera de este árbol de código) —
+  verificar `required_status_checks` del repo antes de tocarlo. **Acción:**
+  o renombrar `lint` a algo que cubra las cuatro cosas («checks estáticos»,
+  «lint + gates estáticos») coordinando el cambio de required checks, o
+  separar shellcheck y versiones a su propio job con nombre propio.
 
 - [ ] **(H29, Baja, 2026-09-13) El walker entra en `.git/`.** Medido por el
   consultor con `strace` sobre un `exo index`: 276 de 314 `openat` caen

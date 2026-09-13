@@ -156,7 +156,8 @@ fn help_contiene_flag(help: &str, flag: &str) -> bool {
 #[test]
 fn el_help_solo_documenta_los_ingleses() {
     // Un alias VISIBLE consagraría el nombre español; el objetivo es que
-    // desaparezca de la documentación hoy y del código en 1.1. Los diez
+    // desaparezca de la documentación hoy y del código en la 1.1 DEL ENGINE
+    // (versión propia del engine, distinta de la del plugin). Los diez
     // pares, cada uno en el --help del subcomando que lo declara: un
     // `visible_alias` colado en cualquiera de los diez pasaría inadvertido
     // si solo se mirasen dos.
