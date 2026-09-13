@@ -97,6 +97,18 @@ exo init --kb ~/mi-kb --name mi-kb
 exo init --from-basic-memory
 ```
 
+Una DB sirve a una sola KB: si el índice de destino (`$EXO_DB` o el default
+de config) ya tiene guardada la ruta de otra KB en disco, `exo init` (y
+`exo index`) lo rechazan antes de tocar nada:
+
+```
+error: este índice es de otra KB que sigue en disco: <ruta previa> (pediste <ruta nueva>). Una DB sirve a UNA KB: usa otra --db para esta, o `exo rebuild --kb <kb> --db <esta db>` si de verdad quieres reemplazar el índice
+```
+
+Una segunda KB en la misma máquina necesita su propio fichero de índice,
+p.ej. `EXO_DB=~/.exo/otra-kb.db exo init --kb ~/otra-kb --name otra-kb`
+(`exo init` no tiene flag `--db`; usa la variable de entorno).
+
 La primera indexación descarga el modelo de embeddings
 (`jinaai/jina-embeddings-v2-base-es`, ~0,6 GB, pineado a una revisión
 concreta de HuggingFace) a la caché local. En frío son varios minutos
@@ -136,7 +148,7 @@ que los ficheros se contradigan.
 
 ```bash
 cd engine
-cargo test            # suite completa: 434 tests en 44 binarios
+cargo test            # suite completa
 scripts/test-hermetico.sh   # gate: la suite entera sin ~/.exo/config.toml
 ```
 

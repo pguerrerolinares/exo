@@ -1,9 +1,28 @@
 # exo
 
-Framework de trabajo agéntico con memoria persistente. Tres capas:
-**thin** (skills-router, hooks) → **engine** (`init`/`config`/`index`/`rebuild`/
-`search`/`write`/`recall`/`doctor`/`budget`/`lint`/`ratchet`/`targets`, ver
-`exo --help`) → **thick** (KB markdown+frontmatter ≈OKF).
+Memoria persistente para agentes de código. exo guarda lo que decides y
+aprendes en una KB de notas markdown versionada con git, la indexa en local
+(texto completo + embeddings, SQLite en un solo fichero) y se la devuelve al
+agente cuando la necesita: al empezar la sesión y en cada prompt.
+
+**Para quién es hoy:** exo es el sistema de trabajo de su autor, publicado tal
+cual (MIT). Funciona y se prueba en Linux, macOS y Windows, pero lo decide un
+solo usuario: sin promesa de estabilidad ni soporte.
+
+## Qué problema resuelve
+
+Un agente como Claude Code empieza cada sesión sin memoria: las decisiones de
+ayer, los errores ya diagnosticados y las convenciones del proyecto hay que
+volver a contárselas. exo lo resuelve con tres piezas que se usan por
+separado:
+
+- **La KB** — notas markdown con frontmatter (`tier: core | stable | log`), en
+  tu disco y en git. Se leen sin exo.
+- **El engine** — `exo`, un binario sin runtime: indexa la KB y sirve búsqueda
+  y recall (`exo --help`).
+- **El plugin de Claude Code** — `plugins/exo/`: hooks que inyectan el recall
+  al arrancar y en cada prompt, y skills de proceso (plan, tdd, debug,
+  document…) que escriben en la KB.
 
 ## Instalar
 
@@ -14,46 +33,28 @@ curl -fsSL https://raw.githubusercontent.com/pguerrerolinares/exo/main/install.s
 Requisitos: `git` y `jq`. Ni Rust ni toolchain C. Detalle y camino desde
 fuente: [`docs/instalacion.md`](docs/instalacion.md).
 
-El engine es un binario Rust (`exo`) que se construye desde `engine/` y arranca con
-`~/.exo/config.toml` — sin dependencia de `basic-memory` para funcionar (la única
-lectura de `~/.basic-memory/config.json` que queda es `exo init --from-basic-memory`,
-una migración explícita y de una sola vez). La capa thin (`plugins/exo/`)
-invoca ese binario desde hooks y scripts de shell.
+## Ejemplo de extremo a extremo
 
-- Cómo funciona el sistema, derivado del código: `docs/arquitectura.md`
-- Cómo compilarlo e instalarlo: `docs/instalacion.md`
-- Spec de diseño original: `docs/superpowers/specs/2026-07-16-framework-unificado-design.md`
-- Spec de exo genérico (config propia, D8/D9): `docs/superpowers/specs/2026-08-26-exo-generico-design.md`
-- Audit trail de consultorías: `docs/superpowers/consultas/`
-- Plan de cierre (M2-08 → M5b): `docs/superpowers/plans/2026-08-17-cierre-exo-m2-a-m5b.md`
-- **Deuda abierta y hallazgos sin barrer: `docs/backlog.md`** — léelo antes de asumir
-  que algo está terminado solo porque este README lo menciona.
-- Revisión crítica externa del repo completo (veredicto, lo que está bien, nueve
-  críticas argumentadas y su mapa al backlog): `docs/2026-09-04-revision-critica-externa.md`
-- Estado (2026-09-02): M0, M1a, M2 (E1 read), M4 (E2 write) y **M6 completo**
-  cerrados — `exo write new|append` escribe la KB, `/document` va por el engine
-  y `exo recall` sirve el arranque de sesión y el recall en el punto de uso
-  (`recall-inject.sh` en cada prompt); los subagentes reciben su bloque de
-  inyección por perfil (`subagent-inject.sh`). Las tres
-  olas de exo genérico también: **1A** config propia (`engine/src/config.rs`,
-  precedencia `flag > env > config > error accionable`; cero código de
-  producción lee `~/.basic-memory/config.json`; envelope JSON con claves en
-  inglés, `schema_version` 2; flags largos en inglés con alias español oculto
-  hasta 1.1), **1B** fusión y cutover del plugin único `plugins/exo/`, y
-  **1C** hermeticidad de la suite respecto a `~/.exo/config.toml`, con gate
-  falsable (`engine/scripts/test-hermetico.sh`) y KB semilla propia de
-  `exo init`. El privacy-pass de publicación (B1) está ejecutado sobre la
-  historia completa. Suite: 434 tests verdes en 44 binarios (2 ignorados), corridos por
-  `.github/workflows/ci.yml` en ubuntu-latest / windows-latest / macos-latest
-  vía el gate hermético (`engine/scripts/test-hermetico.sh`), con la caché del
-  modelo de embeddings pineada por revisión del modelo (no por rama, así que
-  no vuelve a subir nada) — más `fmt --check`, `clippy -D warnings` y un
-  check de la MSRV declarada (1.95). Pendiente: MCP propio (M5a), desinstalar
-  basic-memory (M5b).
+```bash
+# 1. KB nueva desde la plantilla, versionada con git e indexada.
+#    La primera vez descarga el modelo de embeddings (~0,6 GB).
+exo init --kb ~/mi-kb --name mi-kb
 
-  G5b entregó release, instaladores y `exo doctor`, y **`v0.1.0` está
-  publicada** con binarios para linux-x86_64, windows-x86_64 y macos-arm64.
-  Queda G4d (`rotate`, `stale`) y el check de desfase binario↔plugin.
+# 2. Una decisión, como nota.
+printf 'Usamos SQLite con FTS5: el índice cabe en un fichero y no hay servidor que mantener.\n' > nota.md
+exo write new --dir learnings --title "Por qué SQLite" --from nota.md
+
+# 3. `write` no indexa: lo hace `exo index` (con el plugin, lo refrescan sus hooks).
+exo index
+
+# 4. Recupérala.
+exo search "servidor que mantener"
+exo recall --query "qué base de datos usamos" --limit 3
+```
+
+`exo search` devuelve `mi-kb/learnings/por-que-sqlite` como primer resultado,
+y `exo recall` la sirve primera con su primer párrafo: es el bloque que el
+plugin inyecta al agente.
 
 ## Arquitectura
 
@@ -128,6 +129,16 @@ sus evals de paridad en `evals/prep-m3/`) y además es su propio marketplace:
 `.claude-plugin/marketplace.json` (en la raíz de este repo) sirve `plugins/exo/`
 directamente. Id de plugin: `exo@exo`. Ya no se publica vía `exo-plugins`/
 git-subdir — ese modelo de publicación quedó atrás con la fusión de plugins.
+
+## Documentación
+
+- Cómo funciona, derivado del código: [`docs/arquitectura.md`](docs/arquitectura.md)
+- Instalación, compilar desde fuente y tests: [`docs/instalacion.md`](docs/instalacion.md)
+- **Qué falta y qué está roto: [`docs/backlog.md`](docs/backlog.md)** — léelo
+  antes de asumir que algo está terminado.
+- Historial de diseño (specs, planes, verdicts, consultorías):
+  `docs/superpowers/` y `evals/`. Son instantáneas fechadas, no documentación
+  viva.
 
 ## Atribución
 
