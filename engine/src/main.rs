@@ -4,7 +4,7 @@ use exo::{
     buscador::{busca, busca_hybrid, busca_vector},
     envelope,
     escritor::{escribe_append, escribe_nueva},
-    indexer::indexa,
+    indexer::{aviso_kb_root_lectura, indexa},
     recall::{recall_arranque, recall_consulta, renderiza, resuelve_rutas_absolutas},
 };
 use std::path::{Path, PathBuf};
@@ -478,6 +478,28 @@ fn resuelve_kb(flag: Option<PathBuf>) -> Result<PathBuf> {
     exo::kb_desde_config()
 }
 
+/// Aviso de lectura (agravante silencioso del guard H1 de escritura,
+/// `indexer::comprueba_kb_root`): compara `meta.kb_root` de la DB YA
+/// resuelta contra la KB esperada de esta invocación, con la misma
+/// normalización canónica que usa el camino de escritura
+/// (`std::fs::canonicalize`, `indexer.rs:119`).
+///
+/// Nunca aborta el comando ni cambia el exit code: DB inexistente (el
+/// mensaje real de "DB no encontrada" lo da la búsqueda/recall en sí, no
+/// esto), KB no canonicalizable (no existe en disco: mismo criterio
+/// indulgente que una KB movida) o ausencia de conflicto real → `None`,
+/// silencioso.
+fn kb_root_aviso(db: &Path, kb: &Path) -> Result<Option<String>> {
+    if !db.exists() {
+        return Ok(None);
+    }
+    let Ok(kb_abs) = std::fs::canonicalize(kb) else {
+        return Ok(None);
+    };
+    let conn = exo::abre_db(db)?;
+    aviso_kb_root_lectura(&conn, &kb_abs)
+}
+
 /// Ejecuta el comando ya parseado. El flag `--json` no se extrae aquí: lo
 /// resuelve `quiere_json` en `main`, antes de llamar, porque en la rama de
 /// error el `comando` ya se ha movido dentro de esta función.
@@ -847,6 +869,13 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
     let kb = resuelve_kb(args.kb)?;
     let db = resuelve_db(args.db)?;
 
+    // Calculado una sola vez, ANTES de `--refresh`: si `--refresh` reindexa y
+    // hay un conflicto real, el guard de ESCRITURA (`comprueba_kb_root`, vía
+    // `refresca_indice` más abajo) ya aborta con su propio error — este
+    // aviso de LECTURA no llega a imprimirse en ese caso, y no hace falta
+    // que lo haga.
+    let aviso_kb_root = kb_root_aviso(&db, &kb)?;
+
     let mut refresh_s = None;
     if args.refresca {
         // El resumen va a stderr: stdout es exclusivo del envelope/bloque
@@ -866,6 +895,12 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
     if args.contenido {
         if args.query.is_some() {
             anyhow::bail!("--content es del modo arranque: no se combina con --query");
+        }
+        // El aviso de kb_root también va a stderr en este camino: no hay
+        // envelope/`avisos` en el modo `--content` (es texto crudo del
+        // hook), así que aquí es directo o no sale en absoluto.
+        if let Some(ref aviso) = aviso_kb_root {
+            eprintln!("aviso: {aviso}");
         }
         // Camino del hook: bloque de texto a stdout y fuera. No pasa por el
         // envelope ni por `aplica_cap` (trae su propio truncado por líneas).
@@ -898,6 +933,12 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
 
     let mut resultado = renderiza(bruto, args.cap_bytes);
     resultado.recall.refresh_s = refresh_s;
+    // Por el mismo camino que los avisos de cobertura del arm vector
+    // (`warnings` del envelope, H2): así el hook `recall-inject.sh` lo loguea
+    // igual, sin un canal aparte para este aviso.
+    if let Some(aviso) = aviso_kb_root {
+        resultado.recall.avisos.push(aviso);
+    }
 
     // H2: los avisos van a stderr SIEMPRE, igual que en `busca_cmd`, y ANTES
     // del bail de «recall vacío»: un arm vector INERTE sin hits FTS es justo
@@ -930,6 +971,19 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
 
 fn busca_cmd(args: ArgsSearch) -> Result<()> {
     let db = resuelve_db(args.db)?;
+
+    // `search` no tiene `--kb` (sin flags nuevos): la KB esperada es SOLO la
+    // de la config, si la hay (contrato del brief). Sin config resoluble, no
+    // hay con qué comparar — no avisa y no falla (`kb_desde_config` en
+    // `Err` se descarta en silencio, mismo criterio que un `--db` sin
+    // config). El aviso va SOLO a stderr: el envelope de `search` es
+    // superficie sellada, no se le añaden claves nuevas.
+    if let Ok(kb) = exo::kb_desde_config()
+        && let Some(aviso) = kb_root_aviso(&db, &kb)?
+    {
+        eprintln!("aviso: {aviso}");
+    }
+
     let resultado = match args.r#type {
         TipoBusqueda::Fts => busca(&db, &args.query, args.limite)?,
         TipoBusqueda::Vector => busca_vector(&db, &args.query, args.limite, args.min_similitud)?,

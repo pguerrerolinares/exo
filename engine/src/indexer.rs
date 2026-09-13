@@ -469,18 +469,9 @@ fn verifica_modelo(conn: &Connection, modelo_actual: &str) -> Result<()> {
 /// la KB registrada ya no existe en disco: eso es una KB movida, y seguir
 /// actualizando `kb_root` es el contrato de siempre.
 pub fn comprueba_kb_root(conn: &Connection, kb_abs: &Path) -> Result<()> {
-    let previo: Option<String> = conn
-        .query_row("SELECT valor FROM meta WHERE clave = 'kb_root'", [], |r| {
-            r.get(0)
-        })
-        .optional()
-        .context("leer meta.kb_root")?;
-    let Some(previo) = previo else {
+    let Some(previo) = kb_root_conflicto(conn, kb_abs)? else {
         return Ok(());
     };
-    if previo == kb_abs.to_string_lossy() || !Path::new(&previo).is_dir() {
-        return Ok(());
-    }
     bail!(
         "este índice es de otra KB que sigue en disco: {previo} (pediste {}). \
          Una DB sirve a UNA KB: usa otra --db para esta, o `exo rebuild --kb {} --db <esta db>` \
@@ -488,6 +479,52 @@ pub fn comprueba_kb_root(conn: &Connection, kb_abs: &Path) -> Result<()> {
         kb_abs.display(),
         kb_abs.display()
     )
+}
+
+/// Dato compartido de `comprueba_kb_root` (escritura, bail) y
+/// `aviso_kb_root_lectura` (lectura, `search`/`recall`, no bail): lee
+/// `meta.kb_root` y decide si hay un conflicto REAL contra `kb_abs` — existe,
+/// es distinto, y la KB previa sigue siendo un directorio en disco (si ya no
+/// existe, es una KB movida/renombrada y no cuenta como conflicto en ninguno
+/// de los dos caminos). `kb_abs` debe llegar ya canonicalizada por el
+/// llamador, igual en escritura que en lectura, para no comparar formas
+/// distintas de la misma ruta.
+fn kb_root_conflicto(conn: &Connection, kb_abs: &Path) -> Result<Option<String>> {
+    let previo: Option<String> = conn
+        .query_row("SELECT valor FROM meta WHERE clave = 'kb_root'", [], |r| {
+            r.get(0)
+        })
+        .optional()
+        .context("leer meta.kb_root")?;
+    let Some(previo) = previo else {
+        return Ok(None);
+    };
+    if previo == kb_abs.to_string_lossy() || !Path::new(&previo).is_dir() {
+        return Ok(None);
+    }
+    Ok(Some(previo))
+}
+
+/// Aviso de LECTURA (agravante silencioso del guard H1 de escritura,
+/// `comprueba_kb_root`): `search`/`recall` abren la DB que resuelva su
+/// precedencia habitual y consultan directamente, sin comparar nunca
+/// `meta.kb_root` contra la KB que se les pidió — así que una config cuyo
+/// `[index] db` apunta al índice de OTRA KB (p.ej. el bug de `init` que
+/// arregló esta misma rama, o una edición manual futura) respondía en
+/// silencio con los resultados de la KB equivocada, exit 0.
+///
+/// Mismo criterio que `comprueba_kb_root` (vía `kb_root_conflicto`, sin
+/// duplicar lógica) pero NUNCA aborta: devuelve el texto del aviso para que
+/// el llamador lo mande a stderr (y, en `recall`, también a `warnings`).
+/// `kb_abs` ya viene canonicalizada por el llamador.
+pub fn aviso_kb_root_lectura(conn: &Connection, kb_abs: &Path) -> Result<Option<String>> {
+    Ok(kb_root_conflicto(conn, kb_abs)?.map(|previo| {
+        format!(
+            "estos resultados vienen del índice de otra KB: {previo} (se esperaba {}). \
+             Revisa `[index] db` en la config, $EXO_DB o --db.",
+            kb_abs.display()
+        )
+    }))
 }
 
 fn ruta_relativa(kb: &Path, ruta_abs: &Path) -> Result<String> {
