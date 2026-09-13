@@ -303,6 +303,11 @@ Los flags largos están en inglés con **alias ocultos en español**
 (`--limite`, `--titulo`, `--crea`, `--min-similitud`, `--escala-fts`) durante
 el cutover; el backlog los marca para retirar en 1.1.
 
+Idioma de la ayuda (D1 = C): los textos de producto y los errores propios van
+en español; el cromo que pinta clap (`Usage:`, `Options:`, `Commands:`…) y
+los metavars (`--limit <LIMIT>`, igual al nombre del flag) se quedan en
+inglés.
+
 Contrato de salida común: con `--json`, stdout lleva **exclusivamente** el
 envelope `{"schema_version": 2, "command": …, "data": …}` en una línea; todo
 lo humano y los avisos van a stderr. Los consumidores gatean por exit code

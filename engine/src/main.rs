@@ -25,7 +25,11 @@ const BONUS_SELLADO: f64 = 0.0;
 const ESCALA_FTS_SELLADA: f64 = 0.6;
 
 #[derive(Parser)]
-#[command(name = "exo", version, about = "engine del framework exo (E1: read)")]
+#[command(
+    name = "exo",
+    version,
+    about = "Memoria persistente para agentes: indexa una KB de notas markdown y la sirve por búsqueda y recall."
+)]
 struct Cli {
     #[command(subcommand)]
     comando: Comando,
@@ -33,49 +37,46 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Comando {
-    /// Crea `~/.exo/config.toml`. Con `--from-basic-memory`, migra los valores
-    /// de `~/.basic-memory/config.json` una sola vez.
+    /// Crea la config (`~/.exo/config.toml`) y una KB nueva desde la
+    /// plantilla, ya indexada. Con `--from-basic-memory`, adopta una KB
+    /// existente de basic-memory.
     Init(ArgsInit),
-    /// Emite la config efectiva como envelope JSON, con las rutas ya
-    /// expandidas. Existe para los consumidores en shell: jq no lee TOML.
+    /// Muestra la config efectiva, con las rutas ya expandidas.
     Config(ArgsConfig),
-    /// Indexa la KB de forma incremental (mtime al invocar, sin daemon).
+    /// Indexa la KB de forma incremental: solo lo que cambió desde la última
+    /// vez.
     Index(ArgsIndex),
-    /// Borra la DB y reconstruye desde cero (primera clase, no cirugía —
-    /// spec §3: "corrupción de índice = borrar y rebuild").
+    /// Borra el índice y lo reconstruye desde cero. Es el remedio ante un
+    /// índice corrupto.
     Rebuild(ArgsIndex),
-    /// Búsqueda FTS5 mínima sobre `notas_fts` (spec §4.1, m2-05).
+    /// Busca en la KB: texto completo (`fts`), semántica (`vector`) o las dos
+    /// fusionadas (`hybrid`).
     Search(ArgsSearch),
-    /// Escribe en la KB (M4/E2): nota nueva o append a bitácora. File-first,
-    /// sin commit y sin indexar — eso es del agente y del recall siguiente.
+    /// Escribe en la KB: nota nueva o entrada de bitácora. No commitea ni
+    /// indexa.
     #[command(subcommand)]
     Write(ComandoWrite),
-    /// Sirve contenido de la KB para arranque (`tier: core` + recientes) o
-    /// consulta (`busca_hybrid`) — sucesor de `basic-memory-recall.sh` y
-    /// `compose-inject.sh` de reflex (M2-08, M6). NO conoce reflex ni
-    /// perfiles de agentes: eso lo compone el consumidor.
+    /// Sirve memoria de la KB a un agente. Sin `--query`, el bloque de
+    /// arranque (notas `tier: core` y recientes); con `--query`, las notas
+    /// relevantes para esa consulta.
     Recall(ArgsRecall),
-    /// Candidatas de la KB para un tema: FTS5 más tier/tamaño/headings de
-    /// disco y último commit de git (spec §4, primer verbo portado del
-    /// núcleo de `kbx`, G4a). Solo lectura: no gatea nada.
+    /// Lista las notas candidatas a tocar para un tema, con tier, tamaño,
+    /// cabeceras y último commit. Solo lectura.
     Targets(ArgsTargets),
-    /// Presupuestos por tier sobre el árbol de ficheros (`presupuesto::analiza`,
-    /// G4b). Emite el informe entero y LUEGO gatea: exit 3 si hay
-    /// infractoras o notas sin tier legal, nunca por el aviso de aire.
+    /// Comprueba el presupuesto de bytes por tier. Imprime el informe entero y
+    /// sale con 3 si alguna nota lo rebasa o no declara un tier válido.
     Budget(ArgsBudget),
-    /// Los siete checks de deriva de la KB (`lint::analiza`, G4b), sucesor de
-    /// `kbx doctor` en bare mode. Emite el informe entero y LUEGO gatea:
-    /// exit 3 si `ok` es falso.
+    /// Comprueba la salud de la KB: notas huérfanas, frontmatter roto, índice
+    /// desfasado y más. Imprime el informe entero y sale con 3 si hay
+    /// hallazgos.
     Lint(ArgsLint),
-    /// El trinquete de techos declarados (`trinquete::comprueba`, G4c),
-    /// sucesor de `kbx ratchet`. Emite el informe entero y LUEGO gatea: exit
-    /// 3 si `informe.fallido()`. Abstención (sin historia de git utilizable)
-    /// sale 0, no 3: es información, no un fallo.
+    /// Comprueba que ningún techo de tamaño declarado suba respecto al último
+    /// commit. Imprime el informe entero y sale con 3 si alguno sube; sin
+    /// historia de git se abstiene y sale con 0.
     Ratchet(ArgsRatchet),
-    /// Preflight de ENTORNO —la máquina—, no de la KB: eso es `lint`. Emite
-    /// el informe entero y LUEGO gatea: exit 3 si algún check sale `fail`.
-    /// Los `warn` informan sin gatear y los `na` declaran lo que no se mide
-    /// en esta plataforma, en vez de desaparecer de la lista.
+    /// Diagnostica esta máquina (binario, config, KB, índice, modelo de
+    /// embeddings y dependencias de los hooks). Cada check dice qué artefacto
+    /// miró; sale con 3 si alguno falla.
     Doctor(ArgsDoctor),
 }
 
@@ -168,17 +169,17 @@ struct ArgsWriteAppend {
     /// Fichero con el texto a anexar (`-` = stdin).
     #[arg(long)]
     from: String,
-    /// Crea la bitácora si no existe (documenta.md la pide con `tier: log`).
+    /// Crea la bitácora (`tier: log`) si no existe.
     #[arg(long = "create", alias = "crea")]
     crea: bool,
     /// Anexa aunque el destino no sea `tier: log`. Queda registrado en el
-    /// envelope (`forzado: true`) para que la excepción sea auditable.
+    /// envelope (`forced: true`) para que la excepción sea auditable.
     #[arg(long)]
     force: bool,
     /// Emite el resultado como envelope JSON en stdout.
     #[arg(long)]
     json: bool,
-    /// Permalink de la nota destino (p.ej. `kb-demo/log/exo-bitacora`).
+    /// Permalink de la nota destino (p.ej. `mi-kb/log/proyecto-bitacora`).
     permalink: String,
 }
 
@@ -192,7 +193,7 @@ struct ArgsIndex {
     /// Precedencia: flag > $EXO_KB > config.
     #[arg(long)]
     kb: Option<PathBuf>,
-    /// Emite el resultado como envelope JSON (spec §4) en stdout.
+    /// Emite el resultado como envelope JSON en stdout.
     #[arg(long)]
     json: bool,
 }
@@ -211,8 +212,7 @@ struct ArgsSearch {
     /// (`~/.exo/config.toml`). Precedencia: flag > $EXO_DB > config.
     #[arg(long)]
     db: Option<PathBuf>,
-    /// Máximo de resultados. Default 10 (replay-engine pasa el suyo
-    /// explícito; flags > config).
+    /// Máximo de resultados.
     #[arg(
         long = "limit",
         alias = "limite",
@@ -220,32 +220,26 @@ struct ArgsSearch {
         default_value_t = 10
     )]
     limite: usize,
-    /// Tipo de búsqueda (fts|vector|hybrid, M2-07). Default `fts`:
-    /// comportamiento actual intacto si no se pasa el flag.
+    /// Tipo de búsqueda.
     #[arg(long, value_enum, default_value_t = TipoBusqueda::Fts)]
     r#type: TipoBusqueda,
-    /// Umbral de similitud coseno del arm vector/hybrid. Opcional: si se
-    /// omite, cae a `[embeddings] min_similarity` de `~/.exo/config.toml`
-    /// (D6, precedencia flags > config). Sin efecto en `--type fts`.
+    /// Umbral de similitud coseno de la búsqueda semántica. Si se omite,
+    /// `[embeddings] min_similarity` de la config. Sin efecto en `--type fts`.
     #[arg(
         long = "min-similarity",
         alias = "min-similitud",
         value_name = "MIN_SIMILARITY"
     )]
     min_similitud: Option<f64>,
-    /// Peso del canal débil en la fórmula de fusión (`bonus·min(v,f)`,
-    /// spec fusión §4.4). Solo para `--type hybrid`: override puntual del
-    /// sellado (M2-07, §5.2.6); si se omite, cae al default sellado
-    /// `BONUS_SELLADO`.
+    /// Peso del canal más débil al fusionar (`max + bonus·min`). Solo
+    /// `--type hybrid`; si se omite, el default del engine.
     #[arg(long)]
     bonus: Option<f64>,
-    /// Anclaje β de la normalización BM25 por-query (spec fusión §4.3,
-    /// D-f1). Solo para `--type hybrid`: override puntual del sellado
-    /// (M2-07, §5.2.6); si se omite, cae al default sellado
-    /// `ESCALA_FTS_SELLADA`.
+    /// Escala de normalización del score de texto completo antes de
+    /// fusionar. Solo `--type hybrid`; si se omite, el default del engine.
     #[arg(long = "fts-scale", alias = "escala-fts", value_name = "FTS_SCALE")]
     escala_fts: Option<f64>,
-    /// Emite el resultado como envelope JSON (spec §4) en stdout.
+    /// Emite el resultado como envelope JSON en stdout.
     #[arg(long)]
     json: bool,
     /// Texto de la consulta.
@@ -259,19 +253,15 @@ struct ArgsRecall {
     #[arg(long)]
     db: Option<PathBuf>,
     /// Raíz de la KB. Por defecto, `[kb] path` de `~/.exo/config.toml`.
-    /// Precedencia: flag > $EXO_KB > config. `exo recall` la necesita aunque
-    /// solo lea del índice: `notas.ruta` es relativa, y modo arranque
-    /// también relee `tier` del `.md` en disco (no está en el índice).
+    /// Precedencia: flag > $EXO_KB > config.
     #[arg(long)]
     kb: Option<PathBuf>,
-    /// Texto de la consulta. Ausente ⇒ modo arranque (`tier: core` +
-    /// recientes por git); presente ⇒ modo consulta (`busca_hybrid`).
+    /// Texto de la consulta. Sin él, modo arranque (`tier: core` + recientes
+    /// por git); con él, modo consulta (búsqueda híbrida).
     #[arg(long)]
     query: Option<String>,
-    /// Máximo de notas. En modo arranque, tope del bloque de "recientes"
-    /// (los `tier: core` siempre entran todos); en modo consulta, tope de
-    /// `busca_hybrid`. Default 5 (contrato del brief para modo consulta;
-    /// mismo flag, mismo default en ambos modos).
+    /// Máximo de notas: en modo arranque, cuántas recientes (las `tier: core`
+    /// entran siempre); en modo consulta, cuántos resultados.
     #[arg(
         long = "limit",
         alias = "limite",
@@ -279,24 +269,21 @@ struct ArgsRecall {
         default_value_t = 5
     )]
     limite: usize,
-    /// Presupuesto de bytes del bloque de salida (texto o `--json`), trunca
-    /// por líneas ENTERAS. Default 2048 (brief).
+    /// Presupuesto de bytes del bloque de salida (texto o `--json`); trunca
+    /// por líneas enteras.
     #[arg(long, default_value_t = 2048)]
     cap_bytes: usize,
-    /// Umbral de similitud coseno del arm vector de `busca_hybrid` (modo
-    /// consulta). Sin efecto en modo arranque. Default de config si se
-    /// omite (D6, mismo contrato que `search`).
+    /// Umbral de similitud coseno en modo consulta. Si se omite, el de la
+    /// config. Sin efecto en modo arranque.
     #[arg(
         long = "min-similarity",
         alias = "min-similitud",
         value_name = "MIN_SIMILARITY"
     )]
     min_similitud: Option<f64>,
-    /// Modo arranque en versión CONTENIDO: vuelca el cuerpo de las notas
-    /// `tier: core` + lista de recientes, en vez de una línea por nota. Es
-    /// lo que consume el hook de SessionStart (paridad con el
-    /// `basic-memory-recall.sh` que sustituye, que inyectaba el cuerpo del
-    /// core-index, no sus rutas). Incompatible con `--query`.
+    /// Modo arranque con el CUERPO de las notas `tier: core` y la lista de
+    /// recientes, en vez de una línea por nota. Es lo que inyecta el hook de
+    /// inicio de sesión. Incompatible con `--query`.
     #[arg(long = "content", alias = "contenido")]
     contenido: bool,
     /// Permalink de la nota cuyo cuerpo se quiere en `--content` (p.ej.
@@ -306,14 +293,12 @@ struct ArgsRecall {
     /// no el engine.
     #[arg(long = "note", alias = "nota", value_name = "NOTE")]
     nota: Option<String>,
-    /// Refresca el índice (indexado incremental) ANTES de servir, para no
-    /// devolver un bloque de una KB rancia (M6-01, "índice fresco sin
-    /// daemon"). Barato cuando nada cambió: un `stat` por fichero y ninguna
-    /// carga del modelo. Si la DB no existe, la construye (bootstrap).
+    /// Refresca el índice (incremental) ANTES de servir, para no devolver una
+    /// KB rancia. Barato si nada cambió; si el índice no existe, lo construye.
     #[arg(long = "refresh", alias = "refresca")]
     refresca: bool,
-    /// Emite el resultado como envelope JSON (spec §4) en stdout. Sin este
-    /// flag, imprime un bloque de texto plano (el que consumirá el hook).
+    /// Emite el resultado como envelope JSON en stdout. Sin él, un bloque de
+    /// texto plano (el que inyectan los hooks).
     #[arg(long)]
     json: bool,
 }
@@ -326,13 +311,14 @@ struct ArgsTargets {
     /// Raíz de la KB en disco. Precedencia: flag > $EXO_KB > config.
     #[arg(long)]
     kb: Option<PathBuf>,
-    /// Máximo de candidatas. Default 10, igual que `kbx targets`.
+    /// Máximo de candidatas.
     #[arg(long = "limit", value_name = "LIMIT", default_value_t = 10)]
     limite: usize,
-    /// Emite el resultado como envelope JSON (spec §4) en stdout.
+    /// Emite el resultado como envelope JSON en stdout.
     #[arg(long)]
     json: bool,
     /// Tema a buscar.
+    #[arg(value_name = "TOPIC")]
     tema: String,
 }
 
@@ -341,22 +327,21 @@ struct ArgsBudget {
     /// Raíz de la KB. Precedencia: flag > $EXO_KB > config.
     #[arg(long)]
     kb: Option<PathBuf>,
-    /// Emite el resultado como envelope JSON (spec §4) en stdout.
+    /// Emite el resultado como envelope JSON en stdout.
     #[arg(long)]
     json: bool,
 }
 
 #[derive(clap::Args)]
 struct ArgsLint {
-    /// Fichero SQLite del índice. Precedencia: flag > $EXO_DB > config. A
-    /// diferencia de `budget`, `lint` sí lo necesita: los checks `orphan` e
-    /// `index_stale` leen `notas`.
+    /// Fichero SQLite del índice. Precedencia: flag > $EXO_DB > config.
+    /// `lint` lo necesita para detectar huérfanas e índice desfasado.
     #[arg(long)]
     db: Option<PathBuf>,
     /// Raíz de la KB. Precedencia: flag > $EXO_KB > config.
     #[arg(long)]
     kb: Option<PathBuf>,
-    /// Emite el resultado como envelope JSON (spec §4) en stdout.
+    /// Emite el resultado como envelope JSON en stdout.
     #[arg(long)]
     json: bool,
 }
@@ -371,7 +356,7 @@ struct ArgsDoctor {
     /// Precedencia: flag > $EXO_KB > config.
     #[arg(long)]
     kb: Option<PathBuf>,
-    /// Emite el resultado como envelope JSON (spec §4) en stdout.
+    /// Emite el resultado como envelope JSON en stdout.
     #[arg(long)]
     json: bool,
 }
@@ -390,7 +375,7 @@ struct ArgsRatchet {
     /// Juzga el índice de git en vez del working tree (para el pre-commit).
     #[arg(long)]
     staged: bool,
-    /// Emite el resultado como envelope JSON (spec §4) en stdout.
+    /// Emite el resultado como envelope JSON en stdout.
     #[arg(long)]
     json: bool,
 }

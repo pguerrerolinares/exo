@@ -134,3 +134,55 @@ fn el_metavar_de_un_flag_es_el_nombre_del_flag() {
         }
     }
 }
+
+/// Jerga que delata que la ayuda la escribió el autor para sí mismo. Cada
+/// entrada: patrón y por qué no le dice nada a un usuario.
+const JERGA: &[(&str, &str)] = &[
+    (
+        r"\b[MGDE][0-9]+[a-z]?(-[0-9]+)?\b",
+        "id de hito interno (M2-07, G4b, D6, E1)",
+    ),
+    (r"\b[mg][0-9]+-[0-9]+\b", "id de item de campaña (m2-05)"),
+    (r"\bD-f[0-9]", "id de decisión de spec"),
+    (r"§", "sección de una spec"),
+    (r"\b(spec|brief|Task)\b", "documento de proceso"),
+    (r"\bsucesor\b", "genealogía del código"),
+    (r"kbx [a-z]", "comando de otra herramienta"),
+    (r"kb-demo", "nombre de la KB del autor"),
+    (
+        r"basic-memory-recall|compose-inject|replay-engine|documenta\.md|\breflex\b",
+        "script o skill del autor",
+    ),
+    (
+        r"::|busca_hybrid|notas_fts|`notas`|fallido\(\)|_SELLAD",
+        "símbolo interno de Rust o SQL",
+    ),
+];
+
+#[test]
+fn la_ayuda_no_lleva_jerga_interna() {
+    let patrones: Vec<(regex::Regex, &str)> = JERGA
+        .iter()
+        .map(|(p, por_que)| (regex::Regex::new(p).unwrap(), *por_que))
+        .collect();
+    let mut hallazgos = Vec::new();
+    for p in PANTALLAS {
+        let texto = ayuda(p);
+        for linea in texto.lines() {
+            for (re, por_que) in &patrones {
+                if let Some(m) = re.find(linea) {
+                    hallazgos.push(format!(
+                        "exo {} --help: {:?} ({por_que}) en {linea:?}",
+                        p.join(" "),
+                        m.as_str()
+                    ));
+                }
+            }
+        }
+    }
+    assert!(
+        hallazgos.is_empty(),
+        "jerga en la ayuda:\n{}",
+        hallazgos.join("\n")
+    );
+}
