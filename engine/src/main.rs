@@ -544,7 +544,7 @@ fn versiona_kb(kb: &Path) -> bool {
 /// semilla, la versiona con git (best-effort) y la indexa.
 fn init_cmd(args: ArgsInit) -> Result<()> {
     let destino = exo::config::ruta_config()?;
-    let db_default = dirs::home_dir().context("sin HOME")?.join(".exo/index.db");
+    let home = dirs::home_dir().context("sin HOME")?;
 
     // I4 (review de rama): se comprueba ANTES de tocar nada en disco. Antes
     // esta guarda solo vivía dentro de `escribe_config`, llamada después de
@@ -554,13 +554,10 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
     // fallaba ya por otra vía (`prepara_kb`: "no está vacía").
     exo::inicia::valida_config_escribible(&destino, args.force)?;
 
-    // H1: la DB que este `init` va a indexar, con la precedencia de
-    // `resuelve_db` pero sin config (aún no existe): $EXO_DB > el default que
-    // se graba en config.toml.
-    let db_objetivo = match std::env::var("EXO_DB") {
-        Ok(v) if !v.is_empty() => exo::config::expande_tilde(Path::new(&v)),
-        _ => db_default.clone(),
-    };
+    // H1: la DB que este `init` valida, indexa y graba en config.toml
+    // (`$EXO_DB` > `~/.exo/index.db`; la regla vive en `db_de_init`).
+    let exo_db = std::env::var("EXO_DB").ok();
+    let db_objetivo = exo::inicia::db_de_init(exo_db.as_deref(), &home);
 
     let (kb, nombre, emb, modo, escritos, git_ok) = if args.from_basic_memory {
         let ruta = exo::inicia::ruta_basic_memory()?;
@@ -619,9 +616,9 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
         (kb, nombre, emb, "create", escritos, git_ok)
     };
 
-    // Se graba `db_objetivo`, NO `db_default`: `db_objetivo` es la DB que
-    // este `init` acaba de validar (H1) e indexa dos líneas más abajo — es
-    // la efectiva. Grabar `db_default` aquí era el bug: con `$EXO_DB` puesto,
+    // Se graba `db_objetivo`, NO el default `~/.exo/index.db`: `db_objetivo`
+    // es la DB que este `init` acaba de validar (H1) e indexa más abajo — es
+    // la efectiva. Grabar siempre el default era el bug: con `$EXO_DB` puesto,
     // la config quedaba mintiendo sobre qué DB usa este `init` (indexaba una
     // DB y apuntaba a otra), y un `exo config`/`exo search` posterior que
     // solo pusiera `$EXO_CONFIG` resolvía silenciosamente al índice

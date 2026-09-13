@@ -616,69 +616,61 @@ fn init_con_exo_db_graba_en_config_la_db_de_exo_db_no_el_default() {
     );
 }
 
-/// Hermano del test anterior: SIN `$EXO_DB`, el fix no debe cambiar el
-/// comportamiento de siempre — la config sigue grabando el default
-/// (`~/.exo/index.db` bajo el `$HOME` que le toque al proceso).
+/// Hermano del test anterior: SIN `$EXO_DB` (o vacía), la DB de `init` sigue
+/// siendo el default de siempre, `<home>/.exo/index.db`.
 ///
-/// Ni `EXO_CONFIG` ni `EXO_DB` se fijan aquí: ambos defaults viven bajo
-/// `~/.exo/`, y es `escribe_config` quien crea ese directorio (como
-/// directorio padre de `config.toml`) ANTES de que se abra la DB — fijar
-/// `EXO_CONFIG` a una ruta fuera de `~/.exo/` (como hacen el resto de tests
-/// de este fichero, con su propia DB explícita) rompería esa creación
-/// implícita y el test fallaría por una razón ajena al bug.
+/// Se prueba la regla pura (`db_de_init`) y no el binario: en Windows
+/// `dirs::home_dir()` no mira `$HOME`, así que un `exo init` "aislado" con
+/// `HOME` escribe en el perfil real (pasó en el runner windows-latest).
 #[test]
-fn init_sin_exo_db_sigue_grabando_el_default() {
-    let home = tempfile::TempDir::new().unwrap();
-    let kb = home.path().join("kb-nueva");
-
-    let salida = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
-        .args(["init", "--kb"])
-        .arg(&kb)
-        .args(["--name", "sin-exo-db-demo", "--json"])
-        .env("HOME", home.path())
-        .env_remove("EXO_CONFIG")
-        .env_remove("EXO_DB")
-        .output()
-        .expect("ejecutar exo init");
-    assert!(
-        salida.status.success(),
-        "init falló: {}",
-        String::from_utf8_lossy(&salida.stderr)
-    );
-
-    let cfg = exo::config::carga_desde(&home.path().join(".exo/config.toml"))
-        .expect("releer la config escrita en el default");
+fn db_de_init_sin_exo_db_es_el_default_bajo_home() {
+    let home = std::path::Path::new("/home/alguien");
     assert_eq!(
-        cfg.index.db,
-        home.path().join(".exo/index.db"),
-        "sin $EXO_DB, init dejó de grabar el default de siempre"
+        exo::inicia::db_de_init(None, home),
+        home.join(".exo/index.db")
+    );
+    assert_eq!(
+        exo::inicia::db_de_init(Some(""), home),
+        home.join(".exo/index.db"),
+        "$EXO_DB vacía cuenta como no definida"
+    );
+}
+
+#[test]
+fn db_de_init_con_exo_db_es_exo_db() {
+    let home = std::path::Path::new("/home/alguien");
+    let tmp = tempfile::TempDir::new().unwrap();
+    let db = tmp.path().join("otra.db");
+    assert_eq!(
+        exo::inicia::db_de_init(Some(db.to_str().unwrap()), home),
+        db
     );
 }
 
 /// Síntoma de extremo a extremo del mismo bug: con una PRIMERA kb ya
-/// inicializada en la config default de un `$HOME` aislado, se inicializa
-/// una SEGUNDA con `EXO_CONFIG`+`EXO_DB` propios — y una lectura posterior
-/// que solo pone `EXO_CONFIG` (como hace un consumidor real, p.ej. el hook
-/// del plugin) debe resolver a la DB de la SEGUNDA, no a la de la primera.
-/// Antes del fix, la segunda config grababa `~/.exo/index.db` (el default
-/// bajo el `$HOME` aislado, que es justo donde vive la DB de la primera KB),
-/// y `exo config --json` con solo `EXO_CONFIG` de la segunda mentía sobre
-/// qué DB usa.
+/// inicializada, se inicializa una SEGUNDA con `EXO_CONFIG`+`EXO_DB`
+/// propios — y una lectura posterior que solo pone `EXO_CONFIG` (como hace
+/// un consumidor real, p.ej. el hook del plugin) debe resolver a la DB de la
+/// SEGUNDA. Antes del fix, la segunda config grababa `~/.exo/index.db` (el
+/// default, que en el uso real es la DB de la primera KB) y
+/// `exo config --json` con solo `EXO_CONFIG` de la segunda mentía sobre qué
+/// DB usa.
 #[test]
 fn segunda_kb_con_exo_config_y_exo_db_propios_no_hereda_la_db_de_la_primera() {
     let home = tempfile::TempDir::new().unwrap();
     let otro = tempfile::TempDir::new().unwrap();
 
-    // Primera KB: SIN EXO_CONFIG ni EXO_DB — usa los defaults bajo el $HOME
-    // aislado (~/.exo/config.toml, ~/.exo/index.db).
+    // Primera KB: config y DB propias, explícitas. No se aísla con `HOME`:
+    // en Windows `dirs::home_dir()` no lo mira y escribiría en el perfil real.
     let kb1 = home.path().join("kb-primera");
+    let config1 = home.path().join("primera.toml");
+    let db1 = home.path().join("primera.db");
     let primera = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
         .args(["init", "--kb"])
         .arg(&kb1)
         .args(["--name", "kb-primera", "--json"])
-        .env("HOME", home.path())
-        .env_remove("EXO_CONFIG")
-        .env_remove("EXO_DB")
+        .env("EXO_CONFIG", &config1)
+        .env("EXO_DB", &db1)
         .output()
         .expect("ejecutar exo init (primera kb)");
     assert!(
@@ -695,7 +687,6 @@ fn segunda_kb_con_exo_config_y_exo_db_propios_no_hereda_la_db_de_la_primera() {
         .args(["init", "--kb"])
         .arg(&kb2)
         .args(["--name", "kb-segunda", "--json"])
-        .env("HOME", home.path())
         .env("EXO_CONFIG", &config2)
         .env("EXO_DB", &db2)
         .output()
@@ -710,7 +701,6 @@ fn segunda_kb_con_exo_config_y_exo_db_propios_no_hereda_la_db_de_la_primera() {
     // resolver a la DB de la segunda KB, no a la de la primera.
     let lectura = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
         .args(["config", "--json"])
-        .env("HOME", home.path())
         .env("EXO_CONFIG", &config2)
         .env_remove("EXO_DB")
         .output()
