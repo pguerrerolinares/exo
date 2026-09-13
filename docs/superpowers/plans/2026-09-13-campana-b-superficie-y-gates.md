@@ -69,6 +69,19 @@ Hallazgos nuevos al re-verificar, que entran en tareas existentes:
 
 Ninguna la toma la fábrica. La recomendación es eso, una recomendación.
 
+**RESUELTAS 2026-09-13 por Paul en sesión (apertura de la campaña B):**
+D1 = **C** (híbrido declarado) · D2 = **a** (herramienta personal publicada) ·
+D3 = **a** (dos artefactos, dos versiones, un gate) · D4 = **b** (`git mv` +
+solo `main.rs:14`) · D5 = **b** (convención por ruta). Las cinco, las
+recomendadas.
+
+**Enmienda por reconciliación con A (2026-09-13):** A se mergeó (PR #13) con
+su D1 = **A1** — su Task 8 (`exo init --db`) **no se ejecutó**. Así que la
+precondición `exo init --help | grep -- '--db'` no sale y no debe salir.
+Consecuencias: Task 2 no espera un `--db` en `ArgsInit`; Task 10 no documenta
+un `--db` de `exo init` (lo que sí documenta es la guarda de A1: una DB sirve
+a una KB). El resto de dependencias con A siguen en pie.
+
 ### D1 — Idioma de los mensajes de usuario del CLI (H9) · bloquea Task 3 (Task 2 no)
 
 Hoy: doc-comments y errores propios (`rechazado:`, `aviso:`, `error:`) en

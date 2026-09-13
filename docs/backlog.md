@@ -7,7 +7,36 @@
 > duplicar. Cada item cita su evidencia; un item sin evidencia verificable no
 > entra.
 >
-> Última revisión: **2026-09-11** (alineación con el árbol real tras G5b, a
+> Última revisión: **2026-09-13** (cierre de la campaña B —
+> `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md`, H6, H8,
+> H9, H11, H12, H13, H15, H16, H18, H20, H21, H22, H26— sincronizado además con
+> el CI que cerró fuera de campaña el 09-12/09-10. **Se mueven a `## Cerrado
+> con evidencia`**: los `test-*.sh` del plugin fuera de CI (`d8aa3b6`, job
+> `plugin-tests`) y `test-contrato-engine.sh` atado a esta máquina (`d8aa3b6`,
+> `scripts/test-contrato-ci.sh`); **entran nuevas** el gate de shellcheck (H11,
+> `cd3bfff`) y el gate de exec-bit ampliado a scripts sin extensión (H12,
+> `4af859b`), los dos con su ciclo rojo-verde medido. **Se cierran in situ,
+> con commit** (sin mover de sección porque el item conserva otra mitad
+> abierta): el gate de versiones (H16, `3bc05aa`, acción b de «la
+> documentación de referencia contradice…»), la convención `tier` por ruta en
+> vez de frontmatter (H18, `2294349`, D5=b, «los documentos del repo no llevan
+> tier»), el «para quién es exo hoy» del README (H6, `c5c5b7f`, «decisión
+> abierta: proceso frente a producto»), el idioma D1=C de la superficie CLI
+> (H8/H9, `7853e8a`/`b481189`, «idioma mezclado sin criterio único» y «el
+> relato de campaña en los comentarios»), y `reports/` a
+> `evals/e1-read/reports/` (H26, `7ee58ba`, «nombres y ubicaciones»). El rojo
+> del job `test` sigue **a medias** (`50aee95`: ya nombra el test que falla;
+> sigue sin cazar un error de compilación ni subir artifact). **Se pliega** el
+> bloque «Hallazgos de hoy planificados para la campaña B» que la campaña A
+> había dejado abierto, y las tres líneas sueltas «Planificado en campaña B
+> (HXX)» — cada una convertida en su cierre, ninguna queda apilada. **Abre**
+> un item nuevo: el mensaje de error de la guarda «una DB sirve a una KB»
+> recomienda `--db`, que `exo init` no tiene (usa `$EXO_DB`). H9, H13, H15,
+> H20, H21, H22 son código/UX sin item propio en este backlog —ejecutados
+> según el plan, sin deuda que registrar aquí—; H25 queda fuera, es checklist
+> externo de Paul, no tarea de la fábrica.)
+>
+> Anterior: **2026-09-11** (alineación con el árbol real tras G5b, a
 > raíz de corregir el informe de la revisión crítica
 > —`docs/2026-09-04-revision-critica-externa.md`—. La re-verificación que ese
 > informe hizo el 09-11 por la mañana se corrió contra `bf4ba7a` **creyendo
@@ -20,7 +49,7 @@
 > «lo cierra / lo subsume G5» siguen abiertos: **G5b cerró sin adoptar
 > ninguno**.)
 >
-> Anterior: **2026-09-09** (re-verificación de los diez items de la
+> Antes: **2026-09-09** (re-verificación de los diez items de la
 > revisión crítica externa contra el árbol de `f86167a`: **nueve siguen vivos
 > y sin tocar**, uno caducó a medias —la MSRV— y tres traían cifras ya
 > movidas. Corregido in situ; los items retocados lo dicen en su cabecera.
@@ -89,9 +118,10 @@
 | **Cerradas** | C5 (M2-08+09, cierra E1 read) · C6 (M6, cutover del recall) · C7 (M4, write-path) |
 | **Pendientes** | C8 (M3+M1b, cutover de skills) → C9 (M5a, MCP + config propia) → C10 (M5b, desinstalar basic-memory) |
 | **Medido** | engine-hybrid **48/55** hit@5 vs bm-hybrid 39/55, mismo día, paridad de corpus ∅, recall <2s (`evals/e1-read/verdict/m2-09-corrida.md`) |
-| **Tests** | 111 verdes / 0 rojos en la rama de M4, 98 en main previo (contados por el consultor del gate en esa ola; el CI que los corre solo llegó después, en G5a — 200 tests / 28 binarios). **El 2026-09-11: 434 tests verdes en 44 binarios, 2 ignorados** (`README.md:46`), ver `## Cerrado con evidencia` |
+| **Tests** | 111 verdes / 0 rojos en la rama de M4, 98 en main previo (contados por el consultor del gate en esa ola; el CI que los corre solo llegó después, en G5a — 200 tests / 28 binarios). **El 2026-09-13 (cierre de campaña B), `cargo test --release --locked --no-fail-fast` en `engine/`: 478 tests verdes en 48 binarios, 2 ignorados, 0 rojos** |
 | **Release** | `v0.1.0` publicada el **2026-09-11** — tres binarios y sus tres `.sha256`, instalables por `install.sh` / `install.ps1`. Ver `## Cerrado con evidencia` |
-| **Campaña A** | ejecutada el **2026-09-13** salvo Tasks 12 y 15 (esperan la medición W11 de Paul) — rama `campana-a`, sin PR aún; veredicto en `evals/recall-coste/verdict/2026-09-campana-a.md` |
+| **Campaña A** | ejecutada el **2026-09-13** salvo Tasks 12 y 15 (esperan la medición W11 de Paul) — mergeada a `main` el **2026-09-13** vía PR #13 (`ef5100b`); veredicto en `evals/recall-coste/verdict/2026-09-campana-a.md` |
+| **Campaña B** | ejecutada el **2026-09-13**, las 13 tasks (H6, H8, H9, H11, H12, H13, H15, H16, H18, H20, H21, H22, H26) integradas en la rama `campana-b` — **a fecha 2026-09-13, pendiente del gate de Paul, sin PR a `main` aún**; plan en `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md`; H25 queda como checklist externo de Paul |
 
 ---
 
@@ -176,15 +206,31 @@
   aparte del engine); (c) añadir al `verify` de cierre un grep de las
   afirmaciones de estado más frágiles («Sin CI», recuento de tests,
   versiones) contra el árbol real, **acotado a los cuatro ficheros `core`**.
-  **Planificado en campaña B (H16):** gate de versiones en CI (`plugin.json`
-  == `marketplace.json`, tag == `Cargo.toml`) —
-  `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md`.
+  **(campaña B, 2026-09-13, H16): acción (b) cerrada — no por alineación,
+  por decisión D3=a (dos artefactos, dos versiones, cada una con su gate).**
+  `scripts/test-versiones.sh` compara `plugin.json` == `marketplace.json` y,
+  con un tag, `Cargo.toml` == tag; falla también si `marketplace.json` sigue
+  llevando `metadata.version` (un tercer número sin dueño, retirado en el
+  mismo commit). Corre en `ci.yml` (job `lint`, `:61`) y en `release.yml`
+  (job `publish`, antes de publicar). Verificado en HEAD: `marketplace.json`
+  sin `metadata.version`, `plugins[0].version` == `plugin.json version` ==
+  `1.1.2`, `Cargo.toml` == `0.1.0`, tag `v0.1.0` — el engine y el plugin ya
+  no tienen que compartir número, el gate impide que cada par diverja del
+  suyo. Commit `3bc05aa`, documentado en `docs/instalacion.md` §5. Sigue
+  abierta la acción (c) (el grep de afirmaciones frágiles en el `verify` de
+  cierre, acotado a los cuatro `core`).
 
 - [ ] **(revisión 2026-09-04) «exo genérico» sigue siendo el plugin de Paul
   para Paul.** Medido el 2026-09-04 sobre `plugins/exo/`: la cadena `Paul`
   aparece en 4 ficheros vivos del plugin (`skills/distill/SKILL.md` ×7,
   `scripts/recall-inject.sh` ×2, `scripts/git-add-all-guard.sh`,
-  `scripts/kb-precommit.sh`); `kb-demo` en 8 ficheros del plugin, dos de ellos
+  `scripts/kb-precommit.sh`) — **re-medido el 2026-09-13 (`git grep -c Paul
+  -- plugins/exo`) tras el split de `distill`: 5 ficheros de lógica
+  (`skills/distill/SKILL.md` ×6, `skills/distill/chequeos.md` ×1 —nuevo del
+  split—, `scripts/recall-inject.sh` ×2, `scripts/git-add-all-guard.sh` ×1,
+  `scripts/kb-precommit.sh` ×1); el grep también da `.claude-plugin/
+  plugin.json` ×1, pero es el campo `author.name` (metadata legítima, fuera
+  del alcance de esta acción)**; `kb-demo` en 8 ficheros del plugin, dos de ellos
   hooks de producción (`exo-recall.sh`, `recall-inject.sh`) y uno el
   pre-commit de la KB; y `kbx` —binario Go externo, no incluido en el repo,
   sin build decidido en Windows según la propia skill— es dependencia
@@ -213,11 +259,15 @@
     barrera de instalación** que este item citaba (Rust, toolchain C, 0,6 GB
     y compilar desde fuente ya no son el único camino), y con ella la frase
     «hoy no hay tercero que pueda adoptar el plugin».
-  - **Lo que sigue vivo, sin un solo cambio**: `Paul` en los mismos 4
-    ficheros con los mismos conteos (`distill/SKILL.md` ×7,
+  - **Lo que sigue vivo, sin un solo cambio (a fecha 09-11)**: `Paul` en los
+    mismos 4 ficheros con los mismos conteos (`distill/SKILL.md` ×7,
     `recall-inject.sh` ×2, `git-add-all-guard.sh`, `kb-precommit.sh`);
     `kb-demo` en 8 ficheros, tres de ellos de producción (`exo-recall.sh`,
     `recall-inject.sh`, `kb-precommit.sh`). El item sigue en Alta por esto.
+    **Re-medido el 2026-09-13, tras H22 (`e5398d5`+`1018802`) partir
+    `distill/SKILL.md` en `SKILL.md` + `chequeos.md`:** el conteo cambia de
+    forma (`git grep -c Paul -- plugins/exo`) pero no de fondo — ver el
+    detalle arriba, en la entrada del 2026-09-04.
   **Acción:** (a) sustituir «Paul» por «el usuario»/«el dueño de la KB» y
   `kb-demo` por el nombre resuelto vía `exo config` en los cuatro scripts y
   dos skills; (b) lo que queda de `kbx` (`rotate`, `stale`) lo lleva el item
@@ -395,6 +445,27 @@
 
 ## Media
 
+- [ ] **(NUEVO, revisión final campaña B, 2026-09-13) En `release.yml`, el
+  check de versiones corre DESPUÉS de los tres builds (hasta 3×60 min),
+  no antes.** `publish` (`.github/workflows/release.yml:105-136`) declara
+  `needs: build` (la matriz linux/windows/macos, `timeout-minutes: 60`
+  cada leg) y solo dentro de `publish`, tras el inventario de artifacts,
+  corre «El tag casa con `engine/Cargo.toml`»
+  (`.github/workflows/release.yml:131-136`: `bash scripts/test-versiones.sh
+  "$TAG"`) — un check de segundos que no toca ningún artifact de build.
+  Agravante medido el 2026-09-13: `scripts/test-versiones.sh` no existe en
+  el árbol del único tag publicado (`v0.1.0`) — se añadió después, en
+  `3bc05aa` (campaña B, H16) — así que un `workflow_dispatch` con `tag:
+  v0.1.0` haría `checkout ref: v0.1.0` (`release.yml:45-47` para `build`,
+  `:111-112` para `publish`), correría los tres builds completos, y
+  fallaría en `publish` con el script inexistente: hasta 3 horas-runner
+  gastadas antes de descubrir un desajuste que un job previo barato habría
+  cazado en segundos.
+  **Acción (no aplicada aquí):** mover el check de versiones a un job
+  previo y barato (o al principio de `build`) del que `publish` (y
+  arguably los propios legs de `build`) dependan con `needs:`, para que
+  falle rápido sin gastar la matriz.
+
 - [ ] **(revisión 2026-09-04) `tier` no se persiste en el índice y cada
   arranque relee el frontmatter de TODAS las notas desde disco.**
   `engine/src/nota.rs:14` lo declara: «el índice NO lo persiste (no hay
@@ -517,8 +588,18 @@
   job de CI, 35.892 no. Cruza con «Decisión abierta: proceso frente a
   producto» (Baja), cuya evidencia —el ratio docs/código— este item
   reemplaza.
-  **Planificado en campaña B (H18):**
-  `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md`.
+  **(campaña B, 2026-09-13, H18): D5=b — las acciones (a) y (b) se cierran
+  por una vía distinta a la propuesta, sin frontmatter.** En vez de una
+  columna `tier:` por fichero, la distinción vive como **convención por
+  ruta**, declarada en la cabecera de `docs/arquitectura.md` (commit
+  `2294349`): «Cuatro ficheros deben ser verdad hoy: `README.md`,
+  `docs/arquitectura.md`, `docs/instalacion.md` y `docs/backlog.md`. Todo lo
+  que lleva fecha en el nombre y todo `docs/superpowers/` son instantáneas
+  (`tier: log` por convención de ruta): no se actualizan, se citan con su
+  fecha.» Ningún fichero individual lleva `tier:` en el frontmatter — la
+  regla se aplica por patrón de ruta, no por etiqueta. Sigue abierta la
+  acción (c), compartida con la del item de Alta arriba: el grep de
+  afirmaciones frágiles acotado a los cuatro vivos no existe todavía.
 
 - [ ] **`#[allow(clippy::too_many_arguments)]` en `escritor.rs` — la struct de
   parámetros que no se hizo aquí.** `escribe_nueva` toma 8 parámetros contra
@@ -532,49 +613,26 @@
   `engine/src/escritor.rs:252` — el comentario de código no cita esta entrada
   del backlog por nombre.
 
-- [ ] **Los scripts `test-*.sh` de `plugins/exo/scripts/` no entran en CI.**
-  **Re-medido el 2026-09-11: son 11 scripts** (el nuevo es
-  `test-estilo-directo.sh`, del 2026-09-09) sobre 4.713 líneas de shell, y **siguen los 11
-  fuera del CI**: `ci.yml` tiene cuatro jobs (`lint`, `msrv`, `test`,
-  `install-gate`) y ninguno toca `plugins/exo/scripts/`. Novedad que juega a
-  favor: `654c757` cableó `install-gate`, que ejercita `scripts/test-install.sh`
-  y `scripts/test-install.ps1` en ubuntu, macOS y Windows contra una release
-  falsa servida por `file://`. **El patrón de fixture que este item pide ya se
-  ha escrito una vez en este repo, para otro gate** — deja de ser un diseño
-  por inventar.
-  Medido 2026-09-02: había **10** scripts `test-*.sh` en ese directorio, de los
-  que **5 referencian rutas de esta máquina** —
-  `grep -nE 'paul|C:[/\\]Users|/home/[a-z]+/' plugins/exo/scripts/test-*.sh`
-  marca `test-a1-gate.sh`, `test-compose-inject.sh` (ambos vía el default
-  `$HOME/.claude/...` de `a1-gate.sh`/`compose-inject.sh` cuando no se
-  sobreescribe por variable de entorno), `test-contrato-engine.sh`
-  (`C:/Users/paul/.exo/index.db`, `C:/proyectos/homework/kb-demo`
-  hardcodeados), `test-git-c-bash.sh`
-  (`/home/paul/Documentos/proyectos/code-graph-go`) y
-  `test-subagent-inject.sh` (mismo default de `$HOME/.claude` que
-  `test-a1-gate.sh`, vía `subagent-inject.sh`). El engine ya tiene CI
-  (`.github/workflows/ci.yml`); la capa thin — hooks y scripts, la mitad del
-  producto — sigue sin gate automático.
-  **Acción:** fixture propia por script (índice + KB + `$HOME` de prueba,
-  igual que ya hacen los otros 5 de esta misma carpeta) antes de cablear un
-  job de CI para `plugins/exo/`.
-  **Cruce (2026-09-09):** la mitad de «rutas de esta máquina» no necesita
-  fixture, necesita **un validador**: `affaan-m/ECC` encadena en su `npm test`
-  (`package.json:472`) un `scripts/ci/validate-no-personal-paths.js`. Con un
-  gate equivalente, la limpieza que pide el item de Alta «"exo genérico" sigue
-  siendo el plugin de Paul» **deja de poder regresar** —hoy es una limpieza
-  puntual que se pudre al siguiente hook— y con ella cae el item de Baja de
-  `kb-demo` como fixture.
-  **Copiarlo tal cual no basta, y esto solo se supo al leerlo** (clone
-  `5064474`): sus regex (`validate-no-personal-paths.js:41-42`) cubren
-  `/Users/<nombre>` y `C:\Users\<nombre>`, **pero no `/home/<user>`**. De los
-  cinco scripts que este item señala, `test-git-c-bash.sh` ofende justamente
-  por `/home/paul/Documentos/proyectos/code-graph-go`: el validador de ECC,
-  copiado literal, **no lo cazaría**. Hay que añadirle el patrón POSIX y la
-  lista de nombres propios. Segundo robable de la misma cadena:
-  `scripts/ci/validate-hooks.js`, que valida `hooks/hooks.json` contra
-  `schemas/hooks.schema.json` con Ajv (`:9,12,144-145`);
-  `plugins/exo/hooks/hooks.json` tiene nueve hooks y ninguna validación.
+- [ ] **Rutas personales y `hooks.json` sin validar en CI — las dos
+  sub-propuestas vivas del item de los `test-*.sh` del plugin (cerrado el
+  2026-09-12, `d8aa3b6`, ver `## Cerrado con evidencia`).**
+  **Un validador**, no una fixture por script: `affaan-m/ECC` encadena en su
+  `npm test` (`package.json:472`) un
+  `scripts/ci/validate-no-personal-paths.js`. Con un gate equivalente, la
+  limpieza que pide el item de Alta «"exo genérico" sigue siendo el plugin de
+  Paul» **deja de poder regresar**, y con ella cae el item de Baja de
+  `kb-demo` como fixture. **Copiarlo tal cual no basta** (clone `5064474`):
+  sus regex (`validate-no-personal-paths.js:41-42`) cubren `/Users/<nombre>`
+  y `C:\Users\<nombre>`, **pero no `/home/<user>`** — hay que añadirle el
+  patrón POSIX y la lista de nombres propios, o no cazaría hoy la única
+  ofensora que queda (`test-git-c-bash.sh`, ver el item de Baja de G4c
+  Task 14). Segundo robable de la misma cadena: `scripts/ci/validate-hooks.js`,
+  que valida `hooks/hooks.json` contra `schemas/hooks.schema.json` con Ajv
+  (`:9,12,144-145`); `plugins/exo/hooks/hooks.json` tiene nueve hooks y
+  ninguna validación.
+  **Acción:** los dos gates, cuando tengan dueño; ninguno se escribió en la
+  campaña B (fuera de su alcance — B tocó CI de shellcheck y exec-bit, no
+  este).
   **Lo cierra G5 si lo adopta.** **(2026-09-11: G5b cerró sin adoptarlo — release `v0.1.0` publicada, ver `## Cerrado con evidencia`. La marca queda huérfana: necesita dueño o campaña propia.)**
 
 - [ ] **(G4c, Task 13) `kb-precommit.sh` depende de que `exo` esté instalado
@@ -589,7 +647,8 @@
   máquina nueva, o subir el aviso de stderr a algo que no pase desapercibido
   (el hook está enlazado, pero el gate no protege nada).
 
-- [ ] **Retirar los aliases españoles del CLI en 1.1.** Los diez flags
+- [ ] **Retirar los aliases españoles del CLI en la 1.1 del engine** (versión
+  propia del engine, distinta de la del plugin). Los diez flags
   renombrados en la ola 1A (`--limite`→`--limit`, `--titulo`→`--title`,
   `--contenido`→`--content`, `--nota`→`--note`, `--refresca`→`--refresh`,
   `--crea`→`--create`, `--min-similitud`→`--min-similarity`,
@@ -624,18 +683,6 @@
   - **#9 [baja]** el `SKILL.md` de `documenta` omite `--db` en los comandos del
     Paso 3; tomados literales fallan con error de clap.
 
-- [ ] **`test-contrato-engine.sh` depende del índice y la KB reales de esta
-  máquina.** Rutas cableadas (`C:/Users/paul/.exo/index.db`,
-  `C:/proyectos/homework/kb-demo`, ver cabecera del script). Se abstiene
-  con exit 2 si faltan — no miente sobre lo que no pudo comprobar — pero eso
-  significa que en un runner limpio (o en la máquina de cualquier otra
-  persona) esta suite no corre nunca.
-  **Acción:** CI necesita un fixture propio (índice + KB de prueba mínimos)
-  para que la suite deje de abstenerse fuera de esta máquina.
-  **Cruce (2026-09-09):** el fixture que pide este item y el que pide
-  «los scripts `test-*.sh` no entran en CI» son el mismo (índice + KB de
-  prueba); hacerlo una vez sirve a los dos. **Lo cierra G5 si lo adopta.** **(2026-09-11: G5b cerró sin adoptarlo — release `v0.1.0` publicada, ver `## Cerrado con evidencia`. La marca queda huérfana: necesita dueño o campaña propia.)**
-
 - [ ] **Un rojo del job `test` no se puede diagnosticar desde el CI.**
   `engine/scripts/test-hermetico.sh:19` manda toda la salida de `cargo test`
   a `$TMP/out.txt` y el `trap ... EXIT` de la línea 16 la borra al salir. En
@@ -654,6 +701,16 @@
   `` `--test flags` `` — el binario y el recuento. **Ni el nombre del test ni
   el mensaje del panic aparecen en ningún log de CI**, aun estando el panic
   puesto a propósito para ser encontrado.
+  **A medias (`50aee95`, 2026-09-10):** el script ya no se detiene en
+  `test result: FAILED|targets failed|--test`. Ahora emite el nombre de cada
+  test caído (`grep -E '^test .* \.\.\. FAILED$'`, `test-hermetico.sh:32`) y
+  el bloque `failures:` de cargo con la aserción y el panic
+  (`sed -n '/^failures:$/,/^test result: FAILED/p'`, `:34`), además del
+  resumen anterior. **Sigue abierto:** un error de COMPILACIÓN de la suite
+  (`cargo test` en `:19`) sigue sin casar ningún patrón de los tres —no hay
+  grep que lo cace, exactamente el caso peor que este item señalaba— y
+  `ci.yml` sigue sin `actions/upload-artifact` para el log completo. No
+  cambia el veredicto del gate, solo lo que cuenta al fallar.
   **Acción propuesta:** campaña propia — `tee` o un `EXO_HERMETICO_LOG`
   opt-in en el script (con su propio ciclo rojo-verde, porque el script es
   un gate ya demostrado falsable y tocarlo invalida esa evidencia), más
@@ -885,25 +942,32 @@
   mano en el veredicto, no por el criterio. Ver
   `evals/recall-coste/verdict/2026-09-campana-a.md`.
 
-- [ ] **(revisión 2026-09-13) Hallazgos de hoy planificados para la campaña B
-  (sin item propio en este backlog).** Diseño y tareas en
-  `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md`; no se
-  copia evidencia aquí, solo el ID.
-  - **H15:** `trinquete::comprueba_contra` (213 líneas) partido en tres
-    familias con nombre y tests por familia.
-  - **H8/H9:** `--help` de producto sin jerga de campaña; metavars iguales
-    al flag y ninguna opción de `--json` sin descripción.
-  - **H20/H21:** un solo `_truncate-payload.sh` para los dos reflejos de
-    Bash que truncan payload; el matcher de «orquestador limpio» cubre
-    también la navegación de los MCP de navegador, no solo `localhost`.
-  - **H11/H12:** shellcheck 0.11.0 en CI sobre los 39 scripts versionados;
-    el gate de exec-bit cubre también los scripts sin extensión con shebang.
-  - **H22:** `distill/SKILL.md` a procedimiento en el cuerpo, detalle bajo
-    demanda en ficheros aparte.
-  - **H13:** el propio backlog, re-sincronizado con CI y con esta campaña al
-    cierre de la B.
-  - **H25:** checklist externo para Paul (no es tarea de la fábrica, va
-    fuera del plan de tasks).
+- [x] **(revisión 2026-09-13 · plegado el 2026-09-13, campaña B) Hallazgos
+  de hoy — cada uno cerrado con su commit; este bloque no queda «planificado»
+  y «cerrado» a la vez.** Diseño y tareas en
+  `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md`.
+  - **H15** cerrado (`fde9ec7`): `trinquete::comprueba_contra` (213 líneas)
+    partido en tres familias con nombre y tests por familia.
+  - **H8/H9** cerrado (`7853e8a`, `b481189`): `--help` de producto sin jerga
+    de campaña; metavars iguales al flag y ninguna opción de `--json` sin
+    descripción. Ver además el item de Baja «idioma mezclado» y el de
+    «relato de campaña en los comentarios», arriba.
+  - **H20/H21** cerrado (`62b5152`, `be6c200`+`018e593`): un solo
+    `_truncate-payload.sh` para los dos reflejos de Bash que truncan
+    payload; el matcher de «orquestador limpio» cubre también la
+    navegación de los MCP de navegador, no solo `localhost`.
+  - **H11/H12** cerrado (`cd3bfff`, `4af859b`): shellcheck 0.11.0 en CI sobre
+    los scripts versionados (45 en el árbol a esa fecha, no 39/41 como
+    estimaba el plan); el gate de exec-bit cubre también los scripts sin
+    extensión con shebang. Ver `## Cerrado con evidencia`.
+  - **H22** cerrado (`e5398d5`+`1018802`): `distill/SKILL.md` a
+    procedimiento en el cuerpo, detalle bajo demanda en ficheros aparte.
+  - **H13**: este mismo commit — el backlog, re-sincronizado con CI y con
+    esta campaña al cierre de la B.
+  - **H25: NO lo cierra la fábrica.** Sigue como checklist externo de Paul
+    (borrar ramas remotas mergeadas, `delete-branch-on-merge`, `gh repo
+    edit` con el About del README) — fuera del plan de tasks, ver la
+    sección «Checklist externo para Paul (H25)» del plan de campaña B.
 
 - [ ] **(revisión 2026-09-13) H14 y H24, planificados para la campaña C (sin
   item propio en este backlog).** Diseño en
@@ -913,7 +977,88 @@
   - **H24:** el gold de `evals/retrieval-fase0/` admite `acceptable_permalinks`
     secundarios, no solo un permalink correcto por query.
 
+- [ ] **(NUEVO, campaña B, 2026-09-13) El error de la guarda «una DB sirve a
+  una KB» recomienda `--db`, que `exo init` no tiene.** Medido al documentar
+  la guarda H1 en la Task 10 (`docs/instalacion.md` §4): `exo init` no
+  acepta flag `--db` — resuelve el índice por `$EXO_DB` o el default de la
+  config. `comprueba_kb_root` (`engine/src/indexer.rs:484-490`) sí se
+  invoca desde `exo init` (`inicia.rs:125`) además de `exo index`/`exo
+  rebuild` (que sí tienen `--db`, `ArgsIndex.db`), y su mensaje de error es
+  literal para los tres: «Una DB sirve a UNA KB: usa otra `--db` para
+  esta…» — correcto cuando lo dispara `index`/`rebuild`, engañoso cuando lo
+  dispara `init`, donde la única vía real es `EXO_DB=<ruta> exo init …`.
+  `docs/instalacion.md:109-110` ya tuvo que aclararlo aparte: «(`exo init`
+  no tiene flag `--db`; usa la variable de entorno).»
+  **Acción:** el mensaje deja de asumir un flag que no todos sus llamadores
+  tienen — o se parametriza por comando (`init` → menciona `$EXO_DB`,
+  `index`/`rebuild` → menciona `--db`), o se reescribe genérico («usa otro
+  índice para esta KB: `--db` en `index`/`rebuild`, `$EXO_DB` en `init`»).
+  **Deuda hermana (revisión final campaña B, 2026-09-13): `exo init` no
+  respeta `$EXO_DB` al escribir `[index] db` en la config.** `init_cmd`
+  calcula `db_objetivo` con la precedencia `$EXO_DB` > default
+  (`engine/src/main.rs:560-563`) y lo usa para la indexación inicial
+  (`resuelve_db(None)` en `engine/src/main.rs:629`), pero
+  `escribe_config` recibe `db_default` — SIEMPRE `~/.exo/index.db`, nunca
+  `db_objetivo` — como el valor que graba en `[index] db`
+  (`engine/src/main.rs:622`, `exo::inicia::escribe_config` en
+  `engine/src/inicia.rs:131-171`). Medido el 2026-09-13 en un `HOME`
+  aislado: `EXO_CONFIG=~/.exo/otra-kb.toml EXO_DB=~/.exo/otra-kb.db exo
+  init --kb ~/otra-kb --name otra-kb` indexa `otra-kb.db` en el `init`,
+  pero `otra-kb.toml` queda con `db = "~/.exo/index.db"` — un `exo search`
+  posterior con solo `EXO_CONFIG` (sin `EXO_DB`) sale 0 y responde desde el
+  índice de la PRIMERA KB, sin avisar. Receta que sí funciona (editar
+  `[index] db` a mano tras el `init`) documentada en `docs/instalacion.md`
+  §4. **Acción:** que `escribe_config` reciba y grabe `db_objetivo`, no
+  `db_default`.
+
+- [ ] **(NUEVO, campaña B, 2026-09-13, H15) `trinquete::sellos_escapados_de_tier`
+  lee el tier del disco también en `--staged`.** El propio código lo
+  declara (`engine/src/trinquete.rs:830-832`, comentario añadido al partir
+  `comprueba_contra` en tres familias): «Lee el tier del **disco** también
+  en `--staged`: es el comportamiento heredado de antes de partir
+  `comprueba_contra`, y este refactor no lo cambia.» Con `--staged`, el
+  resto del trinquete mira el índice de git (lo que se va a commitear), pero
+  esta función concreta sigue leyendo `kb.join(ruta)` del working tree —
+  posible mezcla de revisiones si el working tree y el staged divergen (un
+  `tier:` editado sin `git add`).
+  **Acción:** antes de tocarlo, verificar contra `internal/ratchet` de kbx
+  (`fe46443`) si el comportamiento heredado es intencional o es el mismo
+  tipo de deuda que ya viven otras funciones de este módulo — no se toca a
+  ciegas un gate que ya se demostró falsable.
+
 ## Baja
+
+- [ ] **(NUEVO, revisión final campaña B, 2026-09-13) El bash inline de
+  `run:` en `.github/workflows/*.yml` no pasa por ningún gate.**
+  `scripts/test-shellcheck.sh` solo analiza ficheros `.sh` versionados (y
+  ejecutables sin extensión con shebang sh/bash bajo `plugins/`) — su propio
+  comentario dice «Qué NO entra» y los workflows no están en la lista. Ya
+  rompió una release real: `sha256sum` (GNU) vs `shasum` (macOS/BSD) en
+  `release.yml` tumbó el push del tag `v0.1.0` en el runner de Windows
+  (`shasum: command not found`, exit 127; fix PR #7 `360175c`) y, ya
+  arreglado hacia el otro lado, rompió `install.ps1` (formato de firma
+  distinto según el comando; fix PR #8 `8a86832`) — tabla de corridas en
+  `## Cerrado con evidencia`, «Release `v0.1.0` — el binario que no
+  existía». **Acción:** extender
+  `test-shellcheck.sh` (o un gate hermano) a los bloques `run: |` de
+  `.github/workflows/*.yml` — extraerlos a ficheros temporales o usar el
+  soporte de shellcheck para YAML embebido — o documentar explícitamente
+  que ese bash queda fuera de todo gate y por qué.
+
+- [ ] **(NUEVO, revisión final campaña B, 2026-09-13) El job `lint` de
+  `ci.yml` se llama «fmt + clippy» pero ya corre shellcheck y el gate de
+  versiones.** `.github/workflows/ci.yml:24-61`: el job `lint` (`name: fmt +
+  clippy`) tiene cuatro steps — `cargo fmt --check`, `cargo clippy`,
+  shellcheck sobre el bash versionado, y «Versiones coherentes
+  (`plugin.json` == `marketplace.json`)» (`bash scripts/test-versiones.sh`)
+  — dos de los cuales no son ni fmt ni clippy. **No renombrar a ciegas:**
+  si GitHub tiene branch protection con required status checks por nombre
+  de job (`lint`) o de step, renombrar el job rompe la protección hasta que
+  alguien actualice la config del repo (fuera de este árbol de código) —
+  verificar `required_status_checks` del repo antes de tocarlo. **Acción:**
+  o renombrar `lint` a algo que cubra las cuatro cosas («checks estáticos»,
+  «lint + gates estáticos») coordinando el cambio de required checks, o
+  separar shellcheck y versiones a su propio job con nombre propio.
 
 - [ ] **(H29, Baja, 2026-09-13) El walker entra en `.git/`.** Medido por el
   consultor con `strace` sobre un `exo index`: 276 de 314 `openat` caen
@@ -956,6 +1101,15 @@
   es exo hoy»). De la mitad operativa —qué carpetas dejan de mantenerse— se
   encarga el marcado por `tier`. Se cruza con «Nombres y ubicaciones» de
   abajo.
+  **(campaña B, 2026-09-13, H6): la acción del README está hecha, D2=a
+  literal.** Commit `c5c5b7f` reescribe el README con una sección «Para
+  quién es hoy»: «exo es el sistema de trabajo de su autor, publicado tal
+  cual (MIT). Funciona y se prueba en Linux, macOS y Windows, pero lo decide
+  un solo usuario: sin promesa de estabilidad ni soporte.» Se retira además
+  el bloque de estado con jerga de campaña (M0, M1a, G5b…) y la cifra
+  frágil de tests. Lo que queda abierto no es la acción, es la **decisión de
+  fondo** que el propio título nombra (proceso frente a producto): escribir
+  la respuesta no es tomarla.
 
 - [ ] **(revisión 2026-09-04) Idioma mezclado sin criterio único.** Medido
   sobre `engine/src/`: identificadores y módulos en español (`buscador`,
@@ -969,6 +1123,18 @@
   `CONTRIBUTING`) qué idioma llevan identificadores de código, y aplicarlo
   solo a módulos nuevos hasta que un refactor toque los viejos. No renombrar
   en masa: el coste hoy es de coherencia, no de corrección.
+  **(campaña B, 2026-09-13, H8/H9): cerrada solo la parte de la superficie
+  CLI, con D1=C.** `docs/arquitectura.md` §3.8 declara la convención
+  (commit `7853e8a`, cita de ese día; el id de decisión se retiró del doc vivo después): «Idioma de la ayuda (D1 = C): los textos de producto y
+  los errores propios van en español; el cromo que pinta clap (`Usage:`,
+  `Options:`, `Commands:`…) y los metavars (`--limit <LIMIT>`, igual al
+  nombre del flag) se quedan en inglés.» Aplicada en `--help` (91 líneas de
+  jerga interna reescritas, `7853e8a`) y en los seis metavars que mezclaban
+  idioma en la misma línea (`b481189`), con test de regresión
+  (`engine/tests/help_producto.rs`, `la_ayuda_no_lleva_jerga_interna`). **La
+  parte de identificadores de código (módulos y funciones en español,
+  claves JSON en inglés) sigue abierta** — D1=C fija el idioma de la
+  superficie de usuario, no el de `engine/src/`.
 
 - [ ] **(revisión 2026-09-04 · re-medido y ACOTADO el 2026-09-09) El relato
   de campaña en los comentarios se concentra en `main.rs` y `buscador.rs`, y
@@ -996,6 +1162,14 @@
   verdict o al plan correspondiente con un enlace. Candidatos por densidad de
   relato **medida**: `main.rs` y `buscador.rs` (el item original decía
   `lib.rs` y `main.rs`).
+  **(campaña B, 2026-09-13, H8): a medias.** El commit `7853e8a` reescribe
+  las 91 líneas de jerga interna (ids de hito, specs, símbolos de Rust/SQL,
+  nombres de scripts del autor) que vivían en los doc-comments `///` que
+  clap renderiza en las 15 pantallas de `--help` de `main.rs` — esos son los
+  únicos que un usuario del binario llega a ver, y por eso salen primero.
+  **No tocado:** los comentarios `//` internos de `main.rs` (el relato que
+  no sale a `--help`) y todo `buscador.rs`, que sigue con sus 30 líneas de
+  relato medidas arriba.
 
 - [ ] **Nombres y ubicaciones.** `docs/superpowers/` como carpeta de docs del
   proyecto cuyo objetivo declarado es jubilar superpowers, y `reports/` colgando
@@ -1006,9 +1180,12 @@
   nombres para `plugins/` — ya no hay `process`/`reflex`, hay un único
   `plugins/exo/`. Quedan vivas como deuda sin resolver `docs/superpowers/` y
   `reports/`; se abordan en G5.
-  **Planificado en campaña B (H26):** mover `reports/` (5 ficheros) a
-  `evals/e1-read/reports/`, junto a los verdicts de esas campañas —
-  `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md`.
+  **(campaña B, 2026-09-13, H26): cerrada la parte de `reports/`, D4=b.**
+  Commit `7ee58ba` mueve los 5 ficheros a `evals/e1-read/reports/`, junto a
+  los verdicts de esas campañas; `engine/src/main.rs` (comentario que citaba
+  `reports/m2-07-impl-report.md`) actualizado en el mismo commit. Verificado:
+  `git ls-files | grep reports/` da los 5 en su ruta nueva, ninguno en la
+  raíz. **`docs/superpowers/` sigue sin resolver** — sigue en G5/sin dueño.
 
 - [ ] **Residuos de entorno del plan** (ya listados allí, se repiten aquí para no
   perderlos): `crontab -r` pendiente de M1a · `reflex-baseline.sh` traga errores
@@ -1029,8 +1206,9 @@
   tests hermetizados de la Pista A, es candidato natural) antes de publicar.
   Deuda menor — no bloquea nada hoy.
   **Cruce (2026-09-09):** lo cierra —y lo mantiene cerrado— el mismo validador
-  de nombres y rutas personales anotado en el item de `test-*.sh` fuera de CI
-  (Media). **Lo cierra G5 si lo adopta.** **(2026-09-11: G5b cerró sin adoptarlo — release `v0.1.0` publicada, ver `## Cerrado con evidencia`. La marca queda huérfana: necesita dueño o campaña propia.)**
+  de nombres y rutas personales anotado en el item de Media «rutas personales
+  y `hooks.json` sin validar en CI» (el item de `test-*.sh` que lo señalaba
+  se cerró en la campaña B, ver `## Cerrado con evidencia`). **Lo cierra G5 si lo adopta.** **(2026-09-11: G5b cerró sin adoptarlo — release `v0.1.0` publicada, ver `## Cerrado con evidencia`. La marca queda huérfana: necesita dueño o campaña propia.)**
 
 - [ ] **(pasada de coste 2026-09-09) Sinergias anotadas, dueño sin decidir: el
   mecanismo de guards de exo sirve para delegar I/O, y el método de evals de
@@ -1095,12 +1273,90 @@
   `test-git-c-bash.sh:74-75` siguen ahí.** Fixtures de test hardcodeadas a
   `/home/paul/Documentos/proyectos/code-graph-go`, verificado hoy sin
   cambios. Deuda de higiene de test-fixtures personales — ya hay un item
-  hermano en Media sobre "nombres y rutas personales" (el de `test-*.sh`
-  fuera de CI, que ya cita este mismo script) que la cierra si se adopta.
+  hermano en Media sobre «rutas personales y `hooks.json` sin validar en
+  CI» (que ya cita este mismo script) que la cierra si se adopta.
+
+- [ ] **(NUEVO, campaña B, 2026-09-13, medido en Task 10) `exo search` sin
+  resultados no imprime nada y sale 0.** `busca_cmd` (`engine/src/main.rs`,
+  rama sin `--json`): si `resultado.results` está vacío, el `for` no itera
+  y la función vuelve `Ok(())` — ni un `no results` en stdout ni un aviso en
+  stderr, exit 0 igual que con resultados. Contraste en el propio binario:
+  `targets_cmd` (`main.rs:970-971`) sí distingue el caso vacío e imprime
+  `no candidates` antes de salir. Un script que encadena `exo search` no
+  puede diferenciar «sin resultados» de «no filtré la salida», y un humano
+  ve una terminal en blanco sin saber si el comando corrió.
+  **Acción:** alinear `busca_cmd` con el contrato de `targets_cmd` — un
+  `no results` explícito (fuera del envelope `--json`, que ya distingue por
+  `results: []`) cuando `resultado.results` está vacío.
 
 ---
 
 ## Cerrado con evidencia (para no re-proponer)
+
+- [x] **Gate de shellcheck en CI, cada aviso arreglado o justificado en el
+  sitio: cerrado el 2026-09-13 (campaña B, H11, `cd3bfff`).**
+  `scripts/test-shellcheck.sh` descubre por índice de git (excluye `evals/`
+  y `docs/`), corre `shellcheck -x -P SCRIPTDIR` sobre el bash versionado y
+  falla si algún fichero avisa. En CI (`ci.yml`, job `lint`, `:51-58`) usa un
+  binario de shellcheck 0.11.0 pineado por URL+SHA256, descargado a `/tmp` —
+  la versión de la imagen del runner no decide el conjunto de avisos.
+  **45 scripts en el árbol** (recon post-campaña A/T4/T5: sube de 39 a 45,
+  no a 41 como estimaba el plan de B — 3 nuevos de A, 2 de B, 1 previo que
+  faltaba en el recuento). De los 47 avisos originales, 11 ya tenían
+  tratamiento decidido en el plan (10 `disable` puntuales + un fichero
+  completo); dos hallazgos nuevos sobre ficheros que A tocó y la tabla del
+  plan no cubría: `test-recall-latencia.sh` (mismo idioma de aserción que
+  `test-a1-gate.sh`, mismo `disable` de fichero) y `test-exo-recall.sh`
+  (`HOOK_RC` muerta — la asignación se borra, sin cambio de comportamiento).
+  **Sin bugs reales pendientes de backlog**: los dos hallazgos nuevos son
+  `disable` justificado y arreglo sin cambio de comportamiento; ninguno pedía
+  una entrada nueva aquí.
+  **Falsación medida:** un script `roto` con `SC2086` sin comillas puso el
+  gate en rojo; revertido antes de este commit (nunca llegó a estar
+  trackeado).
+
+- [x] **Gate de exec-bit ampliado a scripts sin extensión con shebang:
+  cerrado el 2026-09-13 (campaña B, H12, `4af859b`).**
+  `git ls-files -s -- 'plugins/*.sh'` dejaba fuera del gate los scripts de
+  `skills/orchestrate/scripts/` (`review-package`, `sdd-workspace`,
+  `task-brief`): bash sin extensión, invocados por ruta. Con `task-brief` en
+  modo `100644` (no ejecutable) el gate seguía saliendo `[OK]`, exit 0 — un
+  script que rompería en el harness de Claude Code no lo detectaba.
+  `scripts/test-exec-bit.sh` ahora recorre todo `git ls-files -s --
+  plugins` y marca «script» cualquier ruta `*.sh`, o cuyo contenido —leído
+  del índice de git, no del working tree— empiece por shebang. Corre en su
+  propio job (`ci.yml`, `exec-bit`, `:74`).
+  **Falsación medida:** `[FAIL]` con `task-brief` y con `_timeout.sh` en
+  `100644`; `[OK]` tras restaurar el modo. Sin cambios de modo pendientes en
+  el árbol.
+
+- [x] **Los scripts `test-*.sh` de `plugins/exo/scripts/` no entran en CI.**
+  Y `test-contrato-engine.sh` dependía del índice y la KB reales de esta
+  máquina. **Los dos cerrados el 2026-09-12 (`d8aa3b6`).**
+  `scripts/test-plugin.sh` descubre por glob TODOS los `test-*.sh` del
+  plugin (un test nuevo entra solo, sin lista a mano), los invoca directos
+  —ejerciendo también el bit de ejecución, como los llama el harness de
+  Claude Code— y falla si el glob no encuentra nada (un glob roto no debe
+  dar verde). Job `plugin-tests` en ubuntu/windows/macos (`ci.yml:138-154`):
+  los hooks corren en los tres SO para los que se publican binarios. Local:
+  10/10 antes de este commit, en rojo con `test-estilo-directo.sh` en modo
+  `644` (el bug real que motivó la ola: ese test fallaba 0/2, exit 126, y el
+  hook llegó roto a exo 1.1.1 porque ningún CI lo ejercía).
+  `test-contrato-engine.sh` seguía atado a rutas de esta máquina
+  (`C:/Users/paul/.exo/index.db`, `C:/proyectos/homework/kb-demo`) y se
+  abstenía con exit 2 fuera de ella. `scripts/test-contrato-ci.sh` monta el
+  fixture que pedía —KB semilla + commit + índice vía `exo init`, con
+  `EXO_CONFIG` y `EXO_DB` temporales— y le pasa `EXO_INDEX`/`EXO_KB`
+  explícitos; `EXO_DB` es obligatorio: `init` graba `db = ~/.exo/index.db`
+  en la config nueva aunque `EXO_CONFIG` apunte a otro sitio, y sin `EXO_DB`
+  la suite indexaba la semilla sobre el índice real de esta máquina (medido:
+  pisa `meta.kb_root`). Corre como step del job `test`
+  (`ci.yml:133-136`, `if: always()` para que un rojo del gate hermético no
+  esconda un contrato roto detrás), que ya trae el binario de release y el
+  modelo ONNX cacheados. `test-contrato-engine.sh` queda excluido del glob
+  de `test-plugin.sh` (necesita el binario compilado) en favor del fixture.
+  **Vivas, sin dueño, las dos sub-propuestas del item original** — ver
+  `## Media`, «rutas personales y `hooks.json` sin validar en CI».
 
 - [x] **Release `v0.1.0` — el binario que no existía: cerrado el 2026-09-11
   (G5b).** `install.sh`, `install.ps1`, `.github/workflows/release.yml` y

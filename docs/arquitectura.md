@@ -1,10 +1,16 @@
 # Arquitectura de exo
 
 > Este documento describe el sistema **tal como está implementado**, a fecha
-> 2026-09-02, derivado de la lectura de `engine/src/`, `plugins/exo/`,
+> 2026-09-13, derivado de la lectura de `engine/src/`, `plugins/exo/`,
 > `engine/kb-template/` y `evals/`. Las specs y planes de `docs/superpowers/`
 > son el registro histórico de diseño; la deuda abierta vive en
 > `docs/backlog.md`.
+>
+> **Qué documentación es viva.** Cuatro ficheros deben ser verdad hoy:
+> `README.md`, `docs/arquitectura.md`, `docs/instalacion.md` y
+> `docs/backlog.md`. Todo lo que lleva fecha en el nombre y todo
+> `docs/superpowers/` son instantáneas (`tier: log` por convención de ruta):
+> no se actualizan, se citan con su fecha.
 
 ## 1. Qué es exo
 
@@ -295,7 +301,14 @@ Extraída del parser de clap (`engine/src/main.rs`):
 
 Los flags largos están en inglés con **alias ocultos en español**
 (`--limite`, `--titulo`, `--crea`, `--min-similitud`, `--escala-fts`) durante
-el cutover; el backlog los marca para retirar en 1.1.
+el cutover; el backlog los marca para retirar en la 1.1 **del engine**
+(engine y plugin son dos artefactos con versiones propias; esto no dice
+nada de cuándo versiona el plugin).
+
+Idioma de la ayuda: los textos de producto y los errores propios van
+en español; el cromo que pinta clap (`Usage:`, `Options:`, `Commands:`…) y
+los metavars (`--limit <LIMIT>`, igual al nombre del flag) se quedan en
+inglés.
 
 Contrato de salida común: con `--json`, stdout lleva **exclusivamente** el
 envelope `{"schema_version": 2, "command": …, "data": …}` en una línea; todo
@@ -498,7 +511,8 @@ viven en `docs/backlog.md`:
   pero no esa segunda dependencia. `exo-recall.sh`, el hook de SessionStart,
   no tiene suite de test propia.
 - **Aliases españoles del CLI**: vivos como alias ocultos, marcados para
-  retirar en 1.1.
+  retirar en la 1.1 **del engine** (versión propia, distinta de la del
+  plugin).
 - **Troceado y fusión son la calibración de un corpus concreto**: 900 chars,
   β=0.6, bonus=0.0 y el umbral 0.40 son los ganadores del sweep sobre la KB
   del autor; no hay mecanismo de recalibración para otra KB.

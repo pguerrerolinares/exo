@@ -44,6 +44,21 @@ jobs:
         if: always()
         working-directory: engine
         run: cargo clippy --all-targets --locked -- -D warnings
+      # Versión pineada por SHA256: la de la imagen del runner cambia sin
+      # aviso y con ella el conjunto de avisos, que es un rojo que nadie
+      # provocó. `if: always()`, igual que clippy: un fmt roto no debe
+      # esconder un script roto.
+      - name: shellcheck 0.11.0 sobre el bash versionado
+        if: always()
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/sc.tar.xz https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.xz
+          echo "8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198  /tmp/sc.tar.xz" | sha256sum -c -
+          tar -xJf /tmp/sc.tar.xz -C /tmp
+          SHELLCHECK=/tmp/shellcheck-v0.11.0/shellcheck bash scripts/test-shellcheck.sh
+      - name: Versiones coherentes (plugin.json == marketplace.json)
+        if: always()
+        run: bash scripts/test-versiones.sh
 
   exec-bit:
     name: scripts de plugin ejecutables
@@ -55,7 +70,7 @@ jobs:
       # 100644 muere con `Permission denied` en el cache del plugin, y como el
       # hook es non-blocking nadie lo ve (estilo-directo.sh, exo 1.1.1). El
       # gate lee el modo del índice de git, que es lo que se publica.
-      - name: Todo plugins/*.sh en 100755
+      - name: Todo script bajo plugins/ (.sh o con shebang) en 100755
         run: bash scripts/test-exec-bit.sh
 
   msrv:

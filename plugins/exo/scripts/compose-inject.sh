@@ -49,6 +49,7 @@ doctrina() {  # fuente unica: cuerpo de executor.md (sin frontmatter), cap 800B 
 rutas() {     # rutas reales de la KB con linea de indice (titulo)
   [ -n "$KB" ] && [ -d "$KB" ] || return 0
   echo "Notas canonicas (rutas legibles con Read/Grep; hay mas en la KB):"
+  # shellcheck disable=SC2012 # `ls -t` = orden por mtime; find no lo da portable (macOS/Git Bash)
   { ls "$KB"/core/*.md 2>/dev/null; ls -t "$KB"/projects/*.md 2>/dev/null | head -2; } \
     | while IFS= read -r f; do
         t="$(grep -m1 '^# ' "$f" 2>/dev/null | head -c 60)"

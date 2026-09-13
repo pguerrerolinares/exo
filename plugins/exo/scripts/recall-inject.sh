@@ -66,6 +66,7 @@ STOP=" $(printf '%s' "$STOP" | tr '\n' ' ') "
 # resultado bajo cualquier locale.
 norm_token() {
   local t
+  # shellcheck disable=SC2018,SC2019 # los acentos ya los pliega el sed de arriba; tr solo ve ASCII
   t="$(printf '%s' "$1" | sed \
         -e 's/Á/A/g' -e 's/É/E/g' -e 's/Í/I/g' -e 's/Ó/O/g' -e 's/Ú/U/g' \
         -e 's/Ü/U/g' -e 's/Ñ/N/g' \

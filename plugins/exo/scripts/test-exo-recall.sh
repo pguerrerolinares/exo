@@ -19,7 +19,6 @@ contains() { case "$1" in *"$2"*) return 0 ;; *) return 1 ;; esac; }
 run_hook() {  # $1 = JSON de entrada; resto = argumentos de env (VAR=valor, -u VAR)
   local input="$1"; shift
   printf '%s' "$input" | env "$@" "$HOOK" > "$TMP/out.txt" 2>/dev/null
-  HOOK_RC=$?
   HOOK_OUT="$(cat "$TMP/out.txt" 2>/dev/null)"
 }
 
