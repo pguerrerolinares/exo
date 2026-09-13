@@ -184,6 +184,7 @@ u1_sin_transcript=0
 while IFS=$'\t' read -r sid aid; do
   [ -n "$sid" ] && [ -n "$aid" ] || continue
   found_tf=0
+  # shellcheck disable=SC2140 # glob `*` entre tramos entrecomillados: intencionado
   for tf in "$PROJ"/*/"$sid"/subagents/"agent-${aid}.jsonl"; do
     [ -f "$tf" ] || continue
     found_tf=1

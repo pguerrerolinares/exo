@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Test standalone para recall-latencia.sh. Logs sintéticos en mktemp -d.
+# shellcheck disable=SC2015 # `[ … ] && pass || fail` es el idioma de aserción de esta suite: pass nunca falla
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SCRIPT="${SCRIPT_DIR}/recall-latencia.sh"

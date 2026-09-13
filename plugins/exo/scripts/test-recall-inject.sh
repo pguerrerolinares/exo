@@ -111,6 +111,7 @@ mkdir -p "$GLOBDIR" && touch "$GLOBDIR/a.md" "$GLOBDIR/b.md"
   grep -q 'no-engine' "$REFLEX_LOG_FILE" 2>/dev/null && exit 1
   exit 0
 )
+# shellcheck disable=SC2181 # el exit que se mira es el del subshell de arriba, no un comando suelto
 if [ $? -eq 0 ]; then pass "F1: 'vale *' calla aunque el CWD tenga ficheros"
 else fail "F1: 'vale *' calla aunque el CWD tenga ficheros" "el glob se expandió y disparó el gate"; fi
 
