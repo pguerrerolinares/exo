@@ -19,7 +19,11 @@ qué hizo el agente justo después del aviso (¿lo aplicó? ¿lo ignoró con raz
   - **FP**: todos los stages necesitaban de verdad el modelo de sesión (síntesis/
     razonamiento duro en todos), o el workflow era trivial / no llegó a ejecutarse.
 
-- **`clean-orchestrator` (#6)** — dispara en el 1er `WebSearch`/`WebFetch` del PADRE.
+- **`clean-orchestrator` (#6)** — dispara en el 1er `WebSearch`/`WebFetch` del PADRE, y
+  también en la 1ª navegación del PADRE con un MCP de navegador (claude-in-chrome,
+  playwright) a una URL externa: navegar a una web real es investigación web igual
+  que `WebFetch`; navegar a la app local que se está probando (dev server, fichero)
+  no dispara — no es investigación, es abstención cableada en el script.
   - **TP**: el padre iba a hacer (o hizo) research voluminoso o multi-llamada inline
     que debería haberse delegado a un subagente.
   - **FP**: era una consulta puntual de una sola llamada que legítimamente vivía en

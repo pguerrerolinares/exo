@@ -57,7 +57,7 @@ Tabla exacta al cableado vivo de `hooks/hooks.json` (nueve comandos):
 
 | Reflejo | Evento | Fichero | Qué hace | Abstención |
 |---|---|---|---|---|
-| clean-orchestrator | `PreToolUse:WebSearch\|WebFetch\|navegación MCP` | `scripts/clean-orchestrator-research.sh` | recuerda delegar research a subagentes | parent-only + 1×/sesión |
+| clean-orchestrator | `PreToolUse:WebSearch\|WebFetch\|navegación MCP` | `scripts/clean-orchestrator-research.sh` | recuerda delegar research a subagentes | parent-only + 1×/sesión + app local (`localhost`/`127.0.0.1`/`[::1]`/`0.0.0.0`, con o sin esquema, y `back`/`forward`) |
 | git-c | `PreToolUse:Bash` | `scripts/git-c-bash.sh` | reescribe `cd <path> && git <read-only>` → `git -C <path> …` | rewrite solo si patrón estricto (ver comentarios del script) |
 | zero-residuo | `PreToolUse:Bash` | `scripts/git-add-all-guard.sh` | avisa ante `git add -A`/`--all`/`.` | calla en `git add <ficheros>` explícito |
 | verify-before-done | `PreToolUse:Bash` | `scripts/verify-before-commit.sh` | avisa antes de `git commit` si no hay test verde reciente | escape hatch `--no-verify`; calla en commits solo-docs |

@@ -32,10 +32,26 @@ AGENT_ID="$(printf '%s' "$INPUT" | jq -r '.agent_id // empty' 2>/dev/null)" || A
 # WebSearch trae `query` y get_page_text no trae url, así que esos siguen
 # el camino normal.
 URL="$(printf '%s' "$INPUT" | jq -r '.tool_input.url // empty' 2>/dev/null)" || URL=""
+
+# `mcp__claude-in-chrome__navigate` con url:"back"/"forward" es navegación
+# por historial del propio navegador, no una URL: no es investigación web.
 case "$URL" in
-  http://localhost|http://localhost[:/]*|https://localhost|https://localhost[:/]*) exit 0 ;;
-  http://127.0.0.1|http://127.0.0.1[:/]*|https://127.0.0.1|https://127.0.0.1[:/]*) exit 0 ;;
-  http://\[::1\]*|https://\[::1\]*|http://0.0.0.0*|https://0.0.0.0*|file:*) exit 0 ;;
+  back|forward) exit 0 ;;
+esac
+
+# Normaliza antes de comparar: minúsculas (con `tr`, no `${var,,}` — bash 3.2
+# de macOS no lo tiene) y esquema http(s) opcional fuera, porque
+# `mcp__claude-in-chrome__navigate` admite URL sin protocolo
+# (p.ej. "localhost:3000", "127.0.0.1:8080").
+URL_NORM="$(printf '%s' "$URL" | tr '[:upper:]' '[:lower:]')"
+case "$URL_NORM" in
+  http://*) URL_NORM="${URL_NORM#http://}" ;;
+  https://*) URL_NORM="${URL_NORM#https://}" ;;
+esac
+case "$URL_NORM" in
+  localhost|localhost[:/]*) exit 0 ;;
+  127.0.0.1|127.0.0.1[:/]*) exit 0 ;;
+  \[::1\]*|0.0.0.0*|file:*) exit 0 ;;
 esac
 
 SENTINEL="/tmp/claude-clean-orch-${SESSION_ID:-nosession}"

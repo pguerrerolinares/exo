@@ -89,6 +89,32 @@ else
   fail "caso5: el matcher cubre búsqueda y navegación, y nada más" "matcher=$MATCHER;$malos"
 fi
 
+# Caso 6: URL sin esquema (mcp__claude-in-chrome__navigate la admite) y en
+# mayúsculas — sigue siendo la app local, calla sin gastar el aviso.
+OUT6="$(corre c6 mcp__claude-in-chrome__navigate '{"url":"localhost:3000"}')"
+OUT6B="$(corre c6 mcp__claude-in-chrome__navigate '{"url":"127.0.0.1:8080/x"}')"
+OUT6C="$(corre c6 mcp__claude-in-chrome__navigate '{"url":"LOCALHOST:3000"}')"
+OUT6D="$(corre c6 mcp__claude-in-chrome__navigate '{"url":"[::1]:9000"}')"
+OUT6E="$(corre c6 WebFetch '{"url":"https://docs.rs/clap"}')"
+if [ -z "$OUT6" ] && [ -z "$OUT6B" ] && [ -z "$OUT6C" ] && [ -z "$OUT6D" ] && avisa "$OUT6E"; then
+  pass "caso6: localhost/127.0.0.1/[::1] sin esquema (y en mayúsculas) calla sin gastar el aviso"
+else
+  fail "caso6: localhost/127.0.0.1/[::1] sin esquema (y en mayúsculas) calla sin gastar el aviso" \
+    "out6=$OUT6 out6b=$OUT6B out6c=$OUT6C out6d=$OUT6D out6e=$OUT6E"
+fi
+
+# Caso 7: navigate con url:"back"/"forward" (navegación por historial del
+# propio navegador, no una URL) no es investigación web: calla sin gastar
+# el aviso.
+OUT7="$(corre c7 mcp__claude-in-chrome__navigate '{"url":"back","tabId":1}')"
+OUT7B="$(corre c7 mcp__claude-in-chrome__navigate '{"url":"forward","tabId":1}')"
+OUT7C="$(corre c7 WebFetch '{"url":"https://docs.rs/clap"}')"
+if [ -z "$OUT7" ] && [ -z "$OUT7B" ] && avisa "$OUT7C"; then
+  pass "caso7: navigate back/forward calla sin gastar el aviso"
+else
+  fail "caso7: navigate back/forward calla sin gastar el aviso" "out7=$OUT7 out7b=$OUT7B out7c=$OUT7C"
+fi
+
 echo ""
 TOTAL=$((PASS+FAIL))
 echo "=== Resultado: ${PASS}/${TOTAL} pasaron ==="
