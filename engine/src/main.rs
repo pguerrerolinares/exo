@@ -619,13 +619,21 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
         (kb, nombre, emb, "create", escritos, git_ok)
     };
 
-    exo::inicia::escribe_config(&destino, &kb, &nombre, &emb, &db_default, args.force)?;
+    // Se graba `db_objetivo`, NO `db_default`: `db_objetivo` es la DB que
+    // este `init` acaba de validar (H1) e indexa dos líneas más abajo — es
+    // la efectiva. Grabar `db_default` aquí era el bug: con `$EXO_DB` puesto,
+    // la config quedaba mintiendo sobre qué DB usa este `init` (indexaba una
+    // DB y apuntaba a otra), y un `exo config`/`exo search` posterior que
+    // solo pusiera `$EXO_CONFIG` resolvía silenciosamente al índice
+    // equivocado.
+    exo::inicia::escribe_config(&destino, &kb, &nombre, &emb, &db_objetivo, args.force)?;
 
     // Índice inicial. `resuelve_db(None)` (precedencia `$EXO_DB` > `[index]
-    // db`), NO `db_default`: `db_default` es lo que se GRABA en config.toml,
-    // pero el índice que se toca aquí es el efectivo — si no fuera por
-    // `EXO_DB`, un test (o un `exo init` bajo `$HOME` no estándar) indexaría
-    // el `~/.exo/index.db` real de la máquina.
+    // db`) en vez de usar `db_objetivo` directamente: son la misma ruta ahora
+    // que la config también la graba, pero pasar por `resuelve_db` mantiene
+    // este `init_cmd` en el mismo camino de resolución que cualquier otro
+    // comando — si `resuelve_db` cambiara de precedencia, `init` la sigue
+    // sin tener que tocarse.
     let db = resuelve_db(None)?;
     let resumen = indexa(&kb, &db)?;
 
