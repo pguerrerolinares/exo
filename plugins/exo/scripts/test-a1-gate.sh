@@ -2,6 +2,7 @@
 # Test standalone para a1-gate.sh (Task 6, gate doc docs/superpowers/evals/2026-08-02-a1-gate.md).
 # Fixtures en mktemp -d/-p; nunca toca ~/.claude/reflex-log.jsonl ni ~/.claude/projects reales
 # (REFLEX_LOG_FILE / REFLEX_PROJECTS_DIR siempre apuntan a fixtures).
+# shellcheck disable=SC2015 # `[ … ] && pass || fail` es el idioma de aserción de esta suite: pass nunca falla
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

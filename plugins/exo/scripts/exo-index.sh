@@ -76,6 +76,7 @@ elif command -v "$CMD_BIN" >/dev/null 2>&1; then
   # El '""' literal es el título (vacío) que `start` exige como primer
   # argumento cuando el comando va entre comillas; //b evita ventana nueva
   # (msys convierte //c→/c y //b→/b al cruzar a cmd).
+  # shellcheck disable=SC2016 # comillas simples a propósito: expande el bash hijo, no este
   "$CMD_BIN" //c start '""' //b "$BASH_BIN" -c \
     'exec "$EXO_BIN" index --db "$EXO_INDEX" --json >>"$LOG" 2>&1 </dev/null' \
     >/dev/null 2>&1 || log_index_fallback "detach-failed" "via=cmd-start"

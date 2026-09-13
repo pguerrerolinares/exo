@@ -19,6 +19,7 @@ PERFIL="$(jq -r --arg t "$TYPE" '.[$t] // ._default' "$SCRIPT_DIR/inject-profile
 SID="$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)" || SID=""
 AID="$(printf '%s' "$INPUT" | jq -r '.agent_id // empty' 2>/dev/null)" || AID=""
 if [ -n "$SID" ] && [ -n "$AID" ]; then
+  # shellcheck disable=SC2140 # glob `*` entre tramos entrecomillados: intencionado
   for m in "$PROJECTS_DIR"/*/"$SID"/subagents/"agent-${AID}.meta.json"; do
     [ -f "$m" ] || continue
     d="$(jq -r '.spawnDepth // 1' "$m" 2>/dev/null)" || d=1

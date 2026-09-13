@@ -48,6 +48,7 @@ case "$CMD" in
         [!/~]*) [ -z "${CDPATH:-}" ] && REWRITE_OK=1 ;;
         *) REWRITE_OK=1 ;;
       esac
+      # shellcheck disable=SC2016 # `$` literal dentro de la clase de caracteres de grep
       if [ "${REWRITE_OK:-0}" = "1" ] \
          && ! printf '%s' "$GIT_REST" | grep -q '[&;|<>`$()*?[]' \
          && printf '%s' "$GIT_REST" | grep -Eq "^(${REWRITE_ALLOWLIST})([[:space:]]|\$)"; then

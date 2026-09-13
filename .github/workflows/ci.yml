@@ -44,9 +44,18 @@ jobs:
         if: always()
         working-directory: engine
         run: cargo clippy --all-targets --locked -- -D warnings
-      # Task 7 (shellcheck, H11) aún no está mergeada en este árbol: cuando
-      # aterrice, este step va tras el suyo — el orden entre steps de lint
-      # no cambia el resultado.
+      # Versión pineada por SHA256: la de la imagen del runner cambia sin
+      # aviso y con ella el conjunto de avisos, que es un rojo que nadie
+      # provocó. `if: always()`, igual que clippy: un fmt roto no debe
+      # esconder un script roto.
+      - name: shellcheck 0.11.0 sobre el bash versionado
+        if: always()
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/sc.tar.xz https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.xz
+          echo "8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198  /tmp/sc.tar.xz" | sha256sum -c -
+          tar -xJf /tmp/sc.tar.xz -C /tmp
+          SHELLCHECK=/tmp/shellcheck-v0.11.0/shellcheck bash scripts/test-shellcheck.sh
       - name: Versiones coherentes (plugin.json == marketplace.json)
         if: always()
         run: bash scripts/test-versiones.sh
