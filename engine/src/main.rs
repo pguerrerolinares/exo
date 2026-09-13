@@ -108,12 +108,15 @@ struct ArgsInit {
     /// `--kb` no vacía, pisando lo que hubiera dentro.
     #[arg(long)]
     force: bool,
+    /// Emite el resultado como envelope JSON en stdout.
     #[arg(long)]
     json: bool,
 }
 
 #[derive(clap::Args)]
 struct ArgsConfig {
+    /// Emite la config como envelope JSON en stdout (para scripts: jq no lee
+    /// TOML).
     #[arg(long)]
     json: bool,
 }
@@ -134,7 +137,7 @@ struct ArgsWriteNew {
     dir: String,
     /// Título de la nota. De él salen el nombre de fichero y el slug del
     /// permalink.
-    #[arg(long = "title", alias = "titulo")]
+    #[arg(long = "title", alias = "titulo", value_name = "TITLE")]
     titulo: String,
     /// Fichero con el cuerpo (`-` = stdin). El contenido NO viaja por argv:
     /// el agente lo escribe con su tool `Write` y aquí solo se referencia,
@@ -147,6 +150,7 @@ struct ArgsWriteNew {
     /// Salta el dup-gate de similitud. JAMÁS salta una colisión de fichero.
     #[arg(long)]
     force: bool,
+    /// Emite el resultado como envelope JSON en stdout.
     #[arg(long)]
     json: bool,
 }
@@ -171,6 +175,7 @@ struct ArgsWriteAppend {
     /// envelope (`forzado: true`) para que la excepción sea auditable.
     #[arg(long)]
     force: bool,
+    /// Emite el resultado como envelope JSON en stdout.
     #[arg(long)]
     json: bool,
     /// Permalink de la nota destino (p.ej. `kb-demo/log/exo-bitacora`).
@@ -208,7 +213,12 @@ struct ArgsSearch {
     db: Option<PathBuf>,
     /// Máximo de resultados. Default 10 (replay-engine pasa el suyo
     /// explícito; flags > config).
-    #[arg(long = "limit", alias = "limite", default_value_t = 10)]
+    #[arg(
+        long = "limit",
+        alias = "limite",
+        value_name = "LIMIT",
+        default_value_t = 10
+    )]
     limite: usize,
     /// Tipo de búsqueda (fts|vector|hybrid, M2-07). Default `fts`:
     /// comportamiento actual intacto si no se pasa el flag.
@@ -217,7 +227,11 @@ struct ArgsSearch {
     /// Umbral de similitud coseno del arm vector/hybrid. Opcional: si se
     /// omite, cae a `[embeddings] min_similarity` de `~/.exo/config.toml`
     /// (D6, precedencia flags > config). Sin efecto en `--type fts`.
-    #[arg(long = "min-similarity", alias = "min-similitud")]
+    #[arg(
+        long = "min-similarity",
+        alias = "min-similitud",
+        value_name = "MIN_SIMILARITY"
+    )]
     min_similitud: Option<f64>,
     /// Peso del canal débil en la fórmula de fusión (`bonus·min(v,f)`,
     /// spec fusión §4.4). Solo para `--type hybrid`: override puntual del
@@ -229,7 +243,7 @@ struct ArgsSearch {
     /// D-f1). Solo para `--type hybrid`: override puntual del sellado
     /// (M2-07, §5.2.6); si se omite, cae al default sellado
     /// `ESCALA_FTS_SELLADA`.
-    #[arg(long = "fts-scale", alias = "escala-fts")]
+    #[arg(long = "fts-scale", alias = "escala-fts", value_name = "FTS_SCALE")]
     escala_fts: Option<f64>,
     /// Emite el resultado como envelope JSON (spec §4) en stdout.
     #[arg(long)]
@@ -258,7 +272,12 @@ struct ArgsRecall {
     /// (los `tier: core` siempre entran todos); en modo consulta, tope de
     /// `busca_hybrid`. Default 5 (contrato del brief para modo consulta;
     /// mismo flag, mismo default en ambos modos).
-    #[arg(long = "limit", alias = "limite", default_value_t = 5)]
+    #[arg(
+        long = "limit",
+        alias = "limite",
+        value_name = "LIMIT",
+        default_value_t = 5
+    )]
     limite: usize,
     /// Presupuesto de bytes del bloque de salida (texto o `--json`), trunca
     /// por líneas ENTERAS. Default 2048 (brief).
@@ -267,7 +286,11 @@ struct ArgsRecall {
     /// Umbral de similitud coseno del arm vector de `busca_hybrid` (modo
     /// consulta). Sin efecto en modo arranque. Default de config si se
     /// omite (D6, mismo contrato que `search`).
-    #[arg(long = "min-similarity", alias = "min-similitud")]
+    #[arg(
+        long = "min-similarity",
+        alias = "min-similitud",
+        value_name = "MIN_SIMILARITY"
+    )]
     min_similitud: Option<f64>,
     /// Modo arranque en versión CONTENIDO: vuelca el cuerpo de las notas
     /// `tier: core` + lista de recientes, en vez de una línea por nota. Es
@@ -281,7 +304,7 @@ struct ArgsRecall {
     /// `tier: core` — que en una KB con un core grande agota el presupuesto
     /// con la primera. Qué nota es "la de arranque" lo decide el consumidor,
     /// no el engine.
-    #[arg(long = "note", alias = "nota")]
+    #[arg(long = "note", alias = "nota", value_name = "NOTE")]
     nota: Option<String>,
     /// Refresca el índice (indexado incremental) ANTES de servir, para no
     /// devolver un bloque de una KB rancia (M6-01, "índice fresco sin
@@ -304,7 +327,7 @@ struct ArgsTargets {
     #[arg(long)]
     kb: Option<PathBuf>,
     /// Máximo de candidatas. Default 10, igual que `kbx targets`.
-    #[arg(long = "limit", default_value_t = 10)]
+    #[arg(long = "limit", value_name = "LIMIT", default_value_t = 10)]
     limite: usize,
     /// Emite el resultado como envelope JSON (spec §4) en stdout.
     #[arg(long)]
