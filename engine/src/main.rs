@@ -817,11 +817,14 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
     let kb = resuelve_kb(args.kb)?;
     let db = resuelve_db(args.db)?;
 
+    let mut refresh_s = None;
     if args.refresca {
         // El resumen va a stderr: stdout es exclusivo del envelope/bloque
         // (contrato §4), y el hook consume stdout tal cual.
+        let inicio = std::time::Instant::now();
         let resumen = exo::refresca_indice(&kb, &db)
             .context("refrescar el índice antes del recall (--refresh)")?;
+        refresh_s = Some(inicio.elapsed().as_secs_f64());
         if resumen.indexadas > 0 || resumen.borradas > 0 {
             eprintln!(
                 "refresca: indexadas={} borradas={} saltadas={}",
@@ -863,7 +866,15 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
         }
     };
 
-    let resultado = renderiza(bruto, args.cap_bytes);
+    let mut resultado = renderiza(bruto, args.cap_bytes);
+    resultado.recall.refresh_s = refresh_s;
+
+    // H2: los avisos van a stderr SIEMPRE, igual que en `busca_cmd`, y ANTES
+    // del bail de «recall vacío»: un arm vector INERTE sin hits FTS es justo
+    // el caso en que más importa verlo, y el que antes se perdía entero.
+    for aviso in &resultado.recall.avisos {
+        eprintln!("aviso: {aviso}");
+    }
 
     if resultado.recall.notas.is_empty() {
         anyhow::bail!(
