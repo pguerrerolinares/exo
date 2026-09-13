@@ -80,12 +80,20 @@ pub struct VecinoKnn {
     pub distancia: f64,
 }
 
-/// KNN sobre `vectores`: los `k` vecinos más cercanos a `query`, forma del
-/// SQL verificada contra el patrón documentado de sqlite-vec (blindspot
-/// nota 1): `embedding MATCH ?1 AND k = ?2`. `vectores` vacía (DB sin
-/// población) devuelve `Ok(vec![])`, jamás error — el llamador declara qué
-/// hacer con 0 resultados (Task 3 del brief).
+/// Tope duro de `k` en el KNN de vec0: `#define SQLITE_VEC_VEC0_K_MAX 4096`
+/// (sqlite-vec 0.1.9, `sqlite-vec.c:7111`). Pedir más es `SQLITE_ERROR`.
+const K_MAX_VEC0: usize = 4096;
+
+/// KNN sobre `vectores`: los `k` vecinos más cercanos a `query`, ordenados
+/// por la `distance` nativa de vec0. `vectores` vacía ⇒ `Ok(vec![])`, jamás
+/// error. Hasta `K_MAX_VEC0` usa el KNN de vec0 (`embedding MATCH ?1 AND k =
+/// ?2`); por encima, `barrido_completo` (H27): `busca_vector` pide
+/// `k = COUNT(*)` y una KB de más de 4.096 trozos dejaba el arm vector
+/// muerto con exit 1.
 pub fn knn(conn: &Connection, query: &[f32], k: usize) -> Result<Vec<VecinoKnn>> {
+    if k > K_MAX_VEC0 {
+        return barrido_completo(conn, query, k);
+    }
     let mut stmt = conn.prepare(
         "SELECT rowid, distance
          FROM vectores
@@ -101,6 +109,31 @@ pub fn knn(conn: &Connection, query: &[f32], k: usize) -> Result<Vec<VecinoKnn>>
         })?
         .collect::<rusqlite::Result<Vec<_>>>()
         .context("leer resultados KNN de vectores")?;
+    Ok(filas)
+}
+
+/// Mismo contrato que el KNN de vec0 pero sin su tope: la distancia se
+/// calcula fila a fila con `vec_distance_l2`, la MISMA función que usa vec0
+/// para la métrica L2 (`sqlite-vec.c:1235` y `:6879`, ambas vía
+/// `distance_l2_sqr_float`), así que las distancias coinciden; solo el orden
+/// entre empates puede variar. Coste lineal, igual que el KNN sin partición.
+fn barrido_completo(conn: &Connection, query: &[f32], k: usize) -> Result<Vec<VecinoKnn>> {
+    let mut stmt = conn.prepare(
+        "SELECT rowid, vec_distance_l2(embedding, ?1) AS distancia
+         FROM vectores
+         ORDER BY distancia
+         LIMIT ?2",
+    )?;
+    let limite = i64::try_from(k).unwrap_or(i64::MAX);
+    let filas = stmt
+        .query_map(params![serializa(query), limite], |r| {
+            Ok(VecinoKnn {
+                rowid: r.get(0)?,
+                distancia: r.get(1)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .context("leer barrido completo de vectores")?;
     Ok(filas)
 }
 
@@ -172,5 +205,52 @@ mod tests {
         let conn = db_con_schema();
         let vecinos = knn(&conn, &vector_768(1.0), 5).expect("knn sobre tabla vacía no es error");
         assert!(vecinos.is_empty());
+    }
+
+    /// H27: vec0 0.1.9 rechaza `k > 4096` (`SQLITE_VEC_VEC0_K_MAX`) y
+    /// `busca_vector` pide `k = COUNT(*)`. La KB real iba por 3.290 trozos el
+    /// 2026-09-13: al cruzar el tope, vector/hybrid/recall --query salían con
+    /// exit 1 en cada prompt.
+    #[test]
+    fn knn_por_encima_del_tope_de_vec0_devuelve_todos_los_vecinos() {
+        let conn = db_con_schema();
+        let n = K_MAX_VEC0 + 1;
+        for i in 0..n {
+            inserta(&conn, i as i64 + 1, &vector_768(i as f32)).unwrap();
+        }
+        let vecinos = knn(&conn, &vector_768(0.0), n).expect("k > 4096 no puede ser un error");
+        assert_eq!(vecinos.len(), n);
+        assert_eq!(vecinos[0].rowid, 1, "el idéntico a la query va primero");
+        assert!(
+            vecinos.windows(2).all(|w| w[0].distancia <= w[1].distancia),
+            "orden ascendente por distancia"
+        );
+    }
+
+    /// El barrido tiene que dar la MISMA distancia que el KNN de vec0 para cada
+    /// rowid: si difiriera, cruzar el tope cambiaría el ranking y los umbrales.
+    #[test]
+    fn barrido_y_knn_de_vec0_dan_las_mismas_distancias() {
+        let conn = db_con_schema();
+        for i in 0..50 {
+            inserta(&conn, i + 1, &vector_768(i as f32 * 0.1)).unwrap();
+        }
+        let q = vector_768(2.05);
+        let de_vec0: std::collections::HashMap<i64, f64> = knn(&conn, &q, 50)
+            .unwrap()
+            .into_iter()
+            .map(|v| (v.rowid, v.distancia))
+            .collect();
+        let barrido = barrido_completo(&conn, &q, 50).unwrap();
+        assert_eq!(barrido.len(), 50);
+        for v in &barrido {
+            assert!(
+                (de_vec0[&v.rowid] - v.distancia).abs() < 1e-9,
+                "rowid {}: vec0={} barrido={}",
+                v.rowid,
+                de_vec0[&v.rowid],
+                v.distancia
+            );
+        }
     }
 }
