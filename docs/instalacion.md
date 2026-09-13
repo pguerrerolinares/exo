@@ -122,7 +122,9 @@ EXO_CONFIG=~/.exo/otra-kb.toml EXO_DB=~/.exo/otra-kb.db \
 #    el de la PRIMERA KB), no con $EXO_DB: corrígelo a mano una vez.
 #    (deuda: docs/backlog.md, "exo init no respeta $EXO_DB al escribir
 #    [index] db")
-sed -i 's#^db = .*#db = "'"$HOME"'/.exo/otra-kb.db"#' ~/.exo/otra-kb.toml
+#    (sin `sed -i`: no se escribe igual en GNU y en el sed BSD de macOS)
+sed 's#^db = .*#db = "'"$HOME"'/.exo/otra-kb.db"#' ~/.exo/otra-kb.toml > ~/.exo/otra-kb.toml.tmp \
+  && mv ~/.exo/otra-kb.toml.tmp ~/.exo/otra-kb.toml
 
 # 3. De aquí en adelante, EXO_CONFIG basta — ya no hace falta EXO_DB.
 EXO_CONFIG=~/.exo/otra-kb.toml exo search "…"

@@ -1125,7 +1125,7 @@
   en masa: el coste hoy es de coherencia, no de corrección.
   **(campaña B, 2026-09-13, H8/H9): cerrada solo la parte de la superficie
   CLI, con D1=C.** `docs/arquitectura.md` §3.8 declara la convención
-  (commit `7853e8a`): «Idioma de la ayuda (D1 = C): los textos de producto y
+  (commit `7853e8a`, cita de ese día; el id de decisión se retiró del doc vivo después): «Idioma de la ayuda (D1 = C): los textos de producto y
   los errores propios van en español; el cromo que pinta clap (`Usage:`,
   `Options:`, `Commands:`…) y los metavars (`--limit <LIMIT>`, igual al
   nombre del flag) se quedan en inglés.» Aplicada en `--help` (91 líneas de
