@@ -127,6 +127,11 @@ embebidos y lo deja anotado en `~/.claude/reflex-log.jsonl`. Ese silencio
 tiene su deuda: el check de desfase binario↔plugin sigue sin existir en
 `exo doctor` — ver `docs/backlog.md`.
 
+**Versiones.** El engine y el plugin versionan por separado: `exo --version`
+es la del binario (= tag de la release); el plugin lleva la suya en
+`plugins/exo/.claude-plugin/plugin.json`. `scripts/test-versiones.sh` impide
+que los ficheros se contradigan.
+
 ## 6. Correr los tests
 
 ```bash
