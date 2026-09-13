@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# PreToolUse (matcher: WebSearch|WebFetch): reflejo "orquestador limpio".
+# PreToolUse (matcher: WebSearch, WebFetch y la navegación de los MCP de
+# navegador — claude-in-chrome y playwright; regex exacta en hooks/hooks.json):
+# reflejo "orquestador limpio".
 # Warn-only, NUNCA bloquea (exit 0 siempre). Recuerda delegar la investigacion
 # web a un subagente (Explore / research con modelo barato) para no ensuciar el
 # contexto del PADRE (context-rot: mas contexto = peor rendimiento).
@@ -23,6 +25,18 @@ AGENT_ID="$(printf '%s' "$INPUT" | jq -r '.agent_id // empty' 2>/dev/null)" || A
 # que es el patron deseado. Abstencion total: ni avisa (seria FP) ni consume el sentinel
 # (que es por-sesion y por tanto compartido padre<->hijos).
 [ -n "$AGENT_ID" ] && exit 0
+
+# Navegar a la app local que estás probando (dev server, fichero) no es
+# investigación web: abstención, y sin consumir el sentinel, para que la
+# primera búsqueda web real de la sesión siga avisando. Solo mira `url`:
+# WebSearch trae `query` y get_page_text no trae url, así que esos siguen
+# el camino normal.
+URL="$(printf '%s' "$INPUT" | jq -r '.tool_input.url // empty' 2>/dev/null)" || URL=""
+case "$URL" in
+  http://localhost|http://localhost[:/]*|https://localhost|https://localhost[:/]*) exit 0 ;;
+  http://127.0.0.1|http://127.0.0.1[:/]*|https://127.0.0.1|https://127.0.0.1[:/]*) exit 0 ;;
+  http://\[::1\]*|https://\[::1\]*|http://0.0.0.0*|https://0.0.0.0*|file:*) exit 0 ;;
+esac
 
 SENTINEL="/tmp/claude-clean-orch-${SESSION_ID:-nosession}"
 
