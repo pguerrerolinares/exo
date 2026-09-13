@@ -1,0 +1,1 @@
+kb_sintetica: N=1000 semilla=42 trozos=19000 aristas=3995 sin_resolver=134
