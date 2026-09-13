@@ -165,5 +165,38 @@ class TestPool(unittest.TestCase):
         self.assertEqual(desc, {"vacia": 0, "guion": 1, "larga": 1, "fuera-de-ventana": 1, "dup-55": 1, "dup-pool": 1})
 
 
+import valida_gold as vg  # noqa: E402
+
+
+class TestValidaGold(unittest.TestCase):
+    PERMS = {"kb/a", "kb/b", "kb/c"}
+
+    def fila(self, **kw):
+        base = {"id": "c001", "query": "q nueva", "source": "prompt", "expected_permalink": "kb/a",
+                "acceptable_permalinks": [], "notes": "canon del proyecto"}
+        base.update(kw)
+        return base
+
+    def test_fila_buena(self):
+        self.assertEqual(vg.valida([self.fila()], self.PERMS, []), [])
+
+    def test_errores(self):
+        casos = [
+            self.fila(expected_permalink="kb/zzz"),
+            self.fila(acceptable_permalinks=["kb/a"], notes="aceptable: igual"),
+            self.fila(acceptable_permalinks=["kb/b"], notes="sin justificar"),
+            self.fila(acceptable_permalinks=["kb/b", "kb/c", "kb/a"], notes="aceptable: x"),
+            self.fila(expected_permalink=None, acceptable_permalinks=["kb/b"], notes="aceptable: x"),
+            self.fila(source="log"),
+            self.fila(query="fabrica campaña"),
+        ]
+        for i, c in enumerate(casos):
+            with self.subTest(i=i):
+                self.assertTrue(vg.valida([c], self.PERMS, ["fabrica campana"]))
+
+    def test_ids_duplicados(self):
+        self.assertTrue(vg.valida([self.fila(), self.fila(query="otra")], self.PERMS, []))
+
+
 if __name__ == "__main__":
     unittest.main()
