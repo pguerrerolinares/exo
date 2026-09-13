@@ -403,6 +403,8 @@
   **Acción:** columna `tier` en `notas` (+ bump de `meta` para que `verifica_
   modelo`/una guarda equivalente exija `exo rebuild` a los índices viejos) y
   `recall_arranque` filtrando en SQL. Borrar `tier_de` y su relectura.
+  **(campaña A, 2026-09-13):** puerta C-H17a cerrada: s4 n5000 p95 = 47 ms ≤
+  250; no se toca. Veredicto: evals/recall-coste/verdict/2026-09-campana-a.md.
 
 - [ ] **(revisión 2026-09-04) Techos de escala declarados, sin camino ni
   medición.** Cuatro decisiones del engine son O(N) por operación y están
@@ -419,6 +421,9 @@
   Con los números, o se documenta el techo soportado en `arquitectura.md`
   o se abre la campaña (índice particionado en vec0, `git log` en batch,
   una conexión por comando).
+  **(campaña A, 2026-09-13):** medido con KB sintética de 174/1000/5000 notas
+  (evals/recall-coste/). Encontrado y arreglado un techo DURO no listado: KNN
+  de vec0 limitado a k=4096 (H27). Números y derivaciones en el veredicto.
 
 - [ ] **(revisión 2026-09-04) El coste del hook completo en Windows no está
   medido; solo el del binario.** `plugins/exo/hooks/hooks.json` cablea
@@ -438,6 +443,9 @@
   publicar la cifra en `plugins/exo/README.md`. Si el `PreToolUse:Bash`
   triple supera ~200 ms, fusionar los tres scripts en uno con un único
   parseo del JSON de entrada.
+  **(campaña A, 2026-09-13):** Linux: s6 hook entero n174 p50 = 1079 ms, s7
+  config+jq = 4 ms. W11: pendiente (D5). El término dominante es la carga del
+  modelo (≈0,95 s de ≈1 s), no el shell.
 
 - [ ] **(revisión 2026-09-04 · CADUCADO A MEDIAS el 2026-09-09) El repo no
   le dice al toolchain local qué versión usar: falta `rust-toolchain.toml`.**
@@ -1192,6 +1200,10 @@
   nunca contaminan el envelope y siempre se ven. 4 tests nuevos vistos fallar
   primero (`tests/buscador.rs`), 124 verdes en la suite. Se mantiene el
   contrato de Task 3 (0 vectores ⇒ 0 resultados, no error): avisa, no falla.
+  **(campaña A, 2026-09-13):** el cierre era parcial — `exo recall` descartaba
+  los avisos (H2). Reabierto y cerrado en la campaña A: `warnings`/
+  `elapsed_s`/`refresh_s` en el envelope de recall y `engine-warning` en el
+  log del hook.
 
 - [x] **exo NO degrada a vector-hash como `empirica`** (2026-08-18, lectura de
   `buscador.rs` e `indexer.rs`): un fallo de embed sube por `?` con contexto
