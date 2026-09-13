@@ -151,18 +151,62 @@ class TestPool(unittest.TestCase):
         self.assertIsNone(pl.query_de_comando("cargo test --release"))
 
     def test_filtra(self):
+        # Ventanas por fuente (pre-registro §7): prompt desde 2026-08-22,
+        # agent-search desde 2026-07-19; fin común 2026-09-13 (exclusivo).
         in55 = [pl.normaliza("fabrica campaña")]
         cands = [
-            {"query": "Fabrica  campaña", "source": "agent-search", "session_id": "s", "ts": "2026-08-01T00:00:00Z"},
+            {"query": "Fabrica  campaña", "source": "agent-search", "session_id": "s", "ts": "2026-07-20T00:00:00Z"},
             {"query": "-revisa esto", "source": "prompt", "session_id": "s", "ts": "2026-08-23T00:00:00Z"},
             {"query": "x" * 1501, "source": "prompt", "session_id": "s", "ts": "2026-08-23T00:00:00Z"},
             {"query": "memoria v2 contrato", "source": "agent-search", "session_id": "s", "ts": "2026-09-13T08:00:00Z"},
-            {"query": "memoria v2 contrato", "source": "agent-search", "session_id": "s", "ts": "2026-08-02T00:00:00Z"},
-            {"query": "Memoria v2  contrato", "source": "agent-search", "session_id": "t", "ts": "2026-08-03T00:00:00Z"},
+            {"query": "memoria v2 contrato", "source": "agent-search", "session_id": "s", "ts": "2026-07-20T00:00:00Z"},
+            {"query": "Memoria v2  contrato", "source": "agent-search", "session_id": "t", "ts": "2026-07-21T00:00:00Z"},
+            # prompt anterior al inicio de su ventana (2026-08-22): fuera aunque agent-search ya la admitiría.
+            {"query": "prompt antes de ventana", "source": "prompt", "session_id": "s", "ts": "2026-08-21T00:00:00Z"},
+            # 2026-08-22T01:00:00+02:00 == 2026-08-21T23:00:00Z: cronológicamente ANTES del
+            # inicio de la ventana prompt, pero la comparación de strings ("...T01..." >
+            # "...T00...Z") la colaría como si estuviera dentro.
+            {"query": "offset cruza medianoche", "source": "prompt", "session_id": "s", "ts": "2026-08-22T01:00:00+02:00"},
         ]
         pool_, desc = pl.filtra(cands, in55)
         self.assertEqual([c["query"] for c in pool_], ["memoria v2 contrato"])
-        self.assertEqual(desc, {"vacia": 0, "guion": 1, "larga": 1, "fuera-de-ventana": 1, "dup-55": 1, "dup-pool": 1})
+        self.assertEqual(desc, {"vacia": 0, "guion": 1, "larga": 1, "fuera-de-ventana": 3, "dup-55": 1, "dup-pool": 1})
+
+    def test_muestrea_es_independiente_del_orden_de_las_cuotas(self):
+        pool_ = (
+            [{"source": "prompt", "query": f"p{i}", "ts": f"2026-08-{22 + i % 8:02d}T00:00:00Z"} for i in range(12)]
+            + [{"source": "agent-search", "query": f"a{i}", "ts": f"2026-07-{19 + i % 8:02d}T00:00:00Z"} for i in range(12)]
+        )
+        m1 = pl.muestrea(pool_, [("prompt", 5), ("agent-search", 5)])
+        m2 = pl.muestrea(pool_, [("agent-search", 5), ("prompt", 5)])
+        self.assertEqual([c["query"] for c in m1 if c["source"] == "prompt"],
+                          [c["query"] for c in m2 if c["source"] == "prompt"])
+        self.assertEqual([c["query"] for c in m1 if c["source"] == "agent-search"],
+                          [c["query"] for c in m2 if c["source"] == "agent-search"])
+
+    def test_muestrea_insuficiente_levanta_pool_insuficiente(self):
+        pool_ = [{"source": "prompt", "query": "p1", "ts": "2026-08-22T00:00:00Z"}]
+        with self.assertRaises(pl.PoolInsuficiente):
+            pl.muestrea(pool_, [("prompt", 2)])
+
+    def test_mas_cercano_elige_menor_delta(self):
+        ts_evento = pl._ts("2026-08-23T10:00:00Z")
+        mensajes = [
+            {"ts": pl._ts("2026-08-23T09:59:30Z"), "query": "lejos-antes"},
+            {"ts": pl._ts("2026-08-23T10:00:01Z"), "query": "cerca-despues"},
+        ]
+        self.assertEqual(pl.mas_cercano(ts_evento, mensajes)["query"], "cerca-despues")
+
+    def test_mas_cercano_empate_elige_el_anterior(self):
+        ts_evento = pl._ts("2026-08-23T10:00:00Z")
+        mensajes = [
+            {"ts": pl._ts("2026-08-23T09:59:55Z"), "query": "antes"},
+            {"ts": pl._ts("2026-08-23T10:00:05Z"), "query": "despues"},
+        ]
+        self.assertEqual(pl.mas_cercano(ts_evento, mensajes)["query"], "antes")
+
+    def test_mas_cercano_sin_mensajes_es_none(self):
+        self.assertIsNone(pl.mas_cercano(pl._ts("2026-08-23T10:00:00Z"), []))
 
 
 import valida_gold as vg  # noqa: E402
