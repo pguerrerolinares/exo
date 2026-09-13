@@ -612,23 +612,71 @@ fn comprueba_contra(
     // corrida es la que instala el trinquete y consagra lo que ya existía.
     let activacion = !anclado_en_head(kb);
 
+    // Las tres familias, en el mismo orden en que se empujaban antes de
+    // partir la función: `sort_by` es estable, así que dos hallazgos de la
+    // misma ruta conservan ese orden relativo en el informe.
+    let (aire, nacio_demasiado_grande) = guarda_de_aire(
+        &head,
+        &actual,
+        declaradas,
+        activacion,
+        &frescos_absueltos,
+        |ruta| tamano_de(kb, ruta),
+    );
+    hallazgos.extend(aire);
+    hallazgos.extend(checks_de_declaracion(
+        &head,
+        &actual,
+        declaradas,
+        activacion,
+        &frescos_absueltos,
+        &nacio_demasiado_grande,
+    ));
+    hallazgos.extend(sellos_escapados_de_tier(
+        kb,
+        &actual,
+        declaradas,
+        presupuestos,
+    ));
+
+    hallazgos.sort_by(|a, b| a.ruta.cmp(&b.ruta));
+    Ok(Informe {
+        aplicado: true,
+        razon: None,
+        hallazgos,
+    })
+}
+
+/// La guarda de aire (Task 8): juzga TRANSICIONES, no estado. Un sello que
+/// nadie toca no se juzga aunque no tenga aire — se reporta como deuda, que
+/// no rompe. Sin eso, los 11 sellos reales de la KB (ninguno con 15% de
+/// aire, medido) dejarían el repo en rojo permanente el día de la
+/// instalación.
+///
+/// Devuelve los hallazgos y el conjunto de rutas marcadas
+/// `NaceDemasiadoGrande`, que `checks_de_declaracion` necesita para no
+/// apilarles más hallazgos.
+fn guarda_de_aire(
+    head: &Sellos,
+    actual: &Sellos,
+    declaradas: &[Declarada],
+    activacion: bool,
+    frescos_absueltos: &BTreeSet<String>,
+    tamano_de: impl Fn(&str) -> Option<i64>,
+) -> (Vec<Hallazgo>, BTreeSet<String>) {
     let declaradas_por_ruta: BTreeMap<&str, &Declarada> =
         declaradas.iter().map(|d| (d.ruta.as_str(), d)).collect();
 
-    // La guarda de aire (Task 8): juzga TRANSICIONES, no estado. Un sello
-    // que nadie toca no se juzga aunque no tenga aire — se reporta como
-    // deuda, que no rompe. Sin eso, los 11 sellos reales de la KB (ninguno
-    // con 15% de aire, medido) dejarían el repo en rojo permanente el día de
-    // la instalación.
+    let mut hallazgos = Vec::new();
     let mut nacio_demasiado_grande: BTreeSet<String> = BTreeSet::new();
-    for (ruta, &techo) in &actual {
+    for (ruta, &techo) in actual {
         let declarada = declaradas_por_ruta.get(ruta.as_str()).copied();
         let tamano = match declarada {
             Some(d) => d.tamano,
-            // Sin declaración: el tamaño sale del disco. Si no se puede leer
-            // (nota borrada, sello huérfano sin fichero), se salta — no se
-            // inventa un tamaño.
-            None => match tamano_de(kb, ruta) {
+            // Sin declaración: el tamaño sale de la misma revisión que los
+            // sellos. Si no se puede leer (nota borrada, sello huérfano sin
+            // fichero), se salta — no se inventa un tamaño.
+            None => match tamano_de(ruta) {
                 Some(t) => t,
                 None => continue,
             },
@@ -693,13 +741,24 @@ fn comprueba_contra(
             limite: crate::presupuesto::techo_minimo(tamano),
         });
     }
+    (hallazgos, nacio_demasiado_grande)
+}
 
-    // Las tres familias sobre declaraciones. Una nota ya marcada
-    // NaceDemasiadoGrande no recibe además estos checks: ya tiene el único
-    // hallazgo que aconseja bien, y el Go la salta con el mismo set.
-    let mut rutas_declaradas: BTreeSet<&str> = BTreeSet::new();
+/// Las tres familias sobre declaraciones: cap de 2× en la primera
+/// declaración (sellada o no), waiver por encima del sello y waiver inerte
+/// en un tier sin presupuesto. Una nota ya marcada `NaceDemasiadoGrande` no
+/// recibe además estos checks: ya tiene el único hallazgo que aconseja bien,
+/// y el Go la salta con el mismo set.
+fn checks_de_declaracion(
+    head: &Sellos,
+    actual: &Sellos,
+    declaradas: &[Declarada],
+    activacion: bool,
+    frescos_absueltos: &BTreeSet<String>,
+    nacio_demasiado_grande: &BTreeSet<String>,
+) -> Vec<Hallazgo> {
+    let mut hallazgos = Vec::new();
     for d in declaradas {
-        rutas_declaradas.insert(d.ruta.as_str());
         if nacio_demasiado_grande.contains(&d.ruta) {
             continue;
         }
@@ -760,12 +819,26 @@ fn comprueba_contra(
             }
         }
     }
+    hallazgos
+}
 
-    // Una nota sellada que ya no declara waiver y cuyo tier ACTUAL no tiene
-    // presupuesto se reclasificó a `log` para escapar del gate: el sello es
-    // la prueba de que tuvo techo. Solo mira los sellos SIN Declarada — con
-    // Declarada ya pasó por el bloque de arriba.
-    for (ruta, &sello) in &actual {
+/// Una nota sellada que ya no declara waiver y cuyo tier ACTUAL no tiene
+/// presupuesto se reclasificó a `log` para escapar del gate: el sello es la
+/// prueba de que tuvo techo. Solo mira los sellos SIN `Declarada` — con
+/// `Declarada` ya pasó por `checks_de_declaracion`.
+///
+/// Lee el tier del **disco** también en `--staged`: es el comportamiento
+/// heredado de antes de partir `comprueba_contra`, y este refactor no lo
+/// cambia.
+fn sellos_escapados_de_tier(
+    kb: &Path,
+    actual: &Sellos,
+    declaradas: &[Declarada],
+    presupuestos: crate::presupuesto::Presupuestos,
+) -> Vec<Hallazgo> {
+    let rutas_declaradas: BTreeSet<&str> = declaradas.iter().map(|d| d.ruta.as_str()).collect();
+    let mut hallazgos = Vec::new();
+    for (ruta, &sello) in actual {
         if rutas_declaradas.contains(ruta.as_str()) {
             continue;
         }
@@ -783,13 +856,7 @@ fn comprueba_contra(
             });
         }
     }
-
-    hallazgos.sort_by(|a, b| a.ruta.cmp(&b.ruta));
-    Ok(Informe {
-        aplicado: true,
-        razon: None,
-        hallazgos,
-    })
+    hallazgos
 }
 
 /// `min(sello_actual, declarado)`: el techo que `--seal` escribiría. Para
@@ -1044,5 +1111,191 @@ mod tests {
         let hallazgos = violaciones(&head, &actual);
         let rutas: Vec<&str> = hallazgos.iter().map(|h| h.ruta.as_str()).collect();
         assert_eq!(rutas, vec!["a.md", "z.md"]);
+    }
+
+    // H15 — cada familia de `comprueba_contra`, por separado y sin git.
+
+    fn declarada(ruta: &str, max: i64, tier_presupuesto: i64, tamano: i64) -> Declarada {
+        Declarada {
+            ruta: ruta.to_string(),
+            tier: "core".to_string(),
+            max,
+            tier_presupuesto,
+            tamano,
+        }
+    }
+
+    fn sin_tamano(_: &str) -> Option<i64> {
+        None
+    }
+
+    #[test]
+    fn aire_un_sello_intacto_sin_aire_es_deuda_no_fallo() {
+        // 100 B bajo techo 100: 10.000 < 11.500, sin aire. Intacto desde HEAD.
+        let head = sellos(&[("a.md", 100)]);
+        let actual = sellos(&[("a.md", 100)]);
+        let decl = [declarada("a.md", 100, 8500, 100)];
+        let (h, grandes) = guarda_de_aire(&head, &actual, &decl, false, &conjunto(&[]), sin_tamano);
+        assert_eq!(h.len(), 1);
+        assert_eq!(h[0].tipo, Tipo::DeudaSinAire);
+        assert_eq!(h[0].ahora, 100);
+        assert_eq!(h[0].limite, 115, "techo_minimo(100) = ceil(115)");
+        assert!(grandes.is_empty());
+    }
+
+    #[test]
+    fn aire_un_sello_fresco_sin_aire_es_sin_aire() {
+        let head = sellos(&[]);
+        let actual = sellos(&[("a.md", 100)]);
+        let decl = [declarada("a.md", 100, 8500, 100)];
+        let (h, _) = guarda_de_aire(&head, &actual, &decl, false, &conjunto(&[]), sin_tamano);
+        assert_eq!(h.len(), 1);
+        assert_eq!(h[0].tipo, Tipo::SinAire);
+        assert_eq!(h[0].limite, 115);
+    }
+
+    #[test]
+    fn aire_la_activacion_consagra_el_sello_fresco() {
+        let head = sellos(&[]);
+        let actual = sellos(&[("a.md", 100)]);
+        let decl = [declarada("a.md", 100, 8500, 100)];
+        let (h, _) = guarda_de_aire(&head, &actual, &decl, true, &conjunto(&[]), sin_tamano);
+        assert!(h.is_empty(), "activación: {h:?}");
+    }
+
+    #[test]
+    fn aire_una_nota_en_zona_muerta_nace_demasiado_grande_y_se_marca() {
+        // 18.000 B: techo_minimo = 20.700 > 2 × 8.500.
+        let head = sellos(&[]);
+        let actual = sellos(&[("a.md", 20000)]);
+        let decl = [declarada("a.md", 20000, 8500, 18000)];
+        let (h, grandes) = guarda_de_aire(&head, &actual, &decl, false, &conjunto(&[]), sin_tamano);
+        assert_eq!(h.len(), 1);
+        assert_eq!(h[0].tipo, Tipo::NaceDemasiadoGrande);
+        assert_eq!(h[0].ahora, 18000);
+        assert_eq!(h[0].limite, 17000);
+        assert_eq!(grandes, conjunto(&["a.md"]));
+    }
+
+    #[test]
+    fn aire_una_subida_no_se_etiqueta_ademas_como_deuda() {
+        let head = sellos(&[("a.md", 100)]);
+        let actual = sellos(&[("a.md", 200)]);
+        let decl = [declarada("a.md", 200, 8500, 190)];
+        let (h, _) = guarda_de_aire(&head, &actual, &decl, false, &conjunto(&[]), sin_tamano);
+        assert!(h.is_empty(), "la subida ya es SelloSubido: {h:?}");
+    }
+
+    #[test]
+    fn aire_sin_declaracion_ni_tamano_legible_se_salta() {
+        let head = sellos(&[]);
+        let actual = sellos(&[("huerfano.md", 100)]);
+        let (h, _) = guarda_de_aire(&head, &actual, &[], false, &conjunto(&[]), sin_tamano);
+        assert!(h.is_empty());
+    }
+
+    #[test]
+    fn aire_sin_declaracion_usa_el_tamano_de_la_revision() {
+        let head = sellos(&[]);
+        let actual = sellos(&[("a.md", 100)]);
+        let (h, _) = guarda_de_aire(&head, &actual, &[], false, &conjunto(&[]), |_| Some(100));
+        assert_eq!(h.len(), 1);
+        assert_eq!(h[0].tipo, Tipo::SinAire);
+    }
+
+    #[test]
+    fn declaracion_un_waiver_por_encima_del_sello_es_sobre_sello() {
+        let head = sellos(&[("a.md", 100)]);
+        let actual = sellos(&[("a.md", 100)]);
+        let decl = [declarada("a.md", 150, 8500, 50)];
+        let h = checks_de_declaracion(&head, &actual, &decl, false, &conjunto(&[]), &conjunto(&[]));
+        assert_eq!(h.len(), 1);
+        assert_eq!(h[0].tipo, Tipo::SobreSello);
+        assert_eq!((h[0].era, h[0].ahora, h[0].limite), (100, 150, 100));
+    }
+
+    #[test]
+    fn declaracion_un_sello_fresco_por_encima_de_2x_es_primera_muy_alta() {
+        let head = sellos(&[]);
+        let actual = sellos(&[("a.md", 20000)]);
+        let decl = [declarada("a.md", 20000, 8500, 100)];
+        let h = checks_de_declaracion(&head, &actual, &decl, false, &conjunto(&[]), &conjunto(&[]));
+        assert_eq!(h.len(), 1);
+        assert_eq!(h[0].tipo, Tipo::PrimeraMuyAlta);
+        assert_eq!((h[0].ahora, h[0].limite), (20000, 17000));
+    }
+
+    #[test]
+    fn declaracion_sin_sello_por_encima_de_2x_es_primera_muy_alta() {
+        let decl = [declarada("a.md", 20000, 8500, 100)];
+        let h = checks_de_declaracion(
+            &sellos(&[]),
+            &sellos(&[]),
+            &decl,
+            false,
+            &conjunto(&[]),
+            &conjunto(&[]),
+        );
+        assert_eq!(h.len(), 1);
+        assert_eq!(h[0].tipo, Tipo::PrimeraMuyAlta);
+        assert_eq!(h[0].ahora, 20000);
+    }
+
+    #[test]
+    fn declaracion_un_waiver_en_tier_sin_presupuesto_es_inerte() {
+        let decl = [declarada("a.md", 500, 0, 100)];
+        let h = checks_de_declaracion(
+            &sellos(&[]),
+            &sellos(&[]),
+            &decl,
+            false,
+            &conjunto(&[]),
+            &conjunto(&[]),
+        );
+        assert_eq!(h.len(), 1);
+        assert_eq!(h[0].tipo, Tipo::WaiverLogInerte);
+        assert!(!h[0].tipo.rompe());
+    }
+
+    #[test]
+    fn declaracion_no_apila_hallazgos_sobre_una_nota_demasiado_grande() {
+        let actual = sellos(&[("a.md", 20000)]);
+        let decl = [declarada("a.md", 20000, 8500, 18000)];
+        let h = checks_de_declaracion(
+            &sellos(&[]),
+            &actual,
+            &decl,
+            false,
+            &conjunto(&[]),
+            &conjunto(&["a.md"]),
+        );
+        assert!(h.is_empty(), "{h:?}");
+    }
+
+    #[test]
+    fn escapados_un_sello_sin_waiver_en_tier_log_escapo_del_gate() {
+        let kb = tempfile::tempdir().unwrap();
+        std::fs::write(kb.path().join("a.md"), "---\ntier: log\n---\nx\n").unwrap();
+        std::fs::write(kb.path().join("b.md"), "---\ntier: core\n---\nx\n").unwrap();
+        let actual = sellos(&[("a.md", 9000), ("b.md", 9000), ("borrada.md", 9000)]);
+        let h = sellos_escapados_de_tier(kb.path(), &actual, &[], crate::presupuesto::NOMINALES);
+        assert_eq!(
+            h.len(),
+            1,
+            "solo a.md: b.md tiene presupuesto, borrada.md no se lee"
+        );
+        assert_eq!(h[0].ruta, "a.md");
+        assert_eq!(h[0].tipo, Tipo::SelladaEscapadaDeTier);
+        assert_eq!(h[0].era, 9000);
+    }
+
+    #[test]
+    fn escapados_ignora_los_sellos_con_declaracion() {
+        let kb = tempfile::tempdir().unwrap();
+        std::fs::write(kb.path().join("a.md"), "---\ntier: log\n---\nx\n").unwrap();
+        let actual = sellos(&[("a.md", 9000)]);
+        let decl = [declarada("a.md", 9000, 0, 10)];
+        let h = sellos_escapados_de_tier(kb.path(), &actual, &decl, crate::presupuesto::NOMINALES);
+        assert!(h.is_empty());
     }
 }
