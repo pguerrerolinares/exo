@@ -105,6 +105,11 @@ de config) ya tiene guardada la ruta de otra KB en disco, `exo init` (y
 error: este índice es de otra KB que sigue en disco: <ruta previa> (pediste <ruta nueva>). Una DB sirve a UNA KB: usa otra --db para esta, o `exo rebuild --kb <kb> --db <esta db>` si de verdad quieres reemplazar el índice
 ```
 
+`exo search` y `exo recall` (solo lectura) no rechazan nada, pero avisan por
+stderr con el mismo criterio si la DB que resuelven trae la ruta de otra KB
+que sigue en disco: una config con `[index] db` mal apuntado (o un `$EXO_DB`
+suelto) responde igual, pero deja de hacerlo en silencio.
+
 Una segunda KB en la misma máquina necesita, además, su propio fichero de
 **config** — `exo init` no tiene flag `--db`, así que la forma de indexar
 esta segunda KB en su propia DB (y no en la de la primera) es `$EXO_DB`:

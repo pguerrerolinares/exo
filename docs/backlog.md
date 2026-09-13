@@ -1013,6 +1013,25 @@
   `EXO_CONFIG=… EXO_DB=… exo init …` y luego `EXO_CONFIG` a secas,
   verificada de punta a punta (`exo index` y `exo search`) en un `HOME`
   aislado con el binario release.
+  **Deuda hermana #2 (agravante silencioso: `search`/`recall` no avisaban en
+  lectura) — CERRADA (rama `fix-init-exo-db`, commit `7cf7633`).**
+  `comprueba_kb_root` (`engine/src/indexer.rs`) solo se invocaba desde los
+  caminos de ESCRITURA (`index`/`rebuild`/`init`): `search_cmd`/`recall_cmd`
+  abrían la DB resuelta y consultaban directo, sin comparar nunca
+  `meta.kb_root` contra la KB pedida — la config con `[index] db` apuntando
+  a OTRA KB (justo el bug de `init` de la deuda de arriba, o una edición
+  manual) respondía en silencio con los resultados de la KB equivocada,
+  exit 0. Arreglo: `kb_root_conflicto` factoriza el dato compartido;
+  `aviso_kb_root_lectura` (nuevo, mismo criterio, nunca aborta) lo consume
+  desde `kb_root_aviso` en `main.rs`, que conecta `recall_cmd` (aviso en
+  `resultado.recall.avisos`, mismo canal que `warnings`/stderr que ya usa la
+  cobertura del arm vector) y `busca_cmd` (solo stderr, el envelope de
+  `search` no gana claves nuevas). Cubierto por 10 tests nuevos en
+  `engine/tests/kb_root_lectura_cli.rs` (RED antes del fix, GREEN después):
+  aviso con las dos rutas cuando la KB previa sigue en disco; sin aviso si
+  es la misma KB, si la KB previa ya no existe en disco, o si no hay KB
+  resoluble (`search --db` sin config); `recall --json` publica el aviso en
+  `warnings`.
 
 - [ ] **(NUEVO, campaña B, 2026-09-13, H15) `trinquete::sellos_escapados_de_tier`
   lee el tier del disco también en `--staged`.** El propio código lo
