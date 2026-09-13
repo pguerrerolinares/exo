@@ -5,6 +5,12 @@
 > `engine/kb-template/` y `evals/`. Las specs y planes de `docs/superpowers/`
 > son el registro histórico de diseño; la deuda abierta vive en
 > `docs/backlog.md`.
+>
+> **Qué documentación es viva.** Cuatro ficheros deben ser verdad hoy:
+> `README.md`, `docs/arquitectura.md`, `docs/instalacion.md` y
+> `docs/backlog.md`. Todo lo que lleva fecha en el nombre y todo
+> `docs/superpowers/` son instantáneas (`tier: log` por convención de ruta):
+> no se actualizan, se citan con su fecha.
 
 ## 1. Qué es exo
 
