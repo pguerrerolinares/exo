@@ -109,6 +109,21 @@ pub fn valida_config_escribible(destino: &Path, force: bool) -> Result<()> {
     Ok(())
 }
 
+/// La DB que indexa `exo init` y que graba en `[index] db`: `$EXO_DB` si
+/// viene y no está vacía (con `~` expandida), si no `<home>/.exo/index.db`.
+/// Es la precedencia de `resuelve_db` sin config, que aún no existe.
+///
+/// Función pura (recibe el valor de `$EXO_DB` y el home) para poder
+/// probar el caso sin `$EXO_DB` sin lanzar el binario: en Windows
+/// `dirs::home_dir()` no mira `$HOME`, así que un test de CLI que aísle con
+/// `HOME` escribiría en el perfil real.
+pub fn db_de_init(exo_db: Option<&str>, home: &Path) -> PathBuf {
+    match exo_db {
+        Some(v) if !v.is_empty() => crate::config::expande_tilde(Path::new(v)),
+        _ => home.join(".exo/index.db"),
+    }
+}
+
 /// H1: llamada por `exo init` ANTES de tocar el disco, por la misma razón que
 /// `valida_config_escribible` (I4): si la DB ya es de otra KB, el aborto tiene
 /// que llegar antes de volcar la plantilla y escribir la config, no en el

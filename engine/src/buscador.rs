@@ -48,6 +48,17 @@ pub struct Busqueda {
     /// `search_type` NO cambia a propósito: lo comparan los scripts del eval.
     #[serde(rename = "warnings", skip_serializing_if = "Vec::is_empty")]
     pub avisos: Vec<String>,
+    /// Aviso de LECTURA (H1 en lectura, `indexer::aviso_kb_root_lectura`):
+    /// la DB resuelta trae `meta.kb_root` de OTRA KB que sigue en disco.
+    /// **NO serializado** (`#[serde(skip)]`): el envelope de `search` es
+    /// superficie sellada sin gate (review 2026-09-13) — este aviso va
+    /// SOLO a stderr, nunca a `data`. Vive en este struct (no en un canal
+    /// aparte) porque es el valor natural que ya devuelven `busca`/
+    /// `busca_vector`/`busca_hybrid` sobre la conexión que ya tienen
+    /// abierta; que no se serialice es una propiedad de ESTE campo, no del
+    /// tipo de canal.
+    #[serde(skip)]
+    pub aviso_kb_root: Option<String>,
 }
 
 /// Avisos de cobertura del arm vector: compara filas de `vectores` contra
@@ -159,13 +170,17 @@ fn prepara_query(cruda: &str) -> String {
 /// Query sin hits = éxito con `results: []` (no es un error). DB inexistente
 /// = error claro, JAMÁS se crea un fichero vacío como side-effect (a
 /// diferencia de `rusqlite::Connection::open`, que crea el fichero si falta).
-pub fn busca(db_ruta: &Path, query: &str, limite: usize) -> Result<Busqueda> {
+pub fn busca(db_ruta: &Path, query: &str, limite: usize, kb: Option<&Path>) -> Result<Busqueda> {
     if !db_ruta.exists() {
         anyhow::bail!("DB no encontrada: {}", db_ruta.display());
     }
 
     let inicio = Instant::now();
     let conn = abre_db(db_ruta)?;
+    // Sobre la conexión que YA está abierta para esta consulta — nunca una
+    // propia (ver `indexer::aviso_kb_root_lectura`). `kb: None` (comando sin
+    // KB resoluble) o cualquier fallo interno degradan a `None` solos.
+    let aviso_kb_root = crate::indexer::aviso_kb_root_lectura(&conn, kb);
     let fts_query = prepara_query(query);
 
     // Query vacía tras normalizar (p.ej. solo whitespace): éxito con
@@ -206,6 +221,7 @@ pub fn busca(db_ruta: &Path, query: &str, limite: usize) -> Result<Busqueda> {
         elapsed_s: inicio.elapsed().as_secs_f64(),
         results,
         avisos: Vec::new(),
+        aviso_kb_root,
     })
 }
 
@@ -258,6 +274,7 @@ pub fn busca_vector(
     query: &str,
     limite: usize,
     min_similitud: Option<f64>,
+    kb: Option<&Path>,
 ) -> Result<Busqueda> {
     if !db_ruta.exists() {
         anyhow::bail!("DB no encontrada: {}", db_ruta.display());
@@ -265,6 +282,8 @@ pub fn busca_vector(
 
     let inicio = Instant::now();
     let conn = abre_db(db_ruta)?;
+    // Mismo aviso best-effort que `busca`, sobre esta misma conexión.
+    let aviso_kb_root = crate::indexer::aviso_kb_root_lectura(&conn, kb);
 
     let total_vectores: i64 = conn
         .query_row("SELECT count(*) FROM vectores", [], |r| r.get(0))
@@ -294,6 +313,7 @@ pub fn busca_vector(
         elapsed_s: inicio.elapsed().as_secs_f64(),
         results,
         avisos,
+        aviso_kb_root,
     })
 }
 
@@ -543,6 +563,7 @@ pub fn busca_hybrid(
     min_similitud: Option<f64>,
     bonus: f64,
     escala_fts: f64,
+    kb: Option<&Path>,
 ) -> Result<Busqueda> {
     if !db_ruta.exists() {
         anyhow::bail!("DB no encontrada: {}", db_ruta.display());
@@ -551,7 +572,8 @@ pub fn busca_hybrid(
     let inicio = Instant::now();
 
     const K_C: usize = 50;
-    let fts = busca(db_ruta, query, K_C)?;
+    let fts = busca(db_ruta, query, K_C, kb)?;
+    let aviso_fts = fts.aviso_kb_root;
     let candidatos_fts: Vec<(String, f64)> = fts
         .results
         .into_iter()
@@ -564,8 +586,13 @@ pub fn busca_hybrid(
     // solo alcanzable con `--bonus` explícito, `BONUS_SELLADO` es 0.0 —
     // vuelve al arm vector exhaustivo de siempre.
     let limite_vector = if bonus == 0.0 { limite } else { usize::MAX };
-    let vector = busca_vector(db_ruta, query, limite_vector, min_similitud)?;
+    let vector = busca_vector(db_ruta, query, limite_vector, min_similitud, kb)?;
     let avisos = vector.avisos;
+    // El aviso de kb_root sale de la MISMA DB por los dos arms (`fts` y
+    // `vector` abren conexiones distintas, pero contra el mismo fichero):
+    // cualquiera de los dos vale, `or` evita duplicar el texto en el
+    // resultado final.
+    let aviso_kb_root = aviso_fts.or(vector.aviso_kb_root);
     let v_por_entidad: HashMap<String, f64> = vector
         .results
         .into_iter()
@@ -583,6 +610,7 @@ pub fn busca_hybrid(
         elapsed_s: inicio.elapsed().as_secs_f64(),
         results,
         avisos,
+        aviso_kb_root,
     })
 }
 

@@ -544,7 +544,7 @@ fn versiona_kb(kb: &Path) -> bool {
 /// semilla, la versiona con git (best-effort) y la indexa.
 fn init_cmd(args: ArgsInit) -> Result<()> {
     let destino = exo::config::ruta_config()?;
-    let db_default = dirs::home_dir().context("sin HOME")?.join(".exo/index.db");
+    let home = dirs::home_dir().context("sin HOME")?;
 
     // I4 (review de rama): se comprueba ANTES de tocar nada en disco. Antes
     // esta guarda solo vivía dentro de `escribe_config`, llamada después de
@@ -554,13 +554,10 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
     // fallaba ya por otra vía (`prepara_kb`: "no está vacía").
     exo::inicia::valida_config_escribible(&destino, args.force)?;
 
-    // H1: la DB que este `init` va a indexar, con la precedencia de
-    // `resuelve_db` pero sin config (aún no existe): $EXO_DB > el default que
-    // se graba en config.toml.
-    let db_objetivo = match std::env::var("EXO_DB") {
-        Ok(v) if !v.is_empty() => exo::config::expande_tilde(Path::new(&v)),
-        _ => db_default.clone(),
-    };
+    // H1: la DB que este `init` valida, indexa y graba en config.toml
+    // (`$EXO_DB` > `~/.exo/index.db`; la regla vive en `db_de_init`).
+    let exo_db = std::env::var("EXO_DB").ok();
+    let db_objetivo = exo::inicia::db_de_init(exo_db.as_deref(), &home);
 
     let (kb, nombre, emb, modo, escritos, git_ok) = if args.from_basic_memory {
         let ruta = exo::inicia::ruta_basic_memory()?;
@@ -619,13 +616,21 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
         (kb, nombre, emb, "create", escritos, git_ok)
     };
 
-    exo::inicia::escribe_config(&destino, &kb, &nombre, &emb, &db_default, args.force)?;
+    // Se graba `db_objetivo`, NO el default `~/.exo/index.db`: `db_objetivo`
+    // es la DB que este `init` acaba de validar (H1) e indexa más abajo — es
+    // la efectiva. Grabar siempre el default era el bug: con `$EXO_DB` puesto,
+    // la config quedaba mintiendo sobre qué DB usa este `init` (indexaba una
+    // DB y apuntaba a otra), y un `exo config`/`exo search` posterior que
+    // solo pusiera `$EXO_CONFIG` resolvía silenciosamente al índice
+    // equivocado.
+    exo::inicia::escribe_config(&destino, &kb, &nombre, &emb, &db_objetivo, args.force)?;
 
     // Índice inicial. `resuelve_db(None)` (precedencia `$EXO_DB` > `[index]
-    // db`), NO `db_default`: `db_default` es lo que se GRABA en config.toml,
-    // pero el índice que se toca aquí es el efectivo — si no fuera por
-    // `EXO_DB`, un test (o un `exo init` bajo `$HOME` no estándar) indexaría
-    // el `~/.exo/index.db` real de la máquina.
+    // db`) en vez de usar `db_objetivo` directamente: son la misma ruta ahora
+    // que la config también la graba, pero pasar por `resuelve_db` mantiene
+    // este `init_cmd` en el mismo camino de resolución que cualquier otro
+    // comando — si `resuelve_db` cambiara de precedencia, `init` la sigue
+    // sin tener que tocarse.
     let db = resuelve_db(None)?;
     let resumen = indexa(&kb, &db)?;
 
@@ -859,6 +864,9 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
         if args.query.is_some() {
             anyhow::bail!("--content es del modo arranque: no se combina con --query");
         }
+        // El aviso de kb_root (si lo hay) sale por stderr desde DENTRO de
+        // `recall_arranque_contenido` — este camino no tiene envelope ni
+        // `Recall.avisos`, así que no hay nada que reenviar aquí.
         // Camino del hook: bloque de texto a stdout y fuera. No pasa por el
         // envelope ni por `aplica_cap` (trae su propio truncado por líneas).
         let bloque = exo::recall::recall_arranque_contenido(
@@ -882,6 +890,7 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
                 args.min_similitud,
                 BONUS_SELLADO,
                 ESCALA_FTS_SELLADA,
+                &kb,
             )?;
             resuelve_rutas_absolutas(&mut bruto, &kb);
             bruto
@@ -922,9 +931,22 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
 
 fn busca_cmd(args: ArgsSearch) -> Result<()> {
     let db = resuelve_db(args.db)?;
+
+    // `search` no tiene `--kb`: mismo resolvedor que el resto del binario
+    // (`resuelve_kb`, precedencia `$EXO_KB` > `[kb] path` de la config, ya
+    // que no hay flag). `.ok()`: sin KB resoluble (p.ej. `search --db` sin
+    // config) el aviso es `None` — nunca un error que tumbe `search`.
+    let kb = resuelve_kb(None).ok();
+
     let resultado = match args.r#type {
-        TipoBusqueda::Fts => busca(&db, &args.query, args.limite)?,
-        TipoBusqueda::Vector => busca_vector(&db, &args.query, args.limite, args.min_similitud)?,
+        TipoBusqueda::Fts => busca(&db, &args.query, args.limite, kb.as_deref())?,
+        TipoBusqueda::Vector => busca_vector(
+            &db,
+            &args.query,
+            args.limite,
+            args.min_similitud,
+            kb.as_deref(),
+        )?,
         TipoBusqueda::Hybrid => busca_hybrid(
             &db,
             &args.query,
@@ -932,8 +954,16 @@ fn busca_cmd(args: ArgsSearch) -> Result<()> {
             args.min_similitud,
             args.bonus.unwrap_or(BONUS_SELLADO),
             args.escala_fts.unwrap_or(ESCALA_FTS_SELLADA),
+            kb.as_deref(),
         )?,
     };
+
+    // El aviso de kb_root es SOLO stderr, nunca el envelope: `Busqueda`
+    // trae el campo `aviso_kb_root` con `#[serde(skip)]` justo para eso —
+    // no es una clave nueva de `data`, es un canal que no se serializa.
+    if let Some(aviso) = &resultado.aviso_kb_root {
+        eprintln!("aviso: {aviso}");
+    }
 
     // Los avisos van a stderr SIEMPRE, con o sin `--json`: nunca contaminan el
     // envelope de stdout, y quien mira la terminal ve la degradación sin
