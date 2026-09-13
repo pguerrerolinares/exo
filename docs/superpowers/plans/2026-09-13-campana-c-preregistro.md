@@ -15,6 +15,13 @@
 > citado abajo. **No visto:** el held-out, que todavía no existe; ningún brazo
 > corrido sobre él; RRF, solape y late chunking corridos sobre ningún conjunto,
 > ni siquiera las 55. El criterio de §6 se fija con esa mitad a ciegas.
+>
+> **Observado después, antes de fijar D1–D3 (2026-09-13, recon de diseño sin
+> motor):** solo recuentos del pool filtrado (agent-search 39, prompt 72, de
+> ellos 23 operativos por heurística y 46 de 49 temáticos en frase natural),
+> 36 notas añadidas a la KB desde 2026-08-17 y la distribución de tamaño de
+> las 174 notas (mediana 7.180 B; 71 superan ~2048 tokens). Ningún texto de
+> query leído por el orquestador, ningún brazo corrido sobre el pool.
 
 ## 1. Preguntas
 
@@ -299,9 +306,13 @@ la Task 2 para y lo escala: **no se inventan queries para rellenar.**
 - **Sesgo residual declarado:** etiquetar con grep favorece la coincidencia
   léxica, es decir, a A2. El estrato `hard` y la verificación adversarial
   (Task 4) lo mitigan, pero no lo anulan.
-- **Parada secuencial:** se etiqueta en el orden de la muestra barajada
-  (semilla `20260913`) hasta alcanzar la cuota de filas no nulas de cada
-  estrato. Las nulas no descartan una query: pasan al corpus negativo.
+- **Sin parada secuencial (D1/D2, §9):** se etiquetan **todas** las
+  candidatas de los pools filtrados de `prompt` y `agent-search`, en el orden
+  de la muestra barajada (semilla `20260913`). `hard` = una query por nota
+  añadida desde 2026-08-17, la mitad en frase natural y la otra mitad en
+  palabras clave. Las nulas no descartan una query: pasan al corpus negativo.
+  **Suelo:** si el gold verificado tiene menos de 60 filas no nulas en total,
+  STOP y PENDIENTE-PAUL; no se inventan queries para llegar.
 
 **Qué diferencias se pueden detectar** (cálculo exacto, script de recon
 2026-09-13):
@@ -363,12 +374,10 @@ máquina, con los índices corridos consecutivamente. El p95 se calcula sobre
 Cada línea se completa en la Task 5 con la opción elegida, literal. Opciones
 y trade-offs en el plan, §Decisiones abiertas.
 
-- `D0` régimen de cierre levantado para C (OVERRIDE): `____`
-- `D1` estratos y proporción: `____` (recomendado: `prompt` 50% ·
-  `agent-search` 30% · `hard` 20%)
-- `D2` N de filas no nulas: `____` (recomendado: 100; mínimo aceptable: 60)
-- `D3` brazo late chunking: `____` (recomendado: sí, con kill por OOM o
-  tiempo)
+- `D0` régimen de cierre levantado para C: `a` (config de fábrica, bloque ACTUALIZACIÓN 2026-09-13: "Pre-registros y métricas permitidos de nuevo")
+- `D1` estratos y proporción: `pools enteros de prompt y agent-search + hard 1 por nota nueva; proporción natural, cada estrato reportado aparte` (Paul, 2026-09-13: "Todo el pool, suelo 60")
+- `D2` N de filas no nulas: `sin N fijo; suelo 60 no nulas totales` (Paul, 2026-09-13)
+- `D3` brazo late chunking: `no — solo solape; A5, late:rrf y R4 no se miden` (Paul, 2026-09-13: "No, solo solape")
 - `D4` umbrales de la regla GANA: `NETO ≥ ____`, `ARREGLA ≥ ____·ROMPE`
   (recomendado: 3 y 2)
 - `D5` modo de relevancia para decidir: `____` (recomendado: lenient; strict
