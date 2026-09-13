@@ -143,6 +143,17 @@ if printf '%s' "$SALIDA" | jq -e '.data | has("notes")' >/dev/null 2>&1; then
   fi
 fi
 
+# H2/H3: recall-inject.sh lee .data.elapsed_s y .data.refresh_s (número o null)
+# y .data.warnings (array o ausente). En modo arranque sin --refresh las dos
+# claves de tiempo EXISTEN con null: se exige la clave, no solo el valor, para
+# que un engine anterior a la campaña A dé rojo aquí.
+if printf '%s' "$SALIDA" | jq -e '(.data | has("elapsed_s") and has("refresh_s"))
+      and .data.elapsed_s == null and .data.refresh_s == null
+      and ((.data.warnings // []) | type) == "array"' >/dev/null 2>&1; then
+  pass "contrato: elapsed_s/refresh_s presentes (null en arranque) y warnings array o ausente"
+else fail "contrato: elapsed_s/refresh_s presentes (null en arranque) y warnings array o ausente" \
+  "$(printf '%s' "$SALIDA" | jq -c '.data | {elapsed_s, refresh_s, warnings}' 2>/dev/null)"; fi
+
 if printf '%s' "$SALIDA" | jq -e '.schema_version == 2' >/dev/null 2>&1; then
   pass "contrato: schema_version == 2"
 else fail "contrato: schema_version == 2" "$(printf '%s' "$SALIDA" | jq -c '.schema_version' 2>/dev/null)"; fi
