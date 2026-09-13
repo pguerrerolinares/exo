@@ -266,6 +266,14 @@ dos bucles de 20 iteraciones, unos 2 minutos.
 lo necesita y porque toca `vectores.rs`, no `buscador.rs`. Si C lo reclama, la
 Task 3 sale de A y la predicción P1 se mantiene.
 
+**RESUELTAS 2026-09-13 — Paul acepta las recomendaciones del plan:**
+D1 = **A1** (solo la guarda; Task 8 no se ejecuta) · D2 = **L** (moot: la
+puerta C-H17a salió CERRADA en la línea base, Task 10 no se ejecuta) · D3 =
+**T** (Task 11 variante T) · D4 = **defaults** (≥200 disparos/14 días por
+máquina; p95 `elapsed_ms + refresh_ms` > 1.500 ms o timeouts > 2%) · D5 =
+**Paul corre el bloque §W11 una vez antes de la Task 12** (12 y 15 esperan) ·
+D6 = **A**, ejecutada como hotfix aparte (PR #11, mergeado).
+
 ---
 
 ## Dependencias y conflictos con las campañas B y C
