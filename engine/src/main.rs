@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 
 /// Defaults SELLADOS del arm hybrid (M2-07, §5.2.6 de la spec de fusión):
 /// ganadores del sweep 15+1 corridas (grid bonus{0,0.1,0.2,0.3,0.5}×
-/// β{0.6,0.8,1.0} + diagnóstica A, `reports/m2-07-impl-report.md`) —
+/// β{0.6,0.8,1.0} + diagnóstica A, `evals/e1-read/reports/m2-07-impl-report.md`) —
 /// selección pre-registrada §5.2.4 (max hit@5=49/55 → 4 celdas empatadas en
 /// β=0.6 → menor bonus=0.0), confirmada nativa (§5.2.5, `--min-similarity
 /// 0.40` da 49/55 idéntico al post-hoc). Cubren SOLO el uso de `exo search
