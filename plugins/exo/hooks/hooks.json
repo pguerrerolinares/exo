@@ -2,7 +2,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "WebSearch|WebFetch",
+        "matcher": "^(WebSearch|WebFetch|mcp__claude-in-chrome__(navigate|get_page_text)|mcp__.*playwright.*__browser_navigate)$",
         "hooks": [
           {
             "type": "command",

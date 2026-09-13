@@ -113,7 +113,7 @@ qué hace cada uno y su abstención en `plugins/exo/README.md`):
 
 | Reflejo | Evento | Fichero |
 |---|---|---|
-| clean-orchestrator | `PreToolUse:WebSearch\|WebFetch` | `scripts/clean-orchestrator-research.sh` |
+| clean-orchestrator | `PreToolUse:WebSearch\|WebFetch\|navegación MCP` | `scripts/clean-orchestrator-research.sh` |
 | git-c | `PreToolUse:Bash` | `scripts/git-c-bash.sh` |
 | zero-residuo | `PreToolUse:Bash` | `scripts/git-add-all-guard.sh` |
 | verify-before-done | `PreToolUse:Bash` | `scripts/verify-before-commit.sh` |
