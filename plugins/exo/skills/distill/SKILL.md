@@ -55,169 +55,23 @@ asume que `HEAD` es el estado justo antes de rotar, y la reversión del punto
 3 (`git checkout -- <ruta>`) descarta lo que no esté commiteado sin forma de
 recuperarlo: con el árbol sucio, ambas cosas quedan mal por construcción.
 
-Corre primero en seco y revisa el resultado:
-
-    $KBX_BIN rotate --kb $KB_ROOT --json
-
-Requiere un build de `kbx` que incluya `rotate`: el binario instalado puede no
-traer todavía el subcomando, porque la feature vive en una rama sin mergear.
-Si no está disponible, sáltalo y continúa directo al paso 1.
-
-Si `data.rotations` viene vacío, no hay nada que rotar: sigue directo al paso
-1. Si trae entradas, repite con `--apply` y verifica antes de continuar:
-
-1. `git -C $KB_ROOT status --porcelain` —
-   deben aparecer las bitácoras modificadas y los nuevos ficheros en
-   `archive/log/`.
-2. Conservación: para cada bitácora tocada, compara el número de cabeceras
-   `## ` de **antes** de rotar —
-   `git -C $KB_ROOT show HEAD:<ruta-de-la-nota> | grep -c '^## '`
-   (el cambio aún no está commiteado, así que `HEAD` sigue teniendo el
-   contenido previo al `--apply`) — contra la suma de cabeceras `## ` en la
-   nota viva actual más las del fichero nuevo en `archive/log/`
-   (`grep -c '^## ' <ruta-nota-viva> <ruta-archivo-nuevo>`, sumando ambos
-   conteos). Deben coincidir. Si no cuadra, hay una entrada perdida — no
-   sigas, revísalo.
-3. Nada se borra, misma regla de oro que el resto de la skill. Si algo salió
-   mal y hay que revertir:
-   - Nota viva: `git -C $KB_ROOT checkout -- <ruta-de-la-nota>`
-     (con el pathspec explícito de la nota — `git checkout --` sin ruta detrás
-     no hace nada y no avisa).
-   - Ficheros nuevos en `archive/log/`: `checkout` no los toca porque están
-     sin trackear; bórralos a mano con las rutas exactas que ya listó
-     `git status --porcelain` en el punto 1 (p.ej.
-     `rm <ruta-nueva-en-archive-log>`).
-   - Verifica con `git -C $KB_ROOT status --porcelain`
-     que no queda nada pendiente, y repórtalo — no continúes al paso 1 con el
-     repo en ese estado.
-
-Va antes del budget check a propósito: mueve bytes fríos fuera de las notas
-calientes, así que el paso 1 evalúa el presupuesto ya sobre el estado
-reducido.
+Corre `$KBX_BIN rotate --kb $KB_ROOT --json`. Si `data.rotations` trae entradas, sigue `rotacion.md`.
 
 ### 1. Budget check
 
-Corre `$EXO_BIN budget --json`. Devuelve
-`{data:{tiers:[{tier,notes,bytes,budget,delta,exceeded}], offenders:[{path,tier,size_bytes,budget}], waived:[{path,tier,size_bytes,budget}]}}`
-y **exit 1 si hay algún offender** (incluye NOTIER: nota sin `tier:` o con tier
-ilegal), exit 0 si limpio — mismas semantics que el viejo `kb-budget-check.sh`,
-que queda retirado. Una nota que rebasa su presupuesto de tier pero cae dentro
-de su `kbx_budget_max: N` de frontmatter es una excepción reconocida: exit 0,
-listada en `waived` (no en `offenders`). Presupuestos por defecto: core=8.500B,
-stable=12.500B, log=sin límite; excluye `archive/`, `docs/`, `.superpowers/`.
+Corre `$EXO_BIN budget --json` y `$EXO_BIN ratchet --kb $KB_ROOT --json`. exit 3 = hay trabajo; detalle e interpretación en `chequeos.md`.
 
-> Corre también `$EXO_BIN ratchet --kb $KB_ROOT --json` con el árbol limpio. Los findings
-> `no-air-debt` listan las notas cuyo techo está sellado a ras: no bloquean nada
-> (la guarda juzga transiciones, no estado), pero cada una es un mordisco
-> pendiente. Su campo `limit` da el techo que cumpliría y el mensaje el tamaño
-> objetivo de poda. Es la cola de trabajo de esta pasada.
-
-Y en el mismo paso 1, la otra mitad de la misma deuda: `exo budget` reporta en
-`no_air` (línea `no-air:` en texto) las notas **sin waiver** que están a menos
-del 15% de su nominal de tier. La guarda del ratchet solo cubre techos
-declarados, así que sin esto una nota que vive de su nominal puede quedarse a
-19 bytes del muro sin que nadie lo vea — declarar un waiver te mete bajo
-vigilancia y no declararlo te libra de ella. No bloquea (exit 0); cada línea
-trae el tamaño objetivo. Trátalas como la misma cola de trabajo que las
-`no-air-debt`: el remedio es partir canon/bitácora, no comprimir.
-
-Revisa `waived`: ¿siguen justificadas las excepciones reconocidas? (p.ej. un
-`kbx_orphan_ok` en una nota que recuperó relaciones desaparece de `waived` por
-sí solo).
-
-**Falla-fuerte:** si el binario no está o el schema-canary rompe (lo verás como
-un `schema_drift` en `lint`, ver abajo), **para** con un mensaje accionable
-(`exo no está → cargo build --release en engine/ + copia a
-$HOME/.local/bin/exo(.exe)`, "schema drift → el binario kbx y el binario exo
-están desincronizados: reinstala el que vaya atrasado (`make install` en kbx,
-`cargo build --release` + copia en exo) y vuelve a correr"). No degrades a mano:
-/distill es offline y deliberado, el fallo ruidoso es correcto.
+**Falla-fuerte:** si el binario no está o el schema-canary rompe, **para** con un mensaje accionable — no degrades a mano, /distill es offline y deliberado.
 
 ### 1b. Gate de deriva + priorización
 
-- **Deriva:** corre `$EXO_BIN lint --json`
-  (`{data:{ok,findings:[{type,path,detail}], waived:[{type,path,detail}]}}`).
-  `ok:true` significa limpio de findings NO waived. Las excepciones
-  reconocidas (`orphan` con `kbx_orphan_ok: true`, `budget_exceeded` dentro de
-  su `kbx_budget_max`) aterrizan en `waived`, no en `findings`. Sus findings
-  alimentan la limpieza (WS4 del spec Fase 2): `duplicate_dir`, `orphan`,
-  `bad_frontmatter`, `root_file`. No los muevas a ciegas — cada `git mv` lo
-  gatea Paul.
-- **Priorización:** corre `$KBX_BIN stale --json`
-  (`{data:{notes:[{path,tier,age_days,degree,score,...}]}}`, orden descendente
-  por `score`). Úsalo para decidir QUÉ notas atacar primero en los pasos 2 y 4,
-  en vez de ir a ojo. **`stale` no propaga waivers**: una nota con excepción
-  reconocida (p.ej. README/metodología) seguirá apareciendo alta en `stale`
-  (es advisory) — no es bug.
-- Chequea inject-failed E inject-abstained en reflex-log.jsonl (jq 'select(.reflex=="inject-failed" or .reflex=="inject-abstained")'): >0 sostenido = componedor roto en silencio o payloads sin agent_type — never-break no puede significar semanas sin inyección (spec transporte §7).
-- Chequea también `recall-fallback` con `reason=truncated`
-  (`jq 'select(.reflex=="recall-fallback" and (.detail|test("truncated")))'`).
-  Cada uno es un arranque servido incompleto: el cuerpo de `core-index`
-  sobrevive siempre —el guard busca "Contrato de memoria", que está al
-  principio— y lo que se cae por el final son los punteros de actividad
-  reciente, sin que nada lo diga. Sostenido = `core-index` está sobresuscrito y
-  toca evicción del índice (entradas muertas y justificaciones, nunca comprimir
-  entradas vivas). Compruébalo con el bloque real, no con `wc` del fichero:
-
-      exo recall --db ~/.exo/index.db --content \
-          --note kb-demo/core/core-index --limit 10 --cap-bytes 6144
-
-  Un `aviso: … truncado` en stderr es la señal.
+Corre `$EXO_BIN lint --json` y `$KBX_BIN stale --json`. Señales de inyección rota: `chequeos.md`.
 
 ### 2. Split canon/bitácora por cada core/stable obeso
 
-> **Evicción editorial (una vez por pasada, por cada nota que se toque).** Antes
-> de mover nada por fecha, haz la pregunta de valor: *¿qué párrafo de esta nota
-> ya no paga su sitio?* Candidatos: lo que se ha vuelto obvio, lo que quedó
-> superado por una decisión posterior, el detalle de una iteración cuya
-> conclusión ya está escrita, y el ejemplo que ilustra algo que el texto ya dice.
-> Eso baja a la bitácora con su fecha. Lo que queda es lo que sigue siendo
-> verdad y sigue costando de recordar.
->
-> Va **antes** que el criterio cronológico y **antes** que la poda para dejar
-> aire. Sin ella, podar para caber es rotación por orden de llegada: sale lo
-> viejo por viejo, no lo que sobra. Y al mover: **bloques enteros, nunca
-> re-resumir prosa** (la reescritura iterativa erosiona el detalle).
-
-> **Test del título — ¿partir o destilar?** Mide qué fracción del crecimiento de
-> la nota desde la última pasada cayó en cabeceras **nuevas** (`git log -p` sobre
-> la nota, contando `^## ` añadidos frente a crecimiento dentro de cabeceras que
-> ya existían):
->
-> - **~0%** — la nota converge en estructura: engordó por dentro. Remedio:
->   evicción editorial. **No la partas.**
-> - **>50% con las cabeceras nuevas afines al título** — tema amplio
->   subdividiéndose. Remedio: partir **por género** (narrativa / referencia /
->   epistemología).
-> - **>50% con las cabeceras nuevas sin relación entre sí** — es un cajón, no
->   una nota. Remedio: partir **por tema**, y la madre queda como **índice
->   corto**: puerta única de routing, sin la cual la fricción de espacio se
->   convierte en fricción de routing.
-> - **Entremedias** — juicio. Umbral revisable: se calibró con 4 puntos de datos.
->
-> Un índice **no se destila**: cuando muerde se le retiran entradas muertas.
-
-Mismo contrato que `/document` v2: la nota canónica es el **estado vivo**, editado
-como delta (qué es verdad *ahora*); todo lo fechado/histórico (decisiones tomadas en
-tal fecha, iteraciones superadas) se mueve a `log/<slug>-bitacora.md`. La canónica
-queda dentro de presupuesto porque deja de cargar el historial completo.
-
-**Futuros appends a la bitácora van SIEMPRE después de cualquier snapshot ya movido,
-con fecha explícita** — la bitácora es un log append-only ordenado en el tiempo, no
-se reescribe hacia atrás.
-
-**Caso especial — el backlog** (`Backlog — frentes abiertos.md`, core): no crece con
-Deltas fechados sino con items `[x]` cerrados que se acumulan. Barre los `[x]` que ya
-no dan contexto del estado actual (deja los **últimos ~1-3 por frente**) → append
-fechado a `log/backlog-diario.md`, y elimínalos del backlog. Conserva SIEMPRE todos los
-`[ ]` abiertos. El backlog debe tender a ≈ **abiertos + cola corta de recién-cerrado**.
-Es la única nota `core` a la que se le tolera rebasar presupuesto por ser estado vivo,
-pero este flush periódico es lo que evita que se dispare. (En caliente, `/document`
-marca el `[x]` de una línea al cerrar; aquí, offline, se barren los viejos.)
-
-> El remedio del Backlog al morder es **cerrar y archivar frentes, no destilar
-> el texto de los abiertos**. Un frente abierto se describe entero o no se
-> describe; comprimirlo lo rompe como estado vivo, igual que a un índice.
+La nota canónica es el **estado vivo**; todo lo fechado/histórico se mueve a
+`log/<slug>-bitacora.md`. Antes de partir, evicción editorial y test del
+título: `consolidacion.md`.
 
 ### 3. Archivar sesiones de frentes cerrados
 
