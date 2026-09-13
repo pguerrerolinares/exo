@@ -1014,24 +1014,39 @@
   verificada de punta a punta (`exo index` y `exo search`) en un `HOME`
   aislado con el binario release.
   **Deuda hermana #2 (agravante silencioso: `search`/`recall` no avisaban en
-  lectura) — CERRADA (rama `fix-init-exo-db`, commit `7cf7633`).**
-  `comprueba_kb_root` (`engine/src/indexer.rs`) solo se invocaba desde los
-  caminos de ESCRITURA (`index`/`rebuild`/`init`): `search_cmd`/`recall_cmd`
-  abrían la DB resuelta y consultaban directo, sin comparar nunca
-  `meta.kb_root` contra la KB pedida — la config con `[index] db` apuntando
-  a OTRA KB (justo el bug de `init` de la deuda de arriba, o una edición
-  manual) respondía en silencio con los resultados de la KB equivocada,
-  exit 0. Arreglo: `kb_root_conflicto` factoriza el dato compartido;
-  `aviso_kb_root_lectura` (nuevo, mismo criterio, nunca aborta) lo consume
-  desde `kb_root_aviso` en `main.rs`, que conecta `recall_cmd` (aviso en
-  `resultado.recall.avisos`, mismo canal que `warnings`/stderr que ya usa la
-  cobertura del arm vector) y `busca_cmd` (solo stderr, el envelope de
-  `search` no gana claves nuevas). Cubierto por 10 tests nuevos en
-  `engine/tests/kb_root_lectura_cli.rs` (RED antes del fix, GREEN después):
-  aviso con las dos rutas cuando la KB previa sigue en disco; sin aviso si
-  es la misma KB, si la KB previa ya no existe en disco, o si no hay KB
-  resoluble (`search --db` sin config); `recall --json` publica el aviso en
-  `warnings`.
+  lectura) — CERRADA (rama `fix-init-exo-db`, commits `7cf7633`, `11c0f15`,
+  `ff49b36`).** `comprueba_kb_root` (`engine/src/indexer.rs`) solo se
+  invocaba desde los caminos de ESCRITURA (`index`/`rebuild`/`init`):
+  `search_cmd`/`recall_cmd` abrían la DB resuelta y consultaban directo,
+  sin comparar nunca `meta.kb_root` contra la KB pedida — la config con
+  `[index] db` apuntando a OTRA KB (justo el bug de `init` de la deuda de
+  arriba, o una edición manual) respondía en silencio con los resultados
+  de la KB equivocada, exit 0. Arreglo (diseño final, tras dos rondas de
+  review sobre la misma rama): `kb_root_conflicto` factoriza el dato
+  compartido; `aviso_kb_root_lectura` (`indexer.rs`) es BEST-EFFORT total
+  — `Option<String>`, no `Result`, cualquier fallo interno (canonicalize,
+  `meta` ausente en una DB de schema anterior) degrada a `None` en vez de
+  propagar — y se llama SIEMPRE sobre la conexión que `busca`/
+  `busca_vector`/`recall_arranque`/`recall_consulta` YA tienen abierta
+  para su propia consulta, nunca una conexión aparte (cero coste extra,
+  hereda `busy_timeout`/WAL por construcción). `recall` publica el aviso
+  en `resultado.recall.avisos` (mismo canal que `warnings`/stderr que ya
+  usa la cobertura del arm vector); `search` lo manda solo a stderr vía un
+  campo `Busqueda.aviso_kb_root` con `#[serde(skip)]` — el envelope de
+  `search` no gana claves nuevas. La KB esperada de `search` sale de
+  `resuelve_kb(None)` (precedencia `$EXO_KB` > config, no solo config).
+  Cubierto por 15 tests en `engine/tests/kb_root_lectura_cli.rs` (RED
+  antes de cada fix, GREEN después, en dos rondas): aviso con las dos
+  rutas cuando la KB previa sigue en disco; sin aviso si es la misma KB,
+  si la KB previa (o la pedida) ya no existe/canonicaliza, si la DB no
+  tiene tabla `meta` (schema anterior, antes tumbaba el comando), o si no
+  hay KB resoluble; `recall --json` publica el aviso en `warnings`;
+  `$EXO_KB` gana a la config en ambos sentidos (con y sin conflicto).
+  Latencia medida (30 corridas, release): `search --type fts` 5,0 ms y
+  `recall` arranque 4,5 ms — indistinguible del baseline sin el feature
+  (4,55 ms / 4,74 ms), tras una primera implementación que sí medía coste
+  real (conexión aparte con `exo::abre_db`: 17,2 ms / 15,7 ms) por abrir
+  una segunda conexión con `PRAGMA journal_mode=WAL`.
 
 - [ ] **(NUEVO, campaña B, 2026-09-13, H15) `trinquete::sellos_escapados_de_tier`
   lee el tier del disco también en `--staged`.** El propio código lo

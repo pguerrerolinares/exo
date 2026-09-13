@@ -108,7 +108,10 @@ error: este índice es de otra KB que sigue en disco: <ruta previa> (pediste <ru
 `exo search` y `exo recall` (solo lectura) no rechazan nada, pero avisan por
 stderr con el mismo criterio si la DB que resuelven trae la ruta de otra KB
 que sigue en disco: una config con `[index] db` mal apuntado (o un `$EXO_DB`
-suelto) responde igual, pero deja de hacerlo en silencio.
+suelto) responde igual, pero deja de hacerlo en silencio. La KB contra la
+que se compara es la KB ACTIVA de cada comando — `$EXO_KB` > `[kb] path` de
+la config en `exo search` (no tiene `--kb`); `--kb` > `$EXO_KB` > config en
+`exo recall` — nunca una lectura aparte del disco.
 
 Una segunda KB en la misma máquina necesita, además, su propio fichero de
 **config** — `exo init` no tiene flag `--db`, así que la forma de indexar
