@@ -127,6 +127,13 @@ jobs:
           # nadie lo sabría hasta que alguien intentara instalar.
           n="$(ls dist | wc -l)"
           [ "$n" -eq 6 ] || { echo "esperaba 6 ficheros en dist, hay $n" >&2; exit 1; }
+      # Un tag que no casa con Cargo.toml publicaría binarios cuyo
+      # `exo --version` dice otra cosa.
+      - name: El tag casa con engine/Cargo.toml
+        shell: bash
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: bash scripts/test-versiones.sh "$TAG"
       - name: Publicar la release
         env:
           GH_TOKEN: ${{ github.token }}

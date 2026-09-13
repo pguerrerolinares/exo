@@ -44,6 +44,12 @@ jobs:
         if: always()
         working-directory: engine
         run: cargo clippy --all-targets --locked -- -D warnings
+      # Task 7 (shellcheck, H11) aún no está mergeada en este árbol: cuando
+      # aterrice, este step va tras el suyo — el orden entre steps de lint
+      # no cambia el resultado.
+      - name: Versiones coherentes (plugin.json == marketplace.json)
+        if: always()
+        run: bash scripts/test-versiones.sh
 
   exec-bit:
     name: scripts de plugin ejecutables
