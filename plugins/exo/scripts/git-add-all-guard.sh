@@ -41,67 +41,12 @@ CMD="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)"
 PATRON='git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?add[[:space:]]+(-A|--all|\.)([[:space:]]|$)'
 printf '%s' "$CMD" | grep -Eq "$PATRON" || exit 0
 
-# payload del log: prefijo de contexto + TODAS las ocurrencias del PATRON
-# (mismo PATRON de arriba via grep -Eo -- si diverge del de deteccion el
-# log deja de decir la verdad de por que disparo), hasta MATCH_MAX,
-# deduplicadas preservando orden. Comando corto que cabe entero en el
-# prefijo -> se loguea entero, sin marcador. Si la extraccion no encuentra
-# nada (no deberia pasar), degrada al prefijo solo.
-# OJO: el prefijo se saca con expansion de parametro (${CMD:0:120}), NO con
-# `cut -c`. `cut -c` trunca POR LINEA, no el string completo -- con un
-# comando de muchas lineas cortas cada una sobrevive intacta y el "prefijo"
-# real acaba siendo lineas*120 caracteres, reventando el cap del helper y
-# comiendose el match otra vez. Es el mismo bug que este fix vino a arreglar.
-# OJO 2: el propio PATRON no tiene techo (`-C[[:space:]]+[^[:space:]]+`
-# acepta un path de cualquier longitud), asi que ningun MATCH extraido lo
-# tiene tampoco. Un match gigante (path absurdo tras -C) puede por si solo
-# topar el cap de 2000 del helper y comerse el "add -A" -- la misma brecha,
-# otra puerta. Por eso CADA ocurrencia se trunca POR SEPARADO (cabeza+cola,
-# NO solo el principio: el fragmento que informa vive al FINAL del match --
-# "add -A"/"--all"/".", truncar solo por delante lo tiraria) antes de
-# unirla a las demas: una sola ocurrencia larga no puede comerse el cap
-# combinado.
-# OJO 3: por que TODAS y no solo la primera (`head -1`, el bug de esta
-# ronda). Con 2+ ocurrencias del patron en el mismo comando -- p.ej. una
-# mencion en prosa dentro de un heredoc ("nunca uses git add . en este
-# repo") seguida del "git add -A" real al final -- quedarse con la primera
-# loguea la mencion inocua y esconde la invocacion real: exactamente el
-# falso positivo benigno que este instrumento existe para medir, entrando
-# por otra puerta. Ocurrencias identicas (p.ej. "git add ." repetido tres
-# veces) se deduplican preservando orden: repetir el mismo texto no informa
-# mas que mostrarlo una vez.
-# Nota aparte (no ataja nada, solo lo documenta): estos cortes por indice
-# (aqui, PREFIJO y el cap de _reflex-log.sh) cuentan caracteres en locale
-# UTF-8 pero bytes en LC_ALL=C -- bajo esa locale el corte puede caer a
-# mitad de un caracter multibyte. jq lo tolera (sustituye por el caracter
-# de reemplazo, exit 0) y el contrato best-effort aguanta, asi que no hace
-# falta blindarlo.
-MATCH_HEAD=80
-MATCH_TAIL=60
-MATCH_MAX=5
-if [ "${#CMD}" -le 120 ]; then
-  PAYLOAD="$CMD"
-else
-  PREFIJO="${CMD:0:120}"
-  MATCHES="$(printf '%s' "$CMD" | grep -Eo "$PATRON" | head -n "$MATCH_MAX" | awk '!seen[$0]++')"
-  MATCH=""
-  while IFS= read -r M; do
-    [ -z "$M" ] && continue
-    if [ "${#M}" -gt $((MATCH_HEAD + MATCH_TAIL)) ]; then
-      M="${M:0:MATCH_HEAD}…${M: -MATCH_TAIL}"
-    fi
-    if [ -z "$MATCH" ]; then
-      MATCH="$M"
-    else
-      MATCH="${MATCH} | ${M}"
-    fi
-  done <<< "$MATCHES"
-  if [ -n "$MATCH" ]; then
-    PAYLOAD="${PREFIJO} … ⟨match⟩ ${MATCH}"
-  else
-    PAYLOAD="$PREFIJO"
-  fi
-fi
+# payload del log: contexto + TODAS las ocurrencias del PATRON (mismo PATRON
+# de arriba: si diverge del de deteccion, el log deja de decir por que
+# disparo). Contrato y trampas en _truncate-payload.sh. Si el helper no se
+# puede cargar, degrada al prefijo: el reflejo es warn-only y nunca rompe.
+PAYLOAD="${CMD:0:120}"
+. "$(dirname "$0")/_truncate-payload.sh" 2>/dev/null && payload_truncado "$CMD" "$PATRON"
 
 # log del disparo (best-effort, nunca rompe el warn-only)
 . "$(dirname "$0")/_reflex-log.sh" 2>/dev/null && reflex_log "zero-residuo" "$INPUT" "$PAYLOAD" || true
