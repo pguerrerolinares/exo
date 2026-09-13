@@ -118,6 +118,7 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
     // ruta relativa dependería del cwd del proceso que llame a kbx.
     let kb_abs = std::fs::canonicalize(kb)
         .with_context(|| format!("canonicalizar raíz de KB {}", kb.display()))?;
+    comprueba_kb_root(&conn, &kb_abs)?;
     conn.execute(
         "INSERT INTO meta (clave, valor) VALUES ('kb_root', ?1)
          ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor",
@@ -456,6 +457,37 @@ fn verifica_modelo(conn: &Connection, modelo_actual: &str) -> Result<()> {
             "el índice se construyó con {v}, la config pide {modelo_actual}: corre 'exo rebuild'"
         ),
     }
+}
+
+/// H1 (campaña A): una DB sirve a UNA KB. `meta.kb_root` es de un solo valor
+/// y el walk borra toda ruta que no ve, así que indexar otra KB sobre la
+/// misma DB borraba en silencio el índice de la primera (exit 0, medido el
+/// 2026-09-13), o reventaba con `UNIQUE constraint failed: notas.ruta` si las
+/// dos compartían rutas (dos KBs de `exo init`).
+///
+/// Pasa si no hay `kb_root`, si coincide con `kb_abs` (ambas canónicas) o si
+/// la KB registrada ya no existe en disco: eso es una KB movida, y seguir
+/// actualizando `kb_root` es el contrato de siempre.
+pub fn comprueba_kb_root(conn: &Connection, kb_abs: &Path) -> Result<()> {
+    let previo: Option<String> = conn
+        .query_row("SELECT valor FROM meta WHERE clave = 'kb_root'", [], |r| {
+            r.get(0)
+        })
+        .optional()
+        .context("leer meta.kb_root")?;
+    let Some(previo) = previo else {
+        return Ok(());
+    };
+    if previo == kb_abs.to_string_lossy() || !Path::new(&previo).is_dir() {
+        return Ok(());
+    }
+    bail!(
+        "este índice es de otra KB que sigue en disco: {previo} (pediste {}). \
+         Una DB sirve a UNA KB: usa otra --db para esta, o `exo rebuild --kb {} --db <esta db>` \
+         si de verdad quieres reemplazar el índice",
+        kb_abs.display(),
+        kb_abs.display()
+    )
 }
 
 fn ruta_relativa(kb: &Path, ruta_abs: &Path) -> Result<String> {
