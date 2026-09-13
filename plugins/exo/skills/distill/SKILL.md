@@ -55,7 +55,7 @@ asume que `HEAD` es el estado justo antes de rotar, y la reversión del punto
 3 (`git checkout -- <ruta>`) descarta lo que no esté commiteado sin forma de
 recuperarlo: con el árbol sucio, ambas cosas quedan mal por construcción.
 
-Corre `$KBX_BIN rotate --kb $KB_ROOT --json`. Si `data.rotations` trae entradas, sigue `rotacion.md`.
+Corre `$KBX_BIN rotate --kb $KB_ROOT --json`. Si `data.rotations` trae entradas, sigue `rotacion.md`; si el binario no trae `rotate`, sáltalo y ve al paso 1.
 
 ### 1. Budget check
 

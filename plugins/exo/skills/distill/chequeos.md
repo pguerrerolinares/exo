@@ -8,7 +8,7 @@
 Corre `$EXO_BIN budget --json`. Devuelve
 `{data:{tiers:[{tier,notes,bytes,budget,delta,exceeded}], offenders:[{path,tier,size_bytes,budget}], waived:[{path,tier,size_bytes,budget}]}}`
 y **exit 3 si hay algún offender** (incluye NOTIER: nota sin `tier:` o con tier
-ilegal), exit 0 si limpio — (exit 0 si limpio). Una nota que rebasa su
+ilegal), exit 0 si limpio. Una nota que rebasa su
 presupuesto de tier pero cae dentro de su `kbx_budget_max: N` de frontmatter
 es una excepción reconocida: exit 0, listada en `waived` (no en `offenders`).
 Presupuestos por defecto: core=8.500B, stable=12.500B, log=sin límite; excluye
