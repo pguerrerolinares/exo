@@ -11,7 +11,23 @@
 //! `tests/targets_cli.rs::kb_con_indice`). Los de `search` sí necesitan un
 //! `config.toml` propio vía `EXO_CONFIG` puesto en el propio `Command`
 //! (nunca en el proceso del test): `search` no tiene `--kb`, así que la KB
-//! esperada solo puede venir de la config.
+//! esperada sale de `resuelve_kb(None)` (precedencia `$EXO_KB` > config).
+//!
+//! ## Nota de diseño (review 2026-09-13, degradación best-effort)
+//!
+//! El chequeo corre SIEMPRE sobre la conexión que `busca`/`busca_vector`/
+//! `recall_arranque`/`recall_consulta` ya tienen abierta para su propia
+//! consulta (nunca una conexión aparte) — por construcción ya no hay
+//! apertura de fichero que pueda fallar por WAL/permisos/`busy_timeout`
+//! específicamente para este aviso: si esa conexión no abre, la búsqueda
+//! real tampoco lo haría, con o sin este feature. Por eso no hay aquí un
+//! test de "WAL con -wal/-shm ausentes + directorio de solo lectura" (la
+//! primera implementación SÍ abría su propia conexión de solo lectura y
+//! ese caso la rompía; con el diseño actual es estructuralmente imposible
+//! de reproducir vía este feature). Lo que sí sigue siendo un fallo barato
+//! de montar — y que si no se blindara SÍ tumbaría el comando— es la query
+//! en sí sobre una DB sin tabla `meta` (schema anterior a M6-04): cubierto
+//! abajo.
 
 mod common;
 
@@ -217,6 +233,108 @@ fn recall_no_avisa_si_la_db_no_tiene_kb_root() {
     );
 }
 
+/// DB de schema ANTERIOR a M6-04: `notas`/`notas_fts` existen (basta para
+/// que `recall` en modo arranque sirva resultados) pero `meta` no — nunca
+/// se creó porque nada la escribió (viene de antes de que `crea_schema`
+/// existiera, o de un `CREATE TABLE` a mano como este). `SELECT valor FROM
+/// meta ...` revienta con «no such table: meta», un error real de SQLite
+/// que `.optional()` NO absorbe (solo absorbe "sin filas", no "sin
+/// tabla"). Regla de diseño (CRITICAL del review): un fallo AQUÍ jamás
+/// puede tumbar `recall` — exit 0, sin aviso, resultados intactos.
+fn db_sin_tabla_meta(dir: &Path) -> std::path::PathBuf {
+    let db = dir.join("index.db");
+    let conn = exo::abre_db(&db).unwrap();
+    conn.execute_batch(
+        "
+        CREATE TABLE notas (
+          permalink  TEXT PRIMARY KEY,
+          ruta       TEXT NOT NULL UNIQUE,
+          titulo     TEXT NOT NULL,
+          tipo       TEXT,
+          mtime      REAL NOT NULL,
+          git_epoch  INTEGER
+        );
+        CREATE VIRTUAL TABLE notas_fts USING fts5(
+          titulo, cuerpo,
+          permalink UNINDEXED,
+          tokenize='unicode61 tokenchars 0x2F'
+        );
+        ",
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO notas (permalink, ruta, titulo, tipo, mtime, git_epoch)
+         VALUES ('kb/a', 'a.md', 'a', 'note', 0.0, NULL)",
+        [],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO notas_fts (titulo, cuerpo, permalink)
+         VALUES ('a', 'contenido buscable de a', 'kb/a')",
+        [],
+    )
+    .unwrap();
+    drop(conn);
+    db
+}
+
+#[test]
+fn recall_no_avisa_ni_falla_si_la_db_no_tiene_tabla_meta() {
+    let kb_pedida = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let db = db_sin_tabla_meta(dir.path());
+
+    let out = Command::new(bin())
+        .args(["recall", "--kb"])
+        .arg(kb_pedida.path())
+        .arg("--db")
+        .arg(&db)
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "DB sin tabla meta no debía tumbar recall: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        !tiene_aviso(&err),
+        "sin tabla meta no hay con qué comparar: {err}"
+    );
+}
+
+/// La KB PEDIDA (no la previa) no existe en disco: `canonicalize(kb)`
+/// falla dentro de `aviso_kb_root_lectura`, que lo trata igual que
+/// cualquier otro fallo interno — `None`, sin aviso. La DB SÍ tiene un
+/// `kb_root` que sería un conflicto real contra cualquier KB existente,
+/// para que quede claro que el "no aviso" es por el fallo de
+/// `canonicalize`, no por falta de conflicto.
+#[test]
+fn recall_no_avisa_si_la_kb_pedida_no_existe_en_disco() {
+    let kb_vieja = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let db = db_con_kb_root(dir.path(), Some(kb_vieja.path()));
+    let kb_pedida_inexistente = dir.path().join("no-existe-en-absoluto");
+
+    let out = Command::new(bin())
+        .args(["recall", "--kb"])
+        .arg(&kb_pedida_inexistente)
+        .arg("--db")
+        .arg(&db)
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "KB pedida inexistente no debía tumbar recall: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        !tiene_aviso(&err),
+        "KB pedida sin canonicalizar, no hay con qué comparar: {err}"
+    );
+}
+
 // ---------------------------------------------------------------------
 // search
 // ---------------------------------------------------------------------
@@ -369,5 +487,133 @@ fn search_sin_kb_resoluble_no_avisa_y_no_falla() {
     assert!(
         !tiene_aviso(&err),
         "sin KB resoluble no debía avisar: {err}"
+    );
+}
+
+/// Misma degradación que `recall_no_avisa_ni_falla_si_la_db_no_tiene_tabla_meta`,
+/// para `search` (camino independiente: `busca`/`busca_vector` hacen su
+/// propia llamada a `aviso_kb_root_lectura` sobre su propia conexión).
+#[test]
+fn search_no_avisa_ni_falla_si_la_db_no_tiene_tabla_meta() {
+    let kb_pedida = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let db = db_sin_tabla_meta(dir.path());
+    let cfg = config_con_kb(dir.path(), kb_pedida.path());
+
+    let out = Command::new(bin())
+        .args(["search", "--db"])
+        .arg(&db)
+        .arg("buscable")
+        .env("EXO_CONFIG", &cfg)
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "DB sin tabla meta no debía tumbar search: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        !tiene_aviso(&err),
+        "sin tabla meta no hay con qué comparar: {err}"
+    );
+    // Resultados intactos: el FTS de siempre, sin degradar.
+    let salida = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        salida.contains("kb/a"),
+        "la búsqueda debía seguir encontrando la nota: {salida}"
+    );
+}
+
+/// La KB de la CONFIG (la que `search` resolvería sin `$EXO_KB`) no existe
+/// en disco: mismo criterio que el análogo de `recall` — `canonicalize`
+/// falla dentro de `aviso_kb_root_lectura`, `None`, sin aviso.
+#[test]
+fn search_no_avisa_si_la_kb_de_config_no_existe_en_disco() {
+    let kb_vieja = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let db = db_con_kb_root(dir.path(), Some(kb_vieja.path()));
+    let kb_config_inexistente = dir.path().join("no-existe-en-absoluto");
+    let cfg = config_con_kb(dir.path(), &kb_config_inexistente);
+
+    let out = Command::new(bin())
+        .args(["search", "--db"])
+        .arg(&db)
+        .arg("nada-que-encontrar")
+        .env("EXO_CONFIG", &cfg)
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "KB de config inexistente no debía tumbar search: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        !tiene_aviso(&err),
+        "KB de config sin canonicalizar, no hay con qué comparar: {err}"
+    );
+}
+
+// ---------------------------------------------------------------------
+// search: precedencia $EXO_KB > config (review punto 3)
+// ---------------------------------------------------------------------
+//
+// `busca_cmd` resuelve la KB esperada con `resuelve_kb(None)`, la MISMA
+// función que usa el resto del binario: `--kb` (search no tiene) > `$EXO_KB`
+// > `[kb] path` de la config. Antes de este fix, `busca_cmd` llamaba
+// directo a `exo::kb_desde_config()`, saltándose `$EXO_KB` por completo.
+
+#[test]
+fn search_exo_kb_sin_conflicto_gana_a_config_con_conflicto() {
+    let kb_indexada = tempfile::tempdir().unwrap(); // == meta.kb_root, la que pide EXO_KB
+    let kb_otra = tempfile::tempdir().unwrap(); // la que pondría la config, en conflicto real
+    let dir = tempfile::tempdir().unwrap();
+    let db = db_con_kb_root(dir.path(), Some(kb_indexada.path()));
+    let cfg = config_con_kb(dir.path(), kb_otra.path());
+
+    let out = Command::new(bin())
+        .args(["search", "--db"])
+        .arg(&db)
+        .arg("nada-que-encontrar")
+        .env("EXO_CONFIG", &cfg)
+        .env("EXO_KB", kb_indexada.path())
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        !tiene_aviso(&err),
+        "$EXO_KB coincide con el índice y debía ganar a la config (que sí estaría en conflicto): {err}"
+    );
+}
+
+#[test]
+fn search_exo_kb_con_conflicto_gana_a_config_sin_conflicto() {
+    let kb_indexada = tempfile::tempdir().unwrap(); // == meta.kb_root, la que pondría la config
+    let kb_otra = tempfile::tempdir().unwrap(); // la que pide EXO_KB, en conflicto real
+    let dir = tempfile::tempdir().unwrap();
+    let db = db_con_kb_root(dir.path(), Some(kb_indexada.path()));
+    let cfg = config_con_kb(dir.path(), kb_indexada.path());
+
+    let out = Command::new(bin())
+        .args(["search", "--db"])
+        .arg(&db)
+        .arg("nada-que-encontrar")
+        .env("EXO_CONFIG", &cfg)
+        .env("EXO_KB", kb_otra.path())
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let err = String::from_utf8_lossy(&out.stderr);
+    let kb_indexada_abs = std::fs::canonicalize(kb_indexada.path()).unwrap();
+    let kb_otra_abs = std::fs::canonicalize(kb_otra.path()).unwrap();
+    assert!(
+        err.lines().any(|l| {
+            l.starts_with("aviso: ")
+                && l.contains(&kb_indexada_abs.display().to_string())
+                && l.contains(&kb_otra_abs.display().to_string())
+        }),
+        "$EXO_KB en conflicto debía ganar a la config (que NO estaría en conflicto) y avisar: {err}"
     );
 }

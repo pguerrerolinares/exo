@@ -513,18 +513,41 @@ fn kb_root_conflicto(conn: &Connection, kb_abs: &Path) -> Result<Option<String>>
 /// arregló esta misma rama, o una edición manual futura) respondía en
 /// silencio con los resultados de la KB equivocada, exit 0.
 ///
-/// Mismo criterio que `comprueba_kb_root` (vía `kb_root_conflicto`, sin
-/// duplicar lógica) pero NUNCA aborta: devuelve el texto del aviso para que
-/// el llamador lo mande a stderr (y, en `recall`, también a `warnings`).
-/// `kb_abs` ya viene canonicalizada por el llamador.
-pub fn aviso_kb_root_lectura(conn: &Connection, kb_abs: &Path) -> Result<Option<String>> {
-    Ok(kb_root_conflicto(conn, kb_abs)?.map(|previo| {
-        format!(
-            "estos resultados vienen del índice de otra KB: {previo} (se esperaba {}). \
-             Revisa `[index] db` en la config, $EXO_DB o --db.",
-            kb_abs.display()
-        )
-    }))
+/// **BEST-EFFORT TOTAL** (regla de diseño del review que añadió esta firma,
+/// 2026-09-13): esto corre en el hook de CADA prompt (`exo recall`), así
+/// que un fallo aquí JAMÁS puede cambiar el exit code ni los resultados
+/// reales de `search`/`recall`. Por eso NO devuelve `Result`: `kb: None`
+/// (comando sin KB resoluble, p.ej. `search --db` sin config) o cualquier
+/// fallo interno se convierten en `None` sin excepción —
+/// - `kb` no canonicaliza (no existe en disco: mismo criterio indulgente
+///   que una KB movida, `kb_root_conflicto` ya lo trata igual);
+/// - la query de `meta.kb_root` falla (DB de schema anterior a M6-04 sin
+///   tabla `meta` — «no such table: meta» — o cualquier otro error de
+///   SQLite): `kb_root_conflicto` propaga con `Context` para el camino de
+///   ESCRITURA, y aquí ese `Result` se degrada con `.ok().flatten()`.
+///
+/// Se llama SIEMPRE sobre la conexión que el llamador YA tiene abierta
+/// para su propia consulta (`busca`/`busca_vector` en `buscador.rs`,
+/// `recall_arranque`/`recall_consulta` en `recall.rs`, vía `busca_hybrid`
+/// para el arm vector): nunca abre una conexión propia. Una primera
+/// implementación sí abría la suya — medido (report de esta rama): con una
+/// DB en WAL cerrada limpiamente (sin `-wal`/`-shm`) sobre un directorio
+/// sin permiso de escritura, `SQLITE_OPEN_READ_ONLY` fallaba con «attempt
+/// to write a readonly database» (SQLite necesita crear el `-shm` para
+/// leer WAL incluso en solo lectura), y sin el `busy_timeout` que fija
+/// `abre_db` corría la misma carrera recall↔index del gate M6
+/// (`SQLITE_BUSY`). Reusar la conexión ya abierta —que YA negoció WAL y
+/// `busy_timeout`— elimina esa clase entera de fallo por construcción, no
+/// solo la enmascara; lo único que queda por degradar aquí es la query en
+/// sí (el caso `meta` ausente).
+pub fn aviso_kb_root_lectura(conn: &Connection, kb: Option<&Path>) -> Option<String> {
+    let kb_abs = std::fs::canonicalize(kb?).ok()?;
+    let previo = kb_root_conflicto(conn, &kb_abs).ok().flatten()?;
+    Some(format!(
+        "estos resultados vienen del índice de otra KB: {previo} (se esperaba {}). \
+         Revisa `[index] db` en la config, $EXO_DB o --db.",
+        kb_abs.display()
+    ))
 }
 
 fn ruta_relativa(kb: &Path, ruta_abs: &Path) -> Result<String> {

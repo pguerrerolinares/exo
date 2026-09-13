@@ -4,7 +4,7 @@ use exo::{
     buscador::{busca, busca_hybrid, busca_vector},
     envelope,
     escritor::{escribe_append, escribe_nueva},
-    indexer::{aviso_kb_root_lectura, indexa},
+    indexer::indexa,
     recall::{recall_arranque, recall_consulta, renderiza, resuelve_rutas_absolutas},
 };
 use std::path::{Path, PathBuf};
@@ -478,41 +478,6 @@ fn resuelve_kb(flag: Option<PathBuf>) -> Result<PathBuf> {
     exo::kb_desde_config()
 }
 
-/// Aviso de lectura (agravante silencioso del guard H1 de escritura,
-/// `indexer::comprueba_kb_root`): compara `meta.kb_root` de la DB YA
-/// resuelta contra la KB esperada de esta invocación, con la misma
-/// normalización canónica que usa el camino de escritura
-/// (`std::fs::canonicalize`, `indexer.rs:119`).
-///
-/// Nunca aborta el comando ni cambia el exit code: DB inexistente (el
-/// mensaje real de "DB no encontrada" lo da la búsqueda/recall en sí, no
-/// esto), KB no canonicalizable (no existe en disco: mismo criterio
-/// indulgente que una KB movida) o ausencia de conflicto real → `None`,
-/// silencioso.
-///
-/// Abre su PROPIA conexión de solo lectura, deliberadamente MÁS LIGERA que
-/// `exo::abre_db`: sin `registra_vec()` (esta lectura no toca `vectores`) ni
-/// `PRAGMA journal_mode=WAL` (ya está en WAL desde que se indexó; fijarlo de
-/// nuevo es una escritura a disco que aquí no hace falta). Medido: con
-/// `exo::abre_db` esta segunda apertura por invocación DUPLICABA la
-/// latencia de `search --type fts` (4,5 ms → 17,2 ms, media de 30 corridas,
-/// binario release) — el coste no era la query de `meta` (una fila por
-/// clave primaria), era el open completo. Con esta apertura reducida el
-/// aviso vuelve a costar lo que dice el report: un `SELECT` indexado más un
-/// `canonicalize`.
-fn kb_root_aviso(db: &Path, kb: &Path) -> Result<Option<String>> {
-    if !db.exists() {
-        return Ok(None);
-    }
-    let Ok(kb_abs) = std::fs::canonicalize(kb) else {
-        return Ok(None);
-    };
-    let conn =
-        rusqlite::Connection::open_with_flags(db, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
-            .with_context(|| format!("abrir sqlite (solo lectura) en {}", db.display()))?;
-    aviso_kb_root_lectura(&conn, &kb_abs)
-}
-
 /// Ejecuta el comando ya parseado. El flag `--json` no se extrae aquí: lo
 /// resuelve `quiere_json` en `main`, antes de llamar, porque en la rama de
 /// error el `comando` ya se ha movido dentro de esta función.
@@ -882,13 +847,6 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
     let kb = resuelve_kb(args.kb)?;
     let db = resuelve_db(args.db)?;
 
-    // Calculado una sola vez, ANTES de `--refresh`: si `--refresh` reindexa y
-    // hay un conflicto real, el guard de ESCRITURA (`comprueba_kb_root`, vía
-    // `refresca_indice` más abajo) ya aborta con su propio error — este
-    // aviso de LECTURA no llega a imprimirse en ese caso, y no hace falta
-    // que lo haga.
-    let aviso_kb_root = kb_root_aviso(&db, &kb)?;
-
     let mut refresh_s = None;
     if args.refresca {
         // El resumen va a stderr: stdout es exclusivo del envelope/bloque
@@ -909,12 +867,9 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
         if args.query.is_some() {
             anyhow::bail!("--content es del modo arranque: no se combina con --query");
         }
-        // El aviso de kb_root también va a stderr en este camino: no hay
-        // envelope/`avisos` en el modo `--content` (es texto crudo del
-        // hook), así que aquí es directo o no sale en absoluto.
-        if let Some(ref aviso) = aviso_kb_root {
-            eprintln!("aviso: {aviso}");
-        }
+        // El aviso de kb_root (si lo hay) sale por stderr desde DENTRO de
+        // `recall_arranque_contenido` — este camino no tiene envelope ni
+        // `Recall.avisos`, así que no hay nada que reenviar aquí.
         // Camino del hook: bloque de texto a stdout y fuera. No pasa por el
         // envelope ni por `aplica_cap` (trae su propio truncado por líneas).
         let bloque = exo::recall::recall_arranque_contenido(
@@ -938,6 +893,7 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
                 args.min_similitud,
                 BONUS_SELLADO,
                 ESCALA_FTS_SELLADA,
+                &kb,
             )?;
             resuelve_rutas_absolutas(&mut bruto, &kb);
             bruto
@@ -946,12 +902,6 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
 
     let mut resultado = renderiza(bruto, args.cap_bytes);
     resultado.recall.refresh_s = refresh_s;
-    // Por el mismo camino que los avisos de cobertura del arm vector
-    // (`warnings` del envelope, H2): así el hook `recall-inject.sh` lo loguea
-    // igual, sin un canal aparte para este aviso.
-    if let Some(aviso) = aviso_kb_root {
-        resultado.recall.avisos.push(aviso);
-    }
 
     // H2: los avisos van a stderr SIEMPRE, igual que en `busca_cmd`, y ANTES
     // del bail de «recall vacío»: un arm vector INERTE sin hits FTS es justo
@@ -985,21 +935,21 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
 fn busca_cmd(args: ArgsSearch) -> Result<()> {
     let db = resuelve_db(args.db)?;
 
-    // `search` no tiene `--kb` (sin flags nuevos): la KB esperada es SOLO la
-    // de la config, si la hay (contrato del brief). Sin config resoluble, no
-    // hay con qué comparar — no avisa y no falla (`kb_desde_config` en
-    // `Err` se descarta en silencio, mismo criterio que un `--db` sin
-    // config). El aviso va SOLO a stderr: el envelope de `search` es
-    // superficie sellada, no se le añaden claves nuevas.
-    if let Ok(kb) = exo::kb_desde_config()
-        && let Some(aviso) = kb_root_aviso(&db, &kb)?
-    {
-        eprintln!("aviso: {aviso}");
-    }
+    // `search` no tiene `--kb`: mismo resolvedor que el resto del binario
+    // (`resuelve_kb`, precedencia `$EXO_KB` > `[kb] path` de la config, ya
+    // que no hay flag). `.ok()`: sin KB resoluble (p.ej. `search --db` sin
+    // config) el aviso es `None` — nunca un error que tumbe `search`.
+    let kb = resuelve_kb(None).ok();
 
     let resultado = match args.r#type {
-        TipoBusqueda::Fts => busca(&db, &args.query, args.limite)?,
-        TipoBusqueda::Vector => busca_vector(&db, &args.query, args.limite, args.min_similitud)?,
+        TipoBusqueda::Fts => busca(&db, &args.query, args.limite, kb.as_deref())?,
+        TipoBusqueda::Vector => busca_vector(
+            &db,
+            &args.query,
+            args.limite,
+            args.min_similitud,
+            kb.as_deref(),
+        )?,
         TipoBusqueda::Hybrid => busca_hybrid(
             &db,
             &args.query,
@@ -1007,8 +957,16 @@ fn busca_cmd(args: ArgsSearch) -> Result<()> {
             args.min_similitud,
             args.bonus.unwrap_or(BONUS_SELLADO),
             args.escala_fts.unwrap_or(ESCALA_FTS_SELLADA),
+            kb.as_deref(),
         )?,
     };
+
+    // El aviso de kb_root es SOLO stderr, nunca el envelope: `Busqueda`
+    // trae el campo `aviso_kb_root` con `#[serde(skip)]` justo para eso —
+    // no es una clave nueva de `data`, es un canal que no se serializa.
+    if let Some(aviso) = &resultado.aviso_kb_root {
+        eprintln!("aviso: {aviso}");
+    }
 
     // Los avisos van a stderr SIEMPRE, con o sin `--json`: nunca contaminan el
     // envelope de stdout, y quien mira la terminal ve la degradación sin

@@ -170,7 +170,8 @@ fn recall_consulta_devuelve_score_y_snippet_no_nulos() {
     common::con_config(kb.path(), "kb-test", &db, || {
         indexa(kb.path(), &db).unwrap();
 
-        let mut bruto = recall_consulta(&db, "contenido nuevo", 5, Some(0.0), 0.0, 0.6).unwrap();
+        let mut bruto =
+            recall_consulta(&db, "contenido nuevo", 5, Some(0.0), 0.0, 0.6, kb.path()).unwrap();
         assert_eq!(bruto.modo, "consulta");
         assert_eq!(bruto.query.as_deref(), Some("contenido nuevo"));
         assert!(!bruto.notas.is_empty(), "esperaba al menos un resultado");
@@ -206,10 +207,11 @@ fn recall_consulta_sin_hits_da_notas_vacias_no_error() {
             Some(1.5),
             0.0,
             0.6,
+            kb.path(),
         )
         .unwrap();
         assert!(bruto.notas.is_empty(), "{:?}", bruto.notas);
-        let _ = &kb; // la ausencia de hits no es error a este nivel; el CLI decide exit 1
+        // la ausencia de hits no es error a este nivel; el CLI decide exit 1
     });
 }
 
@@ -247,7 +249,7 @@ fn recall_consulta_propaga_los_avisos_y_el_tiempo_de_la_busqueda() {
         indexa(kb.path(), &db).unwrap();
         vacia_vectores(&db);
 
-        let bruto = recall_consulta(&db, "contenido", 5, Some(0.0), 0.0, 0.6).unwrap();
+        let bruto = recall_consulta(&db, "contenido", 5, Some(0.0), 0.0, 0.6, kb.path()).unwrap();
         assert!(
             !bruto.notas.is_empty(),
             "precondición: FTS encuentra 'contenido'"

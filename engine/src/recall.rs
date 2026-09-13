@@ -220,6 +220,10 @@ pub fn recall_arranque(db_ruta: &Path, kb: &Path, limite: usize) -> Result<Recal
         anyhow::bail!("DB no encontrada: {}", db_ruta.display());
     }
     let conn = abre_db(db_ruta)?;
+    // Aviso de kb_root (H1 en lectura), sobre la conexión que ya está
+    // abierta: best-effort total, nunca puede tumbar el arranque (ver
+    // `indexer::aviso_kb_root_lectura`).
+    let aviso_kb_root = crate::indexer::aviso_kb_root_lectura(&conn, Some(kb));
 
     struct Fila {
         permalink: String,
@@ -295,7 +299,7 @@ pub fn recall_arranque(db_ruta: &Path, kb: &Path, limite: usize) -> Result<Recal
         modo: "arranque".to_string(),
         query: None,
         notas,
-        avisos: Vec::new(),
+        avisos: aviso_kb_root.into_iter().collect(),
         elapsed_s: None,
     })
 }
@@ -335,6 +339,13 @@ pub fn recall_arranque_contenido(
     nota: Option<&str>,
 ) -> Result<String> {
     let bruto = recall_arranque(db_ruta, kb, limite)?;
+    // Este camino (`--content`, el del hook) no pasa por el envelope ni por
+    // `aplica_cap`/`Recall.avisos` — devuelve un bloque de texto crudo, no
+    // una struct — así que sus avisos (hoy: solo kb_root) van directo a
+    // stderr aquí, la única vez que se tienen a mano.
+    for aviso in &bruto.avisos {
+        eprintln!("aviso: {aviso}");
+    }
 
     // Una nota pedida por permalink se busca en TODO el índice, no solo
     // entre las que `recall_arranque` seleccionó: si no, solo se podrían
@@ -509,16 +520,30 @@ pub fn recall_consulta(
     min_similitud: Option<f64>,
     bonus: f64,
     escala_fts: f64,
+    kb: &Path,
 ) -> Result<RecallBruto> {
     if !db_ruta.exists() {
         anyhow::bail!("DB no encontrada: {}", db_ruta.display());
     }
 
-    let resultado =
-        crate::buscador::busca_hybrid(db_ruta, query, limite, min_similitud, bonus, escala_fts)?;
+    let resultado = crate::buscador::busca_hybrid(
+        db_ruta,
+        query,
+        limite,
+        min_similitud,
+        bonus,
+        escala_fts,
+        Some(kb),
+    )?;
 
     // H2: los avisos y el tiempo se rescatan ANTES de consumir `results`.
-    let avisos = resultado.avisos;
+    // El aviso de kb_root (H1 en lectura) sale por el MISMO canal que los
+    // demás avisos de `recall` — ya calculado por `busca_hybrid` sobre la
+    // conexión que ya tenía abierta, aquí solo se anexa.
+    let mut avisos = resultado.avisos;
+    if let Some(aviso) = resultado.aviso_kb_root {
+        avisos.push(aviso);
+    }
     let elapsed_s = Some(resultado.elapsed_s);
 
     let conn = abre_db(db_ruta)?;

@@ -108,10 +108,15 @@ fn las_claves_de_search_estan_en_ingles() {
             ruta: Some("x.md".into()),
         }],
         avisos: vec!["algo".into()],
+        aviso_kb_root: Some("otra kb".into()),
     };
     let v = serde_json::to_value(&b).expect("serializar");
     assert!(v.get("warnings").is_some(), "falta `warnings`: {v}");
     assert!(v.get("avisos").is_none(), "sobrevive `avisos`");
+    assert!(
+        v.as_object().unwrap().len() == 5,
+        "aviso_kb_root no debe aparecer como clave en el envelope de search: {v}"
+    );
     assert!(
         v["results"][0].get("path").is_some(),
         "falta `path` en el resultado"
