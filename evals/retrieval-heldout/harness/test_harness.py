@@ -133,5 +133,37 @@ class TestCargaYFidelidad(unittest.TestCase):
         self.assertEqual(m.rankings(cap, "fts"), {"c1": [], "c2": ["a"]})
 
 
+import pool as pl  # noqa: E402
+
+
+class TestPool(unittest.TestCase):
+    def test_normaliza(self):
+        self.assertEqual(pl.normaliza("  Fábrica   Campaña "), "fabrica campana")
+
+    def test_jaccard(self):
+        self.assertEqual(pl.jaccard("a b c", "a b c"), 1.0)
+        self.assertEqual(pl.jaccard("a b", "c d"), 0.0)
+
+    def test_query_de_comando(self):
+        self.assertEqual(pl.query_de_comando('exo search --db ~/.exo/index.db --type hybrid --json "fabrica campaña"'), "fabrica campaña")
+        self.assertEqual(pl.query_de_comando('cd /home/paul && ~/.local/bin/exo search --db x --limite 4 --json "memoria v2" | jq .'), "memoria v2")
+        self.assertEqual(pl.query_de_comando("kbx targets memoria --json"), "memoria")
+        self.assertIsNone(pl.query_de_comando("cargo test --release"))
+
+    def test_filtra(self):
+        in55 = [pl.normaliza("fabrica campaña")]
+        cands = [
+            {"query": "Fabrica  campaña", "source": "agent-search", "session_id": "s", "ts": "2026-08-01T00:00:00Z"},
+            {"query": "-revisa esto", "source": "prompt", "session_id": "s", "ts": "2026-08-23T00:00:00Z"},
+            {"query": "x" * 1501, "source": "prompt", "session_id": "s", "ts": "2026-08-23T00:00:00Z"},
+            {"query": "memoria v2 contrato", "source": "agent-search", "session_id": "s", "ts": "2026-09-13T08:00:00Z"},
+            {"query": "memoria v2 contrato", "source": "agent-search", "session_id": "s", "ts": "2026-08-02T00:00:00Z"},
+            {"query": "Memoria v2  contrato", "source": "agent-search", "session_id": "t", "ts": "2026-08-03T00:00:00Z"},
+        ]
+        pool_, desc = pl.filtra(cands, in55)
+        self.assertEqual([c["query"] for c in pool_], ["memoria v2 contrato"])
+        self.assertEqual(desc, {"vacia": 0, "guion": 1, "larga": 1, "fuera-de-ventana": 1, "dup-55": 1, "dup-pool": 1})
+
+
 if __name__ == "__main__":
     unittest.main()
