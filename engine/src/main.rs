@@ -489,6 +489,17 @@ fn resuelve_kb(flag: Option<PathBuf>) -> Result<PathBuf> {
 /// esto), KB no canonicalizable (no existe en disco: mismo criterio
 /// indulgente que una KB movida) o ausencia de conflicto real → `None`,
 /// silencioso.
+///
+/// Abre su PROPIA conexión de solo lectura, deliberadamente MÁS LIGERA que
+/// `exo::abre_db`: sin `registra_vec()` (esta lectura no toca `vectores`) ni
+/// `PRAGMA journal_mode=WAL` (ya está en WAL desde que se indexó; fijarlo de
+/// nuevo es una escritura a disco que aquí no hace falta). Medido: con
+/// `exo::abre_db` esta segunda apertura por invocación DUPLICABA la
+/// latencia de `search --type fts` (4,5 ms → 17,2 ms, media de 30 corridas,
+/// binario release) — el coste no era la query de `meta` (una fila por
+/// clave primaria), era el open completo. Con esta apertura reducida el
+/// aviso vuelve a costar lo que dice el report: un `SELECT` indexado más un
+/// `canonicalize`.
 fn kb_root_aviso(db: &Path, kb: &Path) -> Result<Option<String>> {
     if !db.exists() {
         return Ok(None);
@@ -496,7 +507,9 @@ fn kb_root_aviso(db: &Path, kb: &Path) -> Result<Option<String>> {
     let Ok(kb_abs) = std::fs::canonicalize(kb) else {
         return Ok(None);
     };
-    let conn = exo::abre_db(db)?;
+    let conn =
+        rusqlite::Connection::open_with_flags(db, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .with_context(|| format!("abrir sqlite (solo lectura) en {}", db.display()))?;
     aviso_kb_root_lectura(&conn, &kb_abs)
 }
 
