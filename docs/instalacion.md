@@ -105,9 +105,37 @@ de config) ya tiene guardada la ruta de otra KB en disco, `exo init` (y
 error: este índice es de otra KB que sigue en disco: <ruta previa> (pediste <ruta nueva>). Una DB sirve a UNA KB: usa otra --db para esta, o `exo rebuild --kb <kb> --db <esta db>` si de verdad quieres reemplazar el índice
 ```
 
-Una segunda KB en la misma máquina necesita su propio fichero de índice,
-p.ej. `EXO_DB=~/.exo/otra-kb.db exo init --kb ~/otra-kb --name otra-kb`
-(`exo init` no tiene flag `--db`; usa la variable de entorno).
+Una segunda KB en la misma máquina necesita, además, su propio fichero de
+**config** — `exo init` no tiene flag `--db`, y aunque `$EXO_DB` decide qué
+índice indexa este `init`, **`escribe_config` siempre graba `[index] db =
+~/.exo/index.db`** (el default; ver `engine/src/main.rs`, `db_default` en
+`init_cmd`), nunca la ruta de `$EXO_DB` (`engine/src/inicia.rs`,
+`escribe_config`). Con una sola config, la segunda KB pisaría la primera
+(`--force`) y su `[index] db` seguiría apuntando al índice de la primera:
+
+```bash
+# 1. Config Y db propios para la segunda KB.
+EXO_CONFIG=~/.exo/otra-kb.toml EXO_DB=~/.exo/otra-kb.db \
+  exo init --kb ~/otra-kb --name otra-kb
+
+# 2. `[index] db` de otra-kb.toml salió con el default (~/.exo/index.db,
+#    el de la PRIMERA KB), no con $EXO_DB: corrígelo a mano una vez.
+#    (deuda: docs/backlog.md, "exo init no respeta $EXO_DB al escribir
+#    [index] db")
+#    (sin `sed -i`: no se escribe igual en GNU y en el sed BSD de macOS)
+sed 's#^db = .*#db = "'"$HOME"'/.exo/otra-kb.db"#' ~/.exo/otra-kb.toml > ~/.exo/otra-kb.toml.tmp \
+  && mv ~/.exo/otra-kb.toml.tmp ~/.exo/otra-kb.toml
+
+# 3. De aquí en adelante, EXO_CONFIG basta — ya no hace falta EXO_DB.
+EXO_CONFIG=~/.exo/otra-kb.toml exo search "…"
+EXO_CONFIG=~/.exo/otra-kb.toml exo index
+```
+
+Sin el paso 2, `EXO_CONFIG=~/.exo/otra-kb.toml exo search …` sale 0 pero
+busca en el índice de la PRIMERA KB (silencioso: no hay error, la respuesta
+simplemente es de la KB equivocada) — verificado el 2026-09-13 en un `HOME`
+aislado. Una config sirve a una KB; para varias, una config (y, hasta que
+se arregle la deuda de arriba, un `[index] db` corregido a mano) por KB.
 
 La primera indexación descarga el modelo de embeddings
 (`jinaai/jina-embeddings-v2-base-es`, ~0,6 GB, pineado a una revisión

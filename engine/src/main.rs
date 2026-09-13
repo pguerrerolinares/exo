@@ -71,8 +71,12 @@ enum Comando {
     /// hallazgos.
     Lint(ArgsLint),
     /// Comprueba que ningún techo de tamaño declarado suba respecto al último
-    /// commit. Imprime el informe entero y sale con 3 si alguno sube; sin
-    /// historia de git se abstiene y sale con 0.
+    /// commit. Imprime el informe entero y sale con 3 si algún hallazgo
+    /// rompe el trinquete (un techo que sube o se retira, un sobre-sello,
+    /// una primera declaración muy alta, una nota sellada que se escapa de
+    /// su tier, o una nota nueva sin aire o que nace demasiado grande); las
+    /// deudas informativas no lo rompen. Sin historia de git se abstiene y
+    /// sale con 0.
     Ratchet(ArgsRatchet),
     /// Diagnostica esta máquina (binario, config, KB, índice, modelo de
     /// embeddings y dependencias de los hooks). Cada check dice qué artefacto

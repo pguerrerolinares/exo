@@ -4,7 +4,8 @@
 //! Tres invariantes, cada uno falsable contra el binario real:
 //! 1. toda opción lleva descripción (un `--json` en blanco no dice nada);
 //! 2. el metavar de un flag es el nombre del flag en MAYÚSCULAS (`--limit
-//!    <LIMIT>`): los flags largos son ingleses desde la 1.0 y un `<LIMITE>` heredado del
+//!    <LIMIT>`): los flags largos del engine son ingleses desde su primera
+//!    versión (0.1.0, la única que ha tenido) y un `<LIMITE>` heredado del
 //!    nombre del campo mezcla idiomas en la misma línea;
 //! 3. ninguna pantalla lleva jerga interna de campaña (hitos, specs, scripts
 //!    del autor, símbolos de Rust) (`la_ayuda_no_lleva_jerga_interna`).
