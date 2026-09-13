@@ -61,11 +61,12 @@ fi
 # Caso 4: navegar a la app local calla y NO consume el sentinel.
 OUT4="$(corre c4 mcp__plugin_playwright_playwright__browser_navigate '{"url":"http://localhost:3000/login"}')"
 OUT4B="$(corre c4 mcp__claude-in-chrome__navigate '{"url":"http://127.0.0.1:8080"}')"
+OUT4D="$(corre c4 mcp__claude-in-chrome__navigate '{"url":"https://0.0.0.0:8443"}')"
 OUT4C="$(corre c4 WebFetch '{"url":"https://docs.rs/clap"}')"
-if [ -z "$OUT4" ] && [ -z "$OUT4B" ] && avisa "$OUT4C"; then
-  pass "caso4: localhost/127.0.0.1 calla sin gastar el aviso"
+if [ -z "$OUT4" ] && [ -z "$OUT4B" ] && [ -z "$OUT4D" ] && avisa "$OUT4C"; then
+  pass "caso4: localhost/127.0.0.1/0.0.0.0 calla sin gastar el aviso"
 else
-  fail "caso4: localhost/127.0.0.1 calla sin gastar el aviso" "out4=$OUT4 out4b=$OUT4B out4c=$OUT4C"
+  fail "caso4: localhost/127.0.0.1/0.0.0.0 calla sin gastar el aviso" "out4=$OUT4 out4b=$OUT4B out4d=$OUT4D out4c=$OUT4C"
 fi
 
 # Caso 5: el matcher de hooks.json. Claude Code lo evalúa como regex JS sin

@@ -35,7 +35,7 @@ URL="$(printf '%s' "$INPUT" | jq -r '.tool_input.url // empty' 2>/dev/null)" || 
 case "$URL" in
   http://localhost|http://localhost[:/]*|https://localhost|https://localhost[:/]*) exit 0 ;;
   http://127.0.0.1|http://127.0.0.1[:/]*|https://127.0.0.1|https://127.0.0.1[:/]*) exit 0 ;;
-  http://\[::1\]*|https://\[::1\]*|http://0.0.0.0*|file:*) exit 0 ;;
+  http://\[::1\]*|https://\[::1\]*|http://0.0.0.0*|https://0.0.0.0*|file:*) exit 0 ;;
 esac
 
 SENTINEL="/tmp/claude-clean-orch-${SESSION_ID:-nosession}"
