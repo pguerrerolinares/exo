@@ -25,6 +25,9 @@ fn las_claves_de_recall_estan_en_ingles() {
             score: None,
             snippet: None,
         }],
+        elapsed_s: Some(0.5),
+        refresh_s: None,
+        avisos: vec!["arm vector INERTE".into()],
     };
     let v = serde_json::to_value(&r).expect("serializar");
     let obj = v.as_object().expect("objeto");
@@ -49,6 +52,10 @@ fn las_claves_de_recall_estan_en_ingles() {
     assert_eq!(v["mode"], "arranque");
     assert_eq!(v["truncated"], false);
     assert_eq!(v["cap_bytes"], 2048);
+    assert_eq!(v["elapsed_s"], 0.5);
+    assert!(v["refresh_s"].is_null());
+    assert_eq!(v["warnings"][0], "arm vector INERTE");
+    assert!(v.get("avisos").is_none(), "sobrevive `avisos`");
 }
 
 #[test]

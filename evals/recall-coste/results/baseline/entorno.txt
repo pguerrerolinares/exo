@@ -1,0 +1,11 @@
+etiqueta baseline
+fecha 2026-09-13T11:44:14+02:00
+commit bb1e8a8a54d9bcaf0f1c49dd73c10b6934d6f66f
+src_y_scripts_vs_3c1918f vacio
+exo exo 0.1.0
+Linux paul-vostro-15-3530 7.0.0-31-generic #31~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Mon Aug 10 09:38:02 UTC 2 x86_64 x86_64 x86_64 GNU/Linux
+nproc 12
+uptime  11:44:14 up 12:36,  1 user,  load average: 0,37, 1,35, 2,17
+hyperfine 1.20.0
+jq-1.7
+git version 2.43.0

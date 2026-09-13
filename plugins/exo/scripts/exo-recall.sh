@@ -108,8 +108,12 @@ SID="$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)" || SID=
 
 if [ "$SOURCE" = "compact" ] && [ -n "$SID" ] && [ -f "$HOME/.claude/reflex-log.jsonl" ]; then
   . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && reflex_log "compact" "$INPUT" "compact" || true
-  FIRED="$(jq -r --arg sid "$SID" 'select(.session_id==$sid) | .reflex' \
-            "$HOME/.claude/reflex-log.jsonl" 2>/dev/null | sort -u)"
+  # H5: el log crece sin cota (~11 KB/día medidos el 2026-09-13) y esto corre
+  # en cada compactación. Los disparos de ESTA sesión están en la cola: 2.000
+  # líneas son ~74 días al ritmo actual. No se rota nada, porque el análisis
+  # (a1-gate, reflex-baseline, reflex-fp-review) necesita la historia entera.
+  FIRED="$(tail -n "${EXO_RECALL_COMPACT_LINEAS:-2000}" "$HOME/.claude/reflex-log.jsonl" 2>/dev/null \
+            | jq -r --arg sid "$SID" 'select(.session_id==$sid) | .reflex' 2>/dev/null | sort -u)"
   if [ -n "$FIRED" ]; then
     PIN=""
     for id in $FIRED; do

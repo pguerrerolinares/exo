@@ -146,8 +146,18 @@ SALIDA="$(con_timeout "$EXO_INJECT_TIMEOUT" "$EXO_BIN" recall \
             --refresh --json 2>"${ERR_TMP:-/dev/null}")"
 RC=$?
 
+# Desde la campaña A (H2) el engine escribe `aviso: …` en stderr también
+# cuando sale con 1. Se separan: el distinguidor de P2 («recall vacío» frente a
+# engine roto) mira solo lo que NO es aviso, así un aviso largo ya no lo empuja
+# fuera de los 300 bytes. Solo se parsea con rc≠0: el camino común no paga
+# estos spawns.
 ERR=""
-[ -n "$ERR_TMP" ] && ERR="$(head -c 300 "$ERR_TMP" 2>/dev/null)"; rm -f "$ERR_TMP"
+AVISOS_ERR=""
+if [ "$RC" -ne 0 ] && [ "$RC" -ne 124 ] && [ -n "$ERR_TMP" ]; then
+  ERR="$(grep -v '^aviso: ' "$ERR_TMP" 2>/dev/null | head -c 300)"
+  AVISOS_ERR="$(grep '^aviso: ' "$ERR_TMP" 2>/dev/null | tr '\n' ' ' | cut -c1-160)"
+fi
+[ -n "$ERR_TMP" ] && rm -f "$ERR_TMP"
 
 if [ "$RC" -eq 124 ]; then
   # `con_timeout` usa 124, como `timeout`. Que el guard sea nuestro y no del harness es lo que hace
@@ -166,8 +176,8 @@ if [ "$RC" -ne 0 ]; then
   # `empty` para siempre — con forma de abstención correcta, que es la peor
   # forma de romperse.
   case "$ERR" in
-    *"recall vacío"*) log_ri "degraded" "reason=empty" ;;
-    *) log_ri "degraded" "reason=error rc=$RC err=$(printf '%s' "$ERR" | tr -d '\n' | cut -c1-120)" ;;
+    *"recall vacío"*) log_ri "degraded" "reason=empty${AVISOS_ERR:+ warn=$AVISOS_ERR}" ;;
+    *) log_ri "degraded" "reason=error rc=$RC err=$(printf '%s' "$ERR" | tr -d '\n' | cut -c1-120)${AVISOS_ERR:+ warn=$AVISOS_ERR}" ;;
   esac
   exit 0
 fi
@@ -183,12 +193,24 @@ if ! printf '%s' "$SALIDA" | jq -e 'has("data") and (.data | has("notes"))' >/de
   exit 0
 fi
 
-# Si el engine recortó su propia respuesta (cap de fetch, arriba), el hit de
-# repuesto puede haber desaparecido y saldrían menos punteros sin que nadie
-# pudiera saberlo. No es un fallo del hook, así que no degrada nada: solo deja
-# rastro para poder correlacionarlo si alguna vez se ve un bloque corto.
-if [ "$(printf '%s' "$SALIDA" | jq -r '.data.truncated // false' 2>/dev/null)" = "true" ]; then
+# Metadatos del envelope en UNA pasada de jq (H2/H3): cada spawn cuesta decenas
+# de ms en Git Bash. Si el engine recortó su propia respuesta (cap de fetch), el
+# hit de repuesto puede haber desaparecido: no degrada nada, pero deja rastro.
+# `@tsv` con los avisos AL FINAL, porque `read` colapsa un campo vacío en medio
+# (el tab es whitespace de IFS).
+META="$(printf '%s' "$SALIDA" | jq -r '[ (.data.truncated // false | tostring),
+    ((.data.elapsed_s // 0) * 1000 | floor | tostring),
+    ((.data.refresh_s // 0) * 1000 | floor | tostring),
+    ((.data.warnings // []) | join(" | ")) ] | @tsv' 2>/dev/null)" || META=""
+TRUNCADO=""; ELAPSED_MS=""; REFRESH_MS=""; AVISOS=""
+[ -n "$META" ] && IFS=$'\t' read -r TRUNCADO ELAPSED_MS REFRESH_MS AVISOS <<< "$META"
+if [ "$TRUNCADO" = "true" ]; then
   log_ri "degraded" "reason=fetch-truncado"
+fi
+if [ -n "$AVISOS" ]; then
+  # Degradación de la búsqueda (arm vector INERTE/PARCIAL): el bloque se sirve
+  # igual, pero ya no en silencio.
+  log_ri "degraded" "reason=engine-warning w=$(printf '%s' "$AVISOS" | cut -c1-160)"
 fi
 
 # --- Composición del bloque --------------------------------------------------
@@ -336,7 +358,9 @@ if [ -z "$JSON_OUT" ]; then
   exit 0
 fi
 
-log_ri "emitted" "n_hits=$N bytes=$BYTES permalinks=$PERMALINKS"
+# Los tiempos van ANTES de permalinks: `_reflex-log.sh` corta el payload a
+# 2000 chars y la lista de permalinks es lo único que puede crecer.
+log_ri "emitted" "n_hits=$N bytes=$BYTES elapsed_ms=${ELAPSED_MS:-?} refresh_ms=${REFRESH_MS:-?} permalinks=$PERMALINKS"
 
 # ÚNICA escritura a stdout del script entero (P6).
 printf '%s' "$JSON_OUT"

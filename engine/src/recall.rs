@@ -57,6 +57,17 @@ pub struct Recall {
     pub truncado: bool,
     #[serde(rename = "notes")]
     pub notas: Vec<NotaRecall>,
+    /// Segundos de la búsqueda hybrid (`Busqueda::elapsed_s`, carga del
+    /// modelo incluida). `None` en modo arranque. Aditivo (H2): no sube
+    /// `SCHEMA_VERSION`.
+    pub elapsed_s: Option<f64>,
+    /// Segundos del refresco previo (`--refresh`), `None` sin él. Lo rellena
+    /// `main.rs::recall_cmd`, que es quien refresca. Aditivo (H3).
+    pub refresh_s: Option<f64>,
+    /// Degradaciones de la búsqueda (hoy: cobertura del arm vector), las
+    /// mismas que `exo search` ya publica. Omitido si está vacío (H2).
+    #[serde(rename = "warnings", skip_serializing_if = "Vec::is_empty")]
+    pub avisos: Vec<String>,
 }
 
 /// Resultado crudo de un modo (arranque o consulta), ANTES de aplicar el
@@ -66,6 +77,8 @@ pub struct RecallBruto {
     pub modo: String,
     pub query: Option<String>,
     pub notas: Vec<NotaRecall>,
+    pub avisos: Vec<String>,
+    pub elapsed_s: Option<f64>,
 }
 
 const CABECERA: &str = "=== Recall exo (PARCIAL — no sustituye tu brief) ===";
@@ -178,14 +191,21 @@ fn aplica_cap(
             cap_bytes,
             truncado,
             notas: notas_finales,
+            elapsed_s: None,
+            refresh_s: None,
+            avisos: Vec::new(),
         },
         lineas_perdidas,
     }
 }
 
-/// Punto de entrada único: renderiza un `RecallBruto` aplicando el cap.
+/// Punto de entrada único: renderiza un `RecallBruto` aplicando el cap. Los
+/// avisos y el tiempo no dependen del cap: pasan tal cual.
 pub fn renderiza(bruto: RecallBruto, cap_bytes: usize) -> ResultadoCap {
-    aplica_cap(&bruto.modo, bruto.query, bruto.notas, cap_bytes)
+    let mut r = aplica_cap(&bruto.modo, bruto.query, bruto.notas, cap_bytes);
+    r.recall.elapsed_s = bruto.elapsed_s;
+    r.recall.avisos = bruto.avisos;
+    r
 }
 
 /// Modo arranque (brief §Tarea 2): notas `tier: core` (frontmatter, releído
@@ -275,6 +295,8 @@ pub fn recall_arranque(db_ruta: &Path, kb: &Path, limite: usize) -> Result<Recal
         modo: "arranque".to_string(),
         query: None,
         notas,
+        avisos: Vec::new(),
+        elapsed_s: None,
     })
 }
 
@@ -495,6 +517,10 @@ pub fn recall_consulta(
     let resultado =
         crate::buscador::busca_hybrid(db_ruta, query, limite, min_similitud, bonus, escala_fts)?;
 
+    // H2: los avisos y el tiempo se rescatan ANTES de consumir `results`.
+    let avisos = resultado.avisos;
+    let elapsed_s = Some(resultado.elapsed_s);
+
     let conn = abre_db(db_ruta)?;
     let mut notas = Vec::with_capacity(resultado.results.len());
     for r in resultado.results {
@@ -517,6 +543,8 @@ pub fn recall_consulta(
         modo: "consulta".to_string(),
         query: Some(query.to_string()),
         notas,
+        avisos,
+        elapsed_s,
     })
 }
 

@@ -1,0 +1,11 @@
+etiqueta despues
+fecha 2026-09-13T13:13:47+02:00
+commit 41e01bfde29176748a5df328f67651ce3b8f6e7c
+src_y_scripts_vs_3c1918f CAMBIOS
+exo exo 0.1.0
+Linux paul-vostro-15-3530 7.0.0-31-generic #31~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Mon Aug 10 09:38:02 UTC 2 x86_64 x86_64 x86_64 GNU/Linux
+nproc 12
+uptime  13:13:47 up 14:05,  1 user,  load average: 0,81, 6,83, 5,90
+hyperfine 1.20.0
+jq-1.7
+git version 2.43.0

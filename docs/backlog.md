@@ -91,6 +91,7 @@
 | **Medido** | engine-hybrid **48/55** hit@5 vs bm-hybrid 39/55, mismo día, paridad de corpus ∅, recall <2s (`evals/e1-read/verdict/m2-09-corrida.md`) |
 | **Tests** | 111 verdes / 0 rojos en la rama de M4, 98 en main previo (contados por el consultor del gate en esa ola; el CI que los corre solo llegó después, en G5a — 200 tests / 28 binarios). **El 2026-09-11: 434 tests verdes en 44 binarios, 2 ignorados** (`README.md:46`), ver `## Cerrado con evidencia` |
 | **Release** | `v0.1.0` publicada el **2026-09-11** — tres binarios y sus tres `.sha256`, instalables por `install.sh` / `install.ps1`. Ver `## Cerrado con evidencia` |
+| **Campaña A** | ejecutada el **2026-09-13** salvo Tasks 12 y 15 (esperan la medición W11 de Paul) — rama `campana-a`, sin PR aún; veredicto en `evals/recall-coste/verdict/2026-09-campana-a.md` |
 
 ---
 
@@ -133,6 +134,8 @@
   `docs/HONEST-NUMBERS.md:31-37` publica los casos de **pérdida neta** con
   cifras (4,3M tokens con la herramienta vs 1M sin). Lo que se copia es
   reportar la fila en rojo, no el número.
+  **Planificado en campaña C (H7):** el held-out fuera de muestra ya tiene
+  pre-registro — `docs/superpowers/plans/2026-09-13-campana-c-preregistro.md`.
 
 - [ ] **(revisión 2026-09-04) La documentación de referencia contradice el
   repo el mismo día en que se escribió.** Medido el 2026-09-04:
@@ -173,6 +176,9 @@
   aparte del engine); (c) añadir al `verify` de cierre un grep de las
   afirmaciones de estado más frágiles («Sin CI», recuento de tests,
   versiones) contra el árbol real, **acotado a los cuatro ficheros `core`**.
+  **Planificado en campaña B (H16):** gate de versiones en CI (`plugin.json`
+  == `marketplace.json`, tag == `Cargo.toml`) —
+  `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md`.
 
 - [ ] **(revisión 2026-09-04) «exo genérico» sigue siendo el plugin de Paul
   para Paul.** Medido el 2026-09-04 sobre `plugins/exo/`: la cadena `Paul`
@@ -403,6 +409,8 @@
   **Acción:** columna `tier` en `notas` (+ bump de `meta` para que `verifica_
   modelo`/una guarda equivalente exija `exo rebuild` a los índices viejos) y
   `recall_arranque` filtrando en SQL. Borrar `tier_de` y su relectura.
+  **(campaña A, 2026-09-13):** puerta C-H17a cerrada: s4 n5000 p95 = 47 ms ≤
+  250; no se toca. Veredicto: evals/recall-coste/verdict/2026-09-campana-a.md.
 
 - [ ] **(revisión 2026-09-04) Techos de escala declarados, sin camino ni
   medición.** Cuatro decisiones del engine son O(N) por operación y están
@@ -419,6 +427,18 @@
   Con los números, o se documenta el techo soportado en `arquitectura.md`
   o se abre la campaña (índice particionado en vec0, `git log` en batch,
   una conexión por comando).
+  **(campaña A, 2026-09-13):** medido con KB sintética de 174/1000/5000 notas
+  (evals/recall-coste/). Encontrado y arreglado un techo DURO no listado: KNN
+  de vec0 limitado a k=4096 (H27). Números y derivaciones en el veredicto.
+  **H27 cerrado por PR #11** (`fix-knn-tope-vec0`, mergeado 2026-09-13,
+  `f2207e2`): barrido SQL manual con `vec_distance_l2` cuando el KNN pide más
+  de 4096. Efecto secundario medido: el barrido cuesta ≈0,09 ms/vector — a
+  5.000 notas (`s2-query-n5000`) el p50 sube de 980 a 10.828 ms y deja el
+  hook en timeout. Hotfix en curso (rama `fix-knn-k-por-consulta`, PR
+  pendiente): fijar el k del KNN al de la consulta en vez de `k = COUNT(*)`,
+  con el Threshold Algorithm de Fagin et al. (2003) — exacto, no aproximado.
+  Prototipo a 5.000 notas: 10.179 → 1.106 ms. No hace falta ANN hasta
+  ~500k trozos (Aumüller et al., ANN-Benchmarks, 2020).
 
 - [ ] **(revisión 2026-09-04) El coste del hook completo en Windows no está
   medido; solo el del binario.** `plugins/exo/hooks/hooks.json` cablea
@@ -438,6 +458,9 @@
   publicar la cifra en `plugins/exo/README.md`. Si el `PreToolUse:Bash`
   triple supera ~200 ms, fusionar los tres scripts en uno con un único
   parseo del JSON de entrada.
+  **(campaña A, 2026-09-13):** Linux: s6 hook entero n174 p50 = 1079 ms, s7
+  config+jq = 4 ms. W11: pendiente (D5). El término dominante es la carga del
+  modelo (≈0,95 s de ≈1 s), no el shell.
 
 - [ ] **(revisión 2026-09-04 · CADUCADO A MEDIAS el 2026-09-09) El repo no
   le dice al toolchain local qué versión usar: falta `rust-toolchain.toml`.**
@@ -494,6 +517,8 @@
   job de CI, 35.892 no. Cruza con «Decisión abierta: proceso frente a
   producto» (Baja), cuya evidencia —el ratio docs/código— este item
   reemplaza.
+  **Planificado en campaña B (H18):**
+  `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md`.
 
 - [ ] **`#[allow(clippy::too_many_arguments)]` en `escritor.rs` — la struct de
   parámetros que no se hizo aquí.** `escribe_nueva` toma 8 parámetros contra
@@ -805,7 +830,96 @@
   usados, que los mantiene fuera del prefijo cacheado y solo entran cuando el
   modelo los busca.
 
+- [ ] **(NUEVO, 2026-09-13) Proceso residente para el coste fijo del recall
+  por prompt — decisión de Paul: al backlog, no se hace ahora.** Medido por
+  el consultor: de los ~950 ms de `exo recall --query`, ~910 ms son carga
+  del modelo (`fs::read` de `model.onnx`, 641 MB, ≈190 ms + sesión ORT con
+  tokenizer ≈720 ms); el arranque del proceso son 3,5 ms y el embed de la
+  query 18 ms — el coste fijo es casi todo el presupuesto.
+  Prototipo de proceso caliente (`caliente.rs`): 27-31 ms por prompt sobre la
+  KB real, 112 ms a 95k trozos.
+  Diseño pendiente de brainstorming con Paul: transporte (TCP en localhost /
+  socket unix / named pipe en Windows), ciclo de vida (spawn perezoso,
+  muerte por inactividad ~20 min, precalentado desde el hook de arranque),
+  check de versión binario/índice, fallback del hook si el proceso no
+  responde, ~1 GB de RSS residente.
+  Alternativa sin daemon: pesos externos + `commit_from_file` en ORT
+  (~400 ms, mismos scores que hoy).
+  Descartado sin eval propio: `model_quantized.onnx` int8 (~360 ms, pero el
+  top-4 solo solapa 2-4 de 4 con el fp32 actual → cambia retrieval, exige
+  campaña C + reindex antes de adoptarlo).
+  Descartados por medida (sin ganancia): más threads intra-op, optimización
+  de grafo, cachear el embedding de la query, embed en paralelo al arranque.
+  Criterio de reapertura ya implementado:
+  `plugins/exo/scripts/recall-latencia.sh` (campaña A, Task 13, D4).
+
+- [ ] **(NUEVO, H28, para campaña C) La `distance` de vec0 es L2, no L2²; el
+  umbral 0,40 del hook equivale a coseno 0,28.** Medido por el consultor
+  sobre la KB real: los embeddings están normalizados (norma 1,000000) y
+  `similitud_desde_l2_cuadrado` (`engine/src/buscador.rs` ~:226) calcula
+  `1 − sqrt(2−2cos)/2` — monótona en coseno, así que el ranking no cambia —
+  pero interpreta la `distance` de vec0 como L2² cuando en realidad es L2
+  (`sqlite-vec.c:224/263`). El umbral 0,40 del hook equivale a coseno 0,28, y
+  β de la fusión híbrida está calibrado sobre esa escala desplazada.
+  **Acción:** arreglarlo cambia qué trozos entran o no en el umbral — pasa
+  por el held-out de la campaña C (H7) antes de tocarlo, no se corrige suelto.
+
+- [ ] **(NUEVO, N1, para campaña C) Con un prompt natural, FTS5 hace AND de
+  todos los tokens y da 0 candidatos: `exo recall --query` es en la práctica
+  vectorial puro.** Medido por el consultor sobre prompts naturales; la
+  fusión híbrida (bonus, β) solo actúa de verdad en queries de palabras
+  clave, no en el uso real del hook de arranque.
+  **Acción:** decidir en la campaña C (relajar a OR, o algún matching
+  parcial) con el held-out de H7 delante.
+
+- [ ] **(NUEVO, 2026-09-13) El bench sintético de la campaña A es ciego al
+  umbral de similitud.** Vectores aleatorios en 768 dimensiones dan coseno
+  ≈ ±0,04 entre sí; ninguno pasa el umbral 0,40 del hook, así que el arm
+  vector nunca aporta resultados en el bench sintético
+  (`evals/recall-coste/`) y cualquier heurística que dependa del umbral sale
+  bien ahí y mal en producción.
+  **Acción:** generador con vectores reales (de la KB real) + ruido, no
+  aleatorios uniformes.
+  Además, `C-noregresión` (campaña A) se pre-registró solo sobre `s3`/`s5` y
+  por eso no vio la subida real de `s2` (KNN) tras cerrar H27 — se detectó a
+  mano en el veredicto, no por el criterio. Ver
+  `evals/recall-coste/verdict/2026-09-campana-a.md`.
+
+- [ ] **(revisión 2026-09-13) Hallazgos de hoy planificados para la campaña B
+  (sin item propio en este backlog).** Diseño y tareas en
+  `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md`; no se
+  copia evidencia aquí, solo el ID.
+  - **H15:** `trinquete::comprueba_contra` (213 líneas) partido en tres
+    familias con nombre y tests por familia.
+  - **H8/H9:** `--help` de producto sin jerga de campaña; metavars iguales
+    al flag y ninguna opción de `--json` sin descripción.
+  - **H20/H21:** un solo `_truncate-payload.sh` para los dos reflejos de
+    Bash que truncan payload; el matcher de «orquestador limpio» cubre
+    también la navegación de los MCP de navegador, no solo `localhost`.
+  - **H11/H12:** shellcheck 0.11.0 en CI sobre los 39 scripts versionados;
+    el gate de exec-bit cubre también los scripts sin extensión con shebang.
+  - **H22:** `distill/SKILL.md` a procedimiento en el cuerpo, detalle bajo
+    demanda en ficheros aparte.
+  - **H13:** el propio backlog, re-sincronizado con CI y con esta campaña al
+    cierre de la B.
+  - **H25:** checklist externo para Paul (no es tarea de la fábrica, va
+    fuera del plan de tasks).
+
+- [ ] **(revisión 2026-09-13) H14 y H24, planificados para la campaña C (sin
+  item propio en este backlog).** Diseño en
+  `docs/superpowers/plans/2026-09-13-campana-c-preregistro.md`.
+  - **H14:** si el solape entre trozos o el late chunking mejoran el
+    troceado fijo de 900 caracteres.
+  - **H24:** el gold de `evals/retrieval-fase0/` admite `acceptable_permalinks`
+    secundarios, no solo un permalink correcto por query.
+
 ## Baja
+
+- [ ] **(H29, Baja, 2026-09-13) El walker entra en `.git/`.** Medido por el
+  consultor con `strace` sobre un `exo index`: 276 de 314 `openat` caen
+  dentro de `.git/`. Solo dato — cruza con el item de Media
+  «`walker::walk_kb` frente a `walk_kb_excluyendo`» (arriba), que ya
+  documenta que `walk_kb` no frena en directorios que empiezan por `.`.
 
 - [ ] **(revisión 2026-09-04 · cifras RE-MEDIDAS el 2026-09-09) Decisión
   abierta: proceso frente a producto.**
@@ -892,6 +1006,9 @@
   nombres para `plugins/` — ya no hay `process`/`reflex`, hay un único
   `plugins/exo/`. Quedan vivas como deuda sin resolver `docs/superpowers/` y
   `reports/`; se abordan en G5.
+  **Planificado en campaña B (H26):** mover `reports/` (5 ficheros) a
+  `evals/e1-read/reports/`, junto a los verdicts de esas campañas —
+  `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md`.
 
 - [ ] **Residuos de entorno del plan** (ya listados allí, se repiten aquí para no
   perderlos): `crontab -r` pendiente de M1a · `reflex-baseline.sh` traga errores
@@ -1192,6 +1309,10 @@
   nunca contaminan el envelope y siempre se ven. 4 tests nuevos vistos fallar
   primero (`tests/buscador.rs`), 124 verdes en la suite. Se mantiene el
   contrato de Task 3 (0 vectores ⇒ 0 resultados, no error): avisa, no falla.
+  **(campaña A, 2026-09-13):** el cierre era parcial — `exo recall` descartaba
+  los avisos (H2). Reabierto y cerrado en la campaña A: `warnings`/
+  `elapsed_s`/`refresh_s` en el envelope de recall y `engine-warning` en el
+  log del hook.
 
 - [x] **exo NO degrada a vector-hash como `empirica`** (2026-08-18, lectura de
   `buscador.rs` e `indexer.rs`): un fallo de embed sube por `?` con contexto

@@ -1,0 +1,4 @@
+error: KNN exhaustivo sobre vectores: leer resultados KNN de vectores: k value in knn query too large, provided 19000 and the limit is 4096: Error code 1: SQL logic error
+ 
+  Warning: Ignoring non-zero exit code.
+  Warning: Statistical outliers were detected. Consider re-running this benchmark on a quiet system without any interferences from other programs. It might help to use the '--warmup' or '--prepare' options.

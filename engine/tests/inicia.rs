@@ -529,3 +529,52 @@ fn verifica_indexado_completo_falla_ruidoso_cuando_no_cuadra() {
     assert!(msg.contains('2'), "no dice cuántas esperaba: {msg}");
     assert!(msg.contains('1'), "no dice cuántas entraron: {msg}");
 }
+
+/// H1: dos KBs de `exo init` con la MISMA plantilla sobre la MISMA DB. Antes:
+/// la segunda moría con `UNIQUE constraint failed: notas.ruta` DESPUÉS de
+/// volcar la plantilla y escribir su config, dejando residuo. Ahora falla
+/// antes de tocar el disco, nombra la KB dueña y dice el remedio.
+#[test]
+fn dos_kbs_con_la_misma_plantilla_sobre_la_misma_db_la_segunda_falla_sin_residuo() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let db = tmp.path().join("compartida.db");
+    let init = |kb: &std::path::Path, nombre: &str, config: &std::path::Path| {
+        std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
+            .args(["init", "--kb"])
+            .arg(kb)
+            .args(["--name", nombre, "--json"])
+            .env("EXO_CONFIG", config)
+            .env("EXO_DB", &db)
+            .output()
+            .expect("ejecutar exo init")
+    };
+    let kb_a = tmp.path().join("kb-a");
+    let kb_b = tmp.path().join("kb-b");
+    let cfg_b = tmp.path().join("b.toml");
+
+    let a = init(&kb_a, "kb-a", &tmp.path().join("a.toml"));
+    assert!(a.status.success(), "{}", String::from_utf8_lossy(&a.stderr));
+
+    let b = init(&kb_b, "kb-b", &cfg_b);
+    let err = String::from_utf8_lossy(&b.stderr);
+    assert_eq!(b.status.code(), Some(1), "stderr: {err}");
+    let dueña = std::fs::canonicalize(&kb_a).unwrap().display().to_string();
+    assert!(err.contains(&dueña), "nombra la KB dueña ({dueña}): {err}");
+    assert!(err.contains("--db"), "dice el remedio: {err}");
+    assert!(
+        !err.contains("UNIQUE constraint"),
+        "ya no es el error críptico: {err}"
+    );
+    assert!(!kb_b.exists(), "no deja la segunda KB a medio volcar");
+    assert!(!cfg_b.exists(), "no escribe la config de la segunda");
+
+    let conn = exo::abre_db(&db).unwrap();
+    let n: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM notas WHERE permalink LIKE 'kb-a/%'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(n, 11, "el índice de la primera KB sigue entero");
+}

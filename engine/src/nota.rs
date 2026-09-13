@@ -71,7 +71,7 @@ fn stem_de(ruta: &Path) -> String {
 /// línea `---` y existe una línea `---` de cierre más adelante. `None` si no
 /// hay frontmatter delimitado (nota sin frontmatter en absoluto). Trabaja
 /// línea a línea (no offsets de bytes) para no depender de LF vs CRLF.
-fn separa_frontmatter(contenido: &str) -> Option<(String, String)> {
+pub(crate) fn separa_frontmatter(contenido: &str) -> Option<(String, String)> {
     let lineas: Vec<&str> = contenido.lines().collect();
     if lineas.first().map(|l| l.trim_end_matches('\r')) != Some("---") {
         return None;
