@@ -420,28 +420,21 @@ fn valor_yaml(yaml: &str, clave: &str) -> Option<String> {
         .map(|l| l[prefijo.len()..].trim().to_string())
 }
 
-/// Divide en (yaml, cuerpo). Sin frontmatter ⇒ yaml vacío y el texto entero
-/// como cuerpo. Trabaja por líneas (indiferente a LF/CRLF), igual que
-/// `nota::separa_frontmatter`.
+/// Divide en (yaml, cuerpo). Sin frontmatter delimitado ⇒ yaml vacío y el
+/// texto entero como cuerpo. El corte lo hace `nota::separa_frontmatter`, el
+/// mismo que usa el indexer (H19: antes aquí vivía una copia del algoritmo).
+/// Este envoltorio solo añade lo que el write-path necesita y el indexer no:
+/// conservar el `\n` final del cuerpo.
 fn separa_frontmatter(contenido: &str) -> (String, String) {
-    let lineas: Vec<&str> = contenido.lines().collect();
-    if lineas.first().map(|l| l.trim_end_matches('\r')) != Some("---") {
-        return (String::new(), contenido.to_string());
+    match crate::nota::separa_frontmatter(contenido) {
+        Some((yaml, mut cuerpo)) => {
+            if contenido.ends_with('\n') && !cuerpo.is_empty() {
+                cuerpo.push('\n');
+            }
+            (yaml, cuerpo)
+        }
+        None => (String::new(), contenido.to_string()),
     }
-    let Some(cierre) = lineas[1..]
-        .iter()
-        .position(|l| l.trim_end_matches('\r') == "---")
-        .map(|i| i + 1)
-    else {
-        return (String::new(), contenido.to_string());
-    };
-
-    let yaml = lineas[1..cierre].join("\n");
-    let mut cuerpo = lineas[cierre + 1..].join("\n");
-    if contenido.ends_with('\n') && !cuerpo.is_empty() {
-        cuerpo.push('\n');
-    }
-    (yaml, cuerpo)
 }
 
 /// Añade las claves obligatorias que falten, **delante** del YAML del autor y
@@ -507,4 +500,57 @@ fn escribe_atomico(destino: &Path, contenido: &str) -> Result<()> {
     std::fs::rename(&tmp, destino)
         .with_context(|| format!("rename {} → {}", tmp.display(), destino.display()))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests_separa {
+    use super::separa_frontmatter;
+
+    /// Caracterización del write-path ANTES del dedupe (H19): estos casos
+    /// pasan con la copia vieja y tienen que seguir pasando con el envoltorio.
+    #[test]
+    fn separa_conserva_el_salto_final_del_cuerpo_y_normaliza_crlf() {
+        assert_eq!(
+            separa_frontmatter("---\ntitle: X\n---\ncuerpo\n"),
+            ("title: X".to_string(), "cuerpo\n".to_string())
+        );
+        assert_eq!(
+            separa_frontmatter("---\r\ntitle: X\r\n---\r\ncuerpo\r\n"),
+            ("title: X".to_string(), "cuerpo\n".to_string())
+        );
+        assert_eq!(
+            separa_frontmatter("---\n---\ncuerpo"),
+            (String::new(), "cuerpo".to_string())
+        );
+        assert_eq!(
+            separa_frontmatter("---\ntitle: X\n---\n"),
+            ("title: X".to_string(), String::new())
+        );
+    }
+
+    #[test]
+    fn sin_frontmatter_o_sin_cierre_todo_es_cuerpo() {
+        assert_eq!(
+            separa_frontmatter("sin frontmatter\n"),
+            (String::new(), "sin frontmatter\n".to_string())
+        );
+        assert_eq!(
+            separa_frontmatter("---\ntitle: X\nsin cierre\n"),
+            (String::new(), "---\ntitle: X\nsin cierre\n".to_string())
+        );
+    }
+
+    /// El write-path y el indexer cortan IGUAL el YAML: si divergieran, una nota
+    /// escrita por `exo write` podría indexarse con otro frontmatter.
+    #[test]
+    fn el_write_path_usa_el_corte_del_indexer() {
+        for texto in [
+            "---\ntitle: X\n---\ncuerpo\n",
+            "---\r\na: 1\r\n---\r\nb\r\n",
+        ] {
+            let (yaml, _) = separa_frontmatter(texto);
+            let (yaml_indexer, _) = crate::nota::separa_frontmatter(texto).unwrap();
+            assert_eq!(yaml, yaml_indexer);
+        }
+    }
 }
