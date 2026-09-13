@@ -994,22 +994,25 @@
   `index`/`rebuild` → menciona `--db`), o se reescribe genérico («usa otro
   índice para esta KB: `--db` en `index`/`rebuild`, `$EXO_DB` en `init`»).
   **Deuda hermana (revisión final campaña B, 2026-09-13): `exo init` no
-  respeta `$EXO_DB` al escribir `[index] db` en la config.** `init_cmd`
-  calcula `db_objetivo` con la precedencia `$EXO_DB` > default
-  (`engine/src/main.rs:560-563`) y lo usa para la indexación inicial
-  (`resuelve_db(None)` en `engine/src/main.rs:629`), pero
-  `escribe_config` recibe `db_default` — SIEMPRE `~/.exo/index.db`, nunca
-  `db_objetivo` — como el valor que graba en `[index] db`
-  (`engine/src/main.rs:622`, `exo::inicia::escribe_config` en
-  `engine/src/inicia.rs:131-171`). Medido el 2026-09-13 en un `HOME`
-  aislado: `EXO_CONFIG=~/.exo/otra-kb.toml EXO_DB=~/.exo/otra-kb.db exo
-  init --kb ~/otra-kb --name otra-kb` indexa `otra-kb.db` en el `init`,
-  pero `otra-kb.toml` queda con `db = "~/.exo/index.db"` — un `exo search`
-  posterior con solo `EXO_CONFIG` (sin `EXO_DB`) sale 0 y responde desde el
-  índice de la PRIMERA KB, sin avisar. Receta que sí funciona (editar
-  `[index] db` a mano tras el `init`) documentada en `docs/instalacion.md`
-  §4. **Acción:** que `escribe_config` reciba y grabe `db_objetivo`, no
-  `db_default`.
+  respeta `$EXO_DB` al escribir `[index] db` en la config — CERRADA
+  (rama `fix-init-exo-db`, commit `621376f`).** `init_cmd` calculaba
+  `db_objetivo` con la precedencia `$EXO_DB` > default pero llamaba a
+  `escribe_config` con `db_default` — SIEMPRE `~/.exo/index.db`, nunca
+  `db_objetivo`. Con `$EXO_DB` puesto, la config quedaba grabando una DB
+  distinta de la que ese `init` acababa de indexar: un `exo search`/`exo
+  config` posterior con solo `$EXO_CONFIG` resolvía en silencio al índice
+  de OTRA KB. Arreglo: `escribe_config` recibe `db_objetivo`
+  (`engine/src/main.rs`, `init_cmd`); sin `$EXO_DB` sigue grabando el
+  default de siempre. Cubierto por tres tests nuevos en
+  `engine/tests/inicia.rs` (RED antes del fix, GREEN después):
+  `init_con_exo_db_graba_en_config_la_db_de_exo_db_no_el_default`,
+  `segunda_kb_con_exo_config_y_exo_db_propios_no_hereda_la_db_de_la_primera`
+  (síntoma end-to-end con dos KBs) y `init_sin_exo_db_sigue_grabando_el_default`
+  (no-regresión). `docs/instalacion.md` §4 ya no necesita el `sed` manual
+  sobre `[index] db`: la receta de segunda KB queda solo
+  `EXO_CONFIG=… EXO_DB=… exo init …` y luego `EXO_CONFIG` a secas,
+  verificada de punta a punta (`exo index` y `exo search`) en un `HOME`
+  aislado con el binario release.
 
 - [ ] **(NUEVO, campaña B, 2026-09-13, H15) `trinquete::sellos_escapados_de_tier`
   lee el tier del disco también en `--staged`.** El propio código lo
