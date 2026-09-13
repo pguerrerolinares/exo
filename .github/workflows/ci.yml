@@ -55,7 +55,7 @@ jobs:
       # 100644 muere con `Permission denied` en el cache del plugin, y como el
       # hook es non-blocking nadie lo ve (estilo-directo.sh, exo 1.1.1). El
       # gate lee el modo del índice de git, que es lo que se publica.
-      - name: Todo plugins/*.sh en 100755
+      - name: Todo script bajo plugins/ (.sh o con shebang) en 100755
         run: bash scripts/test-exec-bit.sh
 
   msrv:
