@@ -109,6 +109,22 @@ pub fn valida_config_escribible(destino: &Path, force: bool) -> Result<()> {
     Ok(())
 }
 
+/// H1: llamada por `exo init` ANTES de tocar el disco, por la misma razón que
+/// `valida_config_escribible` (I4): si la DB ya es de otra KB, el aborto tiene
+/// que llegar antes de volcar la plantilla y escribir la config, no en el
+/// indexado final. En modo creación la KB aún no existe y no se puede
+/// canonicalizar; una ruta inexistente nunca es la KB registrada, que sí
+/// existe, así que se compara tal cual.
+pub fn valida_db_para_kb(db: &Path, kb: &Path) -> Result<()> {
+    if !db.exists() {
+        return Ok(());
+    }
+    let conn = crate::abre_db(db)?;
+    crate::schema::crea_schema(&conn)?;
+    let kb_abs = std::fs::canonicalize(kb).unwrap_or_else(|_| kb.to_path_buf());
+    crate::indexer::comprueba_kb_root(&conn, &kb_abs)
+}
+
 /// Escribe `config.toml`. Se niega si el destino existe y no hay `--force`:
 /// pisar la config de alguien sin avisar es exactamente el tipo de efecto
 /// silencioso que este proyecto persigue.

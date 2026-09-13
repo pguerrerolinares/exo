@@ -542,6 +542,14 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
     // fallaba ya por otra vía (`prepara_kb`: "no está vacía").
     exo::inicia::valida_config_escribible(&destino, args.force)?;
 
+    // H1: la DB que este `init` va a indexar, con la precedencia de
+    // `resuelve_db` pero sin config (aún no existe): $EXO_DB > el default que
+    // se graba en config.toml.
+    let db_objetivo = match std::env::var("EXO_DB") {
+        Ok(v) if !v.is_empty() => exo::config::expande_tilde(Path::new(&v)),
+        _ => db_default.clone(),
+    };
+
     let (kb, nombre, emb, modo, escritos, git_ok) = if args.from_basic_memory {
         let ruta = exo::inicia::ruta_basic_memory()?;
         let json =
@@ -559,6 +567,7 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
                 ruta.display()
             )
         })?;
+        exo::inicia::valida_db_para_kb(&db_objetivo, &kb)?;
         (kb, nombre, emb, "adopt", Vec::new(), false)
     } else {
         // `expande_tilde`: sin esto, `exo init --kb ~/mi-kb` en Windows crea
@@ -589,6 +598,7 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
         };
 
         exo::inicia::valida_nombre(&nombre)?;
+        exo::inicia::valida_db_para_kb(&db_objetivo, &kb)?;
         exo::inicia::prepara_kb(&kb, args.force)?;
         std::fs::create_dir_all(&kb).with_context(|| format!("crear {}", kb.display()))?;
         let escritos = exo::plantilla::vuelca(&kb, &nombre)?;
