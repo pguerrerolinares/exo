@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Test standalone para recall-latencia.sh. Logs sintéticos en mktemp -d.
+set -uo pipefail
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT="${SCRIPT_DIR}/recall-latencia.sh"
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+PASS=0
+FAIL=0
+pass() { printf '[PASS] %s\n' "$1"; PASS=$((PASS+1)); }
+fail() { printf '[FAIL] %s — %s\n' "$1" "$2"; FAIL=$((FAIL+1)); }
+
+# emite <n> <elapsed_ms> <refresh_ms> <session> <fecha>
+emite() {
+  awk -v n="$1" -v e="$2" -v r="$3" -v s="$4" -v d="$5" 'BEGIN {
+    for (i = 0; i < n; i++)
+      printf "{\"ts\":\"%sT10:00:00Z\",\"reflex\":\"recall-inject-emitted\",\"session_id\":\"%s\",\"agent_id\":\"\",\"agent_type\":\"\",\"tool\":\"\",\"payload\":\"n_hits=3 bytes=900 elapsed_ms=%d refresh_ms=%d permalinks=kb/a,kb/b\"}\n", d, s, e, r
+  }'
+}
+timeouts() {  # timeouts <n> <fecha>
+  awk -v n="$1" -v d="$2" 'BEGIN { for (i = 0; i < n; i++)
+    printf "{\"ts\":\"%sT10:00:00Z\",\"reflex\":\"recall-inject-degraded\",\"session_id\":\"s\",\"agent_id\":\"\",\"agent_type\":\"\",\"tool\":\"\",\"payload\":\"reason=timeout-guard t=5s\"}\n", d }'
+}
+veredicto() { printf '%s\n' "$1" | awk -F'\t' '$1 == "veredicto" { print $2 }'; }
+campo() { printf '%s\n' "$2" | awk -F'\t' -v k="$1" '$1 == k { print $2 }'; }
+
+# 1. Sano: 200 a 900+10 ms y 10 a 1990+10 ms → p95 = 910 → NO-REABRIR.
+{ emite 200 900 10 s 2026-10-01; emite 10 1990 10 s 2026-10-01; } > "$TMP/sano.jsonl"
+OUT="$(REFLEX_LOG_FILE="$TMP/sano.jsonl" bash "$SCRIPT")"
+[ "$(veredicto "$OUT")" = "NO-REABRIR" ] && [ "$(campo p95_ms "$OUT")" = "910" ] \
+  && pass "sano: NO-REABRIR con p95=910" || fail "sano" "$OUT"
+
+# 2. Lento: 100 a 900 y 110 a 2000 → p95 = 2010 > 1500 → REABRIR.
+{ emite 100 900 10 s 2026-10-01; emite 110 2000 10 s 2026-10-01; } > "$TMP/lento.jsonl"
+OUT="$(REFLEX_LOG_FILE="$TMP/lento.jsonl" bash "$SCRIPT")"
+[ "$(veredicto "$OUT")" = "REABRIR" ] && pass "lento: REABRIR por p95" || fail "lento" "$OUT"
+
+# 3. Timeouts: 200 sanos y 10 timeouts → 4,76% > 2% → REABRIR.
+{ emite 200 900 10 s 2026-10-01; timeouts 10 2026-10-01; } > "$TMP/to.jsonl"
+OUT="$(REFLEX_LOG_FILE="$TMP/to.jsonl" bash "$SCRIPT")"
+[ "$(veredicto "$OUT")" = "REABRIR" ] && [ "$(campo timeouts "$OUT")" = "10" ] \
+  && pass "timeouts: REABRIR por >2%" || fail "timeouts" "$OUT"
+
+# 4. Pocos datos: 50 disparos → INSUFICIENTE, aunque sean lentos.
+emite 50 3000 10 s 2026-10-01 > "$TMP/poco.jsonl"
+OUT="$(REFLEX_LOG_FILE="$TMP/poco.jsonl" bash "$SCRIPT")"
+case "$(veredicto "$OUT")" in INSUFICIENTE*) pass "pocos datos: INSUFICIENTE" ;; *) fail "pocos datos" "$OUT" ;; esac
+
+# 5. Las sesiones test* no cuentan, y la ventana de fechas filtra.
+{ emite 250 3000 10 test-sess 2026-10-01; emite 250 900 10 s 2026-09-01; emite 210 900 10 s 2026-10-05; } > "$TMP/filtro.jsonl"
+OUT="$(REFLEX_LOG_FILE="$TMP/filtro.jsonl" bash "$SCRIPT" 2026-10-01 2026-10-14)"
+[ "$(campo disparos_medidos "$OUT")" = "210" ] && [ "$(veredicto "$OUT")" = "NO-REABRIR" ] \
+  && pass "filtro: excluye test* y fuera de ventana" || fail "filtro" "$OUT"
+
+# 6. Payloads sin tiempos (anteriores a la campaña A) no rompen ni cuentan.
+{ printf '{"ts":"2026-10-01T10:00:00Z","reflex":"recall-inject-emitted","session_id":"s","agent_id":"","agent_type":"","tool":"","payload":"n_hits=3 bytes=900 permalinks=kb/a"}\n'; emite 200 900 10 s 2026-10-01; } > "$TMP/viejo.jsonl"
+OUT="$(REFLEX_LOG_FILE="$TMP/viejo.jsonl" bash "$SCRIPT")"
+[ "$(campo disparos_medidos "$OUT")" = "200" ] && pass "viejos: se ignoran los payloads sin elapsed_ms" || fail "viejos" "$OUT"
+
+# 7. Log inexistente → exit 1.
+REFLEX_LOG_FILE="$TMP/no-existe.jsonl" bash "$SCRIPT" >/dev/null 2>&1
+[ $? -eq 1 ] && pass "sin log: exit 1" || fail "sin log" "exit distinto de 1"
+
+printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
+[ "$FAIL" -eq 0 ]
