@@ -194,8 +194,13 @@ fn comilla_simple_yaml(s: &str) -> String {
     format!("'{}'", s.replace('\'', "''"))
 }
 
-static PATRON_FECHA_ISO: LazyLock<regex::bytes::Regex> =
-    LazyLock::new(|| regex::bytes::Regex::new(r"\d{4}-\d{2}-\d{2}").expect("regex de fecha ISO"));
+static PATRON_FECHA_ISO: LazyLock<regex::bytes::Regex> = LazyLock::new(|| {
+    // `[0-9]`, no `\d`: en `regex` (Unicode activo por default) `\d` casa
+    // cualquier dígito Unicode, no solo ASCII — RE2 de Go es ASCII-only, así
+    // que esto iguala el comportamiento de kbx en vez de aceptar dígitos
+    // (p.ej. arábigo-índicos) que una fecha ISO real nunca lleva.
+    regex::bytes::Regex::new(r"[0-9]{4}-[0-9]{2}-[0-9]{2}").expect("regex de fecha ISO")
+});
 
 /// Deriva el nombre del archivo de las fechas ISO del bloque frío. Sin
 /// fechas, cae a un número de secuencia (caso real:
