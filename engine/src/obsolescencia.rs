@@ -59,7 +59,8 @@ impl Puntuacion {
 /// edad escalada por el peso del tier, descontada por conectividad.
 /// Redondeada a 2 decimales antes de envolver.
 pub fn puntua(edad_dias: i64, degree: i64, tier: &str) -> Puntuacion {
-    let cruda = edad_dias as f64 * peso_de_tier(tier) / (1.0 + degree as f64 * PESO_DECAIMIENTO_DEGREE);
+    let cruda =
+        edad_dias as f64 * peso_de_tier(tier) / (1.0 + degree as f64 * PESO_DECAIMIENTO_DEGREE);
     Puntuacion((cruda * 100.0).round() / 100.0)
 }
 
@@ -101,7 +102,10 @@ fn parsea_offset_minutos(off: &str) -> Result<i64> {
     let (signo_txt, resto) = off.split_at(1);
     let signo = if signo_txt == "-" { -1 } else { 1 };
     let mut partes = resto.split(':');
-    let (Some(Ok(hh)), Some(Ok(mm))) = (partes.next().map(str::parse::<i64>), partes.next().map(str::parse::<i64>)) else {
+    let (Some(Ok(hh)), Some(Ok(mm))) = (
+        partes.next().map(str::parse::<i64>),
+        partes.next().map(str::parse::<i64>),
+    ) else {
         anyhow::bail!("huso horario ilegible: {off:?}");
     };
     Ok(signo * (hh * 60 + mm))
@@ -111,11 +115,15 @@ fn parsea_offset_minutos(off: &str) -> Result<i64> {
 /// estricto: `YYYY-MM-DDTHH:MM:SS±HH:MM`, el que produce
 /// `gitx::ultimo_commit`, o con sufijo `Z`) a segundos UTC desde epoch.
 pub fn epoch_utc_de_iso8601(marca: &str) -> Result<i64> {
-    let (fecha, resto) = marca.split_once('T').with_context(|| format!("fecha ISO-8601 sin 'T': {marca:?}"))?;
+    let (fecha, resto) = marca
+        .split_once('T')
+        .with_context(|| format!("fecha ISO-8601 sin 'T': {marca:?}"))?;
     let mut pf = fecha.split('-');
-    let (Some(Ok(anio)), Some(Ok(mes)), Some(Ok(dia))) =
-        (pf.next().map(str::parse::<i64>), pf.next().map(str::parse::<i64>), pf.next().map(str::parse::<i64>))
-    else {
+    let (Some(Ok(anio)), Some(Ok(mes)), Some(Ok(dia))) = (
+        pf.next().map(str::parse::<i64>),
+        pf.next().map(str::parse::<i64>),
+        pf.next().map(str::parse::<i64>),
+    ) else {
         anyhow::bail!("fecha ISO-8601 ilegible: {marca:?}");
     };
 
@@ -129,9 +137,11 @@ pub fn epoch_utc_de_iso8601(marca: &str) -> Result<i64> {
     };
 
     let mut ph = hms.split(':');
-    let (Some(Ok(h)), Some(Ok(m)), Some(Ok(s))) =
-        (ph.next().map(str::parse::<i64>), ph.next().map(str::parse::<i64>), ph.next().map(str::parse::<i64>))
-    else {
+    let (Some(Ok(h)), Some(Ok(m)), Some(Ok(s))) = (
+        ph.next().map(str::parse::<i64>),
+        ph.next().map(str::parse::<i64>),
+        ph.next().map(str::parse::<i64>),
+    ) else {
         anyhow::bail!("hora ISO-8601 ilegible: {marca:?}");
     };
 
@@ -145,7 +155,11 @@ pub fn formatea_rfc3339_utc(epoch: i64) -> String {
     let dias = epoch.div_euclid(86_400);
     let seg_del_dia = epoch.rem_euclid(86_400);
     let (anio, mes, dia) = civil_desde_dias_epoch(dias);
-    let (h, m, s) = (seg_del_dia / 3600, (seg_del_dia / 60) % 60, seg_del_dia % 60);
+    let (h, m, s) = (
+        seg_del_dia / 3600,
+        (seg_del_dia / 60) % 60,
+        seg_del_dia % 60,
+    );
     format!("{anio:04}-{mes:02}-{dia:02}T{h:02}:{m:02}:{s:02}Z")
 }
 
@@ -155,6 +169,136 @@ pub fn formatea_rfc3339_utc(epoch: i64) -> String {
 /// redondee hacia abajo, no hacia cero.
 fn edad_en_dias(ahora_epoch: i64, commit_epoch: i64) -> i64 {
     (ahora_epoch - commit_epoch).div_euclid(86_400)
+}
+
+#[derive(Serialize)]
+pub struct Nota {
+    pub path: String,
+    pub permalink: String,
+    pub tier: String,
+    #[serde(rename = "last_commit")]
+    pub ultimo_commit: String,
+    #[serde(rename = "uncommitted")]
+    pub sin_commit: bool,
+    #[serde(rename = "age_days")]
+    pub edad_dias: i64,
+    pub degree: i64,
+    pub score: Puntuacion,
+}
+
+/// `Notes` nunca es `null` en el JSON (M4 spec §3): `Vec::new()` serializa
+/// como `[]`, no hace falta ningún tratamiento especial.
+#[derive(Serialize)]
+pub struct Informe {
+    pub now: String,
+    pub notes: Vec<Nota>,
+}
+
+struct FilaNota {
+    permalink: String,
+    ruta: String,
+    degree: i64,
+}
+
+/// Cuenta, por nota, las filas de `aristas` donde el permalink de la nota
+/// aparece como `origen` O como `destino_permalink` (degree 0 = huérfana),
+/// como suma de dos conteos independientes. SQL literal de
+/// `stale.degreeQuery` (`fe46443`) — ya sin el filtro `tipo='note'` que
+/// escondía 57 de 138 notas reales, retirado en M6-04 T3 (comentario del
+/// propio Go, replicado aquí porque exo hereda esa misma corrección).
+const CONSULTA_DEGREE: &str = "SELECT notas.permalink,
+       notas.ruta,
+       (SELECT COUNT(*) FROM aristas WHERE aristas.origen = notas.permalink) +
+       (SELECT COUNT(*) FROM aristas WHERE aristas.destino_permalink = notas.permalink) AS degree
+FROM notas
+ORDER BY notas.ruta";
+
+fn normaliza_tier(tier: &str) -> String {
+    if crate::presupuesto::TIERS.contains(&tier) {
+        tier.to_string()
+    } else {
+        String::new()
+    }
+}
+
+/// Urgencia de actualización de cada nota de la KB bajo `kb`: edad de su
+/// último commit, grado en el grafo de relaciones y tier, combinados en
+/// `puntua`. Lee degree+permalink del índice (solo lectura), tier del
+/// frontmatter en disco, y último commit de git (`gitx::ultimo_commit`,
+/// fail-loud — mismo contrato que `targets`). Ordenado desc por score,
+/// `path` ascendente como desempate (M4 spec §3, axioma 5).
+pub fn calcula(
+    conn: &rusqlite::Connection,
+    kb: &Path,
+    excluidos: &[&str],
+    ahora_epoch: i64,
+) -> Result<Informe> {
+    let mut stmt = conn
+        .prepare(CONSULTA_DEGREE)
+        .context("stale: preparar la consulta de degree")?;
+    let filas: Vec<FilaNota> = stmt
+        .query_map([], |f| {
+            Ok(FilaNota {
+                permalink: f.get(0)?,
+                ruta: f.get(1)?,
+                degree: f.get(2)?,
+            })
+        })
+        .context("stale: ejecutar la consulta de degree")?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .context("stale: leer las filas de degree")?;
+
+    let mut notas = Vec::new();
+    for fila in filas {
+        if crate::walker::excluida(&fila.ruta, excluidos) {
+            continue;
+        }
+
+        let absoluta = kb.join(&fila.ruta);
+        let bytes = std::fs::read(&absoluta)
+            .with_context(|| format!("stale: leer {}", absoluta.display()))?;
+        // Lossy, no `read_to_string`: el fixture de kbx incluye un
+        // `informe.pdf` no-UTF8 entre las notas (M6-04 T3 quitó el filtro
+        // por tipo), y degradar el tier a "" en vez de reventar es el
+        // mismo contrato best-effort que `objetivos::busca_objetivos` ya
+        // aplica para lectura de disco.
+        let contenido = String::from_utf8_lossy(&bytes);
+        let tier = normaliza_tier(&crate::frontmatter::tier(&contenido));
+
+        let ultimo = crate::gitx::ultimo_commit(kb, &fila.ruta)
+            .with_context(|| format!("stale: {}", fila.ruta))?;
+        let (ultimo_commit, sin_commit, edad_dias) = if ultimo.is_empty() {
+            (String::new(), true, EDAD_SIN_COMMIT_DIAS)
+        } else {
+            let epoch = epoch_utc_de_iso8601(&ultimo)
+                .with_context(|| format!("stale: parsear last_commit de {}", fila.ruta))?;
+            (ultimo, false, edad_en_dias(ahora_epoch, epoch))
+        };
+
+        notas.push(Nota {
+            path: fila.ruta,
+            permalink: fila.permalink,
+            tier: tier.clone(),
+            ultimo_commit,
+            sin_commit,
+            edad_dias,
+            degree: fila.degree,
+            score: puntua(edad_dias, fila.degree, &tier),
+        });
+    }
+
+    notas.sort_by(|a, b| {
+        b.score
+            .valor()
+            .partial_cmp(&a.score.valor())
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.path.cmp(&b.path))
+    });
+
+    Ok(Informe {
+        now: formatea_rfc3339_utc(ahora_epoch),
+        notes: notas,
+    })
 }
 
 #[cfg(test)]
@@ -212,8 +356,14 @@ mod tests {
         for tier in TIERS {
             for degree in [0, 1, 2, 4, 10] {
                 for w in edades.windows(2) {
-                    let (joven, vieja) = (puntua(w[0], degree, tier).valor(), puntua(w[1], degree, tier).valor());
-                    assert!(vieja >= joven, "tier={tier} degree={degree}: {vieja} < {joven}");
+                    let (joven, vieja) = (
+                        puntua(w[0], degree, tier).valor(),
+                        puntua(w[1], degree, tier).valor(),
+                    );
+                    assert!(
+                        vieja >= joven,
+                        "tier={tier} degree={degree}: {vieja} < {joven}"
+                    );
                 }
             }
         }
@@ -225,7 +375,10 @@ mod tests {
         for tier in TIERS {
             for edad in [1, 13, 29, 43, 1000] {
                 for w in degrees.windows(2) {
-                    let (menos, mas) = (puntua(edad, w[0], tier).valor(), puntua(edad, w[1], tier).valor());
+                    let (menos, mas) = (
+                        puntua(edad, w[0], tier).valor(),
+                        puntua(edad, w[1], tier).valor(),
+                    );
                     assert!(mas <= menos, "tier={tier} edad={edad}: {mas} > {menos}");
                 }
             }
@@ -239,8 +392,14 @@ mod tests {
                 let core = puntua(edad, degree, "core").valor();
                 let stable = puntua(edad, degree, "stable").valor();
                 let log = puntua(edad, degree, "log").valor();
-                assert!(core >= stable, "edad={edad} degree={degree}: core {core} < stable {stable}");
-                assert!(stable >= log, "edad={edad} degree={degree}: stable {stable} < log {log}");
+                assert!(
+                    core >= stable,
+                    "edad={edad} degree={degree}: core {core} < stable {stable}"
+                );
+                assert!(
+                    stable >= log,
+                    "edad={edad} degree={degree}: stable {stable} < log {log}"
+                );
             }
         }
     }
@@ -251,7 +410,10 @@ mod tests {
             for edad in [0, 1, 13, 1000, EDAD_SIN_COMMIT_DIAS] {
                 for degree in [0, 1, 4, 50] {
                     let s = puntua(edad, degree, tier).valor();
-                    assert!(s.is_finite() && s >= 0.0, "puntua({edad},{degree},{tier:?}) = {s}");
+                    assert!(
+                        s.is_finite() && s >= 0.0,
+                        "puntua({edad},{degree},{tier:?}) = {s}"
+                    );
                 }
             }
         }
@@ -274,7 +436,12 @@ mod tests {
 
     #[test]
     fn formatea_rfc3339_utc_es_el_inverso_de_epoch_utc_de_iso8601() {
-        for marca in ["1970-01-01T00:00:00Z", "2026-01-01T00:00:00Z", "2026-12-31T23:59:59Z", "2000-02-29T12:00:00Z"] {
+        for marca in [
+            "1970-01-01T00:00:00Z",
+            "2026-01-01T00:00:00Z",
+            "2026-12-31T23:59:59Z",
+            "2000-02-29T12:00:00Z",
+        ] {
             let e = epoch_utc_de_iso8601(marca).unwrap();
             assert_eq!(formatea_rfc3339_utc(e), marca, "round-trip de {marca}");
         }
@@ -286,5 +453,182 @@ mod tests {
         let ahora = epoch_utc_de_iso8601("2026-07-14T22:00:00Z").unwrap();
         let commit = epoch_utc_de_iso8601("2026-06-01T10:00:00+02:00").unwrap();
         assert_eq!(edad_en_dias(ahora, commit), 43);
+    }
+
+    fn kb_con_git_y_db(notas: &[(&str, &str, &str)]) -> (tempfile::TempDir, rusqlite::Connection) {
+        // notas: (ruta_rel, tier, cuerpo_extra)
+        let dir = tempfile::tempdir().unwrap();
+        let kb = dir.path().to_path_buf();
+        let cfg = kb.join("gitconfig-vacio");
+        std::fs::write(&cfg, "").unwrap();
+        let git = |args: &[&str], fecha: Option<&str>| {
+            let mut cmd = std::process::Command::new("git");
+            cmd.arg("-C")
+                .arg(&kb)
+                .args(args)
+                .env("GIT_CONFIG_GLOBAL", &cfg)
+                .env("GIT_CONFIG_SYSTEM", &cfg)
+                .env("GIT_AUTHOR_NAME", "f")
+                .env("GIT_AUTHOR_EMAIL", "f@k.local")
+                .env("GIT_COMMITTER_NAME", "f")
+                .env("GIT_COMMITTER_EMAIL", "f@k.local");
+            if let Some(f) = fecha {
+                cmd.env("GIT_AUTHOR_DATE", f).env("GIT_COMMITTER_DATE", f);
+            }
+            assert!(cmd.output().unwrap().status.success(), "git {args:?}");
+        };
+        for (ruta, tier, extra) in notas {
+            let full = kb.join(ruta);
+            std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+            std::fs::write(
+                &full,
+                format!("---\ntier: {tier}\n---\n\n# {ruta}\n\n{extra}\n"),
+            )
+            .unwrap();
+        }
+        git(&["init", "-q"], None);
+        git(&["add", "."], None);
+        git(
+            &["commit", "-q", "-m", "inicial"],
+            Some("2026-06-01T10:00:00+02:00"),
+        );
+
+        // `crate::`, no `exo::`: este test vive dentro de `engine/src/`
+        // (mod tests del propio lib.rs), que no tiene
+        // `extern crate self as exo` — `exo::` solo resuelve desde fuera
+        // del crate (p. ej. `engine/tests/*.rs`).
+        //
+        // `crate::abre_db_en_memoria()`, no `rusqlite::Connection::open_in_memory()`
+        // a secas (desviación del plan, ver report de d-t7): `crea_schema`
+        // crea una tabla virtual `vec0` de sqlite-vec, que solo existe si
+        // `registra_vec()` se ha llamado antes en el proceso — exactamente
+        // lo que hace el wrapper del crate y lo que ya usa el helper
+        // análogo `engine/tests/targets_cli.rs::kb_con_indice` (vía
+        // `exo::abre_db`). Sin este wrapper, `crea_schema` falla con
+        // "no such module: vec0".
+        let conn = crate::abre_db_en_memoria().unwrap();
+        crate::schema::crea_schema(&conn).unwrap();
+        for (i, (ruta, _, _)) in notas.iter().enumerate() {
+            conn.execute(
+                "INSERT INTO notas (permalink, ruta, titulo, tipo, mtime, git_epoch) VALUES (?1, ?2, ?3, 'note', 0.0, NULL)",
+                rusqlite::params![format!("kb/{i}"), ruta, format!("n{i}")],
+            ).unwrap();
+        }
+        (dir, conn)
+    }
+
+    #[test]
+    fn calcula_lee_tier_del_disco_y_degree_cero_sin_aristas() {
+        let (dir, conn) = kb_con_git_y_db(&[("a.md", "stable", ""), ("log/b.md", "log", "")]);
+        let ahora = epoch_utc_de_iso8601("2026-09-14T00:00:00Z").unwrap();
+        let informe = calcula(
+            &conn,
+            dir.path(),
+            &["archive", "docs", ".superpowers"],
+            ahora,
+        )
+        .unwrap();
+        assert_eq!(informe.notes.len(), 2);
+        let a = informe.notes.iter().find(|n| n.path == "a.md").unwrap();
+        assert_eq!(a.tier, "stable");
+        assert_eq!(a.degree, 0);
+        assert!(!a.sin_commit);
+    }
+
+    #[test]
+    fn calcula_cuenta_degree_como_origen_mas_destino() {
+        let (dir, conn) = kb_con_git_y_db(&[("a.md", "core", ""), ("b.md", "core", "")]);
+        conn.execute(
+            "INSERT INTO aristas (origen, destino_texto, destino_permalink) VALUES ('kb/0', 'b', 'kb/1')",
+            [],
+        ).unwrap();
+        let ahora = epoch_utc_de_iso8601("2026-09-14T00:00:00Z").unwrap();
+        let informe = calcula(&conn, dir.path(), &[], ahora).unwrap();
+        let a = informe.notes.iter().find(|n| n.path == "a.md").unwrap();
+        let b = informe.notes.iter().find(|n| n.path == "b.md").unwrap();
+        assert_eq!(a.degree, 1, "a es origen de una arista");
+        assert_eq!(b.degree, 1, "b es destino de esa arista");
+    }
+
+    #[test]
+    fn calcula_excluye_por_primer_segmento_como_walker_excluida() {
+        let (dir, conn) =
+            kb_con_git_y_db(&[("archive/vieja.md", "log", ""), ("viva.md", "stable", "")]);
+        let ahora = epoch_utc_de_iso8601("2026-09-14T00:00:00Z").unwrap();
+        let informe = calcula(
+            &conn,
+            dir.path(),
+            &["archive", "docs", ".superpowers"],
+            ahora,
+        )
+        .unwrap();
+        assert_eq!(informe.notes.len(), 1);
+        assert_eq!(informe.notes[0].path, "viva.md");
+    }
+
+    #[test]
+    fn calcula_una_nota_sin_commits_usa_la_edad_centinela() {
+        let (dir, conn) = kb_con_git_y_db(&[("a.md", "core", "")]);
+        std::fs::write(
+            dir.path().join("nueva.md"),
+            "---\ntier: stable\n---\n\n# nueva\n",
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO notas (permalink, ruta, titulo, tipo, mtime, git_epoch) VALUES ('kb/nueva', 'nueva.md', 'nueva', 'note', 0.0, NULL)",
+            [],
+        ).unwrap();
+        let ahora = epoch_utc_de_iso8601("2026-09-14T00:00:00Z").unwrap();
+        let informe = calcula(&conn, dir.path(), &[], ahora).unwrap();
+        let n = informe.notes.iter().find(|n| n.path == "nueva.md").unwrap();
+        assert!(n.sin_commit);
+        assert_eq!(n.edad_dias, EDAD_SIN_COMMIT_DIAS);
+        assert_eq!(n.ultimo_commit, "");
+    }
+
+    #[test]
+    fn calcula_tolera_un_fichero_no_utf8_en_vez_de_reventar() {
+        // El fixture de kbx incluye informe.pdf, tipo='report', 0 aristas:
+        // no debe tumbar la corrida entera.
+        let (dir, conn) = kb_con_git_y_db(&[("a.md", "core", "")]);
+        std::fs::write(dir.path().join("informe.pdf"), [0xFF, 0xFE, 0x00, 0x01]).unwrap();
+        conn.execute(
+            "INSERT INTO notas (permalink, ruta, titulo, tipo, mtime, git_epoch) VALUES ('kb/informe', 'informe.pdf', 'informe', 'report', 0.0, NULL)",
+            [],
+        ).unwrap();
+        let ahora = epoch_utc_de_iso8601("2026-09-14T00:00:00Z").unwrap();
+        // `gitx::ultimo_commit` devuelve `Ok("")` para un fichero sin
+        // commit (no un `Err`) — igual que el test vecino
+        // `calcula_una_nota_sin_commits_usa_la_edad_centinela`, así que
+        // informe.pdf no tumba la corrida: degrada a tier "" (bytes no
+        // UTF-8, ningún tier válido) y a la edad centinela.
+        let informe = calcula(&conn, dir.path(), &[], ahora).unwrap();
+        let n = informe
+            .notes
+            .iter()
+            .find(|n| n.path == "informe.pdf")
+            .unwrap();
+        assert_eq!(n.tier, "");
+        assert!(n.sin_commit);
+        assert_eq!(n.edad_dias, EDAD_SIN_COMMIT_DIAS);
+    }
+
+    #[test]
+    fn calcula_ordena_desc_por_score_con_path_como_desempate() {
+        let (dir, conn) =
+            kb_con_git_y_db(&[("z-vieja.md", "core", ""), ("a-vieja.md", "core", "")]);
+        let ahora = epoch_utc_de_iso8601("2026-09-14T00:00:00Z").unwrap();
+        let informe = calcula(&conn, dir.path(), &[], ahora).unwrap();
+        // Mismo tier, mismo commit => mismo score; desempata por path ascendente.
+        assert_eq!(informe.notes[0].path, "a-vieja.md");
+        assert_eq!(informe.notes[1].path, "z-vieja.md");
+    }
+
+    #[test]
+    fn calcula_tier_ilegal_normaliza_a_vacio() {
+        let (dir, conn) = kb_con_git_y_db(&[("a.md", "urgentisimo", "")]);
+        let ahora = epoch_utc_de_iso8601("2026-09-14T00:00:00Z").unwrap();
+        let informe = calcula(&conn, dir.path(), &[], ahora).unwrap();
+        assert_eq!(informe.notes[0].tier, "");
     }
 }
