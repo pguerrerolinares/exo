@@ -111,9 +111,32 @@ fn parsea_offset_minutos(off: &str) -> Result<i64> {
     Ok(signo * (hh * 60 + mm))
 }
 
+/// Días del mes dado (1-12) para el año dado, con el ajuste de bisiesto
+/// gregoriano en febrero. `None` si `mes` no es 1..=12 — el caller ya
+/// valida el rango antes de llamar, esto es la segunda línea de defensa.
+fn dias_en_mes(anio: i64, mes: i64) -> Option<i64> {
+    let bisiesto = (anio % 4 == 0 && anio % 100 != 0) || anio % 400 == 0;
+    Some(match mes {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if bisiesto => 29,
+        2 => 28,
+        _ => return None,
+    })
+}
+
 /// Convierte una fecha-hora en formato `git log --format=%aI` (ISO-8601
 /// estricto: `YYYY-MM-DDTHH:MM:SS±HH:MM`, el que produce
 /// `gitx::ultimo_commit`, o con sufijo `Z`) a segundos UTC desde epoch.
+///
+/// Valida rangos como `time.Parse(time.RFC3339, …)` de Go (lo que usa kbx
+/// para `--now`, `fe46443`, `cmd/kbx/stale.go`): mes 1-12, día válido para
+/// el mes (incluido bisiesto), hora <24, minuto y segundo <60 — un valor
+/// fuera de rango es `Err`, nunca se normaliza en silencio a otra fecha
+/// (medido contra kbx: `2026-13-45T99:99:99Z` sale exit 2 con "month out of
+/// range"). Acepta fracción de segundo opcional (`.` o `,` seguido de
+/// dígitos) igual que Go, truncada — se descarta, no se usa en el cálculo
+/// de días.
 pub fn epoch_utc_de_iso8601(marca: &str) -> Result<i64> {
     let (fecha, resto) = marca
         .split_once('T')
@@ -126,6 +149,13 @@ pub fn epoch_utc_de_iso8601(marca: &str) -> Result<i64> {
     ) else {
         anyhow::bail!("fecha ISO-8601 ilegible: {marca:?}");
     };
+    if !(1..=12).contains(&mes) {
+        anyhow::bail!("mes fuera de rango en fecha ISO-8601: {marca:?}");
+    }
+    let max_dia = dias_en_mes(anio, mes).expect("mes ya validado 1..=12");
+    if !(1..=max_dia).contains(&dia) {
+        anyhow::bail!("día fuera de rango en fecha ISO-8601: {marca:?}");
+    }
 
     let (hms, offset_min) = if let Some(hms) = resto.strip_suffix('Z') {
         (hms, 0)
@@ -135,6 +165,11 @@ pub fn epoch_utc_de_iso8601(marca: &str) -> Result<i64> {
     } else {
         anyhow::bail!("fecha ISO-8601 sin huso horario: {marca:?}");
     };
+    // Fracción de segundo opcional (`.5`, `,123`…): se descarta del texto
+    // antes de partir por `:` — el campo de segundos nunca la lleva en el
+    // cálculo, igual que Go trunca al construir `time.Time` desde el string
+    // (la resolución de `edad_en_dias` es el día, no el segundo).
+    let hms = hms.split(['.', ',']).next().unwrap_or(hms);
 
     let mut ph = hms.split(':');
     let (Some(Ok(h)), Some(Ok(m)), Some(Ok(s))) = (
@@ -144,6 +179,15 @@ pub fn epoch_utc_de_iso8601(marca: &str) -> Result<i64> {
     ) else {
         anyhow::bail!("hora ISO-8601 ilegible: {marca:?}");
     };
+    if !(0..24).contains(&h) {
+        anyhow::bail!("hora fuera de rango en fecha ISO-8601: {marca:?}");
+    }
+    if !(0..60).contains(&m) {
+        anyhow::bail!("minuto fuera de rango en fecha ISO-8601: {marca:?}");
+    }
+    if !(0..60).contains(&s) {
+        anyhow::bail!("segundo fuera de rango en fecha ISO-8601: {marca:?}");
+    }
 
     let dias = dias_desde_epoch_civil(anio, mes, dia);
     Ok(dias * 86_400 + h * 3600 + m * 60 + s - offset_min * 60)
@@ -445,6 +489,58 @@ mod tests {
             let e = epoch_utc_de_iso8601(marca).unwrap();
             assert_eq!(formatea_rfc3339_utc(e), marca, "round-trip de {marca}");
         }
+    }
+
+    // --- Validación de rangos de `--now` (finding del review final:
+    // kbx `time.Parse(time.RFC3339, …)` rechaza mes/día/hora/min/seg fuera
+    // de rango y ACEPTA fracción de segundo; el puerto antes de este fix
+    // hacía justo lo contrario — verificado contra
+    // `/tmp/campana-d/kbx stale --now … --json`, `fe46443`:
+    // mes 13 => "month out of range" exit 2; día 45 => "day out of range"
+    // exit 2; hora 99 => "hour out of range" exit 2; 2026-02-29 (no
+    // bisiesto) => "day out of range" exit 2; fracción `.5` => exit 0. ---
+
+    #[test]
+    fn epoch_de_iso8601_rechaza_mes_fuera_de_rango() {
+        assert!(epoch_utc_de_iso8601("2026-13-01T00:00:00Z").is_err());
+        assert!(epoch_utc_de_iso8601("2026-00-01T00:00:00Z").is_err());
+    }
+
+    #[test]
+    fn epoch_de_iso8601_rechaza_dia_fuera_de_rango_para_el_mes() {
+        // Abril tiene 30 días.
+        assert!(epoch_utc_de_iso8601("2026-04-31T00:00:00Z").is_err());
+        assert!(epoch_utc_de_iso8601("2026-09-45T00:00:00Z").is_err());
+        assert!(epoch_utc_de_iso8601("2026-09-00T00:00:00Z").is_err());
+    }
+
+    #[test]
+    fn epoch_de_iso8601_rechaza_29_de_febrero_en_anio_no_bisiesto() {
+        // 2026 no es bisiesto (no divisible entre 4).
+        assert!(epoch_utc_de_iso8601("2026-02-29T00:00:00Z").is_err());
+    }
+
+    #[test]
+    fn epoch_de_iso8601_acepta_29_de_febrero_en_anio_bisiesto() {
+        // 2028 sí es bisiesto.
+        assert!(epoch_utc_de_iso8601("2028-02-29T00:00:00Z").is_ok());
+    }
+
+    #[test]
+    fn epoch_de_iso8601_rechaza_hora_minuto_o_segundo_fuera_de_rango() {
+        assert!(epoch_utc_de_iso8601("2026-09-14T99:00:00Z").is_err());
+        assert!(epoch_utc_de_iso8601("2026-09-14T00:99:00Z").is_err());
+        assert!(epoch_utc_de_iso8601("2026-09-14T00:00:99Z").is_err());
+        assert!(epoch_utc_de_iso8601("2026-09-14T24:00:00Z").is_err());
+    }
+
+    #[test]
+    fn epoch_de_iso8601_acepta_fraccion_de_segundo_truncada() {
+        // RFC3339 válido con fracción de segundo — kbx (Go time.Parse) lo
+        // acepta; el puerto la trunca a segundos para el cálculo de días.
+        let con_fraccion = epoch_utc_de_iso8601("2026-09-14T12:00:00.5+02:00").unwrap();
+        let sin_fraccion = epoch_utc_de_iso8601("2026-09-14T12:00:00+02:00").unwrap();
+        assert_eq!(con_fraccion, sin_fraccion);
     }
 
     #[test]
