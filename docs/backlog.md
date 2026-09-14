@@ -955,8 +955,22 @@
   12/18 en `hard-corta` y 29/34 en `agent-search`) — `c-verdict.md` §6(c).
   El AND implícito deja sin fusión justo las consultas en prosa natural,
   que es el uso real del hook.
-  **Acción:** decidir si el arm FTS del modo consulta pasa a OR/NEAR o a
-  extracción de términos. El held-out de la campaña C ya está consumido
+  **Ojo, negativo ya medido (2026-09-04):** relajar el AND a OR **empeora el
+  sistema** con la fusión actual. Rama local `fix/fts-or-ranking`, sin
+  publicar: el brazo FTS sube de 27/54 a 39/54, pero el híbrido baja de 48/54
+  a 45/54 (ARREGLA 1 · ROMPE 4, de ellos 3 fusion-miss). El canal léxico,
+  más fuerte y más ruidoso, desplaza del top-5 aciertos del vector, y
+  `max(v, β·f)` no tiene término que premie el acuerdo. Un barrido de 20
+  celdas (bonus × β), con criterio pre-registrado, no recuperó el 48. Lo
+  que eso NO demuestra: la familia barrida nunca expresa CombSUM, y no se
+  probó un OR más selectivo.
+  **Acción:** un OR simple con la fusión actual ya está descartado. Lo que
+  queda sin probar es un FTS más selectivo (OR con mínimo de términos, NEAR
+  o extracción de términos raros) y/o un operador de fusión que premie el
+  acuerdo (CombSUM, o RRF con otra condición de parada: ver la fila de PR
+  #12 en el plan de C). Cualquiera de las dos cosas se mide contra ese
+  negativo, no contra el AND.
+  El held-out de la campaña C ya está consumido
   (§11 del verdict): cualquier cambio de retrieval exige uno nuevo antes de
   adoptarse.
 
