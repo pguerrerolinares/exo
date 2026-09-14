@@ -408,13 +408,71 @@ no una corrida.
 
 ### Stale
 
-- Fecha:
-- Commit de exo:
-- Commit de kbx: `fe46443`
-- Control rojo-verde del instrumento (peso alterado):
-- Golden (oráculo de valores, 10 notas) coincide:
-- KB real: conjunto de `path` coincide:
-- KB real: campos por nota coinciden:
-- KB real: orden coincide:
+- Fecha: 2026-09-14.
+- Commit de exo: `e31ab2a036c37bcbf9d1d5e1fc16017dfe5af308` (binario release
+  de `/home/paul/Documentos/proyectos/exo/.worktrees/d-cutover-kbx/engine/target/release/exo`,
+  `exo --version` → `exo 0.1.0`). **Desviación del plan**: el Step 2 (sabotaje
+  y el `cargo build --release` del control rojo-verde) y el Step 1
+  (`cargo test`) se corrieron en el worktree `d-cutover-kbx/engine` — que
+  ya tenía `target/` sembrado y coincide byte a byte con `e31ab2a` — en vez
+  de en `/home/paul/Documentos/proyectos/exo/engine` (el path literal del
+  plan, que en esta rama del repo raíz ni siquiera tiene
+  `engine/src/obsolescencia.rs`, y de `d-gate-rotate-stale/engine`, que no
+  tiene `target/` sembrado). Motivo: instrucción explícita del dispatch de
+  esta task ("NO compiles aquí", usar el build release de `d-cutover-kbx`)
+  para no forzar una compilación en frío en esta máquina de 15 GiB. Antes y
+  después del sabotaje se verificó `git -C .../d-cutover-kbx diff --stat --
+  engine/src/obsolescencia.rs` vacío (ver abajo).
+- Commit de kbx: `fe46443` (`/tmp/campana-d/kbx`).
+- Step 1 (oráculo de valores del golden, cubierto por tests ya existentes):
+  **verde** — `cargo test --release --lib
+  obsolescencia::tests::puntua_reproduce_el_golden_de_kbx` → `1 passed`;
+  `cargo test --release --lib
+  obsolescencia::tests::edad_en_dias_coincide_con_el_golden` → `1 passed`
+  (corridos por separado — `cargo test` no acepta dos `TESTNAME`
+  posicionales en la misma invocación, desviación menor de sintaxis del
+  comando del plan, mismo efecto).
+- Control rojo-verde del instrumento (`PESO_TIER_CORE` 1.5→1.6, recompilado,
+  revertido, recompilado): **REVISAR** (como se esperaba) — el diff muestra
+  cambio en las notas `tier: core`, p.ej. `core/core-index.md` 3.59→3.83 y
+  `Paul - perfil de trabajo.md` 3.58→3.82; notas de otros tiers sin cambio.
+  `git -C .../d-cutover-kbx diff --stat -- engine/src/obsolescencia.rs`
+  vacío tanto antes de sabotear como después de revertir — el sabotaje
+  quedó revertido, no commiteado. El comparador mide de verdad, se procede
+  al gate real.
+- Golden (oráculo de valores, 9 pares únicos + `age_days=43`) coincide:
+  **sí** — cubierto por Step 1 arriba (`2 passed`); el pre-registro (§Qué se
+  compara) fija que el criterio es justo estos dos tests, no el fixture
+  sintético completo reconstruido en Rust.
+- KB real: conjunto de `path` coincide: **sí** — 101 notas evaluadas en
+  cada lado (`jq 'length'` idéntico en `go-stale.json` y `rs-stale.json`).
+- KB real: campos por nota coinciden: **sí** — `diff -u
+  go-stale.json rs-stale.json` (con `score: (.score + 0)` normalizado por
+  jq) vacío → `PASA: stale (KB real)`. Rango de `score` idéntico en los dos
+  lados: mín `-0.36`, máx `64`. Divergencia 5 (formato del número)
+  confirmada en texto crudo sin normalizar — las mismas notas
+  (`README.md`, `metodologia.md`) salen `"score":64.00` en kbx y
+  `"score":64.0` en exo, mismo VALOR — lo que demuestra que la
+  normalización con jq no es un no-op (anti falso-PASA). `uncommitted`:
+  0 notas en cualquiera de los dos lados (el `kb-base` es un `git clone
+  --no-local` limpio) — la rama `uncommitted=true` del contrato
+  (divergencia 4) no se pudo ejercitar con esta copia.
+- KB real: orden coincide: **sí** — `diff -u go-stale-orden.json
+  rs-stale-orden.json` (array de `path`, sin `-S`) vacío →
+  `PASA: stale (orden)`.
 - Divergencias observadas y su adjudicación:
-- **PASA / NO PASA**:
+  - Divergencia 1 (fórmula firmada): no se reabre; confirmada por el Step 1
+    en verde.
+  - Divergencia 2 (`--stale-exclude` no portado): no ejercitada — el flag
+    no se pasó en ninguno de los dos lados (mismo default en los dos).
+  - Divergencia 3 (exclusión por primer segmento vs. cualquier nivel): no
+    observada — `wisdom-paul` no tiene `archive/` ni `docs/` anidados hoy
+    (impacto medido en el pre-registro = 0), consistente con que las 101
+    notas coinciden exactamente.
+  - Divergencia 4 (`gitx::ultimo_commit` / contrato `uncommitted`): no
+    ejercitada — 0 notas `uncommitted=true` en el `kb-base` clonado.
+  - Divergencia 5 (formato JSON del `score`): observada tal como se
+    anticipó — `64.00` (kbx) vs. `64.0` (exo), mismo valor; el gate compara
+    VALOR vía normalización jq, no texto, y da PASA.
+  - Ninguna divergencia no declarada.
+- **PASA / NO PASA**: **PASA**.
