@@ -1515,9 +1515,20 @@
   `465bf5a`).**
   `engine/rust-toolchain.toml` con `channel = "stable"` — decisión razonada
   en el plan de E: `stable` en vez de `1.95` porque los jobs `lint`/`test`
-  de CI (la mayoría) ya usan `dtolnay/rust-toolchain@stable`; el job `msrv`
-  sigue pineando `1.95.0` de forma independiente, así que la MSRV declarada
-  en `engine/Cargo.toml:8` sigue comprobada.
+  de CI (la mayoría) ya usan `dtolnay/rust-toolchain@stable`.
+  **Corrección (review final campaña E, `3b556ab`):** la primera versión de
+  este cierre afirmaba que el job `msrv` "sigue pineando `1.95.0` de forma
+  independiente" — era falso. `dtolnay/rust-toolchain@1.95.0` solo hace
+  `rustup default 1.95.0` (precedencia 5, la más baja de rustup); el
+  fichero de este mismo ítem es precedencia 4 y lo pisaba, así que desde
+  que existe el job compilaba con `stable`, no con la MSRV, sin que nada lo
+  dijera. Arreglado en `3b556ab`: el job fija `RUSTUP_TOOLCHAIN=1.95.0`
+  (precedencia 2, gana al fichero) por `env:` en el step de
+  `cargo check --all-targets --locked` y en uno nuevo que lo antecede y
+  falla si el compilador activo no es 1.95.0
+  (`rustc --version | tee /dev/stderr | grep -F ' 1.95.0 '`). Con esto la
+  MSRV declarada en `engine/Cargo.toml:8` vuelve a estar comprobada de
+  verdad.
   **Texto original del ítem sin tocar el contenido, salvo negritas internas
   perdidas al pegar, para no perder la evidencia:**
   (revisión 2026-09-04 · CADUCADO A MEDIAS el 2026-09-09) El repo no
