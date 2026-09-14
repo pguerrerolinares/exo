@@ -146,11 +146,61 @@ diff, no se racionalicen después como "aceptables".
 > a propósito: un registro con resultados escritos antes de correr es
 > exactamente lo que este documento existe para impedir.
 
-- Fecha:
-- Commit de exo:
+- Fecha: 2026-09-14
+- Commit de exo: `4d047f4` (rama `d-gates`)
 - Commit de kbx: `fe46443`
-- `applied` coincide:
-- Conjunto `(path, kind, limit)` coincide:
-- Veredicto de ruptura coincide:
+- KB: copia de trabajo desechable clonada de `/tmp/campana-d/kb-base` (a su
+  vez clon de `wisdom-paul`, `main`@`4bf1dc4`) a
+  `/tmp/campana-d/ratchet-kb.N0ib`, con `diff.renames=false` fijado como
+  config del repo (Adjudicación A3). Sello de partida `.kbx-ratchet.json`
+  con 11 `ceilings`, confirmado antes de correr nada — coincide con el
+  fixture de campo declarado arriba (§Referencia).
+- Invocación 1 (working tree): `kbx ratchet --kb <copia>` exit=0,
+  `exo ratchet --kb <copia>` exit=0. Salida de texto **idéntica** byte a
+  byte (`diff -u` limpio), 8 líneas cada una, todas `no-air-debt` (deuda,
+  no rompe).
+- Invocación 2 (`--staged`, con un cambio preparado — una línea añadida a
+  `log/accesibilidad-saga-bitacora.md` y `git add -A`): `kbx` exit=0, `exo`
+  exit=0. Salida de texto **idéntica** byte a byte, 8 líneas, mismo
+  contenido que la invocación 1 (el cambio de prueba no altera el juicio de
+  `no-air-debt`). Cambio de prueba deshecho con `git reset --hard` antes de
+  la invocación 3, working tree confirmado limpio después.
+- Invocación 3 (`--json`, la que gatea el criterio): `kbx` exit=0, `exo`
+  exit=0. `jq -S '.data | {applied, findings: (.findings | sort_by(.path,
+  .kind, .limit))}'` sobre cada salida: 53 líneas cada fichero
+  (`go-ratchet.json` / `rs-ratchet.json`), `diff -u` limpio →
+  **PASA: ratchet --json**. `applied`: `true` en las dos mitades.
+  `findings`: 8 en cada una, mismo conjunto `(path, kind, limit)`, mismo
+  `now` en cada tripleta (campo no gateante, coincide igual). Todos
+  `kind: "no-air-debt"` — sin sorpresas de otros `kind` no cubiertos por el
+  fixture actual.
+- `applied` coincide: **sí** (`true` / `true`).
+- Conjunto `(path, kind, limit)` coincide: **sí** — 8/8, mismo cardinal,
+  mismo contenido, verificado por `diff -u` sobre el JSON ordenado
+  (`sort_by`), no solo por conteo.
+- Veredicto de ruptura coincide: **sí** — exit `0` en las tres invocaciones
+  para las dos mitades (ninguna rompe; los 8 findings son `no-air-debt`,
+  que por diseño no bloquea). No se observó exit `1` (kbx: gate roto) ni
+  `3` (exo: gate rechazado) en ninguna de las dos mitades.
 - Divergencias observadas y su adjudicación:
-- **PASA / NO PASA**:
+  - `schema_version` difiere (`1` en kbx, `2` en exo) — **fuera del alcance
+    del criterio**: el envelope completo no se compara, solo `.data`
+    filtrado por el propio script del pre-registro (§Qué se compara,
+    invocación 3); consistente con Global Constraints del plan
+    ("`SCHEMA_VERSION` sigue en 2, sin tocar"). No es una de las 6
+    divergencias declaradas porque no hace falta declararla: no entra en
+    lo comparado.
+  - Ninguna de las 6 divergencias pre-declaradas (exit codes, `--seal`+
+    `--staged`, orden de iteración, `diff.renames`, Unicode en claves del
+    sello, `no-air-debt`) se manifestó como discrepancia real en esta
+    corrida — el fixture de campo (8 `no-air-debt`, 0 renames staged, sin
+    `--seal`) no ejerció los casos límite que esas divergencias anticipan;
+    quedan como riesgo latente no cubierto por este fixture, no como fallo.
+  - No se observó ninguna otra divergencia: `was`/`now` coinciden en todos
+    los `findings`, orden de `findings` coincide tras el `sort_by` (no se
+    puede aislar si habría divergido sin ordenar, pero el criterio exige
+    conjunto, no secuencia).
+- **PASA / NO PASA**: **PASA** — las tres invocaciones cumplen el criterio
+  fijado (`applied` idéntico, conjunto `(path, kind, limit)` idéntico,
+  veredicto de ruptura idéntico); ninguna divergencia observada cae fuera
+  de lo ya declarado o del alcance del criterio.
