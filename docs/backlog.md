@@ -361,8 +361,9 @@
   campo de envelope compartido: la campaña E **no adoptó** esa unificación
   (cambiaría el JSON que `compose-inject.sh` entrega a Claude Code, una
   superficie que pedía cautela) — en su lugar cerró el blind spot de
-  `inject-emitted` con su propio evento aditivo (`inject-empty`, ver ítem de
-  abajo), sin tocar ningún esquema.
+  `inject-emitted` con su propio evento aditivo (`inject-empty`, ver
+  «`inject-emitted` se emite aunque no se inyecte nada», en
+  `## Cerrado con evidencia`), sin tocar ningún esquema.
   **Acción, por orden de coste:** (a) que el truncado **grite** — un aviso por
   stderr y un evento en el log cuando el bloque toca el cap, hoy no hay ninguno;
   (b) pasada de `/distill` sobre `core-index` retirando entradas muertas (es
@@ -370,8 +371,8 @@
   exo está rancia, sigue diciendo «Frente: C10/M5a-02 config propia», que se
   cerró hoy; (c) revisar si el cap de 6.144 sigue siendo el correcto.
   **Cruce (2026-09-09):** misma clase de fallo que «`inject-emitted` se emite
-  aunque no se inyecte nada», justo abajo — el instrumento no reporta lo que no
-  hizo. Las dos acciones convergen en **un campo del envelope** (truncado /
+  aunque no se inyecte nada» (en `## Cerrado con evidencia`) — el instrumento
+  no reporta lo que no hizo. Las dos acciones convergen en **un campo del envelope** (truncado /
   vacío) que el hook lea y loguee, en vez de dos avisos ad hoc por separado;
   el envelope ya existe (`schema_version == 2`). Precedente de forma verificado
   en `affaan-m/ECC` (clone `5064474`): su `memory_search` devuelve
@@ -617,8 +618,9 @@
   sus regex (`validate-no-personal-paths.js:41-42`) cubren `/Users/<nombre>`
   y `C:\Users\<nombre>`, **pero no `/home/<user>`** — hay que añadirle el
   patrón POSIX y la lista de nombres propios, o no cazaría hoy la única
-  ofensora que queda (`test-git-c-bash.sh`, ver el item de Baja de G4c
-  Task 14). Segundo robable de la misma cadena: `scripts/ci/validate-hooks.js`,
+  ofensora que queda (`test-git-c-bash.sh`, ver «Las 2 rutas `/home/paul/…`
+  de `test-git-c-bash.sh:74-75`», en `## Cerrado con evidencia`). Segundo
+  robable de la misma cadena: `scripts/ci/validate-hooks.js`,
   que valida `hooks/hooks.json` contra `schemas/hooks.schema.json` con Ajv
   (`:9,12,144-145`); `plugins/exo/hooks/hooks.json` tiene nueve hooks y
   ninguna validación.
@@ -1337,11 +1339,20 @@
   medido con `printf '%s\n' "$CABECERA" | wc -c`) — el caso real: perfil
   `reducido` (agente `exo:executor`) sin KB resoluble. `inject-emitted` NO
   se retira (el contrato "el hook siempre entrega algo" no cambia) — el
-  evento nuevo es aditivo, verificado contra el único consumidor del log
-  (`plugins/exo/scripts/a1-gate.sh`, que no lee `inject-empty`, así que sus
-  contadores `emitidos`/`sesiones`/`denom_u2` no se movieron). Test:
+  evento nuevo es aditivo, verificado con `grep -rn inject-emitted` contra
+  los cinco consumidores del reflex-log que existen hoy, ninguno de los
+  cuales cambia sus contadores: `plugins/exo/scripts/a1-gate.sh` (igualdad
+  exacta por `jq`; no lee `inject-empty`, así que `emitidos`/`sesiones`/
+  `denom_u2` no se mueven), `exo-recall.sh:116` (whitelist por `case` que
+  tampoco incluye `inject-empty`), `reflex-baseline.sh` y
+  `reflex-fp-review.sh` (agrupan por `.reflex`: `inject-empty` aparece como
+  fila nueva, sin tocar el conteo de `inject-emitted`) y
+  `recall-latencia.sh` (filtra `recall-inject-emitted`, evento propio de
+  `exo-recall.sh`, distinto de `inject-emitted` y ajeno a este cambio).
+  Test:
   `plugins/exo/scripts/test-subagent-inject.sh` caso 7.
-  **Texto original del ítem, sin tocar, para no perder la evidencia:**
+  **Texto original del ítem sin tocar el contenido, salvo negritas internas
+  perdidas al pegar, para no perder la evidencia:**
   `inject-emitted` se emite aunque no se inyecte nada. Medido el
   2026-08-27 al validar la Task 3-bis de la ola 1B: con la KB sin resolver, el
   perfil `reducido` (el del agente `executor`) compone **71 bytes de cabecera y
@@ -1372,7 +1383,8 @@
   en test) y el camino feliz completo (bloque real con `Contrato de
   memoria`, cero eventos de fallback). Corre en CI vía `scripts/test-plugin.sh`
   (descubierto por glob `test-*.sh`, sin lista a mano).
-  **Texto original del ítem, sin tocar, para no perder la evidencia:**
+  **Texto original del ítem sin tocar el contenido, salvo negritas internas
+  perdidas al pegar, para no perder la evidencia:**
   `exo-recall.sh` no tiene suite de test. Es el hook de SessionStart —
   lo que inyecta la KB al arrancar cada sesión — y la ola 1A lo modificó dos
   veces (Task 7, Task 8), respaldado solo por demostraciones manuales.
@@ -1396,7 +1408,8 @@
   está citada como resuelta en la cabecera `> Última revisión` de este
   mismo backlog — se cierra aquí para que el backlog no afirme "resuelto en
   la cabecera" y "abierto en su propio ítem" a la vez.
-  **Texto original del ítem, sin tocar, para no perder la evidencia:**
+  **Texto original del ítem sin tocar el contenido, salvo negritas internas
+  perdidas al pegar, para no perder la evidencia:**
   `exo search` sin resultados no imprime nada y sale 0. `busca_cmd`
   (`engine/src/main.rs`, rama sin `--json`): si `resultado.results` está
   vacío, el `for` no itera y la función vuelve `Ok(())` — ni un `no results`
@@ -1419,7 +1432,9 @@
   Se cierra el ítem entero (no solo el mensaje) porque las dos "deudas
   hermana" que colgaban de él ya estaban cerradas de campañas anteriores —
   texto íntegro abajo, sin tocar.
-  **Texto original del ítem, sin tocar, para no perder la evidencia:**
+  **Texto original del ítem, salvo negritas internas perdidas al pegar y la
+  línea de Acción (sustituida abajo por el cierre), para no perder la
+  evidencia:**
   (NUEVO, campaña B, 2026-09-13) El error de la guarda «una DB sirve a
   una KB» recomienda `--db`, que `exo init` no tiene. Medido al documentar
   la guarda H1 en la Task 10 (`docs/instalacion.md` §4): `exo init` no
@@ -1503,7 +1518,8 @@
   de CI (la mayoría) ya usan `dtolnay/rust-toolchain@stable`; el job `msrv`
   sigue pineando `1.95.0` de forma independiente, así que la MSRV declarada
   en `engine/Cargo.toml:8` sigue comprobada.
-  **Texto original del ítem, sin tocar, para no perder la evidencia:**
+  **Texto original del ítem sin tocar el contenido, salvo negritas internas
+  perdidas al pegar, para no perder la evidencia:**
   (revisión 2026-09-04 · CADUCADO A MEDIAS el 2026-09-09) El repo no
   le dice al toolchain local qué versión usar: falta `rust-toolchain.toml`.
   Medido el 2026-09-04: `cargo check --all-targets --locked` en `engine/`
@@ -1541,7 +1557,8 @@
   verificó la estructura del YAML (`needs:` bien encadenado) y que
   `scripts/test-versiones.sh` sigue siendo el mismo gate ya demostrado
   falsable.
-  **Texto original del ítem, sin tocar, para no perder la evidencia:**
+  **Texto original del ítem sin tocar el contenido, salvo negritas internas
+  perdidas al pegar, para no perder la evidencia:**
   (NUEVO, revisión final campaña B, 2026-09-13) En `release.yml`, el
   check de versiones corre DESPUÉS de los tres builds (hasta 3×60 min),
   no antes. `publish` (`.github/workflows/release.yml:105-136`) declara
@@ -1569,7 +1586,8 @@
   anonimizado: el gate de rutas personales de Task 8 mira la FORMA
   `/home/<lo-que-sea>`, no si el nombre es real — sustituir `paul` por un
   nombre genérico seguiría cayendo dentro del patrón.
-  **Texto original del ítem, sin tocar, para no perder la evidencia:**
+  **Texto original del ítem sin tocar el contenido, salvo negritas internas
+  perdidas al pegar, para no perder la evidencia:**
   (G4c, Task 14) Las 2 rutas `/home/paul/…` de
   `test-git-c-bash.sh:74-75` siguen ahí. Fixtures de test hardcodeadas a
   `/home/paul/Documentos/proyectos/code-graph-go`, verificado hoy sin
