@@ -7,7 +7,30 @@
 > duplicar. Cada item cita su evidencia; un item sin evidencia verificable no
 > entra.
 >
-> Última revisión: **2026-09-13** (cierre de la campaña B —
+> Última revisión: **2026-09-14** (campaña E — hooks honestos +
+> CI de coste trivial, `docs/superpowers/plans/2026-09-14-campana-e-hooks-honestos-y-ci.md`,
+> integrada en la rama `e-hooks-honestos-y-ci` (Task 9, este commit); PR de
+> integración a `main` **aún no abierto** en el momento de este commit
+> (`gh pr list` vacío), se actualiza esta línea cuando exista. Cierra con
+> evidencia: `inject-emitted` sin distinguir cabecera-sola de contenido real
+> (Task 1, commit `2e2189b`), suite de `exo-recall.sh` sin guards (Task 2,
+> commit `40cdde5`), `exo search` mudo sin resultados (Task 3, commit
+> `f571fe7`), el mensaje de la guarda «una DB sirve a una KB»
+> recomendando `--db` a `init` (Task 4, commit `685b2c9`, fmt `4465aba`),
+> `engine/rust-toolchain.toml` ausente (Task 5, commit `465bf5a`),
+> `--locked`/log completo/`upload-artifact` en el gate hermético (Task 6,
+> commit `e33c1e5`, fix `21fbedb`), el orden de `release.yml` (Task 7,
+> commit `464b998`), y el gate de rutas personales en CI (Task 8, commit
+> `8ee6640`). **Caduca con cita**, sin cerrar del todo: el truncado
+> del bloque de arranque (acción a, HECHA desde antes de esta campaña —
+> `main.rs:917-919`, `exo-recall.sh:89-91`; acciones b/c siguen abiertas,
+> fuera de alcance de E) y la frase «`kb-demo` en 8 ficheros, tres de ellos
+> de producción» del ítem "exo genérico" (el nombre ya sale de
+> `exo config --json` en los tres; el resto del ítem sigue abierto). Fuera
+> de esta campaña: cutover
+> kbx→exo, paridad Go — campaña D, en paralelo.)
+>
+> Anterior: **2026-09-13** (cierre de la campaña B —
 > `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md`, H6, H8,
 > H9, H11, H12, H13, H15, H16, H18, H20, H21, H22, H26— sincronizado además con
 > el CI que cerró fuera de campaña el 09-12/09-10. **Se mueven a `## Cerrado
@@ -36,7 +59,7 @@
 > según el plan, sin deuda que registrar aquí—; H25 queda fuera, es checklist
 > externo de Paul, no tarea de la fábrica.)
 >
-> Anterior: **2026-09-11** (alineación con el árbol real tras G5b, a
+> Antes: **2026-09-11** (alineación con el árbol real tras G5b, a
 > raíz de corregir el informe de la revisión crítica
 > —`docs/2026-09-04-revision-critica-externa.md`—. La re-verificación que ese
 > informe hizo el 09-11 por la mañana se corrió contra `bf4ba7a` **creyendo
@@ -123,6 +146,7 @@
 | **Campaña A** | ejecutada el **2026-09-13** salvo Tasks 12 y 15 (esperan la medición W11 de Paul) — mergeada a `main` el **2026-09-13** vía PR #13 (`ef5100b`); veredicto en `evals/recall-coste/verdict/2026-09-campana-a.md` |
 | **Campaña B** | ejecutada el **2026-09-13**, las 13 tasks (H6, H8, H9, H11, H12, H13, H15, H16, H18, H20, H21, H22, H26) — mergeada a `main` el **2026-09-13** vía PR #14 (`219506b`); plan en `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md`; H25 queda como checklist externo de Paul |
 | **Campaña C** | held-out pre-registrado, **sin cambio de producción** — mergeada a `main` el **2026-09-14** vía PR #16 (`cb25541`); veredicto en `evals/retrieval-heldout/verdict/c-verdict.md`. El held-out queda consumido; D6 (default de `exo search --type`) PENDIENTE-PAUL |
+| **Campaña E** | 9 tasks (hooks honestos: `inject-empty`, suite de `exo-recall.sh`, `no results` en `search`; engine: mensaje de guarda parametrizado, `rust-toolchain.toml`; CI: `--locked`+log+artifact en el gate hermético, orden de `release.yml`, gate de rutas personales) — ejecutada el **2026-09-14** en la rama `e-hooks-honestos-y-ci`; PR de integración a `main` pendiente de apertura en el momento de este commit; plan en `docs/superpowers/plans/2026-09-14-campana-e-hooks-honestos-y-ci.md` |
 
 ---
 
@@ -288,6 +312,19 @@
     `distill/SKILL.md` en `SKILL.md` + `chequeos.md`:** el conteo cambia de
     forma (`git grep -c Paul -- plugins/exo`) pero no de fondo — ver el
     detalle arriba, en la entrada del 2026-09-04.
+    **CADUCA con cita (campaña E, 2026-09-14):** la frase «`kb-demo` en 8
+    ficheros, tres de ellos de producción» está superada en el conteo (hoy
+    son 9 — `README.md` se sumó después de esa medición). Verificado hoy
+    (`git grep -l kb-demo -- plugins/exo/`, 9 ficheros): en NINGUNO el
+    nombre está hardcodeado en lógica de runtime — `exo-recall.sh:62-70` y
+    `recall-inject.sh:229-236` lo resuelven vía `exo config --json`, y los
+    únicos usos literales de "kb-demo" que quedan son comentarios que
+    EXPLICAN ese cambio, fixtures deliberadas de
+    `test-recall-inject.sh` (`EXO_KB_NAME="kb-demo"` puesto por el propio
+    test) y las skills `distill`/`recon-first`, que nombran la KB real de
+    Paul por diseño. El resto del ítem (`Paul` en 5 ficheros, `kbx` como
+    dependencia operativa de `distill`) **sigue abierto** — fuera del
+    alcance de E.
   **Acción:** (a) sustituir «Paul» por «el usuario»/«el dueño de la KB» y
   `kb-demo` por el nombre resuelto vía `exo config` en los cuatro scripts y
   dos skills; (b) lo que queda de `kbx` (`rotate`, `stale`) lo lleva el item
@@ -311,6 +348,21 @@
   tanto **varían solos, sin que nadie edite nada**. Una racha de commits en la
   KB puede empujarlo por encima del cap sin un solo cambio de contenido.
   No lo causó esta ola (aportó 28 B de esos 5.921), pero la ola lo hizo medible.
+  **Acción (a) HECHA, verificado en la campaña E (2026-09-14) — CADUCA con
+  cita:** `engine/src/main.rs:917-919` emite `eprintln!("aviso: recall
+  truncado por --cap-bytes={} …")` desde `2234887` (M2-08, comando `exo
+  recall`), y `plugins/exo/scripts/exo-recall.sh:89-91` loguea
+  `recall-fallback reason=truncated` desde `48083e5` (fusión a plugin único).
+  El grito por stderr y el evento en el log que la acción (a) pedía ya
+  existen los dos. **Siguen abiertas** las acciones (b) (pasada de
+  `/distill` sobre `core-index`) y (c) (revisar el cap de 6.144) — ninguna la
+  toca la campaña E, ambas fuera de su lista. El «Cruce (2026-09-09)» de más
+  abajo proponía unificar esto con el ítem hermano de `inject-emitted` en un
+  campo de envelope compartido: la campaña E **no adoptó** esa unificación
+  (cambiaría el JSON que `compose-inject.sh` entrega a Claude Code, una
+  superficie que pedía cautela) — en su lugar cerró el blind spot de
+  `inject-emitted` con su propio evento aditivo (`inject-empty`, ver ítem de
+  abajo), sin tocar ningún esquema.
   **Acción, por orden de coste:** (a) que el truncado **grite** — un aviso por
   stderr y un evento en el log cuando el bloque toca el cap, hoy no hay ninguno;
   (b) pasada de `/distill` sobre `core-index` retirando entradas muertas (es
@@ -348,38 +400,6 @@
   comenta, `hooks/ponytail-subagent.js:31-38`— pero en el bloque de arranque lo
   barato es gritar. No es item nuevo: es el criterio que le falta a la acción
   (a).
-
-- [ ] **`inject-emitted` se emite aunque no se inyecte nada.** Medido el
-  2026-08-27 al validar la Task 3-bis de la ola 1B: con la KB sin resolver, el
-  perfil `reducido` (el del agente `executor`) compone **71 bytes de cabecera y
-  cero rutas**, y `subagent-inject.sh` lo loguea igual como `inject-emitted`,
-  con `bytes=70` enterrado en el payload. Un evento cuyo nombre afirma el
-  efecto que no ocurrió. Los otros perfiles no lo exhiben porque su doctrina es
-  estática y sobrevive sin KB (784 B): `reducido` es el único hecho solo de
-  rutas, así que es el único que se queda en cero — y es el del agente que más
-  disciplina necesita.
-  **Causa inmediata** (esa sí se cierra en el cutover): `compose-inject.sh:29`
-  resuelve la KB con `exo config --json`, subcomando nacido en la ola 1A, y el
-  binario instalado del 24-08 responde `unrecognized subcommand`.
-  **Acción, independiente del cutover:** que el evento distinga «compuesto con
-  contenido» de «solo cabecera» — o un `inject-empty`, o un aviso cuando el
-  bloque no supera el tamaño de la cabecera. Mientras el nombre del evento
-  afirme más que lo ocurrido, el log no es evidencia. Detalle y medidas en
-  `runbooks/2026-08-26-cutover-plugin-exo.md`.
-  **Cruce (2026-09-09):** misma clase de fallo que «el bloque de arranque va al
-  96% de su cap, y desborda en silencio», arriba — la forma de arreglo
-  compartida (un campo del envelope, no dos avisos) está descrita allí.
-
-- [ ] **`exo-recall.sh` no tiene suite de test.** Es el hook de SessionStart —
-  lo que inyecta la KB al arrancar cada sesión — y la ola 1A lo modificó dos
-  veces (Task 7, Task 8), respaldado solo por demostraciones manuales.
-  `plugins/exo/scripts/` tiene `test-recall-inject.sh`,
-  `test-compose-inject.sh` y `test-exo-index.sh`, pero nunca tuvo un
-  `test-exo-recall.sh`.
-  **Acción:** suite dedicada — cubrir el guard `no-engine`, el guard
-  `no-config` y su orden relativo (ver hallazgo de la Task 8: antes de esa
-  tarea, sin engine, se logueaban `no-config` Y `no-engine` para una sola
-  causa), y el camino feliz.
 
 - [ ] **Restricción de orden en el cutover binario↔scripts — nada la aplica
   hoy.** El alias oculto de D9 (ítem de retirar aliases españoles, abajo en
@@ -465,27 +485,6 @@
 
 ## Media
 
-- [ ] **(NUEVO, revisión final campaña B, 2026-09-13) En `release.yml`, el
-  check de versiones corre DESPUÉS de los tres builds (hasta 3×60 min),
-  no antes.** `publish` (`.github/workflows/release.yml:105-136`) declara
-  `needs: build` (la matriz linux/windows/macos, `timeout-minutes: 60`
-  cada leg) y solo dentro de `publish`, tras el inventario de artifacts,
-  corre «El tag casa con `engine/Cargo.toml`»
-  (`.github/workflows/release.yml:131-136`: `bash scripts/test-versiones.sh
-  "$TAG"`) — un check de segundos que no toca ningún artifact de build.
-  Agravante medido el 2026-09-13: `scripts/test-versiones.sh` no existe en
-  el árbol del único tag publicado (`v0.1.0`) — se añadió después, en
-  `3bc05aa` (campaña B, H16) — así que un `workflow_dispatch` con `tag:
-  v0.1.0` haría `checkout ref: v0.1.0` (`release.yml:45-47` para `build`,
-  `:111-112` para `publish`), correría los tres builds completos, y
-  fallaría en `publish` con el script inexistente: hasta 3 horas-runner
-  gastadas antes de descubrir un desajuste que un job previo barato habría
-  cazado en segundos.
-  **Acción (no aplicada aquí):** mover el check de versiones a un job
-  previo y barato (o al principio de `build`) del que `publish` (y
-  arguably los propios legs de `build`) dependan con `needs:`, para que
-  falle rápido sin gastar la matriz.
-
 - [ ] **(revisión 2026-09-04) `tier` no se persiste en el índice y cada
   arranque relee el frontmatter de TODAS las notas desde disco.**
   `engine/src/nota.rs:14` lo declara: «el índice NO lo persiste (no hay
@@ -552,33 +551,6 @@
   **(campaña A, 2026-09-13):** Linux: s6 hook entero n174 p50 = 1079 ms, s7
   config+jq = 4 ms. W11: pendiente (D5). El término dominante es la carga del
   modelo (≈0,95 s de ≈1 s), no el shell.
-
-- [ ] **(revisión 2026-09-04 · CADUCADO A MEDIAS el 2026-09-09) El repo no
-  le dice al toolchain local qué versión usar: falta `rust-toolchain.toml`.**
-  Medido el 2026-09-04: `cargo check --all-targets --locked` en `engine/`
-  fallaba con «exo@0.1.0 requires rustc 1.95» sobre `rustc 1.94.1`. La MSRV
-  es correcta (la fija `libsqlite3-sys` vía `cfg_select`, ver
-  `Cargo.toml:6-7`) y el CI la comprueba.
-  **Lo que caducó (mitad de máquina)**: el 2026-09-09 esta máquina corre
-  `rustc 1.98.0` / `cargo 1.98.0`, así que el fallo ya no reproduce. Se
-  arregló solo, por actualización, no por acción sobre el repo.
-  **Lo que sigue vivo (mitad de repo)**: `engine/rust-toolchain.toml` no
-  existe. El repo sigue sin declarar el toolchain, así que la próxima máquina
-  —o esta tras un `rustup default` distinto— repite el mismo tropiezo, y
-  además falla **después** de resolver dependencias, que es lo que lo hacía
-  caro de diagnosticar.
-  **Re-confirmado el 2026-09-11**: `rustc 1.98.0` / `cargo 1.98.0`, toolchain
-  `stable` activo y por defecto, instalado el 2026-08-24 según
-  `~/.rustup/toolchains` —o sea, **antes** de la revisión del 09-04, cuya
-  lectura de 1.94.1 venía de un `rustup default` dejado en el bisect de MSRV
-  del 09-02—. `find . -iname "rust-toolchain*"` sigue vacío. La marca
-  «CADUCADO A MEDIAS» de este item era **correcta**; el informe de la revisión
-  crítica la revirtió por error el 09-11 por la mañana y se ha corregido en su
-  §5.9. `docs/instalacion.md:25-28` ya documenta el mecanismo del corte, así
-  que de la acción solo queda el fichero.
-  **Acción:** `engine/rust-toolchain.toml` con `channel = "stable"` o la
-  MSRV, para que rustup lo resuelva solo. (El `rustup update stable` de la
-  acción original ya está hecho, y la anotación en `instalacion.md` también.)
 
 - [ ] **(revisión 2026-09-11) Los documentos del repo no llevan `tier`, así
   que nada distingue lo que debe ser verdad hoy de lo que solo fue verdad un
@@ -650,9 +622,17 @@
   que valida `hooks/hooks.json` contra `schemas/hooks.schema.json` con Ajv
   (`:9,12,144-145`); `plugins/exo/hooks/hooks.json` tiene nueve hooks y
   ninguna validación.
-  **Acción:** los dos gates, cuando tengan dueño; ninguno se escribió en la
-  campaña B (fuera de su alcance — B tocó CI de shellcheck y exec-bit, no
-  este).
+  **Acción, sub-propuesta 1 (validador de rutas) CERRADA (campaña E, Task 8,
+  `8ee6640`, 2026-09-14):** `scripts/test-rutas-personales.sh`, mismo
+  descubrimiento que `test-shellcheck.sh` (índice de git, `.sh` + shebang,
+  excluye `evals/`/`docs/`), corre en `ci.yml` job `lint`. Cubre exactamente
+  el patrón que Paul decidió (solo rutas: `/home/<user>`, `/Users/<user>`,
+  `C:\Users\<user>`), sin detectar nombres propios. De paso arregló un falso
+  positivo no anticipado por el dictamen del consultor:
+  `test-contrato-engine.sh:45` mencionaba `` `/c/Users/...` `` en un
+  comentario (subcadena que casaba el patrón sin ser una ruta real);
+  reescrito. **Sigue abierta** la sub-propuesta 2 (`validate-hooks.js`/schema
+  de `hooks.json`) — no pedida para esta campaña.
   **Lo cierra G5 si lo adopta.** **(2026-09-11: G5b cerró sin adoptarlo — release `v0.1.0` publicada, ver `## Cerrado con evidencia`. La marca queda huérfana: necesita dueño o campaña propia.)**
 
 - [ ] **(G4c, Task 13) `kb-precommit.sh` depende de que `exo` esté instalado
@@ -731,10 +711,12 @@
   grep que lo cace, exactamente el caso peor que este item señalaba— y
   `ci.yml` sigue sin `actions/upload-artifact` para el log completo. No
   cambia el veredicto del gate, solo lo que cuenta al fallar.
-  **Acción propuesta:** campaña propia — `tee` o un `EXO_HERMETICO_LOG`
-  opt-in en el script (con su propio ciclo rojo-verde, porque el script es
-  un gate ya demostrado falsable y tocarlo invalida esa evidencia), más
-  `actions/upload-artifact` en el job. No se arregla aquí, solo se anota.
+  **Parcial CERRADO (campaña E, Task 6, `e33c1e5`+`21fbedb`, 2026-09-14):**
+  `EXO_HERMETICO_LOG` opt-in + `tee` en el script, `actions/upload-artifact`
+  en `ci.yml` (job `test`) subiendo el log completo por SO. **Sigue
+  abierto**: un error de COMPILACIÓN de la suite sigue sin casar ningún
+  patrón de grep del script — ahora al menos queda íntegro en el artifact
+  para leerlo a mano, pero nada lo resalta. Fuera del alcance de E.
 
 - [ ] **Hoy el CI no bloquea nada.** Paul decidió explícitamente no proteger
   `main` por ahora — no hay branch protection ni required status checks.
@@ -783,9 +765,12 @@
     `--locked`, y ese script no se toca (es un gate demostrado falsable).
     Consecuencia: el job que más importa puede resolver un árbol de
     dependencias distinto del `Cargo.lock` commiteado.
-    **Acción:** entra en la misma campaña que la deuda de diagnosticabilidad
-    del script, arriba — las dos exigen tocarlo y por tanto rehacer su ciclo
-    rojo-verde.
+    **Acción CERRADA (campaña E, Task 6, `e33c1e5`, 2026-09-14):**
+    `engine/scripts/test-hermetico.sh` corre con `--locked`; ciclo
+    rojo-verde rehecho (rojo provocado con un `#[test] { panic!() }`
+    temporal en `engine/tests/smoke.rs`, revertido). `HF_HOME` sigue sin
+    fijar — fuera del alcance de esta campaña, el ítem padre sigue abierto
+    por esa mitad.
 
 - [ ] **`walker::walk_kb` frente a `walk_kb_excluyendo`: conviven con semánticas
   distintas desde G4b.** Verificado en `engine/src/walker.rs`: `walk_kb`
@@ -1037,77 +1022,6 @@
   campaña C es «no aplica». El held-out de C queda consumido (§11 del
   verdict): retomar solape, late chunking o el gold de `retrieval-fase0/`
   exige uno nuevo.
-
-- [ ] **(NUEVO, campaña B, 2026-09-13) El error de la guarda «una DB sirve a
-  una KB» recomienda `--db`, que `exo init` no tiene.** Medido al documentar
-  la guarda H1 en la Task 10 (`docs/instalacion.md` §4): `exo init` no
-  acepta flag `--db` — resuelve el índice por `$EXO_DB` o el default de la
-  config. `comprueba_kb_root` (`engine/src/indexer.rs:484-490`) sí se
-  invoca desde `exo init` (`inicia.rs:125`) además de `exo index`/`exo
-  rebuild` (que sí tienen `--db`, `ArgsIndex.db`), y su mensaje de error es
-  literal para los tres: «Una DB sirve a UNA KB: usa otra `--db` para
-  esta…» — correcto cuando lo dispara `index`/`rebuild`, engañoso cuando lo
-  dispara `init`, donde la única vía real es `EXO_DB=<ruta> exo init …`.
-  `docs/instalacion.md:109-110` ya tuvo que aclararlo aparte: «(`exo init`
-  no tiene flag `--db`; usa la variable de entorno).»
-  **Acción:** el mensaje deja de asumir un flag que no todos sus llamadores
-  tienen — o se parametriza por comando (`init` → menciona `$EXO_DB`,
-  `index`/`rebuild` → menciona `--db`), o se reescribe genérico («usa otro
-  índice para esta KB: `--db` en `index`/`rebuild`, `$EXO_DB` en `init`»).
-  **Deuda hermana (revisión final campaña B, 2026-09-13): `exo init` no
-  respeta `$EXO_DB` al escribir `[index] db` en la config — CERRADA
-  (rama `fix-init-exo-db`, commit `621376f`).** `init_cmd` calculaba
-  `db_objetivo` con la precedencia `$EXO_DB` > default pero llamaba a
-  `escribe_config` con `db_default` — SIEMPRE `~/.exo/index.db`, nunca
-  `db_objetivo`. Con `$EXO_DB` puesto, la config quedaba grabando una DB
-  distinta de la que ese `init` acababa de indexar: un `exo search`/`exo
-  config` posterior con solo `$EXO_CONFIG` resolvía en silencio al índice
-  de OTRA KB. Arreglo: `escribe_config` recibe `db_objetivo`
-  (`engine/src/main.rs`, `init_cmd`); sin `$EXO_DB` sigue grabando el
-  default de siempre. Cubierto por tres tests nuevos en
-  `engine/tests/inicia.rs` (RED antes del fix, GREEN después):
-  `init_con_exo_db_graba_en_config_la_db_de_exo_db_no_el_default`,
-  `segunda_kb_con_exo_config_y_exo_db_propios_no_hereda_la_db_de_la_primera`
-  (síntoma end-to-end con dos KBs) y `init_sin_exo_db_sigue_grabando_el_default`
-  (no-regresión). `docs/instalacion.md` §4 ya no necesita el `sed` manual
-  sobre `[index] db`: la receta de segunda KB queda solo
-  `EXO_CONFIG=… EXO_DB=… exo init …` y luego `EXO_CONFIG` a secas,
-  verificada de punta a punta (`exo index` y `exo search`) en un `HOME`
-  aislado con el binario release.
-  **Deuda hermana #2 (agravante silencioso: `search`/`recall` no avisaban en
-  lectura) — CERRADA (rama `fix-init-exo-db`, commits `7cf7633`, `11c0f15`,
-  `ff49b36`).** `comprueba_kb_root` (`engine/src/indexer.rs`) solo se
-  invocaba desde los caminos de ESCRITURA (`index`/`rebuild`/`init`):
-  `search_cmd`/`recall_cmd` abrían la DB resuelta y consultaban directo,
-  sin comparar nunca `meta.kb_root` contra la KB pedida — la config con
-  `[index] db` apuntando a OTRA KB (justo el bug de `init` de la deuda de
-  arriba, o una edición manual) respondía en silencio con los resultados
-  de la KB equivocada, exit 0. Arreglo (diseño final, tras dos rondas de
-  review sobre la misma rama): `kb_root_conflicto` factoriza el dato
-  compartido; `aviso_kb_root_lectura` (`indexer.rs`) es BEST-EFFORT total
-  — `Option<String>`, no `Result`, cualquier fallo interno (canonicalize,
-  `meta` ausente en una DB de schema anterior) degrada a `None` en vez de
-  propagar — y se llama SIEMPRE sobre la conexión que `busca`/
-  `busca_vector`/`recall_arranque`/`recall_consulta` YA tienen abierta
-  para su propia consulta, nunca una conexión aparte (cero coste extra,
-  hereda `busy_timeout`/WAL por construcción). `recall` publica el aviso
-  en `resultado.recall.avisos` (mismo canal que `warnings`/stderr que ya
-  usa la cobertura del arm vector); `search` lo manda solo a stderr vía un
-  campo `Busqueda.aviso_kb_root` con `#[serde(skip)]` — el envelope de
-  `search` no gana claves nuevas. La KB esperada de `search` sale de
-  `resuelve_kb(None)` (precedencia `$EXO_KB` > config, no solo config).
-  Cubierto por 15 tests en `engine/tests/kb_root_lectura_cli.rs` (RED
-  antes de cada fix, GREEN después, en dos rondas): aviso con las dos
-  rutas cuando la KB previa sigue en disco; sin aviso si es la misma KB,
-  si la KB previa (o la pedida) ya no existe/canonicaliza, si la DB no
-  tiene tabla `meta` (schema anterior, antes tumbaba el comando), o si no
-  hay KB resoluble; `recall --json` publica el aviso en `warnings`;
-  `$EXO_KB` gana a la config en ambos sentidos (con y sin conflicto).
-  Latencia medida (30 corridas, release): `search --type fts` 5,0 ms y
-  `recall` arranque 4,5 ms — indistinguible del baseline sin el feature
-  (4,55 ms / 4,74 ms), tras una primera implementación que sí medía coste
-  real (conexión aparte con `exo::abre_db`: 17,2 ms / 15,7 ms) por abrir
-  una segunda conexión con `PRAGMA journal_mode=WAL`.
 
 - [ ] **(NUEVO, campaña B, 2026-09-13, H15) `trinquete::sellos_escapados_de_tier`
   lee el tier del disco también en `--staged`.** El propio código lo
@@ -1412,29 +1326,256 @@
   --apply`) cuando el gate muerde — mientras no exista en `exo`, ese remedio
   sigue exigiendo tener `kbx` instalado.
 
-- [ ] **(G4c, Task 14) Las 2 rutas `/home/paul/…` de
-  `test-git-c-bash.sh:74-75` siguen ahí.** Fixtures de test hardcodeadas a
+---
+
+## Cerrado con evidencia (para no re-proponer)
+
+- [x] **`inject-emitted` se emite aunque no se inyecte nada: cerrado el
+  2026-09-14 (campaña E, Task 1, `2e2189b`).**
+  `subagent-inject.sh` ahora loguea `inject-empty` ADEMÁS de `inject-emitted`
+  cuando el bloque compuesto no supera el tamaño de su propia cabecera (71 B,
+  medido con `printf '%s\n' "$CABECERA" | wc -c`) — el caso real: perfil
+  `reducido` (agente `exo:executor`) sin KB resoluble. `inject-emitted` NO
+  se retira (el contrato "el hook siempre entrega algo" no cambia) — el
+  evento nuevo es aditivo, verificado contra el único consumidor del log
+  (`plugins/exo/scripts/a1-gate.sh`, que no lee `inject-empty`, así que sus
+  contadores `emitidos`/`sesiones`/`denom_u2` no se movieron). Test:
+  `plugins/exo/scripts/test-subagent-inject.sh` caso 7.
+  **Texto original del ítem, sin tocar, para no perder la evidencia:**
+  `inject-emitted` se emite aunque no se inyecte nada. Medido el
+  2026-08-27 al validar la Task 3-bis de la ola 1B: con la KB sin resolver, el
+  perfil `reducido` (el del agente `executor`) compone **71 bytes de cabecera y
+  cero rutas**, y `subagent-inject.sh` lo loguea igual como `inject-emitted`,
+  con `bytes=70` enterrado en el payload. Un evento cuyo nombre afirma el
+  efecto que no ocurrió. Los otros perfiles no lo exhiben porque su doctrina es
+  estática y sobrevive sin KB (784 B): `reducido` es el único hecho solo de
+  rutas, así que es el único que se queda en cero — y es el del agente que más
+  disciplina necesita.
+  Causa inmediata (esa sí se cierra en el cutover): `compose-inject.sh:29`
+  resuelve la KB con `exo config --json`, subcomando nacido en la ola 1A, y el
+  binario instalado del 24-08 responde `unrecognized subcommand`.
+  Acción, independiente del cutover: que el evento distinga «compuesto con
+  contenido» de «solo cabecera» — o un `inject-empty`, o un aviso cuando el
+  bloque no supera el tamaño de la cabecera. Mientras el nombre del evento
+  afirme más que lo ocurrido, el log no es evidencia. Detalle y medidas en
+  `runbooks/2026-08-26-cutover-plugin-exo.md`.
+  Cruce (2026-09-09): misma clase de fallo que «el bloque de arranque va al
+  96% de su cap, y desborda en silencio», arriba — la forma de arreglo
+  compartida (un campo del envelope, no dos avisos) está descrita allí.
+
+- [x] **`exo-recall.sh` no tiene suite de test: cerrado el 2026-09-14 (campaña
+  E, Task 2, `40cdde5`).**
+  `plugins/exo/scripts/test-exo-recall.sh` pasa de 1 a 6 casos: cubre
+  `no-engine`, `no-index`, `no-config`, el orden entre `no-engine` y
+  `no-config` (la única causa se loguea una vez, nunca dos — el bug
+  histórico de la Task 8 de la ola 1B, ya cerrado en código, ahora también
+  en test) y el camino feliz completo (bloque real con `Contrato de
+  memoria`, cero eventos de fallback). Corre en CI vía `scripts/test-plugin.sh`
+  (descubierto por glob `test-*.sh`, sin lista a mano).
+  **Texto original del ítem, sin tocar, para no perder la evidencia:**
+  `exo-recall.sh` no tiene suite de test. Es el hook de SessionStart —
+  lo que inyecta la KB al arrancar cada sesión — y la ola 1A lo modificó dos
+  veces (Task 7, Task 8), respaldado solo por demostraciones manuales.
+  `plugins/exo/scripts/` tiene `test-recall-inject.sh`,
+  `test-compose-inject.sh` y `test-exo-index.sh`, pero nunca tuvo un
+  `test-exo-recall.sh`.
+  Acción: suite dedicada — cubrir el guard `no-engine`, el guard
+  `no-config` y su orden relativo (ver hallazgo de la Task 8: antes de esa
+  tarea, sin engine, se logueaban `no-config` Y `no-engine` para una sola
+  causa), y el camino feliz.
+
+- [x] **`exo search` sin resultados no imprime nada y sale 0: cerrado el
+  2026-09-14 (campaña E, Task 3, `f571fe7`).**
+  `busca_cmd` (`engine/src/main.rs`) imprime `no results` en la rama de texto
+  plano cuando `resultado.results` está vacío — mismo contrato que
+  `targets_cmd`/`no candidates`. El envelope `--json` queda byte-idéntico
+  (`results: []` ya distinguía el caso). Cubierto por
+  `engine/tests/search_no_results_cli.rs`. **Nota de proceso**: este cierre
+  no está en la lista literal del Step 1 del plan de la Task 9 (que cubre 8
+  cierres/caducidades, uno por cada una de las otras Tasks) pero Task 3 sí
+  está citada como resuelta en la cabecera `> Última revisión` de este
+  mismo backlog — se cierra aquí para que el backlog no afirme "resuelto en
+  la cabecera" y "abierto en su propio ítem" a la vez.
+  **Texto original del ítem, sin tocar, para no perder la evidencia:**
+  `exo search` sin resultados no imprime nada y sale 0. `busca_cmd`
+  (`engine/src/main.rs`, rama sin `--json`): si `resultado.results` está
+  vacío, el `for` no itera y la función vuelve `Ok(())` — ni un `no results`
+  en stdout ni un aviso en stderr, exit 0 igual que con resultados.
+  Contraste en el propio binario: `targets_cmd` (`main.rs:970-971`) sí
+  distingue el caso vacío e imprime `no candidates` antes de salir. Un
+  script que encadena `exo search` no puede diferenciar «sin resultados» de
+  «no filtré la salida», y un humano ve una terminal en blanco sin saber si
+  el comando corrió.
+  Acción: alinear `busca_cmd` con el contrato de `targets_cmd` — un
+  `no results` explícito (fuera del envelope `--json`, que ya distingue por
+  `results: []`) cuando `resultado.results` está vacío.
+
+- [x] **El error de la guarda «una DB sirve a una KB» recomienda `--db`, que
+  `exo init` no tiene: cerrado el 2026-09-14 (campaña E, Task 4, `685b2c9`).**
+  `engine/src/indexer.rs` gana `pub enum OrigenComprobacion { IndexORebuild,
+  Init }`; `comprueba_kb_root` recibe el origen y arma el remedio según cuál
+  sea (`--db`/`exo rebuild` para `index`/`rebuild`, `$EXO_DB` para `init`).
+  Test: `engine/tests/inicia.rs::valida_db_para_kb_rechaza_otra_kb_sin_mencionar_un_flag_que_init_no_tiene`.
+  Se cierra el ítem entero (no solo el mensaje) porque las dos "deudas
+  hermana" que colgaban de él ya estaban cerradas de campañas anteriores —
+  texto íntegro abajo, sin tocar.
+  **Texto original del ítem, sin tocar, para no perder la evidencia:**
+  (NUEVO, campaña B, 2026-09-13) El error de la guarda «una DB sirve a
+  una KB» recomienda `--db`, que `exo init` no tiene. Medido al documentar
+  la guarda H1 en la Task 10 (`docs/instalacion.md` §4): `exo init` no
+  acepta flag `--db` — resuelve el índice por `$EXO_DB` o el default de la
+  config. `comprueba_kb_root` (`engine/src/indexer.rs:484-490`) sí se
+  invoca desde `exo init` (`inicia.rs:125`) además de `exo index`/`exo
+  rebuild` (que sí tienen `--db`, `ArgsIndex.db`), y su mensaje de error es
+  literal para los tres: «Una DB sirve a UNA KB: usa otra `--db` para
+  esta…» — correcto cuando lo dispara `index`/`rebuild`, engañoso cuando lo
+  dispara `init`, donde la única vía real es `EXO_DB=<ruta> exo init …`.
+  `docs/instalacion.md:109-110` ya tuvo que aclararlo aparte: «(`exo init`
+  no tiene flag `--db`; usa la variable de entorno).»
+  **Acción CERRADA (campaña E, Task 4, `685b2c9`, 2026-09-14):**
+  parametrizado por llamador — `engine/src/indexer.rs` gana
+  `pub enum OrigenComprobacion { IndexORebuild, Init }`;
+  `comprueba_kb_root` recibe el origen y arma el remedio según cuál sea
+  (`--db`/`exo rebuild` para `index`/`rebuild`, `$EXO_DB` para `init`). Test:
+  `engine/tests/inicia.rs::valida_db_para_kb_rechaza_otra_kb_sin_mencionar_un_flag_que_init_no_tiene`.
+  Sin regresión: `engine/tests/indexer.rs::indexar_otra_kb_existente_sobre_la_misma_db_falla_y_no_borra_la_primera`
+  (el mensaje de `index`/`rebuild` sigue mencionando `exo rebuild`) sigue
+  verde.
+  Deuda hermana (revisión final campaña B, 2026-09-13): `exo init` no
+  respeta `$EXO_DB` al escribir `[index] db` en la config — CERRADA
+  (rama `fix-init-exo-db`, commit `621376f`). `init_cmd` calculaba
+  `db_objetivo` con la precedencia `$EXO_DB` > default pero llamaba a
+  `escribe_config` con `db_default` — SIEMPRE `~/.exo/index.db`, nunca
+  `db_objetivo`. Con `$EXO_DB` puesto, la config quedaba grabando una DB
+  distinta de la que ese `init` acababa de indexar: un `exo search`/`exo
+  config` posterior con solo `$EXO_CONFIG` resolvía en silencio al índice
+  de OTRA KB. Arreglo: `escribe_config` recibe `db_objetivo`
+  (`engine/src/main.rs`, `init_cmd`); sin `$EXO_DB` sigue grabando el
+  default de siempre. Cubierto por tres tests nuevos en
+  `engine/tests/inicia.rs` (RED antes del fix, GREEN después):
+  `init_con_exo_db_graba_en_config_la_db_de_exo_db_no_el_default`,
+  `segunda_kb_con_exo_config_y_exo_db_propios_no_hereda_la_db_de_la_primera`
+  (síntoma end-to-end con dos KBs) y `init_sin_exo_db_sigue_grabando_el_default`
+  (no-regresión). `docs/instalacion.md` §4 ya no necesita el `sed` manual
+  sobre `[index] db`: la receta de segunda KB queda solo
+  `EXO_CONFIG=… EXO_DB=… exo init …` y luego `EXO_CONFIG` a secas,
+  verificada de punta a punta (`exo index` y `exo search`) en un `HOME`
+  aislado con el binario release.
+  Deuda hermana #2 (agravante silencioso: `search`/`recall` no avisaban en
+  lectura) — CERRADA (rama `fix-init-exo-db`, commits `7cf7633`, `11c0f15`,
+  `ff49b36`). `comprueba_kb_root` (`engine/src/indexer.rs`) solo se
+  invocaba desde los caminos de ESCRITURA (`index`/`rebuild`/`init`):
+  `search_cmd`/`recall_cmd` abrían la DB resuelta y consultaban directo,
+  sin comparar nunca `meta.kb_root` contra la KB pedida — la config con
+  `[index] db` apuntando a OTRA KB (justo el bug de `init` de la deuda de
+  arriba, o una edición manual) respondía en silencio con los resultados
+  de la KB equivocada, exit 0. Arreglo (diseño final, tras dos rondas de
+  review sobre la misma rama): `kb_root_conflicto` factoriza el dato
+  compartido; `aviso_kb_root_lectura` (`indexer.rs`) es BEST-EFFORT total
+  — `Option<String>`, no `Result`, cualquier fallo interno (canonicalize,
+  `meta` ausente en una DB de schema anterior) degrada a `None` en vez de
+  propagar — y se llama SIEMPRE sobre la conexión que `busca`/
+  `busca_vector`/`recall_arranque`/`recall_consulta` YA tienen abierta
+  para su propia consulta, nunca una conexión aparte (cero coste extra,
+  hereda `busy_timeout`/WAL por construcción). `recall` publica el aviso
+  en `resultado.recall.avisos` (mismo canal que `warnings`/stderr que ya
+  usa la cobertura del arm vector); `search` lo manda solo a stderr vía un
+  campo `Busqueda.aviso_kb_root` con `#[serde(skip)]` — el envelope de
+  `search` no gana claves nuevas. La KB esperada de `search` sale de
+  `resuelve_kb(None)` (precedencia `$EXO_KB` > config, no solo config).
+  Cubierto por 15 tests en `engine/tests/kb_root_lectura_cli.rs` (RED
+  antes de cada fix, GREEN después, en dos rondas): aviso con las dos
+  rutas cuando la KB previa sigue en disco; sin aviso si es la misma KB,
+  si la KB previa (o la pedida) ya no existe/canonicaliza, si la DB no
+  tiene tabla `meta` (schema anterior, antes tumbaba el comando), o si no
+  hay KB resoluble; `recall --json` publica el aviso en `warnings`;
+  `$EXO_KB` gana a la config en ambos sentidos (con y sin conflicto).
+  Latencia medida (30 corridas, release): `search --type fts` 5,0 ms y
+  `recall` arranque 4,5 ms — indistinguible del baseline sin el feature
+  (4,55 ms / 4,74 ms), tras una primera implementación que sí medía coste
+  real (conexión aparte con `exo::abre_db`: 17,2 ms / 15,7 ms) por abrir
+  una segunda conexión con `PRAGMA journal_mode=WAL`.
+
+- [x] **Falta `rust-toolchain.toml`: cerrado el 2026-09-14 (campaña E, Task 5,
+  `465bf5a`).**
+  `engine/rust-toolchain.toml` con `channel = "stable"` — decisión razonada
+  en el plan de E: `stable` en vez de `1.95` porque los jobs `lint`/`test`
+  de CI (la mayoría) ya usan `dtolnay/rust-toolchain@stable`; el job `msrv`
+  sigue pineando `1.95.0` de forma independiente, así que la MSRV declarada
+  en `engine/Cargo.toml:8` sigue comprobada.
+  **Texto original del ítem, sin tocar, para no perder la evidencia:**
+  (revisión 2026-09-04 · CADUCADO A MEDIAS el 2026-09-09) El repo no
+  le dice al toolchain local qué versión usar: falta `rust-toolchain.toml`.
+  Medido el 2026-09-04: `cargo check --all-targets --locked` en `engine/`
+  fallaba con «exo@0.1.0 requires rustc 1.95» sobre `rustc 1.94.1`. La MSRV
+  es correcta (la fija `libsqlite3-sys` vía `cfg_select`, ver
+  `Cargo.toml:6-7`) y el CI la comprueba.
+  Lo que caducó (mitad de máquina): el 2026-09-09 esta máquina corre
+  `rustc 1.98.0` / `cargo 1.98.0`, así que el fallo ya no reproduce. Se
+  arregló solo, por actualización, no por acción sobre el repo.
+  Lo que sigue vivo (mitad de repo): `engine/rust-toolchain.toml` no
+  existe. El repo sigue sin declarar el toolchain, así que la próxima máquina
+  —o esta tras un `rustup default` distinto— repite el mismo tropiezo, y
+  además falla **después** de resolver dependencias, que es lo que lo hacía
+  caro de diagnosticar.
+  Re-confirmado el 2026-09-11: `rustc 1.98.0` / `cargo 1.98.0`, toolchain
+  `stable` activo y por defecto, instalado el 2026-08-24 según
+  `~/.rustup/toolchains` —o sea, **antes** de la revisión del 09-04, cuya
+  lectura de 1.94.1 venía de un `rustup default` dejado en el bisect de MSRV
+  del 09-02—. `find . -iname "rust-toolchain*"` sigue vacío. La marca
+  «CADUCADO A MEDIAS» de este item era **correcta**; el informe de la revisión
+  crítica la revirtió por error el 09-11 por la mañana y se ha corregido en su
+  §5.9. `docs/instalacion.md:25-28` ya documenta el mecanismo del corte, así
+  que de la acción solo queda el fichero.
+  Acción: `engine/rust-toolchain.toml` con `channel = "stable"` o la
+  MSRV, para que rustup lo resuelva solo. (El `rustup update stable` de la
+  acción original ya está hecho, y la anotación en `instalacion.md` también.)
+
+- [x] **En `release.yml`, el check de versiones corría DESPUÉS de los tres
+  builds: cerrado el 2026-09-14 (campaña E, Task 7, `464b998`).**
+  Job nuevo `version-check` (barato, sin toolchain de Rust), del que `build`
+  depende con `needs:`. El check original dentro de `publish` se deja como
+  defensa en profundidad. **Límite de verificación declarado en el plan de
+  E**: el orden real de ejecución no se comprobó disparando el workflow de
+  verdad (acción de "release", fuera del alcance de un executor) — se
+  verificó la estructura del YAML (`needs:` bien encadenado) y que
+  `scripts/test-versiones.sh` sigue siendo el mismo gate ya demostrado
+  falsable.
+  **Texto original del ítem, sin tocar, para no perder la evidencia:**
+  (NUEVO, revisión final campaña B, 2026-09-13) En `release.yml`, el
+  check de versiones corre DESPUÉS de los tres builds (hasta 3×60 min),
+  no antes. `publish` (`.github/workflows/release.yml:105-136`) declara
+  `needs: build` (la matriz linux/windows/macos, `timeout-minutes: 60`
+  cada leg) y solo dentro de `publish`, tras el inventario de artifacts,
+  corre «El tag casa con `engine/Cargo.toml`»
+  (`.github/workflows/release.yml:131-136`: `bash scripts/test-versiones.sh
+  "$TAG"`) — un check de segundos que no toca ningún artifact de build.
+  Agravante medido el 2026-09-13: `scripts/test-versiones.sh` no existe en
+  el árbol del único tag publicado (`v0.1.0`) — se añadió después, en
+  `3bc05aa` (campaña B, H16) — así que un `workflow_dispatch` con `tag:
+  v0.1.0` haría `checkout ref: v0.1.0` (`release.yml:45-47` para `build`,
+  `:111-112` para `publish`), correría los tres builds completos, y
+  fallaría en `publish` con el script inexistente: hasta 3 horas-runner
+  gastadas antes de descubrir un desajuste que un job previo barato habría
+  cazado en segundos.
+  Acción (no aplicada aquí): mover el check de versiones a un job
+  previo y barato (o al principio de `build`) del que `publish` (y
+  arguably los propios legs de `build`) dependan con `needs:`, para que
+  falle rápido sin gastar la matriz.
+
+- [x] **Las 2 rutas `/home/paul/…` de `test-git-c-bash.sh:74-75`: cerradas el
+  2026-09-14 (campaña E, Task 8, `8ee6640`).**
+  Fixture movido fuera de `/home` por completo (`/opt/proyectos/…`), no solo
+  anonimizado: el gate de rutas personales de Task 8 mira la FORMA
+  `/home/<lo-que-sea>`, no si el nombre es real — sustituir `paul` por un
+  nombre genérico seguiría cayendo dentro del patrón.
+  **Texto original del ítem, sin tocar, para no perder la evidencia:**
+  (G4c, Task 14) Las 2 rutas `/home/paul/…` de
+  `test-git-c-bash.sh:74-75` siguen ahí. Fixtures de test hardcodeadas a
   `/home/paul/Documentos/proyectos/code-graph-go`, verificado hoy sin
   cambios. Deuda de higiene de test-fixtures personales — ya hay un item
   hermano en Media sobre «rutas personales y `hooks.json` sin validar en
   CI» (que ya cita este mismo script) que la cierra si se adopta.
-
-- [ ] **(NUEVO, campaña B, 2026-09-13, medido en Task 10) `exo search` sin
-  resultados no imprime nada y sale 0.** `busca_cmd` (`engine/src/main.rs`,
-  rama sin `--json`): si `resultado.results` está vacío, el `for` no itera
-  y la función vuelve `Ok(())` — ni un `no results` en stdout ni un aviso en
-  stderr, exit 0 igual que con resultados. Contraste en el propio binario:
-  `targets_cmd` (`main.rs:970-971`) sí distingue el caso vacío e imprime
-  `no candidates` antes de salir. Un script que encadena `exo search` no
-  puede diferenciar «sin resultados» de «no filtré la salida», y un humano
-  ve una terminal en blanco sin saber si el comando corrió.
-  **Acción:** alinear `busca_cmd` con el contrato de `targets_cmd` — un
-  `no results` explícito (fuera del envelope `--json`, que ya distingue por
-  `results: []`) cuando `resultado.results` está vacío.
-
----
-
-## Cerrado con evidencia (para no re-proponer)
 
 - [x] **Gate de shellcheck en CI, cada aviso arreglado o justificado en el
   sitio: cerrado el 2026-09-13 (campaña B, H11, `cd3bfff`).**
