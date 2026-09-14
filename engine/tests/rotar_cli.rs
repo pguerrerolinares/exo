@@ -92,6 +92,28 @@ fn hot_bytes_no_positivo_falla_sin_ensuciar_stdout() {
     assert!(salida.stdout.is_empty());
 }
 
+// Pin del finding I2 de la review: un directorio `algo.md/` dentro de
+// `log/` no es una nota — kbx lo salta con `if e.IsDir() || ... { continue }`
+// antes incluso de mirar la extensión. Sin ese filtro, `exo rotate` intenta
+// `std::fs::read()` sobre el directorio, falla con un error de I/O y ese
+// fallo cuenta como nota fallida (exit 1) en vez de saltarse en silencio.
+#[test]
+fn un_directorio_con_extension_md_en_log_no_cuenta_como_fallo() {
+    let dir = kb_con_bitacora(&nota_grande());
+    std::fs::create_dir_all(dir.path().join("log/x.md")).unwrap();
+    let salida = Command::new(bin())
+        .args(["rotate", "--hot-bytes", "8000"])
+        .arg("--kb")
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert!(
+        salida.status.success(),
+        "un directorio .md en log/ no debe hacer fallar la barrida; stderr: {}",
+        String::from_utf8_lossy(&salida.stderr)
+    );
+}
+
 #[test]
 fn sin_directorio_log_no_hay_nada_que_rotar() {
     let dir = tempfile::tempdir().unwrap();

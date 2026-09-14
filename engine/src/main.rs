@@ -1407,11 +1407,14 @@ fn rotate_cmd(args: ArgsRotate) -> Result<()> {
     });
 
     let dir_log = kb.join("log");
+    // Un directorio `x.md/` dentro de `log/` no es una nota — se salta en
+    // silencio, igual que kbx (`if e.IsDir() || filepath.Ext(...) != ".md"
+    // { continue }`), no cuenta como fallo de la barrida.
     let mut rutas: Vec<PathBuf> = match std::fs::read_dir(&dir_log) {
         Ok(e) => e
             .filter_map(|r| r.ok())
             .map(|e| e.path())
-            .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("md"))
+            .filter(|p| !p.is_dir() && p.extension().and_then(|e| e.to_str()) == Some("md"))
             .collect(),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Vec::new(),
         Err(e) => return Err(e).with_context(|| format!("leer {}", dir_log.display())),
