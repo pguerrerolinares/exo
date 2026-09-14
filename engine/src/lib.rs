@@ -17,6 +17,7 @@ pub mod inicia;
 pub mod lint;
 pub mod nota;
 pub mod objetivos;
+pub mod obsolescencia;
 pub mod plantilla;
 pub mod presupuesto;
 pub mod recall;
