@@ -147,6 +147,7 @@
 | **Campaña B** | ejecutada el **2026-09-13**, las 13 tasks (H6, H8, H9, H11, H12, H13, H15, H16, H18, H20, H21, H22, H26) — mergeada a `main` el **2026-09-13** vía PR #14 (`219506b`); plan en `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md`; H25 queda como checklist externo de Paul |
 | **Campaña C** | held-out pre-registrado, **sin cambio de producción** — mergeada a `main` el **2026-09-14** vía PR #16 (`cb25541`); veredicto en `evals/retrieval-heldout/verdict/c-verdict.md`. El held-out queda consumido; D6 (default de `exo search --type`) PENDIENTE-PAUL |
 | **Campaña E** | 9 tasks (hooks honestos: `inject-empty`, suite de `exo-recall.sh`, `no results` en `search`; engine: mensaje de guarda parametrizado, `rust-toolchain.toml`; CI: `--locked`+log+artifact en el gate hermético, orden de `release.yml`, gate de rutas personales) — ejecutada el **2026-09-14** en la rama `e-hooks-honestos-y-ci`; PR de integración a `main` pendiente de apertura en el momento de este commit; plan en `docs/superpowers/plans/2026-09-14-campana-e-hooks-honestos-y-ci.md` |
+| **Campaña D** | cutover kbx→exo: `rotate` y `stale` portados a Rust (`engine/src/rotacion.rs`, `engine/src/obsolescencia.rs`), pre-registro de paridad congelado antes de Rust (Task 1, `7edb5d0`), cuatro gates de paridad — targets (`4d047f4`), ratchet (`ab5d59b`), rotate (`cd196ff`), stale (`f059eb1`) — los cuatro PASA, consumidores reapuntados (Task 9, `0051638`+`aa82f95`: `distill`/`kb-precommit.sh`/`arquitectura.md` ya no invocan `kbx`) — ejecutada el **2026-09-14/15** en la rama `d-cutover-kbx`, apila la campaña E (`f46cbe3`); plan en `docs/superpowers/plans/2026-09-14-campana-d-cutover-kbx.md`. Abierto: D-4 (permalink `nombre_kb()` vs literal fijo, recomendación ya aplicada en el código, formalmente pendiente de que Paul la zanje) y la acción (a) de «exo genérico» (`Paul`/`kb-demo` por nombres resueltos), fuera de alcance de D |
 
 ---
 
@@ -327,10 +328,12 @@
     alcance de E.
   **Acción:** (a) sustituir «Paul» por «el usuario»/«el dueño de la KB» y
   `kb-demo` por el nombre resuelto vía `exo config` en los cuatro scripts y
-  dos skills; (b) lo que queda de `kbx` (`rotate`, `stale`) lo lleva el item
-  de Baja de G4c Task 14: o se porta, o se declara dependencia opcional en
-  `instalacion.md` y `distill` se abstiene entera sin él;
-  (c) ~~la release con binario de G5~~ **hecha el 2026-09-11**.
+  dos skills — **sigue abierta**, fuera del alcance de la campaña D;
+  (b) ~~lo que queda de `kbx` (`rotate`, `stale`)~~ **hecha el 2026-09-14
+  (campaña D): se portó, no se declaró opcional** — `rotate` y `stale`
+  viven en `exo`, `distill` ya no depende de `kbx` para nada;
+  (c) ~~la release con binario de G5~~ **hecha el 2026-09-11**. El ítem
+  sigue abierto solo por (a).
 
 - [ ] **El bloque de arranque va al 96% de su cap, y desborda en silencio.**
   Medido el 2026-08-27 al validar la Task 6 de la ola 1B: el bloque que
@@ -1294,16 +1297,6 @@
   catálogo de skills a evaluar también. Si se decide que exo asume delegación,
   esto sube a item propio con su gate; si no, se cierra como «no es de exo».
 
-- [ ] **(G4c, Task 14) Gate de paridad `ratchet`+`targets`: pendiente de
-  máquina Linux, mismo prerequisito.** Ninguno de los dos corre en W11 sin
-  toolchain Go (ver "Residuo declarado",
-  `docs/superpowers/plans/2026-09-09-g4c-ratchet-y-cutover.md:874-875`);
-  comparten prerequisito — compilar kbx en `fe46443` — así que conviene
-  correrlos juntos en la misma sesión Linux, no por separado. El repo `kbx`
-  local está divergido de `fe46443` (`f0d0564`, 1 por delante y 18 por
-  detrás, conflicto en `budget.go`, mismo plan:876-877): quien vaya a
-  compilar `fe46443` para el gate necesita saberlo.
-
 - [ ] **(G4c, Task 14) "Los nueve invariantes de la spec" era un lapsus —
   son siete.** El plan de G4a
   (`docs/superpowers/plans/2026-08-26-g4a-plomeria-y-targets.md:1614-1616`)
@@ -1318,19 +1311,47 @@
   es error no abstención, aritmética entera de aire). Anotado para que nadie
   vuelva a buscar la lista de nueve que no existe.
 
-- [ ] **(G4c, Task 14) El cutover kbx→exo es parcial: `rotate`, `stale`,
-  `history` y `diff-since` siguen sin portar.** Verificado hoy: `exo --help`
-  no lista esos cuatro verbos.
-  `plugins/exo/skills/distill/SKILL.md` sigue necesitando el binario `kbx`
-  por `rotate` (`:60`), `stale` (`:146`) y `diff-since` (`:225`). `rotate` es
-  el candidato natural a G4d, y no es cosmético: es el remedio que
-  `kb-precommit.sh` prescribe en su mensaje de rechazo (`kbx rotate --kb <kb>
-  --apply`) cuando el gate muerde — mientras no exista en `exo`, ese remedio
-  sigue exigiendo tener `kbx` instalado.
-
 ---
 
 ## Cerrado con evidencia (para no re-proponer)
+
+- [x] **(G4c, Task 14) Gate de paridad `ratchet`+`targets`: cerrado el
+  2026-09-14/15 (campaña D, Task 3 `4d047f4`, Task 4 `ab5d59b`).** Los dos
+  gates corrieron en máquina Linux, con `kbx` compilado en `fe46443` y
+  copia desechable de la KB real: `targets` 5/5 topics PASA (conjunto de
+  permalinks, tier, `size_bytes` y `last_commit` idénticos entre `kbx
+  fe46443` y `exo` de esta rama, `7edb5d0`); `ratchet` PASA — `applied`,
+  conjunto `(path,kind,limit)` y veredicto de ruptura idénticos entre `kbx
+  fe46443` y `exo 4d047f4` en las tres invocaciones (working tree,
+  `--staged`, `--json`). Registros completos en
+  `docs/superpowers/plans/2026-09-02-g4a-preregistro-targets.md` y
+  `docs/superpowers/plans/2026-09-09-g4c-preregistro-ratchet.md`.
+  **CADUCADO (campaña D, 2026-09-14): el repo `kbx` local ya NO está
+  divergido.** Verificado con
+  `git -C ~/Documentos/proyectos/kbx merge-base --is-ancestor fe46443 HEAD`
+  (sale 0 — `fe46443` es ancestro de `HEAD`, hoy `ee2b27c`). No hace falta
+  reconciliar nada para compilar `fe46443`; la Task 2 de la campaña D lo
+  hizo desde un worktree sin tocar el checkout local.
+
+- [x] **(G4c, Task 14) El cutover kbx→exo YA NO es parcial en lo que puede
+  serlo: `rotate` y `stale` están portados** (campaña D, 2026-09-14,
+  `engine/src/rotacion.rs` — `3ad8e80`..`6dccb22` — y
+  `engine/src/obsolescencia.rs` — `6a8bac1`..`cee2382`). `exo --help` lista
+  los dos verbos (`grep -c "Rotate(ArgsRotate)\|Stale(ArgsStale)"
+  engine/src/main.rs` → 2; pantallas de `--help` cubiertas en `d56abee`).
+  Gates de paridad de los dos ports, PASA: rotate (`cd196ff`), stale
+  (`f059eb1`). Ningún consumidor de `plugins/exo/` invoca ya `kbx` como
+  binario (Task 9, `0051638`+`aa82f95`): verificado con `grep -rn
+  "KBX_BIN\|kbx " plugins/exo/skills/distill/
+  plugins/exo/scripts/kb-precommit.sh`, que sí da 2 líneas pero ninguna es
+  una invocación — `SKILL.md:43` niega expresamente `$KBX_BIN` ("ningún
+  ruta literal, y ningún `$KBX_BIN`") y `chequeos.md:42` es mención
+  histórica en pasado ("existía solo mientras kbx y exo convivían..."); cero
+  invocaciones reales del binario. `history` y `diff-since` **no se portan
+  por decisión, no por pendiente**: se sustituyen por `git diff`/`git log`
+  directo en `distill/SKILL.md` paso 3 — con git ya delante, duplicarlo
+  dentro del binario no añadía nada. `kbx` puede seguir existiendo como
+  herramienta; deja de ser dependencia de `exo`.
 
 - [x] **`inject-emitted` se emite aunque no se inyecte nada: cerrado el
   2026-09-14 (campaña E, Task 1, `2e2189b`).**
