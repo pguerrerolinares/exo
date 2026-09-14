@@ -98,6 +98,151 @@ pub fn parte(contenido: &[u8], presupuesto_caliente: i64) -> Plan<'_> {
     }
 }
 
+/// Línea delimitadora de frontmatter: `---` seguida solo de espacios/tabs,
+/// tolerando también un `\r` final — mismo fix que ya aplica
+/// `frontmatter::es_delimitador` para el resto de exo (sin él, un checkout
+/// CRLF hace que un cierre `---\r` nunca matchee y el fallback sintético se
+/// dispare en silencio sobre frontmatter válido; es el "fallo silencioso
+/// canónico del port" que `frontmatter.rs` ya documenta, y esta función
+/// replica la misma regla en vez de reintroducir la más estrecha de kbx).
+fn es_delimitador_frontmatter(linea: &[u8]) -> bool {
+    let mut fin = linea.len();
+    while fin > 0 && matches!(linea[fin - 1], b' ' | b'\t' | b'\r') {
+        fin -= 1;
+    }
+    &linea[..fin] == b"---"
+}
+
+/// El bloque `---...---` inicial, o un bloque sintético `tier: log` si
+/// `contenido` no empieza por un delimitador o nunca cierra.
+fn bloque_frontmatter(contenido: &[u8]) -> Cow<'_, [u8]> {
+    const SINTETICO: &[u8] = b"---\ntier: log\n---\n";
+    let lineas = lineas_con_offset(contenido);
+    let Some(&(_, primera)) = lineas.first() else {
+        return Cow::Borrowed(SINTETICO);
+    };
+    if !es_delimitador_frontmatter(primera) {
+        return Cow::Borrowed(SINTETICO);
+    }
+    for &(off, linea) in &lineas[1..] {
+        if !es_delimitador_frontmatter(linea) {
+            continue;
+        }
+        let mut fin = off + linea.len();
+        if fin < contenido.len() && contenido[fin] == b'\n' {
+            fin += 1;
+        }
+        return Cow::Owned(contenido[..fin].to_vec());
+    }
+    Cow::Borrowed(SINTETICO)
+}
+
+/// ¿Empieza `contenido` con un delimitador de frontmatter que nunca cierra?
+/// Distinto de "sin frontmatter": `aplica` (Step C) rechaza este caso en vez
+/// de archivar entradas frías bajo metadata sintética que borraría en
+/// silencio el tier/tags/permalink real de la nota.
+fn frontmatter_sin_terminar(contenido: &[u8]) -> bool {
+    let lineas = lineas_con_offset(contenido);
+    let Some(&(_, primera)) = lineas.first() else {
+        return false;
+    };
+    if !es_delimitador_frontmatter(primera) {
+        return false;
+    }
+    !lineas[1..].iter().any(|&(_, l)| es_delimitador_frontmatter(l))
+}
+
+fn offset_delimitador_cierre(fm: &[u8]) -> usize {
+    let mut cierre = 0usize;
+    for (off, linea) in lineas_con_offset(fm) {
+        if es_delimitador_frontmatter(linea) {
+            cierre = off;
+        }
+    }
+    cierre
+}
+
+/// Reescribe `clave: valor` dentro de un bloque de frontmatter,
+/// añadiéndola antes del delimitador de cierre si no existía.
+fn reemplaza_clave(fm: &[u8], clave: &str, valor: &str) -> Vec<u8> {
+    let patron = format!("(?m)^{}:.*$", regex::escape(clave));
+    let re = regex::bytes::Regex::new(&patron).expect("patrón de clave válido");
+    if re.is_match(fm) {
+        return re
+            .replace_all(fm, format!("{clave}: {valor}").as_bytes())
+            .into_owned();
+    }
+    let cierre = offset_delimitador_cierre(fm);
+    if cierre == 0 {
+        return fm.to_vec();
+    }
+    let mut out = Vec::with_capacity(fm.len() + clave.len() + valor.len() + 4);
+    out.extend_from_slice(&fm[..cierre]);
+    out.extend_from_slice(format!("{clave}: {valor}\n").as_bytes());
+    out.extend_from_slice(&fm[cierre..]);
+    out
+}
+
+/// Envuelve `s` como escalar YAML de comilla simple: la única regla de
+/// escape es doblar una comilla simple embebida, así que es seguro para
+/// cualquier contenido — a diferencia del estilo "plain", donde `#`, `&`,
+/// `*`, `:` o `[` cambian lo que la línea significa para un parser YAML. El
+/// título/slug de una nota los escribe Paul libremente.
+fn comilla_simple_yaml(s: &str) -> String {
+    format!("'{}'", s.replace('\'', "''"))
+}
+
+static PATRON_FECHA_ISO: LazyLock<regex::bytes::Regex> =
+    LazyLock::new(|| regex::bytes::Regex::new(r"\d{4}-\d{2}-\d{2}").expect("regex de fecha ISO"));
+
+/// Deriva el nombre del archivo de las fechas ISO del bloque frío. Sin
+/// fechas, cae a un número de secuencia (caso real:
+/// desarrollo-agentico-bitacora, 26 de 60 headings sin fecha).
+/// `existentes` es cuántos archivos ya hay para este slug.
+pub fn nombre_de_archivo(slug: &str, frio: &[u8], existentes: usize) -> String {
+    let mut fechas: Vec<&[u8]> = PATRON_FECHA_ISO.find_iter(frio).map(|m| m.as_bytes()).collect();
+    if fechas.is_empty() {
+        return format!("{slug}-parte-{:02}.md", existentes + 1);
+    }
+    fechas.sort_unstable();
+    format!(
+        "{slug}-{}_{}.md",
+        String::from_utf8_lossy(fechas[0]),
+        String::from_utf8_lossy(fechas[fechas.len() - 1])
+    )
+}
+
+/// Construye la nota archivada: el frontmatter original con `title` y
+/// `permalink` reescritos, seguido del bloque frío verbatim. Con
+/// `archivo_previo` no vacío, escribe un enlace hacia atrás justo después
+/// del heading de título — la nota viva solo guarda UN aviso, apuntando al
+/// archivo más reciente (Step C), así que cada archivo lleva el enlace
+/// hacia atrás y la cadena se recorre archivo a archivo.
+pub fn construye_archivo(
+    frontmatter_original: &[u8],
+    frio: &[u8],
+    titulo: &str,
+    permalink: &str,
+    archivo_previo: &str,
+) -> Vec<u8> {
+    let mut fm = bloque_frontmatter(frontmatter_original).into_owned();
+    fm = reemplaza_clave(&fm, "title", &comilla_simple_yaml(titulo));
+    fm = reemplaza_clave(&fm, "permalink", &comilla_simple_yaml(permalink));
+
+    let mut salida = Vec::with_capacity(fm.len() + frio.len() + titulo.len() + 64);
+    salida.extend_from_slice(&fm);
+    salida.extend_from_slice(b"\n# ");
+    salida.extend_from_slice(titulo.as_bytes());
+    salida.extend_from_slice(b"\n\n");
+    if !archivo_previo.is_empty() {
+        salida.extend_from_slice("> Continúa el histórico anterior en [[".as_bytes());
+        salida.extend_from_slice(archivo_previo.as_bytes());
+        salida.extend_from_slice("]].\n\n".as_bytes());
+    }
+    salida.extend_from_slice(frio);
+    salida
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -167,5 +312,77 @@ mod tests {
         let contenido = doc(&[&e1, &e2]);
         let p = parte(&contenido, 100_000);
         assert_eq!(p.entradas_calientes, 2);
+    }
+
+    #[test]
+    fn nombre_de_archivo_usa_el_rango_de_fechas_iso() {
+        let frio = b"## 2026-06-26 -- a\nx\n\n## Actualizacion 2026-07-11 -- b\ny\n\n";
+        assert_eq!(
+            nombre_de_archivo("agent-develop-bitacora", frio, 0),
+            "agent-develop-bitacora-2026-06-26_2026-07-11.md"
+        );
+    }
+
+    #[test]
+    fn nombre_de_archivo_cae_a_numero_de_parte_sin_fechas() {
+        let frio = b"## sin fecha\nx\n\n";
+        assert_eq!(
+            nombre_de_archivo("desarrollo-agentico-bitacora", frio, 2),
+            "desarrollo-agentico-bitacora-parte-03.md"
+        );
+    }
+
+    #[test]
+    fn construye_archivo_conserva_tier_log_y_reescribe_title_y_permalink() {
+        let fm = b"---\ntitle: agent-develop-bitacora\ntype: note\npermalink: wisdom-paul/log/agent-develop-bitacora\ntags:\n- bitacora\ntier: log\n---\n\n# agent-develop -- bitacora\n\n";
+        let frio = b"## 2026-06-26 -- a\nx\n\n";
+        let doc = construye_archivo(fm, frio, "agent-develop-bitacora 2026-06-26_2026-07-11", "wisdom-paul/archive/log/agent-develop-bitacora-2026-06-26_2026-07-11", "");
+        let doc = String::from_utf8_lossy(&doc);
+        assert!(doc.starts_with("---\n"));
+        assert!(doc.contains("title: 'agent-develop-bitacora 2026-06-26_2026-07-11'\n"));
+        assert!(doc.contains("permalink: 'wisdom-paul/archive/log/agent-develop-bitacora-2026-06-26_2026-07-11'\n"));
+        assert!(doc.contains("tier: log\n"));
+        assert!(doc.contains("## 2026-06-26"));
+    }
+
+    // Pin del finding de la review de kbx: un cierre `---  \n` (espacio
+    // final) no debe caer al bloque sintético ni al "title/permalink no se
+    // escriben" — la misma clase de bug que motivó el `\r`/espacios en
+    // `es_delimitador_frontmatter`.
+    #[test]
+    fn construye_archivo_tolera_espacio_final_en_el_cierre_del_frontmatter() {
+        let fm = b"---\ntype: note\ntags:\n- bitacora\ntier: log\n---  \n\n# x -- bitacora\n\n";
+        let frio = b"## 2026-06-26 -- a\nx\n\n";
+        let doc = construye_archivo(fm, frio, "nuevo-titulo", "nuevo-permalink", "");
+        let doc = String::from_utf8_lossy(&doc);
+        assert!(doc.contains("title: 'nuevo-titulo'\n"));
+        assert!(doc.contains("permalink: 'nuevo-permalink'\n"));
+        assert!(doc.contains("type: note\n"), "frontmatter original debe conservarse: {doc}");
+    }
+
+    #[test]
+    fn construye_archivo_cae_a_sintetico_sin_frontmatter_de_origen() {
+        let fm = b"# solo un heading\n\ntexto\n";
+        let frio = b"## 2026-01-01 -- a\nx\n\n";
+        let doc = construye_archivo(fm, frio, "titulo-x", "permalink-x", "");
+        let doc = String::from_utf8_lossy(&doc);
+        assert!(doc.starts_with("---\ntier: log\n"));
+        assert!(doc.contains("title: 'titulo-x'\n"));
+    }
+
+    #[test]
+    fn construye_archivo_enlaza_al_archivo_previo_cuando_se_pasa() {
+        let doc = construye_archivo(b"---\ntier: log\n---\n", b"## x\n", "t", "p", "bitacora-parte-01");
+        assert!(String::from_utf8_lossy(&doc).contains("[[bitacora-parte-01]]"));
+    }
+
+    #[test]
+    fn frontmatter_sin_terminar_detecta_el_delimitador_sin_cierre() {
+        let sin_cerrar = b"---\ntitle: x\nsin cierre aqui\n";
+        assert!(frontmatter_sin_terminar(sin_cerrar));
+        let normal = b"---\ntier: log\n---\ncuerpo\n";
+        assert!(!frontmatter_sin_terminar(normal));
+        let sin_frontmatter = b"# solo un heading\n";
+        assert!(!frontmatter_sin_terminar(sin_frontmatter));
     }
 }
