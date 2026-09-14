@@ -6,9 +6,12 @@
 //! No usa `tests/common/mod.rs`: pasa `--db` explícito, así que
 //! `resuelve_db` corta en el flag antes de cargar config. `search` no tiene
 //! `--kb`, así que la KB esperada sale de `resuelve_kb(None)` — sin
-//! `$EXO_KB` ni config, resuelve a `None` (aviso `Option`, nunca error), lo
-//! mismo que otros tests de `search` sin `EXO_CONFIG` puesto
-//! (`kb_root_lectura_cli.rs::search_sin_kb_resoluble_no_avisa_y_no_falla`).
+//! `$EXO_KB` ni config resoluble, resuelve a `None` (aviso `Option`, nunca
+//! error). Hermético: `EXO_CONFIG` apunta a un fichero inexistente (mismo
+//! patrón que `help_producto.rs` y
+//! `kb_root_lectura_cli.rs::search_sin_kb_resoluble_no_avisa_y_no_falla`),
+//! nunca `env_remove` — sin esto el test cae en `~/.exo/config.toml` real
+//! si esta máquina tiene uno, y deja de ser hermético.
 
 use std::path::Path;
 use std::process::Command;
@@ -48,7 +51,7 @@ fn sin_resultados_imprime_no_results_y_sale_0() {
         .args(["search", "--db"])
         .arg(&db)
         .arg("zzz-query-que-no-matchea-nada")
-        .env_remove("EXO_CONFIG")
+        .env("EXO_CONFIG", "C:/no-existe-jamas/config.toml")
         .env_remove("EXO_KB")
         .output()
         .unwrap();
@@ -74,7 +77,7 @@ fn con_resultados_no_imprime_no_results() {
         .args(["search", "--db"])
         .arg(&db)
         .arg("buscable")
-        .env_remove("EXO_CONFIG")
+        .env("EXO_CONFIG", "C:/no-existe-jamas/config.toml")
         .env_remove("EXO_KB")
         .output()
         .unwrap();
@@ -101,7 +104,7 @@ fn json_sin_resultados_no_gana_ninguna_clave_nueva() {
         .arg(&db)
         .arg("--json")
         .arg("zzz-query-que-no-matchea-nada")
-        .env_remove("EXO_CONFIG")
+        .env("EXO_CONFIG", "C:/no-existe-jamas/config.toml")
         .env_remove("EXO_KB")
         .output()
         .unwrap();
@@ -116,16 +119,26 @@ fn json_sin_resultados_no_gana_ninguna_clave_nueva() {
     assert_eq!(v["schema_version"], 2);
     assert_eq!(v["command"], "search");
     assert!(v["data"]["results"].as_array().unwrap().is_empty());
-    // Ninguna clave nueva en `data`: mismo conjunto de claves que antes de
-    // esta tarea (results, avisos-si-los-hay — nada de un flag "empty").
+    // Conjunto EXACTO de claves de `data` (forma de `Busqueda`,
+    // `src/buscador.rs`): `query`/`search_type`/`elapsed_s`/`results`
+    // siempre; `warnings` solo si `avisos` no está vacío
+    // (`skip_serializing_if = "Vec::is_empty"`) — sin KB resoluble en este
+    // caso no hay aviso que emitir, así que no aparece. Comparar el
+    // conjunto entero, no solo excluir dos nombres inventados: así una
+    // clave nueva cualquiera (no solo "no_results"/"empty") hace fallar el
+    // test.
     let claves: std::collections::BTreeSet<&str> = v["data"]
         .as_object()
         .unwrap()
         .keys()
         .map(|s| s.as_str())
         .collect();
-    assert!(
-        !claves.contains("no_results") && !claves.contains("empty"),
-        "el envelope no debe ganar una clave nueva para este caso: {claves:?}"
+    let esperadas: std::collections::BTreeSet<&str> =
+        ["query", "search_type", "elapsed_s", "results"]
+            .into_iter()
+            .collect();
+    assert_eq!(
+        claves, esperadas,
+        "el envelope no debe ganar (ni perder) una clave en `data` para este caso"
     );
 }
