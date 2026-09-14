@@ -117,7 +117,7 @@
 |---|---|
 | **Cerradas** | C5 (M2-08+09, cierra E1 read) · C6 (M6, cutover del recall) · C7 (M4, write-path) |
 | **Pendientes** | C8 (M3+M1b, cutover de skills) → C9 (M5a, MCP + config propia) → C10 (M5b, desinstalar basic-memory) |
-| **Medido** | engine-hybrid **48/55** hit@5 vs bm-hybrid 39/55, mismo día, paridad de corpus ∅, recall <2s (`evals/e1-read/verdict/m2-09-corrida.md`) |
+| **Medido** | engine-hybrid **48/55** hit@5 in-sample vs bm-hybrid 39/55, mismo día, paridad de corpus ∅, recall <2s (`evals/e1-read/verdict/m2-09-corrida.md`) · held-out **64/92** (campaña C, `evals/retrieval-heldout/verdict/c-verdict.md`) — no comparables entre sí: distinta fuente de queries |
 | **Tests** | 111 verdes / 0 rojos en la rama de M4, 98 en main previo (contados por el consultor del gate en esa ola; el CI que los corre solo llegó después, en G5a — 200 tests / 28 binarios). **El 2026-09-13 (cierre de campaña B), `cargo test --release --locked --no-fail-fast` en `engine/`: 478 tests verdes en 48 binarios, 2 ignorados, 0 rojos** |
 | **Release** | `v0.1.0` publicada el **2026-09-11** — tres binarios y sus tres `.sha256`, instalables por `install.sh` / `install.ps1`. Ver `## Cerrado con evidencia` |
 | **Campaña A** | ejecutada el **2026-09-13** salvo Tasks 12 y 15 (esperan la medición W11 de Paul) — mergeada a `main` el **2026-09-13** vía PR #13 (`ef5100b`); veredicto en `evals/recall-coste/verdict/2026-09-campana-a.md` |
@@ -127,7 +127,7 @@
 
 ## Alta
 
-- [ ] **(revisión 2026-09-04) El 48/55 del hybrid es un resultado in-sample:
+- [x] **(revisión 2026-09-04) El 48/55 del hybrid es un resultado in-sample:
   los parámetros se eligieron sobre las mismas 55 queries que lo reportan.**
   Evidencia: `engine/src/main.rs:12-25` documenta que `BONUS_SELLADO` y
   `ESCALA_FTS_SELLADA` son los ganadores del sweep de 15 celdas por «max
@@ -164,8 +164,27 @@
   `docs/HONEST-NUMBERS.md:31-37` publica los casos de **pérdida neta** con
   cifras (4,3M tokens con la herramienta vs 1M sin). Lo que se copia es
   reportar la fila en rojo, no el número.
-  **Planificado en campaña C (H7):** el held-out fuera de muestra ya tiene
-  pre-registro — `docs/superpowers/plans/2026-09-13-campana-c-preregistro.md`.
+  **Campaña C (2026-09-13 → 2026-09-14), held-out pre-registrado:**
+  acción (a) HECHA — gold privado de 92 queries no nulas (agent-search=34,
+  hard=36, prompt=22), aprobado por Paul, sha256 en
+  `docs/superpowers/plans/2026-09-13-campana-c-preregistro.md` §10;
+  acción (b) HECHA — `evals/retrieval-heldout/verdict/c-verdict.md` reporta
+  held-out y in-sample por separado con base declarada. Resultado: R1
+  GENERALIZA (A0 frente a vector 4/3, frente a FTS 41/0; hit@5 A0 held-out
+  **64/92 = 69,6 %**, Wilson 95 % [59,5 %, 78,0 %]); R2 se queda la fusión
+  actual (RRF no gana contra A0, NETO=1 < 3); R3 se queda el troceado
+  actual (solape no gana, NETO=2 < 3, cae solo por el umbral de NETO); R4
+  no medido (D3=no — Paul: «No, solo solape»). Lo que el N no podía ver
+  (§3): con un N etiquetable (60–100) ningún test de significación ve
+  diferencias de 5 pp entre dos fusiones sobre los mismos candidatos — el
+  NETO de solape (+2,2 pp observados) se habría visto ganador el 38–50 % de
+  las veces si la mejora real fuera de 2–3 pp. El held-out queda
+  CONSUMIDO (§11): volver a tocar β, umbral o troceado exige uno nuevo.
+  Acción (c) (default de `exo search --type`, `main.rs:215`): sigue abierta,
+  PENDIENTE-PAUL con A0 vs A2 held-out delante (D6 del plan de C).
+  - [ ] (c) decidir si el default de `exo search --type` (`main.rs:215`)
+    pasa a ser el modo medido, o si el README deja de presentar el 48/55
+    como «lo que hace exo» — PENDIENTE-PAUL, con A0 vs A2 held-out delante.
 
 - [ ] **(revisión 2026-09-04) La documentación de referencia contradice el
   repo el mismo día en que se escribió.** Medido el 2026-09-04:
@@ -904,13 +923,14 @@
   (~400 ms, mismos scores que hoy).
   Descartado sin eval propio: `model_quantized.onnx` int8 (~360 ms, pero el
   top-4 solo solapa 2-4 de 4 con el fp32 actual → cambia retrieval, exige
-  campaña C + reindex antes de adoptarlo).
+  reindex y un held-out nuevo antes de adoptarlo — el de la campaña C
+  (consumido el 2026-09-14) midió fusión y troceado, no cuantización).
   Descartados por medida (sin ganancia): más threads intra-op, optimización
   de grafo, cachear el embedding de la query, embed en paralelo al arranque.
   Criterio de reapertura ya implementado:
   `plugins/exo/scripts/recall-latencia.sh` (campaña A, Task 13, D4).
 
-- [ ] **(NUEVO, H28, para campaña C) La `distance` de vec0 es L2, no L2²; el
+- [ ] **(H28) La `distance` de vec0 es L2, no L2²; el
   umbral 0,40 del hook equivale a coseno 0,28.** Medido por el consultor
   sobre la KB real: los embeddings están normalizados (norma 1,000000) y
   `similitud_desde_l2_cuadrado` (`engine/src/buscador.rs` ~:226) calcula
@@ -918,16 +938,27 @@
   pero interpreta la `distance` de vec0 como L2² cuando en realidad es L2
   (`sqlite-vec.c:224/263`). El umbral 0,40 del hook equivale a coseno 0,28, y
   β de la fusión híbrida está calibrado sobre esa escala desplazada.
+  **Campaña C (2026-09-14):** no se midió. El pre-registro cubrió H7, H7b,
+  H14 y H24 — H28 no entró (`c-verdict.md`, título y §1). Sigue sin decidir.
   **Acción:** arreglarlo cambia qué trozos entran o no en el umbral — pasa
-  por el held-out de la campaña C (H7) antes de tocarlo, no se corrige suelto.
+  por un held-out nuevo antes de tocarlo (el de la campaña C está
+  consumido, §11 del verdict, y no lo midió), no se corrige suelto.
 
-- [ ] **(NUEVO, N1, para campaña C) Con un prompt natural, FTS5 hace AND de
+- [ ] **(N1) Con un prompt natural, FTS5 hace AND de
   todos los tokens y da 0 candidatos: `exo recall --query` es en la práctica
   vectorial puro.** Medido por el consultor sobre prompts naturales; la
   fusión híbrida (bonus, β) solo actúa de verdad en queries de palabras
   clave, no en el uso real del hook de arranque.
-  **Acción:** decidir en la campaña C (relajar a OR, o algún matching
-  parcial) con el held-out de H7 delante.
+  **Campaña C (2026-09-14):** confirmado con el held-out. Estrato `prompt`
+  (22 filas no nulas): A0 11/22 = vector 11/22 (empatan), FTS 1/22; fusión
+  activa solo en 6/22 filas de `prompt` (0/18 en `hard-larga`, frente a
+  12/18 en `hard-corta` y 29/34 en `agent-search`) — `c-verdict.md` §6(c).
+  El AND implícito deja sin fusión justo las consultas en prosa natural,
+  que es el uso real del hook.
+  **Acción:** decidir si el arm FTS del modo consulta pasa a OR/NEAR o a
+  extracción de términos. El held-out de la campaña C ya está consumido
+  (§11 del verdict): cualquier cambio de retrieval exige uno nuevo antes de
+  adoptarse.
 
 - [ ] **(NUEVO, 2026-09-13) El bench sintético de la campaña A es ciego al
   umbral de similitud.** Vectores aleatorios en 768 dimensiones dan coseno
@@ -969,13 +1000,28 @@
     edit` con el About del README) — fuera del plan de tasks, ver la
     sección «Checklist externo para Paul (H25)» del plan de campaña B.
 
-- [ ] **(revisión 2026-09-13) H14 y H24, planificados para la campaña C (sin
-  item propio en este backlog).** Diseño en
-  `docs/superpowers/plans/2026-09-13-campana-c-preregistro.md`.
-  - **H14:** si el solape entre trozos o el late chunking mejoran el
-    troceado fijo de 900 caracteres.
-  - **H24:** el gold de `evals/retrieval-fase0/` admite `acceptable_permalinks`
-    secundarios, no solo un permalink correcto por query.
+- [ ] **(revisión 2026-09-13 · resultado en campaña C, 2026-09-14) H14 y
+  H24.** Diseño en
+  `docs/superpowers/plans/2026-09-13-campana-c-preregistro.md`; resultado en
+  `evals/retrieval-heldout/verdict/c-verdict.md`.
+  - **H14a (solape entre trozos):** R3 — se queda el troceado actual.
+    `solape:sellado` vs `base:sellado`: ARREGLA=4, ROMPE=2, NETO=2 < 3 (cae
+    solo por el umbral de NETO, a una query del borde; `ARREGLA ≥
+    2·ROMPE` sí se cumple y el IC de MRR no veta). El guard de latencia no
+    llega a decidir: p95 solape 1,0258 s vs base 1,0240 s (ratio 1,002,
+    dentro del 1,25× admitido). No se toca `buscador.rs` ni `trozos.rs`.
+  - **H14b (late chunking):** R4 — no medido (D3=no — Paul: «No, solo
+    solape»). No medido no es perder: sigue viable (§2.6 del pre-registro),
+    sin prioridad derivada de esta campaña.
+  - **H24 (`acceptable_permalinks`, overlay fila 13):** el held-out los
+    admite desde el diseño (44/92 filas con aceptables). Las 55 in-sample
+    dan cifras **idénticas con y sin el overlay** de la fila 13
+    (`agregados-in-sample.md`): el overlay no tuvo efecto. `gate.md` de M0
+    intacto.
+  **Acción:** ninguna sobre código — R2 y R3 no adoptan nada, Task 12 de la
+  campaña C es «no aplica». El held-out de C queda consumido (§11 del
+  verdict): retomar solape, late chunking o el gold de `retrieval-fase0/`
+  exige uno nuevo.
 
 - [ ] **(NUEVO, campaña B, 2026-09-13) El error de la guarda «una DB sirve a
   una KB» recomienda `--db`, que `exo init` no tiene.** Medido al documentar
@@ -1062,6 +1108,51 @@
   (`fe46443`) si el comportamiento heredado es intencional o es el mismo
   tipo de deuda que ya viven otras funciones de este módulo — no se toca a
   ciegas un gate que ya se demostró falsable.
+
+- [ ] **(campaña C, verdict §9) Orden dentro del top: vector y RRF superan a
+  la fusión sellada en ranking, no en cobertura.** Held-out: vector supera a
+  A0 en hit@1 (37/92 vs 29/92) y MRR@10 (0,5144 vs 0,4730, IC95 ΔMRR
+  [−0,008, 0,090]); en strict, RRF vs A0 es 3/0. Mecanismo visto en filas:
+  con un único candidato FTS, `f/f_max = 1` da un bonus fijo de 0,6 que
+  salta por encima de cualquier trozo vectorial ≤ 0,6 (`c-verdict.md` §4,
+  §9a). Hipótesis para un diseño nuevo: normalización FTS que dependa de la
+  fuerza absoluta del match o del número de candidatos, no de dividir por el
+  máximo del propio arm.
+  **Acción:** no se afina sobre el held-out de C, ya consumido (§11): un
+  diseño nuevo de normalización FTS exige su propio held-out antes de tocar
+  `buscador.rs`.
+
+- [ ] **(campaña C, verdict §9) El corpus negativo casi entero devuelve
+  top-5: el hook no abstiene.** 54/55 queries nulas (sin respuesta esperada)
+  devuelven algo en el top-5 con el umbral 0,40 (55/55 con 0,35; solo FTS
+  abstiene de verdad, 18/55). El umbral no es un mecanismo de abstención —
+  es un parámetro afinable que hoy no filtra nada del corpus negativo
+  (`c-verdict.md` §6b, §9b).
+  **Acción:** diseñar abstención real (calibración por distribución de
+  scores, o gap top1–top2, no un umbral fijo) y medir con un corpus negativo
+  propio. Exige held-out nuevo — el de C está consumido.
+
+- [ ] **(campaña C, verdict §9) Sin diagnóstico por fila de qué 6 de las 55
+  dejaron de acertar.** In-sample: 43/55 con el binario y snapshot de la
+  campaña C, frente a 49/55 en `metrics-engine-hybrid-b0.0-e0.6.md` (otro
+  binario, KB de 138 notas). El pre-registro prohíbe comparar las dos
+  cifras directamente (cambian KB, distractores y binario a la vez) y este
+  verdict lo respeta: no dice nada sobre el binario. Lo que falta es
+  descriptivo, no una decisión: qué filas concretas pasaron de hit a miss y
+  por qué (`c-verdict.md` §6d, §9d).
+  **Acción:** diagnóstico por fila de las 55 (sin re-etiquetar el gold). No
+  exige held-out por sí solo —es sobre datos in-sample ya capturados— pero
+  cualquier cambio de retrieval que salga de ese diagnóstico sí lo exige.
+
+- [ ] **(campaña C, verdict §9) README y `docs/arquitectura.md` §6 citan el
+  48/55 sin la cifra held-out.** El held-out de la campaña C (64/92,
+  `evals/retrieval-heldout/verdict/c-verdict.md`) no está reflejado en el
+  texto público, que sigue presentando el 48/55 in-sample como si fuera la
+  única medida. Hand-off: la campaña B ya está mergeada a `main`, así que
+  esto es un item de documentación normal, sin campaña propia.
+  **Acción:** añadir la cifra held-out (y la advertencia de no
+  comparabilidad, ver `## Estado` arriba) a `README.md` y
+  `docs/arquitectura.md` §6. No toca retrieval, no exige held-out.
 
 ## Baja
 
