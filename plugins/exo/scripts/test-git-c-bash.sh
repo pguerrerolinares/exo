@@ -72,8 +72,8 @@ assert_rewrite "cd && git status → rewrite" \
   "cd /repo && git status" \
   "git -C /repo status"
 assert_rewrite "cd && git log con flags → rewrite" \
-  "cd /home/paul/Documentos/proyectos/code-graph-go && git log --oneline -5" \
-  "git -C /home/paul/Documentos/proyectos/code-graph-go log --oneline -5"
+  "cd /opt/proyectos/code-graph-go && git log --oneline -5" \
+  "git -C /opt/proyectos/code-graph-go log --oneline -5"
 assert_rewrite "path con ~ y . → rewrite" \
   "cd ~/proyectos/x.y && git diff --stat" \
   "git -C ~/proyectos/x.y diff --stat"

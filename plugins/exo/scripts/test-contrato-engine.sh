@@ -42,7 +42,8 @@ BIN_REPO="$REPO_ROOT/engine/target/release/exo"
 [ -e "$BIN_REPO.exe" ] && BIN_REPO="$BIN_REPO.exe"
 EXO_BIN="${EXO_BIN:-$BIN_REPO}"
 
-# Rutas estilo Windows: el binario es nativo y no entiende `/c/Users/...`.
+# Rutas estilo Windows: el binario es nativo y no entiende las que monta Git
+# Bash (letra de unidad + "Users" + nombre de perfil).
 # Índice y KB salen de `exo config --json` (Task 8), no de un literal — pero
 # SIEMPRE del binario recién compilado del repo, nunca de $EXO_BIN: cuando
 # este test apunta $EXO_BIN a un binario viejo para probar el estado "rojo",
