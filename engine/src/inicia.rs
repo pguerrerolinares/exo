@@ -137,7 +137,7 @@ pub fn valida_db_para_kb(db: &Path, kb: &Path) -> Result<()> {
     let conn = crate::abre_db(db)?;
     crate::schema::crea_schema(&conn)?;
     let kb_abs = std::fs::canonicalize(kb).unwrap_or_else(|_| kb.to_path_buf());
-    crate::indexer::comprueba_kb_root(&conn, &kb_abs)
+    crate::indexer::comprueba_kb_root(&conn, &kb_abs, crate::indexer::OrigenComprobacion::Init)
 }
 
 /// Escribe `config.toml`. Se niega si el destino existe y no hay `--force`:
