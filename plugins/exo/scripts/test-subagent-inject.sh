@@ -193,7 +193,7 @@ exit 1
 EOF
   chmod +x "$FAKEBIN7/exo"
   PAYLOAD7='{"session_id":"test-sid","agent_id":"aE1","agent_type":"exo:executor","hook_event_name":"SubagentStart","cwd":"/tmp"}'
-  OUT7="$(printf '%s' "$PAYLOAD7" | REFLEX_LOG_FILE="$LOG7" REFLEX_PROJECTS_DIR="$NO_PROJECTS" EXO_KB= REFLEX_CANARY_FILE="$TMP/no-canary" PATH="$FAKEBIN7:$PATH" "$ADAPTER")"
+  OUT7="$(printf '%s' "$PAYLOAD7" | REFLEX_LOG_FILE="$LOG7" REFLEX_PROJECTS_DIR="$NO_PROJECTS" EXO_KB='' REFLEX_CANARY_FILE="$TMP/no-canary" PATH="$FAKEBIN7:$PATH" "$ADAPTER")"
   EC7=$?
   CTX7="$(printf '%s' "$OUT7" | jq -r '.hookSpecificOutput.additionalContext // empty' 2>/dev/null)"
   EVENTOS7="$(jq -r '.reflex' "$LOG7" 2>/dev/null | tr '\n' ',')"
