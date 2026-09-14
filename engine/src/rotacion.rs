@@ -429,18 +429,22 @@ fn escribe_fichero_exclusivo(ruta: &Path, datos: &[u8]) -> Result<()> {
 
 /// `fsync` del directorio, para que la entrada nueva sea durable antes de
 /// tocar la nota viva (si el proceso muere entre las dos escrituras, la
-/// duplicación es preferible a la pérdida). Windows no tiene fsync de
-/// directorio ni permite abrirlo con `File::open` sin flags que `std::fs`
-/// no expone — ahí solo se valida que la ruta es un directorio.
+/// duplicación es preferible a la pérdida). El `File::open` corre SIEMPRE,
+/// también en Windows — es lo que hace que una ruta mala falle alto en vez
+/// de saltarse en silencio, que es la propiedad de la que depende el
+/// llamador (igual que kbx `fsyncDir`, que abre el directorio antes de
+/// mirar el SO).
 fn fsync_directorio(dir: &Path) -> Result<()> {
-    if cfg!(windows) {
-        if !dir.is_dir() {
-            anyhow::bail!("fsync_directorio: {} no es un directorio", dir.display());
-        }
-        return Ok(());
-    }
     let f =
         std::fs::File::open(dir).with_context(|| format!("abrir directorio {}", dir.display()))?;
+    if cfg!(windows) {
+        // Windows no tiene fsync de directorio: `FlushFileBuffers` sobre un
+        // handle de directorio devuelve ERROR_ACCESS_DENIED, así que
+        // `sync_all` aquí fallaría en cada rotación. NTFS journala los
+        // metadatos del rename por su cuenta, así que no hay nada que
+        // flushear ni un equivalente portable que llamar en su lugar.
+        return Ok(());
+    }
     f.sync_all()
         .with_context(|| format!("fsync de {}", dir.display()))
 }
