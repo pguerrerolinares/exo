@@ -142,3 +142,18 @@ Contra una copia del índice vivo (23 MB) y la KB real, el 2026-09-02:
 
 Eso demuestra que el lado Rust produce lo que dice producir. **No demuestra
 paridad**, que es lo que este gate existe para medir y sigue sin correrse.
+
+## Registro de la corrida
+
+- Fecha: 2026-09-14
+- Commit de exo: `7edb5d0` (rama `d-gates`)
+- Commit de kbx: `fe46443`
+- A1 (whitespace ASCII del tier) y A2 (KB sin git) verificados como YA
+  RESUELTOS antes de esta corrida (`docs/superpowers/plans/2026-09-04-g4b-budget-y-lint.md:73-128`).
+  No se esperaba divergencia de `tier` por esa causa, y no se observó
+  ninguna.
+- Topics PASA: indexer, reflex, memoria, kbx, recall en el punto de uso / de 5
+- Divergencias observadas y su adjudicación: ninguna — `diff -u` vacío en
+  los cinco topics (conjunto de permalinks, `tier`, `size_bytes` y
+  `last_commit` idénticos entre `kbx fe46443` y el `exo` de esta rama).
+- **PASA / NO PASA**: **PASA** (global, 5/5 topics).
