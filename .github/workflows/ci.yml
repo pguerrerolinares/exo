@@ -120,11 +120,25 @@ jobs:
         with:
           path: ~/.cache/huggingface/hub/models--jinaai--jina-embeddings-v2-base-es
           key: hf-jina-es-8e2d780d-${{ runner.os }}
-      # El gate ya existe y ya se demostró falsable (2026-08-27). El CI lo
-      # consume tal cual en vez de reinventar el comando de test.
+      # El gate ya existe y ya se demostró falsable (2026-08-27, re-demostrado
+      # con --locked en la campaña E). El CI lo consume tal cual en vez de
+      # reinventar el comando de test.
       - name: Gate hermético — suite completa sin ~/.exo/config.toml
         shell: bash
+        env:
+          EXO_HERMETICO_LOG: ${{ github.workspace }}/hermetico.log
         run: ./engine/scripts/test-hermetico.sh
+      # Sin esto, un rojo exclusivo de un SO de la matriz era irreproducible
+      # en la máquina del autor: el log completo (no solo el resumen que
+      # imprime stderr) queda descargable desde la pestaña Actions.
+      # `if: always()`: justo lo que hace falta ver cuando el gate FALLA.
+      - name: Subir el log completo del gate hermético
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hermetico-log-${{ matrix.os }}
+          path: hermetico.log
+          if-no-files-found: error
       # Va aquí y no en `plugin-tests`: necesita el binario de release (que
       # `cargo test --release` de arriba ya dejó compilado) y el modelo ONNX
       # cacheado, porque `exo init` indexa la KB semilla del fixture.
