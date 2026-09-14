@@ -1,4 +1,12 @@
 //! `exo rotate` contra el binario real.
+//!
+//! `rotate_cmd` lee `[kb] name` vía `exo::nombre_kb()` (`config::carga()` →
+//! `EXO_CONFIG` o `~/.exo/config.toml` si no está definida). Sin fijar
+//! `EXO_CONFIG` por test, estos tests leían la config REAL de la máquina que
+//! los corre — no herméticos, mismo defecto que `tests/kb_root_lectura_cli.rs`
+//! ya documenta y arregla para `search`. Cada `Command` es un binario nuevo,
+//! así que `EXO_CONFIG` se fija en el propio `Command` (`.env(...)`), no en
+//! el proceso del test — no hace falta el candado de `tests/common/mod.rs`.
 use std::process::Command;
 
 fn bin() -> &'static str {
@@ -10,6 +18,15 @@ fn kb_con_bitacora(cuerpo: &str) -> tempfile::TempDir {
     std::fs::create_dir_all(dir.path().join("log")).unwrap();
     std::fs::write(dir.path().join("log/p-bitacora.md"), cuerpo).unwrap();
     dir
+}
+
+/// Ruta de config que NUNCA existe en disco, dentro del propio tempdir del
+/// test — `exo::nombre_kb()` falla con ella igual que sin `[kb] name`
+/// definido, así que el fallback de la Decisión D-4 (prefijo `kb`, aviso por
+/// stderr) es el único camino posible; ningún test de este fichero depende
+/// del VALOR del prefijo salvo `fallback_d4_...`, que lo asevera explícito.
+fn cfg_inexistente(dir: &std::path::Path) -> std::path::PathBuf {
+    dir.join("no-existe-config.toml")
 }
 
 fn nota_grande() -> String {
@@ -31,6 +48,7 @@ fn dry_run_no_toca_disco_y_reporta_json() {
         .args(["rotate", "--json", "--hot-bytes", "8000"])
         .arg("--kb")
         .arg(dir.path())
+        .env("EXO_CONFIG", cfg_inexistente(dir.path()))
         .output()
         .unwrap();
     assert!(
@@ -53,6 +71,7 @@ fn apply_escribe_de_verdad() {
         .args(["rotate", "--json", "--hot-bytes", "8000", "--apply"])
         .arg("--kb")
         .arg(dir.path())
+        .env("EXO_CONFIG", cfg_inexistente(dir.path()))
         .output()
         .unwrap();
     assert!(
@@ -70,6 +89,7 @@ fn ignora_notas_que_no_son_tier_log() {
         .args(["rotate", "--hot-bytes", "1"])
         .arg("--kb")
         .arg(dir.path())
+        .env("EXO_CONFIG", cfg_inexistente(dir.path()))
         .output()
         .unwrap();
     assert!(salida.status.success());
@@ -86,6 +106,7 @@ fn hot_bytes_no_positivo_falla_sin_ensuciar_stdout() {
         .args(["rotate", "--hot-bytes", "0", "--json"])
         .arg("--kb")
         .arg(dir.path())
+        .env("EXO_CONFIG", cfg_inexistente(dir.path()))
         .output()
         .unwrap();
     assert!(!salida.status.success());
@@ -105,6 +126,7 @@ fn un_directorio_con_extension_md_en_log_no_cuenta_como_fallo() {
         .args(["rotate", "--hot-bytes", "8000"])
         .arg("--kb")
         .arg(dir.path())
+        .env("EXO_CONFIG", cfg_inexistente(dir.path()))
         .output()
         .unwrap();
     assert!(
@@ -121,11 +143,51 @@ fn sin_directorio_log_no_hay_nada_que_rotar() {
         .args(["rotate", "--hot-bytes", "100"])
         .arg("--kb")
         .arg(dir.path())
+        .env("EXO_CONFIG", cfg_inexistente(dir.path()))
         .output()
         .unwrap();
     assert!(salida.status.success());
     assert_eq!(
         String::from_utf8_lossy(&salida.stdout).trim(),
         "rotate: nothing to rotate"
+    );
+}
+
+// Fija el fallback de la Decisión D-4 (`main.rs::rotate_cmd`): sin `[kb]
+// name` resoluble, `rotate --apply` no falla — usa el prefijo `kb` para el
+// `permalink` que escribe en el archivo y avisa por stderr. Este test NO
+// cambia ese comportamiento (D-4 sigue abierta para Paul: verbatim vs.
+// `nombre_kb()`, ver el plan de campaña) — solo lo fija con un test, que es
+// lo que el review final pidió.
+#[test]
+fn fallback_d4_sin_kb_name_usa_prefijo_kb_y_avisa_por_stderr() {
+    let dir = kb_con_bitacora(&nota_grande());
+    let salida = Command::new(bin())
+        .args(["rotate", "--hot-bytes", "8000", "--apply"])
+        .arg("--kb")
+        .arg(dir.path())
+        .env("EXO_CONFIG", cfg_inexistente(dir.path()))
+        .output()
+        .unwrap();
+    assert!(
+        salida.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&salida.stderr)
+    );
+
+    let err = String::from_utf8_lossy(&salida.stderr);
+    assert!(
+        err.contains("aviso: rotate usa prefijo 'kb'"),
+        "esperaba el aviso del fallback D-4 en stderr: {err}"
+    );
+
+    let archivo = std::fs::read_dir(dir.path().join("archive/log"))
+        .unwrap()
+        .find_map(|e| e.ok())
+        .expect("debía haber al menos un archivo rotado");
+    let contenido = std::fs::read_to_string(archivo.path()).unwrap();
+    assert!(
+        contenido.contains("permalink: 'kb/archive/log/"),
+        "el permalink del archivo debía usar el prefijo de fallback 'kb': {contenido}"
     );
 }
