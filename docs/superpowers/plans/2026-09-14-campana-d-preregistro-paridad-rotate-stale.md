@@ -406,6 +406,33 @@ no una corrida.
   como el pre-registro anticipaba.
 - **PASA / NO PASA**: **PASA**.
 
+> Addendum post-review final (2026-09-15, review opus de la rama):
+> - **(a) "44 notas evaluadas" es erróneo.** `kb-base/log/` tiene **28**
+>   ficheros `.md` (`ls /tmp/campana-d/kb-base/log/*.md | wc -l` → `28`), no
+>   44. No cambia el veredicto (6 rotaciones idénticas sobre las notas
+>   `tier: log` reales de `log/`, contadas correctamente), pero el conteo de
+>   "notas evaluadas" de la corrida original estaba mal y queda corregido
+>   aquí: 28, no 44.
+> - **(b) la reconstrucción cruzada del criterio se declaró PASA por
+>   argumento transitivo** en el registro original ("no se afirma como
+>   medición independiente"). El review final la midió después, directamente
+>   sobre exo: **6/6 notas reconstruidas byte a byte** (el `frio` del archivo
+>   reinsertado en el sitio donde la nota viva dejó el aviso reconstruye el
+>   original exacto), y con `archive/`/`log/` ya byte-idénticos entre kbx y
+>   exo (medido arriba), kbx da el mismo resultado. El PASA del criterio
+>   queda respaldado por medición posterior, no solo por el argumento
+>   transitivo original.
+> - **(c) divergencia no ejercitada, ahora comprobada:** sin rotaciones (KB
+>   sin `log/`, o con `log/` vacío) kbx emite `"rotations": null`; exo emite
+>   `"rotations": []`. Comprobado con `/tmp/campana-d/kbx rotate --kb
+>   <kb-vacia> --json` y el `exo` de esta rama, los dos casos (`log/`
+>   ausente y `log/` vacío) dan el mismo resultado: kbx `null`, exo `[]`. No
+>   se declaró en el pre-registro original porque no se ejercitó en la
+>   corrida real (`kb-base` sí tiene rotaciones); queda declarada aquí como
+>   divergencia conocida y no bloqueante — `[]` es, si acaso, el contrato más
+>   honesto (`Notes` nunca es `null`, mismo criterio que `Informe` de
+>   `stale`), pero diverge textualmente de kbx.
+
 ### Stale
 
 - Fecha: 2026-09-14.
@@ -476,3 +503,32 @@ no una corrida.
     VALOR vía normalización jq, no texto, y da PASA.
   - Ninguna divergencia no declarada.
 - **PASA / NO PASA**: **PASA**.
+
+> Addendum post-review final (2026-09-15, review opus de la rama):
+> - **(d) la corrida real dio scores negativos** (mín `-0.36`, ya anotado
+>   arriba) porque el `--now` fijo de la corrida (`2026-09-14T12:00:00+02:00`)
+>   quedó **anterior** a commits de la copia de trabajo (`git clone
+>   --no-local` preserva las fechas de commit originales, algunas del propio
+>   día de la corrida pero después del `--now` elegido), dando `age_days`
+>   negativo para esas notas. kbx da el mismo score negativo sobre la misma
+>   entrada (paridad intacta — es el mismo cálculo con el mismo signo en los
+>   dos lados), pero el resultado contradice el axioma 5 de la spec M4
+>   ("forma finita **no negativa**", `axioma_5_forma_finita_no_negativa_y_dos_decimales`
+>   en `obsolescencia.rs`, que solo cubre entradas sintéticas con edad ≥ 0,
+>   no este caso real). No se toca la fórmula ni se clampea el score aquí —
+>   la decisión de si `age_days`/`score` deben clampearse a 0 (o si un `--now`
+>   anterior al commit es simplemente un input inválido que no hay que
+>   soportar) queda **PENDIENTE-PAUL**: la fórmula se mantiene tal cual está
+>   por decisión suya (ver "NO tocar" del brief de este fix).
+> - **(e) `--now` inválido: divergencia encontrada en el review y corregida
+>   en este fix.** `epoch_utc_de_iso8601` aceptaba en silencio fechas
+>   imposibles (`2026-13-45T99:99:99Z`, exit 0, normalizaba a otra fecha en
+>   vez de fallar) y rechazaba RFC3339 válido con fracción de segundo
+>   (`2026-09-14T12:00:00.5+02:00`). kbx (`fe46443`, `time.Parse(time.RFC3339,
+>   …)`) hace lo contrario: rechaza rangos inválidos (mes/día/hora fuera de
+>   rango) con exit 2 y acepta la fracción. Corregido en el commit
+>   `79a56df` (`fix(d-final-fix, stale): valida rangos y acepta fracción de
+>   segundo en --now`) de esta misma rama — validación de mes (1-12), día
+>   (según el mes, incluido bisiesto), hora (<24), minuto/segundo (<60), y
+>   truncado de la fracción de segundo antes de parsear. No afecta al camino
+>   de `last_commit` (viene de `git %aI`, nunca lleva fracción).
