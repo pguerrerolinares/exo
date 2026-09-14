@@ -127,6 +127,7 @@ jobs:
       # con --locked en la campaña E). El CI lo consume tal cual en vez de
       # reinventar el comando de test.
       - name: Gate hermético — suite completa sin ~/.exo/config.toml
+        id: gate
         shell: bash
         env:
           EXO_HERMETICO_LOG: ${{ github.workspace }}/hermetico.log
@@ -134,9 +135,14 @@ jobs:
       # Sin esto, un rojo exclusivo de un SO de la matriz era irreproducible
       # en la máquina del autor: el log completo (no solo el resumen que
       # imprime stderr) queda descargable desde la pestaña Actions.
-      # `if: always()`: justo lo que hace falta ver cuando el gate FALLA.
+      # `steps.gate.outcome == 'failure'`, no `always()` a secas: si un step
+      # ANTERIOR al gate (checkout, toolchain, caché) falla, el gate queda
+      # `skipped` y no hay `hermetico.log` que subir — con solo `always()` y
+      # `if-no-files-found: error` eso da un segundo rojo ("no files found")
+      # que no aporta nada, y de paso sube el log también cuando el gate va
+      # en verde.
       - name: Subir el log completo del gate hermético
-        if: always()
+        if: always() && steps.gate.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
           name: hermetico-log-${{ matrix.os }}
