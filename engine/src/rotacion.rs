@@ -356,11 +356,17 @@ fn desambigua_nombre_de_archivo(nombre: String, existentes: &[String]) -> String
     }
 }
 
-/// Escribe `datos` en `ruta` atómicamente: temporal en el mismo directorio,
-/// `fsync`, `rename`. Cualquier lector ve o el contenido completo viejo o
-/// el completo nuevo, nunca uno truncado. Sin `tempfile`: el nombre único
-/// sale de PID + tiempo, sin subir esa dependencia de dev a producción.
-fn escribe_fichero_atomico(ruta: &Path, datos: &[u8]) -> Result<()> {
+/// Crea un temporal único en `dir(ruta)`, le escribe `datos` y lo fsyncea.
+/// Devuelve su ruta ya publicable por `rename`/`hard_link`. Si `write_all`
+/// o `sync_all` fallan (la creación en sí no deja nada que limpiar: el
+/// temporal solo existe si `File::create` tuvo éxito), el temporal se borra
+/// antes de propagar el error — igual que el `defer os.Remove(tmpName)` de
+/// kbx justo tras `CreateTemp`, que limpia en cualquier salida (I1 de la
+/// review: sin esto, el `?` de una escritura o fsync fallidos salía antes
+/// de borrar el `.tmp`, dejándolo huérfano). Compartido por
+/// `escribe_fichero_atomico` y `escribe_fichero_exclusivo` (I3 de la
+/// review): ambas solo difieren en cómo publican el temporal ya escrito.
+fn escribe_temporal(ruta: &Path, datos: &[u8]) -> Result<std::path::PathBuf> {
     use std::io::Write;
     let dir = ruta.parent().context("ruta sin directorio padre")?;
     let base = ruta
@@ -372,14 +378,29 @@ fn escribe_fichero_atomico(ruta: &Path, datos: &[u8]) -> Result<()> {
         .map(|d| d.as_nanos())
         .unwrap_or(0);
     let tmp = dir.join(format!("{base}.{}.{unico}.tmp", std::process::id()));
-    {
+
+    let escritura = (|| -> Result<()> {
         let mut f = std::fs::File::create(&tmp)
             .with_context(|| format!("crear temporal {}", tmp.display()))?;
         f.write_all(datos)
             .with_context(|| format!("escribir temporal {}", tmp.display()))?;
         f.sync_all()
-            .with_context(|| format!("fsync temporal {}", tmp.display()))?;
+            .with_context(|| format!("fsync temporal {}", tmp.display()))
+    })();
+
+    if let Err(e) = escritura {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(e);
     }
+    Ok(tmp)
+}
+
+/// Escribe `datos` en `ruta` atómicamente: temporal en el mismo directorio,
+/// `fsync`, `rename`. Cualquier lector ve o el contenido completo viejo o
+/// el completo nuevo, nunca uno truncado. Sin `tempfile`: el nombre único
+/// sale de PID + tiempo, sin subir esa dependencia de dev a producción.
+fn escribe_fichero_atomico(ruta: &Path, datos: &[u8]) -> Result<()> {
+    let tmp = escribe_temporal(ruta, datos)?;
     let resultado = std::fs::rename(&tmp, ruta)
         .with_context(|| format!("renombrar {} a {}", tmp.display(), ruta.display()));
     if resultado.is_err() {
@@ -395,25 +416,7 @@ fn escribe_fichero_atomico(ruta: &Path, datos: &[u8]) -> Result<()> {
 /// error, nunca destruir historia ya archivada. La nota viva, que SÍ debe
 /// sobrescribirse en cada rotación, sigue usando `escribe_fichero_atomico`.
 fn escribe_fichero_exclusivo(ruta: &Path, datos: &[u8]) -> Result<()> {
-    use std::io::Write;
-    let dir = ruta.parent().context("ruta sin directorio padre")?;
-    let base = ruta
-        .file_name()
-        .and_then(|n| n.to_str())
-        .context("nombre de fichero no UTF-8")?;
-    let unico = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0);
-    let tmp = dir.join(format!("{base}.{}.{unico}.tmp", std::process::id()));
-    {
-        let mut f = std::fs::File::create(&tmp)
-            .with_context(|| format!("crear temporal {}", tmp.display()))?;
-        f.write_all(datos)
-            .with_context(|| format!("escribir temporal {}", tmp.display()))?;
-        f.sync_all()
-            .with_context(|| format!("fsync temporal {}", tmp.display()))?;
-    }
+    let tmp = escribe_temporal(ruta, datos)?;
     let resultado = std::fs::hard_link(&tmp, ruta).with_context(|| {
         format!(
             "crear {} (ya existe: no se sobrescribe un archivo)",
