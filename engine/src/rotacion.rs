@@ -357,15 +357,18 @@ fn desambigua_nombre_de_archivo(nombre: String, existentes: &[String]) -> String
 }
 
 /// Crea un temporal único en `dir(ruta)`, le escribe `datos` y lo fsyncea.
-/// Devuelve su ruta ya publicable por `rename`/`hard_link`. Si `write_all`
-/// o `sync_all` fallan (la creación en sí no deja nada que limpiar: el
-/// temporal solo existe si `File::create` tuvo éxito), el temporal se borra
-/// antes de propagar el error — igual que el `defer os.Remove(tmpName)` de
-/// kbx justo tras `CreateTemp`, que limpia en cualquier salida (I1 de la
-/// review: sin esto, el `?` de una escritura o fsync fallidos salía antes
-/// de borrar el `.tmp`, dejándolo huérfano). Compartido por
-/// `escribe_fichero_atomico` y `escribe_fichero_exclusivo` (I3 de la
-/// review): ambas solo difieren en cómo publican el temporal ya escrito.
+/// Devuelve su ruta ya publicable por `rename`/`hard_link`. `File::create`,
+/// `write_all` y `sync_all` corren dentro de la misma clausura: si
+/// cualquiera de los tres falla, el `if let Err` de abajo borra el
+/// temporal antes de propagar el error. Para un fallo de `File::create`
+/// ese `remove_file` es un no-op (nunca llegó a existir nada que limpiar),
+/// no una rama aparte — es la misma limpieza para los tres casos, igual
+/// que el `defer os.Remove(tmpName)` de kbx justo tras `CreateTemp`, que
+/// limpia en cualquier salida (I1 de la review: sin esto, el `?` de una
+/// escritura o fsync fallidos salía antes de borrar el `.tmp`, dejándolo
+/// huérfano). Compartido por `escribe_fichero_atomico` y
+/// `escribe_fichero_exclusivo` (I3 de la review): ambas solo difieren en
+/// cómo publican el temporal ya escrito.
 fn escribe_temporal(ruta: &Path, datos: &[u8]) -> Result<std::path::PathBuf> {
     use std::io::Write;
     let dir = ruta.parent().context("ruta sin directorio padre")?;
@@ -1007,6 +1010,67 @@ mod tests {
         assert!(
             contenido_archivo2.contains(&format!("[[{nombre1_sin_md}]]")),
             "archivo2 debe enlazar hacia atrás a archivo1 ({nombre1_sin_md}): {contenido_archivo2}"
+        );
+    }
+
+    // Pin de I1 (segunda vuelta de review): `escribe_temporal` deja el
+    // temporal ya escrito y fsyncado; publicarlo es responsabilidad de
+    // cada llamador (`rename` aquí, `hard_link` en el exclusivo de abajo).
+    // Este test cubre el camino de error que NO pasa por `escribe_temporal`
+    // — `rename` falla porque `ruta` ya es un directorio (EISDIR/ENOTDIR
+    // según plataforma) — y confirma que la limpieza de
+    // `escribe_fichero_atomico` (`if resultado.is_err() { remove_file }`)
+    // no deja el `.tmp` huérfano.
+    #[test]
+    fn escribe_fichero_atomico_borra_el_tmp_si_falla_el_rename() {
+        let dir = tempfile::tempdir().unwrap();
+        let ruta = dir.path().join("ya-es-un-directorio.md");
+        std::fs::create_dir_all(&ruta).unwrap();
+
+        let resultado = escribe_fichero_atomico(&ruta, b"contenido nuevo");
+
+        assert!(
+            resultado.is_err(),
+            "rename sobre un directorio existente debe fallar"
+        );
+        for entrada in std::fs::read_dir(dir.path()).unwrap() {
+            let nombre = entrada.unwrap().file_name();
+            assert!(
+                !nombre.to_string_lossy().contains(".tmp"),
+                "quedo un temporal huerfano tras el rename fallido: {nombre:?}"
+            );
+        }
+    }
+
+    // Pin de I1 (segunda vuelta de review): mismo escenario que el test de
+    // arriba pero para `escribe_fichero_exclusivo` — `hard_link` falla
+    // porque `ruta` ya existe (EEXIST, el caso que este backstop existe
+    // para detectar), y la limpieza incondicional
+    // (`let _ = remove_file(&tmp); resultado`) no debe dejar el `.tmp`
+    // huérfano ni tocar el fichero ya existente.
+    #[test]
+    fn escribe_fichero_exclusivo_borra_el_tmp_si_falla_el_hard_link() {
+        let dir = tempfile::tempdir().unwrap();
+        let ruta = dir.path().join("ya-existe.md");
+        std::fs::write(&ruta, b"contenido original").unwrap();
+
+        let resultado = escribe_fichero_exclusivo(&ruta, b"contenido nuevo");
+
+        assert!(
+            resultado.is_err(),
+            "hard_link no debe pisar un fichero ya existente"
+        );
+        for entrada in std::fs::read_dir(dir.path()).unwrap() {
+            let nombre = entrada.unwrap().file_name();
+            assert!(
+                !nombre.to_string_lossy().contains(".tmp"),
+                "quedo un temporal huerfano tras el hard_link fallido: {nombre:?}"
+            );
+        }
+        let intacto = std::fs::read(&ruta).unwrap();
+        assert_eq!(
+            intacto, b"contenido original",
+            "el fichero existente no debe tocarse cuando hard_link falla"
         );
     }
 }
