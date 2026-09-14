@@ -89,8 +89,25 @@ jobs:
         with:
           workspaces: engine
           key: msrv
+      # `dtolnay/rust-toolchain@1.95.0` (arriba) solo hace `rustup default
+      # 1.95.0` — precedencia 5, la MÁS BAJA de rustup (rustup
+      # doc/user-guide/src/overrides.md, «Overrides»: 1 `cargo +<toolchain>`,
+      # 2 `RUSTUP_TOOLCHAIN`, 3 directory override (`rustup override`),
+      # 4 fichero `rust-toolchain[.toml]`, 5 default). `engine/rust-toolchain.toml`
+      # (`channel = "stable"`, campaña E Task 5) es precedencia 4 y PISA ese
+      # default: sin forzar algo de precedencia más alta, `cargo check` de
+      # abajo compilaría con `stable`, no con la MSRV, y este job "pasaría"
+      # sin haber comprobado nada. `RUSTUP_TOOLCHAIN` es precedencia 2, gana
+      # al fichero — se fija por `env:` en los dos steps que siguen.
+      - name: Compilador realmente en uso == 1.95.0 (falsa el override del fichero)
+        working-directory: engine
+        env:
+          RUSTUP_TOOLCHAIN: 1.95.0
+        run: rustc --version | tee /dev/stderr | grep -F ' 1.95.0 '
       - name: cargo check con la MSRV
         working-directory: engine
+        env:
+          RUSTUP_TOOLCHAIN: 1.95.0
         run: cargo check --all-targets --locked
 
   test:
