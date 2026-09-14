@@ -43,9 +43,21 @@ fi
 
 hallados=""
 for f in "${ficheros[@]}"; do
-  if match="$(grep -EnH "$PATRON" "$f" 2>/dev/null)"; then
-    hallados="${hallados}${match}"$'\n'
-  fi
+  # `grep` distingue tres casos por exit code: 0 = hallazgo, 1 = limpio,
+  # >=2 = error (fichero no legible, etc.). `if match=$(grep …)` trataba 1
+  # y >=2 como el mismo "no hallazgo" — un error de lectura pasaba el gate
+  # en silencio, justo el patrón de fallo silencioso que este gate existe
+  # para cazar en otros.
+  match="$(grep -EnH "$PATRON" "$f" 2>&1)"
+  ec=$?
+  case "$ec" in
+    0) hallados="${hallados}${match}"$'\n' ;;
+    1) : ;; # limpio: sin hallazgo, sin error
+    *)
+      echo "test-rutas-personales: error leyendo $f (grep exit=$ec): $match" >&2
+      exit 1
+      ;;
+  esac
 done
 
 if [ -n "$hallados" ]; then
