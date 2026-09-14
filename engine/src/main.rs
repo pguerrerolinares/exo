@@ -78,6 +78,10 @@ enum Comando {
     /// deudas informativas no lo rompen. Sin historia de git se abstiene y
     /// sale con 0.
     Ratchet(ArgsRatchet),
+    /// Divide una bitácora `tier: log` en frío (a `archive/log/`) y
+    /// caliente (que se queda). Sin `--apply` es un dry-run: no toca disco.
+    /// Solo barre el nivel superior de `log/` — igual que kbx, sin recursión.
+    Rotate(ArgsRotate),
     /// Diagnostica esta máquina (binario, config, KB, índice, modelo de
     /// embeddings y dependencias de los hooks). Cada check dice qué artefacto
     /// miró; sale con 3 si alguno falla.
@@ -384,6 +388,22 @@ struct ArgsRatchet {
     json: bool,
 }
 
+#[derive(clap::Args)]
+struct ArgsRotate {
+    /// Raíz de la KB. Precedencia: flag > $EXO_KB > config.
+    #[arg(long)]
+    kb: Option<PathBuf>,
+    /// Presupuesto en bytes para la cola caliente que se queda en la nota.
+    #[arg(long = "hot-bytes", value_name = "HOT_BYTES", default_value_t = 20480)]
+    presupuesto_caliente: i64,
+    /// Escribe de verdad. Sin este flag es un dry-run: nada toca disco.
+    #[arg(long)]
+    apply: bool,
+    /// Emite el resultado como envelope JSON en stdout.
+    #[arg(long)]
+    json: bool,
+}
+
 fn main() {
     let cli = Cli::parse();
     // El flag sale del parseo de clap, no de un escaneo de argv: un valor de
@@ -439,6 +459,7 @@ fn quiere_json(c: &Comando) -> bool {
         Comando::Budget(a) => a.json,
         Comando::Lint(a) => a.json,
         Comando::Ratchet(a) => a.json,
+        Comando::Rotate(a) => a.json,
         Comando::Doctor(a) => a.json,
         Comando::Write(w) => match w {
             ComandoWrite::New(a) => a.json,
@@ -493,6 +514,7 @@ fn ejecuta(comando: Comando) -> Result<()> {
         Comando::Budget(args) => budget_cmd(args),
         Comando::Lint(args) => lint_cmd(args),
         Comando::Ratchet(args) => ratchet_cmd(args),
+        Comando::Rotate(args) => rotate_cmd(args),
         Comando::Doctor(args) => doctor_cmd(args),
         Comando::Write(sub) => match sub {
             ComandoWrite::New(args) => write_new_cmd(args),
@@ -1362,6 +1384,89 @@ fn ratchet_seal_cmd(
             siguiente.len(),
             exo::trinquete::FICHERO_SELLO
         );
+    }
+    Ok(())
+}
+
+/// `exo rotate`: barre `log/` (solo el nivel superior — igual que kbx, sin
+/// recursión ni el resto de la KB) y rota cada nota `tier: log` cuya cola
+/// fría exceda el presupuesto. Un fallo en una nota no aborta la barrida:
+/// se acumula y el exit code final lo refleja con `bail!` (exit 1 — D-3:
+/// no es un `GateFallido`, es un fichero que no se pudo procesar).
+fn rotate_cmd(args: ArgsRotate) -> Result<()> {
+    let kb = resuelve_kb(args.kb)?;
+    if args.presupuesto_caliente <= 0 {
+        anyhow::bail!(
+            "rotate: --hot-bytes tiene que ser > 0, se recibió {}",
+            args.presupuesto_caliente
+        );
+    }
+    let nombre_kb = exo::nombre_kb().unwrap_or_else(|e| {
+        eprintln!("aviso: rotate usa prefijo 'kb' — sin [kb] name: {e:#}");
+        "kb".to_string()
+    });
+
+    let dir_log = kb.join("log");
+    let mut rutas: Vec<PathBuf> = match std::fs::read_dir(&dir_log) {
+        Ok(e) => e
+            .filter_map(|r| r.ok())
+            .map(|e| e.path())
+            .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("md"))
+            .collect(),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Vec::new(),
+        Err(e) => return Err(e).with_context(|| format!("leer {}", dir_log.display())),
+    };
+    rutas.sort();
+
+    let mut resultados = Vec::new();
+    let mut fallidas = Vec::new();
+    for ruta_abs in rutas {
+        let rel = format!("log/{}", ruta_abs.file_name().unwrap().to_string_lossy());
+        let contenido = match std::fs::read(&ruta_abs) {
+            Ok(c) => c,
+            Err(e) => {
+                fallidas.push(format!("{rel}: {e}"));
+                continue;
+            }
+        };
+        if exo::frontmatter::tier(&String::from_utf8_lossy(&contenido)) != "log" {
+            continue;
+        }
+        match exo::rotacion::aplica(&kb, &rel, args.presupuesto_caliente, args.apply, &nombre_kb) {
+            Ok(r) => {
+                if r.rotado {
+                    resultados.push(r);
+                }
+            }
+            Err(e) => fallidas.push(format!("{rel}: {e}")),
+        }
+    }
+
+    if args.json {
+        envelope::emite(
+            "rotate",
+            serde_json::json!({ "applied": args.apply, "hot_bytes": args.presupuesto_caliente, "rotations": resultados }),
+        );
+    } else if resultados.is_empty() {
+        println!("rotate: nothing to rotate");
+    } else {
+        let verbo = if args.apply { "moved" } else { "would move" };
+        for r in &resultados {
+            println!(
+                "{}: {verbo} {} B ({} entries) -> {}",
+                r.nota,
+                r.bytes_movidos,
+                r.entradas_frias,
+                r.archivo.as_deref().unwrap_or("")
+            );
+        }
+    }
+
+    if !fallidas.is_empty() {
+        for f in &fallidas {
+            eprintln!("rotate: {f}");
+        }
+        anyhow::bail!("{} nota(s) fallaron durante la barrida", fallidas.len());
     }
     Ok(())
 }
