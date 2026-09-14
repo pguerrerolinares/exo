@@ -63,6 +63,100 @@ pub fn puntua(edad_dias: i64, degree: i64, tier: &str) -> Puntuacion {
     Puntuacion((cruda * 100.0).round() / 100.0)
 }
 
+/// Días desde 1970-01-01 hasta la fecha civil dada (calendario
+/// gregoriano). Algoritmo de Howard Hinnant
+/// (howardhinnant.github.io/date_algorithms.html, dominio público);
+/// aritmética entera exacta para cualquier año, incluidos los anteriores a
+/// 1970 (da negativo). exo no trae ningún crate de fechas —
+/// `indexer::git_epoch_de` sortea el problema pidiéndole el epoch a git
+/// directamente (`%at`); aquí hace falta además la cadena ISO para
+/// `last_commit`, así que se resuelve con esta función pura en vez de
+/// añadir una dependencia para dos conversiones de calendario.
+fn dias_desde_epoch_civil(anio: i64, mes: i64, dia: i64) -> i64 {
+    let y = if mes <= 2 { anio - 1 } else { anio };
+    let era = (if y >= 0 { y } else { y - 399 }) / 400;
+    let yoe = y - era * 400;
+    let mp = (mes + 9) % 12;
+    let doy = (153 * mp + 2) / 5 + dia - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146_097 + doe - 719_468
+}
+
+/// Inverso de `dias_desde_epoch_civil`: fecha civil para un número de días
+/// desde 1970-01-01.
+fn civil_desde_dias_epoch(dias: i64) -> (i64, i64, i64) {
+    let z = dias + 719_468;
+    let era = (if z >= 0 { z } else { z - 146_096 }) / 146_097;
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    (if m <= 2 { y + 1 } else { y }, m, d)
+}
+
+fn parsea_offset_minutos(off: &str) -> Result<i64> {
+    let (signo_txt, resto) = off.split_at(1);
+    let signo = if signo_txt == "-" { -1 } else { 1 };
+    let mut partes = resto.split(':');
+    let (Some(Ok(hh)), Some(Ok(mm))) = (partes.next().map(str::parse::<i64>), partes.next().map(str::parse::<i64>)) else {
+        anyhow::bail!("huso horario ilegible: {off:?}");
+    };
+    Ok(signo * (hh * 60 + mm))
+}
+
+/// Convierte una fecha-hora en formato `git log --format=%aI` (ISO-8601
+/// estricto: `YYYY-MM-DDTHH:MM:SS±HH:MM`, el que produce
+/// `gitx::ultimo_commit`, o con sufijo `Z`) a segundos UTC desde epoch.
+pub fn epoch_utc_de_iso8601(marca: &str) -> Result<i64> {
+    let (fecha, resto) = marca.split_once('T').with_context(|| format!("fecha ISO-8601 sin 'T': {marca:?}"))?;
+    let mut pf = fecha.split('-');
+    let (Some(Ok(anio)), Some(Ok(mes)), Some(Ok(dia))) =
+        (pf.next().map(str::parse::<i64>), pf.next().map(str::parse::<i64>), pf.next().map(str::parse::<i64>))
+    else {
+        anyhow::bail!("fecha ISO-8601 ilegible: {marca:?}");
+    };
+
+    let (hms, offset_min) = if let Some(hms) = resto.strip_suffix('Z') {
+        (hms, 0)
+    } else if let Some(i) = resto.rfind(['+', '-']) {
+        let (hms, off) = resto.split_at(i);
+        (hms, parsea_offset_minutos(off)?)
+    } else {
+        anyhow::bail!("fecha ISO-8601 sin huso horario: {marca:?}");
+    };
+
+    let mut ph = hms.split(':');
+    let (Some(Ok(h)), Some(Ok(m)), Some(Ok(s))) =
+        (ph.next().map(str::parse::<i64>), ph.next().map(str::parse::<i64>), ph.next().map(str::parse::<i64>))
+    else {
+        anyhow::bail!("hora ISO-8601 ilegible: {marca:?}");
+    };
+
+    let dias = dias_desde_epoch_civil(anio, mes, dia);
+    Ok(dias * 86_400 + h * 3600 + m * 60 + s - offset_min * 60)
+}
+
+/// Formatea segundos-epoch UTC como RFC3339 con sufijo `Z`, sin fracción
+/// de segundo — igual que `now.UTC().Format(time.RFC3339)` en Go.
+pub fn formatea_rfc3339_utc(epoch: i64) -> String {
+    let dias = epoch.div_euclid(86_400);
+    let seg_del_dia = epoch.rem_euclid(86_400);
+    let (anio, mes, dia) = civil_desde_dias_epoch(dias);
+    let (h, m, s) = (seg_del_dia / 3600, (seg_del_dia / 60) % 60, seg_del_dia % 60);
+    format!("{anio:04}-{mes:02}-{dia:02}T{h:02}:{m:02}:{s:02}Z")
+}
+
+/// `floor((ahora - commit) / 86400s)` sobre instantes UTC absolutos
+/// (spec-review M1: "duration-based, never calendar-day arithmetic in any
+/// timezone"). `div_euclid` para que un `ahora` anterior al commit
+/// redondee hacia abajo, no hacia cero.
+fn edad_en_dias(ahora_epoch: i64, commit_epoch: i64) -> i64 {
+    (ahora_epoch - commit_epoch).div_euclid(86_400)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -161,5 +255,36 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn epoch_de_iso8601_reproduce_el_now_del_golden() {
+        // "2026-07-14T22:00:00Z", el `now` del golden de kbx.
+        let e = epoch_utc_de_iso8601("2026-07-14T22:00:00Z").unwrap();
+        assert_eq!(formatea_rfc3339_utc(e), "2026-07-14T22:00:00Z");
+    }
+
+    #[test]
+    fn epoch_de_iso8601_respeta_el_huso_horario() {
+        // 10:00 +02:00 == 08:00 Z.
+        let con_offset = epoch_utc_de_iso8601("2026-06-01T10:00:00+02:00").unwrap();
+        let en_z = epoch_utc_de_iso8601("2026-06-01T08:00:00Z").unwrap();
+        assert_eq!(con_offset, en_z);
+    }
+
+    #[test]
+    fn formatea_rfc3339_utc_es_el_inverso_de_epoch_utc_de_iso8601() {
+        for marca in ["1970-01-01T00:00:00Z", "2026-01-01T00:00:00Z", "2026-12-31T23:59:59Z", "2000-02-29T12:00:00Z"] {
+            let e = epoch_utc_de_iso8601(marca).unwrap();
+            assert_eq!(formatea_rfc3339_utc(e), marca, "round-trip de {marca}");
+        }
+    }
+
+    #[test]
+    fn edad_en_dias_coincide_con_el_golden() {
+        // now=2026-07-14T22:00:00Z, last_commit core/core-index=2026-06-01T10:00:00+02:00 => age_days=43.
+        let ahora = epoch_utc_de_iso8601("2026-07-14T22:00:00Z").unwrap();
+        let commit = epoch_utc_de_iso8601("2026-06-01T10:00:00+02:00").unwrap();
+        assert_eq!(edad_en_dias(ahora, commit), 43);
     }
 }
