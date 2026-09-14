@@ -99,10 +99,16 @@ exo init --from-basic-memory
 
 Una DB sirve a una sola KB: si el índice de destino (`$EXO_DB` o el default
 de config) ya tiene guardada la ruta de otra KB en disco, `exo init` (y
-`exo index`) lo rechazan antes de tocar nada:
+`exo index`/`exo rebuild`) lo rechazan antes de tocar nada. El remedio que
+sugiere el error depende del comando, porque `exo init` no tiene `--db`
+(resuelve por `$EXO_DB`):
 
 ```
+# exo index / exo rebuild (tienen --db)
 error: este índice es de otra KB que sigue en disco: <ruta previa> (pediste <ruta nueva>). Una DB sirve a UNA KB: usa otra --db para esta, o `exo rebuild --kb <kb> --db <esta db>` si de verdad quieres reemplazar el índice
+
+# exo init (no tiene --db)
+error: este índice es de otra KB que sigue en disco: <ruta previa> (pediste <ruta nueva>). Una DB sirve a UNA KB: usa otro $EXO_DB para esta KB (`EXO_DB=<ruta> exo init …`), o borra/reemplaza la DB actual si de verdad quieres reutilizarla
 ```
 
 `exo search` y `exo recall` (solo lectura) no rechazan nada, pero avisan por
