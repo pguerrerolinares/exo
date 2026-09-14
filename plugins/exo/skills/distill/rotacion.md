@@ -5,11 +5,7 @@
 
 Corre primero en seco y revisa el resultado:
 
-    $KBX_BIN rotate --kb $KB_ROOT --json
-
-Requiere un build de `kbx` que incluya `rotate`: el binario instalado puede no
-traer todavía el subcomando, porque la feature vive en una rama sin mergear.
-Si no está disponible, sáltalo y continúa directo al paso 1.
+    $EXO_BIN rotate --kb $KB_ROOT --json
 
 Si `data.rotations` viene vacío, no hay nada que rotar: sigue directo al paso
 1. Si trae entradas, repite con `--apply` y verifica antes de continuar:
