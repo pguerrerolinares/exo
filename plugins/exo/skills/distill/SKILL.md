@@ -25,10 +25,12 @@ con el mismo seam que usa `plugins/exo/scripts/test-contrato-engine.sh`:
   `${EXO_KB:-$(exo config --json | jq -r '.data.kb.path // empty')}`. Si sale
   vacío, es **abstención ruidosa**: para y dile a Paul que ni `$EXO_KB` ni
   `exo config --json` resolvieron nada — no sigas con el procedimiento. La
-  KB tiene que ser la raíz de un repo git: `budget`/`ratchet`/`lint`/
-  `rotate`/`stale` lo exigen (`exo::gitx::es_repo_git`, decisión A2 de G4b);
-  sobre una KB sin versionar, `budget`/`lint` funcionan igual y el resto
-  falla con un mensaje que nombra la condición y el remedio (`git init`).
+  KB tiene que ser la raíz de un repo git, y sin él cada subcomando se
+  comporta distinto: `targets` falla con un mensaje que nombra la condición
+  y el remedio (`git init`; `exo::gitx::es_repo_git`, decisión A2 de G4b);
+  `stale` falla con el error crudo de git (necesita el último commit de cada
+  nota); `ratchet` se abstiene con exit 0 (no hay historia contra la que
+  medir); `budget`, `lint` y `rotate` no miran git y funcionan igual.
 - `$EXO_BIN` — binario `exo`: `${EXO_BIN:-$(command -v exo)}`.
 
 **Desde la campaña D (2026-09-14) este skill invoca un solo binario.** `exo`

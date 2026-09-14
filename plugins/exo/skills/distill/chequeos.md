@@ -37,9 +37,10 @@ sí solo).
 (`exo no está → cargo build --release en engine/ + copia a
 $HOME/.local/bin/exo(.exe)`). No degrades a mano: /distill es offline y
 deliberado, el fallo ruidoso es correcto. (El check `schema_drift` que esta
-sección citaba murió en G4b — `exo lint` emite 6 tipos de finding, no 7;
-existía solo mientras kbx y exo convivían contra el mismo schema,
-`engine/src/lint.rs:1-5` — así que ya no hay "schema drift" que mirar.)
+sección citaba murió en G4b — en `exo lint` su hueco lo ocupa `index_stale`, así que
+siguen siendo siete tipos de finding, pero no los mismos siete; existía
+solo mientras kbx y exo convivían contra el mismo schema,
+`engine/src/lint.rs:1-10` — así que ya no hay "schema drift" que mirar.)
 
 ### 1b. Gate de deriva + priorización
 
