@@ -560,7 +560,9 @@ fn dos_kbs_con_la_misma_plantilla_sobre_la_misma_db_la_segunda_falla_sin_residuo
     assert_eq!(b.status.code(), Some(1), "stderr: {err}");
     let dueña = std::fs::canonicalize(&kb_a).unwrap().display().to_string();
     assert!(err.contains(&dueña), "nombra la KB dueña ({dueña}): {err}");
-    assert!(err.contains("--db"), "dice el remedio: {err}");
+    // El remedio de `init` es $EXO_DB, no --db (init no tiene ese flag) —
+    // Task 4 (`OrigenComprobacion::Init`) cambió el texto para este camino.
+    assert!(err.contains("EXO_DB"), "dice el remedio: {err}");
     assert!(
         !err.contains("UNIQUE constraint"),
         "ya no es el error críptico: {err}"
@@ -717,4 +719,36 @@ fn segunda_kb_con_exo_config_y_exo_db_propios_no_hereda_la_db_de_la_primera() {
         db_resuelta, db2_esperada,
         "la config de la segunda kb resolvió a la DB de la primera — bug de init_cmd"
     );
+}
+
+#[test]
+fn valida_db_para_kb_rechaza_otra_kb_sin_mencionar_un_flag_que_init_no_tiene() {
+    let dir = tempfile::tempdir().unwrap();
+    let kb_vieja = dir.path().join("vieja");
+    let kb_nueva = dir.path().join("nueva");
+    std::fs::create_dir_all(&kb_vieja).unwrap();
+    std::fs::create_dir_all(&kb_nueva).unwrap();
+    let db = dir.path().join("index.db");
+    {
+        let conn = exo::abre_db(&db).unwrap();
+        exo::schema::crea_schema(&conn).unwrap();
+        let kb_vieja_abs = std::fs::canonicalize(&kb_vieja).unwrap();
+        conn.execute(
+            "INSERT INTO meta (clave, valor) VALUES ('kb_root', ?1)",
+            [kb_vieja_abs.to_string_lossy().to_string()],
+        )
+        .unwrap();
+    }
+
+    let err = exo::inicia::valida_db_para_kb(&db, &kb_nueva).expect_err("otra KB debe rechazarse");
+    let msg = format!("{err:#}");
+    assert!(
+        !msg.contains("--db"),
+        "el mensaje de `exo init` no debe recomendar --db, que init no tiene: {msg}"
+    );
+    assert!(
+        msg.contains("EXO_DB"),
+        "el mensaje debe nombrar $EXO_DB, la vía real de `exo init` para otra DB: {msg}"
+    );
+    assert!(msg.contains("otra KB"), "sigue siendo el mismo guard: {msg}");
 }
