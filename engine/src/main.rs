@@ -82,6 +82,10 @@ enum Comando {
     /// embeddings y dependencias de los hooks). Cada check dice qué artefacto
     /// miró; sale con 3 si alguno falla.
     Doctor(ArgsDoctor),
+    /// Urgencia de actualización de cada nota: edad de su último commit,
+    /// grado en el grafo de relaciones y tier, combinados en una
+    /// puntuación. Solo lectura.
+    Stale(ArgsStale),
 }
 
 #[derive(Subcommand)]
@@ -366,6 +370,23 @@ struct ArgsDoctor {
 }
 
 #[derive(clap::Args)]
+struct ArgsStale {
+    /// Fichero SQLite del índice. Precedencia: flag > $EXO_DB > config.
+    #[arg(long)]
+    db: Option<PathBuf>,
+    /// Raíz de la KB. Precedencia: flag > $EXO_KB > config.
+    #[arg(long)]
+    kb: Option<PathBuf>,
+    /// Override del reloj, RFC3339 (por defecto: la hora real; los tests
+    /// deterministas siempre lo pasan).
+    #[arg(long)]
+    now: Option<String>,
+    /// Emite el resultado como envelope JSON en stdout.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(clap::Args)]
 struct ArgsRatchet {
     /// Raíz de la KB. Precedencia: flag > $EXO_KB > config.
     #[arg(long)]
@@ -440,6 +461,7 @@ fn quiere_json(c: &Comando) -> bool {
         Comando::Lint(a) => a.json,
         Comando::Ratchet(a) => a.json,
         Comando::Doctor(a) => a.json,
+        Comando::Stale(a) => a.json,
         Comando::Write(w) => match w {
             ComandoWrite::New(a) => a.json,
             ComandoWrite::Append(a) => a.json,
@@ -494,6 +516,7 @@ fn ejecuta(comando: Comando) -> Result<()> {
         Comando::Lint(args) => lint_cmd(args),
         Comando::Ratchet(args) => ratchet_cmd(args),
         Comando::Doctor(args) => doctor_cmd(args),
+        Comando::Stale(args) => stale_cmd(args),
         Comando::Write(sub) => match sub {
             ComandoWrite::New(args) => write_new_cmd(args),
             ComandoWrite::Append(args) => write_append_cmd(args),
@@ -1257,6 +1280,58 @@ fn imprime_informe_ratchet(informe: &exo::trinquete::Informe) {
             informativos.len()
         );
     }
+}
+
+/// `exo stale`: urgencia de actualización por nota (`obsolescencia::calcula`).
+/// Solo lectura — el único exit no-cero es 1, un error de IO/parseo; la
+/// obsolescencia en sí es información, no un veredicto de gate (kbx: "the
+/// only non-zero exit is 2 (IO/usage)" — misma idea, exit distinto porque
+/// en exo 2 es de clap).
+fn stale_cmd(args: ArgsStale) -> Result<()> {
+    let db_ruta = resuelve_db(args.db)?;
+    if !db_ruta.exists() {
+        anyhow::bail!(
+            "DB no encontrada: {} — corre `exo index` primero",
+            db_ruta.display()
+        );
+    }
+    let kb = resuelve_kb(args.kb)?;
+    let conn = exo::abre_db(&db_ruta)?;
+
+    let ahora_epoch = match args.now {
+        Some(marca) => exo::obsolescencia::epoch_utc_de_iso8601(&marca)
+            .with_context(|| format!("stale: --now inválido: {marca:?}"))?,
+        None => std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .context("stale: reloj del sistema anterior a 1970")?
+            .as_secs() as i64,
+    };
+
+    let informe =
+        exo::obsolescencia::calcula(&conn, &kb, &exo::presupuesto::EXCLUIDOS, ahora_epoch)?;
+
+    if args.json {
+        envelope::emite("stale", serde_json::to_value(&informe)?);
+    } else {
+        println!("now: {}", informe.now);
+        for n in &informe.notes {
+            let commit = if n.sin_commit {
+                "(uncommitted)".to_string()
+            } else {
+                n.ultimo_commit.clone()
+            };
+            println!(
+                "{:<40} tier={:<6} age_days={:<6} degree={:<3} last_commit={} score={:.2}",
+                n.path,
+                n.tier,
+                n.edad_dias,
+                n.degree,
+                commit,
+                n.score.valor()
+            );
+        }
+    }
+    Ok(())
 }
 
 /// `exo ratchet`: el trinquete de techos declarados. Solo lee disco (`--kb`),
