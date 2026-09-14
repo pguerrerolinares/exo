@@ -1,12 +1,6 @@
 # Pre-registro — Campaña C: retrieval fuera de muestra (H7, H7b, H14, H24)
 
-> **Estado: BORRADOR hasta el commit de congelación (Task 5 del plan
-> `2026-09-13-campana-c-retrieval-held-out.md`).** Lo que hace valer este
-> documento es `git`, no la prosa. Primero, Paul fija las decisiones marcadas
-> `PENDIENTE-PAUL` en §9. Después se aprueba el gold y la Task 5 escribe su
-> sha256 en §10 y commitea. Ese commit es el pre-registro. Desde ese momento
-> el fichero no se edita. Una errata descubierta después se anota en el
-> verdict y no aquí.
+> **Estado: CONGELADO el 2026-09-14T08:21:12+02:00.** Inmutable desde este commit; erratas → verdict.
 >
 > **Qué se ha observado al redactarlo (2026-09-13), y qué no.** Visto: los
 > resultados in-sample de M2-07 y M2-09 sobre las 55 queries
@@ -378,20 +372,19 @@ y trade-offs en el plan, §Decisiones abiertas.
 - `D1` estratos y proporción: `pools enteros de prompt y agent-search + hard 1 por nota nueva; proporción natural, cada estrato reportado aparte` (Paul, 2026-09-13: "Todo el pool, suelo 60")
 - `D2` N de filas no nulas: `sin N fijo; suelo 60 no nulas totales` (Paul, 2026-09-13)
 - `D3` brazo late chunking: `no — solo solape; A5, late:rrf y R4 no se miden` (Paul, 2026-09-13: "No, solo solape")
-- `D4` umbrales de la regla GANA: `NETO ≥ ____`, `ARREGLA ≥ ____·ROMPE`
-  (recomendado: 3 y 2)
-- `D5` modo de relevancia para decidir: `____` (recomendado: lenient; strict
-  como descriptivo) · overlay de la fila 13 en el reporte in-sample: `____`
-  (recomendado: sí, reportando ambas)
+- `D4` umbrales de la regla GANA: `NETO ≥ 3`, `ARREGLA ≥ 2·ROMPE` (consultor-gate fable firmado por Paul, 2026-09-14: "D4 NETO>=3 ARREGLA>=2*ROMPE")
+- `D5` modo de relevancia para decidir: `lenient; strict como descriptivo` · overlay de la fila 13 en el reporte in-sample: `sí, reportando ambas` (firmado por Paul, 2026-09-14: "D5 lenient overlay-fila13=si")
+- `S2` citas literales de prompts dentro de notas de la KB: `i — se declara como sesgo en el verdict, sin excluir filas` (consultor: 0/92 no nulas con única señal literal; firmado por Paul, 2026-09-14: "S2 i")
+- `S4` desglose de `hard`: `i — hit@5 descriptivo por sub-tipo, sin peso en la decisión: hard-corta = ids impares c113…c147, hard-larga = ids pares c112…c146` (firmado por Paul, 2026-09-14: "S4 i")
 
 ## 10. Congelación
 
-- Commit de la KB para el snapshot `S`: `____`
-- Binario de medición: `main` en `____` (post-campaña A), `cargo build
+- Commit de la KB para el snapshot `S`: `885246df3a428fa3895c209030eb90a8e254005f`
+- Binario de medición: `pendiente: post-A (Task 6 lo anota en agregados.md, no aquí)`, `cargo build
   --release --locked`
-- `sha256(gold.jsonl)`: `____`
-- Filas: `____` totales · `____` no nulas · por estrato `____`
-- Aprobación de Paul del gold: línea `GATE:` en `____`
+- `sha256(gold.jsonl)`: `614ae599c6f9d9500b66636644970fa2b009362f9eb124b008a3222376c43a75`
+- Filas: `147` totales · `92` no nulas · por estrato `prompt 22 · agent-search 34 · hard 36` (55 nulas; 44 con acceptable_permalinks)
+- Aprobación de Paul del gold: línea `GATE:` en `.superpowers/fabrica/packages/c-retrieval-heldout-gold.md` §Firma (2026-09-14; propuesta del consultor-gate en `evals/retrieval-heldout/verdict/c-gold-decisiones-verdict.md`)
 - Commit de congelación: el que introduce este bloque relleno.
 
 ## 11. Circuit breakers
