@@ -750,5 +750,8 @@ fn valida_db_para_kb_rechaza_otra_kb_sin_mencionar_un_flag_que_init_no_tiene() {
         msg.contains("EXO_DB"),
         "el mensaje debe nombrar $EXO_DB, la vía real de `exo init` para otra DB: {msg}"
     );
-    assert!(msg.contains("otra KB"), "sigue siendo el mismo guard: {msg}");
+    assert!(
+        msg.contains("otra KB"),
+        "sigue siendo el mismo guard: {msg}"
+    );
 }
