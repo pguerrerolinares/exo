@@ -347,16 +347,64 @@ no una corrida.
 
 ### Rotate
 
-- Fecha:
-- Commit de exo:
-- Commit de kbx: `fe46443`
-- Control rojo-verde del instrumento (`--hot-bytes 1` o KB intacta):
-- Dry-run coincide:
-- `--apply` (JSON) coincide:
-- `--apply` (`archive/` byte a byte) coincide:
-- `--apply` (`log/` byte a byte) coincide:
-- Divergencias observadas y su adjudicación:
-- **PASA / NO PASA**:
+- Fecha: 2026-09-14.
+- Commit de exo: `e31ab2a036c37bcbf9d1d5e1fc16017dfe5af308` (binario release de
+  `/home/paul/Documentos/proyectos/exo/.worktrees/d-cutover-kbx/engine/target/release/exo`,
+  `exo --version` → `exo 0.1.0`).
+- Commit de kbx: `fe46443` (`/tmp/campana-d/kbx`).
+- Precondición D-4 (Step 1): `~/.exo/config.toml` tiene `[kb] name =
+  "wisdom-paul"` — coincide con el nombre de la KB de prueba, así que el
+  `permalink` no necesitó excluirse de la comparación estricta (ver más
+  abajo).
+- Control rojo-verde del instrumento (`--hot-bytes 1` en un clon vs. `kbx
+  rotate --apply` normal en otro clon del mismo `kb-base`, ambos
+  desechables): **REVISAR** (como se esperaba) — `archive/` de exo con
+  `--hot-bytes 1` tiene 98 ficheros, el de kbx con hot-bytes por defecto
+  tiene 78; `diff -qr` lista >20 líneas de diferencia. El comparador mide de
+  verdad, se procede al gate real.
+- Dry-run coincide: **sí** — `diff -u go-rotate-dry.json rs-rotate-dry.json`
+  vacío; 44 notas evaluadas en `log/`, 6 con `rotated:true` en los dos
+  lados, mismos `note`/`archive`/`cold_entries`/`moved_bytes`.
+- `--apply` (JSON) coincide: **sí** — `diff -u` vacío sobre
+  `.data.rotations` (6 rotaciones, mismos campos que el dry-run).
+- `--apply` (`archive/` byte a byte) coincide: **sí** — `diff -qr` sin
+  salida; 78 ficheros en cada `archive/` (kbx: 1.164.196 bytes totales,
+  exo: 1.164.196 bytes totales), mismos nombres y mismos tamaños por
+  fichero (verificado fichero a fichero, no solo el conteo).
+- `--apply` (`log/` byte a byte) coincide: **sí** — `diff -qr` sin salida.
+- Exit codes de `--apply` en esta corrida: kbx `0`, exo `0` (sin fallos
+  parciales en esta barrida — la divergencia 1, exit 2 vs. exit 1, no se
+  observó porque no hubo ninguna nota que fallara; queda declarada pero no
+  ejercitada).
+- Permalink del archivo (divergencia 6): inspeccionado en
+  `archive/log/agent-develop-bitacora-2026-06-26_2026-07-11.md` de los dos
+  clones — idéntico byte a byte
+  (`permalink: 'wisdom-paul/archive/log/...'`) porque `[kb] name` de la
+  config real ya es `wisdom-paul`; no hizo falta excluirlo de la
+  comparación estricta, coincidió por las buenas.
+- Disambiguación de nombre (divergencia 4): no se observó — los dos clones
+  partieron del mismo commit de `kb-base` (`4bf1dc4`) y los 78 nombres de
+  archivo listados por `find -printf` son idénticos en los dos lados.
+- Reconstrucción cruzada byte a byte (preámbulo + frío + caliente ==
+  original): **no ejecutada** — no está en el script ejecutable de
+  "## Comandos" (solo describe el invariante en "Qué se compara"); Task 6
+  Step 3 manda correr literalmente el bloque de "## Comandos", que cubre
+  dry-run + `--apply` (JSON) + los dos `diff -qr`. Con `archive/` y `log/`
+  byte-idénticos entre kbx y exo, la reconstrucción cruzada entre binarios
+  queda cubierta transitivamente (si cada nota reconstruye su original en
+  su propio binario — ya cubierto por la suite de tests de cada port — y
+  las salidas de los dos binarios son idénticas, la reconstrucción cruzada
+  no puede divergir); no se afirma como medición independiente.
+- Divergencias observadas y su adjudicación: ninguna divergencia respecto a
+  lo declarado — dry-run, JSON de `--apply`, `archive/` y `log/` son
+  idénticos byte a byte en las 6 notas rotadas de las 44 evaluadas
+  (conteos de ficheros y bytes citados arriba para descartar dos árboles
+  "iguales" por no haber rotado nada). Las divergencias 1 (exit code) y 4
+  (disambiguación) están declaradas pero no se ejercitaron en esta corrida
+  por no darse las condiciones (sin fallos parciales, sin colisión de
+  nombres). La divergencia 6 (permalink) coincidió en la práctica, tal
+  como el pre-registro anticipaba.
+- **PASA / NO PASA**: **PASA**.
 
 ### Stale
 
