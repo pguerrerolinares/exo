@@ -33,13 +33,14 @@ Revisa `waived`: ¿siguen justificadas las excepciones reconocidas? (p.ej. un
 `kbx_orphan_ok` en una nota que recuperó relaciones desaparece de `waived` por
 sí solo).
 
-**Falla-fuerte:** si el binario no está o el schema-canary rompe (lo verás como
-un `schema_drift` en `lint`, ver abajo), **para** con un mensaje accionable
+**Falla-fuerte:** si el binario no está, **para** con un mensaje accionable
 (`exo no está → cargo build --release en engine/ + copia a
-$HOME/.local/bin/exo(.exe)`, "schema drift → el binario kbx y el binario exo
-están desincronizados: reinstala el que vaya atrasado (`make install` en kbx,
-`cargo build --release` + copia en exo) y vuelve a correr"). No degrades a mano:
-/distill es offline y deliberado, el fallo ruidoso es correcto.
+$HOME/.local/bin/exo(.exe)`). No degrades a mano: /distill es offline y
+deliberado, el fallo ruidoso es correcto. (El check `schema_drift` que esta
+sección citaba murió en G4b — en `exo lint` su hueco lo ocupa `index_stale`, así que
+siguen siendo siete tipos de finding, pero no los mismos siete; existía
+solo mientras kbx y exo convivían contra el mismo schema,
+`engine/src/lint.rs:1-10` — así que ya no hay "schema drift" que mirar.)
 
 ### 1b. Gate de deriva + priorización
 
@@ -51,7 +52,7 @@ están desincronizados: reinstala el que vaya atrasado (`make install` en kbx,
   alimentan la limpieza (WS4 del spec Fase 2): `duplicate_dir`, `orphan`,
   `bad_frontmatter`, `root_file`. No los muevas a ciegas — cada `git mv` lo
   gatea Paul.
-- **Priorización:** corre `$KBX_BIN stale --json`
+- **Priorización:** corre `$EXO_BIN stale --json`
   (`{data:{notes:[{path,tier,age_days,degree,score,...}]}}`, orden descendente
   por `score`). Úsalo para decidir QUÉ notas atacar primero en los pasos 2 y 4,
   en vez de ir a ojo. **`stale` no propaga waivers**: una nota con excepción

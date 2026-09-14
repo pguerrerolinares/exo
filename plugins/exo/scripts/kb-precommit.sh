@@ -58,9 +58,8 @@ QUÉ HACER, en orden:
 
   1. Si la nota creció con histórico: PÁRTELA. Mueve lo fechado a su
      bitácora (log/<slug>-bitacora.md). El canon se queda con el destilado.
-  2. Si la bitácora es la que ha crecido: kbx rotate --kb <kb> --apply
-     archiva su cola fría en archive/log/. (Sigue en kbx: exo no tiene
-     todavía el verbo rotate.)
+  2. Si la bitácora es la que ha crecido: exo rotate --kb <kb> --apply
+     archiva su cola fría en archive/log/.
   3. Si nada de eso aplica: deja el commit pendiente y díselo a Paul.
      Un commit sin hacer se arregla en un minuto; una nota mutilada, no.
 ────────────────────────────────────────────────────────────────────────
