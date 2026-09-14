@@ -149,7 +149,9 @@ fn frontmatter_sin_terminar(contenido: &[u8]) -> bool {
     if !es_delimitador_frontmatter(primera) {
         return false;
     }
-    !lineas[1..].iter().any(|&(_, l)| es_delimitador_frontmatter(l))
+    !lineas[1..]
+        .iter()
+        .any(|&(_, l)| es_delimitador_frontmatter(l))
 }
 
 fn offset_delimitador_cierre(fm: &[u8]) -> usize {
@@ -200,7 +202,10 @@ static PATRON_FECHA_ISO: LazyLock<regex::bytes::Regex> =
 /// desarrollo-agentico-bitacora, 26 de 60 headings sin fecha).
 /// `existentes` es cuántos archivos ya hay para este slug.
 pub fn nombre_de_archivo(slug: &str, frio: &[u8], existentes: usize) -> String {
-    let mut fechas: Vec<&[u8]> = PATRON_FECHA_ISO.find_iter(frio).map(|m| m.as_bytes()).collect();
+    let mut fechas: Vec<&[u8]> = PATRON_FECHA_ISO
+        .find_iter(frio)
+        .map(|m| m.as_bytes())
+        .collect();
     if fechas.is_empty() {
         return format!("{slug}-parte-{:02}.md", existentes + 1);
     }
@@ -241,6 +246,317 @@ pub fn construye_archivo(
     }
     salida.extend_from_slice(frio);
     salida
+}
+
+#[derive(Serialize)]
+pub struct Resultado {
+    #[serde(rename = "note")]
+    pub nota: String,
+    #[serde(rename = "archive", skip_serializing_if = "Option::is_none")]
+    pub archivo: Option<String>,
+    #[serde(rename = "moved_bytes")]
+    pub bytes_movidos: usize,
+    #[serde(rename = "cold_entries")]
+    pub entradas_frias: usize,
+    #[serde(rename = "rotated")]
+    pub rotado: bool,
+}
+
+impl Resultado {
+    fn vacio(nota: String) -> Self {
+        Self {
+            nota,
+            archivo: None,
+            bytes_movidos: 0,
+            entradas_frias: 0,
+            rotado: false,
+        }
+    }
+}
+
+fn aviso_de_archivo(titulo: &str, entradas_frias: usize, bytes_movidos: usize) -> String {
+    format!(
+        "> Histórico anterior archivado en [[{titulo}]] ({entradas_frias} entradas, {bytes_movidos} B).\n\n"
+    )
+}
+
+static PATRON_AVISO: LazyLock<regex::bytes::Regex> = LazyLock::new(|| {
+    // UTF-8 real, no bytes latin1-escapados: en `regex::bytes` con Unicode
+    // activo (default), `\xc3\xb3` casa el codepoint U+00C3 U+00B3, no los
+    // bytes de «ó» — con eso el patrón nunca casaba «Histórico» y
+    // `quita_aviso_previo` era un no-op (verificado con regex 1.13.1).
+    regex::bytes::Regex::new(
+        r"> Histórico anterior archivado en \[\[(.*)\]\] \(\d+ entradas, \d+ B\)\.\n\n",
+    )
+    .expect("patrón de aviso de archivo")
+});
+
+/// Quita el primer aviso de archivo del preámbulo de `contenido`, si lo
+/// hay, para que una cadena de rotaciones no acumule un aviso por rotación
+/// (el preámbulo nunca rota — `parte` siempre lo deja entero caliente).
+/// Devuelve el contenido sin el aviso y el título al que enlazaba.
+fn quita_aviso_previo(contenido: &[u8]) -> (Vec<u8>, String, bool) {
+    let offs = offsets_de_entradas(contenido);
+    let (preambulo, resto): (&[u8], &[u8]) = match offs.first() {
+        Some(&o) => (&contenido[..o], &contenido[o..]),
+        None => (contenido, &[]),
+    };
+    let Some(m) = PATRON_AVISO.captures(preambulo) else {
+        return (contenido.to_vec(), String::new(), false);
+    };
+    let total = m.get(0).unwrap();
+    let previo = String::from_utf8_lossy(&m[1]).into_owned();
+    let mut nuevo = Vec::with_capacity(contenido.len());
+    nuevo.extend_from_slice(&preambulo[..total.start()]);
+    nuevo.extend_from_slice(&preambulo[total.end()..]);
+    nuevo.extend_from_slice(resto);
+    (nuevo, previo, true)
+}
+
+fn nombres_de_archivo_existentes(
+    kb_root: &Path,
+    dir_archivo: &Path,
+    slug: &str,
+) -> Result<Vec<String>> {
+    let ruta = kb_root.join(dir_archivo);
+    let entradas = match std::fs::read_dir(&ruta) {
+        Ok(e) => e,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(e).with_context(|| format!("listar {}", ruta.display())),
+    };
+    let prefijo = format!("{slug}-");
+    let mut nombres = Vec::new();
+    for entrada in entradas {
+        let entrada = entrada.context("leer entrada de archive/log")?;
+        let nombre = entrada.file_name().to_string_lossy().into_owned();
+        if nombre.starts_with(&prefijo) && nombre.ends_with(".md") {
+            nombres.push(nombre);
+        }
+    }
+    Ok(nombres)
+}
+
+fn desambigua_nombre_de_archivo(nombre: String, existentes: &[String]) -> String {
+    if !existentes.iter().any(|n| n == &nombre) {
+        return nombre;
+    }
+    let base = nombre.strip_suffix(".md").unwrap_or(&nombre);
+    let mut n = 2;
+    loop {
+        let candidato = format!("{base}-{n}.md");
+        if !existentes.iter().any(|e| e == &candidato) {
+            return candidato;
+        }
+        n += 1;
+    }
+}
+
+/// Escribe `datos` en `ruta` atómicamente: temporal en el mismo directorio,
+/// `fsync`, `rename`. Cualquier lector ve o el contenido completo viejo o
+/// el completo nuevo, nunca uno truncado. Sin `tempfile`: el nombre único
+/// sale de PID + tiempo, sin subir esa dependencia de dev a producción.
+fn escribe_fichero_atomico(ruta: &Path, datos: &[u8]) -> Result<()> {
+    use std::io::Write;
+    let dir = ruta.parent().context("ruta sin directorio padre")?;
+    let base = ruta
+        .file_name()
+        .and_then(|n| n.to_str())
+        .context("nombre de fichero no UTF-8")?;
+    let unico = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let tmp = dir.join(format!("{base}.{}.{unico}.tmp", std::process::id()));
+    {
+        let mut f = std::fs::File::create(&tmp)
+            .with_context(|| format!("crear temporal {}", tmp.display()))?;
+        f.write_all(datos)
+            .with_context(|| format!("escribir temporal {}", tmp.display()))?;
+        f.sync_all()
+            .with_context(|| format!("fsync temporal {}", tmp.display()))?;
+    }
+    let resultado = std::fs::rename(&tmp, ruta)
+        .with_context(|| format!("renombrar {} a {}", tmp.display(), ruta.display()));
+    if resultado.is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
+    resultado
+}
+
+/// Como `escribe_fichero_atomico`, pero **nunca** pisa un fichero
+/// existente (`hard_link` falla si el destino ya existe, atómicamente, sin
+/// listar el directorio antes). Backstop para el archivo: aunque la
+/// desambiguación de arriba tuviera un bug, esto solo puede fallar con un
+/// error, nunca destruir historia ya archivada. La nota viva, que SÍ debe
+/// sobrescribirse en cada rotación, sigue usando `escribe_fichero_atomico`.
+fn escribe_fichero_exclusivo(ruta: &Path, datos: &[u8]) -> Result<()> {
+    use std::io::Write;
+    let dir = ruta.parent().context("ruta sin directorio padre")?;
+    let base = ruta
+        .file_name()
+        .and_then(|n| n.to_str())
+        .context("nombre de fichero no UTF-8")?;
+    let unico = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let tmp = dir.join(format!("{base}.{}.{unico}.tmp", std::process::id()));
+    {
+        let mut f = std::fs::File::create(&tmp)
+            .with_context(|| format!("crear temporal {}", tmp.display()))?;
+        f.write_all(datos)
+            .with_context(|| format!("escribir temporal {}", tmp.display()))?;
+        f.sync_all()
+            .with_context(|| format!("fsync temporal {}", tmp.display()))?;
+    }
+    let resultado = std::fs::hard_link(&tmp, ruta).with_context(|| {
+        format!(
+            "crear {} (ya existe: no se sobrescribe un archivo)",
+            ruta.display()
+        )
+    });
+    let _ = std::fs::remove_file(&tmp);
+    resultado
+}
+
+/// `fsync` del directorio, para que la entrada nueva sea durable antes de
+/// tocar la nota viva (si el proceso muere entre las dos escrituras, la
+/// duplicación es preferible a la pérdida). Windows no tiene fsync de
+/// directorio ni permite abrirlo con `File::open` sin flags que `std::fs`
+/// no expone — ahí solo se valida que la ruta es un directorio.
+fn fsync_directorio(dir: &Path) -> Result<()> {
+    if cfg!(windows) {
+        if !dir.is_dir() {
+            anyhow::bail!("fsync_directorio: {} no es un directorio", dir.display());
+        }
+        return Ok(());
+    }
+    let f =
+        std::fs::File::open(dir).with_context(|| format!("abrir directorio {}", dir.display()))?;
+    f.sync_all()
+        .with_context(|| format!("fsync de {}", dir.display()))
+}
+
+/// Rota una nota de log. Con `escribe=false` nada toca disco: el resultado
+/// informa qué pasaría. Con `escribe=true` crea `archive/log/<nombre>` y
+/// reescribe la nota como preámbulo + aviso de archivo + cola caliente.
+/// Nada se borra jamás: cada byte del original queda en la nota o en el
+/// archivo. `nombre_kb` es el prefijo del `permalink` que se escribe en el
+/// archivo (Decisión D-4: `exo::nombre_kb()`, no un literal fijo).
+pub fn aplica(
+    kb_root: &Path,
+    ruta_rel: &str,
+    presupuesto_caliente: i64,
+    escribe: bool,
+    nombre_kb: &str,
+) -> Result<Resultado> {
+    let completa = kb_root.join(ruta_rel);
+    let contenido =
+        std::fs::read(&completa).with_context(|| format!("leer {}", completa.display()))?;
+
+    if frontmatter_sin_terminar(&contenido) {
+        anyhow::bail!(
+            "no se puede rotar {ruta_rel:?}: el contenido empieza con un delimitador de \
+             frontmatter \"---\" pero no se encontró el cierre; añade el delimitador de cierre"
+        );
+    }
+
+    let (contenido, archivo_previo, _) = quita_aviso_previo(&contenido);
+
+    let plan_inicial = parte(&contenido, presupuesto_caliente);
+    if plan_inicial.entradas_frias == 0 {
+        return Ok(Resultado::vacio(ruta_rel.to_string()));
+    }
+
+    let slug = Path::new(ruta_rel)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or(ruta_rel)
+        .to_string();
+    let dir_archivo = Path::new("archive").join("log");
+    let existentes = nombres_de_archivo_existentes(kb_root, &dir_archivo, &slug)
+        .with_context(|| format!("listar el directorio de archivo para {ruta_rel:?}"))?;
+
+    // Búsqueda de punto fijo: el aviso que se antepone a la cola caliente
+    // consume presupuesto, así que hay que volver a partir contra lo que
+    // REALMENTE queda tras reservarle sitio, y repetir hasta que el corte
+    // se estabilice. `parte` solo puede mover MÁS entradas a frío al bajar
+    // el presupuesto (nunca menos), así que `entradas_frias` no decrece de
+    // una pasada a otra y el bucle converge en, como mucho,
+    // `offsets_de_entradas(contenido).len() + 1` pasadas.
+    let aviso_para = |p: &Plan| -> String {
+        let nombre = nombre_de_archivo(&slug, p.frio, existentes.len());
+        aviso_de_archivo(
+            nombre.trim_end_matches(".md"),
+            p.entradas_frias,
+            p.frio.len(),
+        )
+    };
+    let max_iter = offsets_de_entradas(&contenido).len() + 1;
+    let mut plan = plan_inicial;
+    let mut aviso = aviso_para(&plan);
+    for i in 0.. {
+        if i >= max_iter {
+            anyhow::bail!(
+                "error interno: la búsqueda de presupuesto de rotación para {ruta_rel:?} \
+                 no convergió tras {max_iter} pasadas"
+            );
+        }
+        let siguiente = parte(&contenido, presupuesto_caliente - aviso.len() as i64);
+        let siguiente_aviso = aviso_para(&siguiente);
+        let estable = siguiente.entradas_frias == plan.entradas_frias;
+        plan = siguiente;
+        aviso = siguiente_aviso;
+        if estable {
+            break;
+        }
+    }
+
+    let nombre = desambigua_nombre_de_archivo(
+        nombre_de_archivo(&slug, plan.frio, existentes.len()),
+        &existentes,
+    );
+    let aviso = aviso_de_archivo(
+        nombre.trim_end_matches(".md"),
+        plan.entradas_frias,
+        plan.frio.len(),
+    );
+    let archivo_rel = dir_archivo.join(&nombre);
+    let archivo_rel_str = archivo_rel.to_string_lossy().replace('\\', "/");
+
+    let mut resultado = Resultado {
+        nota: ruta_rel.to_string(),
+        archivo: Some(archivo_rel_str.clone()),
+        bytes_movidos: plan.frio.len(),
+        entradas_frias: plan.entradas_frias,
+        rotado: true,
+    };
+    if !escribe {
+        return Ok(resultado);
+    }
+
+    let titulo = nombre.trim_end_matches(".md").to_string();
+    let permalink = format!("{nombre_kb}/{}", archivo_rel_str.trim_end_matches(".md"));
+    std::fs::create_dir_all(kb_root.join(&dir_archivo))
+        .with_context(|| format!("crear {}", dir_archivo.display()))?;
+    let documento = construye_archivo(
+        plan.preambulo,
+        plan.frio,
+        &titulo,
+        &permalink,
+        &archivo_previo,
+    );
+    escribe_fichero_exclusivo(&kb_root.join(&archivo_rel), &documento)?;
+    fsync_directorio(&kb_root.join(&dir_archivo))?;
+
+    let mut salida = Vec::with_capacity(plan.preambulo.len() + aviso.len() + plan.caliente.len());
+    salida.extend_from_slice(plan.preambulo);
+    salida.extend_from_slice(aviso.as_bytes());
+    salida.extend_from_slice(plan.caliente);
+    escribe_fichero_atomico(&completa, &salida)?;
+
+    resultado.archivo = Some(archivo_rel_str);
+    Ok(resultado)
 }
 
 #[cfg(test)]
@@ -336,11 +652,19 @@ mod tests {
     fn construye_archivo_conserva_tier_log_y_reescribe_title_y_permalink() {
         let fm = b"---\ntitle: agent-develop-bitacora\ntype: note\npermalink: wisdom-paul/log/agent-develop-bitacora\ntags:\n- bitacora\ntier: log\n---\n\n# agent-develop -- bitacora\n\n";
         let frio = b"## 2026-06-26 -- a\nx\n\n";
-        let doc = construye_archivo(fm, frio, "agent-develop-bitacora 2026-06-26_2026-07-11", "wisdom-paul/archive/log/agent-develop-bitacora-2026-06-26_2026-07-11", "");
+        let doc = construye_archivo(
+            fm,
+            frio,
+            "agent-develop-bitacora 2026-06-26_2026-07-11",
+            "wisdom-paul/archive/log/agent-develop-bitacora-2026-06-26_2026-07-11",
+            "",
+        );
         let doc = String::from_utf8_lossy(&doc);
         assert!(doc.starts_with("---\n"));
         assert!(doc.contains("title: 'agent-develop-bitacora 2026-06-26_2026-07-11'\n"));
-        assert!(doc.contains("permalink: 'wisdom-paul/archive/log/agent-develop-bitacora-2026-06-26_2026-07-11'\n"));
+        assert!(doc.contains(
+            "permalink: 'wisdom-paul/archive/log/agent-develop-bitacora-2026-06-26_2026-07-11'\n"
+        ));
         assert!(doc.contains("tier: log\n"));
         assert!(doc.contains("## 2026-06-26"));
     }
@@ -357,7 +681,10 @@ mod tests {
         let doc = String::from_utf8_lossy(&doc);
         assert!(doc.contains("title: 'nuevo-titulo'\n"));
         assert!(doc.contains("permalink: 'nuevo-permalink'\n"));
-        assert!(doc.contains("type: note\n"), "frontmatter original debe conservarse: {doc}");
+        assert!(
+            doc.contains("type: note\n"),
+            "frontmatter original debe conservarse: {doc}"
+        );
     }
 
     #[test]
@@ -372,7 +699,13 @@ mod tests {
 
     #[test]
     fn construye_archivo_enlaza_al_archivo_previo_cuando_se_pasa() {
-        let doc = construye_archivo(b"---\ntier: log\n---\n", b"## x\n", "t", "p", "bitacora-parte-01");
+        let doc = construye_archivo(
+            b"---\ntier: log\n---\n",
+            b"## x\n",
+            "t",
+            "p",
+            "bitacora-parte-01",
+        );
         assert!(String::from_utf8_lossy(&doc).contains("[[bitacora-parte-01]]"));
     }
 
@@ -384,5 +717,284 @@ mod tests {
         assert!(!frontmatter_sin_terminar(normal));
         let sin_frontmatter = b"# solo un heading\n";
         assert!(!frontmatter_sin_terminar(sin_frontmatter));
+    }
+
+    fn escribe_nota(root: &std::path::Path, rel: &str, cuerpo: &str) -> std::path::PathBuf {
+        let full = root.join(rel);
+        std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+        std::fs::write(&full, cuerpo).unwrap();
+        full
+    }
+
+    fn nota_grande() -> String {
+        let mut s = String::from(
+            "---\ntitle: p-bitacora\ntype: note\npermalink: wisdom-paul/log/p-bitacora\ntier: log\n---\n\n# p -- bitacora\n\n",
+        );
+        for i in 0..10 {
+            s.push_str(&format!("## 2026-0{}-01 -- entrada\n", 1 + i % 9));
+            s.push_str(&"x".repeat(3000));
+            s.push_str("\n\n");
+        }
+        s
+    }
+
+    #[test]
+    fn aplica_en_dry_run_no_toca_disco() {
+        let dir = tempfile::tempdir().unwrap();
+        escribe_nota(dir.path(), "log/p-bitacora.md", &nota_grande());
+        let antes = std::fs::read(dir.path().join("log/p-bitacora.md")).unwrap();
+
+        let res = aplica(dir.path(), "log/p-bitacora.md", 8000, false, "wisdom-paul").unwrap();
+        assert!(res.rotado);
+        let despues = std::fs::read(dir.path().join("log/p-bitacora.md")).unwrap();
+        assert_eq!(antes, despues, "dry-run no debe modificar la nota");
+        assert!(
+            !dir.path().join("archive/log").exists(),
+            "dry-run no debe crear archive/"
+        );
+    }
+
+    #[test]
+    fn aplica_escribe_archivo_y_encoge_la_nota() {
+        let dir = tempfile::tempdir().unwrap();
+        let original = nota_grande();
+        escribe_nota(dir.path(), "log/p-bitacora.md", &original);
+
+        let res = aplica(dir.path(), "log/p-bitacora.md", 8000, true, "wisdom-paul").unwrap();
+        let caliente = std::fs::read(dir.path().join("log/p-bitacora.md")).unwrap();
+        assert!(
+            caliente.len() <= 8000 + 200,
+            "nota viva demasiado grande: {}",
+            caliente.len()
+        );
+        let frio = std::fs::read(dir.path().join(res.archivo.as_ref().unwrap())).unwrap();
+        assert!(String::from_utf8_lossy(&caliente).contains("archivado en"));
+        assert!(String::from_utf8_lossy(&frio).contains("tier: log"));
+
+        let total_entradas = String::from_utf8_lossy(&caliente).matches("\n## ").count()
+            + String::from_utf8_lossy(&frio).matches("\n## ").count();
+        assert_eq!(total_entradas, 10, "nada se borra");
+    }
+
+    #[test]
+    fn aplica_no_rota_lo_que_ya_cabe() {
+        let dir = tempfile::tempdir().unwrap();
+        escribe_nota(
+            dir.path(),
+            "log/small.md",
+            "---\ntier: log\n---\n\n# s\n\n## 2026-01-01 -- u\nx\n",
+        );
+        let res = aplica(dir.path(), "log/small.md", 100_000, true, "wisdom-paul").unwrap();
+        assert!(!res.rotado);
+        assert!(!dir.path().join("archive/log").exists());
+    }
+
+    #[test]
+    fn aplica_rechaza_frontmatter_sin_cerrar() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut s = String::from("---\ntitle: broken\ntier: log\n\n# broken -- bitacora\n\n");
+        for i in 0..10 {
+            s.push_str(&format!(
+                "## 2026-0{}-01 -- entrada\n{}\n\n",
+                1 + i % 9,
+                "x".repeat(3000)
+            ));
+        }
+        escribe_nota(dir.path(), "log/broken.md", &s);
+        let res = aplica(dir.path(), "log/broken.md", 8000, true, "wisdom-paul");
+        assert!(res.is_err());
+        assert!(!dir.path().join("archive/log").exists());
+        let intacta = std::fs::read_to_string(dir.path().join("log/broken.md")).unwrap();
+        assert_eq!(intacta, s, "una nota rechazada no debe tocarse");
+    }
+
+    #[test]
+    fn aplica_dos_rotaciones_del_mismo_dia_no_se_pisan() {
+        let dir = tempfile::tempdir().unwrap();
+        let entradas = |n: usize, marca: &str| {
+            let mut s = String::new();
+            for _ in 0..n {
+                s.push_str("## 2026-08-03 -- entrada\n");
+                s.push_str(&marca.repeat(300));
+                s.push_str("\n\n");
+            }
+            s
+        };
+        let original = format!(
+            "---\ntitle: x\ntier: log\n---\n\n# x -- bitacora\n\n{}",
+            entradas(60, "x")
+        );
+        escribe_nota(dir.path(), "log/proyecto-x-bitacora.md", &original);
+
+        let r1 = aplica(
+            dir.path(),
+            "log/proyecto-x-bitacora.md",
+            8000,
+            true,
+            "wisdom-paul",
+        )
+        .unwrap();
+        assert!(r1.rotado);
+        let caliente =
+            std::fs::read_to_string(dir.path().join("log/proyecto-x-bitacora.md")).unwrap();
+        let crecida = caliente + &entradas(40, "y");
+        std::fs::write(dir.path().join("log/proyecto-x-bitacora.md"), &crecida).unwrap();
+
+        let r2 = aplica(
+            dir.path(),
+            "log/proyecto-x-bitacora.md",
+            8000,
+            true,
+            "wisdom-paul",
+        )
+        .unwrap();
+        assert!(r2.rotado);
+        assert_ne!(
+            r1.archivo, r2.archivo,
+            "las dos rotaciones no deben escribir el mismo archivo"
+        );
+
+        let frio1 = std::fs::read_to_string(dir.path().join(r1.archivo.unwrap())).unwrap();
+        let frio2 = std::fs::read_to_string(dir.path().join(r2.archivo.unwrap())).unwrap();
+        let final_caliente =
+            std::fs::read_to_string(dir.path().join("log/proyecto-x-bitacora.md")).unwrap();
+        let total = final_caliente.matches("\n## ").count()
+            + frio1.matches("\n## ").count()
+            + frio2.matches("\n## ").count();
+        assert_eq!(
+            total, 100,
+            "nada se pierde ni se pisa entre dos rotaciones del mismo dia"
+        );
+    }
+
+    #[test]
+    fn aplica_reconstruye_byte_a_byte() {
+        let dir = tempfile::tempdir().unwrap();
+        let original = nota_grande();
+        escribe_nota(dir.path(), "log/p-bitacora.md", &original);
+        let res = aplica(dir.path(), "log/p-bitacora.md", 8000, true, "wisdom-paul").unwrap();
+        assert!(res.rotado);
+
+        let nota_viva = std::fs::read(dir.path().join("log/p-bitacora.md")).unwrap();
+        let archivo = std::fs::read(dir.path().join(res.archivo.as_ref().unwrap())).unwrap();
+        let preambulo = parte(original.as_bytes(), 8000).preambulo.to_vec();
+
+        assert!(res.bytes_movidos <= archivo.len());
+        let frio_del_archivo = &archivo[archivo.len() - res.bytes_movidos..];
+        let caliente_esperado = &original.as_bytes()[preambulo.len() + res.bytes_movidos..];
+        assert!(caliente_esperado.len() <= nota_viva.len());
+        let caliente_de_la_nota = &nota_viva[nota_viva.len() - caliente_esperado.len()..];
+
+        let mut reconstruido = Vec::new();
+        reconstruido.extend_from_slice(&preambulo);
+        reconstruido.extend_from_slice(frio_del_archivo);
+        reconstruido.extend_from_slice(caliente_de_la_nota);
+        assert_eq!(reconstruido, original.as_bytes());
+    }
+
+    #[test]
+    fn aplica_no_deja_temporales_huerfanos() {
+        let dir = tempfile::tempdir().unwrap();
+        escribe_nota(dir.path(), "log/p-bitacora.md", &nota_grande());
+        let res = aplica(dir.path(), "log/p-bitacora.md", 8000, true, "wisdom-paul").unwrap();
+        for entrada in std::fs::read_dir(dir.path().join("log")).unwrap() {
+            let nombre = entrada.unwrap().file_name();
+            assert!(
+                !nombre.to_string_lossy().contains(".tmp"),
+                "quedo un temporal: {nombre:?}"
+            );
+        }
+        let dir_archivo = std::path::Path::new(res.archivo.as_ref().unwrap())
+            .parent()
+            .unwrap();
+        for entrada in std::fs::read_dir(dir.path().join(dir_archivo)).unwrap() {
+            let nombre = entrada.unwrap().file_name();
+            assert!(
+                !nombre.to_string_lossy().contains(".tmp"),
+                "quedo un temporal: {nombre:?}"
+            );
+        }
+    }
+
+    // Pin de la Decisión D-4: el permalink usa `nombre_kb`, no un literal
+    // fijo — `aplica` toma el nombre por parámetro precisamente para que
+    // esto sea observable sin montar config.
+    #[test]
+    fn aplica_usa_el_nombre_de_kb_pasado_como_prefijo_del_permalink() {
+        let dir = tempfile::tempdir().unwrap();
+        escribe_nota(dir.path(), "log/p-bitacora.md", &nota_grande());
+        let res = aplica(dir.path(), "log/p-bitacora.md", 8000, true, "otra-kb").unwrap();
+        let archivo = std::fs::read_to_string(dir.path().join(res.archivo.unwrap())).unwrap();
+        assert!(
+            archivo.contains("permalink: 'otra-kb/archive/log/"),
+            "permalink: {archivo}"
+        );
+    }
+
+    // Pin del Fix 1 de la review: PATRON_AVISO debe casar el aviso real (en
+    // UTF-8, no bytes latin1-escapados) o `quita_aviso_previo` es un no-op y
+    // los avisos se acumulan en cada rotación.
+    #[test]
+    fn aplica_dos_veces_seguidas_deja_un_solo_aviso_y_encadena_los_archivos() {
+        let dir = tempfile::tempdir().unwrap();
+        let entradas = |n: usize, marca: &str| {
+            let mut s = String::new();
+            for _ in 0..n {
+                s.push_str("## 2026-08-03 -- entrada\n");
+                s.push_str(&marca.repeat(300));
+                s.push_str("\n\n");
+            }
+            s
+        };
+        let original = format!(
+            "---\ntitle: x\ntier: log\n---\n\n# x -- bitacora\n\n{}",
+            entradas(60, "x")
+        );
+        escribe_nota(dir.path(), "log/proyecto-x-bitacora.md", &original);
+
+        let r1 = aplica(
+            dir.path(),
+            "log/proyecto-x-bitacora.md",
+            8000,
+            true,
+            "wisdom-paul",
+        )
+        .unwrap();
+        assert!(r1.rotado);
+        let caliente =
+            std::fs::read_to_string(dir.path().join("log/proyecto-x-bitacora.md")).unwrap();
+        let crecida = caliente + &entradas(40, "y");
+        std::fs::write(dir.path().join("log/proyecto-x-bitacora.md"), &crecida).unwrap();
+
+        let r2 = aplica(
+            dir.path(),
+            "log/proyecto-x-bitacora.md",
+            8000,
+            true,
+            "wisdom-paul",
+        )
+        .unwrap();
+        assert!(r2.rotado);
+
+        let nota_viva =
+            std::fs::read_to_string(dir.path().join("log/proyecto-x-bitacora.md")).unwrap();
+        assert_eq!(
+            nota_viva.matches("archivado en").count(),
+            1,
+            "la nota viva debe llevar exactamente un aviso tras dos rotaciones: {nota_viva}"
+        );
+
+        let archivo1 = r1.archivo.unwrap();
+        let archivo2 = r2.archivo.unwrap();
+        let nombre1_sin_md = std::path::Path::new(&archivo1)
+            .file_stem()
+            .unwrap()
+            .to_str()
+            .unwrap();
+        let contenido_archivo2 = std::fs::read_to_string(dir.path().join(&archivo2)).unwrap();
+        assert!(
+            contenido_archivo2.contains(&format!("[[{nombre1_sin_md}]]")),
+            "archivo2 debe enlazar hacia atrás a archivo1 ({nombre1_sin_md}): {contenido_archivo2}"
+        );
     }
 }
