@@ -1020,6 +1020,12 @@ fn busca_cmd(args: ArgsSearch) -> Result<()> {
 
     if args.json {
         envelope::emite("search", serde_json::to_value(&resultado)?);
+    } else if resultado.results.is_empty() {
+        // Contrato alineado con `targets_cmd` (más abajo, `no candidates`):
+        // una terminal en blanco no distingue "sin resultados" de "no filtré
+        // la salida". El envelope JSON no cambia — `results: []` ya lo
+        // distinguía ahí.
+        println!("no results");
     } else {
         for r in &resultado.results {
             println!("{}\t{}\t{:.4}", r.permalink, r.tipo, r.score);

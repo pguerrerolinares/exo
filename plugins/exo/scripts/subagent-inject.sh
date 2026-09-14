@@ -33,14 +33,29 @@ fi
 KB_ARGS=()
 [ -n "${REFLEX_INJECT_KB:-}" ] && KB_ARGS=(--kb "$REFLEX_INJECT_KB")
 JSON=""
-if BLOQUE="$("$SCRIPT_DIR/compose-inject.sh" --type "$TYPE" "${KB_ARGS[@]}" 2>/dev/null)" && [ -n "$BLOQUE" ]; then
+# Si mktemp falla (disco lleno, /tmp no escribible, etc.) el hook sigue
+# inyectando igual que antes de F3.2: stderr de compose-inject.sh se pierde
+# (mismo `2>/dev/null` que ya se usaba), pero nunca se cuelga ni deja de
+# responder — never-break. Patrón de `recall-inject.sh` (CONFIG_ERR_TMP).
+COMPOSE_ERR="$(mktemp)" || COMPOSE_ERR=""
+if BLOQUE="$("$SCRIPT_DIR/compose-inject.sh" --type "$TYPE" "${KB_ARGS[@]}" 2>"${COMPOSE_ERR:-/dev/null}")" && [ -n "$BLOQUE" ]; then
   JSON="$(printf '%s' "$BLOQUE" | jq -Rs '{hookSpecificOutput:{hookEventName:"SubagentStart", additionalContext:.}}' 2>/dev/null)" || JSON=""
 fi
 if [ -n "$JSON" ]; then
   bytes="$(printf '%s' "$BLOQUE" | wc -c)"
   . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && reflex_log "inject-emitted" "$INPUT" "type=$TYPE perfil=$PERFIL bytes=$bytes" || true
+  # F3.2: compose-inject.sh avisa "sin-contenido" por stderr cuando el
+  # bloque no supera el tamaño de su propia cabecera — el caso medido de
+  # `reducido` sin KB resoluble. inject-emitted YA se logueó arriba (el
+  # contrato "el hook siempre entrega algo" no cambia); esto es aditivo.
+  # Sin COMPOSE_ERR (mktemp falló arriba) no hay dónde haber capturado el
+  # aviso: se omite el chequeo, no se inventa un inject-empty sin evidencia.
+  if [ -n "$COMPOSE_ERR" ] && grep -q 'sin-contenido' "$COMPOSE_ERR" 2>/dev/null; then
+    . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && reflex_log "inject-empty" "$INPUT" "type=$TYPE perfil=$PERFIL bytes=$bytes" || true
+  fi
   printf '%s' "$JSON"
 else
   . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && reflex_log "inject-failed" "$INPUT" "type=$TYPE perfil=$PERFIL" || true
 fi
+rm -f "$COMPOSE_ERR"
 exit 0
