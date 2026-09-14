@@ -59,6 +59,9 @@ jobs:
       - name: Versiones coherentes (plugin.json == marketplace.json)
         if: always()
         run: bash scripts/test-versiones.sh
+      - name: Sin rutas de una máquina concreta en el bash versionado
+        if: always()
+        run: bash scripts/test-rutas-personales.sh
 
   exec-bit:
     name: scripts de plugin ejecutables
