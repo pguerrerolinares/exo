@@ -459,15 +459,6 @@ fn verifica_modelo(conn: &Connection, modelo_actual: &str) -> Result<()> {
     }
 }
 
-/// H1 (campaña A): una DB sirve a UNA KB. `meta.kb_root` es de un solo valor
-/// y el walk borra toda ruta que no ve, así que indexar otra KB sobre la
-/// misma DB borraba en silencio el índice de la primera (exit 0, medido el
-/// 2026-09-13), o reventaba con `UNIQUE constraint failed: notas.ruta` si las
-/// dos compartían rutas (dos KBs de `exo init`).
-///
-/// Pasa si no hay `kb_root`, si coincide con `kb_abs` (ambas canónicas) o si
-/// la KB registrada ya no existe en disco: eso es una KB movida, y seguir
-/// actualizando `kb_root` es el contrato de siempre.
 /// Distingue el remedio que ofrece `comprueba_kb_root`: `index`/`rebuild`
 /// tienen `--db`, `init` no (resuelve por `$EXO_DB`, `db_de_init` en
 /// `inicia.rs`). Mismo guard, mensaje distinto por llamador — antes era un
@@ -480,6 +471,15 @@ pub enum OrigenComprobacion {
     Init,
 }
 
+/// H1 (campaña A): una DB sirve a UNA KB. `meta.kb_root` es de un solo valor
+/// y el walk borra toda ruta que no ve, así que indexar otra KB sobre la
+/// misma DB borraba en silencio el índice de la primera (exit 0, medido el
+/// 2026-09-13), o reventaba con `UNIQUE constraint failed: notas.ruta` si las
+/// dos compartían rutas (dos KBs de `exo init`).
+///
+/// Pasa si no hay `kb_root`, si coincide con `kb_abs` (ambas canónicas) o si
+/// la KB registrada ya no existe en disco: eso es una KB movida, y seguir
+/// actualizando `kb_root` es el contrato de siempre.
 pub fn comprueba_kb_root(
     conn: &Connection,
     kb_abs: &Path,
