@@ -654,6 +654,37 @@ fn check_jq(entorno: &Entorno) -> Check {
     }
 }
 
+/// Heurística barata: la ruta ya delata Git Bash sin lanzar ningún proceso.
+/// El `bash.exe` de WSL vive literalmente bajo `System32`; el de Git for
+/// Windows, bajo un directorio `Git\`.
+pub fn ruta_sugiere_git_bash(ruta: &Path) -> bool {
+    let s = ruta.to_string_lossy().to_lowercase();
+    s.contains("git") && !s.contains("system32")
+}
+
+/// El bash de WSL responde a `--version` como un GNU bash normal de Linux;
+/// el de Git Bash (msys2) declara su propia plataforma en la misma línea
+/// (`x86_64-pc-msys` / `mingw`). Función pura: sin esto, probar la rama que
+/// SÍ lanza el proceso exigiría fabricar un `bash.exe` real por plataforma.
+pub fn salida_indica_git_bash(salida: &str) -> bool {
+    let s = salida.to_lowercase();
+    s.contains("msys") || s.contains("mingw")
+}
+
+/// `ruta` es un Git Bash de verdad: la vía barata (heurística de ruta)
+/// primero, y solo si es inconcluyente se le pregunta con `--version`. Un
+/// `Err` al ejecutar (ruta no es un binario válido) cuenta como "no lo es",
+/// nunca como pánico.
+fn es_git_bash(ruta: &std::path::Path) -> bool {
+    if ruta_sugiere_git_bash(ruta) {
+        return true;
+    }
+    match std::process::Command::new(ruta).arg("--version").output() {
+        Ok(o) => salida_indica_git_bash(&String::from_utf8_lossy(&o.stdout)),
+        Err(_) => false,
+    }
+}
+
 /// Claude Code usa Git Bash como shell de hooks en Windows: sin él los
 /// `.sh` del plugin no corren. Fuera de Windows sale `na` —no desaparece—
 /// porque una fila ausente no se distingue de un check que nunca existió.
@@ -667,11 +698,19 @@ fn check_git_bash(entorno: &Entorno) -> Check {
         );
     }
     match busca_en_path(&entorno.path, "bash") {
-        Some(ruta) => Check::nuevo(
+        Some(ruta) if es_git_bash(&ruta) => Check::nuevo(
             "git_bash",
             Estado::Ok,
             ruta.display().to_string(),
             "Claude Code puede correr los hooks .sh del plugin",
+        ),
+        Some(ruta) => Check::nuevo(
+            "git_bash",
+            Estado::Warn,
+            ruta.display().to_string(),
+            "resuelve a un bash que no es Git Bash (probablemente WSL): los \
+             hooks .sh de Claude Code esperan Git Bash — instala Git for \
+             Windows y ponlo antes en el PATH",
         ),
         None => Check::nuevo(
             "git_bash",

@@ -748,3 +748,56 @@ fn plugin_con_engine_min_futuro_es_fail() {
         c.detalle
     );
 }
+
+#[test]
+fn ruta_de_wsl_no_sugiere_git_bash() {
+    assert!(!exo::doctor::ruta_sugiere_git_bash(Path::new(
+        r"C:\Windows\System32\bash.exe"
+    )));
+}
+
+#[test]
+fn ruta_bajo_git_for_windows_sugiere_git_bash_sin_ejecutar_nada() {
+    assert!(exo::doctor::ruta_sugiere_git_bash(Path::new(
+        r"C:\Program Files\Git\bin\bash.exe"
+    )));
+    assert!(exo::doctor::ruta_sugiere_git_bash(Path::new(
+        r"C:\Program Files\Git\usr\bin\bash.exe"
+    )));
+}
+
+#[test]
+fn version_de_msys_se_reconoce_como_git_bash() {
+    assert!(exo::doctor::salida_indica_git_bash(
+        "GNU bash, version 5.2.26(1)-release (x86_64-pc-msys)"
+    ));
+}
+
+#[test]
+fn version_de_wsl_no_se_reconoce_como_git_bash() {
+    assert!(!exo::doctor::salida_indica_git_bash(
+        "GNU bash, version 5.1.16(1)-release (x86_64-pc-linux-gnu)"
+    ));
+}
+
+#[cfg(windows)]
+#[test]
+fn bash_resuelto_bajo_system32_es_warn_no_ok() {
+    let dir = tempfile::tempdir().unwrap();
+    let bindir = dir.path().join("System32");
+    fs::create_dir_all(&bindir).unwrap();
+    // No hace falta un bash.exe real: la ruta ya lo descarta (System32) y el
+    // intento de ejecutarlo fallará (no es un ejecutable válido), lo que
+    // `es_git_bash` trata igual que "no dijo msys/mingw".
+    fs::write(bindir.join("bash.exe"), b"no es un binario de verdad").unwrap();
+    let mut env = entorno(dir.path());
+    env.path = bindir.display().to_string();
+    let informe = analiza(&env);
+    let c = check(&informe, "git_bash");
+    assert_eq!(c.estado, Estado::Warn);
+    assert!(
+        c.detalle.contains("WSL"),
+        "dice que lo que resolvió es WSL, no Git Bash: {}",
+        c.detalle
+    );
+}
