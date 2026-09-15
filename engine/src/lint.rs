@@ -269,10 +269,35 @@ static LINEA_DE_PRESUPUESTO: std::sync::LazyLock<regex::Regex> =
 /// El "." como separador de miles porque la KB está escrita en castellano.
 /// Exigir que la cifra vaya pegada al tier es lo que evita que la frase
 /// "el presupuesto y las 3 notas core" cuente como cita.
+///
+/// El grupo 2 consume TODA la racha de dígitos y puntos que sigue al tier
+/// (`[0-9]+(?:\.[0-9]+)*`, sin exigir grupos de 3 aquí) — la validación de
+/// que agrupa correctamente en tríos vive aparte, en `agrupacion_correcta`
+/// (Task 5, Ola 1 G, backlog:878-910: la crate `regex` no tiene lookahead,
+/// así que "consume el número entero y rechaza si no cuadra" no se puede
+/// expresar en una sola pasada — antes, `(?:\.[0-9]{3})*` paraba en el
+/// primer grupo mal formado y dejaba el resto suelto, truncando "1.2345" a
+/// "1.234" en vez de reconocer que el número entero no agrupa).
 static TIER_Y_CIFRA: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-    regex::Regex::new(r"\b(core|stable|log)\b[:\s]+([0-9]+(?:\.[0-9]{3})*)\s*(?:B\b|bytes\b)?")
+    regex::Regex::new(r"\b(core|stable|log)\b[:\s]+([0-9]+(?:\.[0-9]+)*)\s*(?:B\b|bytes\b)?")
         .unwrap()
 });
+
+/// ¿Es `cifra` una agrupación de miles válida ("8.500", "12500", pero no
+/// "1.2345")? Sin punto: siempre válida (número simple, "12500"). Con
+/// punto: el primer grupo de 1 a 3 dígitos, cada grupo siguiente de
+/// EXACTAMENTE 3 (el criterio que `TIER_Y_CIFRA` ya no puede aplicar en la
+/// propia regex tras ensanchar la captura).
+fn agrupacion_correcta(cifra: &str) -> bool {
+    if !cifra.contains('.') {
+        return true;
+    }
+    let grupos: Vec<&str> = cifra.split('.').collect();
+    let Some((primero, resto)) = grupos.split_first() else {
+        return false;
+    };
+    (1..=3).contains(&primero.len()) && resto.iter().all(|g| g.len() == 3)
+}
 
 /// Notas `core` cuya prosa cita una cifra de presupuesto que ya no es la que el
 /// binario aplica. El caso motivador: un `core-index.md` diciendo "≤3.900
@@ -305,10 +330,17 @@ pub fn deriva_de_prosa(
             }
             for c in TIER_Y_CIFRA.captures_iter(linea) {
                 let tier_citado = &c[1];
+                let cifra_cruda = &c[2];
+                // Task 5: una captura que no agrupa en tríos es un número
+                // mal formado en el texto — se ignora, no se inventa un
+                // hallazgo con una cifra que no está escrita.
+                if !agrupacion_correcta(cifra_cruda) {
+                    continue;
+                }
                 // Una cifra que no parsea se salta: inventar un hallazgo desde
                 // una línea no parseada es cómo un gate empieza a gritar y
                 // acaba ignorado.
-                let Ok(citada) = c[2].replace('.', "").parse::<i64>() else {
+                let Ok(citada) = cifra_cruda.replace('.', "").parse::<i64>() else {
                     continue;
                 };
                 let aplicada = presupuestos.para_tier(tier_citado).unwrap_or(0);

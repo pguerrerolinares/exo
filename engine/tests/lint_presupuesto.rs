@@ -230,6 +230,132 @@ fn la_deriva_de_prosa_parsea_las_cuatro_grafias() {
 }
 
 #[test]
+fn la_deriva_de_prosa_ignora_una_cifra_mal_agrupada() {
+    // Task 5 (Ola 1 G, backlog:878-910): antes, "1.2345" (grupo de 4
+    // dígitos tras el punto, no de 3) truncaba a "1.234" y el parse
+    // producía el hallazgo falso "cita core 1234B" — una cifra que no está
+    // en el texto. Ahora la captura consume el número ENTERO y, si no
+    // agrupa en tríos, se ignora sin generar hallazgo (falsos positivos
+    // pesan más que fallos, mismo criterio que la mención vaga).
+    let dir = kb_con(&[(
+        "c.md",
+        "---\ntier: core\n---\n\nPresupuesto: core 1.2345 B.\n".to_string(),
+    )]);
+    let rutas = exo::walker::walk_notas(dir.path(), &exo::presupuesto::EXCLUIDOS).unwrap();
+    let h =
+        lint::deriva_de_prosa(dir.path(), &rutas, NOMINALES, &exo::presupuesto::EXCLUIDOS).unwrap();
+    assert!(
+        h.is_empty(),
+        "cifra mal agrupada no debe producir hallazgo: {h:?}"
+    );
+}
+
+#[test]
+fn la_deriva_de_prosa_ignora_un_decimal_mal_agrupado() {
+    // Generaliza el caso del brief más allá del ejemplo exacto "1.2345":
+    // "8500.5" tiene un primer grupo de 4 dígitos (agrupacion_correcta exige
+    // 1..=3 para el primero), así que también se ignora. Si la validación
+    // solo hubiera cubierto grupos-siguientes de 3 y no el primero, esta
+    // cifra colaría como "válida" con un resto vacío o mal contado.
+    let dir = kb_con(&[(
+        "c.md",
+        "---\ntier: core\n---\n\nPresupuesto: core 8500.5 B.\n".to_string(),
+    )]);
+    let rutas = exo::walker::walk_notas(dir.path(), &exo::presupuesto::EXCLUIDOS).unwrap();
+    let h =
+        lint::deriva_de_prosa(dir.path(), &rutas, NOMINALES, &exo::presupuesto::EXCLUIDOS).unwrap();
+    assert!(
+        h.is_empty(),
+        "decimal mal agrupado no debe producir hallazgo: {h:?}"
+    );
+}
+
+#[test]
+fn la_deriva_de_prosa_acepta_la_cifra_pegada_a_la_unidad_sin_espacio() {
+    // "12500B" sin espacio entre la cifra y la unidad: el `\s*` de la regex
+    // ya lo permitía antes de la Task 5, y ensanchar la captura del grupo 2
+    // no debe romperlo. Sin punto de miles, `agrupacion_correcta` es
+    // trivialmente verdadera (número simple).
+    let dir = kb_con(&[(
+        "c.md",
+        "---\ntier: stable\n---\n\nPresupuesto: stable 12500B.\n".to_string(),
+    )]);
+    let rutas = exo::walker::walk_notas(dir.path(), &exo::presupuesto::EXCLUIDOS).unwrap();
+    let h =
+        lint::deriva_de_prosa(dir.path(), &rutas, NOMINALES, &exo::presupuesto::EXCLUIDOS).unwrap();
+    assert!(
+        h.is_empty(),
+        "12500B es el nominal de stable, no debe derivar: {h:?}"
+    );
+}
+
+#[test]
+fn la_deriva_de_prosa_lee_la_cifra_al_final_de_linea_sin_unidad() {
+    // La cifra puede cerrar la línea (con o sin punto final de frase) sin
+    // ninguna unidad detrás: el grupo de unidad ya era opcional antes de la
+    // Task 5. Aquí importa que el número entero completo ("7500", no un
+    // prefijo truncado) sea el que se compara contra el nominal.
+    let dir = kb_con(&[(
+        "c.md",
+        "---\ntier: core\n---\n\nEl presupuesto aplicado es core 7500.\n".to_string(),
+    )]);
+    let rutas = exo::walker::walk_notas(dir.path(), &exo::presupuesto::EXCLUIDOS).unwrap();
+    let h =
+        lint::deriva_de_prosa(dir.path(), &rutas, NOMINALES, &exo::presupuesto::EXCLUIDOS).unwrap();
+    assert_eq!(h.len(), 1);
+    assert_eq!(h[0].detalle, "cita core 7500B, el tool aplica 8500B");
+}
+
+#[test]
+fn la_deriva_de_prosa_ignora_un_numero_no_pegado_a_un_tier_en_la_misma_linea() {
+    // Un número suelto en la misma línea que SÍ tiene una cita válida no debe
+    // colarse como segunda cita: `TIER_Y_CIFRA` exige el tier inmediatamente
+    // antes de la cifra (`\b(core|stable|log)\b[:\s]+`), y "42 notas" no lo
+    // cumple. Solo debe salir un hallazgo, el de la cita real.
+    let dir = kb_con(&[(
+        "c.md",
+        "---\ntier: core\n---\n\nPresupuesto: core 1.000 B, con 42 notas afectadas.\n".to_string(),
+    )]);
+    let rutas = exo::walker::walk_notas(dir.path(), &exo::presupuesto::EXCLUIDOS).unwrap();
+    let h =
+        lint::deriva_de_prosa(dir.path(), &rutas, NOMINALES, &exo::presupuesto::EXCLUIDOS).unwrap();
+    assert_eq!(
+        h.len(),
+        1,
+        "el 42 suelto no debe contar como segunda cita: {h:?}"
+    );
+    assert_eq!(h[0].detalle, "cita core 1000B, el tool aplica 8500B");
+}
+
+#[test]
+fn la_deriva_de_prosa_no_reconoce_la_coma_como_separador_de_miles() {
+    // El código solo trata "." como separador de miles (comentario de
+    // `TIER_Y_CIFRA`: "la KB está escrita en castellano"). La coma no es un
+    // separador soportado — ni de miles ni de decimales — así que
+    // `[0-9]+(?:\.[0-9]+)*` deja de consumir en cuanto ve la coma y captura
+    // solo el prefijo antes de ella ("12"), que en sí mismo agrupa
+    // "correctamente" (no tiene punto). El resultado es una cita truncada
+    // que no coincide con lo escrito, pero es el MISMO comportamiento que
+    // tenía el código antes de la Task 5 (la regex vieja también paraba en
+    // la coma) — no es una regresión de este fix ni el bug que el brief
+    // declara; documentar la convención es responsabilidad de este test, no
+    // ampliarla es una decisión de scope de la Task 5.
+    let dir = kb_con(&[(
+        "c.md",
+        "---\ntier: core\n---\n\nPresupuesto: core 12,500 B.\n".to_string(),
+    )]);
+    let rutas = exo::walker::walk_notas(dir.path(), &exo::presupuesto::EXCLUIDOS).unwrap();
+    let h =
+        lint::deriva_de_prosa(dir.path(), &rutas, NOMINALES, &exo::presupuesto::EXCLUIDOS).unwrap();
+    assert_eq!(
+        h.len(),
+        1,
+        "la coma trunca la captura en '12', no es un separador reconocido: {h:?}"
+    );
+    assert_eq!(h[0].detalle, "cita core 12B, el tool aplica 8500B");
+}
+
+#[test]
 fn la_deriva_de_prosa_calla_ante_una_mencion_vaga() {
     // Falsos positivos son peores que fallos aquí: un gate que grita se ignora.
     let dir = kb_con(&[(
