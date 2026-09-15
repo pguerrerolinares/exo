@@ -48,20 +48,8 @@ if ! command -v "$SC" >/dev/null 2>&1; then
 fi
 "$SC" --version | sed -n '2p'
 
-ficheros=()
-while read -r modo blob _etapa ruta; do
-  case "$ruta" in evals/*|docs/*) continue ;; esac
-  case "$ruta" in
-    *.sh) ficheros+=("$ruta") ;;
-    *.*) : ;;
-    *)
-      [ "$modo" = "100755" ] || continue
-      if git cat-file -p "$blob" | head -n 1 | grep -Eq '^#!.*[/ ](ba)?sh([[:space:]]|$)'; then
-        ficheros+=("$ruta")
-      fi
-      ;;
-  esac
-done < <(git ls-files -s)
+. "$(dirname "$0")/_bash-versionado.sh" || { echo "test-shellcheck: no puedo cargar scripts/_bash-versionado.sh" >&2; exit 1; }
+bash_versionado
 
 if [ "${#ficheros[@]}" -eq 0 ]; then
   # Un recorrido que no encuentra nada daría verde sin haber mirado nada.
