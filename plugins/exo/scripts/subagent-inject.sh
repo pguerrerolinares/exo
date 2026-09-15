@@ -19,6 +19,7 @@ PERFIL="$(jq -r --arg t "$TYPE" '.[$t] // ._default' "$SCRIPT_DIR/inject-profile
 SID="$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)" || SID=""
 AID="$(printf '%s' "$INPUT" | jq -r '.agent_id // empty' 2>/dev/null)" || AID=""
 if [ -n "$SID" ] && [ -n "$AID" ]; then
+  # shellcheck disable=SC2140 # glob `*` entre tramos entrecomillados: intencionado
   for m in "$PROJECTS_DIR"/*/"$SID"/subagents/"agent-${AID}.meta.json"; do
     [ -f "$m" ] || continue
     d="$(jq -r '.spawnDepth // 1' "$m" 2>/dev/null)" || d=1
@@ -32,14 +33,33 @@ fi
 KB_ARGS=()
 [ -n "${REFLEX_INJECT_KB:-}" ] && KB_ARGS=(--kb "$REFLEX_INJECT_KB")
 JSON=""
-if BLOQUE="$("$SCRIPT_DIR/compose-inject.sh" --type "$TYPE" "${KB_ARGS[@]}" 2>/dev/null)" && [ -n "$BLOQUE" ]; then
+# Si mktemp falla (disco lleno, /tmp no escribible, etc.) el hook sigue
+# inyectando igual que antes de F3.2: stderr de compose-inject.sh se pierde
+# (mismo `2>/dev/null` que ya se usaba), pero nunca se cuelga ni deja de
+# responder — never-break. Patrón de `recall-inject.sh` (CONFIG_ERR_TMP).
+COMPOSE_ERR="$(mktemp)" || COMPOSE_ERR=""
+# `${KB_ARGS[@]+"${KB_ARGS[@]}"}`, no `"${KB_ARGS[@]}"` a secas: con `set -u`,
+# bash < 4.4 (el /bin/bash 3.2 de macOS) trata un array vacío como variable
+# no definida y aborta la sustitución ⇒ el hook logueaba inject-failed siempre
+# que REFLEX_INJECT_KB no estaba fijada, que es el caso normal en producción.
+if BLOQUE="$("$SCRIPT_DIR/compose-inject.sh" --type "$TYPE" ${KB_ARGS[@]+"${KB_ARGS[@]}"} 2>"${COMPOSE_ERR:-/dev/null}")" && [ -n "$BLOQUE" ]; then
   JSON="$(printf '%s' "$BLOQUE" | jq -Rs '{hookSpecificOutput:{hookEventName:"SubagentStart", additionalContext:.}}' 2>/dev/null)" || JSON=""
 fi
 if [ -n "$JSON" ]; then
   bytes="$(printf '%s' "$BLOQUE" | wc -c)"
   . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && reflex_log "inject-emitted" "$INPUT" "type=$TYPE perfil=$PERFIL bytes=$bytes" || true
+  # F3.2: compose-inject.sh avisa "sin-contenido" por stderr cuando el
+  # bloque no supera el tamaño de su propia cabecera — el caso medido de
+  # `reducido` sin KB resoluble. inject-emitted YA se logueó arriba (el
+  # contrato "el hook siempre entrega algo" no cambia); esto es aditivo.
+  # Sin COMPOSE_ERR (mktemp falló arriba) no hay dónde haber capturado el
+  # aviso: se omite el chequeo, no se inventa un inject-empty sin evidencia.
+  if [ -n "$COMPOSE_ERR" ] && grep -q 'sin-contenido' "$COMPOSE_ERR" 2>/dev/null; then
+    . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && reflex_log "inject-empty" "$INPUT" "type=$TYPE perfil=$PERFIL bytes=$bytes" || true
+  fi
   printf '%s' "$JSON"
 else
   . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && reflex_log "inject-failed" "$INPUT" "type=$TYPE perfil=$PERFIL" || true
 fi
+rm -f "$COMPOSE_ERR"
 exit 0

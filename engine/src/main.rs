@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 
 /// Defaults SELLADOS del arm hybrid (M2-07, §5.2.6 de la spec de fusión):
 /// ganadores del sweep 15+1 corridas (grid bonus{0,0.1,0.2,0.3,0.5}×
-/// β{0.6,0.8,1.0} + diagnóstica A, `reports/m2-07-impl-report.md`) —
+/// β{0.6,0.8,1.0} + diagnóstica A, `evals/e1-read/reports/m2-07-impl-report.md`) —
 /// selección pre-registrada §5.2.4 (max hit@5=49/55 → 4 celdas empatadas en
 /// β=0.6 → menor bonus=0.0), confirmada nativa (§5.2.5, `--min-similarity
 /// 0.40` da 49/55 idéntico al post-hoc). Cubren SOLO el uso de `exo search
@@ -25,7 +25,11 @@ const BONUS_SELLADO: f64 = 0.0;
 const ESCALA_FTS_SELLADA: f64 = 0.6;
 
 #[derive(Parser)]
-#[command(name = "exo", version, about = "engine del framework exo (E1: read)")]
+#[command(
+    name = "exo",
+    version,
+    about = "Memoria persistente para agentes: indexa una KB de notas markdown y la sirve por búsqueda y recall."
+)]
 struct Cli {
     #[command(subcommand)]
     comando: Comando,
@@ -33,50 +37,59 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Comando {
-    /// Crea `~/.exo/config.toml`. Con `--from-basic-memory`, migra los valores
-    /// de `~/.basic-memory/config.json` una sola vez.
+    /// Crea la config (`~/.exo/config.toml`) y una KB nueva desde la
+    /// plantilla, ya indexada. Con `--from-basic-memory`, adopta una KB
+    /// existente de basic-memory.
     Init(ArgsInit),
-    /// Emite la config efectiva como envelope JSON, con las rutas ya
-    /// expandidas. Existe para los consumidores en shell: jq no lee TOML.
+    /// Muestra la config efectiva, con las rutas ya expandidas.
     Config(ArgsConfig),
-    /// Indexa la KB de forma incremental (mtime al invocar, sin daemon).
+    /// Indexa la KB de forma incremental: solo lo que cambió desde la última
+    /// vez.
     Index(ArgsIndex),
-    /// Borra la DB y reconstruye desde cero (primera clase, no cirugía —
-    /// spec §3: "corrupción de índice = borrar y rebuild").
+    /// Borra el índice y lo reconstruye desde cero. Es el remedio ante un
+    /// índice corrupto.
     Rebuild(ArgsIndex),
-    /// Búsqueda FTS5 mínima sobre `notas_fts` (spec §4.1, m2-05).
+    /// Busca en la KB: texto completo (`fts`), semántica (`vector`) o las dos
+    /// fusionadas (`hybrid`).
     Search(ArgsSearch),
-    /// Escribe en la KB (M4/E2): nota nueva o append a bitácora. File-first,
-    /// sin commit y sin indexar — eso es del agente y del recall siguiente.
+    /// Escribe en la KB: nota nueva o entrada de bitácora. No commitea ni
+    /// indexa.
     #[command(subcommand)]
     Write(ComandoWrite),
-    /// Sirve contenido de la KB para arranque (`tier: core` + recientes) o
-    /// consulta (`busca_hybrid`) — sucesor de `basic-memory-recall.sh` y
-    /// `compose-inject.sh` de reflex (M2-08, M6). NO conoce reflex ni
-    /// perfiles de agentes: eso lo compone el consumidor.
+    /// Sirve memoria de la KB a un agente. Sin `--query`, el bloque de
+    /// arranque (notas `tier: core` y recientes); con `--query`, las notas
+    /// relevantes para esa consulta.
     Recall(ArgsRecall),
-    /// Candidatas de la KB para un tema: FTS5 más tier/tamaño/headings de
-    /// disco y último commit de git (spec §4, primer verbo portado del
-    /// núcleo de `kbx`, G4a). Solo lectura: no gatea nada.
+    /// Lista las notas candidatas a tocar para un tema, con tier, tamaño,
+    /// cabeceras y último commit. Solo lectura.
     Targets(ArgsTargets),
-    /// Presupuestos por tier sobre el árbol de ficheros (`presupuesto::analiza`,
-    /// G4b). Emite el informe entero y LUEGO gatea: exit 3 si hay
-    /// infractoras o notas sin tier legal, nunca por el aviso de aire.
+    /// Comprueba el presupuesto de bytes por tier. Imprime el informe entero y
+    /// sale con 3 si alguna nota lo rebasa o no declara un tier válido.
     Budget(ArgsBudget),
-    /// Los siete checks de deriva de la KB (`lint::analiza`, G4b), sucesor de
-    /// `kbx doctor` en bare mode. Emite el informe entero y LUEGO gatea:
-    /// exit 3 si `ok` es falso.
+    /// Comprueba la salud de la KB: notas huérfanas, frontmatter roto, índice
+    /// desfasado y más. Imprime el informe entero y sale con 3 si hay
+    /// hallazgos.
     Lint(ArgsLint),
-    /// El trinquete de techos declarados (`trinquete::comprueba`, G4c),
-    /// sucesor de `kbx ratchet`. Emite el informe entero y LUEGO gatea: exit
-    /// 3 si `informe.fallido()`. Abstención (sin historia de git utilizable)
-    /// sale 0, no 3: es información, no un fallo.
+    /// Comprueba que ningún techo de tamaño declarado suba respecto al último
+    /// commit. Imprime el informe entero y sale con 3 si algún hallazgo
+    /// rompe el trinquete (un techo que sube o se retira, un sobre-sello,
+    /// una primera declaración muy alta, una nota sellada que se escapa de
+    /// su tier, o una nota nueva sin aire o que nace demasiado grande); las
+    /// deudas informativas no lo rompen. Sin historia de git se abstiene y
+    /// sale con 0.
     Ratchet(ArgsRatchet),
-    /// Preflight de ENTORNO —la máquina—, no de la KB: eso es `lint`. Emite
-    /// el informe entero y LUEGO gatea: exit 3 si algún check sale `fail`.
-    /// Los `warn` informan sin gatear y los `na` declaran lo que no se mide
-    /// en esta plataforma, en vez de desaparecer de la lista.
+    /// Divide una bitácora `tier: log` en frío (a `archive/log/`) y
+    /// caliente (que se queda). Sin `--apply` es un dry-run: no toca disco.
+    /// Solo barre el nivel superior de `log/` — igual que kbx, sin recursión.
+    Rotate(ArgsRotate),
+    /// Diagnostica esta máquina (binario, config, KB, índice, modelo de
+    /// embeddings y dependencias de los hooks). Cada check dice qué artefacto
+    /// miró; sale con 3 si alguno falla.
     Doctor(ArgsDoctor),
+    /// Urgencia de actualización de cada nota: edad de su último commit,
+    /// grado en el grafo de relaciones y tier, combinados en una
+    /// puntuación. Solo lectura.
+    Stale(ArgsStale),
 }
 
 #[derive(Subcommand)]
@@ -108,12 +121,15 @@ struct ArgsInit {
     /// `--kb` no vacía, pisando lo que hubiera dentro.
     #[arg(long)]
     force: bool,
+    /// Emite el resultado como envelope JSON en stdout.
     #[arg(long)]
     json: bool,
 }
 
 #[derive(clap::Args)]
 struct ArgsConfig {
+    /// Emite la config como envelope JSON en stdout (para scripts: jq no lee
+    /// TOML).
     #[arg(long)]
     json: bool,
 }
@@ -134,7 +150,7 @@ struct ArgsWriteNew {
     dir: String,
     /// Título de la nota. De él salen el nombre de fichero y el slug del
     /// permalink.
-    #[arg(long = "title", alias = "titulo")]
+    #[arg(long = "title", alias = "titulo", value_name = "TITLE")]
     titulo: String,
     /// Fichero con el cuerpo (`-` = stdin). El contenido NO viaja por argv:
     /// el agente lo escribe con su tool `Write` y aquí solo se referencia,
@@ -147,6 +163,7 @@ struct ArgsWriteNew {
     /// Salta el dup-gate de similitud. JAMÁS salta una colisión de fichero.
     #[arg(long)]
     force: bool,
+    /// Emite el resultado como envelope JSON en stdout.
     #[arg(long)]
     json: bool,
 }
@@ -164,16 +181,17 @@ struct ArgsWriteAppend {
     /// Fichero con el texto a anexar (`-` = stdin).
     #[arg(long)]
     from: String,
-    /// Crea la bitácora si no existe (documenta.md la pide con `tier: log`).
+    /// Crea la bitácora (`tier: log`) si no existe.
     #[arg(long = "create", alias = "crea")]
     crea: bool,
     /// Anexa aunque el destino no sea `tier: log`. Queda registrado en el
-    /// envelope (`forzado: true`) para que la excepción sea auditable.
+    /// envelope (`forced: true`) para que la excepción sea auditable.
     #[arg(long)]
     force: bool,
+    /// Emite el resultado como envelope JSON en stdout.
     #[arg(long)]
     json: bool,
-    /// Permalink de la nota destino (p.ej. `kb-demo/log/exo-bitacora`).
+    /// Permalink de la nota destino (p.ej. `mi-kb/log/proyecto-bitacora`).
     permalink: String,
 }
 
@@ -187,7 +205,7 @@ struct ArgsIndex {
     /// Precedencia: flag > $EXO_KB > config.
     #[arg(long)]
     kb: Option<PathBuf>,
-    /// Emite el resultado como envelope JSON (spec §4) en stdout.
+    /// Emite el resultado como envelope JSON en stdout.
     #[arg(long)]
     json: bool,
 }
@@ -211,32 +229,34 @@ struct ArgsSearch {
     /// config, igual que en `recall` y `targets`.
     #[arg(long)]
     kb: Option<PathBuf>,
-    /// Máximo de resultados. Default 10 (replay-engine pasa el suyo
-    /// explícito; flags > config).
-    #[arg(long = "limit", alias = "limite", default_value_t = 10)]
+    /// Máximo de resultados.
+    #[arg(
+        long = "limit",
+        alias = "limite",
+        value_name = "LIMIT",
+        default_value_t = 10
+    )]
     limite: usize,
-    /// Tipo de búsqueda (fts|vector|hybrid, M2-07). Default `fts`:
-    /// comportamiento actual intacto si no se pasa el flag.
+    /// Tipo de búsqueda.
     #[arg(long, value_enum, default_value_t = TipoBusqueda::Fts)]
     r#type: TipoBusqueda,
-    /// Umbral de similitud coseno del arm vector/hybrid. Opcional: si se
-    /// omite, cae a `[embeddings] min_similarity` de `~/.exo/config.toml`
-    /// (D6, precedencia flags > config). Sin efecto en `--type fts`.
-    #[arg(long = "min-similarity", alias = "min-similitud")]
+    /// Umbral de similitud coseno de la búsqueda semántica. Si se omite,
+    /// `[embeddings] min_similarity` de la config. Sin efecto en `--type fts`.
+    #[arg(
+        long = "min-similarity",
+        alias = "min-similitud",
+        value_name = "MIN_SIMILARITY"
+    )]
     min_similitud: Option<f64>,
-    /// Peso del canal débil en la fórmula de fusión (`bonus·min(v,f)`,
-    /// spec fusión §4.4). Solo para `--type hybrid`: override puntual del
-    /// sellado (M2-07, §5.2.6); si se omite, cae al default sellado
-    /// `BONUS_SELLADO`.
+    /// Peso del canal más débil al fusionar (`max + bonus·min`). Solo
+    /// `--type hybrid`; si se omite, el default del engine.
     #[arg(long)]
     bonus: Option<f64>,
-    /// Anclaje β de la normalización BM25 por-query (spec fusión §4.3,
-    /// D-f1). Solo para `--type hybrid`: override puntual del sellado
-    /// (M2-07, §5.2.6); si se omite, cae al default sellado
-    /// `ESCALA_FTS_SELLADA`.
-    #[arg(long = "fts-scale", alias = "escala-fts")]
+    /// Escala de normalización del score de texto completo antes de
+    /// fusionar. Solo `--type hybrid`; si se omite, el default del engine.
+    #[arg(long = "fts-scale", alias = "escala-fts", value_name = "FTS_SCALE")]
     escala_fts: Option<f64>,
-    /// Emite el resultado como envelope JSON (spec §4) en stdout.
+    /// Emite el resultado como envelope JSON en stdout.
     #[arg(long)]
     json: bool,
     /// Texto de la consulta.
@@ -250,35 +270,37 @@ struct ArgsRecall {
     #[arg(long)]
     db: Option<PathBuf>,
     /// Raíz de la KB. Por defecto, `[kb] path` de `~/.exo/config.toml`.
-    /// Precedencia: flag > $EXO_KB > config. `exo recall` la necesita aunque
-    /// solo lea del índice: `notas.ruta` es relativa, y modo arranque
-    /// también relee `tier` del `.md` en disco (no está en el índice).
+    /// Precedencia: flag > $EXO_KB > config.
     #[arg(long)]
     kb: Option<PathBuf>,
-    /// Texto de la consulta. Ausente ⇒ modo arranque (`tier: core` +
-    /// recientes por git); presente ⇒ modo consulta (`busca_hybrid`).
+    /// Texto de la consulta. Sin él, modo arranque (`tier: core` + recientes
+    /// por git); con él, modo consulta (búsqueda híbrida).
     #[arg(long)]
     query: Option<String>,
-    /// Máximo de notas. En modo arranque, tope del bloque de "recientes"
-    /// (los `tier: core` siempre entran todos); en modo consulta, tope de
-    /// `busca_hybrid`. Default 5 (contrato del brief para modo consulta;
-    /// mismo flag, mismo default en ambos modos).
-    #[arg(long = "limit", alias = "limite", default_value_t = 5)]
+    /// Máximo de notas: en modo arranque, cuántas recientes (las `tier: core`
+    /// entran siempre); en modo consulta, cuántos resultados.
+    #[arg(
+        long = "limit",
+        alias = "limite",
+        value_name = "LIMIT",
+        default_value_t = 5
+    )]
     limite: usize,
-    /// Presupuesto de bytes del bloque de salida (texto o `--json`), trunca
-    /// por líneas ENTERAS. Default 2048 (brief).
+    /// Presupuesto de bytes del bloque de salida (texto o `--json`); trunca
+    /// por líneas enteras.
     #[arg(long, default_value_t = 2048)]
     cap_bytes: usize,
-    /// Umbral de similitud coseno del arm vector de `busca_hybrid` (modo
-    /// consulta). Sin efecto en modo arranque. Default de config si se
-    /// omite (D6, mismo contrato que `search`).
-    #[arg(long = "min-similarity", alias = "min-similitud")]
+    /// Umbral de similitud coseno en modo consulta. Si se omite, el de la
+    /// config. Sin efecto en modo arranque.
+    #[arg(
+        long = "min-similarity",
+        alias = "min-similitud",
+        value_name = "MIN_SIMILARITY"
+    )]
     min_similitud: Option<f64>,
-    /// Modo arranque en versión CONTENIDO: vuelca el cuerpo de las notas
-    /// `tier: core` + lista de recientes, en vez de una línea por nota. Es
-    /// lo que consume el hook de SessionStart (paridad con el
-    /// `basic-memory-recall.sh` que sustituye, que inyectaba el cuerpo del
-    /// core-index, no sus rutas). Incompatible con `--query`.
+    /// Modo arranque con el CUERPO de las notas `tier: core` y la lista de
+    /// recientes, en vez de una línea por nota. Es lo que inyecta el hook de
+    /// inicio de sesión. Incompatible con `--query`.
     #[arg(long = "content", alias = "contenido")]
     contenido: bool,
     /// Permalink de la nota cuyo cuerpo se quiere en `--content` (p.ej.
@@ -286,16 +308,14 @@ struct ArgsRecall {
     /// `tier: core` — que en una KB con un core grande agota el presupuesto
     /// con la primera. Qué nota es "la de arranque" lo decide el consumidor,
     /// no el engine.
-    #[arg(long = "note", alias = "nota")]
+    #[arg(long = "note", alias = "nota", value_name = "NOTE")]
     nota: Option<String>,
-    /// Refresca el índice (indexado incremental) ANTES de servir, para no
-    /// devolver un bloque de una KB rancia (M6-01, "índice fresco sin
-    /// daemon"). Barato cuando nada cambió: un `stat` por fichero y ninguna
-    /// carga del modelo. Si la DB no existe, la construye (bootstrap).
+    /// Refresca el índice (incremental) ANTES de servir, para no devolver una
+    /// KB rancia. Barato si nada cambió; si el índice no existe, lo construye.
     #[arg(long = "refresh", alias = "refresca")]
     refresca: bool,
-    /// Emite el resultado como envelope JSON (spec §4) en stdout. Sin este
-    /// flag, imprime un bloque de texto plano (el que consumirá el hook).
+    /// Emite el resultado como envelope JSON en stdout. Sin él, un bloque de
+    /// texto plano (el que inyectan los hooks).
     #[arg(long)]
     json: bool,
 }
@@ -308,13 +328,14 @@ struct ArgsTargets {
     /// Raíz de la KB en disco. Precedencia: flag > $EXO_KB > config.
     #[arg(long)]
     kb: Option<PathBuf>,
-    /// Máximo de candidatas. Default 10, igual que `kbx targets`.
-    #[arg(long = "limit", default_value_t = 10)]
+    /// Máximo de candidatas.
+    #[arg(long = "limit", value_name = "LIMIT", default_value_t = 10)]
     limite: usize,
-    /// Emite el resultado como envelope JSON (spec §4) en stdout.
+    /// Emite el resultado como envelope JSON en stdout.
     #[arg(long)]
     json: bool,
     /// Tema a buscar.
+    #[arg(value_name = "TOPIC")]
     tema: String,
 }
 
@@ -323,22 +344,21 @@ struct ArgsBudget {
     /// Raíz de la KB. Precedencia: flag > $EXO_KB > config.
     #[arg(long)]
     kb: Option<PathBuf>,
-    /// Emite el resultado como envelope JSON (spec §4) en stdout.
+    /// Emite el resultado como envelope JSON en stdout.
     #[arg(long)]
     json: bool,
 }
 
 #[derive(clap::Args)]
 struct ArgsLint {
-    /// Fichero SQLite del índice. Precedencia: flag > $EXO_DB > config. A
-    /// diferencia de `budget`, `lint` sí lo necesita: los checks `orphan` e
-    /// `index_stale` leen `notas`.
+    /// Fichero SQLite del índice. Precedencia: flag > $EXO_DB > config.
+    /// `lint` lo necesita para detectar huérfanas e índice desfasado.
     #[arg(long)]
     db: Option<PathBuf>,
     /// Raíz de la KB. Precedencia: flag > $EXO_KB > config.
     #[arg(long)]
     kb: Option<PathBuf>,
-    /// Emite el resultado como envelope JSON (spec §4) en stdout.
+    /// Emite el resultado como envelope JSON en stdout.
     #[arg(long)]
     json: bool,
 }
@@ -353,7 +373,24 @@ struct ArgsDoctor {
     /// Precedencia: flag > $EXO_KB > config.
     #[arg(long)]
     kb: Option<PathBuf>,
-    /// Emite el resultado como envelope JSON (spec §4) en stdout.
+    /// Emite el resultado como envelope JSON en stdout.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(clap::Args)]
+struct ArgsStale {
+    /// Fichero SQLite del índice. Precedencia: flag > $EXO_DB > config.
+    #[arg(long)]
+    db: Option<PathBuf>,
+    /// Raíz de la KB. Precedencia: flag > $EXO_KB > config.
+    #[arg(long)]
+    kb: Option<PathBuf>,
+    /// Override del reloj, RFC3339 (por defecto: la hora real; los tests
+    /// deterministas siempre lo pasan).
+    #[arg(long)]
+    now: Option<String>,
+    /// Emite el resultado como envelope JSON en stdout.
     #[arg(long)]
     json: bool,
 }
@@ -372,7 +409,23 @@ struct ArgsRatchet {
     /// Juzga el índice de git en vez del working tree (para el pre-commit).
     #[arg(long)]
     staged: bool,
-    /// Emite el resultado como envelope JSON (spec §4) en stdout.
+    /// Emite el resultado como envelope JSON en stdout.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(clap::Args)]
+struct ArgsRotate {
+    /// Raíz de la KB. Precedencia: flag > $EXO_KB > config.
+    #[arg(long)]
+    kb: Option<PathBuf>,
+    /// Presupuesto en bytes para la cola caliente que se queda en la nota.
+    #[arg(long = "hot-bytes", value_name = "HOT_BYTES", default_value_t = 20480)]
+    presupuesto_caliente: i64,
+    /// Escribe de verdad. Sin este flag es un dry-run: nada toca disco.
+    #[arg(long)]
+    apply: bool,
+    /// Emite el resultado como envelope JSON en stdout.
     #[arg(long)]
     json: bool,
 }
@@ -432,7 +485,9 @@ fn quiere_json(c: &Comando) -> bool {
         Comando::Budget(a) => a.json,
         Comando::Lint(a) => a.json,
         Comando::Ratchet(a) => a.json,
+        Comando::Rotate(a) => a.json,
         Comando::Doctor(a) => a.json,
+        Comando::Stale(a) => a.json,
         Comando::Write(w) => match w {
             ComandoWrite::New(a) => a.json,
             ComandoWrite::Append(a) => a.json,
@@ -486,7 +541,9 @@ fn ejecuta(comando: Comando) -> Result<()> {
         Comando::Budget(args) => budget_cmd(args),
         Comando::Lint(args) => lint_cmd(args),
         Comando::Ratchet(args) => ratchet_cmd(args),
+        Comando::Rotate(args) => rotate_cmd(args),
         Comando::Doctor(args) => doctor_cmd(args),
+        Comando::Stale(args) => stale_cmd(args),
         Comando::Write(sub) => match sub {
             ComandoWrite::New(args) => write_new_cmd(args),
             ComandoWrite::Append(args) => write_append_cmd(args),
@@ -537,7 +594,7 @@ fn versiona_kb(kb: &Path) -> bool {
 /// semilla, la versiona con git (best-effort) y la indexa.
 fn init_cmd(args: ArgsInit) -> Result<()> {
     let destino = exo::config::ruta_config()?;
-    let db_default = dirs::home_dir().context("sin HOME")?.join(".exo/index.db");
+    let home = dirs::home_dir().context("sin HOME")?;
 
     // I4 (review de rama): se comprueba ANTES de tocar nada en disco. Antes
     // esta guarda solo vivía dentro de `escribe_config`, llamada después de
@@ -546,6 +603,11 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
     // tarde: KB a medio escribir + repo git en disco + exit 1, y el reintento
     // fallaba ya por otra vía (`prepara_kb`: "no está vacía").
     exo::inicia::valida_config_escribible(&destino, args.force)?;
+
+    // H1: la DB que este `init` valida, indexa y graba en config.toml
+    // (`$EXO_DB` > `~/.exo/index.db`; la regla vive en `db_de_init`).
+    let exo_db = std::env::var("EXO_DB").ok();
+    let db_objetivo = exo::inicia::db_de_init(exo_db.as_deref(), &home);
 
     let (kb, nombre, emb, modo, escritos, git_ok) = if args.from_basic_memory {
         let ruta = exo::inicia::ruta_basic_memory()?;
@@ -564,6 +626,7 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
                 ruta.display()
             )
         })?;
+        exo::inicia::valida_db_para_kb(&db_objetivo, &kb)?;
         (kb, nombre, emb, "adopt", Vec::new(), false)
     } else {
         // `expande_tilde`: sin esto, `exo init --kb ~/mi-kb` en Windows crea
@@ -594,6 +657,7 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
         };
 
         exo::inicia::valida_nombre(&nombre)?;
+        exo::inicia::valida_db_para_kb(&db_objetivo, &kb)?;
         exo::inicia::prepara_kb(&kb, args.force)?;
         std::fs::create_dir_all(&kb).with_context(|| format!("crear {}", kb.display()))?;
         let escritos = exo::plantilla::vuelca(&kb, &nombre)?;
@@ -602,13 +666,21 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
         (kb, nombre, emb, "create", escritos, git_ok)
     };
 
-    exo::inicia::escribe_config(&destino, &kb, &nombre, &emb, &db_default, args.force)?;
+    // Se graba `db_objetivo`, NO el default `~/.exo/index.db`: `db_objetivo`
+    // es la DB que este `init` acaba de validar (H1) e indexa más abajo — es
+    // la efectiva. Grabar siempre el default era el bug: con `$EXO_DB` puesto,
+    // la config quedaba mintiendo sobre qué DB usa este `init` (indexaba una
+    // DB y apuntaba a otra), y un `exo config`/`exo search` posterior que
+    // solo pusiera `$EXO_CONFIG` resolvía silenciosamente al índice
+    // equivocado.
+    exo::inicia::escribe_config(&destino, &kb, &nombre, &emb, &db_objetivo, args.force)?;
 
     // Índice inicial. `resuelve_db(None)` (precedencia `$EXO_DB` > `[index]
-    // db`), NO `db_default`: `db_default` es lo que se GRABA en config.toml,
-    // pero el índice que se toca aquí es el efectivo — si no fuera por
-    // `EXO_DB`, un test (o un `exo init` bajo `$HOME` no estándar) indexaría
-    // el `~/.exo/index.db` real de la máquina.
+    // db`) en vez de usar `db_objetivo` directamente: son la misma ruta ahora
+    // que la config también la graba, pero pasar por `resuelve_db` mantiene
+    // este `init_cmd` en el mismo camino de resolución que cualquier otro
+    // comando — si `resuelve_db` cambiara de precedencia, `init` la sigue
+    // sin tener que tocarse.
     let db = resuelve_db(None)?;
     let resumen = indexa(&kb, &db)?;
 
@@ -822,11 +894,14 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
     let kb = resuelve_kb(args.kb)?;
     let db = resuelve_db(args.db)?;
 
+    let mut refresh_s = None;
     if args.refresca {
         // El resumen va a stderr: stdout es exclusivo del envelope/bloque
         // (contrato §4), y el hook consume stdout tal cual.
+        let inicio = std::time::Instant::now();
         let resumen = exo::refresca_indice(&kb, &db)
             .context("refrescar el índice antes del recall (--refresh)")?;
+        refresh_s = Some(inicio.elapsed().as_secs_f64());
         if resumen.indexadas > 0 || resumen.borradas > 0 {
             eprintln!(
                 "refresca: indexadas={} borradas={} saltadas={}",
@@ -839,6 +914,9 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
         if args.query.is_some() {
             anyhow::bail!("--content es del modo arranque: no se combina con --query");
         }
+        // El aviso de kb_root (si lo hay) sale por stderr desde DENTRO de
+        // `recall_arranque_contenido` — este camino no tiene envelope ni
+        // `Recall.avisos`, así que no hay nada que reenviar aquí.
         // Camino del hook: bloque de texto a stdout y fuera. No pasa por el
         // envelope ni por `aplica_cap` (trae su propio truncado por líneas).
         let bloque = exo::recall::recall_arranque_contenido(
@@ -862,13 +940,22 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
                 args.min_similitud,
                 BONUS_SELLADO,
                 ESCALA_FTS_SELLADA,
+                &kb,
             )?;
             resuelve_rutas_absolutas(&mut bruto, &kb);
             bruto
         }
     };
 
-    let resultado = renderiza(bruto, args.cap_bytes);
+    let mut resultado = renderiza(bruto, args.cap_bytes);
+    resultado.recall.refresh_s = refresh_s;
+
+    // H2: los avisos van a stderr SIEMPRE, igual que en `busca_cmd`, y ANTES
+    // del bail de «recall vacío»: un arm vector INERTE sin hits FTS es justo
+    // el caso en que más importa verlo, y el que antes se perdía entero.
+    for aviso in &resultado.recall.avisos {
+        eprintln!("aviso: {aviso}");
+    }
 
     if resultado.recall.notas.is_empty() {
         anyhow::bail!(
@@ -894,9 +981,22 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
 
 fn busca_cmd(args: ArgsSearch) -> Result<()> {
     let db = resuelve_db(args.db)?;
+
+    // `search` no tiene `--kb`: mismo resolvedor que el resto del binario
+    // (`resuelve_kb`, precedencia `$EXO_KB` > `[kb] path` de la config, ya
+    // que no hay flag). `.ok()`: sin KB resoluble (p.ej. `search --db` sin
+    // config) el aviso es `None` — nunca un error que tumbe `search`.
+    let kb = resuelve_kb(None).ok();
+
     let resultado = match args.r#type {
-        TipoBusqueda::Fts => busca(&db, &args.query, args.limite)?,
-        TipoBusqueda::Vector => busca_vector(&db, &args.query, args.limite, args.min_similitud)?,
+        TipoBusqueda::Fts => busca(&db, &args.query, args.limite, kb.as_deref())?,
+        TipoBusqueda::Vector => busca_vector(
+            &db,
+            &args.query,
+            args.limite,
+            args.min_similitud,
+            kb.as_deref(),
+        )?,
         TipoBusqueda::Hybrid => busca_hybrid(
             &db,
             &args.query,
@@ -904,8 +1004,16 @@ fn busca_cmd(args: ArgsSearch) -> Result<()> {
             args.min_similitud,
             args.bonus.unwrap_or(BONUS_SELLADO),
             args.escala_fts.unwrap_or(ESCALA_FTS_SELLADA),
+            kb.as_deref(),
         )?,
     };
+
+    // El aviso de kb_root es SOLO stderr, nunca el envelope: `Busqueda`
+    // trae el campo `aviso_kb_root` con `#[serde(skip)]` justo para eso —
+    // no es una clave nueva de `data`, es un canal que no se serializa.
+    if let Some(aviso) = &resultado.aviso_kb_root {
+        eprintln!("aviso: {aviso}");
+    }
 
     // Los avisos van a stderr SIEMPRE, con o sin `--json`: nunca contaminan el
     // envelope de stdout, y quien mira la terminal ve la degradación sin
@@ -917,6 +1025,12 @@ fn busca_cmd(args: ArgsSearch) -> Result<()> {
 
     if args.json {
         envelope::emite("search", serde_json::to_value(&resultado)?);
+    } else if resultado.results.is_empty() {
+        // Contrato alineado con `targets_cmd` (más abajo, `no candidates`):
+        // una terminal en blanco no distingue "sin resultados" de "no filtré
+        // la salida". El envelope JSON no cambia — `results: []` ya lo
+        // distinguía ahí.
+        println!("no results");
     } else {
         // La humana da la ruta ABSOLUTA: el cwd del agente es el repo en el que
         // trabaja, no la KB, así que una relativa no se le puede pasar a `Edit`
@@ -1230,6 +1344,58 @@ fn imprime_informe_ratchet(informe: &exo::trinquete::Informe) {
     }
 }
 
+/// `exo stale`: urgencia de actualización por nota (`obsolescencia::calcula`).
+/// Solo lectura — el único exit no-cero es 1, un error de IO/parseo; la
+/// obsolescencia en sí es información, no un veredicto de gate (kbx: "the
+/// only non-zero exit is 2 (IO/usage)" — misma idea, exit distinto porque
+/// en exo 2 es de clap).
+fn stale_cmd(args: ArgsStale) -> Result<()> {
+    let db_ruta = resuelve_db(args.db)?;
+    if !db_ruta.exists() {
+        anyhow::bail!(
+            "DB no encontrada: {} — corre `exo index` primero",
+            db_ruta.display()
+        );
+    }
+    let kb = resuelve_kb(args.kb)?;
+    let conn = exo::abre_db(&db_ruta)?;
+
+    let ahora_epoch = match args.now {
+        Some(marca) => exo::obsolescencia::epoch_utc_de_iso8601(&marca)
+            .with_context(|| format!("stale: --now inválido: {marca:?}"))?,
+        None => std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .context("stale: reloj del sistema anterior a 1970")?
+            .as_secs() as i64,
+    };
+
+    let informe =
+        exo::obsolescencia::calcula(&conn, &kb, &exo::presupuesto::EXCLUIDOS, ahora_epoch)?;
+
+    if args.json {
+        envelope::emite("stale", serde_json::to_value(&informe)?);
+    } else {
+        println!("now: {}", informe.now);
+        for n in &informe.notes {
+            let commit = if n.sin_commit {
+                "(uncommitted)".to_string()
+            } else {
+                n.ultimo_commit.clone()
+            };
+            println!(
+                "{:<40} tier={:<6} age_days={:<6} degree={:<3} last_commit={} score={:.2}",
+                n.path,
+                n.tier,
+                n.edad_dias,
+                n.degree,
+                commit,
+                n.score.valor()
+            );
+        }
+    }
+    Ok(())
+}
+
 /// `exo ratchet`: el trinquete de techos declarados. Solo lee disco (`--kb`),
 /// sin `--db`: igual que `budget`, el trinquete no toca el índice.
 ///
@@ -1333,6 +1499,99 @@ fn ratchet_seal_cmd(
             siguiente.len(),
             exo::trinquete::FICHERO_SELLO
         );
+    }
+    Ok(())
+}
+
+/// `exo rotate`: barre `log/` (solo el nivel superior — igual que kbx, sin
+/// recursión ni el resto de la KB) y rota cada nota `tier: log` cuya cola
+/// fría exceda el presupuesto. Un fallo en una nota no aborta la barrida:
+/// se acumula y el exit code final lo refleja con `bail!` (exit 1 — D-3:
+/// no es un `GateFallido`, es un fichero que no se pudo procesar).
+fn rotate_cmd(args: ArgsRotate) -> Result<()> {
+    let kb = resuelve_kb(args.kb)?;
+    if args.presupuesto_caliente <= 0 {
+        anyhow::bail!(
+            "rotate: --hot-bytes tiene que ser > 0, se recibió {}",
+            args.presupuesto_caliente
+        );
+    }
+    // D-4: el prefijo del `permalink` del archivo es `[kb] name`. Solo
+    // `--apply` lo escribe; el dry-run no necesita config (sirve sobre una
+    // KB ajena sin `~/.exo`). Sin nombre resoluble, `--apply` falla ANTES de
+    // tocar disco: "sin defaults inventados" (config.rs), igual que `write new`.
+    let nombre_kb = if args.apply {
+        exo::nombre_kb().context(
+            "rotate --apply necesita `[kb] name` en la config para el permalink del archivo",
+        )?
+    } else {
+        String::new()
+    };
+
+    let dir_log = kb.join("log");
+    // Un directorio `x.md/` dentro de `log/` no es una nota — se salta en
+    // silencio, igual que kbx (`if e.IsDir() || filepath.Ext(...) != ".md"
+    // { continue }`), no cuenta como fallo de la barrida.
+    let mut rutas: Vec<PathBuf> = match std::fs::read_dir(&dir_log) {
+        Ok(e) => e
+            .filter_map(|r| r.ok())
+            .map(|e| e.path())
+            .filter(|p| !p.is_dir() && p.extension().and_then(|e| e.to_str()) == Some("md"))
+            .collect(),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Vec::new(),
+        Err(e) => return Err(e).with_context(|| format!("leer {}", dir_log.display())),
+    };
+    rutas.sort();
+
+    let mut resultados = Vec::new();
+    let mut fallidas = Vec::new();
+    for ruta_abs in rutas {
+        let rel = format!("log/{}", ruta_abs.file_name().unwrap().to_string_lossy());
+        let contenido = match std::fs::read(&ruta_abs) {
+            Ok(c) => c,
+            Err(e) => {
+                fallidas.push(format!("{rel}: {e}"));
+                continue;
+            }
+        };
+        if exo::frontmatter::tier(&String::from_utf8_lossy(&contenido)) != "log" {
+            continue;
+        }
+        match exo::rotacion::aplica(&kb, &rel, args.presupuesto_caliente, args.apply, &nombre_kb) {
+            Ok(r) => {
+                if r.rotado {
+                    resultados.push(r);
+                }
+            }
+            Err(e) => fallidas.push(format!("{rel}: {e}")),
+        }
+    }
+
+    if args.json {
+        envelope::emite(
+            "rotate",
+            serde_json::json!({ "applied": args.apply, "hot_bytes": args.presupuesto_caliente, "rotations": resultados }),
+        );
+    } else if resultados.is_empty() {
+        println!("rotate: nothing to rotate");
+    } else {
+        let verbo = if args.apply { "moved" } else { "would move" };
+        for r in &resultados {
+            println!(
+                "{}: {verbo} {} B ({} entries) -> {}",
+                r.nota,
+                r.bytes_movidos,
+                r.entradas_frias,
+                r.archivo.as_deref().unwrap_or("")
+            );
+        }
+    }
+
+    if !fallidas.is_empty() {
+        for f in &fallidas {
+            eprintln!("rotate: {f}");
+        }
+        anyhow::bail!("{} nota(s) fallaron durante la barrida", fallidas.len());
     }
     Ok(())
 }

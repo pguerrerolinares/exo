@@ -298,9 +298,17 @@ solo el prefijo lo bendice.
 **`plugins/exo/scripts/test-contrato-engine.sh`**: extendido con los predicados de
 `search --json` (`.data.results[]` con `permalink`/`path` string no vacío) contra
 el binario real, con la misma abstención exit≠0 que ya usa para `recall`.
-**Se declara en la cabecera que es un gate LOCAL**: `.github/workflows/ci.yml:99`
-solo lanza `engine/scripts/test-hermetico.sh`, que verifica otra cosa (que la
-suite corra sin `~/.exo/config.toml`). Hoy la cabecera lo insinúa; la spec lo fija.
+**CORREGIDO el 2026-09-15**: cuando se escribió esta spec, el gate no corría en
+CI y la decisión era declararlo en la cabecera. Entre medias `origin/main` avanzó
+162 commits y lo cableó: `.github/workflows/ci.yml:176` lanza
+`scripts/test-contrato-ci.sh`, un wrapper que monta su propio fixture (KB semilla
+de `exo init` + índice, con `EXO_CONFIG` aislado). La cabecera que este trabajo
+iba a escribir habría sido **falsa**, así que se conserva la de `main`.
+
+Consecuencia que sí añade este trabajo: como el gate corre contra una KB
+**semilla**, y no contra una KB poblada, los predicados de `search` llevan un
+guard de vacuidad. Sin él, `.data.results[0]` sobre una lista vacía opera contra
+`null` y el gate pasaría —o fallaría— por vacuidad, sin haber ejercido nada.
 
 **`kb_con_indice()` NO se mueve a `engine/tests/common/mod.rs`** (revisado al
 planificar, 2026-09-11). Las tres «copias» no son copias: `objetivos.rs:17` monta

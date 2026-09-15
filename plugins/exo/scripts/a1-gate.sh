@@ -28,8 +28,18 @@ jq -e . "$LOG" >/dev/null 2>&1 || { echo "ERROR: $LOG contiene JSON invalido" >&
 # -u (UTC): el numerador filtra el log por .ts, que es UTC (ver HASTA_TS abajo);
 # si esto se calculara en hora LOCAL (p.ej. CEST +0200) los dos relojes quedarian
 # desalineados 1-2h en ambos bordes de la ventana (skew de zona horaria, M1).
-FROM_EPOCH="$(date -u -d "$DESDE 00:00:00" +%s 2>/dev/null)" || { echo "DESDE invalido: $DESDE" >&2; exit 1; }
-TO_EPOCH="$(date -u -d "$HASTA 23:59:59" +%s 2>/dev/null)" || { echo "HASTA invalido: $HASTA" >&2; exit 1; }
+#
+# Con jq y no con `date -d`: `-d` es GNU y en macOS toda fecha salía "invalido"
+# (CI macos-latest, run 34720014952). El ida-y-vuelta (`todate[0:10] == $d`)
+# conserva el rechazo de fechas imposibles que daba `date -d`: strptime acepta
+# 2026-02-30 y timegm lo normaliza al 2 de marzo sin avisar.
+epoch_utc() {  # $1=YYYY-MM-DD  $2=HH:MM:SS
+  jq -nr --arg d "$1" --arg t "$2" '
+    ($d + "T" + $t + "Z" | fromdateiso8601) as $e
+    | if ($e | todate[0:10]) == $d then $e else error("fecha imposible") end' 2>/dev/null
+}
+FROM_EPOCH="$(epoch_utc "$DESDE" 00:00:00)" || { echo "DESDE invalido: $DESDE" >&2; exit 1; }
+TO_EPOCH="$(epoch_utc "$HASTA" 23:59:59)" || { echo "HASTA invalido: $HASTA" >&2; exit 1; }
 HASTA_TS="${HASTA}T23:59:59Z"
 
 FILTERED="$(mktemp)"
@@ -96,7 +106,9 @@ tipos="$(jq -s -r '
 dispatches_fs=0
 if [ -d "$PROJ" ]; then
   while IFS= read -r -d '' m; do
-    mt="$(stat -c %Y "$m" 2>/dev/null)" || continue
+    # `stat -c` es GNU; `stat -f %m` es el equivalente BSD/macOS. Sin el
+    # segundo, en macOS el `|| continue` descartaba TODOS los dispatches.
+    mt="$(stat -c %Y "$m" 2>/dev/null || stat -f %m "$m" 2>/dev/null)" || continue
     [ "$mt" -ge "$FROM_EPOCH" ] && [ "$mt" -le "$TO_EPOCH" ] || continue
     # mismo filtro de sesiones-test que el resto del gate: excluye dispatches
     # bajo directorios de sesion "test*" (case-insensitive) del denominador de
@@ -172,6 +184,7 @@ u1_sin_transcript=0
 while IFS=$'\t' read -r sid aid; do
   [ -n "$sid" ] && [ -n "$aid" ] || continue
   found_tf=0
+  # shellcheck disable=SC2140 # glob `*` entre tramos entrecomillados: intencionado
   for tf in "$PROJ"/*/"$sid"/subagents/"agent-${aid}.jsonl"; do
     [ -f "$tf" ] || continue
     found_tf=1

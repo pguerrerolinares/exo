@@ -48,6 +48,17 @@ pub struct Busqueda {
     /// `search_type` NO cambia a propósito: lo comparan los scripts del eval.
     #[serde(rename = "warnings", skip_serializing_if = "Vec::is_empty")]
     pub avisos: Vec<String>,
+    /// Aviso de LECTURA (H1 en lectura, `indexer::aviso_kb_root_lectura`):
+    /// la DB resuelta trae `meta.kb_root` de OTRA KB que sigue en disco.
+    /// **NO serializado** (`#[serde(skip)]`): el envelope de `search` es
+    /// superficie sellada sin gate (review 2026-09-13) — este aviso va
+    /// SOLO a stderr, nunca a `data`. Vive en este struct (no en un canal
+    /// aparte) porque es el valor natural que ya devuelven `busca`/
+    /// `busca_vector`/`busca_hybrid` sobre la conexión que ya tienen
+    /// abierta; que no se serialice es una propiedad de ESTE campo, no del
+    /// tipo de canal.
+    #[serde(skip)]
+    pub aviso_kb_root: Option<String>,
 }
 
 /// Avisos de cobertura del arm vector: compara filas de `vectores` contra
@@ -159,13 +170,17 @@ fn prepara_query(cruda: &str) -> String {
 /// Query sin hits = éxito con `results: []` (no es un error). DB inexistente
 /// = error claro, JAMÁS se crea un fichero vacío como side-effect (a
 /// diferencia de `rusqlite::Connection::open`, que crea el fichero si falta).
-pub fn busca(db_ruta: &Path, query: &str, limite: usize) -> Result<Busqueda> {
+pub fn busca(db_ruta: &Path, query: &str, limite: usize, kb: Option<&Path>) -> Result<Busqueda> {
     if !db_ruta.exists() {
         anyhow::bail!("DB no encontrada: {}", db_ruta.display());
     }
 
     let inicio = Instant::now();
     let conn = abre_db(db_ruta)?;
+    // Sobre la conexión que YA está abierta para esta consulta — nunca una
+    // propia (ver `indexer::aviso_kb_root_lectura`). `kb: None` (comando sin
+    // KB resoluble) o cualquier fallo interno degradan a `None` solos.
+    let aviso_kb_root = crate::indexer::aviso_kb_root_lectura(&conn, kb);
     let fts_query = prepara_query(query);
 
     // Query vacía tras normalizar (p.ej. solo whitespace): éxito con
@@ -206,6 +221,7 @@ pub fn busca(db_ruta: &Path, query: &str, limite: usize) -> Result<Busqueda> {
         elapsed_s: inicio.elapsed().as_secs_f64(),
         results,
         avisos: Vec::new(),
+        aviso_kb_root,
     })
 }
 
@@ -239,11 +255,8 @@ fn min_similitud_efectivo(min_similitud: Option<f64>) -> Result<f64> {
 
 /// Búsqueda vectorial (`exo search --type vector`, M2-06): embed de la
 /// query con el mismo modelo del indexer (jina-es/768, `Embedder` de
-/// proceso), KNN EXHAUSTIVO sobre `vectores` (`k = COUNT(*)`: sqlite-vec
-/// 0.1.9 sin partición ya hace un scan lineal internamente para vec0 float,
-/// así que pedir menos vecinos no ahorra trabajo real y sí arriesga dejar
-/// fuera la mejor coincidencia de una entidad — decisión declarada, no
-/// aproximación silenciosa), conversión a similitud coseno, filtro por
+/// proceso), KNN cuyo `k` lo fija la propia consulta (H29, ver
+/// `busca_vector_con_embedding`), conversión a similitud coseno, filtro por
 /// `semantic_min_similarity` y agregación **chunk→entidad por máxima
 /// similitud por permalink** (decisión declarada del Task 3 del brief: el
 /// ground truth del eval es a nivel de nota — spec M2 §4 — así que "la nota
@@ -261,6 +274,7 @@ pub fn busca_vector(
     query: &str,
     limite: usize,
     min_similitud: Option<f64>,
+    kb: Option<&Path>,
 ) -> Result<Busqueda> {
     if !db_ruta.exists() {
         anyhow::bail!("DB no encontrada: {}", db_ruta.display());
@@ -268,6 +282,8 @@ pub fn busca_vector(
 
     let inicio = Instant::now();
     let conn = abre_db(db_ruta)?;
+    // Mismo aviso best-effort que `busca`, sobre esta misma conexión.
+    let aviso_kb_root = crate::indexer::aviso_kb_root_lectura(&conn, kb);
 
     let total_vectores: i64 = conn
         .query_row("SELECT count(*) FROM vectores", [], |r| r.get(0))
@@ -283,55 +299,8 @@ pub fn busca_vector(
                 .context("embed de la query")?;
         let embedding = embeddings.pop().expect("un embedding de la query");
 
-        let vecinos = crate::vectores::knn(&conn, &embedding, total_vectores as usize)
-            .context("KNN exhaustivo sobre vectores")?;
-
-        let permalinks: HashMap<i64, String> = {
-            let mut stmt = conn.prepare("SELECT id, permalink FROM trozos")?;
-            stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?
-                .collect::<rusqlite::Result<_>>()
-                .context("leer permalinks de trozos")?
-        };
-
-        let mut mejor_por_entidad: HashMap<String, f64> = HashMap::new();
-        for vecino in vecinos {
-            let sim = similitud_desde_l2_cuadrado(vecino.distancia);
-            if sim < umbral {
-                continue;
-            }
-            let Some(permalink) = permalinks.get(&vecino.rowid) else {
-                continue; // trozo huérfano (no debería pasar; defensivo)
-            };
-            mejor_por_entidad
-                .entry(permalink.clone())
-                .and_modify(|actual| {
-                    if sim > *actual {
-                        *actual = sim;
-                    }
-                })
-                .or_insert(sim);
-        }
-
-        let mut entidades: Vec<(String, f64)> = mejor_por_entidad.into_iter().collect();
-        // Desempate determinista por permalink ascendente (M2-09a): sin él,
-        // `sort_by` (estable) preserva el orden de iteración del `HashMap`
-        // de origen, que no es reproducible entre corridas.
-        entidades.sort_by(|a, b| {
-            b.1.partial_cmp(&a.1)
-                .unwrap_or(std::cmp::Ordering::Equal)
-                .then_with(|| a.0.cmp(&b.0))
-        });
-        entidades.truncate(limite);
-
-        entidades
-            .into_iter()
-            .map(|(permalink, score)| Resultado {
-                permalink,
-                tipo: "entity".to_string(),
-                score,
-                ruta: None,
-            })
-            .collect()
+        busca_vector_con_embedding(&conn, &embedding, limite, umbral, total_vectores as usize)
+            .context("KNN acotado por consulta")?
     };
 
     let mut results = results;
@@ -344,7 +313,161 @@ pub fn busca_vector(
         elapsed_s: inicio.elapsed().as_secs_f64(),
         results,
         avisos,
+        aviso_kb_root,
     })
+}
+
+/// Resuelve `permalink` para un conjunto concreto de rowids de `trozos`
+/// (H29): reemplaza el `SELECT id, permalink FROM trozos` completo que
+/// pagaba una tabla entera por consulta cuando el KNN solo necesitaba unas
+/// decenas de filas. `rowids` vacío ⇒ mapa vacío sin tocar la DB.
+fn permalinks_de_rowids(
+    conn: &rusqlite::Connection,
+    rowids: &[i64],
+) -> Result<HashMap<i64, String>> {
+    if rowids.is_empty() {
+        return Ok(HashMap::new());
+    }
+    let placeholders = std::iter::repeat_n("?", rowids.len())
+        .collect::<Vec<_>>()
+        .join(",");
+    let sql = format!("SELECT id, permalink FROM trozos WHERE id IN ({placeholders})");
+    let mut stmt = conn
+        .prepare(&sql)
+        .context("preparar permalinks por rowid")?;
+    let params_dyn: Vec<&dyn rusqlite::ToSql> =
+        rowids.iter().map(|r| r as &dyn rusqlite::ToSql).collect();
+    stmt.query_map(params_dyn.as_slice(), |r| {
+        Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?))
+    })?
+    .collect::<rusqlite::Result<_>>()
+    .context("leer permalinks de trozos por rowid")
+}
+
+/// Agregación chunk→entidad por máxima similitud por permalink (MaxP): un
+/// `vecino` cuya similitud no llega a `umbral` no cuenta, y uno cuyo rowid
+/// no está en `permalinks` es un trozo huérfano (defensivo, no debería
+/// pasar). Pura, sin DB — la comparten `busca_vector_con_embedding` y el
+/// test de equivalencia exhaustiva.
+fn agrega_maxp(
+    vecinos: &[crate::vectores::VecinoKnn],
+    permalinks: &HashMap<i64, String>,
+    umbral: f64,
+) -> HashMap<String, f64> {
+    let mut mejor_por_entidad: HashMap<String, f64> = HashMap::new();
+    for vecino in vecinos {
+        let sim = similitud_desde_l2_cuadrado(vecino.distancia);
+        if sim < umbral {
+            continue;
+        }
+        let Some(permalink) = permalinks.get(&vecino.rowid) else {
+            continue;
+        };
+        mejor_por_entidad
+            .entry(permalink.clone())
+            .and_modify(|actual| {
+                if sim > *actual {
+                    *actual = sim;
+                }
+            })
+            .or_insert(sim);
+    }
+    mejor_por_entidad
+}
+
+/// Tamaño mínimo de la ventana KNN inicial (H29): con `limite` chico
+/// (p.ej. 1), `limite·K_FACTOR_INICIAL` sería demasiado pequeño para
+/// absorber la dispersión típica de trozos por nota.
+const K_MIN: usize = 64;
+/// Factor de la ventana inicial sobre `limite` (H29): 8 trozos candidatos
+/// por resultado pedido, calibrado contra la medida del consultor (a 95k
+/// trozos, `limite=10` con `sim≥0.35` ya resuelve en la primera ventana el
+/// grueso de las 6 queries naturales de `NOTAS-medidas.md`).
+const K_FACTOR_INICIAL: usize = 8;
+/// Factor de crecimiento de la ventana cuando no alcanza (H29): 4× por
+/// iteración llega de la ventana inicial al tope de vec0 (4096) en como
+/// mucho 4-5 vueltas incluso para `limite` grande.
+const K_FACTOR_CRECIMIENTO: usize = 4;
+
+/// KNN cuyo `k` lo fija la propia consulta, no el tamaño del corpus (H29,
+/// hotfix del bug medido por el consultor: `busca_vector` pedía
+/// `k = COUNT(*)` siempre, y por encima de 4.096 vecinos vec0 cae al
+/// `barrido_completo` de `vectores.rs` a ~130× el costo del KNN nativo —
+/// `exo recall --query` a 5.000 notas tardaba 10,2 s, muy por encima del
+/// timeout de 5 s del hook).
+///
+/// **Exacto por construcción** — es el Threshold Algorithm de Fagin, Lotem
+/// y Naor (JCSS 2003) con una sola lista ordenada por distancia y
+/// agregación MaxP: arranca en
+/// `k = min(total_vectores, max(K_MIN, limite·K_FACTOR_INICIAL))` y
+/// multiplica `k` por `K_FACTOR_CRECIMIENTO` (tope `total_vectores`) hasta
+/// que se cumple alguna de:
+///   - ya hay `limite` permalinks distintos con similitud ≥ `umbral` en la
+///     ventana actual: como el KNN de vec0 devuelve en orden de distancia
+///     creciente (= similitud coseno decreciente, `similitud_desde_l2_cuadrado`
+///     es monótona decreciente en la distancia), cualquier permalink que
+///     todavía no apareció tiene, como mejor trozo, uno con similitud ≤ la
+///     del último vecino de la ventana — que ya es ≤ la de cualquiera de
+///     los `limite` ya vistos. No puede desplazar a ninguno de los `limite`
+///     mejores;
+///   - el último vecino de la ventana ya no pasa `umbral`: la similitud es
+///     no creciente en la distancia, así que nada más lejano puede pasarlo
+///     tampoco — seguir agrandando `k` es inútil;
+///   - `k` alcanzó `total_vectores`: no queda corpus que mirar (aquí el
+///     KNN cae al `barrido_completo` de `vectores.rs` si `total_vectores >
+///     4096`, mismo fallback patológico de antes, ahora solo alcanzado
+///     cuando de verdad hace falta).
+///
+/// Inyectable sin pasar por el embedder de proceso (recibe el embedding ya
+/// calculado) — así lo ejercita el test de equivalencia contra la versión
+/// exhaustiva sin cargar el modelo real.
+pub fn busca_vector_con_embedding(
+    conn: &rusqlite::Connection,
+    embedding: &[f32],
+    limite: usize,
+    umbral: f64,
+    total_vectores: usize,
+) -> Result<Vec<Resultado>> {
+    let mut k = total_vectores.min(K_MIN.max(limite.saturating_mul(K_FACTOR_INICIAL)));
+
+    let mejor_por_entidad = loop {
+        let vecinos =
+            crate::vectores::knn(conn, embedding, k).context("KNN acotado por consulta")?;
+        let rowids: Vec<i64> = vecinos.iter().map(|v| v.rowid).collect();
+        let permalinks = permalinks_de_rowids(conn, &rowids)?;
+        let mejor_por_entidad = agrega_maxp(&vecinos, &permalinks, umbral);
+
+        let ultimo_pasa_umbral = vecinos
+            .last()
+            .map(|u| similitud_desde_l2_cuadrado(u.distancia) >= umbral)
+            .unwrap_or(false);
+
+        if mejor_por_entidad.len() >= limite || !ultimo_pasa_umbral || k >= total_vectores {
+            break mejor_por_entidad;
+        }
+        k = total_vectores.min(k.saturating_mul(K_FACTOR_CRECIMIENTO));
+    };
+
+    let mut entidades: Vec<(String, f64)> = mejor_por_entidad.into_iter().collect();
+    // Desempate determinista por permalink ascendente (M2-09a): sin él,
+    // `sort_by` (estable) preserva el orden de iteración del `HashMap`
+    // de origen, que no es reproducible entre corridas.
+    entidades.sort_by(|a, b| {
+        b.1.partial_cmp(&a.1)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.0.cmp(&b.0))
+    });
+    entidades.truncate(limite);
+
+    Ok(entidades
+        .into_iter()
+        .map(|(permalink, score)| Resultado {
+            permalink,
+            tipo: "entity".to_string(),
+            score,
+            ruta: None,
+        })
+        .collect())
 }
 
 /// Normalización BM25 por-query con anclaje β (spec fusión §4.3, D-f1):
@@ -417,13 +540,22 @@ fn fusiona(
 /// `2026-07-17-fusion-design.md` §4). Candidatos FTS: hasta **K_c = 50**
 /// (constante de implementación, NO parámetro del sweep — §4.2, insensible
 /// mientras K_c ≫ `limite`) vía `busca()` (ya no trunca a `limite` porque se
-/// le pide K_c directamente, sin refactor necesario). Candidatos vector:
-/// exhaustivo con threshold pre-fusión sobre `v` (D-f3), vía `busca_vector`
-/// con un límite efectivamente sin techo (mismo threshold/precedencia
-/// flags>config que el arm vector puro). Normalización BM25 por-query con
-/// anclaje β (`escala_fts`) vía `normaliza_fts`; fusión por unión (D-f2) vía
-/// `fusiona`. Orden por score fusionado desc, truncado a `limite` DESPUÉS de
-/// fusionar (§4.4).
+/// le pide K_c directamente, sin refactor necesario). Candidatos vector: con
+/// `bonus == 0` (sellado en producción, `BONUS_SELLADO` en `main.rs`, pero
+/// override-able con `--bonus`), acotado a `limite` (H29) — la fórmula de
+/// fusión (`score = max(v,f) + bonus·min(v,f)`) colapsa a `max(v,f)`, y
+/// ningún permalink fuera del top-`limite` por `v` puede desplazar a uno de
+/// los `limite` mejores fusionados: el mismo argumento del Threshold
+/// Algorithm de `busca_vector_con_embedding` (el `limite`-ésimo por `v` ya
+/// domina a cualquier candidato no visto) aplica aquí porque el canal FTS
+/// no depende de cuántos candidatos de `v` se pidan. **Con `bonus != 0` esa
+/// garantía NO vale** (un permalink con `v` bajo puede colar por el término
+/// `bonus·min(v,f)` si su `f` es alto) — ahí el arm vector vuelve a pedirse
+/// exhaustivo (mismo comportamiento pre-H29), guardado explícitamente abajo
+/// en vez de arriesgar un resultado distinto al pre-fix. Normalización BM25
+/// por-query con anclaje β (`escala_fts`) vía `normaliza_fts`; fusión por
+/// unión (D-f2) vía `fusiona`. Orden por score fusionado desc, truncado a
+/// `limite` DESPUÉS de fusionar (§4.4).
 pub fn busca_hybrid(
     db_ruta: &Path,
     query: &str,
@@ -431,6 +563,7 @@ pub fn busca_hybrid(
     min_similitud: Option<f64>,
     bonus: f64,
     escala_fts: f64,
+    kb: Option<&Path>,
 ) -> Result<Busqueda> {
     if !db_ruta.exists() {
         anyhow::bail!("DB no encontrada: {}", db_ruta.display());
@@ -439,7 +572,8 @@ pub fn busca_hybrid(
     let inicio = Instant::now();
 
     const K_C: usize = 50;
-    let fts = busca(db_ruta, query, K_C)?;
+    let fts = busca(db_ruta, query, K_C, kb)?;
+    let aviso_fts = fts.aviso_kb_root;
     let candidatos_fts: Vec<(String, f64)> = fts
         .results
         .into_iter()
@@ -447,8 +581,18 @@ pub fn busca_hybrid(
         .collect();
     let f_por_entidad = normaliza_fts(&candidatos_fts, escala_fts);
 
-    let vector = busca_vector(db_ruta, query, usize::MAX, min_similitud)?;
+    // Guarda explícita (H29, ver doc de la función): el atajo top-`limite`
+    // solo es exacto con `bonus == 0.0`. Cualquier `bonus` distinto — hoy
+    // solo alcanzable con `--bonus` explícito, `BONUS_SELLADO` es 0.0 —
+    // vuelve al arm vector exhaustivo de siempre.
+    let limite_vector = if bonus == 0.0 { limite } else { usize::MAX };
+    let vector = busca_vector(db_ruta, query, limite_vector, min_similitud, kb)?;
     let avisos = vector.avisos;
+    // El aviso de kb_root sale de la MISMA DB por los dos arms (`fts` y
+    // `vector` abren conexiones distintas, pero contra el mismo fichero):
+    // cualquiera de los dos vale, `or` evita duplicar el texto en el
+    // resultado final.
+    let aviso_kb_root = aviso_fts.or(vector.aviso_kb_root);
     let v_por_entidad: HashMap<String, f64> = vector
         .results
         .into_iter()
@@ -466,6 +610,7 @@ pub fn busca_hybrid(
         elapsed_s: inicio.elapsed().as_secs_f64(),
         results,
         avisos,
+        aviso_kb_root,
     })
 }
 
@@ -597,6 +742,228 @@ mod tests_fusion {
                 vec!["a", "b", "c", "d", "e"],
                 "empate quíntuple debe desempatar por permalink ascendente: {r:?}"
             );
+        }
+    }
+}
+
+/// Test falsable de H29 (brief `fix-knn-k-por-consulta`): `busca_vector_con_embedding`
+/// debe ser BIT A BIT idéntico a un KNN exhaustivo (`k = total_vectores`)
+/// para cualquier corpus, sin cargar el embedder real — el embedding de la
+/// query es sintético e inyectado directamente.
+#[cfg(test)]
+mod tests_knn_por_consulta {
+    use super::*;
+    use crate::abre_db_en_memoria;
+    use crate::schema::crea_schema;
+    use rusqlite::Connection;
+
+    /// PRNG determinista (SplitMix64): el objetivo es reproducibilidad
+    /// semilla→corpus, no calidad criptográfica, así que no hace falta la
+    /// crate `rand` (no es dependencia de `exo`).
+    struct Rng(u64);
+    impl Rng {
+        fn semilla(s: u64) -> Self {
+            Self(s.wrapping_add(0x9E37_79B9_7F4A_7C15))
+        }
+        fn u64(&mut self) -> u64 {
+            self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
+            let mut z = self.0;
+            z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+            z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+            z ^ (z >> 31)
+        }
+        /// Entero uniforme en `[min, max_incl]`.
+        fn en_rango(&mut self, min: usize, max_incl: usize) -> usize {
+            let span = (max_incl - min + 1) as u64;
+            min + (self.u64() % span) as usize
+        }
+        /// `f32` uniforme en `[-1, 1)`.
+        fn f32_signado(&mut self) -> f32 {
+            let u = (self.u64() >> 11) as f64 / (1u64 << 53) as f64; // [0,1)
+            (u * 2.0 - 1.0) as f32
+        }
+    }
+
+    /// Vector unitario aleatorio de `dims` componentes — los embeddings
+    /// reales (fastembed) siempre tienen norma 1 (ver doc de
+    /// `similitud_desde_l2_cuadrado`), y la conversión L2²→coseno solo vale
+    /// bajo esa premisa.
+    fn vector_unitario(rng: &mut Rng, dims: usize) -> Vec<f32> {
+        let mut v: Vec<f32> = (0..dims).map(|_| rng.f32_signado()).collect();
+        let norma = v
+            .iter()
+            .map(|x| (*x as f64) * (*x as f64))
+            .sum::<f64>()
+            .sqrt();
+        if norma > 1e-9 {
+            for x in v.iter_mut() {
+                *x = (*x as f64 / norma) as f32;
+            }
+        } else {
+            v[0] = 1.0; // degenerado (no debería pasar con 768 dims), evita 0/0
+        }
+        v
+    }
+
+    /// Corpus sintético: `n_notas` notas, cada una con un número aleatorio
+    /// (1..=40) de trozos, cada trozo con un embedding unitario aleatorio.
+    /// Devuelve la conexión poblada y el total de vectores insertados.
+    fn corpus_sintetico(rng: &mut Rng, n_notas: usize) -> (Connection, usize) {
+        let mut conn = abre_db_en_memoria().expect("db en memoria");
+        crea_schema(&conn).expect("crea_schema");
+
+        let tx = conn.transaction().expect("abrir transacción");
+        let mut id: i64 = 0;
+        for nota in 0..n_notas {
+            let n_trozos = rng.en_rango(1, 40);
+            let permalink = format!("nota-{nota}");
+            tx.execute(
+                "INSERT INTO notas (permalink, ruta, titulo, mtime) VALUES (?1, ?2, ?3, 0.0)",
+                rusqlite::params![permalink, format!("{permalink}.md"), permalink],
+            )
+            .expect("insertar nota");
+            for orden in 0..n_trozos {
+                id += 1;
+                tx.execute(
+                    "INSERT INTO trozos (id, permalink, orden, texto) VALUES (?1, ?2, ?3, 'x')",
+                    rusqlite::params![id, permalink, orden as i64],
+                )
+                .expect("insertar trozo");
+                let emb = vector_unitario(rng, 768);
+                crate::vectores::inserta(&tx, id, &emb).expect("insertar vector");
+            }
+        }
+        tx.commit().expect("commit del corpus sintético");
+        (conn, id as usize)
+    }
+
+    /// Variante con exactamente un trozo por nota — para el caso k > 4096
+    /// (H27) sin pagar hasta 40× más inserts.
+    fn corpus_sintetico_un_trozo_por_nota(rng: &mut Rng, n_notas: usize) -> (Connection, usize) {
+        let mut conn = abre_db_en_memoria().expect("db en memoria");
+        crea_schema(&conn).expect("crea_schema");
+        let tx = conn.transaction().expect("abrir transacción");
+        for nota in 0..n_notas {
+            let id = (nota + 1) as i64;
+            let permalink = format!("nota-{nota}");
+            tx.execute(
+                "INSERT INTO notas (permalink, ruta, titulo, mtime) VALUES (?1, ?2, ?3, 0.0)",
+                rusqlite::params![permalink, format!("{permalink}.md"), permalink],
+            )
+            .expect("insertar nota");
+            tx.execute(
+                "INSERT INTO trozos (id, permalink, orden, texto) VALUES (?1, ?2, 0, 'x')",
+                rusqlite::params![id, permalink],
+            )
+            .expect("insertar trozo");
+            let emb = vector_unitario(rng, 768);
+            crate::vectores::inserta(&tx, id, &emb).expect("insertar vector");
+        }
+        tx.commit().expect("commit del corpus sintético");
+        (conn, n_notas)
+    }
+
+    /// Oráculo: el comportamiento PRE-H29 (`k = total_vectores` siempre, sin
+    /// el bucle por-consulta) — comparte `agrega_maxp`/`permalinks_de_rowids`
+    /// con la función bajo test porque esas dos NO son lo que se está
+    /// verificando (la agregación MaxP ya tenía sus propios tests); lo que
+    /// se verifica es que la ventana `k` recortada y creciente del bucle
+    /// llegue exactamente al mismo resultado que mirar todo el corpus de
+    /// una sola vez.
+    fn referencia_exhaustiva(
+        conn: &Connection,
+        embedding: &[f32],
+        limite: usize,
+        umbral: f64,
+        total: usize,
+    ) -> Vec<Resultado> {
+        let vecinos = crate::vectores::knn(conn, embedding, total).expect("knn exhaustivo");
+        let rowids: Vec<i64> = vecinos.iter().map(|v| v.rowid).collect();
+        let permalinks = permalinks_de_rowids(conn, &rowids).expect("permalinks");
+        let mejor_por_entidad = agrega_maxp(&vecinos, &permalinks, umbral);
+
+        let mut entidades: Vec<(String, f64)> = mejor_por_entidad.into_iter().collect();
+        entidades.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.0.cmp(&b.0))
+        });
+        entidades.truncate(limite);
+        entidades
+            .into_iter()
+            .map(|(permalink, score)| Resultado {
+                permalink,
+                tipo: "entity".to_string(),
+                score,
+                ruta: None,
+            })
+            .collect()
+    }
+
+    /// Test falsable central: 200 semillas × 3 umbrales × 3 `limite` = 1.800
+    /// comparaciones exactas (permalinks, orden Y scores) contra la
+    /// referencia exhaustiva. Corpus: 3-30 notas, 1-40 trozos/nota,
+    /// vectores normalizados a norma unidad (como los embeddings reales).
+    ///
+    /// Mutación probada a mano (no se deja en el árbol, ver PR): parar en
+    /// `mejor_por_entidad.len() >= limite.saturating_sub(1)` en vez de
+    /// `>= limite` pone este test en rojo (falta la última entidad del
+    /// top-`limite`, p.ej. semilla=61, umbral=0, limite=10: devuelve 9
+    /// resultados en vez de 10, `nota-7` desaparece). Quitar la rama
+    /// `!ultimo_pasa_umbral` en cambio NO lo enrojece: esa condición es una
+    /// poda de rendimiento (evita seguir creciendo `k` cuando ya no puede
+    /// aparecer nada más sobre el umbral), no de corrección — sin ella el
+    /// bucle simplemente sigue creciendo `k` de más hasta topar con
+    /// `distintas >= limite` o `k == total`, mismo resultado final, más
+    /// lento. Verificado con las dos mutaciones antes de commitear.
+    #[test]
+    fn equivalencia_exacta_contra_exhaustiva() {
+        let umbrales = [0.0, 0.3, 0.45];
+        let limites = [1usize, 4, 10];
+
+        for semilla in 0u64..200 {
+            let mut rng = Rng::semilla(semilla);
+            let n_notas = rng.en_rango(3, 30);
+            let (conn, total) = corpus_sintetico(&mut rng, n_notas);
+            let query = vector_unitario(&mut rng, 768);
+
+            for &umbral in &umbrales {
+                for &limite in &limites {
+                    let obtenido = busca_vector_con_embedding(&conn, &query, limite, umbral, total)
+                        .unwrap_or_else(|e| {
+                            panic!("semilla={semilla} umbral={umbral} limite={limite}: {e}")
+                        });
+                    let esperado = referencia_exhaustiva(&conn, &query, limite, umbral, total);
+                    assert_eq!(
+                        obtenido, esperado,
+                        "semilla={semilla} n_notas={n_notas} total={total} umbral={umbral} limite={limite}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// Cubre el caso k > 4096 (H27+H29): con `total_vectores` por encima del
+    /// tope de vec0, el bucle tiene que escalar `k` hasta cruzarlo (donde
+    /// `vectores::knn` cae a `barrido_completo`) y seguir siendo exacto.
+    #[test]
+    fn equivalencia_exacta_por_encima_del_tope_vec0() {
+        let mut rng = Rng::semilla(999_983);
+        let n_notas = 4200; // 1 trozo/nota ⇒ total_vectores = 4200 > 4096
+        let (conn, total) = corpus_sintetico_un_trozo_por_nota(&mut rng, n_notas);
+        assert!(total > 4096, "total={total} debe superar el tope de vec0");
+        let query = vector_unitario(&mut rng, 768);
+
+        for &umbral in &[0.0, 0.3] {
+            for &limite in &[1usize, 10] {
+                let obtenido =
+                    busca_vector_con_embedding(&conn, &query, limite, umbral, total).unwrap();
+                let esperado = referencia_exhaustiva(&conn, &query, limite, umbral, total);
+                assert_eq!(
+                    obtenido, esperado,
+                    "umbral={umbral} limite={limite} total={total}"
+                );
+            }
         }
     }
 }

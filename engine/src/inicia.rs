@@ -109,6 +109,37 @@ pub fn valida_config_escribible(destino: &Path, force: bool) -> Result<()> {
     Ok(())
 }
 
+/// La DB que indexa `exo init` y que graba en `[index] db`: `$EXO_DB` si
+/// viene y no está vacía (con `~` expandida), si no `<home>/.exo/index.db`.
+/// Es la precedencia de `resuelve_db` sin config, que aún no existe.
+///
+/// Función pura (recibe el valor de `$EXO_DB` y el home) para poder
+/// probar el caso sin `$EXO_DB` sin lanzar el binario: en Windows
+/// `dirs::home_dir()` no mira `$HOME`, así que un test de CLI que aísle con
+/// `HOME` escribiría en el perfil real.
+pub fn db_de_init(exo_db: Option<&str>, home: &Path) -> PathBuf {
+    match exo_db {
+        Some(v) if !v.is_empty() => crate::config::expande_tilde(Path::new(v)),
+        _ => home.join(".exo/index.db"),
+    }
+}
+
+/// H1: llamada por `exo init` ANTES de tocar el disco, por la misma razón que
+/// `valida_config_escribible` (I4): si la DB ya es de otra KB, el aborto tiene
+/// que llegar antes de volcar la plantilla y escribir la config, no en el
+/// indexado final. En modo creación la KB aún no existe y no se puede
+/// canonicalizar; una ruta inexistente nunca es la KB registrada, que sí
+/// existe, así que se compara tal cual.
+pub fn valida_db_para_kb(db: &Path, kb: &Path) -> Result<()> {
+    if !db.exists() {
+        return Ok(());
+    }
+    let conn = crate::abre_db(db)?;
+    crate::schema::crea_schema(&conn)?;
+    let kb_abs = std::fs::canonicalize(kb).unwrap_or_else(|_| kb.to_path_buf());
+    crate::indexer::comprueba_kb_root(&conn, &kb_abs, crate::indexer::OrigenComprobacion::Init)
+}
+
 /// Escribe `config.toml`. Se niega si el destino existe y no hay `--force`:
 /// pisar la config de alguien sin avisar es exactamente el tipo de efecto
 /// silencioso que este proyecto persigue.

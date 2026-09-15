@@ -395,18 +395,22 @@ done
 # =========================================================================
 # Caso 11 (I6): --type sin valor ⇒ exit≠0 rápido (no cuelga esperando $2).
 # Antes, "shift 2" con un solo posicional restante no avanzaba $# y el parser
-# quedaba en loop infinito; timeout 3 detecta la regresión (ec=124=cuelgue).
+# quedaba en loop infinito; con_timeout 3 detecta la regresión (ec=124=cuelgue).
+# ec=127 también es rojo: con `timeout` a pelo, en macOS (sin `timeout`) este
+# caso salía VERDE sin haber ejecutado el parser — 127 cumplía "≠0 y ≠124".
 # =========================================================================
 {
-  timeout 3 "$COMPOSE" --type >/dev/null 2>&1
+  . "$SCRIPT_DIR/_timeout.sh"
+  con_timeout 3 "$COMPOSE" --type >/dev/null 2>&1
   EC11=$?
-  timeout 3 "$COMPOSE" --type general-purpose --kb >/dev/null 2>&1
+  con_timeout 3 "$COMPOSE" --type general-purpose --kb >/dev/null 2>&1
   EC11B=$?
-  if [ $EC11 -ne 0 ] && [ $EC11 -ne 124 ] && [ $EC11B -ne 0 ] && [ $EC11B -ne 124 ]; then
+  if [ $EC11 -ne 0 ] && [ $EC11 -ne 124 ] && [ $EC11 -ne 127 ] \
+     && [ $EC11B -ne 0 ] && [ $EC11B -ne 124 ] && [ $EC11B -ne 127 ]; then
     pass "caso11: --type/--kb sin valor ⇒ exit≠0 rápido (sin cuelgue)"
   else
     fail "caso11: --type/--kb sin valor ⇒ exit≠0 rápido (sin cuelgue)" \
-      "ec_type=$EC11 ec_kb=$EC11B (124=timeout/cuelgue)"
+      "ec_type=$EC11 ec_kb=$EC11B (124=timeout/cuelgue, 127=comando ausente)"
   fi
 }
 

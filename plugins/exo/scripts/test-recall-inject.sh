@@ -111,6 +111,7 @@ mkdir -p "$GLOBDIR" && touch "$GLOBDIR/a.md" "$GLOBDIR/b.md"
   grep -q 'no-engine' "$REFLEX_LOG_FILE" 2>/dev/null && exit 1
   exit 0
 )
+# shellcheck disable=SC2181 # el exit que se mira es el del subshell de arriba, no un comando suelto
 if [ $? -eq 0 ]; then pass "F1: 'vale *' calla aunque el CWD tenga ficheros"
 else fail "F1: 'vale *' calla aunque el CWD tenga ficheros" "el glob se expandió y disparó el gate"; fi
 
@@ -518,6 +519,51 @@ else
   fail "config real: \`exo config\` falla ⇒ loguea no-config con el motivo exacto" \
     "$(cat "$REFLEX_LOG_FILE" 2>/dev/null)"
 fi
+
+# ------------------------------------ H2/H3: avisos y tiempos del engine ---
+AVISA="$TMP/exo-avisa"
+cat > "$AVISA" <<'EOF'
+#!/usr/bin/env bash
+echo "aviso: arm vector INERTE: 0 vectores para 9 trozos." >&2
+cat <<'JSON'
+{"command":"recall","data":{"cap_bytes":4000,"mode":"consulta","elapsed_s":0.9876,"refresh_s":0.0123,"warnings":["arm vector INERTE: 0 vectores para 9 trozos."],"notes":[
+{"permalink":"kb-demo/log/kbx-bitacora","path":"/kb/log/kbx-bitacora.md","score":0.5,"snippet":"bitacora de kbx","tier":null,"title":"kbx-bitacora"}
+],"query":"kbx","truncated":false},"schema_version":2}
+JSON
+EOF
+chmod +x "$AVISA"
+: > "$REFLEX_LOG_FILE"
+run_hook "kbx trinquete" "$AVISA"
+BL_AV="$(printf '%s' "$HOOK_OUT" | jq -r '.hookSpecificOutput.additionalContext' 2>/dev/null)"
+if [ "$HOOK_RC" -eq 0 ] && contains "$BL_AV" "kbx-bitacora"; then pass "H2: con avisos el bloque se sigue emitiendo"
+else fail "H2: con avisos el bloque se sigue emitiendo" "rc=$HOOK_RC out='$HOOK_OUT'"; fi
+if grep 'recall-inject-degraded' "$REFLEX_LOG_FILE" 2>/dev/null | grep -q 'reason=engine-warning w=arm vector INERTE'; then
+  pass "H2: el aviso del engine deja rastro engine-warning"
+else fail "H2: el aviso del engine deja rastro engine-warning" "$(cat "$REFLEX_LOG_FILE" 2>/dev/null)"; fi
+PL_AV="$(jq -r 'select(.reflex=="recall-inject-emitted") | .payload' "$REFLEX_LOG_FILE" 2>/dev/null | tail -1)"
+if contains "$PL_AV" "elapsed_ms=987 refresh_ms=12 permalinks="; then pass "H3: emitted lleva elapsed_ms y refresh_ms antes de permalinks"
+else fail "H3: emitted lleva elapsed_ms y refresh_ms antes de permalinks" "payload='$PL_AV'"; fi
+
+: > "$REFLEX_LOG_FILE"
+run_hook "kbx trinquete" "$CUATRO"
+if grep -q 'engine-warning' "$REFLEX_LOG_FILE" 2>/dev/null; then fail "H2: sin avisos no hay engine-warning" "$(cat "$REFLEX_LOG_FILE")"
+else pass "H2: sin avisos no hay engine-warning"; fi
+
+# rc=1 con un aviso de más de 300 B delante de «recall vacío»: antes el
+# `head -c 300` del stderr se quedaba solo con el aviso y lo logueaba como error.
+VACIO_AVISA="$TMP/exo-vacio-avisa"
+cat > "$VACIO_AVISA" <<'EOF'
+#!/usr/bin/env bash
+printf 'aviso: arm vector INERTE: 0 vectores para 3290 trozos.%0300d\n' 0 >&2
+echo "error: recall vacío (modo consulta): sin notas para el bloque" >&2
+exit 1
+EOF
+chmod +x "$VACIO_AVISA"
+: > "$REFLEX_LOG_FILE"
+run_hook "M6-06" "$VACIO_AVISA"
+if grep -q 'reason=empty warn=aviso: arm vector INERTE' "$REFLEX_LOG_FILE" 2>/dev/null; then
+  pass "H2: vacío con aviso largo sigue siendo empty y lleva el aviso"
+else fail "H2: vacío con aviso largo sigue siendo empty y lleva el aviso" "$(cat "$REFLEX_LOG_FILE" 2>/dev/null)"; fi
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

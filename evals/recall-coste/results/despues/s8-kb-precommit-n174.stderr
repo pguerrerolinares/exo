@@ -1,0 +1,93 @@
+core	notas=6	bytes=67698	presupuesto=8500	delta=59198
+stable	notas=60	bytes=677226	presupuesto=12500	delta=664726
+log	notas=108	bytes=1218083	presupuesto=0	delta=0
+offender: core/core-index.md (core) 11343/8500 bytes
+offender: core/nota-00087.md (core) 11286/8500 bytes
+offender: core/nota-00029.md (core) 11276/8500 bytes
+offender: core/nota-00116.md (core) 11268/8500 bytes
+offender: core/nota-00058.md (core) 11263/8500 bytes
+offender: core/nota-00145.md (core) 11262/8500 bytes
+no-air: projects/nota-00092.md (stable) 11309/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00150.md (stable) 11307/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00037.md (stable) 11306/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00030.md (stable) 11305/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00121.md (stable) 11304/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00123.md (stable) 11304/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00148.md (stable) 11302/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00124.md (stable) 11301/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00060.md (stable) 11300/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00151.md (stable) 11298/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00153.md (stable) 11298/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00008.md (stable) 11297/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00061.md (stable) 11297/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00005.md (stable) 11296/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00067.md (stable) 11296/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00147.md (stable) 11296/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00097.md (stable) 11295/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00007.md (stable) 11294/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00090.md (stable) 11293/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00004.md (stable) 11292/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00035.md (stable) 11291/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00094.md (stable) 11291/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00068.md (stable) 11290/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00122.md (stable) 11290/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00146.md (stable) 11290/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00002.md (stable) 11288/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00031.md (stable) 11288/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00066.md (stable) 11288/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00009.md (stable) 11287/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00036.md (stable) 11287/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00064.md (stable) 11287/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00063.md (stable) 11286/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00126.md (stable) 11286/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00003.md (stable) 11285/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00039.md (stable) 11285/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00091.md (stable) 11285/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00120.md (stable) 11285/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00032.md (stable) 11284/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00001.md (stable) 11283/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00089.md (stable) 11283/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00125.md (stable) 11283/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00117.md (stable) 11282/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00006.md (stable) 11280/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00065.md (stable) 11280/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00149.md (stable) 11278/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00152.md (stable) 11278/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00059.md (stable) 11277/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00062.md (stable) 11277/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00038.md (stable) 11276/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00118.md (stable) 11276/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00119.md (stable) 11276/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00095.md (stable) 11275/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00096.md (stable) 11275/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00033.md (stable) 11274/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00034.md (stable) 11272/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00155.md (stable) 11269/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00010.md (stable) 11268/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00088.md (stable) 11268/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00093.md (stable) 11267/12500 bytes a ras — poda a 10869 para el 15% de aire
+no-air: projects/nota-00154.md (stable) 11266/12500 bytes a ras — poda a 10869 para el 15% de aire
+rechazado: budget: 6 nota(s) sobre presupuesto, 0 sin tier legal
+
+────────────────────────────────────────────────────────────────────────
+El gate de la KB ha rechazado este commit. QUÉ NO HACER:
+
+  ✗ NO subas kbx_budget_max ni edites .kbx-ratchet.json para que pase.
+    El techo solo baja: subirlo es exactamente lo que este gate existe
+    para impedir.
+  ✗ NO recortes la nota a lo bruto para que quepa. Perder el matiz es
+    peor que el commit rechazado.
+
+QUÉ HACER, en orden:
+
+  1. Si la nota creció con histórico: PÁRTELA. Mueve lo fechado a su
+     bitácora (log/<slug>-bitacora.md). El canon se queda con el destilado.
+  2. Si la bitácora es la que ha crecido: kbx rotate --kb <kb> --apply
+     archiva su cola fría en archive/log/. (Sigue en kbx: exo no tiene
+     todavía el verbo rotate.)
+  3. Si nada de eso aplica: deja el commit pendiente y díselo a Paul.
+     Un commit sin hacer se arregla en un minuto; una nota mutilada, no.
+────────────────────────────────────────────────────────────────────────
+ 
+  Warning: Ignoring non-zero exit code.
+  Warning: Statistical outliers were detected. Consider re-running this benchmark on a quiet system without any interferences from other programs. It might help to use the '--warmup' or '--prepare' options.

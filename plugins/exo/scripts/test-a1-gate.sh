@@ -2,6 +2,7 @@
 # Test standalone para a1-gate.sh (Task 6, gate doc docs/superpowers/evals/2026-08-02-a1-gate.md).
 # Fixtures en mktemp -d/-p; nunca toca ~/.claude/reflex-log.jsonl ni ~/.claude/projects reales
 # (REFLEX_LOG_FILE / REFLEX_PROJECTS_DIR siempre apuntan a fixtures).
+# shellcheck disable=SC2015 # `[ … ] && pass || fail` es el idioma de aserción de esta suite: pass nunca falla
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -62,15 +63,15 @@ for f in "$PROJ1/proj1/sidA/subagents/agent-a1.meta.json" \
          "$PROJ1/proj2/sidC/subagents/agent-a4.meta.json" \
          "$PROJ1/proj2/sidD/subagents/agent-a5.meta.json"; do
   echo '{"spawnDepth":1}' > "$f"
-  touch -d "2026-08-02 09:00:00" "$f"
+  touch -t 202608020900.00 "$f"
 done
 echo '{"spawnDepth":2}' > "$PROJ1/proj1/sidA/subagents/agent-a6.meta.json"
-touch -d "2026-08-02 09:00:00" "$PROJ1/proj1/sidA/subagents/agent-a6.meta.json"
+touch -t 202608020900.00 "$PROJ1/proj1/sidA/subagents/agent-a6.meta.json"
 echo '{"spawnDepth":1}' > "$PROJ1/proj1/sidA/subagents/agent-a7.meta.json"
-touch -d "2026-07-01 09:00:00" "$PROJ1/proj1/sidA/subagents/agent-a7.meta.json"
+touch -t 202607010900.00 "$PROJ1/proj1/sidA/subagents/agent-a7.meta.json"
 mkdir -p "$PROJ1/proj1/TEST-decoy-session/subagents"
 echo '{"spawnDepth":1}' > "$PROJ1/proj1/TEST-decoy-session/subagents/agent-td1.meta.json"
-touch -d "2026-08-02 09:00:00" "$PROJ1/proj1/TEST-decoy-session/subagents/agent-td1.meta.json"
+touch -t 202608020900.00 "$PROJ1/proj1/TEST-decoy-session/subagents/agent-td1.meta.json"
 
 # --- transcripts de hijo: 3 en ventana citan/no-citan (join por LOG, I3), 1
 # con mtime de archivo VIEJO pero log en ventana (debe contar igual — prueba
@@ -81,13 +82,13 @@ cat > "$PROJ1/proj1/sidA/subagents/agent-a1.jsonl" <<'EOF'
 {"type":"assistant","message":{"content":[{"type":"text","text":"Trabajando en la tarea."}]}}
 {"type":"assistant","message":{"content":[{"type":"text","text":"Listo. RFX-A1-K3P7"}]}}
 EOF
-touch -d "2026-08-02 09:00:00" "$PROJ1/proj1/sidA/subagents/agent-a1.jsonl"
+touch -t 202608020900.00 "$PROJ1/proj1/sidA/subagents/agent-a1.jsonl"
 
 cat > "$PROJ1/proj1/sidB/subagents/agent-a3.jsonl" <<'EOF'
 {"type":"system","hookEvent":"SubagentStart","additionalContext":"=== Contexto inyectado ===\nMarca de medicion: incluye el token RFX-A1-K3P7 literal en tu mensaje final."}
 {"type":"assistant","message":{"content":[{"type":"text","text":"Termine. Token: RFX-A1-K3P7"}]}}
 EOF
-touch -d "2026-08-02 09:00:00" "$PROJ1/proj1/sidB/subagents/agent-a3.jsonl"
+touch -t 202608020900.00 "$PROJ1/proj1/sidB/subagents/agent-a3.jsonl"
 
 # recibio=si, pero el ULTIMO texto assistant NO cita (uno anterior si) — valida
 # la lectura "ultimo texto", no "cualquiera".
@@ -96,7 +97,7 @@ cat > "$PROJ1/proj2/sidC/subagents/agent-a4.jsonl" <<'EOF'
 {"type":"assistant","message":{"content":[{"type":"text","text":"Nota: RFX-A1-K3P7"}]}}
 {"type":"assistant","message":{"content":[{"type":"text","text":"Trabajo completado sin mencionar nada especial."}]}}
 EOF
-touch -d "2026-08-02 09:00:00" "$PROJ1/proj2/sidC/subagents/agent-a4.jsonl"
+touch -t 202608020900.00 "$PROJ1/proj2/sidC/subagents/agent-a4.jsonl"
 
 # mtime de archivo viejo (julio) pero su inject-emitted en el LOG tiene ts en
 # ventana ⇒ debe contar (I3: la ventana la decide el log, no el mtime del
@@ -105,7 +106,7 @@ cat > "$PROJ1/proj2/sidD/subagents/agent-a5.jsonl" <<'EOF'
 {"type":"system","hookEvent":"SubagentStart","additionalContext":"=== Contexto inyectado ===\nMarca de medicion: incluye el token RFX-A1-K3P7 literal en tu mensaje final."}
 {"type":"assistant","message":{"content":[{"type":"text","text":"Transcript con mtime viejo. RFX-A1-K3P7"}]}}
 EOF
-touch -d "2026-07-01 09:00:00" "$PROJ1/proj2/sidD/subagents/agent-a5.jsonl"
+touch -t 202607010900.00 "$PROJ1/proj2/sidD/subagents/agent-a5.jsonl"
 
 OUT1="$(REFLEX_LOG_FILE="$LOG1" REFLEX_PROJECTS_DIR="$PROJ1" bash "$GATE" 2026-08-01 2026-08-03 2>&1)"
 EC1=$?
@@ -249,7 +250,7 @@ while [ "$i" -le 10 ]; do
   sid="sidE$i"; aid="aE$i"
   mkdir -p "$PROJ4/p/$sid/subagents"
   echo '{"spawnDepth":1}' > "$PROJ4/p/$sid/subagents/agent-${aid}.meta.json"
-  touch -d "2026-08-20 09:00:00" "$PROJ4/p/$sid/subagents/agent-${aid}.meta.json"
+  touch -t 202608200900.00 "$PROJ4/p/$sid/subagents/agent-${aid}.meta.json"
   if [ "$i" -le 9 ]; then
     printf '{"ts":"2026-08-20T09:%02d:00Z","reflex":"inject-emitted","session_id":"%s","agent_id":"%s","agent_type":"general-purpose","tool":"","payload":""}\n' \
       "$i" "$sid" "$aid" >> "$LOG4"
@@ -308,7 +309,7 @@ while [ "$i" -le 10 ]; do
   mkdir -p "$PROJ6/p/$sid/subagents"
   if [ "$i" -le 6 ]; then depth=0; else depth=1; fi
   printf '{"spawnDepth":%s}\n' "$depth" > "$PROJ6/p/$sid/subagents/agent-${aid}.meta.json"
-  touch -d "2026-08-25 09:00:00" "$PROJ6/p/$sid/subagents/agent-${aid}.meta.json"
+  touch -t 202608250900.00 "$PROJ6/p/$sid/subagents/agent-${aid}.meta.json"
   printf '{"ts":"2026-08-25T09:%02d:00Z","reflex":"inject-emitted","session_id":"%s","agent_id":"%s","agent_type":"general-purpose","tool":"","payload":""}\n' \
     "$i" "$sid" "$aid" >> "$LOG6"
   i=$((i+1))
@@ -453,7 +454,7 @@ cat > "$LOG11" <<'EOF'
 EOF
 for f in "$PROJ11/p/sidK/subagents/agent-aC1.meta.json" "$PROJ11/p/sidK/subagents/agent-aC2.meta.json"; do
   echo '{"spawnDepth":1}' > "$f"
-  touch -d "2026-08-20 09:00:00" "$f"
+  touch -t 202608200900.00 "$f"
 done
 cat > "$PROJ11/p/sidK/subagents/agent-aC1.jsonl" <<'EOF'
 {"type":"system","hookEvent":"SubagentStart","additionalContext":"=== Contexto ===\nMarca de medicion: incluye el token RFX-A1-K3P7 literal en tu mensaje final."}

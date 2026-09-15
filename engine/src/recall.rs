@@ -57,6 +57,17 @@ pub struct Recall {
     pub truncado: bool,
     #[serde(rename = "notes")]
     pub notas: Vec<NotaRecall>,
+    /// Segundos de la búsqueda hybrid (`Busqueda::elapsed_s`, carga del
+    /// modelo incluida). `None` en modo arranque. Aditivo (H2): no sube
+    /// `SCHEMA_VERSION`.
+    pub elapsed_s: Option<f64>,
+    /// Segundos del refresco previo (`--refresh`), `None` sin él. Lo rellena
+    /// `main.rs::recall_cmd`, que es quien refresca. Aditivo (H3).
+    pub refresh_s: Option<f64>,
+    /// Degradaciones de la búsqueda (hoy: cobertura del arm vector), las
+    /// mismas que `exo search` ya publica. Omitido si está vacío (H2).
+    #[serde(rename = "warnings", skip_serializing_if = "Vec::is_empty")]
+    pub avisos: Vec<String>,
 }
 
 /// Resultado crudo de un modo (arranque o consulta), ANTES de aplicar el
@@ -66,6 +77,8 @@ pub struct RecallBruto {
     pub modo: String,
     pub query: Option<String>,
     pub notas: Vec<NotaRecall>,
+    pub avisos: Vec<String>,
+    pub elapsed_s: Option<f64>,
 }
 
 const CABECERA: &str = "=== Recall exo (PARCIAL — no sustituye tu brief) ===";
@@ -178,14 +191,21 @@ fn aplica_cap(
             cap_bytes,
             truncado,
             notas: notas_finales,
+            elapsed_s: None,
+            refresh_s: None,
+            avisos: Vec::new(),
         },
         lineas_perdidas,
     }
 }
 
-/// Punto de entrada único: renderiza un `RecallBruto` aplicando el cap.
+/// Punto de entrada único: renderiza un `RecallBruto` aplicando el cap. Los
+/// avisos y el tiempo no dependen del cap: pasan tal cual.
 pub fn renderiza(bruto: RecallBruto, cap_bytes: usize) -> ResultadoCap {
-    aplica_cap(&bruto.modo, bruto.query, bruto.notas, cap_bytes)
+    let mut r = aplica_cap(&bruto.modo, bruto.query, bruto.notas, cap_bytes);
+    r.recall.elapsed_s = bruto.elapsed_s;
+    r.recall.avisos = bruto.avisos;
+    r
 }
 
 /// Modo arranque (brief §Tarea 2): notas `tier: core` (frontmatter, releído
@@ -200,6 +220,10 @@ pub fn recall_arranque(db_ruta: &Path, kb: &Path, limite: usize) -> Result<Recal
         anyhow::bail!("DB no encontrada: {}", db_ruta.display());
     }
     let conn = abre_db(db_ruta)?;
+    // Aviso de kb_root (H1 en lectura), sobre la conexión que ya está
+    // abierta: best-effort total, nunca puede tumbar el arranque (ver
+    // `indexer::aviso_kb_root_lectura`).
+    let aviso_kb_root = crate::indexer::aviso_kb_root_lectura(&conn, Some(kb));
 
     struct Fila {
         permalink: String,
@@ -275,6 +299,8 @@ pub fn recall_arranque(db_ruta: &Path, kb: &Path, limite: usize) -> Result<Recal
         modo: "arranque".to_string(),
         query: None,
         notas,
+        avisos: aviso_kb_root.into_iter().collect(),
+        elapsed_s: None,
     })
 }
 
@@ -313,6 +339,13 @@ pub fn recall_arranque_contenido(
     nota: Option<&str>,
 ) -> Result<String> {
     let bruto = recall_arranque(db_ruta, kb, limite)?;
+    // Este camino (`--content`, el del hook) no pasa por el envelope ni por
+    // `aplica_cap`/`Recall.avisos` — devuelve un bloque de texto crudo, no
+    // una struct — así que sus avisos (hoy: solo kb_root) van directo a
+    // stderr aquí, la única vez que se tienen a mano.
+    for aviso in &bruto.avisos {
+        eprintln!("aviso: {aviso}");
+    }
 
     // Una nota pedida por permalink se busca en TODO el índice, no solo
     // entre las que `recall_arranque` seleccionó: si no, solo se podrían
@@ -487,13 +520,31 @@ pub fn recall_consulta(
     min_similitud: Option<f64>,
     bonus: f64,
     escala_fts: f64,
+    kb: &Path,
 ) -> Result<RecallBruto> {
     if !db_ruta.exists() {
         anyhow::bail!("DB no encontrada: {}", db_ruta.display());
     }
 
-    let resultado =
-        crate::buscador::busca_hybrid(db_ruta, query, limite, min_similitud, bonus, escala_fts)?;
+    let resultado = crate::buscador::busca_hybrid(
+        db_ruta,
+        query,
+        limite,
+        min_similitud,
+        bonus,
+        escala_fts,
+        Some(kb),
+    )?;
+
+    // H2: los avisos y el tiempo se rescatan ANTES de consumir `results`.
+    // El aviso de kb_root (H1 en lectura) sale por el MISMO canal que los
+    // demás avisos de `recall` — ya calculado por `busca_hybrid` sobre la
+    // conexión que ya tenía abierta, aquí solo se anexa.
+    let mut avisos = resultado.avisos;
+    if let Some(aviso) = resultado.aviso_kb_root {
+        avisos.push(aviso);
+    }
+    let elapsed_s = Some(resultado.elapsed_s);
 
     let conn = abre_db(db_ruta)?;
     let mut notas = Vec::with_capacity(resultado.results.len());
@@ -517,6 +568,8 @@ pub fn recall_consulta(
         modo: "consulta".to_string(),
         query: Some(query.to_string()),
         notas,
+        avisos,
+        elapsed_s,
     })
 }
 

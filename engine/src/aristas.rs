@@ -46,9 +46,15 @@ pub fn reindexa_aristas_de_nota(conn: &Connection, permalink: &str, cuerpo: &str
 /// Para cada arista, la parte destino es el texto antes de `|` si hay alias;
 /// se busca primero una nota cuyo `titulo` coincida EXACTO, si no una cuyo
 /// `permalink` coincida EXACTO, si no queda NULL (§6.2 regla 6: un link a
-/// nota inexistente se tolera, jamás error de indexado). Barato: recorre las
-/// ~115 notas de la KB en cada corrida, así un link roto se cura solo en
-/// cuanto la nota destino aparezca en un index posterior.
+/// nota inexistente se tolera, jamás error de indexado).
+///
+/// H4 (campaña A): corre en cada `exo recall --refresh`, es decir, en casi
+/// cada prompt. Antes hacía un UPDATE autocommit por arista aunque el valor no
+/// cambiara. Ahora solo escribe las aristas cuyo destino calculado difiere del
+/// guardado, todas en UNA transacción, y si no hay ninguna, no abre
+/// transacción. Se sigue recorriendo la tabla entera sin condición: saltarse el
+/// pase cuando «no se indexó nada» dejaría sin curar para siempre las aristas
+/// que un abort a mitad de corrida hubiera dejado a NULL.
 pub fn resuelve_destinos(conn: &Connection) -> Result<()> {
     let mut stmt = conn.prepare("SELECT titulo, permalink FROM notas ORDER BY permalink")?;
     let filas: Vec<(String, String)> = stmt
@@ -61,29 +67,42 @@ pub fn resuelve_destinos(conn: &Connection) -> Result<()> {
     let por_titulo: HashMap<String, String> = filas.iter().cloned().collect();
     let por_permalink: HashSet<String> = filas.into_iter().map(|(_, p)| p).collect();
 
-    let mut stmt = conn.prepare("SELECT rowid, destino_texto FROM aristas")?;
-    let aristas: Vec<(i64, String)> = stmt
-        .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?
+    let mut stmt = conn.prepare("SELECT rowid, destino_texto, destino_permalink FROM aristas")?;
+    let aristas: Vec<(i64, String, Option<String>)> = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
         .collect::<rusqlite::Result<_>>()?;
     drop(stmt);
 
-    for (rowid, destino_texto) in aristas {
-        let parte_destino = destino_texto
-            .split_once('|')
-            .map(|(antes, _)| antes)
-            .unwrap_or(&destino_texto);
+    let pendientes: Vec<(i64, Option<&str>)> = aristas
+        .iter()
+        .filter_map(|(rowid, destino_texto, actual)| {
+            let parte_destino = destino_texto
+                .split_once('|')
+                .map(|(antes, _)| antes)
+                .unwrap_or(destino_texto);
+            let resuelto: Option<&str> = por_titulo
+                .get(parte_destino)
+                .map(String::as_str)
+                .or_else(|| por_permalink.get(parte_destino).map(String::as_str));
+            (resuelto != actual.as_deref()).then_some((*rowid, resuelto))
+        })
+        .collect();
 
-        let resuelto: Option<&str> = por_titulo
-            .get(parte_destino)
-            .map(String::as_str)
-            .or_else(|| por_permalink.get(parte_destino).map(String::as_str));
-
-        conn.execute(
-            "UPDATE aristas SET destino_permalink = ?1 WHERE rowid = ?2",
-            params![resuelto, rowid],
-        )
-        .with_context(|| format!("resolver destino_permalink de la arista rowid={rowid}"))?;
+    if pendientes.is_empty() {
+        return Ok(());
     }
+
+    let tx = conn.unchecked_transaction()?;
+    {
+        let mut upd = tx.prepare("UPDATE aristas SET destino_permalink = ?1 WHERE rowid = ?2")?;
+        for (rowid, resuelto) in &pendientes {
+            upd.execute(params![resuelto, rowid]).with_context(|| {
+                format!("resolver destino_permalink de la arista rowid={rowid}")
+            })?;
+        }
+    }
+    tx.commit()
+        .context("commit de la resolución de destino_permalink")?;
     Ok(())
 }
 

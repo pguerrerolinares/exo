@@ -529,3 +529,229 @@ fn verifica_indexado_completo_falla_ruidoso_cuando_no_cuadra() {
     assert!(msg.contains('2'), "no dice cuántas esperaba: {msg}");
     assert!(msg.contains('1'), "no dice cuántas entraron: {msg}");
 }
+
+/// H1: dos KBs de `exo init` con la MISMA plantilla sobre la MISMA DB. Antes:
+/// la segunda moría con `UNIQUE constraint failed: notas.ruta` DESPUÉS de
+/// volcar la plantilla y escribir su config, dejando residuo. Ahora falla
+/// antes de tocar el disco, nombra la KB dueña y dice el remedio.
+#[test]
+fn dos_kbs_con_la_misma_plantilla_sobre_la_misma_db_la_segunda_falla_sin_residuo() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let db = tmp.path().join("compartida.db");
+    let init = |kb: &std::path::Path, nombre: &str, config: &std::path::Path| {
+        std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
+            .args(["init", "--kb"])
+            .arg(kb)
+            .args(["--name", nombre, "--json"])
+            .env("EXO_CONFIG", config)
+            .env("EXO_DB", &db)
+            .output()
+            .expect("ejecutar exo init")
+    };
+    let kb_a = tmp.path().join("kb-a");
+    let kb_b = tmp.path().join("kb-b");
+    let cfg_b = tmp.path().join("b.toml");
+
+    let a = init(&kb_a, "kb-a", &tmp.path().join("a.toml"));
+    assert!(a.status.success(), "{}", String::from_utf8_lossy(&a.stderr));
+
+    let b = init(&kb_b, "kb-b", &cfg_b);
+    let err = String::from_utf8_lossy(&b.stderr);
+    assert_eq!(b.status.code(), Some(1), "stderr: {err}");
+    let dueña = std::fs::canonicalize(&kb_a).unwrap().display().to_string();
+    assert!(err.contains(&dueña), "nombra la KB dueña ({dueña}): {err}");
+    // El remedio de `init` es $EXO_DB, no --db (init no tiene ese flag) —
+    // Task 4 (`OrigenComprobacion::Init`) cambió el texto para este camino.
+    assert!(err.contains("EXO_DB"), "dice el remedio: {err}");
+    assert!(
+        !err.contains("UNIQUE constraint"),
+        "ya no es el error críptico: {err}"
+    );
+    assert!(!kb_b.exists(), "no deja la segunda KB a medio volcar");
+    assert!(!cfg_b.exists(), "no escribe la config de la segunda");
+
+    let conn = exo::abre_db(&db).unwrap();
+    let n: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM notas WHERE permalink LIKE 'kb-a/%'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(n, 11, "el índice de la primera KB sigue entero");
+}
+
+/// Bug real (2026-09-13): `init_cmd` calcula `db_objetivo` con la precedencia
+/// `$EXO_DB` > default, valida e INDEXA con esa DB — pero graba en
+/// `config.toml` siempre `db_default` (`~/.exo/index.db`), nunca
+/// `db_objetivo`. Con `$EXO_DB` puesto, la config queda mintiendo sobre qué
+/// DB usa este `init`.
+#[test]
+fn init_con_exo_db_graba_en_config_la_db_de_exo_db_no_el_default() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let kb = tmp.path().join("kb-nueva");
+    let config = tmp.path().join("config.toml");
+    // Nombre deliberadamente distinto de `index.db` (el basename del
+    // default): si el fix escribiera el default por error, esta ruta no
+    // coincidiría de todas formas, pero además así el test no podría dar
+    // falso verde por casualidad de que ambas rutas compartan el mismo tmp.
+    let db_objetivo = tmp.path().join("objetivo.db");
+
+    let salida = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
+        .args(["init", "--kb"])
+        .arg(&kb)
+        .args(["--name", "exo-db-demo", "--json"])
+        .env("EXO_CONFIG", &config)
+        .env("EXO_DB", &db_objetivo)
+        .output()
+        .expect("ejecutar exo init");
+    assert!(
+        salida.status.success(),
+        "init falló: {}",
+        String::from_utf8_lossy(&salida.stderr)
+    );
+
+    let cfg = exo::config::carga_desde(&config).expect("releer la config escrita");
+    assert_eq!(
+        cfg.index.db, db_objetivo,
+        "la config grabó una DB distinta de $EXO_DB — bug de init_cmd"
+    );
+}
+
+/// Hermano del test anterior: SIN `$EXO_DB` (o vacía), la DB de `init` sigue
+/// siendo el default de siempre, `<home>/.exo/index.db`.
+///
+/// Se prueba la regla pura (`db_de_init`) y no el binario: en Windows
+/// `dirs::home_dir()` no mira `$HOME`, así que un `exo init` "aislado" con
+/// `HOME` escribe en el perfil real (pasó en el runner windows-latest).
+#[test]
+fn db_de_init_sin_exo_db_es_el_default_bajo_home() {
+    let home = std::path::Path::new("/home/alguien");
+    assert_eq!(
+        exo::inicia::db_de_init(None, home),
+        home.join(".exo/index.db")
+    );
+    assert_eq!(
+        exo::inicia::db_de_init(Some(""), home),
+        home.join(".exo/index.db"),
+        "$EXO_DB vacía cuenta como no definida"
+    );
+}
+
+#[test]
+fn db_de_init_con_exo_db_es_exo_db() {
+    let home = std::path::Path::new("/home/alguien");
+    let tmp = tempfile::TempDir::new().unwrap();
+    let db = tmp.path().join("otra.db");
+    assert_eq!(
+        exo::inicia::db_de_init(Some(db.to_str().unwrap()), home),
+        db
+    );
+}
+
+/// Síntoma de extremo a extremo del mismo bug: con una PRIMERA kb ya
+/// inicializada, se inicializa una SEGUNDA con `EXO_CONFIG`+`EXO_DB`
+/// propios — y una lectura posterior que solo pone `EXO_CONFIG` (como hace
+/// un consumidor real, p.ej. el hook del plugin) debe resolver a la DB de la
+/// SEGUNDA. Antes del fix, la segunda config grababa `~/.exo/index.db` (el
+/// default, que en el uso real es la DB de la primera KB) y
+/// `exo config --json` con solo `EXO_CONFIG` de la segunda mentía sobre qué
+/// DB usa.
+#[test]
+fn segunda_kb_con_exo_config_y_exo_db_propios_no_hereda_la_db_de_la_primera() {
+    let home = tempfile::TempDir::new().unwrap();
+    let otro = tempfile::TempDir::new().unwrap();
+
+    // Primera KB: config y DB propias, explícitas. No se aísla con `HOME`:
+    // en Windows `dirs::home_dir()` no lo mira y escribiría en el perfil real.
+    let kb1 = home.path().join("kb-primera");
+    let config1 = home.path().join("primera.toml");
+    let db1 = home.path().join("primera.db");
+    let primera = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
+        .args(["init", "--kb"])
+        .arg(&kb1)
+        .args(["--name", "kb-primera", "--json"])
+        .env("EXO_CONFIG", &config1)
+        .env("EXO_DB", &db1)
+        .output()
+        .expect("ejecutar exo init (primera kb)");
+    assert!(
+        primera.status.success(),
+        "init de la primera kb falló: {}",
+        String::from_utf8_lossy(&primera.stderr)
+    );
+
+    // Segunda KB: config y DB propias, fuera de $HOME.
+    let kb2 = otro.path().join("kb-segunda");
+    let config2 = otro.path().join("segunda.toml");
+    let db2 = otro.path().join("segunda.db");
+    let segunda = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
+        .args(["init", "--kb"])
+        .arg(&kb2)
+        .args(["--name", "kb-segunda", "--json"])
+        .env("EXO_CONFIG", &config2)
+        .env("EXO_DB", &db2)
+        .output()
+        .expect("ejecutar exo init (segunda kb)");
+    assert!(
+        segunda.status.success(),
+        "init de la segunda kb falló: {}",
+        String::from_utf8_lossy(&segunda.stderr)
+    );
+
+    // Un consumidor real (el hook del plugin) solo pone EXO_CONFIG. Debe
+    // resolver a la DB de la segunda KB, no a la de la primera.
+    let lectura = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
+        .args(["config", "--json"])
+        .env("EXO_CONFIG", &config2)
+        .env_remove("EXO_DB")
+        .output()
+        .expect("ejecutar exo config --json");
+    assert!(
+        lectura.status.success(),
+        "exo config --json falló: {}",
+        String::from_utf8_lossy(&lectura.stderr)
+    );
+    let env: serde_json::Value = serde_json::from_slice(&lectura.stdout).expect("json");
+    let db_resuelta = env["data"]["index"]["db"].as_str().expect("index.db");
+    let db2_esperada = db2.display().to_string().replace('\\', "/");
+    assert_eq!(
+        db_resuelta, db2_esperada,
+        "la config de la segunda kb resolvió a la DB de la primera — bug de init_cmd"
+    );
+}
+
+#[test]
+fn valida_db_para_kb_rechaza_otra_kb_sin_mencionar_un_flag_que_init_no_tiene() {
+    let dir = tempfile::tempdir().unwrap();
+    let kb_vieja = dir.path().join("vieja");
+    let kb_nueva = dir.path().join("nueva");
+    std::fs::create_dir_all(&kb_vieja).unwrap();
+    std::fs::create_dir_all(&kb_nueva).unwrap();
+    let db = dir.path().join("index.db");
+    {
+        let conn = exo::abre_db(&db).unwrap();
+        exo::schema::crea_schema(&conn).unwrap();
+        let kb_vieja_abs = std::fs::canonicalize(&kb_vieja).unwrap();
+        conn.execute(
+            "INSERT INTO meta (clave, valor) VALUES ('kb_root', ?1)",
+            [kb_vieja_abs.to_string_lossy().to_string()],
+        )
+        .unwrap();
+    }
+
+    let err = exo::inicia::valida_db_para_kb(&db, &kb_nueva).expect_err("otra KB debe rechazarse");
+    let msg = format!("{err:#}");
+    assert!(
+        !msg.contains("--db"),
+        "el mensaje de `exo init` no debe recomendar --db, que init no tiene: {msg}"
+    );
+    assert!(
+        msg.contains("EXO_DB"),
+        "el mensaje debe nombrar $EXO_DB, la vía real de `exo init` para otra DB: {msg}"
+    );
+    assert!(
+        msg.contains("otra KB"),
+        "sigue siendo el mismo guard: {msg}"
+    );
+}

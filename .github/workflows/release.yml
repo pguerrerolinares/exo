@@ -19,8 +19,29 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
+  # Job barato (segundos, sin toolchain de Rust) que se dispara ANTES de la
+  # matriz de builds (hasta 3×60 min). Antes de esta tarea, la comprobación
+  # de versiones vivía DENTRO de `publish`, tras `needs: build` — un
+  # `workflow_dispatch` con un tag que no casara con `engine/Cargo.toml`
+  # gastaba la matriz entera antes de fallar (medido: v0.1.0 lo habría hecho,
+  # docs/backlog.md).
+  version-check:
+    name: el tag casa con engine/Cargo.toml
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+      - name: scripts/test-versiones.sh
+        shell: bash
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: bash scripts/test-versiones.sh "$TAG"
+
   build:
     name: ${{ matrix.target }}
+    needs: version-check
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
@@ -127,6 +148,13 @@ jobs:
           # nadie lo sabría hasta que alguien intentara instalar.
           n="$(ls dist | wc -l)"
           [ "$n" -eq 6 ] || { echo "esperaba 6 ficheros en dist, hay $n" >&2; exit 1; }
+      # Un tag que no casa con Cargo.toml publicaría binarios cuyo
+      # `exo --version` dice otra cosa.
+      - name: El tag casa con engine/Cargo.toml
+        shell: bash
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: bash scripts/test-versiones.sh "$TAG"
       - name: Publicar la release
         env:
           GH_TOKEN: ${{ github.token }}

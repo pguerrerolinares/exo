@@ -49,6 +49,7 @@ doctrina() {  # fuente unica: cuerpo de executor.md (sin frontmatter), cap 800B 
 rutas() {     # rutas reales de la KB con linea de indice (titulo)
   [ -n "$KB" ] && [ -d "$KB" ] || return 0
   echo "Notas canonicas (rutas legibles con Read/Grep; hay mas en la KB):"
+  # shellcheck disable=SC2012 # `ls -t` = orden por mtime; find no lo da portable (macOS/Git Bash)
   { ls "$KB"/core/*.md 2>/dev/null; ls -t "$KB"/projects/*.md 2>/dev/null | head -2; } \
     | while IFS= read -r f; do
         t="$(grep -m1 '^# ' "$f" 2>/dev/null | head -c 60)"
@@ -67,8 +68,13 @@ estado() {    # seccion "## Cores" del core-index + rutas (perfil reducido: sin 
   fi
   rutas
 }
+# Cabecera compartida por dos usos: se IMPRIME en compone_contenido() (abajo)
+# y se usa para medir si el bloque final no trajo más que ella — literal
+# único, para que las dos lecturas nunca diverjan (el bug "brancNotas" de
+# I4, arriba, fue justo dos copias del mismo texto separándose).
+CABECERA="=== Contexto inyectado (reflex, PARCIAL — no sustituye tu brief) ==="
 compone_contenido() {
-  echo "=== Contexto inyectado (reflex, PARCIAL — no sustituye tu brief) ==="
+  echo "$CABECERA"
   case "$PERFIL" in
     reducido)   estado ;;
     # echo entre CADA seccion: sin el separador tras doctrina_compacta, un corte
@@ -101,6 +107,17 @@ if [ "$LINEAS_SALIDA" -lt "$LINEAS_TOTAL" ]; then
   INPUT_JSON="$(jq -cn --arg t "$TYPE" '{agent_type:$t}' 2>/dev/null)" || INPUT_JSON='{}'
   . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && \
     reflex_log "inject-truncated" "$INPUT_JSON" "lines_cut=$CORTADAS budget=$BUDGET" || true
+fi
+# F3.2 (docs/backlog.md: "inject-emitted se emite aunque no se inyecte
+# nada"): si el bloque final no supera el tamaño de su propia cabecera, el
+# perfil no compuso NADA sustantivo (caso medido: `reducido` con KB no
+# resoluble). Un aviso por stderr, no un evento logueado aquí: el evento
+# vive en subagent-inject.sh (que es quien sabe agent_type/agent_id/session_id
+# de verdad — este script no los tiene, solo TYPE) para no duplicar el join.
+CABECERA_BYTES="$(printf '%s\n' "$CABECERA" | wc -c)"
+CONTENIDO_BYTES="$(wc -c < "$CONTENT_CUT")"
+if [ "$CONTENIDO_BYTES" -le "$CABECERA_BYTES" ]; then
+  echo "sin-contenido" >&2
 fi
 cat "$CONTENT_CUT"
 printf '%s' "$CANARIO"

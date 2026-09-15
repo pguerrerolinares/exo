@@ -21,11 +21,9 @@
 # exactamente el fallo silencioso que esta tarea persigue cerrar (ver
 # kb-demo: "Fallo silencioso — el instrumento que no grita").
 #
-# GATE LOCAL, NO DE CI (verificado 2026-09-11): `.github/workflows/ci.yml:99`
-# solo lanza `engine/scripts/test-hermetico.sh`, que verifica otra cosa (que la
-# suite corra sin ~/.exo/config.toml). Este script depende del estado de ESTA
-# máquina —índice y KB reales— y no hay fixture reproducible todavía. Corrérlo
-# es responsabilidad del que toca el contrato del engine; el CI no lo hará por ti.
+# En CI lo corre scripts/test-contrato-ci.sh, que monta un fixture propio
+# (KB semilla de `exo init` + índice) con EXO_CONFIG aislado. En local, sin
+# ese wrapper, resuelve índice y KB de la config de la máquina.
 #
 # Solo lee: `exo recall` no escribe nada, así que este test no necesita
 # aislamiento de KB/índice como el resto de la suite de scripts.
@@ -35,13 +33,17 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 # Mismo seam EXO_BIN que el resto de scripts, pero el DEFAULT es el binario
-# CONSTRUIDO DEL REPO (engine/target/release/exo.exe), no
-# `$(command -v exo)` / `~/.local/bin/exo`: ese instalado en esta máquina
-# sigue siendo v1 a propósito (decisión de pre-flight de esta ola), y un
-# default que cayera ahí daría un resultado que no dice nada de este cambio.
-EXO_BIN="${EXO_BIN:-$REPO_ROOT/engine/target/release/exo.exe}"
+# CONSTRUIDO DEL REPO (engine/target/release/exo[.exe]), no
+# `$(command -v exo)` / `~/.local/bin/exo`: el instalado puede ir por detrás
+# del repo, y un default que cayera ahí daría un resultado que no dice nada
+# del cambio en curso. El `.exe` solo existe en Windows: con el literal
+# anterior, en Linux/macOS este test se abstenía siempre.
+BIN_REPO="$REPO_ROOT/engine/target/release/exo"
+[ -e "$BIN_REPO.exe" ] && BIN_REPO="$BIN_REPO.exe"
+EXO_BIN="${EXO_BIN:-$BIN_REPO}"
 
-# Rutas estilo Windows: el binario es nativo y no entiende `/c/Users/...`.
+# Rutas estilo Windows: el binario es nativo y no entiende las que monta Git
+# Bash (letra de unidad + "Users" + nombre de perfil).
 # Índice y KB salen de `exo config --json` (Task 8), no de un literal — pero
 # SIEMPRE del binario recién compilado del repo, nunca de $EXO_BIN: cuando
 # este test apunta $EXO_BIN a un binario viejo para probar el estado "rojo",
@@ -49,7 +51,7 @@ EXO_BIN="${EXO_BIN:-$REPO_ROOT/engine/target/release/exo.exe}"
 # dejaría índice/KB vacíos y el test abstendría en vez de fallar en rojo por
 # la causa real (el contrato de `recall`). El seam de entorno (EXO_INDEX,
 # EXO_KB) sigue mandando si algo los define, igual que antes.
-CONFIG_BIN="$REPO_ROOT/engine/target/release/exo.exe"
+CONFIG_BIN="$BIN_REPO"
 CONFIG_JSON="$("$CONFIG_BIN" config --json 2>/dev/null)" || CONFIG_JSON=""
 EXO_INDEX="${EXO_INDEX:-$(printf '%s' "$CONFIG_JSON" | jq -r '.data.index.db // empty' 2>/dev/null)}"
 EXO_KB="${EXO_KB:-$(printf '%s' "$CONFIG_JSON" | jq -r '.data.kb.path // empty' 2>/dev/null)}"
@@ -84,7 +86,8 @@ fi
 # Modo arranque (sin --query): no depende del modelo de embeddings y basta
 # para ejercer la forma del envelope que consume recall-inject.sh.
 ERR_TMP="$(mktemp)" || ERR_TMP=""
-SALIDA="$(timeout "${EXO_CONTRATO_TIMEOUT:-15}" "$EXO_BIN" recall --json \
+. "$SCRIPT_DIR/_timeout.sh"
+SALIDA="$(con_timeout "${EXO_CONTRATO_TIMEOUT:-15}" "$EXO_BIN" recall --json \
             --db "$EXO_INDEX" --kb "$EXO_KB" 2>"${ERR_TMP:-/dev/null}")"
 RC=$?
 ERR=""
@@ -141,6 +144,17 @@ if printf '%s' "$SALIDA" | jq -e '.data | has("notes")' >/dev/null 2>&1; then
   fi
 fi
 
+# H2/H3: recall-inject.sh lee .data.elapsed_s y .data.refresh_s (número o null)
+# y .data.warnings (array o ausente). En modo arranque sin --refresh las dos
+# claves de tiempo EXISTEN con null: se exige la clave, no solo el valor, para
+# que un engine anterior a la campaña A dé rojo aquí.
+if printf '%s' "$SALIDA" | jq -e '(.data | has("elapsed_s") and has("refresh_s"))
+      and .data.elapsed_s == null and .data.refresh_s == null
+      and ((.data.warnings // []) | type) == "array"' >/dev/null 2>&1; then
+  pass "contrato: elapsed_s/refresh_s presentes (null en arranque) y warnings array o ausente"
+else fail "contrato: elapsed_s/refresh_s presentes (null en arranque) y warnings array o ausente" \
+  "$(printf '%s' "$SALIDA" | jq -c '.data | {elapsed_s, refresh_s, warnings}' 2>/dev/null)"; fi
+
 if printf '%s' "$SALIDA" | jq -e '.schema_version == 2' >/dev/null 2>&1; then
   pass "contrato: schema_version == 2"
 else fail "contrato: schema_version == 2" "$(printf '%s' "$SALIDA" | jq -c '.schema_version' 2>/dev/null)"; fi
@@ -159,6 +173,20 @@ fi
 if printf '%s' "$SALIDA_S" | jq -e '.data.results | type == "array"' >/dev/null 2>&1; then
   pass "contrato search: .data.results es un array"
 else fail "contrato search: .data.results es un array" "$(printf '%s' "$SALIDA_S" | jq -c '.data | keys' 2>/dev/null)"; fi
+
+# Guard de vacuidad, hermano del de `.data.notes` de arriba: los tres predicados
+# siguientes miran `.data.results[0]`, y sobre una lista vacía `jq` opera contra
+# `null` — pasarían o fallarían por vacuidad, sin haber ejercido nada. Importa
+# porque este gate corre en CI (`scripts/test-contrato-ci.sh`) contra la KB
+# semilla de `exo init`, no contra una KB poblada: el día que la semilla deje de
+# traer una nota que case con la query, el rojo debe decir ESO y no otra cosa.
+N_RES="$(printf '%s' "$SALIDA_S" | jq '.data.results | length' 2>/dev/null)"
+if [ "${N_RES:-0}" -gt 0 ] 2>/dev/null; then
+  pass "contrato search: la query de prueba devolvió resultados ($N_RES)"
+else
+  fail "contrato search: la query de prueba devolvió resultados" \
+    "n=$N_RES — sin un resultado real no se puede comprobar la forma de sus claves"
+fi
 
 if printf '%s' "$SALIDA_S" | jq -e '
       .data.results[0] as $r

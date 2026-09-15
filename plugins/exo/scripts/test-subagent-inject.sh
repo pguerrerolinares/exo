@@ -170,6 +170,43 @@ EOF
   fi
 }
 
+
+# =========================================================================
+# Caso 7: perfil `reducido` (agent_type exo:executor) SIN KB resoluble ⇒
+# el bloque compuesto es solo la cabecera (71B) — inject-emitted se loguea
+# igual (contrato: el hook nunca deja de responder), pero además debe
+# quedar una línea inject-empty distinguiendo "compuse solo cabecera" de
+# "compuse contenido real" (docs/backlog.md: "inject-emitted se emite
+# aunque no se inyecte nada").
+# =========================================================================
+{
+  LOG7="$TMP/log7.jsonl"
+  : > "$LOG7"
+  FAKEBIN7="$TMP/fakebin7"
+  mkdir -p "$FAKEBIN7"
+  # `exo` deliberadamente roto: fuerza a compose-inject.sh a resolver KB=""
+  # por la vía real (exo config --json falla), sin depender de si esta
+  # máquina tiene exo instalado de verdad.
+  cat > "$FAKEBIN7/exo" <<'EOF'
+#!/usr/bin/env bash
+exit 1
+EOF
+  chmod +x "$FAKEBIN7/exo"
+  PAYLOAD7='{"session_id":"test-sid","agent_id":"aE1","agent_type":"exo:executor","hook_event_name":"SubagentStart","cwd":"/tmp"}'
+  OUT7="$(printf '%s' "$PAYLOAD7" | REFLEX_LOG_FILE="$LOG7" REFLEX_PROJECTS_DIR="$NO_PROJECTS" EXO_KB='' REFLEX_CANARY_FILE="$TMP/no-canary" PATH="$FAKEBIN7:$PATH" "$ADAPTER")"
+  EC7=$?
+  CTX7="$(printf '%s' "$OUT7" | jq -r '.hookSpecificOutput.additionalContext // empty' 2>/dev/null)"
+  EVENTOS7="$(jq -r '.reflex' "$LOG7" 2>/dev/null | tr '\n' ',')"
+  if [ $EC7 -eq 0 ] && [ "$CTX7" = "=== Contexto inyectado (reflex, PARCIAL — no sustituye tu brief) ===" ] \
+     && printf '%s' "$EVENTOS7" | grep -q 'inject-emitted' \
+     && printf '%s' "$EVENTOS7" | grep -q 'inject-empty'; then
+    pass "caso7: perfil reducido sin KB ⇒ solo cabecera ⇒ inject-emitted Y inject-empty"
+  else
+    fail "caso7: perfil reducido sin KB ⇒ solo cabecera ⇒ inject-emitted Y inject-empty" \
+      "ec=$EC7 ctx='$CTX7' eventos=$EVENTOS7"
+  fi
+}
+
 echo ""
 TOTAL=$((PASS+FAIL))
 echo "=== Resultado: ${PASS}/${TOTAL} pasaron ==="

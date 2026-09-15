@@ -647,6 +647,78 @@ fn indexa_dos_veces_no_duplica_kb_root() {
     });
 }
 
+/// H1: medido el 2026-09-13, `exo index` de una segunda KB (sin rutas en común)
+/// sobre la misma DB salía con exit 0 y `deleted: 11`: borraba en silencio el
+/// índice de la primera. Notas sin cuerpo: sin trozos, sin modelo.
+#[test]
+fn indexar_otra_kb_existente_sobre_la_misma_db_falla_y_no_borra_la_primera() {
+    let kb1 = tempfile::tempdir().unwrap();
+    let kb2 = tempfile::tempdir().unwrap();
+    std::fs::write(
+        kb1.path().join("uno.md"),
+        "---\ntitle: uno\npermalink: kb1/uno\n---\n",
+    )
+    .unwrap();
+    std::fs::write(
+        kb2.path().join("dos.md"),
+        "---\ntitle: dos\npermalink: kb2/dos\n---\n",
+    )
+    .unwrap();
+    let dbdir = tempfile::tempdir().unwrap();
+    let db = dbdir.path().join("indice.db");
+
+    common::con_config(kb1.path(), "kb-test", &db, || {
+        exo::indexer::indexa(kb1.path(), &db).expect("primera KB");
+        let err = exo::indexer::indexa(kb2.path(), &db).expect_err("la segunda KB debe rechazarse");
+        let msg = format!("{err:#}");
+        assert!(msg.contains("otra KB"), "{msg}");
+        assert!(msg.contains("exo rebuild"), "{msg}");
+
+        let conn = exo::abre_db(&db).unwrap();
+        let permalinks: Vec<String> = conn
+            .prepare("SELECT permalink FROM notas")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(permalinks, vec!["kb1/uno".to_string()]);
+    });
+}
+
+/// Una KB MOVIDA (la ruta registrada ya no existe) no es otra KB: se reindexa
+/// y `kb_root` pasa a la ruta nueva, como hasta ahora (`indexer.rs:115-116`).
+#[test]
+fn una_kb_movida_de_sitio_se_reindexa_sin_rechazo() {
+    let raiz = tempfile::tempdir().unwrap();
+    let vieja = raiz.path().join("vieja");
+    let nueva = raiz.path().join("nueva");
+    std::fs::create_dir_all(&vieja).unwrap();
+    std::fs::write(
+        vieja.join("uno.md"),
+        "---\ntitle: uno\npermalink: kb/uno\n---\n",
+    )
+    .unwrap();
+    let dbdir = tempfile::tempdir().unwrap();
+    let db = dbdir.path().join("indice.db");
+
+    common::con_config(&vieja, "kb-test", &db, || {
+        exo::indexer::indexa(&vieja, &db).expect("antes de mover");
+        std::fs::rename(&vieja, &nueva).unwrap();
+        exo::indexer::indexa(&nueva, &db).expect("una KB movida no es otra KB");
+        let conn = exo::abre_db(&db).unwrap();
+        let valor: String = conn
+            .query_row("SELECT valor FROM meta WHERE clave='kb_root'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(
+            valor,
+            std::fs::canonicalize(&nueva).unwrap().to_string_lossy()
+        );
+    });
+}
+
 /// Repro del bug de review (Important 1, G4b): antes del fix, `lint::index_stale`
 /// decía "corre `exo index`" sobre CUALQUIER nota en disco y ausente de
 /// `notas` — incluida una nota `.MD` (extensión que `walker::walk_kb` nunca

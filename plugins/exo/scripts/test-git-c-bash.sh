@@ -7,7 +7,8 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 HOOK="${SCRIPT_DIR}/git-c-bash.sh"
 
-export REFLEX_LOG_FILE="$(mktemp)"
+REFLEX_LOG_FILE="$(mktemp)"
+export REFLEX_LOG_FILE
 trap 'rm -f "$REFLEX_LOG_FILE"' EXIT
 
 PASS=0
@@ -71,8 +72,8 @@ assert_rewrite "cd && git status → rewrite" \
   "cd /repo && git status" \
   "git -C /repo status"
 assert_rewrite "cd && git log con flags → rewrite" \
-  "cd /home/paul/Documentos/proyectos/code-graph-go && git log --oneline -5" \
-  "git -C /home/paul/Documentos/proyectos/code-graph-go log --oneline -5"
+  "cd /opt/proyectos/code-graph-go && git log --oneline -5" \
+  "git -C /opt/proyectos/code-graph-go log --oneline -5"
 assert_rewrite "path con ~ y . → rewrite" \
   "cd ~/proyectos/x.y && git diff --stat" \
   "git -C ~/proyectos/x.y diff --stat"
@@ -117,6 +118,7 @@ assert_logged "chain extra tras git → log-only" \
   "cd /repo && git status && echo done"
 assert_logged "redirect en REST → log-only" \
   "cd /repo && git status 2>/dev/null"
+# shellcheck disable=SC2016 # el test pasa el `$DIR` literal, sin expandir
 assert_logged "path con variable → log-only" \
   'cd "$DIR" && git status'
 assert_logged "separador ; → log-only (v1 solo &&)" \

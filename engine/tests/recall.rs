@@ -170,7 +170,8 @@ fn recall_consulta_devuelve_score_y_snippet_no_nulos() {
     common::con_config(kb.path(), "kb-test", &db, || {
         indexa(kb.path(), &db).unwrap();
 
-        let mut bruto = recall_consulta(&db, "contenido nuevo", 5, Some(0.0), 0.0, 0.6).unwrap();
+        let mut bruto =
+            recall_consulta(&db, "contenido nuevo", 5, Some(0.0), 0.0, 0.6, kb.path()).unwrap();
         assert_eq!(bruto.modo, "consulta");
         assert_eq!(bruto.query.as_deref(), Some("contenido nuevo"));
         assert!(!bruto.notas.is_empty(), "esperaba al menos un resultado");
@@ -213,10 +214,11 @@ fn recall_consulta_sin_hits_da_notas_vacias_no_error() {
             Some(1.5),
             0.0,
             0.6,
+            kb.path(),
         )
         .unwrap();
         assert!(bruto.notas.is_empty(), "{:?}", bruto.notas);
-        let _ = &kb; // la ausencia de hits no es error a este nivel; el CLI decide exit 1
+        // la ausencia de hits no es error a este nivel; el CLI decide exit 1
     });
 }
 
@@ -233,6 +235,68 @@ fn renderiza_produce_bloque_de_texto_con_cabecera_y_notas() {
         assert!(!resultado.recall.truncado);
         assert!(resultado.texto.starts_with("=== Recall exo"));
         assert!(resultado.texto.contains("core-a.md"));
+    });
+}
+
+/// Vacía `vectores` sobre una DB indexada: el estado de un embed abortado a
+/// medias (mismo helper que `tests/buscador.rs:66-74`).
+fn vacia_vectores(db: &Path) {
+    let conn = exo::abre_db(db).unwrap();
+    conn.execute("DELETE FROM vectores", []).unwrap();
+}
+
+/// H2: `recall_consulta` tiraba `resultado.avisos`, así que el hook de cada
+/// prompt servía FTS puro etiquetado hybrid sin que nadie se enterara.
+#[test]
+fn recall_consulta_propaga_los_avisos_y_el_tiempo_de_la_busqueda() {
+    let kb = kb_arranque();
+    let (_db_dir, db) = db_temporal();
+
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
+        vacia_vectores(&db);
+
+        let bruto = recall_consulta(&db, "contenido", 5, Some(0.0), 0.0, 0.6, kb.path()).unwrap();
+        assert!(
+            !bruto.notas.is_empty(),
+            "precondición: FTS encuentra 'contenido'"
+        );
+        assert!(
+            bruto.avisos.iter().any(|a| a.contains("INERTE")),
+            "el aviso del arm vector tiene que llegar al recall: {:?}",
+            bruto.avisos
+        );
+        assert!(bruto.elapsed_s.is_some_and(|s| s >= 0.0));
+
+        let r = renderiza(bruto, 4000);
+        let v = serde_json::to_value(&r.recall).unwrap();
+        assert!(
+            v["warnings"].as_array().is_some_and(|a| !a.is_empty()),
+            "warnings en el envelope: {v}"
+        );
+        assert!(v["elapsed_s"].is_number(), "{v}");
+        assert!(
+            v["refresh_s"].is_null(),
+            "refresh_s lo pone el CLI, no la librería: {v}"
+        );
+    });
+}
+
+#[test]
+fn recall_arranque_no_trae_avisos_ni_tiempo_de_busqueda() {
+    let kb = kb_arranque();
+    let (_db_dir, db) = db_temporal();
+
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
+        let bruto = recall_arranque(&db, kb.path(), 5).unwrap();
+        let r = renderiza(bruto, 4000);
+        let v = serde_json::to_value(&r.recall).unwrap();
+        assert!(v["elapsed_s"].is_null(), "{v}");
+        assert!(
+            v.get("warnings").is_none(),
+            "sin avisos la clave se omite: {v}"
+        );
     });
 }
 
@@ -253,6 +317,8 @@ fn la_ruta_absoluta_de_recall_no_lleva_barra_invertida() {
             score: Some(1.0),
             snippet: None,
         }],
+        avisos: Vec::new(),
+        elapsed_s: None,
     };
     exo::recall::resuelve_rutas_absolutas(&mut bruto, std::path::Path::new("C:/kb"));
     assert!(

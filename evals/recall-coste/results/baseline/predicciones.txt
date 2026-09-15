@@ -1,0 +1,6 @@
+P1 (H27: tope KNN a N>=1000, ok a 174)	PASA
+P2 (s2 n174 p50=952)	CUMPLIDA
+P3 (refresh n174 = 969-952)	CUMPLIDA
+P4 (s7 n174 p50=4)	CUMPLIDA
+PUERTA C-H17a (s4 n5000 p95=47)	CERRADA: Task 10 no se ejecuta
+PUERTA C-H10 Linux (s7 n174 p50=4)	CERRADA (falta W11, D5)

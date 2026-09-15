@@ -118,6 +118,7 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
     // ruta relativa dependería del cwd del proceso que llame a kbx.
     let kb_abs = std::fs::canonicalize(kb)
         .with_context(|| format!("canonicalizar raíz de KB {}", kb.display()))?;
+    comprueba_kb_root(&conn, &kb_abs, OrigenComprobacion::IndexORebuild)?;
     conn.execute(
         "INSERT INTO meta (clave, valor) VALUES ('kb_root', ?1)
          ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor",
@@ -460,6 +461,123 @@ fn verifica_modelo(conn: &Connection, modelo_actual: &str) -> Result<()> {
             "el índice se construyó con {v}, la config pide {modelo_actual}: corre 'exo rebuild'"
         ),
     }
+}
+
+/// Distingue el remedio que ofrece `comprueba_kb_root`: `index`/`rebuild`
+/// tienen `--db`, `init` no (resuelve por `$EXO_DB`, `db_de_init` en
+/// `inicia.rs`). Mismo guard, mensaje distinto por llamador — antes era un
+/// único texto que recomendaba `--db` incluso disparado desde `init`
+/// (docs/backlog.md, "la guarda 'una DB sirve a una KB' recomienda --db a
+/// init, que no lo tiene").
+#[derive(Clone, Copy)]
+pub enum OrigenComprobacion {
+    IndexORebuild,
+    Init,
+}
+
+/// H1 (campaña A): una DB sirve a UNA KB. `meta.kb_root` es de un solo valor
+/// y el walk borra toda ruta que no ve, así que indexar otra KB sobre la
+/// misma DB borraba en silencio el índice de la primera (exit 0, medido el
+/// 2026-09-13), o reventaba con `UNIQUE constraint failed: notas.ruta` si las
+/// dos compartían rutas (dos KBs de `exo init`).
+///
+/// Pasa si no hay `kb_root`, si coincide con `kb_abs` (ambas canónicas) o si
+/// la KB registrada ya no existe en disco: eso es una KB movida, y seguir
+/// actualizando `kb_root` es el contrato de siempre.
+pub fn comprueba_kb_root(
+    conn: &Connection,
+    kb_abs: &Path,
+    origen: OrigenComprobacion,
+) -> Result<()> {
+    let Some(previo) = kb_root_conflicto(conn, kb_abs)? else {
+        return Ok(());
+    };
+    let remedio = match origen {
+        OrigenComprobacion::IndexORebuild => format!(
+            "usa otra --db para esta, o `exo rebuild --kb {} --db <esta db>` \
+             si de verdad quieres reemplazar el índice",
+            kb_abs.display()
+        ),
+        OrigenComprobacion::Init => {
+            "usa otro $EXO_DB para esta KB (`EXO_DB=<ruta> exo init …`), o borra/reemplaza \
+             la DB actual si de verdad quieres reutilizarla"
+                .to_string()
+        }
+    };
+    bail!(
+        "este índice es de otra KB que sigue en disco: {previo} (pediste {}). \
+         Una DB sirve a UNA KB: {remedio}",
+        kb_abs.display()
+    )
+}
+
+/// Dato compartido de `comprueba_kb_root` (escritura, bail) y
+/// `aviso_kb_root_lectura` (lectura, `search`/`recall`, no bail): lee
+/// `meta.kb_root` y decide si hay un conflicto REAL contra `kb_abs` — existe,
+/// es distinto, y la KB previa sigue siendo un directorio en disco (si ya no
+/// existe, es una KB movida/renombrada y no cuenta como conflicto en ninguno
+/// de los dos caminos). `kb_abs` debe llegar ya canonicalizada por el
+/// llamador, igual en escritura que en lectura, para no comparar formas
+/// distintas de la misma ruta.
+fn kb_root_conflicto(conn: &Connection, kb_abs: &Path) -> Result<Option<String>> {
+    let previo: Option<String> = conn
+        .query_row("SELECT valor FROM meta WHERE clave = 'kb_root'", [], |r| {
+            r.get(0)
+        })
+        .optional()
+        .context("leer meta.kb_root")?;
+    let Some(previo) = previo else {
+        return Ok(None);
+    };
+    if previo == kb_abs.to_string_lossy() || !Path::new(&previo).is_dir() {
+        return Ok(None);
+    }
+    Ok(Some(previo))
+}
+
+/// Aviso de LECTURA (agravante silencioso del guard H1 de escritura,
+/// `comprueba_kb_root`): `search`/`recall` abren la DB que resuelva su
+/// precedencia habitual y consultan directamente, sin comparar nunca
+/// `meta.kb_root` contra la KB que se les pidió — así que una config cuyo
+/// `[index] db` apunta al índice de OTRA KB (p.ej. el bug de `init` que
+/// arregló esta misma rama, o una edición manual futura) respondía en
+/// silencio con los resultados de la KB equivocada, exit 0.
+///
+/// **BEST-EFFORT TOTAL** (regla de diseño del review que añadió esta firma,
+/// 2026-09-13): esto corre en el hook de CADA prompt (`exo recall`), así
+/// que un fallo aquí JAMÁS puede cambiar el exit code ni los resultados
+/// reales de `search`/`recall`. Por eso NO devuelve `Result`: `kb: None`
+/// (comando sin KB resoluble, p.ej. `search --db` sin config) o cualquier
+/// fallo interno se convierten en `None` sin excepción —
+/// - `kb` no canonicaliza (no existe en disco: mismo criterio indulgente
+///   que una KB movida, `kb_root_conflicto` ya lo trata igual);
+/// - la query de `meta.kb_root` falla (DB de schema anterior a M6-04 sin
+///   tabla `meta` — «no such table: meta» — o cualquier otro error de
+///   SQLite): `kb_root_conflicto` propaga con `Context` para el camino de
+///   ESCRITURA, y aquí ese `Result` se degrada con `.ok().flatten()`.
+///
+/// Se llama SIEMPRE sobre la conexión que el llamador YA tiene abierta
+/// para su propia consulta (`busca`/`busca_vector` en `buscador.rs`,
+/// `recall_arranque`/`recall_consulta` en `recall.rs`, vía `busca_hybrid`
+/// para el arm vector): nunca abre una conexión propia. Una primera
+/// implementación sí abría la suya — medido (report de esta rama): con una
+/// DB en WAL cerrada limpiamente (sin `-wal`/`-shm`) sobre un directorio
+/// sin permiso de escritura, `SQLITE_OPEN_READ_ONLY` fallaba con «attempt
+/// to write a readonly database» (SQLite necesita crear el `-shm` para
+/// leer WAL incluso en solo lectura), y sin el `busy_timeout` que fija
+/// `abre_db` corría la misma carrera recall↔index del gate M6
+/// (`SQLITE_BUSY`). Reusar la conexión ya abierta —que YA negoció WAL y
+/// `busy_timeout`— elimina esa clase entera de fallo por construcción, no
+/// solo la enmascara; lo único que queda por degradar aquí es la query en
+/// sí (el caso `meta` ausente).
+pub fn aviso_kb_root_lectura(conn: &Connection, kb: Option<&Path>) -> Option<String> {
+    let kb_abs = std::fs::canonicalize(kb?).ok()?;
+    let previo = kb_root_conflicto(conn, &kb_abs).ok().flatten()?;
+    Some(format!(
+        "estos resultados vienen del índice de otra KB: {previo} (se esperaba {}). \
+         Revisa `[index] db` en la config, $EXO_DB o --db.",
+        kb_abs.display()
+    ))
 }
 
 /// Ruta de `ruta_abs` relativa a la raíz de la KB, **siempre con `/`**.

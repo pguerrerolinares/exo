@@ -44,6 +44,37 @@ jobs:
         if: always()
         working-directory: engine
         run: cargo clippy --all-targets --locked -- -D warnings
+      # Versión pineada por SHA256: la de la imagen del runner cambia sin
+      # aviso y con ella el conjunto de avisos, que es un rojo que nadie
+      # provocó. `if: always()`, igual que clippy: un fmt roto no debe
+      # esconder un script roto.
+      - name: shellcheck 0.11.0 sobre el bash versionado
+        if: always()
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/sc.tar.xz https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.xz
+          echo "8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198  /tmp/sc.tar.xz" | sha256sum -c -
+          tar -xJf /tmp/sc.tar.xz -C /tmp
+          SHELLCHECK=/tmp/shellcheck-v0.11.0/shellcheck bash scripts/test-shellcheck.sh
+      - name: Versiones coherentes (plugin.json == marketplace.json)
+        if: always()
+        run: bash scripts/test-versiones.sh
+      - name: Sin rutas de una máquina concreta en el bash versionado
+        if: always()
+        run: bash scripts/test-rutas-personales.sh
+
+  exec-bit:
+    name: scripts de plugin ejecutables
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      # hooks.json invoca los scripts sin `bash` delante: uno commiteado en
+      # 100644 muere con `Permission denied` en el cache del plugin, y como el
+      # hook es non-blocking nadie lo ve (estilo-directo.sh, exo 1.1.1). El
+      # gate lee el modo del índice de git, que es lo que se publica.
+      - name: Todo script bajo plugins/ (.sh o con shebang) en 100755
+        run: bash scripts/test-exec-bit.sh
 
   msrv:
     name: MSRV declarada (1.95)
@@ -58,8 +89,25 @@ jobs:
         with:
           workspaces: engine
           key: msrv
+      # `dtolnay/rust-toolchain@1.95.0` (arriba) solo hace `rustup default
+      # 1.95.0` — precedencia 5, la MÁS BAJA de rustup (rustup
+      # doc/user-guide/src/overrides.md, «Overrides»: 1 `cargo +<toolchain>`,
+      # 2 `RUSTUP_TOOLCHAIN`, 3 directory override (`rustup override`),
+      # 4 fichero `rust-toolchain[.toml]`, 5 default). `engine/rust-toolchain.toml`
+      # (`channel = "stable"`, campaña E Task 5) es precedencia 4 y PISA ese
+      # default: sin forzar algo de precedencia más alta, `cargo check` de
+      # abajo compilaría con `stable`, no con la MSRV, y este job "pasaría"
+      # sin haber comprobado nada. `RUSTUP_TOOLCHAIN` es precedencia 2, gana
+      # al fichero — se fija por `env:` en los dos steps que siguen.
+      - name: Compilador realmente en uso == 1.95.0 (falsa el override del fichero)
+        working-directory: engine
+        env:
+          RUSTUP_TOOLCHAIN: 1.95.0
+        run: rustc --version | tee /dev/stderr | grep -F ' 1.95.0 '
       - name: cargo check con la MSRV
         working-directory: engine
+        env:
+          RUSTUP_TOOLCHAIN: 1.95.0
         run: cargo check --all-targets --locked
 
   test:
@@ -92,11 +140,58 @@ jobs:
         with:
           path: ~/.cache/huggingface/hub/models--jinaai--jina-embeddings-v2-base-es
           key: hf-jina-es-8e2d780d-${{ runner.os }}
-      # El gate ya existe y ya se demostró falsable (2026-08-27). El CI lo
-      # consume tal cual en vez de reinventar el comando de test.
+      # El gate ya existe y ya se demostró falsable (2026-08-27, re-demostrado
+      # con --locked en la campaña E). El CI lo consume tal cual en vez de
+      # reinventar el comando de test.
       - name: Gate hermético — suite completa sin ~/.exo/config.toml
+        id: gate
         shell: bash
+        env:
+          EXO_HERMETICO_LOG: ${{ github.workspace }}/hermetico.log
         run: ./engine/scripts/test-hermetico.sh
+      # Sin esto, un rojo exclusivo de un SO de la matriz era irreproducible
+      # en la máquina del autor: el log completo (no solo el resumen que
+      # imprime stderr) queda descargable desde la pestaña Actions.
+      # `steps.gate.outcome == 'failure'`, no `always()` a secas: si un step
+      # ANTERIOR al gate (checkout, toolchain, caché) falla, el gate queda
+      # `skipped` y no hay `hermetico.log` que subir — con solo `always()` y
+      # `if-no-files-found: error` eso da un segundo rojo ("no files found")
+      # que no aporta nada, y de paso sube el log también cuando el gate va
+      # en verde.
+      - name: Subir el log completo del gate hermético
+        if: always() && steps.gate.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hermetico-log-${{ matrix.os }}
+          path: hermetico.log
+          if-no-files-found: error
+      # Va aquí y no en `plugin-tests`: necesita el binario de release (que
+      # `cargo test --release` de arriba ya dejó compilado) y el modelo ONNX
+      # cacheado, porque `exo init` indexa la KB semilla del fixture.
+      # `if: always()`: un rojo del gate hermético no debe esconder un contrato
+      # roto detrás.
+      - name: Contrato engine↔recall-inject.sh contra fixture propio
+        if: always()
+        shell: bash
+        run: ./scripts/test-contrato-ci.sh
+
+  plugin-tests:
+    name: tests del plugin (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      # Los hooks de plugins/exo corren en la máquina del usuario, en los tres
+      # SO para los que se publican binarios. Hasta aquí ningún CI los
+      # ejercía: test-estilo-directo.sh fallaba 0/2 y el hook llegó roto a
+      # exo 1.1.1. Sin toolchain de Rust: son bash + jq + git.
+      - name: Todas las suites plugins/exo/scripts/test-*.sh
+        shell: bash
+        run: ./scripts/test-plugin.sh
 
   install-gate:
     name: install gate (${{ matrix.os }})

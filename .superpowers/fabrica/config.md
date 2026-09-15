@@ -45,7 +45,69 @@ M0 Fase 0 ──→ M1a repo ──→ M2 E1-read ──→ M4 E2-write ──�
                       M7 templates (diferible)
 ```
 
-## ACTUALIZACIÓN 2026-08-17 — fase de cierre (manda sobre todo lo de abajo)
+## ACTUALIZACIÓN 2026-09-14 — campañas D+E en la misma fábrica (manda sobre todo lo de abajo)
+
+A, B y C mergeadas (PR #13, #14, #16). La siguiente fábrica ejecuta **dos
+campañas independientes**, elegidas por Paul el 2026-09-14 a partir de un
+dictamen de consultor Fable. Un segundo Fable revisó los planes: 17 hallazgos,
+aplicados antes de este commit.
+
+| Orden de merge | Campaña | Plan | Decisiones de Paul (resueltas) |
+|---|---|---|---|
+| 1 | **E — Hooks honestos e higiene de CI** | `docs/superpowers/plans/2026-09-14-campana-e-hooks-honestos-y-ci.md` | Gate de datos personales = solo rutas · check de desfase en `doctor` FUERA · `walk_kb` FUERA |
+| 2 | **D — Cutover kbx→exo: `rotate` + `stale` y paridad con Go** | `docs/superpowers/plans/2026-09-14-campana-d-cutover-kbx.md` + pre-registro `…-campana-d-preregistro-paridad-rotate-stale.md` | Alcance `rotate`+`stale` · `stale` con la fórmula de kbx tal cual (1.5/1.0/0.5/NOTIER 0.5, degree 0.2) · `history`/`diff-since` sustituidos por git en `/distill` · tras D ningún consumidor del plugin invoca `kbx` |
+
+- **Lanes en paralelo**: comparten solo `engine/src/main.rs` (zonas disjuntas,
+  tabla en los dos planes) y `docs/backlog.md` (re-anclado por texto). E se
+  mergea primero; D se rebasa.
+- **Prerequisito de D**: Go 1.26.4 en `~/.local/go` (Task 2). Si falla, las
+  tasks de paridad (3, 4, 6, 8) quedan `encolado` y el port (5, 7, 9) sigue.
+- **Abiertas en D, con la recomendación ya aplicada en el plan**: D-3 (exit
+  code de `rotate` ante un fallo parcial: 1 en exo frente a 2 en kbx,
+  declarado) y D-4 (prefijo del permalink = `nombre_kb()`, con aviso visible
+  si falta config). No bloquean el critical path.
+- **Ninguna task escribe en `~/.local/bin`**: el `exo` y el `kbx` instalados
+  son el entorno vivo de Paul.
+- Se mantienen el régimen de gates, la línea roja y la regla PENDIENTE-PAUL
+  del bloque 2026-09-13.
+
+---
+
+## ACTUALIZACIÓN 2026-09-13 — campañas A→B→C (histórico: la sustituye el bloque 2026-09-14)
+
+Decisión de Paul en sesión 2026-09-13: la **fase de cierre queda levantada**
+(v0.1.0 publicada). El roadmap ejecutable pasa a ser el de tres campañas
+salidas de la revisión multi-ángulo del 2026-09-13 (hallazgos `H1`–`H29`):
+
+| Orden | Campaña | Plan (fuente de selección de items) | Estado 2026-09-13 |
+|---|---|---|---|
+| 1 | **A — Recall por prompt: correcto, barato y medido** | `docs/superpowers/plans/2026-09-13-campana-a-recall-por-prompt.md` + pre-registro `…-campana-a-preregistro-bench.md` | Ejecutada salvo Task 12 y Task 15 (esperan la medición manual de Paul en W11, §W11 del pre-registro). Veredicto: `evals/recall-coste/verdict/2026-09-campana-a.md`. D0–D6 resueltas en el plan |
+| 2 | **B — Superficie pública y gates** | `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md` | Planificada. D1–D5 abiertas (PENDIENTE-PAUL); T1, T4, T5, T6, T8 no dependen de ellas. H25 es checklist externo de Paul, no tarea de fábrica |
+| 3 | **C — Retrieval fuera de muestra** | `docs/superpowers/plans/2026-09-13-campana-c-retrieval-held-out.md` + pre-registro `…-campana-c-preregistro.md` | Planificada. T0–T5 (diseño, harness, gold) pueden arrancar; medición y producción tras A. D1–D6 abiertas; el gold lo aprueba Paul (gate humano) |
+
+Fuera de las campañas, ya en `main`: hotfix H27 (PR #11, KNN por encima del
+tope k=4096 de vec0) y hotfix del `k` por consulta (PR #12, exacto solo con la
+fusión sellada — restricción anotada en el plan de C).
+
+**Cambios de régimen respecto al bloque 2026-08-17:**
+- **Pre-registros y métricas permitidos de nuevo.** Una puerta numérica
+  pre-registrada decide; un resultado no se re-corre ni se reinterpreta a la
+  vista del número.
+- **Decisiones PENDIENTE-PAUL de cada plan**: una tarea bloqueada por una
+  decisión abierta no se adjudica por consultor ni por clase pre-autorizada;
+  queda `encolado` y el selector pasa a la siguiente adjudicable.
+- **Backlog**: `docs/backlog.md` es el instrumento vivo; cada campaña añade
+  líneas de estado a los items que toca (editar el item, no duplicar).
+- **Pendiente, no bloquea**: proceso residente para el coste fijo de ~910 ms
+  de carga del modelo (item Media del backlog; requiere brainstorming con
+  Paul antes de planificar).
+- **Se mantienen** del bloque 2026-08-17: veto AGPL, permalinks jamás
+  regenerados, línea roja de acciones destructivas o externas a Paul (push a
+  `main`, merges, borrado de ramas remotas, `gh repo edit`), y el gate de merge.
+
+---
+
+## ACTUALIZACIÓN 2026-08-17 — fase de cierre (histórico: la sustituye el bloque 2026-09-13)
 
 Decisión de Paul en sesión 2026-08-17: **el proyecto se cierra hasta M5b**
 (desinstalación de basic-memory), con régimen ligero. Plan de campañas:
