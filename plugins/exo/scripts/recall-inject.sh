@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# UserPromptSubmit hook: busca el prompt de Paul en la KB e inyecta punteros a
+# UserPromptSubmit hook: busca el prompt del dueño de la KB en la KB e inyecta punteros a
 # lo relevante (M6-06, "recall en el punto de uso"). Transporte mecánico: el
 # modelo no decide si buscar.
 #
 # HAZARD PROPIO DE ESTE EVENTO, y la razón de que aquí no haya `set -e`: un
-# exit 2 no degrada, BORRA el prompt de Paul. Es el único hook del harness
+# exit 2 no degrada, BORRA el prompt del dueño de la KB. Es el único hook del harness
 # donde un bug destruye input del usuario. Por eso: cero `set -e`, tuberías
 # con `|| true`, y `exit 0` incondicional al final.
 #

@@ -51,7 +51,7 @@ solo mientras kbx y exo convivían contra el mismo schema,
   su `kbx_budget_max`) aterrizan en `waived`, no en `findings`. Sus findings
   alimentan la limpieza (WS4 del spec Fase 2): `duplicate_dir`, `orphan`,
   `bad_frontmatter`, `root_file`. No los muevas a ciegas — cada `git mv` lo
-  gatea Paul.
+  gatea el dueño de la KB.
 - **Priorización:** corre `$EXO_BIN stale --json`
   (`{data:{notes:[{path,tier,age_days,degree,score,...}]}}`, orden descendente
   por `score`). Úsalo para decidir QUÉ notas atacar primero en los pasos 2 y 4,

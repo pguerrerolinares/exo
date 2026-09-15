@@ -322,6 +322,14 @@ en español; el cromo que pinta clap (`Usage:`, `Options:`, `Commands:`…) y
 los metavars (`--limit <LIMIT>`, igual al nombre del flag) se quedan en
 inglés.
 
+Idioma de los identificadores de código: los 26 módulos de `engine/src/`
+(`git ls-files -- 'engine/src/*.rs'`) usan nombres en español (`buscador`,
+`trozos`, `aristas`, `escritor`, `objetivos`, `inicia`…); las claves de los
+envelopes JSON y los flags largos del CLI están en inglés desde D8/D9. Es el
+estado real, escrito para que no haga falta re-descubrirlo leyendo código.
+Sin rename masivo: la convención se aplica a módulos nuevos, no fuerza tocar
+los viejos.
+
 Contrato de salida común: con `--json`, stdout lleva **exclusivamente** el
 envelope `{"schema_version": 2, "command": …, "data": …}` en una línea; todo
 lo humano y los avisos van a stderr. Los consumidores gatean por exit code

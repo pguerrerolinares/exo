@@ -60,7 +60,7 @@ QUÉ HACER, en orden:
      bitácora (log/<slug>-bitacora.md). El canon se queda con el destilado.
   2. Si la bitácora es la que ha crecido: exo rotate --kb <kb> --apply
      archiva su cola fría en archive/log/.
-  3. Si nada de eso aplica: deja el commit pendiente y díselo a Paul.
+  3. Si nada de eso aplica: deja el commit pendiente y díselo al dueño de la KB.
      Un commit sin hacer se arregla en un minuto; una nota mutilada, no.
 ────────────────────────────────────────────────────────────────────────
 EOF

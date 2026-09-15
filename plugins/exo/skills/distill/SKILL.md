@@ -7,7 +7,7 @@ description: Consolidación offline de la KB (sleep-time compute manual): colaps
 
 **Qué es:** el "sleep-time compute" manual de la KB kb-demo. Mientras `/document`
 escribe en caliente (al cerrar una sesión), `/distill` es mantenimiento offline —
-Paul lo invoca al cerrar un frente o semanalmente para que la KB no crezca sin control
+El dueño de la KB lo invoca al cerrar un frente o semanalmente para que la KB no crezca sin control
 ni se llene de doctrina repetida sin destilar.
 
 **Regla de oro: nada se borra.** Todo movimiento es `git mv` o edición; si algo deja de
@@ -23,7 +23,7 @@ con el mismo seam que usa `plugins/exo/scripts/test-contrato-engine.sh`:
 
 - `$KB_ROOT` — raíz de la KB:
   `${EXO_KB:-$(exo config --json | jq -r '.data.kb.path // empty')}`. Si sale
-  vacío, es **abstención ruidosa**: para y dile a Paul que ni `$EXO_KB` ni
+  vacío, es **abstención ruidosa**: para y dile al dueño de la KB que ni `$EXO_KB` ni
   `exo config --json` resolvieron nada — no sigas con el procedimiento. La
   KB tiene que ser la raíz de un repo git, y sin él cada subcomando se
   comporta distinto: `targets` falla con un mensaje que nombra la condición
@@ -46,7 +46,7 @@ Todos los comandos de las secciones siguientes usan `$KB_ROOT` y `$EXO_BIN`
 
 **Precondición dura:** `git -C $KB_ROOT status --porcelain`
 debe salir **vacío** antes de tocar nada. Si no sale vacío, **para** y pide a
-Paul que commitee o guarde su trabajo antes de rotar — no sigas por tu
+al dueño de la KB que commitee o guarde su trabajo antes de rotar — no sigas por tu
 cuenta. El baseline de conservación del punto 2 (`git show HEAD:<ruta>`)
 asume que `HEAD` es el estado justo antes de rotar, y la reversión del punto
 3 (`git checkout -- <ruta>`) descarta lo que no esté commiteado sin forma de
@@ -115,12 +115,12 @@ bajas de sección, nuevos punteros a bitácoras).
 > **Nunca subas un techo para que pase** — el trinquete lo rechazará en el
 > commit de todos modos.
 
-Luego commit scoped con las mismas reglas git de Paul:
+Luego commit scoped con las mismas reglas git del dueño de la KB:
 
 - `git -C $KB_ROOT add <ruta1> <ruta2> ...` —
   **nunca** `git add -A`, **nunca** `git add .`.
 - **Nunca** `cd` encadenado con `git`; usa siempre `git -C <path>`.
-- **No hagas push** — esa decisión es de Paul.
+- **No hagas push** — esa decisión es del dueño de la KB.
 - Tras el commit, avanza el marcador de consolidación:
   `git -C $KB_ROOT tag -f distill/last HEAD`.
   (No se pushea; es un marcador local para el `diff-since` de la próxima corrida.)
@@ -130,4 +130,4 @@ Luego commit scoped con las mismas reglas git de Paul:
 Delegable a un subagente sonnet: los pasos 1-4 son mecánicos/de revisión y el subagente
 puede volcar los splits/movimientos propuestos como un **diff revisable antes de
 commit** — no comitees a ciegas lo que produzca el subagente, revísalo tú primero
-(o Paul).
+(o el dueño de la KB).
