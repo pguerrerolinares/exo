@@ -62,6 +62,9 @@ jobs:
       - name: Sin rutas de una máquina concreta en el bash versionado
         if: always()
         run: bash scripts/test-rutas-personales.sh
+      - name: Documentación viva (README/arquitectura/instalación no mienten)
+        if: always()
+        run: bash scripts/test-docs-vivos.sh
 
   exec-bit:
     name: scripts de plugin ejecutables
