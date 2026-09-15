@@ -11,30 +11,18 @@
 # C:\Users\<nombre> pero NO /home/<user> — justo la única ofensora real de
 # este repo (test-git-c-bash.sh). Copiarlo tal cual no bastaba.
 #
-# Mismo descubrimiento que test-shellcheck.sh: índice de git, .sh + shebang
-# sh/bash, excluye evals/ (harness congelado — cita rutas de corridas
-# pasadas como evidencia, no las produce) y docs/ (backlog.md documenta
-# estas mismas rutas como HALLAZGOS, con cita; no son las que produce el
-# hook).
+# Descubrimiento en `_bash-versionado.sh`, compartido con test-shellcheck.sh:
+# índice de git, .sh + shebang sh/bash, excluye evals/ (harness congelado —
+# cita rutas de corridas pasadas como evidencia, no las produce) y docs/
+# (backlog.md documenta estas mismas rutas como HALLAZGOS, con cita; no son
+# las que produce el hook).
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)" || exit 1
 
 PATRON='(/home/[A-Za-z0-9_.-]+|/Users/[A-Za-z0-9_.-]+|C:[\\/]Users[\\/][A-Za-z0-9_.-]+)'
 
-ficheros=()
-while read -r modo blob _etapa ruta; do
-  case "$ruta" in evals/*|docs/*) continue ;; esac
-  case "$ruta" in
-    *.sh) ficheros+=("$ruta") ;;
-    *.*) : ;;
-    *)
-      [ "$modo" = "100755" ] || continue
-      if git cat-file -p "$blob" | head -n 1 | grep -Eq '^#!.*[/ ](ba)?sh([[:space:]]|$)'; then
-        ficheros+=("$ruta")
-      fi
-      ;;
-  esac
-done < <(git ls-files -s)
+. "$(dirname "$0")/_bash-versionado.sh" || { echo "test-rutas-personales: no puedo cargar scripts/_bash-versionado.sh" >&2; exit 1; }
+bash_versionado
 
 if [ "${#ficheros[@]}" -eq 0 ]; then
   echo "test-rutas-personales: no se encontró ningún script — el recorrido está roto" >&2
