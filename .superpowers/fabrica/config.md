@@ -45,7 +45,35 @@ M0 Fase 0 ──→ M1a repo ──→ M2 E1-read ──→ M4 E2-write ──�
                       M7 templates (diferible)
 ```
 
-## ACTUALIZACIÓN 2026-09-13 — campañas A→B→C (manda sobre todo lo de abajo, incluido el bloque del 2026-08-17)
+## ACTUALIZACIÓN 2026-09-14 — campañas D+E en la misma fábrica (manda sobre todo lo de abajo)
+
+A, B y C mergeadas (PR #13, #14, #16). La siguiente fábrica ejecuta **dos
+campañas independientes**, elegidas por Paul el 2026-09-14 a partir de un
+dictamen de consultor Fable. Un segundo Fable revisó los planes: 17 hallazgos,
+aplicados antes de este commit.
+
+| Orden de merge | Campaña | Plan | Decisiones de Paul (resueltas) |
+|---|---|---|---|
+| 1 | **E — Hooks honestos e higiene de CI** | `docs/superpowers/plans/2026-09-14-campana-e-hooks-honestos-y-ci.md` | Gate de datos personales = solo rutas · check de desfase en `doctor` FUERA · `walk_kb` FUERA |
+| 2 | **D — Cutover kbx→exo: `rotate` + `stale` y paridad con Go** | `docs/superpowers/plans/2026-09-14-campana-d-cutover-kbx.md` + pre-registro `…-campana-d-preregistro-paridad-rotate-stale.md` | Alcance `rotate`+`stale` · `stale` con la fórmula de kbx tal cual (1.5/1.0/0.5/NOTIER 0.5, degree 0.2) · `history`/`diff-since` sustituidos por git en `/distill` · tras D ningún consumidor del plugin invoca `kbx` |
+
+- **Lanes en paralelo**: comparten solo `engine/src/main.rs` (zonas disjuntas,
+  tabla en los dos planes) y `docs/backlog.md` (re-anclado por texto). E se
+  mergea primero; D se rebasa.
+- **Prerequisito de D**: Go 1.26.4 en `~/.local/go` (Task 2). Si falla, las
+  tasks de paridad (3, 4, 6, 8) quedan `encolado` y el port (5, 7, 9) sigue.
+- **Abiertas en D, con la recomendación ya aplicada en el plan**: D-3 (exit
+  code de `rotate` ante un fallo parcial: 1 en exo frente a 2 en kbx,
+  declarado) y D-4 (prefijo del permalink = `nombre_kb()`, con aviso visible
+  si falta config). No bloquean el critical path.
+- **Ninguna task escribe en `~/.local/bin`**: el `exo` y el `kbx` instalados
+  son el entorno vivo de Paul.
+- Se mantienen el régimen de gates, la línea roja y la regla PENDIENTE-PAUL
+  del bloque 2026-09-13.
+
+---
+
+## ACTUALIZACIÓN 2026-09-13 — campañas A→B→C (histórico: la sustituye el bloque 2026-09-14)
 
 Decisión de Paul en sesión 2026-09-13: la **fase de cierre queda levantada**
 (v0.1.0 publicada). El roadmap ejecutable pasa a ser el de tres campañas

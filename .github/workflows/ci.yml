@@ -59,6 +59,9 @@ jobs:
       - name: Versiones coherentes (plugin.json == marketplace.json)
         if: always()
         run: bash scripts/test-versiones.sh
+      - name: Sin rutas de una máquina concreta en el bash versionado
+        if: always()
+        run: bash scripts/test-rutas-personales.sh
 
   exec-bit:
     name: scripts de plugin ejecutables
@@ -86,8 +89,25 @@ jobs:
         with:
           workspaces: engine
           key: msrv
+      # `dtolnay/rust-toolchain@1.95.0` (arriba) solo hace `rustup default
+      # 1.95.0` — precedencia 5, la MÁS BAJA de rustup (rustup
+      # doc/user-guide/src/overrides.md, «Overrides»: 1 `cargo +<toolchain>`,
+      # 2 `RUSTUP_TOOLCHAIN`, 3 directory override (`rustup override`),
+      # 4 fichero `rust-toolchain[.toml]`, 5 default). `engine/rust-toolchain.toml`
+      # (`channel = "stable"`, campaña E Task 5) es precedencia 4 y PISA ese
+      # default: sin forzar algo de precedencia más alta, `cargo check` de
+      # abajo compilaría con `stable`, no con la MSRV, y este job "pasaría"
+      # sin haber comprobado nada. `RUSTUP_TOOLCHAIN` es precedencia 2, gana
+      # al fichero — se fija por `env:` en los dos steps que siguen.
+      - name: Compilador realmente en uso == 1.95.0 (falsa el override del fichero)
+        working-directory: engine
+        env:
+          RUSTUP_TOOLCHAIN: 1.95.0
+        run: rustc --version | tee /dev/stderr | grep -F ' 1.95.0 '
       - name: cargo check con la MSRV
         working-directory: engine
+        env:
+          RUSTUP_TOOLCHAIN: 1.95.0
         run: cargo check --all-targets --locked
 
   test:
@@ -120,11 +140,31 @@ jobs:
         with:
           path: ~/.cache/huggingface/hub/models--jinaai--jina-embeddings-v2-base-es
           key: hf-jina-es-8e2d780d-${{ runner.os }}
-      # El gate ya existe y ya se demostró falsable (2026-08-27). El CI lo
-      # consume tal cual en vez de reinventar el comando de test.
+      # El gate ya existe y ya se demostró falsable (2026-08-27, re-demostrado
+      # con --locked en la campaña E). El CI lo consume tal cual en vez de
+      # reinventar el comando de test.
       - name: Gate hermético — suite completa sin ~/.exo/config.toml
+        id: gate
         shell: bash
+        env:
+          EXO_HERMETICO_LOG: ${{ github.workspace }}/hermetico.log
         run: ./engine/scripts/test-hermetico.sh
+      # Sin esto, un rojo exclusivo de un SO de la matriz era irreproducible
+      # en la máquina del autor: el log completo (no solo el resumen que
+      # imprime stderr) queda descargable desde la pestaña Actions.
+      # `steps.gate.outcome == 'failure'`, no `always()` a secas: si un step
+      # ANTERIOR al gate (checkout, toolchain, caché) falla, el gate queda
+      # `skipped` y no hay `hermetico.log` que subir — con solo `always()` y
+      # `if-no-files-found: error` eso da un segundo rojo ("no files found")
+      # que no aporta nada, y de paso sube el log también cuando el gate va
+      # en verde.
+      - name: Subir el log completo del gate hermético
+        if: always() && steps.gate.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hermetico-log-${{ matrix.os }}
+          path: hermetico.log
+          if-no-files-found: error
       # Va aquí y no en `plugin-tests`: necesita el binario de release (que
       # `cargo test --release` de arriba ya dejó compilado) y el modelo ONNX
       # cacheado, porque `exo init` indexa la KB semilla del fixture.

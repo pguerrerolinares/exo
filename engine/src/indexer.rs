@@ -118,7 +118,7 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
     // ruta relativa dependería del cwd del proceso que llame a kbx.
     let kb_abs = std::fs::canonicalize(kb)
         .with_context(|| format!("canonicalizar raíz de KB {}", kb.display()))?;
-    comprueba_kb_root(&conn, &kb_abs)?;
+    comprueba_kb_root(&conn, &kb_abs, OrigenComprobacion::IndexORebuild)?;
     conn.execute(
         "INSERT INTO meta (clave, valor) VALUES ('kb_root', ?1)
          ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor",
@@ -459,6 +459,18 @@ fn verifica_modelo(conn: &Connection, modelo_actual: &str) -> Result<()> {
     }
 }
 
+/// Distingue el remedio que ofrece `comprueba_kb_root`: `index`/`rebuild`
+/// tienen `--db`, `init` no (resuelve por `$EXO_DB`, `db_de_init` en
+/// `inicia.rs`). Mismo guard, mensaje distinto por llamador — antes era un
+/// único texto que recomendaba `--db` incluso disparado desde `init`
+/// (docs/backlog.md, "la guarda 'una DB sirve a una KB' recomienda --db a
+/// init, que no lo tiene").
+#[derive(Clone, Copy)]
+pub enum OrigenComprobacion {
+    IndexORebuild,
+    Init,
+}
+
 /// H1 (campaña A): una DB sirve a UNA KB. `meta.kb_root` es de un solo valor
 /// y el walk borra toda ruta que no ve, así que indexar otra KB sobre la
 /// misma DB borraba en silencio el índice de la primera (exit 0, medido el
@@ -468,15 +480,29 @@ fn verifica_modelo(conn: &Connection, modelo_actual: &str) -> Result<()> {
 /// Pasa si no hay `kb_root`, si coincide con `kb_abs` (ambas canónicas) o si
 /// la KB registrada ya no existe en disco: eso es una KB movida, y seguir
 /// actualizando `kb_root` es el contrato de siempre.
-pub fn comprueba_kb_root(conn: &Connection, kb_abs: &Path) -> Result<()> {
+pub fn comprueba_kb_root(
+    conn: &Connection,
+    kb_abs: &Path,
+    origen: OrigenComprobacion,
+) -> Result<()> {
     let Some(previo) = kb_root_conflicto(conn, kb_abs)? else {
         return Ok(());
     };
+    let remedio = match origen {
+        OrigenComprobacion::IndexORebuild => format!(
+            "usa otra --db para esta, o `exo rebuild --kb {} --db <esta db>` \
+             si de verdad quieres reemplazar el índice",
+            kb_abs.display()
+        ),
+        OrigenComprobacion::Init => {
+            "usa otro $EXO_DB para esta KB (`EXO_DB=<ruta> exo init …`), o borra/reemplaza \
+             la DB actual si de verdad quieres reutilizarla"
+                .to_string()
+        }
+    };
     bail!(
         "este índice es de otra KB que sigue en disco: {previo} (pediste {}). \
-         Una DB sirve a UNA KB: usa otra --db para esta, o `exo rebuild --kb {} --db <esta db>` \
-         si de verdad quieres reemplazar el índice",
-        kb_abs.display(),
+         Una DB sirve a UNA KB: {remedio}",
         kb_abs.display()
     )
 }
