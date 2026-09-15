@@ -37,5 +37,22 @@ if [ "$#" -ge 1 ] && [ "$1" != "v$engine" ]; then
   fallos=1
 fi
 
-[ "$fallos" -eq 0 ] && echo "[OK] engine $engine · plugin $plugin"
+# ENGINE_MIN (campaña H): el mínimo de engine que el plugin instalado declara
+# necesitar (lo lee `exo doctor` del plugin en caché, y los hooks del propio
+# binario en ejecución). Tiene que ser <= la versión real de engine — un
+# ENGINE_MIN por delante de lo que el propio repo publica marcaría todo
+# binario recién compilado como "viejo".
+engine_min="$(tr -d '[:space:]' < plugins/exo/ENGINE_MIN 2>/dev/null || true)"
+if [ -z "$engine_min" ]; then
+  echo "[FAIL] no leo plugins/exo/ENGINE_MIN" >&2
+  fallos=1
+elif [ -n "$engine" ]; then
+  . plugins/exo/scripts/_engine-version.sh
+  if semver_lt "$engine" "$engine_min"; then
+    echo "[FAIL] ENGINE_MIN ($engine_min) es MAYOR que engine/Cargo.toml ($engine): todo binario recién compilado se reportaría como viejo" >&2
+    fallos=1
+  fi
+fi
+
+[ "$fallos" -eq 0 ] && echo "[OK] engine $engine · plugin $plugin · ENGINE_MIN $engine_min"
 exit "$fallos"
