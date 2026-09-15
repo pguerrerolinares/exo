@@ -438,16 +438,24 @@ fn escribe_fichero_exclusivo(ruta: &Path, datos: &[u8]) -> Result<()> {
 /// llamador (igual que kbx `fsyncDir`, que abre el directorio antes de
 /// mirar el SO).
 fn fsync_directorio(dir: &Path) -> Result<()> {
-    let f =
-        std::fs::File::open(dir).with_context(|| format!("abrir directorio {}", dir.display()))?;
     if cfg!(windows) {
         // Windows no tiene fsync de directorio: `FlushFileBuffers` sobre un
         // handle de directorio devuelve ERROR_ACCESS_DENIED, así que
         // `sync_all` aquí fallaría en cada rotación. NTFS journala los
         // metadatos del rename por su cuenta, así que no hay nada que
         // flushear ni un equivalente portable que llamar en su lugar.
+        // Tampoco se puede `File::open` un directorio en Windows (a
+        // diferencia del `os.Open` de Go, std no pasa
+        // FILE_FLAG_BACKUP_SEMANTICS): se comprueba que existe y es un
+        // directorio, que es lo que el Open de kbx garantiza aquí — una ruta
+        // mala sigue fallando alto.
+        let meta = std::fs::metadata(dir)
+            .with_context(|| format!("abrir directorio {}", dir.display()))?;
+        anyhow::ensure!(meta.is_dir(), "{} no es un directorio", dir.display());
         return Ok(());
     }
+    let f =
+        std::fs::File::open(dir).with_context(|| format!("abrir directorio {}", dir.display()))?;
     f.sync_all()
         .with_context(|| format!("fsync de {}", dir.display()))
 }
