@@ -10,10 +10,27 @@
 //! de retrieval — pero los VECTORES ya no son pseudoaleatorios: cada trozo
 //! usa el embedding REAL de su palabra de vocabulario dominante (pool de 24
 //! embeddings, calculado UNA VEZ con el modelo real, nunca por trozo) más
-//! ruido gaussiano `KB_SINTETICA_SIGMA` (default 0.5), renormalizado a
-//! norma unidad. Antes, un vector puramente aleatorio en 768 dims tiene
-//! similitud coseno esperada ~0 con cualquier query, así que con el umbral
-//! de producción (0.40) el arm vector nunca aportaba nada al bench.
+//! ruido gaussiano `KB_SINTETICA_SIGMA` (default 0.05, ver abajo),
+//! renormalizado a norma unidad. Antes, un vector puramente aleatorio en
+//! 768 dims tiene similitud coseno esperada ~0 con cualquier query, así que
+//! con el umbral de producción (0.40) el arm vector nunca aportaba nada al
+//! bench.
+//!
+//! **Por qué 0.05 y no un sigma más alto (fix del orquestador, 2):**
+//! el techo SIN ruido (sigma=0) ya no es 1.0 — la query de `bench.sh` es
+//! una FRASE de 4 palabras del vocabulario (mean-pooled a un solo vector
+//! por el modelo), mientras que cada trozo usa el embedding de UNA sola
+//! palabra dominante; la mezcla de las otras 3 palabras en la query diluye
+//! la similitud incluso sin ruido — medido: coseno máximo 0.4747 con
+//! `KB_SINTETICA_SIGMA=0` sobre N=174, frente a 1.0 esperado si query y
+//! trozo fueran la misma palabra. El default de la Task 1 (sigma=0.5)
+//! añadía ruido gaussiano de norma esperada `sqrt(768)·0.5 ≈ 13.9` a un
+//! vector unitario — domina por completo la señal (0.4747 → ~0.35 tras
+//! renormalizar) y el arm vuelve a ser ciego al umbral. Con sigma=0.05 el
+//! ruido (norma esperada ≈1.39) reduce el techo a ~0.42-0.47 sin
+//! aplastarlo: algunas notas cruzan 0.40, la mayoría no — el arm discrimina
+//! el umbral en vez de ser trivialmente ciego (0 siempre) o trivialmente
+//! todo-pasa (siempre >0.40, como con sigma=0).
 //!
 //! Uso: kb_sintetica <N> <DIR> [SEMILLA]  (env `KB_SINTETICA_SIGMA` opcional)
 use anyhow::{Context, Result, bail};
@@ -356,10 +373,14 @@ fn main() -> Result<()> {
     }
     versiona(&kb)?;
     escribe_config(&dir, &kb, &db)?;
+    // Default 0.05, no 0.5 (Task 1 original): con sigma=0.5 el ruido
+    // domina la señal del pool real y el arm vector vuelve a ser ciego al
+    // umbral de producción (0.40) — ver doc-comment del módulo, "fix del
+    // orquestador (2)".
     let sigma: f32 = std::env::var("KB_SINTETICA_SIGMA")
         .ok()
         .and_then(|s| s.parse().ok())
-        .unwrap_or(0.5);
+        .unwrap_or(0.05);
     let pool = pool_de_vocabulario().context("pool de embeddings reales del vocabulario")?;
     let (trozos, aristas, rotas) = construye_indice(&kb, &db, n, &mut rng, &pool, sigma)?;
     println!(

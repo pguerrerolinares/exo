@@ -69,12 +69,15 @@ for N in "${TAMANOS[@]}"; do
   jq -e --argjson n "$N" '.data.indexed == 0 and .data.skipped == $n' "$OUT/fidelidad-n$N.json" >/dev/null || {
     echo "bench: índice sintético no fresco para N=$N: $(cat "$OUT/fidelidad-n$N.json")" >&2; exit 1; }
 
-  # Ola 1 G Task 1: el arm vector tiene que aportar algo con el umbral de
-  # producción, o el bench mide solo el canal FTS aunque diga "hybrid".
-  "$BIN" recall --db "$DB" --kb "$KB" "--query=$Q" --min-similarity 0.40 \
-    --limit 4 --cap-bytes 4000 --json > "$OUT/cobertura-vector-n$N.json" || exit 1
-  jq -e '.data.notes | length > 0' "$OUT/cobertura-vector-n$N.json" >/dev/null || {
-    echo "bench: arm vector sin resultados (umbral 0.40) para N=$N — kb_sintetica sigue ciega al umbral" >&2
+  # Ola 1 G Task 1 (fix del orquestador, 2): el arm vector AISLADO
+  # (`search --type vector`, no `recall`/`hybrid`) tiene que aportar algo
+  # con el umbral de producción, o el bench mide solo el canal FTS aunque
+  # diga "hybrid" — `busca_hybrid` fusiona por UNIÓN, así que un `recall`
+  # que devuelve notas no prueba que el arm vector participó.
+  "$BIN" search --db "$DB" --kb "$KB" --type vector --min-similarity 0.40 \
+    --limit 4 --json "$Q" > "$OUT/cobertura-vector-n$N.json" || exit 1
+  jq -e '.data.results | length > 0' "$OUT/cobertura-vector-n$N.json" >/dev/null || {
+    echo "bench: KB sintética ciega al umbral: el brazo vector no devuelve nada con 0.40 (N=$N)" >&2
     exit 1; }
 
   jq -n --arg p "$Q" '{prompt:$p, session_id:"bench-a"}' > "$D/prompt.json"
