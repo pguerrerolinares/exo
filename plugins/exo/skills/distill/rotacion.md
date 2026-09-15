@@ -10,6 +10,8 @@ Corre primero en seco y revisa el resultado:
 Si `data.rotations` viene vacío, no hay nada que rotar: sigue directo al paso
 1. Si trae entradas, repite con `--apply` y verifica antes de continuar:
 
+`--apply` exige `[kb] name` en la config; sin ella sale exit 1 sin tocar disco.
+
 **Si `--apply` sale con exit 1**: no es "nada se aplicó" — `rotate_cmd`
 (`engine/src/main.rs::rotate_cmd`) sigue barriendo `log/` aunque una nota
 falle (frontmatter sin cerrar, fichero ilegible) y solo hace `bail!` (exit 1)

@@ -1482,10 +1482,17 @@ fn rotate_cmd(args: ArgsRotate) -> Result<()> {
             args.presupuesto_caliente
         );
     }
-    let nombre_kb = exo::nombre_kb().unwrap_or_else(|e| {
-        eprintln!("aviso: rotate usa prefijo 'kb' — sin [kb] name: {e:#}");
-        "kb".to_string()
-    });
+    // D-4: el prefijo del `permalink` del archivo es `[kb] name`. Solo
+    // `--apply` lo escribe; el dry-run no necesita config (sirve sobre una
+    // KB ajena sin `~/.exo`). Sin nombre resoluble, `--apply` falla ANTES de
+    // tocar disco: "sin defaults inventados" (config.rs), igual que `write new`.
+    let nombre_kb = if args.apply {
+        exo::nombre_kb().context(
+            "rotate --apply necesita `[kb] name` en la config para el permalink del archivo",
+        )?
+    } else {
+        String::new()
+    };
 
     let dir_log = kb.join("log");
     // Un directorio `x.md/` dentro de `log/` no es una nota — se salta en

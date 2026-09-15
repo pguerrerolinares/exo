@@ -9,6 +9,8 @@
 //! el proceso del test — no hace falta el candado de `tests/common/mod.rs`.
 use std::process::Command;
 
+mod common;
+
 fn bin() -> &'static str {
     env!("CARGO_BIN_EXE_exo")
 }
@@ -22,9 +24,11 @@ fn kb_con_bitacora(cuerpo: &str) -> tempfile::TempDir {
 
 /// Ruta de config que NUNCA existe en disco, dentro del propio tempdir del
 /// test — `exo::nombre_kb()` falla con ella igual que sin `[kb] name`
-/// definido, así que el fallback de la Decisión D-4 (prefijo `kb`, aviso por
-/// stderr) es el único camino posible; ningún test de este fichero depende
-/// del VALOR del prefijo salvo `fallback_d4_...`, que lo asevera explícito.
+/// definido. El dry-run (`--apply` ausente) no necesita config y sigue
+/// funcionando con esta ruta; `--apply` con ella es exactamente el montaje de
+/// `apply_sin_kb_name_falla_antes_de_escribir` (Decisión D-4, verdict D+E
+/// 2026-09-15: sin `[kb] name` resoluble, `--apply` aborta ANTES de tocar
+/// disco — ya no hay fallback al prefijo `kb`).
 fn cfg_inexistente(dir: &std::path::Path) -> std::path::PathBuf {
     dir.join("no-existe-config.toml")
 }
@@ -67,11 +71,17 @@ fn dry_run_no_toca_disco_y_reporta_json() {
 #[test]
 fn apply_escribe_de_verdad() {
     let dir = kb_con_bitacora(&nota_grande());
+    let config_path = dir.path().join("config.toml");
+    std::fs::write(
+        &config_path,
+        common::render_config(dir.path(), "prueba", &dir.path().join("x.db")),
+    )
+    .unwrap();
     let salida = Command::new(bin())
         .args(["rotate", "--json", "--hot-bytes", "8000", "--apply"])
         .arg("--kb")
         .arg(dir.path())
-        .env("EXO_CONFIG", cfg_inexistente(dir.path()))
+        .env("EXO_CONFIG", &config_path)
         .output()
         .unwrap();
     assert!(
@@ -80,6 +90,16 @@ fn apply_escribe_de_verdad() {
         String::from_utf8_lossy(&salida.stderr)
     );
     assert!(dir.path().join("archive/log").exists());
+
+    let archivo = std::fs::read_dir(dir.path().join("archive/log"))
+        .unwrap()
+        .find_map(|e| e.ok())
+        .expect("debía haber al menos un archivo rotado");
+    let contenido = std::fs::read_to_string(archivo.path()).unwrap();
+    assert!(
+        contenido.contains("permalink: 'prueba/archive/log/"),
+        "el permalink del archivo debía usar el `[kb] name` de la config: {contenido}"
+    );
 }
 
 #[test]
@@ -153,15 +173,16 @@ fn sin_directorio_log_no_hay_nada_que_rotar() {
     );
 }
 
-// Fija el fallback de la Decisión D-4 (`main.rs::rotate_cmd`): sin `[kb]
-// name` resoluble, `rotate --apply` no falla — usa el prefijo `kb` para el
-// `permalink` que escribe en el archivo y avisa por stderr. Este test NO
-// cambia ese comportamiento (D-4 sigue abierta para Paul: verbatim vs.
-// `nombre_kb()`, ver el plan de campaña) — solo lo fija con un test, que es
-// lo que el review final pidió.
+// Decisión D-4 (verdict D+E 2026-09-15, decisión 3): el prefijo del
+// `permalink` que escribe `--apply` es `[kb] name`. Sin config válida (o sin
+// `name` en ella), `--apply` no inventa un prefijo `kb` — aborta ANTES de
+// tocar disco, igual que `write new` (`main.rs:794-797`). El dry-run (sin
+// `--apply`) no necesita config: eso lo cubren los tests de arriba con la
+// misma `cfg_inexistente`.
 #[test]
-fn fallback_d4_sin_kb_name_usa_prefijo_kb_y_avisa_por_stderr() {
+fn apply_sin_kb_name_falla_antes_de_escribir() {
     let dir = kb_con_bitacora(&nota_grande());
+    let original = std::fs::read(dir.path().join("log/p-bitacora.md")).unwrap();
     let salida = Command::new(bin())
         .args(["rotate", "--hot-bytes", "8000", "--apply"])
         .arg("--kb")
@@ -169,25 +190,31 @@ fn fallback_d4_sin_kb_name_usa_prefijo_kb_y_avisa_por_stderr() {
         .env("EXO_CONFIG", cfg_inexistente(dir.path()))
         .output()
         .unwrap();
+
     assert!(
-        salida.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&salida.stderr)
+        !salida.status.success(),
+        "esperaba que --apply fallara sin [kb] name; stdout: {}",
+        String::from_utf8_lossy(&salida.stdout)
+    );
+    assert_eq!(
+        salida.status.code(),
+        Some(1),
+        "un [kb] name irresoluble no es un GateFallido — exit 1, no exit 3"
     );
 
     let err = String::from_utf8_lossy(&salida.stderr);
     assert!(
-        err.contains("aviso: rotate usa prefijo 'kb'"),
-        "esperaba el aviso del fallback D-4 en stderr: {err}"
+        err.contains("[kb] name"),
+        "esperaba que el stderr nombrara `[kb] name`: {err}"
     );
 
-    let archivo = std::fs::read_dir(dir.path().join("archive/log"))
-        .unwrap()
-        .find_map(|e| e.ok())
-        .expect("debía haber al menos un archivo rotado");
-    let contenido = std::fs::read_to_string(archivo.path()).unwrap();
     assert!(
-        contenido.contains("permalink: 'kb/archive/log/"),
-        "el permalink del archivo debía usar el prefijo de fallback 'kb': {contenido}"
+        !dir.path().join("archive").exists(),
+        "un --apply fallido no debe crear archive/"
+    );
+    assert_eq!(
+        std::fs::read(dir.path().join("log/p-bitacora.md")).unwrap(),
+        original,
+        "un --apply fallido no debe tocar la nota original"
     );
 }
