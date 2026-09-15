@@ -65,6 +65,9 @@ jobs:
       - name: Documentación viva (README/arquitectura/instalación no mienten)
         if: always()
         run: bash scripts/test-docs-vivos.sh
+      - name: hooks.json — eventos válidos, type=command, scripts en 100755
+        if: always()
+        run: bash scripts/test-hooks-json.sh
 
   exec-bit:
     name: scripts de plugin ejecutables
