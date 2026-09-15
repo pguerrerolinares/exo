@@ -7,7 +7,38 @@
 > duplicar. Cada item cita su evidencia; un item sin evidencia verificable no
 > entra.
 >
-> Última revisión: **2026-09-14** (campaña E — hooks honestos +
+> Última revisión: **2026-09-15** (bookkeeping de estado: entran por PR las
+> campañas D y E, un fix suelto de rutas y la Task 15 de A medida en W11 —
+> PR #19 campaña E (`36ef9aa`), PR #20 campaña D (`0494e3d`), PR #21 grafía
+> única de ruta en el binario + ruta en la salida humana de `search`
+> (`ba4b75f`) y PR #22 Task 15 de A en W11 (`6e8b85f`), los cuatro mergeados
+> el 2026-09-15; C-H10 queda CERRADA en Linux y W11, Task 12 no se ejecuta
+> por puerta. Barrido de bookkeeping muerto de esta pasada — **cierran con
+> evidencia y se mueven a `## Cerrado con evidencia`**: `tier` no persiste en
+> el índice (puerta C-H17a CERRADA en línea base, s4 n5000 p95=47 ≤ 250, no
+> se toca — `evals/recall-coste/verdict/2026-09-campana-a.md`), H14/H24 de
+> la campaña C (H14a no toca el troceado, H24 sin efecto medido; H14b queda
+> anotado como viable, sin acción derivada de esta campaña), `indexer::
+> ruta_relativa` guardaba el separador nativo (la normalización entró el
+> 09-11 en `b4a816d`, antes de lo que este backlog registraba; PR #21
+> formaliza la decisión de **mantener** los dos `.replace('\\', "/")` de
+> `lint.rs` como cinturón para índices viejos, no de borrarlos) y «los nueve
+> invariantes eran siete» (nota sin acción). **Se pliega**: el H29 de Baja
+> («el walker entra en `.git/`», solo dato) dentro del item de Media
+> `walk_kb` frente a `walk_kb_excluyendo`, mismo hallazgo. **Se corrige in
+> situ, con cita, sin cerrar**: «Techos de escala» — sus dos primeras patas
+> (KNN exhaustivo `k = COUNT(*)` y el `HashMap` de TODOS los trozos) las
+> cerró el mismo commit, PR #11 (`fix-knn-tope-vec0`, `2ad9868`), afinado por
+> PR #12 (`fix-knn-k-por-consulta`, `ea5b56f`); las otras dos patas — tres
+> aperturas de DB en `busca_hybrid` (hoy `buscador.rs:605`) y un `git log -1`
+> por nota indexada (`indexer.rs:197`) — siguen abiertas, solo se actualizan
+> las líneas citadas. **Verificado y sigue igual**: los seis ítems «lo
+> cierra/lo subsume G5» ya estaban marcados huérfanos desde el 09-11 (nadie
+> los adoptó desde entonces) y `exo doctor` (`engine/src/doctor.rs`) existe
+> desde G5b — el item que lo menciona solo pedía un check puntual de desfase
+> de versión binario/plugin, que sigue sin dueño, no el comando entero.)
+>
+> Anterior: **2026-09-14** (campaña E — hooks honestos +
 > CI de coste trivial, `docs/superpowers/plans/2026-09-14-campana-e-hooks-honestos-y-ci.md`,
 > integrada en la rama `e-hooks-honestos-y-ci` (Task 9, este commit); PR de
 > integración a `main` **aún no abierto** en el momento de este commit
@@ -30,7 +61,7 @@
 > de esta campaña: cutover
 > kbx→exo, paridad Go — campaña D, en paralelo.)
 >
-> Anterior: **2026-09-13** (cierre de la campaña B —
+> Antes: **2026-09-13** (cierre de la campaña B —
 > `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md`, H6, H8,
 > H9, H11, H12, H13, H15, H16, H18, H20, H21, H22, H26— sincronizado además con
 > el CI que cerró fuera de campaña el 09-12/09-10. **Se mueven a `## Cerrado
@@ -139,15 +170,16 @@
 | | |
 |---|---|
 | **Cerradas** | C5 (M2-08+09, cierra E1 read) · C6 (M6, cutover del recall) · C7 (M4, write-path) |
-| **Pendientes** | C8 (M3+M1b, cutover de skills) → C9 (M5a, MCP + config propia) → C10 (M5b, desinstalar basic-memory) |
+| **Pendientes** | C8 (M3+M1b, cutover de skills) → C9 (M5a, MCP + config propia — la sub-tarea de config propia ya cerró el 2026-08-26, `M5a-02`, ver `## Cerrado con evidencia`; el servidor MCP en sí sigue sin construir, ver «M5a (MCP propio) se diseñó contra un MCP…» en Baja) → C10 (M5b, desinstalar basic-memory, gated por C9 completo) |
 | **Medido** | engine-hybrid **48/55** hit@5 in-sample vs bm-hybrid 39/55, mismo día, paridad de corpus ∅, recall <2s (`evals/e1-read/verdict/m2-09-corrida.md`) · held-out **64/92** (campaña C, `evals/retrieval-heldout/verdict/c-verdict.md`) — no comparables entre sí: distinta fuente de queries |
 | **Tests** | 111 verdes / 0 rojos en la rama de M4, 98 en main previo (contados por el consultor del gate en esa ola; el CI que los corre solo llegó después, en G5a — 200 tests / 28 binarios). **El 2026-09-13 (cierre de campaña B), `cargo test --release --locked --no-fail-fast` en `engine/`: 478 tests verdes en 48 binarios, 2 ignorados, 0 rojos** |
 | **Release** | `v0.1.0` publicada el **2026-09-11** — tres binarios y sus tres `.sha256`, instalables por `install.sh` / `install.ps1`. Ver `## Cerrado con evidencia` |
-| **Campaña A** | ejecutada el **2026-09-13**; Task 15 (medición W11) corrida el **2026-09-15** → C-H10 CERRADA en Linux y W11, Task 12 no se ejecuta por puerta — mergeada a `main` el **2026-09-13** vía PR #13 (`ef5100b`); veredicto en `evals/recall-coste/verdict/2026-09-campana-a.md` |
+| **Campaña A** | ejecutada el **2026-09-13**; Task 15 (medición W11) corrida el **2026-09-15** → C-H10 CERRADA en Linux y W11, Task 12 no se ejecuta por puerta — mergeada a `main` el **2026-09-13** vía PR #13 (`ef5100b`); la Task 15/W11 entró aparte, mergeada a `main` el **2026-09-15** vía PR #22 (`6e8b85f`); veredicto en `evals/recall-coste/verdict/2026-09-campana-a.md` |
 | **Campaña B** | ejecutada el **2026-09-13**, las 13 tasks (H6, H8, H9, H11, H12, H13, H15, H16, H18, H20, H21, H22, H26) — mergeada a `main` el **2026-09-13** vía PR #14 (`219506b`); plan en `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md`; H25 queda como checklist externo de Paul |
 | **Campaña C** | held-out pre-registrado, **sin cambio de producción** — mergeada a `main` el **2026-09-14** vía PR #16 (`cb25541`); veredicto en `evals/retrieval-heldout/verdict/c-verdict.md`. El held-out queda consumido; D6 (default de `exo search --type`) PENDIENTE-PAUL |
-| **Campaña E** | 9 tasks (hooks honestos: `inject-empty`, suite de `exo-recall.sh`, `no results` en `search`; engine: mensaje de guarda parametrizado, `rust-toolchain.toml`; CI: `--locked`+log+artifact en el gate hermético, orden de `release.yml`, gate de rutas personales) — ejecutada el **2026-09-14** en la rama `e-hooks-honestos-y-ci`; PR de integración a `main` pendiente de apertura en el momento de este commit; plan en `docs/superpowers/plans/2026-09-14-campana-e-hooks-honestos-y-ci.md` |
-| **Campaña D** | cutover kbx→exo: `rotate` y `stale` portados a Rust (`engine/src/rotacion.rs`, `engine/src/obsolescencia.rs`), pre-registro de paridad congelado antes de Rust (Task 1, `7edb5d0`), cuatro gates de paridad — targets (`4d047f4`), ratchet (`ab5d59b`), rotate (`cd196ff`), stale (`f059eb1`) — los cuatro PASA, consumidores reapuntados (Task 9, `0051638`+`aa82f95`: `distill`/`kb-precommit.sh`/`arquitectura.md` ya no invocan `kbx`) — ejecutada el **2026-09-14/15** en la rama `d-cutover-kbx`, apila la campaña E (`f46cbe3`); plan en `docs/superpowers/plans/2026-09-14-campana-d-cutover-kbx.md`. Abierto: D-4 (permalink `nombre_kb()` vs literal fijo, recomendación ya aplicada en el código, formalmente pendiente de que Paul la zanje) y la acción (a) de «exo genérico» (`Paul`/`kb-demo` por nombres resueltos), fuera de alcance de D |
+| **Campaña E** | 9 tasks (hooks honestos: `inject-empty`, suite de `exo-recall.sh`, `no results` en `search`; engine: mensaje de guarda parametrizado, `rust-toolchain.toml`; CI: `--locked`+log+artifact en el gate hermético, orden de `release.yml`, gate de rutas personales) — ejecutada el **2026-09-14** en la rama `e-hooks-honestos-y-ci`; mergeada a `main` el **2026-09-15** vía PR #19 (`36ef9aa`); plan en `docs/superpowers/plans/2026-09-14-campana-e-hooks-honestos-y-ci.md` |
+| **Campaña D** | cutover kbx→exo: `rotate` y `stale` portados a Rust (`engine/src/rotacion.rs`, `engine/src/obsolescencia.rs`), pre-registro de paridad congelado antes de Rust (Task 1, `7edb5d0`), cuatro gates de paridad — targets (`4d047f4`), ratchet (`ab5d59b`), rotate (`cd196ff`), stale (`f059eb1`) — los cuatro PASA, consumidores reapuntados (Task 9, `0051638`+`aa82f95`: `distill`/`kb-precommit.sh`/`arquitectura.md` ya no invocan `kbx`) — ejecutada el **2026-09-14/15** en la rama `d-cutover-kbx`, apila la campaña E (`f46cbe3`); mergeada a `main` el **2026-09-15** vía PR #20 (`0494e3d`); plan en `docs/superpowers/plans/2026-09-14-campana-d-cutover-kbx.md`. Abierto: D-4 (permalink `nombre_kb()` vs literal fijo, recomendación ya aplicada en el código, formalmente pendiente de que Paul la zanje) y la acción (a) de «exo genérico» (`Paul`/`kb-demo` por nombres resueltos), fuera de alcance de D |
+| **Ruta portable** | grafía única de ruta (`/`) en el binario y ruta visible en la salida humana de `exo search` — apila sobre la campaña D, mergeada a `main` el **2026-09-15** vía PR #21 (`ba4b75f`); plan en `docs/superpowers/plans/2026-09-11-ruta-portable-y-columna-humana.md`, spec en `docs/superpowers/specs/2026-09-11-ruta-portable-y-columna-humana-design.md` |
 
 ---
 
@@ -489,32 +521,16 @@
 
 ## Media
 
-- [ ] **(revisión 2026-09-04) `tier` no se persiste en el índice y cada
-  arranque relee el frontmatter de TODAS las notas desde disco.**
-  `engine/src/nota.rs:14` lo declara: «el índice NO lo persiste (no hay
-  columna nueva en `schema.rs` — forzaría un rebuild de las DB
-  existentes)». Consecuencia en `engine/src/recall.rs:235`:
-  `recall_arranque` llama a `tier_de(&ruta_abs)` por cada fila de `notas`,
-  es decir, N lecturas y N parseos YAML en cada `SessionStart` solo para
-  encontrar las notas `core`. Evitar una migración de esquema a cambio de N
-  lecturas de disco por arranque es deuda disfrazada de prudencia; con 138
-  notas no se nota, con miles sí, y `exo rebuild` ya existe como primera
-  clase.
-  **Acción:** columna `tier` en `notas` (+ bump de `meta` para que `verifica_
-  modelo`/una guarda equivalente exija `exo rebuild` a los índices viejos) y
-  `recall_arranque` filtrando en SQL. Borrar `tier_de` y su relectura.
-  **(campaña A, 2026-09-13):** puerta C-H17a cerrada: s4 n5000 p95 = 47 ms ≤
-  250; no se toca. Veredicto: evals/recall-coste/verdict/2026-09-campana-a.md.
-
 - [ ] **(revisión 2026-09-04) Techos de escala declarados, sin camino ni
   medición.** Cuatro decisiones del engine son O(N) por operación y están
   documentadas como deliberadas, pero ninguna tiene medida más allá de la KB
-  del autor (138 notas): KNN exhaustivo con `k = COUNT(*)`
-  (`engine/src/buscador.rs:286`); un `HashMap` con TODOS los trozos cargado
-  en memoria por query (`buscador.rs:290`); tres aperturas de la DB por
-  búsqueda hybrid (`busca` + `busca_vector` + `buscador.rs:461`); y un
-  proceso `git log -1` por nota indexada (`engine/src/indexer.rs:192`), que
-  en un `rebuild` son N spawns de git, caros en Windows. Ninguna es un bug
+  del autor (138 notas): ~~KNN exhaustivo con `k = COUNT(*)`
+  (`engine/src/buscador.rs:286`)~~; ~~un `HashMap` con TODOS los trozos
+  cargado en memoria por query (`buscador.rs:290`)~~; tres aperturas de la DB
+  por búsqueda hybrid (`busca` + `busca_vector` + un tercer `abre_db` en
+  `enriquece_rutas`, hoy `buscador.rs:605`, dentro de `busca_hybrid`); y un
+  proceso `git log -1` por nota indexada (hoy `engine/src/indexer.rs:197`),
+  que en un `rebuild` son N spawns de git, caros en Windows. Ninguna es un bug
   hoy; lo que falta es saber a qué tamaño de KB deja de valer cada una.
   **Acción:** generar una KB sintética de 5.000 notas y medir `exo rebuild`,
   `exo recall --content` y `exo search --type hybrid` en Linux y Windows.
@@ -528,11 +544,26 @@
   `f2207e2`): barrido SQL manual con `vec_distance_l2` cuando el KNN pide más
   de 4096. Efecto secundario medido: el barrido cuesta ≈0,09 ms/vector — a
   5.000 notas (`s2-query-n5000`) el p50 sube de 980 a 10.828 ms y deja el
-  hook en timeout. Hotfix en curso (rama `fix-knn-k-por-consulta`, PR
-  pendiente): fijar el k del KNN al de la consulta en vez de `k = COUNT(*)`,
-  con el Threshold Algorithm de Fagin et al. (2003) — exacto, no aproximado.
-  Prototipo a 5.000 notas: 10.179 → 1.106 ms. No hace falta ANN hasta
-  ~500k trozos (Aumüller et al., ANN-Benchmarks, 2020).
+  hook en timeout.
+  **(re-verificado el 2026-09-15): las dos primeras patas quedan CERRADAS,
+  no solo el hotfix.** El mismo PR #11 (`2ad9868`) ya sustituyó, en el mismo
+  commit, el `SELECT id, permalink FROM trozos` sin filtro (el `HashMap` de
+  TODOS los trozos) por `permalinks_de_rowids`, acotado a los rowids que el
+  KNN devuelve (`buscador.rs:321-333` en HEAD) — comparado contra
+  `git show 2ad9868^1:engine/src/buscador.rs`, donde la línea 290 todavía era
+  el `SELECT` sin `WHERE`. Y lo que aquí seguía descrito como «hotfix en
+  curso (rama `fix-knn-k-por-consulta`, PR pendiente)» **ya está mergeado**:
+  PR #12 (`ea5b56f`, 2026-09-13) fija el `k` del KNN al de la consulta en vez
+  de `k = COUNT(*)`, con el Threshold Algorithm de Fagin et al. (2003) —
+  exacto, no aproximado; verificado en HEAD (`busca_vector_con_embedding`,
+  `buscador.rs:392` y siguientes, con test falsable «Test falsable de H29»
+  en `buscador.rs:749`). Prototipo a 5.000 notas: 10.179 → 1.106 ms. No hace
+  falta ANN hasta ~500k trozos (Aumüller et al., ANN-Benchmarks, 2020). **Las
+  otras dos patas siguen abiertas, sin medir ni tocar** — `busca_hybrid`
+  sigue abriendo la DB tres veces (comentario explícito en `buscador.rs`
+  junto al tercer `abre_db`: «los dos arms de arriba ya cerraron las suyas»,
+  decisión consciente, no descuido) y `indexer::git_epoch_de` sigue
+  spawneando un proceso `git log -1` por nota.
 
 - [ ] **(revisión 2026-09-04) El coste del hook completo en Windows no está
   medido; solo el del binario.** `plugins/exo/hooks/hooks.json` cablea
@@ -804,18 +835,45 @@
   adopta la semántica de `walk_kb_excluyendo` (candidata natural a fusionar
   en una sola función) o si la divergencia es deliberada y se documenta como
   tal.
+  **Cruce (H29, Baja, 2026-09-13):** medido por el consultor con `strace`
+  sobre un `exo index`: 276 de 314 `openat` caen dentro de `.git/`. Solo
+  dato de la campaña A — confirma que `walk_kb` camina dentro de `.git/` sin
+  nada que lo frene, mismo hallazgo que arriba, no un item aparte. La propia
+  campaña A lo re-midió (`s3 n5000 p50` = 67 ms → 28 ms, pero por H4/Task 6,
+  no por tocar el walker — `evals/recall-coste/verdict/2026-09-campana-a.md:
+  115,117`, «del walker (H29, no tocado en esta campaña)»): la mejora vino
+  de otro lado, el walker sigue igual.
 
-- [ ] **`indexer::ruta_relativa` guarda `notas.ruta` con el separador nativo
-  del SO.** `engine/src/indexer.rs:461-473` arma la ruta relativa con
+- [x] **`indexer::ruta_relativa` guarda `notas.ruta` con el separador nativo
+  del SO: cerrado, causa en el indexer arreglada el 2026-09-11
+  (`b4a816d`).** `engine/src/indexer.rs:461-473` armaba la ruta relativa con
   `to_string_lossy()` sin `.replace('\\', "/")`, así que en Windows la DB
-  persiste `notas.ruta` con `\`. G4b lo normaliza **al leer**, en los dos
-  únicos consumidores de `notas.ruta` que toca este plan: `lint::huerfanas`
+  persistía `notas.ruta` con `\`. G4b lo normalizaba **al leer**, en los dos
+  únicos consumidores de `notas.ruta` que tocaba ese plan: `lint::huerfanas`
   (`lint.rs:183`) y `lint::indice_rancio` (`lint.rs:360`, con comentario
   explícito — «Mismo motivo que en `huerfanas`: `notas.ruta` lleva separador
-  nativo»). La causa sigue en el indexer; el próximo consumidor de
-  `notas.ruta` que no conozca este parche vuelve a tropezar en Windows.
-  **Acción:** normalizar en `ruta_relativa` al escribir, no en cada lector, y
-  borrar entonces los dos `.replace('\\', "/")` de `lint.rs`.
+  nativo»). La causa seguía en el indexer; el próximo consumidor de
+  `notas.ruta` que no conociera este parche volvía a tropezar en Windows.
+  **Acción original:** normalizar en `ruta_relativa` al escribir, no en cada
+  lector, y borrar entonces los dos `.replace('\\', "/")` de `lint.rs`.
+  **Cerrado, primera mitad, el 2026-09-11** (`b4a816d`, «fix(indexer):
+  ruta_relativa normaliza el separador, como ya hacia el walker») — anterior
+  a la revisión del 09-14 de este backlog, que no lo recogió: hoy
+  `indexer::ruta_relativa` (`indexer.rs:587-600`) llama a
+  `crate::walker::ruta_portable`, que hace el `.replace('\\', "/")` al
+  escribir; hay además `indexer::migra_rutas_portables` (`indexer.rs:613`),
+  invocada en cada `indexa` (`indexer.rs:163`), que migra en caliente las
+  filas `\` de una DB vieja.
+  **Segunda mitad decidida el 2026-09-15 (PR #21, `ba4b75f`,
+  `spec-ruta-portable-search`): NO se borran los `.replace` de `lint.rs`.**
+  Verificado en HEAD, siguen los dos (`lint.rs:184` en `huerfanas`,
+  `lint.rs:388` en `indice_rancio`) — decisión explícita, no descuido: el
+  comentario que PR #21 añade delante de `huerfanas` (`lint.rs:155-160`) dice
+  «el `replace` de aquí abajo es un no-op sobre un índice al día; se
+  mantiene como cinturón para una DB escrita por un binario anterior que
+  todavía no haya pasado por `migra_rutas_portables`». Diseño completo en
+  `docs/superpowers/specs/2026-09-11-ruta-portable-y-columna-humana-design.md`
+  y `docs/superpowers/plans/2026-09-11-ruta-portable-y-columna-humana.md`.
 
 - [ ] **`budget_prose_drift` tiene dos límites conocidos, ninguno arreglado
   aquí.** Los dos viven en la misma pareja regex+parse de
@@ -1025,29 +1083,6 @@
     edit` con el About del README) — fuera del plan de tasks, ver la
     sección «Checklist externo para Paul (H25)» del plan de campaña B.
 
-- [ ] **(revisión 2026-09-13 · resultado en campaña C, 2026-09-14) H14 y
-  H24.** Diseño en
-  `docs/superpowers/plans/2026-09-13-campana-c-preregistro.md`; resultado en
-  `evals/retrieval-heldout/verdict/c-verdict.md`.
-  - **H14a (solape entre trozos):** R3 — se queda el troceado actual.
-    `solape:sellado` vs `base:sellado`: ARREGLA=4, ROMPE=2, NETO=2 < 3 (cae
-    solo por el umbral de NETO, a una query del borde; `ARREGLA ≥
-    2·ROMPE` sí se cumple y el IC de MRR no veta). El guard de latencia no
-    llega a decidir: p95 solape 1,0258 s vs base 1,0240 s (ratio 1,002,
-    dentro del 1,25× admitido). No se toca `buscador.rs` ni `trozos.rs`.
-  - **H14b (late chunking):** R4 — no medido (D3=no — Paul: «No, solo
-    solape»). No medido no es perder: sigue viable (§2.6 del pre-registro),
-    sin prioridad derivada de esta campaña.
-  - **H24 (`acceptable_permalinks`, overlay fila 13):** el held-out los
-    admite desde el diseño (44/92 filas con aceptables). Las 55 in-sample
-    dan cifras **idénticas con y sin el overlay** de la fila 13
-    (`agregados-in-sample.md`): el overlay no tuvo efecto. `gate.md` de M0
-    intacto.
-  **Acción:** ninguna sobre código — R2 y R3 no adoptan nada, Task 12 de la
-  campaña C es «no aplica». El held-out de C queda consumido (§11 del
-  verdict): retomar solape, late chunking o el gold de `retrieval-fase0/`
-  exige uno nuevo.
-
 - [ ] **(NUEVO, campaña B, 2026-09-13, H15) `trinquete::sellos_escapados_de_tier`
   lee el tier del disco también en `--staged`.** El propio código lo
   declara (`engine/src/trinquete.rs:830-832`, comentario añadido al partir
@@ -1141,12 +1176,6 @@
   o renombrar `lint` a algo que cubra las cuatro cosas («checks estáticos»,
   «lint + gates estáticos») coordinando el cambio de required checks, o
   separar shellcheck y versiones a su propio job con nombre propio.
-
-- [ ] **(H29, Baja, 2026-09-13) El walker entra en `.git/`.** Medido por el
-  consultor con `strace` sobre un `exo index`: 276 de 314 `openat` caen
-  dentro de `.git/`. Solo dato — cruza con el item de Media
-  «`walker::walk_kb` frente a `walk_kb_excluyendo`» (arriba), que ya
-  documenta que `walk_kb` no frena en directorios que empiezan por `.`.
 
 - [ ] **(revisión 2026-09-04 · cifras RE-MEDIDAS el 2026-09-09) Decisión
   abierta: proceso frente a producto.**
@@ -1317,8 +1346,61 @@
   catálogo de skills a evaluar también. Si se decide que exo asume delegación,
   esto sube a item propio con su gate; si no, se cierra como «no es de exo».
 
-- [ ] **(G4c, Task 14) "Los nueve invariantes de la spec" era un lapsus —
-  son siete.** El plan de G4a
+---
+
+## Cerrado con evidencia (para no re-proponer)
+
+- [x] **(revisión 2026-09-04) `tier` no se persiste en el índice y cada
+  arranque relee el frontmatter de TODAS las notas desde disco: cerrado —
+  decisión «no se toca» — el 2026-09-13 (campaña A, puerta C-H17a).**
+  `engine/src/nota.rs:14` lo declara: «el índice NO lo persiste (no hay
+  columna nueva en `schema.rs` — forzaría un rebuild de las DB
+  existentes)». Consecuencia en `engine/src/recall.rs:235`:
+  `recall_arranque` llama a `tier_de(&ruta_abs)` por cada fila de `notas`,
+  es decir, N lecturas y N parseos YAML en cada `SessionStart` solo para
+  encontrar las notas `core`. Evitar una migración de esquema a cambio de N
+  lecturas de disco por arranque es deuda disfrazada de prudencia; con 138
+  notas no se nota, con miles sí, y `exo rebuild` ya existe como primera
+  clase.
+  **Acción original:** columna `tier` en `notas` (+ bump de `meta` para que
+  `verifica_modelo`/una guarda equivalente exija `exo rebuild` a los índices
+  viejos) y `recall_arranque` filtrando en SQL. Borrar `tier_de` y su
+  relectura.
+  **Cerrado (campaña A, 2026-09-13):** puerta C-H17a CERRADA en línea base:
+  `s4 n5000 p95 = 47 ms ≤ 250` — el techo no se cruza ni con 5.000 notas, así
+  que la Task 10 que habría hecho el cambio **no se ejecuta** («Task 10 no se
+  ejecuta», `evals/recall-coste/verdict/2026-09-campana-a.md:38`, sección
+  «Predicciones (línea base)» y «Criterios»: `C-H17a NO APLICA (puerta
+  cerrada)`). Decisión: no se toca. `tier_de` y su relectura por disco
+  siguen ahí, deliberadamente.
+
+- [x] **(revisión 2026-09-13 · resultado en campaña C, 2026-09-14) H14 y
+  H24: cerrados — ninguno adopta cambio de código.** Diseño en
+  `docs/superpowers/plans/2026-09-13-campana-c-preregistro.md`; resultado en
+  `evals/retrieval-heldout/verdict/c-verdict.md`.
+  - **H14a (solape entre trozos):** R3 — se queda el troceado actual.
+    `solape:sellado` vs `base:sellado`: ARREGLA=4, ROMPE=2, NETO=2 < 3 (cae
+    solo por el umbral de NETO, a una query del borde; `ARREGLA ≥
+    2·ROMPE` sí se cumple y el IC de MRR no veta). El guard de latencia no
+    llega a decidir: p95 solape 1,0258 s vs base 1,0240 s (ratio 1,002,
+    dentro del 1,25× admitido). No se toca `buscador.rs` ni `trozos.rs`.
+  - **H14b (late chunking):** R4 — no medido (D3=no — Paul: «No, solo
+    solape»). No medido no es perder: sigue viable (§2.6 del pre-registro),
+    sin prioridad derivada de esta campaña — **sin acción pendiente hoy**, si
+    se retoma exige un held-out nuevo (el de C queda consumido, §11 del
+    verdict).
+  - **H24 (`acceptable_permalinks`, overlay fila 13):** el held-out los
+    admite desde el diseño (44/92 filas con aceptables). Las 55 in-sample
+    dan cifras **idénticas con y sin el overlay** de la fila 13
+    (`agregados-in-sample.md`): el overlay no tuvo efecto. `gate.md` de M0
+    intacto.
+  **Acción:** ninguna sobre código — R2 y R3 no adoptan nada, Task 12 de la
+  campaña C es «no aplica». El held-out de C queda consumido (§11 del
+  verdict): retomar solape, late chunking o el gold de `retrieval-fase0/`
+  exige uno nuevo.
+
+- [x] **(G4c, Task 14) "Los nueve invariantes de la spec" era un lapsus —
+  son siete: nota cerrada, sin acción.** El plan de G4a
   (`docs/superpowers/plans/2026-08-26-g4a-plomeria-y-targets.md:1614-1616`)
   hablaba de nueve; esa lista no existe en ningún documento del repo
   (adjudicación A1,
@@ -1330,10 +1412,6 @@
   infinito, sello huérfano no lava una declaración, sello corrupto en HEAD
   es error no abstención, aritmética entera de aire). Anotado para que nadie
   vuelva a buscar la lista de nueve que no existe.
-
----
-
-## Cerrado con evidencia (para no re-proponer)
 
 - [x] **(G4c, Task 14) Gate de paridad `ratchet`+`targets`: cerrado el
   2026-09-14/15 (campaña D, Task 3 `4d047f4`, Task 4 `ab5d59b`).** Los dos
