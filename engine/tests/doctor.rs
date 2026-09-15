@@ -801,3 +801,20 @@ fn bash_resuelto_bajo_system32_es_warn_no_ok() {
         c.detalle
     );
 }
+
+#[test]
+fn con_1_9_0_y_1_10_0_en_cache_elige_la_1_10_0() {
+    let dir = tempfile::tempdir().unwrap();
+    shim_precommit(&dir.path().join("kb"), SHIM_DE_LA_KB);
+    plugin_con_script(&dir.path().join("home"), "exo", "1.9.0");
+    let script_alto = plugin_con_script(&dir.path().join("home"), "exo", "1.10.0");
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "kb_precommit_hook");
+    assert_eq!(c.estado, Estado::Ok);
+    assert!(
+        c.artefacto.contains(&script_alto.display().to_string()),
+        "debía resolver a 1.10.0 (la más alta), no a 1.9.0 por orden de \
+         texto: {}",
+        c.artefacto
+    );
+}

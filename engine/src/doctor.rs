@@ -877,12 +877,17 @@ fn check_hook_precommit(entorno: &Entorno, cfg: Option<&crate::config::Config>) 
 /// instalado en la KB: el plugin `exo` primero y el `reflex` viejo como
 /// fallback declarado del cutover. Devuelve la ruta y si viene de `exo`.
 ///
-/// El shim se queda con la versión más alta por `sort -V`; aquí basta con que
-/// **alguna** resuelva, así que se ordena lexicográficamente y se toma la
-/// última. La diferencia importaría para decir QUÉ versión corre, no para
-/// decir si el gate puede correr, que es lo que este check afirma.
+/// El shim real se queda con la versión más alta por `sort -V`: esto lo
+/// replica de verdad (campaña H) reutilizando `parse_semver`/comparación
+/// numérica de Task 3, en vez del `sort()` lexicográfico de texto que este
+/// fichero tenía antes — `"1.10.0" < "1.9.0"` como cadena, al revés que como
+/// versión, y con dos versiones instaladas a la vez elegía la vieja.
 ///
-/// Sin la crate `glob`: dos `read_dir` no pagan una dependencia.
+/// No reutiliza `version_dir_mas_alta`: aquí la versión más alta que NO
+/// tiene `kb-precommit.sh` no debe ganar a una más baja que sí lo tiene, así
+/// que el filtro por presencia del script va inline, junto a la comparación.
+///
+/// Sin la crate `glob`: `read_dir` no paga una dependencia.
 fn script_del_plugin(home: &std::path::Path) -> Option<(PathBuf, bool)> {
     for (familia, es_exo) in [("exo", true), ("reflex", false)] {
         let base = home
@@ -894,14 +899,18 @@ fn script_del_plugin(home: &std::path::Path) -> Option<(PathBuf, bool)> {
         let Ok(entradas) = std::fs::read_dir(&base) else {
             continue;
         };
-        let mut candidatos: Vec<PathBuf> = entradas
+        let candidato = entradas
             .flatten()
-            .map(|e| e.path().join("scripts").join("kb-precommit.sh"))
-            .filter(|p| p.is_file())
-            .collect();
-        candidatos.sort();
-        if let Some(ultimo) = candidatos.pop() {
-            return Some((ultimo, es_exo));
+            .filter_map(|e| {
+                let nombre = e.file_name().to_string_lossy().into_owned();
+                let v = parse_semver(&nombre)?;
+                let script = e.path().join("scripts").join("kb-precommit.sh");
+                script.is_file().then_some((script, v))
+            })
+            .max_by_key(|(_, v)| *v)
+            .map(|(script, _)| script);
+        if let Some(script) = candidato {
+            return Some((script, es_exo));
         }
     }
     None
