@@ -5,10 +5,8 @@
 # clase concreta de rotura — comillas, globs, `$?` indirecto, variables sin
 # usar — vía análisis ESTÁTICO de ficheros `.sh` versionados; no ejecuta nada,
 # así que no cubre portabilidad GNU/BSD (shellcheck no sabe que `timeout`,
-# `date -d`, `stat -c` o `sha256sum` son GNU-only) ni el bash inline de
-# `run:` en `.github/workflows/*.yml` (no son ficheros `.sh`, ver «Qué NO
-# entra» abajo). Tres roturas de shell reales, cada una cazada por un gate
-# distinto (o por ninguno):
+# `date -d`, `stat -c` o `sha256sum` son GNU-only). Tres roturas de shell
+# reales, cada una cazada por un gate distinto (o por ninguno):
 # - `estilo-directo.sh` sin bit de ejecución llegó a release (exo 1.1.1):
 #   la caza `test-exec-bit.sh`, no este gate.
 # - GNU-ismos portando mal a macOS (`timeout`, `date -d`, `stat -c`,
@@ -20,17 +18,21 @@
 #   release.yml` rompió la publicación del tag `v0.1.0` en el runner de
 #   Windows (`shasum: command not found`, exit 127) y, ya arreglado hacia
 #   macOS, rompió `install.ps1` en la dirección contraria (formato de firma
-#   distinto según el comando). Bash inline de un `run:` de workflow: NINGÚN
-#   gate de este repo lo cubre — ni shellcheck (no son `.sh`), ni
-#   `plugin-tests` (no toca `.github/workflows/`) — se cazó en producción,
-#   dos veces (PR #7 `360175c`, PR #8 `8a86832`; detalle en
-#   `docs/backlog.md`).
+#   distinto según el comando). Bash inline de un `run:` de workflow: en su
+#   momento NINGÚN gate de este repo lo cubría — se cazó en producción, dos
+#   veces (PR #7 `360175c`, PR #8 `8a86832`; detalle en `docs/backlog.md`).
+#   Desde F4 (2026-09-15) los bloques `run: |` de `.github/workflows/*.yml`
+#   SÍ entran (extraídos a fichero temporal, ver más abajo); sigue sin cubrir
+#   `run:` de una línea ni `run: >` — ver el comentario junto a la extracción.
 #
 # Qué entra: todo fichero versionado que termina en .sh, más los ejecutables
-# sin extensión cuyo shebang es sh/bash (skills/orchestrate/scripts/*). Descubre
-# por el índice de git, no por lista: un script nuevo entra solo.
+# sin extensión cuyo shebang es sh/bash (skills/orchestrate/scripts/*), más
+# los bloques `run: |` de `.github/workflows/*.yml` (F4). Los .sh se
+# descubren por el índice de git, no por lista: un script nuevo entra solo.
 # Qué NO entra: evals/ (harness congelado de gates ya firmados: tocarlo
-# invalida la corrida que certifica) y docs/.
+# invalida la corrida que certifica), docs/, y de los workflows: `run:` de
+# una sola línea, `run: >` (folded scalar) y cualquier `run: |` bajo
+# `shell: pwsh`/`powershell` (ver detalle junto a la extracción).
 #
 # Cada aviso se arregla o se justifica en el sitio con
 # `# shellcheck disable=SCxxxx # <por qué>`. No hay .shellcheckrc global a
@@ -57,8 +59,65 @@ if [ "${#ficheros[@]}" -eq 0 ]; then
   exit 1
 fi
 
-if "$SC" -x -P SCRIPTDIR "${ficheros[@]}"; then
-  echo "test-shellcheck: OK — ${#ficheros[@]} scripts sin avisos"
+# F4 (docs/backlog.md:1148-1163): el bash inline de `run: |` en
+# .github/workflows/*.yml no es un fichero .sh — bash_versionado() no lo ve.
+# Cada bloque se extrae a un fichero temporal con la MISMA dedentación que
+# aplica GitHub Actions (recorta hasta la columna de "run:" + 2) y se suma a
+# la lista que shellcheck revisa. Sin `yq` ni dependencia nueva: lectura
+# línea a línea en bash puro, igual de espíritu que _bash-versionado.sh.
+#
+# Qué SÍ entra: bloques `run: |` (literal, con o sin `+`/`-` de chomping)
+# tal y como aparecen hoy en ci.yml y release.yml — todos bajo `shell: bash`
+# (explícito o por default de runner Linux/macOS).
+# Qué NO entra (gaps conocidos, no silenciosos):
+# - `run:` de una sola línea: ya es bash inline sin analizar, pero extraerlo
+#   fichero a fichero no aporta gran cosa sobre un one-liner y complica la
+#   detección de dónde empieza/acaba; no se cubre en esta tarea.
+# - `run: >` (folded scalar): semántica distinta a `|` (las líneas se unen
+#   con espacios) — tratarlo como `|` daría un script sintácticamente
+#   distinto al que GitHub Actions ejecuta de verdad. No se extrae.
+# - `shell: pwsh` / `shell: powershell`: hoy NINGÚN `run: |` de este repo
+#   corre bajo pwsh (verificado 2026-09-15: los tres runners de la matriz de
+#   `release.yml` fijan `shell: bash` explícito). Este extractor no mira la
+#   clave `shell:` del step — si algún día se añade un `run: |` bajo pwsh,
+#   se colaría aquí como si fuera bash y shellcheck lo marcaría en falso.
+#   Gap documentado, no implementado por ausencia de caso real hoy.
+WORKDIR="$(mktemp -d)"
+trap 'rm -rf "$WORKDIR"' EXIT
+
+extraidos=()
+for wf in .github/workflows/*.yml; do
+  base="$(basename "$wf" .yml)"
+  n=0
+  fichero=""
+  indent=0
+  while IFS= read -r linea; do
+    if [ -n "$fichero" ]; then
+      if [[ "$linea" =~ ^[[:space:]]*$ ]]; then
+        printf '%s\n' "" >> "$fichero"
+        continue
+      fi
+      cur="${linea%%[! ]*}"
+      if [ "${#cur}" -lt "$indent" ]; then
+        fichero=""
+      else
+        printf '%s\n' "${linea:$indent}" >> "$fichero"
+        continue
+      fi
+    fi
+    if [[ "$linea" =~ ^([[:space:]]*)run:\ \|[+-]?[[:space:]]*$ ]]; then
+      n=$((n + 1))
+      lead="${BASH_REMATCH[1]}"
+      indent=$((${#lead} + 2))
+      fichero="$WORKDIR/${base}-run-${n}.sh"
+      printf '#!/usr/bin/env bash\n' > "$fichero"
+      extraidos+=("$fichero")
+    fi
+  done < "$wf"
+done
+
+if "$SC" -x -P SCRIPTDIR "${ficheros[@]}" "${extraidos[@]}"; then
+  echo "test-shellcheck: OK — ${#ficheros[@]} scripts + ${#extraidos[@]} bloques run: | de .github/workflows/ sin avisos"
 else
   echo "test-shellcheck: avisos arriba. Arregla, o justifica en el sitio con '# shellcheck disable=SCxxxx # <por qué>'." >&2
   exit 1
