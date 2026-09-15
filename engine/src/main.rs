@@ -78,10 +78,18 @@ enum Comando {
     /// deudas informativas no lo rompen. Sin historia de git se abstiene y
     /// sale con 0.
     Ratchet(ArgsRatchet),
+    /// Divide una bitácora `tier: log` en frío (a `archive/log/`) y
+    /// caliente (que se queda). Sin `--apply` es un dry-run: no toca disco.
+    /// Solo barre el nivel superior de `log/` — igual que kbx, sin recursión.
+    Rotate(ArgsRotate),
     /// Diagnostica esta máquina (binario, config, KB, índice, modelo de
     /// embeddings y dependencias de los hooks). Cada check dice qué artefacto
     /// miró; sale con 3 si alguno falla.
     Doctor(ArgsDoctor),
+    /// Urgencia de actualización de cada nota: edad de su último commit,
+    /// grado en el grafo de relaciones y tier, combinados en una
+    /// puntuación. Solo lectura.
+    Stale(ArgsStale),
 }
 
 #[derive(Subcommand)]
@@ -366,6 +374,23 @@ struct ArgsDoctor {
 }
 
 #[derive(clap::Args)]
+struct ArgsStale {
+    /// Fichero SQLite del índice. Precedencia: flag > $EXO_DB > config.
+    #[arg(long)]
+    db: Option<PathBuf>,
+    /// Raíz de la KB. Precedencia: flag > $EXO_KB > config.
+    #[arg(long)]
+    kb: Option<PathBuf>,
+    /// Override del reloj, RFC3339 (por defecto: la hora real; los tests
+    /// deterministas siempre lo pasan).
+    #[arg(long)]
+    now: Option<String>,
+    /// Emite el resultado como envelope JSON en stdout.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(clap::Args)]
 struct ArgsRatchet {
     /// Raíz de la KB. Precedencia: flag > $EXO_KB > config.
     #[arg(long)]
@@ -379,6 +404,22 @@ struct ArgsRatchet {
     /// Juzga el índice de git en vez del working tree (para el pre-commit).
     #[arg(long)]
     staged: bool,
+    /// Emite el resultado como envelope JSON en stdout.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(clap::Args)]
+struct ArgsRotate {
+    /// Raíz de la KB. Precedencia: flag > $EXO_KB > config.
+    #[arg(long)]
+    kb: Option<PathBuf>,
+    /// Presupuesto en bytes para la cola caliente que se queda en la nota.
+    #[arg(long = "hot-bytes", value_name = "HOT_BYTES", default_value_t = 20480)]
+    presupuesto_caliente: i64,
+    /// Escribe de verdad. Sin este flag es un dry-run: nada toca disco.
+    #[arg(long)]
+    apply: bool,
     /// Emite el resultado como envelope JSON en stdout.
     #[arg(long)]
     json: bool,
@@ -439,7 +480,9 @@ fn quiere_json(c: &Comando) -> bool {
         Comando::Budget(a) => a.json,
         Comando::Lint(a) => a.json,
         Comando::Ratchet(a) => a.json,
+        Comando::Rotate(a) => a.json,
         Comando::Doctor(a) => a.json,
+        Comando::Stale(a) => a.json,
         Comando::Write(w) => match w {
             ComandoWrite::New(a) => a.json,
             ComandoWrite::Append(a) => a.json,
@@ -493,7 +536,9 @@ fn ejecuta(comando: Comando) -> Result<()> {
         Comando::Budget(args) => budget_cmd(args),
         Comando::Lint(args) => lint_cmd(args),
         Comando::Ratchet(args) => ratchet_cmd(args),
+        Comando::Rotate(args) => rotate_cmd(args),
         Comando::Doctor(args) => doctor_cmd(args),
+        Comando::Stale(args) => stale_cmd(args),
         Comando::Write(sub) => match sub {
             ComandoWrite::New(args) => write_new_cmd(args),
             ComandoWrite::Append(args) => write_append_cmd(args),
@@ -1265,6 +1310,58 @@ fn imprime_informe_ratchet(informe: &exo::trinquete::Informe) {
     }
 }
 
+/// `exo stale`: urgencia de actualización por nota (`obsolescencia::calcula`).
+/// Solo lectura — el único exit no-cero es 1, un error de IO/parseo; la
+/// obsolescencia en sí es información, no un veredicto de gate (kbx: "the
+/// only non-zero exit is 2 (IO/usage)" — misma idea, exit distinto porque
+/// en exo 2 es de clap).
+fn stale_cmd(args: ArgsStale) -> Result<()> {
+    let db_ruta = resuelve_db(args.db)?;
+    if !db_ruta.exists() {
+        anyhow::bail!(
+            "DB no encontrada: {} — corre `exo index` primero",
+            db_ruta.display()
+        );
+    }
+    let kb = resuelve_kb(args.kb)?;
+    let conn = exo::abre_db(&db_ruta)?;
+
+    let ahora_epoch = match args.now {
+        Some(marca) => exo::obsolescencia::epoch_utc_de_iso8601(&marca)
+            .with_context(|| format!("stale: --now inválido: {marca:?}"))?,
+        None => std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .context("stale: reloj del sistema anterior a 1970")?
+            .as_secs() as i64,
+    };
+
+    let informe =
+        exo::obsolescencia::calcula(&conn, &kb, &exo::presupuesto::EXCLUIDOS, ahora_epoch)?;
+
+    if args.json {
+        envelope::emite("stale", serde_json::to_value(&informe)?);
+    } else {
+        println!("now: {}", informe.now);
+        for n in &informe.notes {
+            let commit = if n.sin_commit {
+                "(uncommitted)".to_string()
+            } else {
+                n.ultimo_commit.clone()
+            };
+            println!(
+                "{:<40} tier={:<6} age_days={:<6} degree={:<3} last_commit={} score={:.2}",
+                n.path,
+                n.tier,
+                n.edad_dias,
+                n.degree,
+                commit,
+                n.score.valor()
+            );
+        }
+    }
+    Ok(())
+}
+
 /// `exo ratchet`: el trinquete de techos declarados. Solo lee disco (`--kb`),
 /// sin `--db`: igual que `budget`, el trinquete no toca el índice.
 ///
@@ -1368,6 +1465,99 @@ fn ratchet_seal_cmd(
             siguiente.len(),
             exo::trinquete::FICHERO_SELLO
         );
+    }
+    Ok(())
+}
+
+/// `exo rotate`: barre `log/` (solo el nivel superior — igual que kbx, sin
+/// recursión ni el resto de la KB) y rota cada nota `tier: log` cuya cola
+/// fría exceda el presupuesto. Un fallo en una nota no aborta la barrida:
+/// se acumula y el exit code final lo refleja con `bail!` (exit 1 — D-3:
+/// no es un `GateFallido`, es un fichero que no se pudo procesar).
+fn rotate_cmd(args: ArgsRotate) -> Result<()> {
+    let kb = resuelve_kb(args.kb)?;
+    if args.presupuesto_caliente <= 0 {
+        anyhow::bail!(
+            "rotate: --hot-bytes tiene que ser > 0, se recibió {}",
+            args.presupuesto_caliente
+        );
+    }
+    // D-4: el prefijo del `permalink` del archivo es `[kb] name`. Solo
+    // `--apply` lo escribe; el dry-run no necesita config (sirve sobre una
+    // KB ajena sin `~/.exo`). Sin nombre resoluble, `--apply` falla ANTES de
+    // tocar disco: "sin defaults inventados" (config.rs), igual que `write new`.
+    let nombre_kb = if args.apply {
+        exo::nombre_kb().context(
+            "rotate --apply necesita `[kb] name` en la config para el permalink del archivo",
+        )?
+    } else {
+        String::new()
+    };
+
+    let dir_log = kb.join("log");
+    // Un directorio `x.md/` dentro de `log/` no es una nota — se salta en
+    // silencio, igual que kbx (`if e.IsDir() || filepath.Ext(...) != ".md"
+    // { continue }`), no cuenta como fallo de la barrida.
+    let mut rutas: Vec<PathBuf> = match std::fs::read_dir(&dir_log) {
+        Ok(e) => e
+            .filter_map(|r| r.ok())
+            .map(|e| e.path())
+            .filter(|p| !p.is_dir() && p.extension().and_then(|e| e.to_str()) == Some("md"))
+            .collect(),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Vec::new(),
+        Err(e) => return Err(e).with_context(|| format!("leer {}", dir_log.display())),
+    };
+    rutas.sort();
+
+    let mut resultados = Vec::new();
+    let mut fallidas = Vec::new();
+    for ruta_abs in rutas {
+        let rel = format!("log/{}", ruta_abs.file_name().unwrap().to_string_lossy());
+        let contenido = match std::fs::read(&ruta_abs) {
+            Ok(c) => c,
+            Err(e) => {
+                fallidas.push(format!("{rel}: {e}"));
+                continue;
+            }
+        };
+        if exo::frontmatter::tier(&String::from_utf8_lossy(&contenido)) != "log" {
+            continue;
+        }
+        match exo::rotacion::aplica(&kb, &rel, args.presupuesto_caliente, args.apply, &nombre_kb) {
+            Ok(r) => {
+                if r.rotado {
+                    resultados.push(r);
+                }
+            }
+            Err(e) => fallidas.push(format!("{rel}: {e}")),
+        }
+    }
+
+    if args.json {
+        envelope::emite(
+            "rotate",
+            serde_json::json!({ "applied": args.apply, "hot_bytes": args.presupuesto_caliente, "rotations": resultados }),
+        );
+    } else if resultados.is_empty() {
+        println!("rotate: nothing to rotate");
+    } else {
+        let verbo = if args.apply { "moved" } else { "would move" };
+        for r in &resultados {
+            println!(
+                "{}: {verbo} {} B ({} entries) -> {}",
+                r.nota,
+                r.bytes_movidos,
+                r.entradas_frias,
+                r.archivo.as_deref().unwrap_or("")
+            );
+        }
+    }
+
+    if !fallidas.is_empty() {
+        for f in &fallidas {
+            eprintln!("rotate: {f}");
+        }
+        anyhow::bail!("{} nota(s) fallaron durante la barrida", fallidas.len());
     }
     Ok(())
 }

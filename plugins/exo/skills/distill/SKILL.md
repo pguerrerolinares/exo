@@ -24,26 +24,23 @@ con el mismo seam que usa `plugins/exo/scripts/test-contrato-engine.sh`:
 - `$KB_ROOT` — raíz de la KB:
   `${EXO_KB:-$(exo config --json | jq -r '.data.kb.path // empty')}`. Si sale
   vacío, es **abstención ruidosa**: para y dile a Paul que ni `$EXO_KB` ni
-  `exo config --json` resolvieron nada — no sigas con el procedimiento.
-- `$KBX_BIN` — binario `kbx`: `${KBX_BIN:-$(command -v kbx)}`. `kbx` es una
-  herramienta externa que puede no estar instalada en esta máquina (p.ej.
-  Windows, donde su build todavía no está decidido). Si `$KBX_BIN` sale
-  vacío, dilo explícitamente y **salta cada paso que dependa de `kbx`** en
-  vez de fingir que corrió — no hay abstención silenciosa que valga para un
-  paso que simplemente no se ejecutó. Es la misma disciplina que ya aplica
-  el paso "Falla-fuerte" del Budget check (para con mensaje accionable si
-  el binario que toca falta): generalízala al resto de usos de `kbx` en este
-  procedimiento.
+  `exo config --json` resolvieron nada — no sigas con el procedimiento. La
+  KB tiene que ser la raíz de un repo git, y sin él cada subcomando se
+  comporta distinto: `targets` falla con un mensaje que nombra la condición
+  y el remedio (`git init`; `exo::gitx::es_repo_git`, decisión A2 de G4b);
+  `stale` falla con el error crudo de git (necesita el último commit de cada
+  nota); `ratchet` se abstiene con exit 0 (no hay historia contra la que
+  medir); `budget`, `lint` y `rotate` no miran git y funcionan igual.
 - `$EXO_BIN` — binario `exo`: `${EXO_BIN:-$(command -v exo)}`.
 
-**Este skill invoca dos binarios, y lo dice por escrito**: `exo` para
-`budget`/`ratchet`/`lint` (cutover G4c) y `kbx` para `rotate`/`stale`/
-`diff-since`, que todavía no tienen destino en `exo`. Un skill que finge
-haber migrado del todo es una trampa para el día que `kbx` no esté
-instalado — mejor declarar la frontera tal cual está.
+**Desde la campaña D (2026-09-14) este skill invoca un solo binario.** `exo`
+cubre `budget`/`ratchet`/`lint` (cutover G4c) y, desde ahora,
+`rotate`/`stale` también. `history` y `diff-since` **no existen en `exo`**
+—no se portan, se sustituyen por `git` directo (paso 3)— así que ningún
+paso de este procedimiento depende ya de `kbx`.
 
-Todos los comandos de las secciones siguientes usan `$KB_ROOT`, `$KBX_BIN` y
-`$EXO_BIN` — ninguna ruta literal.
+Todos los comandos de las secciones siguientes usan `$KB_ROOT` y `$EXO_BIN`
+— ninguna ruta literal, y ningún `$KBX_BIN`.
 
 ### 0. Rotación de bitácoras (antes de cualquier chequeo)
 
@@ -55,7 +52,7 @@ asume que `HEAD` es el estado justo antes de rotar, y la reversión del punto
 3 (`git checkout -- <ruta>`) descarta lo que no esté commiteado sin forma de
 recuperarlo: con el árbol sucio, ambas cosas quedan mal por construcción.
 
-Corre `$KBX_BIN rotate --kb $KB_ROOT --json`. Si `data.rotations` trae entradas, sigue `rotacion.md`; si el binario no trae `rotate`, sáltalo y ve al paso 1.
+Corre `$EXO_BIN rotate --kb $KB_ROOT --json`. Si `data.rotations` trae entradas, sigue `rotacion.md`; si viene vacío, sigue directo al paso 1.
 
 ### 1. Budget check
 
@@ -65,7 +62,7 @@ Corre `$EXO_BIN budget --json` y `$EXO_BIN ratchet --kb $KB_ROOT --json`. exit 3
 
 ### 1b. Gate de deriva + priorización
 
-Corre `$EXO_BIN lint --json` y `$KBX_BIN stale --json`. Señales de inyección rota: `chequeos.md`.
+Corre `$EXO_BIN lint --json` y `$EXO_BIN stale --json`. Señales de inyección rota: `chequeos.md`.
 
 ### 2. Split canon/bitácora por cada core/stable obeso
 
@@ -75,15 +72,21 @@ título: `consolidacion.md`.
 
 ### 3. Archivar sesiones de frentes cerrados
 
-**Escanea solo lo cambiado.** No re-escanees toda la KB: corre
-`$KBX_BIN diff-since distill/last --json`
-(`{data:{ref,resolved,notes:[{path,permalink,status,insertions,deletions}]}}`)
-para ver qué notas cambiaron desde la última consolidación.
+**Escanea solo lo cambiado.** No re-escanees toda la KB: `exo` no trae
+`diff-since` (decisión de la campaña D — no se porta: con git ya delante,
+duplicarlo dentro del binario no añade nada que `git diff`/`git log` no den
+ya). Corre en su lugar:
+
+    git -C $KB_ROOT diff --stat distill/last..HEAD -- '*.md'
+    git -C $KB_ROOT diff --name-status distill/last..HEAD -- '*.md'
+
+para ver qué notas cambiaron desde la última consolidación (el segundo
+comando da el estado por fichero: `A`/`M`/`D`).
 
 **Bootstrap (el tag aún no existe — `git tag -l` está vacío hoy):** si
-`distill/last` no existe, `diff-since` fallará al resolver el ref. Eso **no**
-es fallo-fuerte: haz un **full scan** (sin `diff-since`) esta vez. Al terminar
-el paso 5 (commit), crea/mueve el tag al HEAD del repo KB:
+`distill/last` no existe, los dos `git diff` de arriba fallan al resolver la
+referencia. Eso **no** es fallo-fuerte: haz un **full scan** (sin diff) esta
+vez. Al terminar el paso 5 (commit), crea/mueve el tag al HEAD del repo KB:
 
     git -C $KB_ROOT tag -f distill/last HEAD
 

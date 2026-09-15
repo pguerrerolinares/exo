@@ -26,6 +26,13 @@
   `engine/Cargo.toml` y verificada empíricamente con el lockfile actual
   (1.94 falla — `libsqlite3-sys` usa `cfg_select`, estable desde 1.95 —
   y 1.95 compila el crate con todos sus targets).
+- **Precondición: la KB debe ser la raíz de un repo git.** No todos los
+  subcomandos la exigen igual, y sin ella cada uno se comporta distinto:
+  `targets` falla con un mensaje que nombra la condición y el remedio
+  (`git init`; `exo::gitx::es_repo_git`); `stale` falla con el error crudo
+  de git (necesita el último commit de cada nota); `ratchet` se abstiene
+  con exit 0 (no hay historia contra la que medir); `budget`, `lint` y
+  `rotate` no miran git y funcionan igual con o sin él.
 
 ## 2. Instalar desde release (recomendado)
 
@@ -198,8 +205,5 @@ Dos avisos honestos, ambos anotados en `docs/backlog.md`:
   `aarch64-apple-darwin`; en un Mac Intel o en un Linux aarch64 toca compilar
   desde fuente. Los instaladores lo detectan y abortan diciéndolo, en vez de
   dejar un binario que no arranca.
-- **`exo rotate` y `exo stale`.** Siguen viviendo en `kbx` (Go). El remedio
-  que la doctrina manda aplicar cuando el gate de presupuestos muerde
-  —rotar la bitácora— exige por tanto `kbx` instalado. `exo:distill` lo
-  detecta y lo dice en una línea visible en vez de callarse.
-- **`exo diff-since` y `exo history`.** No portados y sin fecha.
+- **`exo diff-since` y `exo history`.** No se portan por decisión: se usan
+  `git diff`/`git log` directamente (ver skill `distill`).

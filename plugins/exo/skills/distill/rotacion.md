@@ -5,14 +5,23 @@
 
 Corre primero en seco y revisa el resultado:
 
-    $KBX_BIN rotate --kb $KB_ROOT --json
-
-Requiere un build de `kbx` que incluya `rotate`: el binario instalado puede no
-traer todavía el subcomando, porque la feature vive en una rama sin mergear.
-Si no está disponible, sáltalo y continúa directo al paso 1.
+    $EXO_BIN rotate --kb $KB_ROOT --json
 
 Si `data.rotations` viene vacío, no hay nada que rotar: sigue directo al paso
 1. Si trae entradas, repite con `--apply` y verifica antes de continuar:
+
+`--apply` exige `[kb] name` en la config; sin ella sale exit 1 sin tocar disco.
+
+**Si `--apply` sale con exit 1**: no es "nada se aplicó" — `rotate_cmd`
+(`engine/src/main.rs::rotate_cmd`) sigue barriendo `log/` aunque una nota
+falle (frontmatter sin cerrar, fichero ilegible) y solo hace `bail!` (exit 1)
+**después** de emitir el envelope. El envelope en stdout ya lista las
+rotaciones que SÍ se aplicaron (`data.rotations`); cada nota que falló va
+por stderr, una línea `rotate: <ruta>: <error>` por fallo. Revisa esas notas
+a mano (por qué falló, si hace falta cerrar un frontmatter roto) antes de
+commitear — **no vuelvas a correr `--apply` a ciegas**: reintentar sin
+entender el fallo puede repetir el mismo error, y las notas que sí rotaron
+ya movieron bytes a `archive/log/` en esta misma corrida.
 
 1. `git -C $KB_ROOT status --porcelain` —
    deben aparecer las bitácoras modificadas y los nuevos ficheros en

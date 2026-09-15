@@ -46,6 +46,8 @@ const PANTALLAS: &[&[&str]] = &[
     &["budget"],
     &["lint"],
     &["ratchet"],
+    &["rotate"],
+    &["stale"],
     &["doctor"],
 ];
 

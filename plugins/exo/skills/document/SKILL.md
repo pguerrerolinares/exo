@@ -6,7 +6,7 @@ description: Extrae decisiones, opiniones, aprendizajes y patrones de la sesión
 # document
 
 Cierra la sesión escribiendo a la KB vía `exo write` (M4). Degradación con
-aviso visible si el engine no está: `kbx`/filesystem, nunca bloquear el cierre.
+aviso visible si el engine no está: filesystem, nunca bloquear el cierre.
 
 ## Paso 1 · Extrae
 
