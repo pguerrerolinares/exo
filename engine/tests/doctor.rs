@@ -802,6 +802,34 @@ fn ruta_desconocida_es_inconclusa() {
     );
 }
 
+// Fix de re-review de la Task 4 (orquestador, 2026-09-15): la precedencia
+// «System32/WindowsApps concluyente-no antes que el segmento `git`
+// concluyente-sí» solo la fijaba el ORDEN de los `if` en
+// `ruta_sugiere_git_bash`, sin ningún test que lo comprobara — un refactor
+// que invirtiera los dos `if` habría pasado la suite entera. Estos dos casos
+// caen bajo AMBOS patrones a la vez y solo distinguen el orden correcto.
+
+#[test]
+fn ruta_bajo_system32_con_segmento_git_es_concluyente_no() {
+    assert_eq!(
+        exo::doctor::ruta_sugiere_git_bash(Path::new(r"C:\Windows\System32\git\bash.exe")),
+        Some(false)
+    );
+}
+
+#[test]
+fn ruta_bajo_windowsapps_con_segmento_git_es_concluyente_no() {
+    assert_eq!(
+        exo::doctor::ruta_sugiere_git_bash(Path::new(r"C:\Program Files\WindowsApps\Git\bash.exe")),
+        Some(false)
+    );
+    // Tolerante a `/` como separador, no solo a `\`.
+    assert_eq!(
+        exo::doctor::ruta_sugiere_git_bash(Path::new("/c/Program Files/WindowsApps/Git/bash.exe")),
+        Some(false)
+    );
+}
+
 #[test]
 fn version_de_msys_se_reconoce_como_git_bash() {
     assert!(exo::doctor::salida_indica_git_bash(
