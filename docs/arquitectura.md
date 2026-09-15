@@ -512,10 +512,13 @@ resultados, no un benchmark reproducible por un tercero tal cual.
 Bordes explícitos del sistema; el detalle y el siguiente paso de cada uno
 viven en `docs/backlog.md`:
 
-- **El check de desfase binario↔scripts del plugin no existe.** No está entre
-  los diez checks de `exo doctor` (§3.8): si los scripts nuevos corren contra
-  un binario viejo, el hook de arranque degrada al fallback embebido **con
-  forma válida**, sin gritar.
+- **El desfase binario↔plugin solo se vigila en dos sitios.** `exo doctor`
+  lo compara en el check `plugin_compat` (§3.8) y `exo-recall.sh` degrada con
+  `engine-stale` y aviso visible en el bloque de arranque, ambos contra
+  `plugins/exo/ENGINE_MIN` (campaña H). `recall-inject.sh` **no** lo comprueba
+  —sería un spawn de `exo --version` por prompt— y `ENGINE_MIN` solo es tan
+  honesto como quien lo sube cuando un script empieza a necesitar una versión
+  nueva del engine.
 - **MCP propio (M5a) y desinstalación de basic-memory (M5b)**: pendientes. El
   engine ya no depende de basic-memory para funcionar (la única lectura que
   queda es la migración explícita `exo init --from-basic-memory`), pero el
