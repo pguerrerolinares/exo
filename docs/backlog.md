@@ -121,7 +121,8 @@
 | **Tests** | 111 verdes / 0 rojos en la rama de M4, 98 en main previo (contados por el consultor del gate en esa ola; el CI que los corre solo llegó después, en G5a — 200 tests / 28 binarios). **El 2026-09-13 (cierre de campaña B), `cargo test --release --locked --no-fail-fast` en `engine/`: 478 tests verdes en 48 binarios, 2 ignorados, 0 rojos** |
 | **Release** | `v0.1.0` publicada el **2026-09-11** — tres binarios y sus tres `.sha256`, instalables por `install.sh` / `install.ps1`. Ver `## Cerrado con evidencia` |
 | **Campaña A** | ejecutada el **2026-09-13** salvo Tasks 12 y 15 (esperan la medición W11 de Paul) — mergeada a `main` el **2026-09-13** vía PR #13 (`ef5100b`); veredicto en `evals/recall-coste/verdict/2026-09-campana-a.md` |
-| **Campaña B** | ejecutada el **2026-09-13**, las 13 tasks (H6, H8, H9, H11, H12, H13, H15, H16, H18, H20, H21, H22, H26) integradas en la rama `campana-b` — **a fecha 2026-09-13, pendiente del gate de Paul, sin PR a `main` aún**; plan en `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md`; H25 queda como checklist externo de Paul |
+| **Campaña B** | ejecutada el **2026-09-13**, las 13 tasks (H6, H8, H9, H11, H12, H13, H15, H16, H18, H20, H21, H22, H26) — mergeada a `main` el **2026-09-13** vía PR #14 (`219506b`); plan en `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md`; H25 queda como checklist externo de Paul |
+| **Campaña C** | held-out pre-registrado, **sin cambio de producción** — mergeada a `main` el **2026-09-14** vía PR #16 (`cb25541`); veredicto en `evals/retrieval-heldout/verdict/c-verdict.md`. El held-out queda consumido; D6 (default de `exo search --type`) PENDIENTE-PAUL |
 
 ---
 
