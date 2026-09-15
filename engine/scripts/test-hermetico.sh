@@ -45,10 +45,17 @@ if [ "$EC" -ne 0 ]; then
   sed -n '/^failures:$/,/^test result: FAILED/p' "$LOG" >&2 || true
   echo "--- resumen ---" >&2
   grep -E '^test result: FAILED|--test ' "$LOG" >&2 || true
-  # Sigue sin haber un patrón específico para un error de COMPILACIÓN de la
-  # suite (docs/backlog.md, deuda conocida y NO cerrada aquí): con --locked
-  # y log completo, ese caso ahora al menos queda íntegro en $LOG (y, en CI,
-  # en el artifact) para leerlo a mano — no hay grep que lo resalte todavía.
+  # F5 (docs/backlog.md:732-765, "Sigue abierto: un error de COMPILACIÓN de
+  # la suite sigue sin casar ningún patrón de grep"): distingue un error de
+  # rustc/cargo de un fallo de test normal. `error[EXXXX]:`/`-->` son la
+  # forma de un diagnóstico de rustc; `error: could not compile` es el
+  # resumen final de cargo cuando la compilación no llega a producir el
+  # binario de test — ninguno de los dos aparece en un log de solo tests
+  # que fallan (verificado con una muestra sintética de cada caso).
+  if grep -qE '^error(\[E[0-9]+\])?:|error: could not compile' "$LOG"; then
+    echo "--- error de compilación ---" >&2
+    grep -E '^error(\[E[0-9]+\])?:|-->|error: could not compile' "$LOG" >&2 || true
+  fi
   exit 1
 fi
 echo "test-hermetico: OK — la suite corre sin ~/.exo/config.toml, con --locked; NO cubre la caché del modelo ONNX (~0,6 GB), que las suites de indexado siguen exigiendo."
