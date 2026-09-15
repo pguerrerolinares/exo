@@ -349,6 +349,31 @@ pub fn md_staged(dir: &Path) -> Result<Vec<String>> {
 ///    pathspec de ENTRADA relativo al `-C`, no una línea de salida a
 ///    parsear, y git ya la resuelve así sin flags adicionales (confirmado con
 ///    el mismo repo de prueba).
+/// 5. **El divisor de "aparece en todos los bloques" sale de `%P` (número de
+///    padres), no de cuántos bloques `-m` llegó a IMPRIMIR** (fix de
+///    verificación dirigida, medido el 2026-09-15). Cuando el diff de un
+///    merge contra UNO de sus padres queda completamente vacío bajo
+///    `--relative` (ese padre solo tocaba rutas fuera de la KB) o vacío sin
+///    más (`git merge -s ours`, o un merge no-ff cuyo primer padre no
+///    avanzó), git **omite el bloque de ese padre por completo** en la
+///    salida de `-m --name-only` — no imprime ni siquiera la cabecera.
+///    Medido con los tres repos de prueba: en los tres, el merge de DOS
+///    padres imprime UNA sola cabecera para su `%H` en vez de dos. Contar
+///    cabeceras impresas (`nbloques`, diseño anterior) da entonces `1` en
+///    vez de `2`, y una ruta que solo aparece en el bloque impreso (la que
+///    SÍ difiere de ese padre, pero es TREESAME al padre omitido) alcanza
+///    `cuenta == nbloques` y se atribuye al merge — divergencia real y
+///    silenciosa frente al fallback, que sigue la simplificación de
+///    historia real y resuelve esa ruta al commit de la rama, no al merge.
+///    `%P` no depende de qué bloques `-m` decidió imprimir: siempre lista el
+///    número real de padres, así que un bloque omitido cuenta como "ruta
+///    ausente en ese padre" (no aparece en `cuenta`) y la ruta ya no llega a
+///    `cuenta == num_padres` — dinámica coherente con la Task 3 original.
+///    Commit raíz (`%P` vacío, 0 padres): sin padre trivial con el que ser
+///    TREESAME, toda ruta listada se atribuye siempre — de ahí el
+///    `.max(1)` en el conteo de padres, que también deja intacto el caso de
+///    un commit normal (1 padre, jamás omitido: sin `-m` de por medio no
+///    aplica la omisión de bloque, solo afecta a merges).
 ///
 /// Recorre el log COMPLETO una vez y se queda con el PRIMER epoch válido
 /// visto para cada ruta: git emite los commits del más reciente al más
@@ -370,7 +395,7 @@ pub fn epochs_de_todo_el_historial(dir: &Path) -> Result<HashMap<String, i64>> {
             "-m",
             "--no-renames",
             "--relative",
-            "--format=%x01%H %ct",
+            "--format=%x01%H %ct %P",
             "--name-only",
         ])
         .env("LC_ALL", "C")
@@ -390,30 +415,41 @@ pub fn epochs_de_todo_el_historial(dir: &Path) -> Result<HashMap<String, i64>> {
     let mut epochs: HashMap<String, i64> = HashMap::new();
 
     // Estado del grupo de bloques en curso (ver el comentario de la función,
-    // punto 3): `hash_actual`/`epoch_actual` identifican el commit; `nbloques`
-    // cuenta cuántas cabeceras de ese `%H` se han visto consecutivamente;
-    // `cuenta` cuántos de esos bloques mencionan cada ruta; `vistas_en_bloque`
-    // evita contar una ruta dos veces si git la repitiera dentro del MISMO
-    // bloque (defensivo, no observado).
+    // puntos 3 y 5): `hash_actual`/`epoch_actual` identifican el commit;
+    // `num_padres` es el número REAL de padres del commit, leído de `%P` (no
+    // de cuántas cabeceras `-m` llegó a imprimir — punto 5); `cuenta` cuántos
+    // de los bloques IMPRESOS mencionan cada ruta; `vistas_en_bloque` evita
+    // contar una ruta dos veces si git la repitiera dentro del MISMO bloque
+    // (defensivo, no observado).
     let mut hash_actual: Option<String> = None;
     let mut epoch_actual: Option<i64> = None;
-    let mut nbloques: u32 = 0;
+    let mut num_padres: usize = 0;
     let mut cuenta: HashMap<String, u32> = HashMap::new();
     let mut vistas_en_bloque: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     for linea in texto.lines() {
         if let Some(resto) = linea.strip_prefix('\u{1}') {
-            let mut partes = resto.splitn(2, ' ');
+            let mut partes = resto.splitn(3, ' ');
             let hash = partes.next().unwrap_or("").to_string();
             let epoch = partes.next().and_then(|c| c.trim().parse::<i64>().ok());
+            // `%P` es una lista de hashes separados por espacio, vacía en un
+            // commit raíz. Un commit raíz (0 padres) no tiene "padre trivial"
+            // con el que ser TREESAME — toda ruta listada es nueva y se
+            // atribuye siempre, igual que un commit normal de 1 padre — de
+            // ahí el `.max(1)`.
+            let padres_de_esta_cabecera = partes
+                .next()
+                .unwrap_or("")
+                .split_whitespace()
+                .count()
+                .max(1);
             if hash_actual.as_deref() != Some(hash.as_str()) {
-                cierra_grupo(&mut epochs, epoch_actual, nbloques, &cuenta);
+                cierra_grupo(&mut epochs, epoch_actual, num_padres, &cuenta);
                 hash_actual = Some(hash);
                 epoch_actual = epoch;
-                nbloques = 0;
+                num_padres = padres_de_esta_cabecera;
                 cuenta.clear();
             }
-            nbloques += 1;
             vistas_en_bloque.clear();
             continue;
         }
@@ -425,28 +461,39 @@ pub fn epochs_de_todo_el_historial(dir: &Path) -> Result<HashMap<String, i64>> {
             *cuenta.entry(ruta).or_insert(0) += 1;
         }
     }
-    cierra_grupo(&mut epochs, epoch_actual, nbloques, &cuenta);
+    cierra_grupo(&mut epochs, epoch_actual, num_padres, &cuenta);
 
     Ok(epochs)
 }
 
 /// Cierra el grupo de bloques de un commit (ver `epochs_de_todo_el_historial`,
-/// punto 3 del comentario): una ruta entra en `epochs` (primer epoch visto
-/// gana, `or_insert`) solo si apareció en TODOS los bloques del grupo — para
-/// un commit normal (`nbloques == 1`) eso es cualquier ruta listada, sin
-/// cambio de comportamiento frente al diseño de un solo bloque por commit.
+/// puntos 3 y 5 del comentario): una ruta entra en `epochs` (primer epoch
+/// visto gana, `or_insert`) solo si apareció en TANTOS bloques como PADRES
+/// tiene el commit (`num_padres`, leído de `%P`) — no como bloques llegó a
+/// IMPRIMIR `-m`. Para un commit normal (`num_padres == 1`) o un merge donde
+/// `-m` imprimió un bloque por padre, ambos números coinciden y la regla es
+/// la misma de siempre. La divergencia solo aparece en un merge donde `-m`
+/// OMITIÓ por completo el bloque de algún padre porque, tras `--relative` (o
+/// sin pathspec alguno), el diff contra ese padre quedó vacío — un
+/// `git merge -s ours`, o un merge no-ff cuyo primer padre no avanzó, o un
+/// merge donde uno de los padres solo tocaba rutas fuera de la KB. Contar
+/// bloques IMPRESOS en ese caso infla artificialmente el "aparece en todos
+/// los bloques" (con menos bloques que padres reales, un umbral más bajo es
+/// más fácil de alcanzar) y atribuye al merge una ruta que en realidad es
+/// TREESAME al padre omitido — exactamente la que `git log -1 -- ruta` (el
+/// fallback) NO atribuye al merge, sino al commit real de esa rama.
 fn cierra_grupo(
     epochs: &mut HashMap<String, i64>,
     epoch: Option<i64>,
-    nbloques: u32,
+    num_padres: usize,
     cuenta: &HashMap<String, u32>,
 ) {
     let Some(epoch) = epoch else { return };
-    if nbloques == 0 {
+    if num_padres == 0 {
         return;
     }
     for (ruta, n) in cuenta {
-        if *n == nbloques {
+        if *n as usize == num_padres {
             epochs.entry(ruta.clone()).or_insert(epoch);
         }
     }
@@ -1066,5 +1113,299 @@ mod tests {
             "z.md debe seguir con el epoch de su commit de rama, no el del merge"
         );
         assert_ne!(mapa["y.md"], mapa["z.md"]);
+    }
+
+    /// Caso (a) de la verificación dirigida (orquestador, 2026-09-15): KB en
+    /// `sub/kb/`, rama A toca `sub/kb/a.md`, rama B toca SOLO `fuera.md`
+    /// (fuera de la KB, hermano de `sub/kb`), merge no-ff de B en A.
+    ///
+    /// Diff del merge contra el padre A: dentro del repo completo solo
+    /// cambia `fuera.md` (A no tocó nada más), y `--relative` lo filtra por
+    /// completo — CERO rutas de la KB en ese bloque. Diff contra el padre B:
+    /// `a.md` cambia (B no lo tocó, A sí). Salida cruda medida (git real,
+    /// scratchpad, antes de escribir este test):
+    ///
+    /// ```text
+    /// \x01<merge> <ct> <hashA> <hashB>
+    ///
+    /// a.md
+    /// \x01<hashB> <ctB> <hashBase>
+    /// \x01<hashA> <ctA> <hashBase>
+    ///
+    /// a.md
+    /// \x01<hashBase> <ctBase>
+    ///
+    /// a.md
+    /// ```
+    ///
+    /// El bloque del merge contra A NUNCA se imprime (ni cabecera): solo
+    /// aparece UNA cabecera para el merge, seguida del bloque no vacío
+    /// (contra B). Con el diseño anterior (`nbloques` = cabeceras impresas),
+    /// `nbloques == 1` para el merge y `a.md` (que aparece en ese único
+    /// bloque) se atribuía al merge — divergía del fallback, que resuelve
+    /// `a.md` al commit de A (TREESAME al merge respecto a A).
+    #[test]
+    fn epochs_de_todo_el_historial_en_un_merge_con_padre_omitido_fuera_de_la_kb_coincide_con_el_fallback()
+     {
+        let dir = tempfile::tempdir().unwrap();
+        let raiz = dir.path();
+        let kb = raiz.join("sub").join("kb");
+        std::fs::create_dir_all(&kb).unwrap();
+        let cfg = raiz.join("gitconfig-vacio");
+        std::fs::write(&cfg, "").unwrap();
+        let corre = |args: &[&str], fecha: &str| {
+            let salida = Command::new("git")
+                .arg("-C")
+                .arg(raiz)
+                .args(args)
+                .env("GIT_CONFIG_GLOBAL", &cfg)
+                .env("GIT_CONFIG_SYSTEM", &cfg)
+                .env("GIT_AUTHOR_NAME", "f")
+                .env("GIT_AUTHOR_EMAIL", "f@k.local")
+                .env("GIT_COMMITTER_NAME", "f")
+                .env("GIT_COMMITTER_EMAIL", "f@k.local")
+                .env("GIT_AUTHOR_DATE", fecha)
+                .env("GIT_COMMITTER_DATE", fecha)
+                .output()
+                .unwrap();
+            assert!(salida.status.success(), "git {args:?} falló");
+        };
+        corre(&["init", "-q"], "2026-01-01T10:00:00+00:00");
+        std::fs::write(kb.join("a.md"), "base\n").unwrap();
+        std::fs::write(raiz.join("fuera.md"), "base\n").unwrap();
+        corre(&["add", "."], "2026-01-01T10:00:00+00:00");
+        corre(&["commit", "-q", "-m", "base"], "2026-01-01T10:00:00+00:00");
+        corre(
+            &["checkout", "-q", "-b", "rama-a"],
+            "2026-01-01T10:00:00+00:00",
+        );
+        std::fs::write(kb.join("a.md"), "cambio-a\n").unwrap();
+        corre(&["add", "."], "2026-01-02T10:00:00+00:00");
+        corre(
+            &["commit", "-q", "-m", "A toca a.md"],
+            "2026-01-02T10:00:00+00:00",
+        );
+        corre(
+            &["checkout", "-q", "-b", "rama-b", "master"],
+            "2026-01-01T10:00:00+00:00",
+        );
+        std::fs::write(raiz.join("fuera.md"), "cambio-b\n").unwrap();
+        corre(&["add", "."], "2026-01-02T12:00:00+00:00");
+        corre(
+            &["commit", "-q", "-m", "B toca fuera.md"],
+            "2026-01-02T12:00:00+00:00",
+        );
+        corre(&["checkout", "-q", "rama-a"], "2026-01-02T10:00:00+00:00");
+        corre(
+            &["merge", "-q", "--no-edit", "rama-b", "-m", "merge B en A"],
+            "2026-01-03T10:00:00+00:00",
+        );
+
+        let mapa = epochs_de_todo_el_historial(&kb).unwrap();
+        let esperado_a = crate::indexer::git_epoch_de(&kb, Path::new("a.md"));
+        assert_eq!(
+            mapa.get("a.md").copied(),
+            esperado_a,
+            "a.md es TREESAME al merge respecto al padre A (bloque omitido): \
+             debe resolver al commit de A, no al merge"
+        );
+    }
+
+    /// Caso (b) de la verificación dirigida (orquestador, 2026-09-15): KB en
+    /// la raíz, `git merge -s ours` de una rama que modificó `b.md` — el
+    /// merge queda byte-idéntico al primer padre (estrategia `ours` descarta
+    /// el contenido del otro padre).
+    ///
+    /// **NEEDS_CONTEXT (verificación dirigida, orquestador, 2026-09-15): el
+    /// fix de `%P` (punto 5 del comentario de `epochs_de_todo_el_historial`)
+    /// NO cierra este caso — diverge por una razón estructuralmente distinta
+    /// a (a)/(c), que sí quedan verdes con ese fix.** Salida cruda medida
+    /// (repo desechable, mismas fechas que este test):
+    ///
+    /// ```text
+    /// \x01c3a3f28... 1767434400 53b0790...(master) 79144c8...(rama)
+    ///
+    /// b.md
+    /// \x0179144c8... 1767348000 53b0790...
+    ///
+    /// b.md
+    /// \x0153b0790... 1767261600
+    ///
+    /// b.md
+    /// ```
+    /// Fallback (`git log -1 -- b.md`): `53b0790...` (epoch 1767261600, el
+    /// commit BASE). Con el fix de `%P`: el merge (`num_padres=2`) NO
+    /// atribuye `b.md` (`cuenta=1 != 2`, correcto — mismo razonamiento que
+    /// (a)/(c)), pero el algoritmo sigue escaneando el stream plano en orden
+    /// y encuentra `79144c8...` ("rama toca b", 1 solo padre, `cuenta=1 ==
+    /// num_padres=1`) — lo atribuye a ESE commit, epoch 1767348000. Ninguno
+    /// de los dos coincide con el fallback real (`53b0790`, el commit base).
+    ///
+    /// La razón de fondo: `git log -1 -- ruta` no solo decide si UN merge
+    /// "muestra" una ruta — hace **reescritura de padres** (parent rewriting,
+    /// parte de la simplificación de historia por defecto): cuando un merge
+    /// es TREESAME a un padre para una ruta, esa ruta "salta" ese merge y
+    /// continúa la historia SOLO por el padre TREESAME, **descartando por
+    /// completo** el subgrafo alcanzable solo por el otro padre — aunque ese
+    /// subgrafo contenga commits que sí tocaron la ruta (aquí, "rama toca
+    /// b": su cambio a `b.md` fue descartado por la estrategia `-s ours`, así
+    /// que la simplificación real lo trata como si nunca hubiera existido
+    /// para `b.md`). `epochs_de_todo_el_historial` procesa el log como un
+    /// stream PLANO commit-a-commit, sin grafo: no tiene forma de saber, al
+    /// procesar `79144c8`, que su resultado para `b.md` fue descartado
+    /// aguas abajo por un merge posterior. Implementarlo bien exigiría un
+    /// recorrido del grafo consciente de POR RUTA (qué padre "sobrevive" en
+    /// cada merge treesame, por ruta) — o volver al fallback per-nota
+    /// exactamente en los casos con esta forma, lo que reintroduce el coste
+    /// que esta task existe para evitar. Dos salidas razonables, ninguna
+    /// obviamente mejor sin que el orquestador decida: (1) aceptar el riesgo
+    /// residual (`-s ours`/`-s theirs`/estrategias que descartan contenido
+    /// son raras frente a merges no-ff normales; el batch ya es
+    /// estrictamente más preciso que el diseño anterior, que TAMBIÉN
+    /// divergía aquí — atribuía a `c3a3f28` el merge en vez de `79144c8`,
+    /// ningún diseño lo tenía bien); (2) detectar el patrón "merge cuyo
+    /// árbol es idéntico a un padre" (comparando `%T` del merge contra `%T`
+    /// de cada padre) y forzar el fallback per-nota SOLO para las rutas de
+    /// ese grupo. Test dejado en rojo documentado (`#[ignore]`), no en la
+    /// suite verde, para no fingir una cobertura que no existe.
+    #[test]
+    #[ignore = "NEEDS_CONTEXT: diverge del fallback por reescritura de padres \
+                (parent rewriting) en un merge -s ours, no por el conteo de \
+                bloques que corrige el fix de %P — ver doc-comment"]
+    fn epochs_de_todo_el_historial_en_un_merge_ours_coincide_con_el_fallback() {
+        let dir = tempfile::tempdir().unwrap();
+        let raiz = dir.path();
+        let cfg = raiz.join("gitconfig-vacio");
+        std::fs::write(&cfg, "").unwrap();
+        let corre = |args: &[&str], fecha: &str| {
+            let salida = Command::new("git")
+                .arg("-C")
+                .arg(raiz)
+                .args(args)
+                .env("GIT_CONFIG_GLOBAL", &cfg)
+                .env("GIT_CONFIG_SYSTEM", &cfg)
+                .env("GIT_AUTHOR_NAME", "f")
+                .env("GIT_AUTHOR_EMAIL", "f@k.local")
+                .env("GIT_COMMITTER_NAME", "f")
+                .env("GIT_COMMITTER_EMAIL", "f@k.local")
+                .env("GIT_AUTHOR_DATE", fecha)
+                .env("GIT_COMMITTER_DATE", fecha)
+                .output()
+                .unwrap();
+            assert!(salida.status.success(), "git {args:?} falló");
+        };
+        corre(&["init", "-q"], "2026-01-01T10:00:00+00:00");
+        std::fs::write(raiz.join("b.md"), "base\n").unwrap();
+        corre(&["add", "."], "2026-01-01T10:00:00+00:00");
+        corre(&["commit", "-q", "-m", "base"], "2026-01-01T10:00:00+00:00");
+        corre(
+            &["checkout", "-q", "-b", "rama"],
+            "2026-01-01T10:00:00+00:00",
+        );
+        std::fs::write(raiz.join("b.md"), "cambio\n").unwrap();
+        corre(&["add", "."], "2026-01-02T10:00:00+00:00");
+        corre(
+            &["commit", "-q", "-m", "rama toca b"],
+            "2026-01-02T10:00:00+00:00",
+        );
+        corre(&["checkout", "-q", "master"], "2026-01-01T10:00:00+00:00");
+        corre(
+            &[
+                "merge",
+                "-s",
+                "ours",
+                "-q",
+                "--no-edit",
+                "rama",
+                "-m",
+                "merge ours",
+            ],
+            "2026-01-03T10:00:00+00:00",
+        );
+
+        let mapa = epochs_de_todo_el_historial(raiz).unwrap();
+        assert_eq!(
+            mapa.get("b.md"),
+            Some(&ultimo_commit_epoch(raiz, "b.md")),
+            "b.md es TREESAME al merge respecto al padre 'master' (bloque \
+             vacío omitido): debe resolver al commit base, no al merge"
+        );
+    }
+
+    /// Caso (c) de la verificación dirigida (orquestador, 2026-09-15): KB en
+    /// la raíz, merge no-ff donde la rama B no tocó nada de lo que A tocó Y
+    /// el primer padre (`master`) no avanzó desde el commit base — el
+    /// fast-forward trivial se fuerza como merge explícito.
+    ///
+    /// Diff del merge contra el primer padre (`master` == commit base):
+    /// `a.md` cambia (la rama sí lo tocó) — bloque NO vacío. Diff contra el
+    /// segundo padre (la rama): vacío (TREESAME, el merge es idéntico a la
+    /// rama). Salida cruda medida: UNA sola cabecera para el merge, con
+    /// `a.md` en el bloque contra `master`. `nbloques == 1` (diseño
+    /// anterior) atribuía `a.md` al merge; el fallback lo resuelve al commit
+    /// de la rama (TREESAME al merge), no al merge — este es el patrón más
+    /// común en la práctica: "mergear una rama de feature en una main que no
+    /// se movió".
+    #[test]
+    fn epochs_de_todo_el_historial_en_un_merge_no_ff_sin_avance_del_primer_padre_coincide_con_el_fallback()
+     {
+        let dir = tempfile::tempdir().unwrap();
+        let raiz = dir.path();
+        let cfg = raiz.join("gitconfig-vacio");
+        std::fs::write(&cfg, "").unwrap();
+        let corre = |args: &[&str], fecha: &str| {
+            let salida = Command::new("git")
+                .arg("-C")
+                .arg(raiz)
+                .args(args)
+                .env("GIT_CONFIG_GLOBAL", &cfg)
+                .env("GIT_CONFIG_SYSTEM", &cfg)
+                .env("GIT_AUTHOR_NAME", "f")
+                .env("GIT_AUTHOR_EMAIL", "f@k.local")
+                .env("GIT_COMMITTER_NAME", "f")
+                .env("GIT_COMMITTER_EMAIL", "f@k.local")
+                .env("GIT_AUTHOR_DATE", fecha)
+                .env("GIT_COMMITTER_DATE", fecha)
+                .output()
+                .unwrap();
+            assert!(salida.status.success(), "git {args:?} falló");
+        };
+        corre(&["init", "-q"], "2026-01-01T10:00:00+00:00");
+        std::fs::write(raiz.join("a.md"), "base\n").unwrap();
+        corre(&["add", "."], "2026-01-01T10:00:00+00:00");
+        corre(&["commit", "-q", "-m", "base"], "2026-01-01T10:00:00+00:00");
+        corre(
+            &["checkout", "-q", "-b", "feat"],
+            "2026-01-01T10:00:00+00:00",
+        );
+        std::fs::write(raiz.join("a.md"), "cambio\n").unwrap();
+        corre(&["add", "."], "2026-01-02T10:00:00+00:00");
+        corre(
+            &["commit", "-q", "-m", "feat toca a.md"],
+            "2026-01-02T10:00:00+00:00",
+        );
+        corre(&["checkout", "-q", "master"], "2026-01-01T10:00:00+00:00");
+        // master NO avanza: se queda en el commit base. Merge no-ff forzado
+        // (sin --no-ff, este sería un fast-forward puro y no habría commit
+        // de merge que ejercitar).
+        corre(
+            &[
+                "merge",
+                "--no-ff",
+                "-q",
+                "feat",
+                "-m",
+                "merge no-ff, main no avanzo",
+            ],
+            "2026-01-03T10:00:00+00:00",
+        );
+
+        let mapa = epochs_de_todo_el_historial(raiz).unwrap();
+        assert_eq!(
+            mapa.get("a.md"),
+            Some(&ultimo_commit_epoch(raiz, "a.md")),
+            "a.md es TREESAME al merge respecto al padre 'feat' (bloque \
+             vacío omitido): debe resolver al commit de 'feat', no al merge"
+        );
     }
 }
