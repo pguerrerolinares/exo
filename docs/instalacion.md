@@ -50,12 +50,14 @@ Los dos hacen lo mismo: detectan la plataforma, bajan el binario de la última
 release, **verifican su SHA256 antes de copiar nada**, lo dejan en
 `~/.local/bin/exo` (`exo.exe` en Windows) y cierran corriendo `exo doctor`.
 
-**Por qué `~/.local/bin` y no otro sitio del PATH:** es la ruta literal que
-mira primero el pre-commit de la KB (`plugins/exo/scripts/kb-precommit.sh:18`),
-con `$PATH` como fallback si no está ahí. Si ninguno de los dos resuelve un
-`exo` ejecutable, ese hook sale 1 y BLOQUEA el commit (fail-closed) — el
-escape consciente es `git commit --no-verify`. `exo doctor` tiene un check
-dedicado a la ruta literal (`hook_fallback_binary`).
+**Por qué `~/.local/bin` y no otro sitio del PATH:** es donde caen los dos
+instaladores, y como `~/.local/bin` suele estar en el `PATH`, el pre-commit
+de la KB (`plugins/exo/scripts/kb-precommit.sh:20-21`) lo resuelve por
+`command -v exo` — mismo orden que usan los hooks — antes de mirar el
+literal `$HOME/.local/bin/exo(.exe)` como fallback. Si ninguno de los dos
+resuelve un `exo` ejecutable, ese hook sale 1 y BLOQUEA el commit
+(fail-closed) — el escape consciente es `git commit --no-verify`. `exo
+doctor` tiene un check dedicado al literal (`hook_fallback_binary`).
 
 Variables reconocidas: `EXO_DIR` (destino), `EXO_VERSION` (un tag concreto en
 vez de `latest`), `EXO_INIT_KB` + `EXO_INIT_NAME` (encadenan `exo init`).

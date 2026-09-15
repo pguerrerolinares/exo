@@ -62,6 +62,39 @@ else
   fail "fallback al PATH: exo solo en \$PATH (sin EXO_BIN ni ~/.local/bin) ⇒ pasa el gate" "rc=$RC4 out=$OUT4"
 fi
 
+# ------------------- precedencia: PATH antes que ~/.local/bin --------------
+# Los dos sitios tienen un exo ejecutable a la vez (sin EXO_BIN): el hook
+# debe resolver el mismo que exo-recall.sh/recall-inject.sh — `command -v
+# exo` (PATH) — antes que el literal ~/.local/bin/exo. Cada stub marca en un
+# fichero cuál se ejecutó para poder distinguirlos aunque ambos exit 0.
+HOME_CON_EXO="$TMP/home-con-exo"
+mkdir -p "$HOME_CON_EXO/.local/bin"
+MARCA="$TMP/marca-precedencia"
+cat > "$HOME_CON_EXO/.local/bin/exo" <<EOF
+#!/usr/bin/env bash
+echo "local-bin" > "$MARCA"
+exit 0
+EOF
+chmod +x "$HOME_CON_EXO/.local/bin/exo"
+
+PATH_CON_EXO2="$TMP/path-con-exo2"
+mkdir -p "$PATH_CON_EXO2"
+cat > "$PATH_CON_EXO2/exo" <<EOF
+#!/usr/bin/env bash
+echo "path" > "$MARCA"
+exit 0
+EOF
+chmod +x "$PATH_CON_EXO2/exo"
+
+rm -f "$MARCA"
+OUT5="$(cd "$KB" && env -u EXO_BIN HOME="$HOME_CON_EXO" PATH="$PATH_CON_EXO2:$PATH" "$HOOK" 2>&1)"; RC5=$?
+MARCADO="$(cat "$MARCA" 2>/dev/null || echo "<sin marca>")"
+if [ "$RC5" -eq 0 ] && [ "$MARCADO" = "path" ]; then
+  pass "precedencia: exo en \$PATH y en ~/.local/bin a la vez ⇒ gana \$PATH (mismo orden que los hooks)"
+else
+  fail "precedencia: exo en \$PATH y en ~/.local/bin a la vez ⇒ gana \$PATH (mismo orden que los hooks)" "rc=$RC5 marcado=$MARCADO"
+fi
+
 # ------------------- gate real rechaza (ratchet) ⇒ exit 1, sin cambiar -----
 STUB_FAIL="$TMP/exo-stub-fail"
 cat > "$STUB_FAIL" <<'EOF'

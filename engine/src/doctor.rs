@@ -322,9 +322,10 @@ fn check_binario_en_path(entorno: &Entorno) -> Check {
 }
 
 /// El fallback literal de `plugins/exo/scripts/kb-precommit.sh`
-/// (`$HOME/.local/bin/exo(.exe)`, entre `EXO_BIN` y el fallback final a
-/// `$PATH` que también resuelve ese hook). Si este fichero falta Y tampoco
-/// hay un `exo` en `$PATH` (`binary_on_path`, arriba), el hook sale **1** y
+/// (`$HOME/.local/bin/exo(.exe)`, después de `EXO_BIN` y de `command -v exo`
+/// —el PATH, que ese hook mira primero, mismo orden que los hooks del
+/// plugin—). Si este fichero falta Y tampoco hay un `exo` en `$PATH`
+/// (`binary_on_path`, arriba), el hook sale **1** y
 /// BLOQUEA el commit (fail-closed, campaña H) — ya no degrada en silencio.
 /// Sigue siendo `fail` y no `warn` porque, aunque el fallo ya no sea mudo,
 /// sí es evitable: instalar el binario aquí ahorra el commit bloqueado.
