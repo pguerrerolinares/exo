@@ -1,0 +1,79 @@
+# Campaña A, Task 15: bloque §W11 del pre-registro, corrido en la W11 de Paul
+# Pre-registro: docs/superpowers/plans/2026-09-13-campana-a-preregistro-bench.md §W11
+# Git Bash (MSYS), índice real copiado a mktemp, config real de la máquina.
+#
+# Única desviación del bloque: EXO_PLUGIN_SCRIPTS. El hint del bloque dice
+# «plugins/exo/scripts del plugin instalado», pero en la caché instalada los
+# scripts están en <installPath>/scripts (sin plugins/exo). La primera corrida
+# con la ruta del hint NO vale: recall-inject.sh no existía, las 20 iteraciones
+# fallaron con «No such file or directory» y el bloque imprimió igualmente
+# «p50_ms 40 p95_ms 42» con exit 0 — el bloque no detecta que el hook no corrió.
+# Se descartó y se repitió entera con la ruta correcta. Salida literal:
+
+exo_version: exo 0.1.0
+fecha: 2026-09-15T10:13:51+02:00
+plugin: exo@exo 1.1.2 @ ba4b75f
+uname: MINGW64_NT-10.0-26200 <host-corporativo-omitido> 3.6.6-1cdd4371.x86_64 2026-01-15 22:20 UTC x86_64 Msys
+p50_ms 2312 p95_ms 2568
+config_jq_p50_ms 68
+n_hits=3 bytes=738 elapsed_ms=974 refresh_ms=19 permalinks=wisdom-paul/log/kbx-bitacora,wisdom-paul/core/doctrina-agentes,wisdom-paul/projects/lighthouses-bot
+n_hits=3 bytes=738 elapsed_ms=977 refresh_ms=19 permalinks=wisdom-paul/log/kbx-bitacora,wisdom-paul/core/doctrina-agentes,wisdom-paul/projects/lighthouses-bot
+n_hits=3 bytes=738 elapsed_ms=985 refresh_ms=18 permalinks=wisdom-paul/log/kbx-bitacora,wisdom-paul/core/doctrina-agentes,wisdom-paul/projects/lighthouses-bot
+--- reflejos registrados:
+     20 recall-inject-emitted
+
+# (Las dos últimas líneas —conteo de reflejos— se añadieron al bloque para
+# confirmar que las 20 iteraciones emitieron; no cambian ninguna cifra.)
+
+# -----------------------------------------------------------------------------
+# Observación NO pre-registrada (no decide nada): descomposición del hook
+# -----------------------------------------------------------------------------
+# El hook entero (p50 2312 ms) duplica lo que el payload reporta
+# (elapsed_ms + refresh_ms ≈ 993 ms). Medido a continuación, misma máquina:
+#
+# exo recall directo, mismos flags que el hook (wall ms | elapsed_s | refresh_s):
+1832 | 0.0273781	1.6907017     <- 1ª llamada sobre la copia recién hecha: refresh caro
+1097 | 0.9623963	0.020603
+1103 | 0.979183	0.0194017
+1129 | 0.9928162	0.0185173
+1158 | 1.0161216	0.021433
+# mismo vía con_timeout 5:
+1286 | 1.0354776	0.0189204
+1210 | 1.0000462	0.0228403
+1116 | 0.9690161	0.0197213
+1118 | 0.9650496	0.0193514
+1109 | 0.9649927	0.018304
+# suelo de spawn en Git Bash (ms, 5 corridas):
+exo --version: 60 58 58 66 59
+jq -n 1: 58 54 54 52 53
+con_timeout 5 true: 77 72 76 73 73
+#
+# Lectura: exo recall en caliente ≈ 1,1 s de reloj (≈ 0,1 s de arranque fuera
+# de elapsed_s). El ≈ 1,2 s restante del hook es shell: traza con
+# PS4=$EPOCHREALTIME sobre recall-inject.sh = 301 líneas, span 2975 ms, con
+# ≈ 20 spawns (jq, tr, sed, date, mktemp, rm, grep, exo config) a 25-60 ms cada
+# uno. En Linux el mismo hook (s6 n174) da 1079 ms: el sobrecoste es de W11.
+#
+# Consecuencia para H3: recall-latencia.sh mide p95 de elapsed_ms+refresh_ms,
+# que en W11 ve ≈ 1,0 s de ≈ 2,3 s reales. Con el umbral de 1.500 ms, el
+# criterio no dispararía en W11 aunque cada prompt cueste ≈ 2,3-2,6 s.
+#
+# -----------------------------------------------------------------------------
+# Task 15 Step 3: recall-latencia.sh sobre ~/.claude/reflex-log.jsonl de W11
+# -----------------------------------------------------------------------------
+# todo el log:
+disparos_medidos	3
+timeouts	1
+p50_ms	1026
+p95_ms	1026
+timeout_pct	25
+veredicto	INSUFICIENTE (menos de 200 disparos)
+# ventana 2026-09-02..2026-09-15:
+disparos_medidos	3
+timeouts	0
+p50_ms	1026
+p95_ms	1026
+timeout_pct	0
+veredicto	INSUFICIENTE (menos de 200 disparos)
+# Solo 3 eventos llevan elapsed_ms (el campo llegó con la campaña A); el resto
+# del log de W11 es de versiones anteriores del plugin.

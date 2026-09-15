@@ -81,7 +81,7 @@ salidas de la revisión multi-ángulo del 2026-09-13 (hallazgos `H1`–`H29`):
 
 | Orden | Campaña | Plan (fuente de selección de items) | Estado 2026-09-13 |
 |---|---|---|---|
-| 1 | **A — Recall por prompt: correcto, barato y medido** | `docs/superpowers/plans/2026-09-13-campana-a-recall-por-prompt.md` + pre-registro `…-campana-a-preregistro-bench.md` | Ejecutada salvo Task 12 y Task 15 (esperan la medición manual de Paul en W11, §W11 del pre-registro). Veredicto: `evals/recall-coste/verdict/2026-09-campana-a.md`. D0–D6 resueltas en el plan |
+| 1 | **A — Recall por prompt: correcto, barato y medido** | `docs/superpowers/plans/2026-09-13-campana-a-recall-por-prompt.md` + pre-registro `…-campana-a-preregistro-bench.md` | Ejecutada. Task 15 (W11) corrida el 2026-09-15: C-H10 CERRADA en las dos máquinas, Task 12 no se ejecuta por puerta. Veredicto: `evals/recall-coste/verdict/2026-09-campana-a.md`. D0–D6 resueltas en el plan |
 | 2 | **B — Superficie pública y gates** | `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md` | Planificada. D1–D5 abiertas (PENDIENTE-PAUL); T1, T4, T5, T6, T8 no dependen de ellas. H25 es checklist externo de Paul, no tarea de fábrica |
 | 3 | **C — Retrieval fuera de muestra** | `docs/superpowers/plans/2026-09-13-campana-c-retrieval-held-out.md` + pre-registro `…-campana-c-preregistro.md` | Planificada. T0–T5 (diseño, harness, gold) pueden arrancar; medición y producción tras A. D1–D6 abiertas; el gold lo aprueba Paul (gate humano) |
 

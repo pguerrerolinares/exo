@@ -143,7 +143,7 @@
 | **Medido** | engine-hybrid **48/55** hit@5 in-sample vs bm-hybrid 39/55, mismo día, paridad de corpus ∅, recall <2s (`evals/e1-read/verdict/m2-09-corrida.md`) · held-out **64/92** (campaña C, `evals/retrieval-heldout/verdict/c-verdict.md`) — no comparables entre sí: distinta fuente de queries |
 | **Tests** | 111 verdes / 0 rojos en la rama de M4, 98 en main previo (contados por el consultor del gate en esa ola; el CI que los corre solo llegó después, en G5a — 200 tests / 28 binarios). **El 2026-09-13 (cierre de campaña B), `cargo test --release --locked --no-fail-fast` en `engine/`: 478 tests verdes en 48 binarios, 2 ignorados, 0 rojos** |
 | **Release** | `v0.1.0` publicada el **2026-09-11** — tres binarios y sus tres `.sha256`, instalables por `install.sh` / `install.ps1`. Ver `## Cerrado con evidencia` |
-| **Campaña A** | ejecutada el **2026-09-13** salvo Tasks 12 y 15 (esperan la medición W11 de Paul) — mergeada a `main` el **2026-09-13** vía PR #13 (`ef5100b`); veredicto en `evals/recall-coste/verdict/2026-09-campana-a.md` |
+| **Campaña A** | ejecutada el **2026-09-13**; Task 15 (medición W11) corrida el **2026-09-15** → C-H10 CERRADA en Linux y W11, Task 12 no se ejecuta por puerta — mergeada a `main` el **2026-09-13** vía PR #13 (`ef5100b`); veredicto en `evals/recall-coste/verdict/2026-09-campana-a.md` |
 | **Campaña B** | ejecutada el **2026-09-13**, las 13 tasks (H6, H8, H9, H11, H12, H13, H15, H16, H18, H20, H21, H22, H26) — mergeada a `main` el **2026-09-13** vía PR #14 (`219506b`); plan en `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md`; H25 queda como checklist externo de Paul |
 | **Campaña C** | held-out pre-registrado, **sin cambio de producción** — mergeada a `main` el **2026-09-14** vía PR #16 (`cb25541`); veredicto en `evals/retrieval-heldout/verdict/c-verdict.md`. El held-out queda consumido; D6 (default de `exo search --type`) PENDIENTE-PAUL |
 | **Campaña E** | 9 tasks (hooks honestos: `inject-empty`, suite de `exo-recall.sh`, `no results` en `search`; engine: mensaje de guarda parametrizado, `rust-toolchain.toml`; CI: `--locked`+log+artifact en el gate hermético, orden de `release.yml`, gate de rutas personales) — ejecutada el **2026-09-14** en la rama `e-hooks-honestos-y-ci`; PR de integración a `main` pendiente de apertura en el momento de este commit; plan en `docs/superpowers/plans/2026-09-14-campana-e-hooks-honestos-y-ci.md` |
@@ -553,8 +553,14 @@
   triple supera ~200 ms, fusionar los tres scripts en uno con un único
   parseo del JSON de entrada.
   **(campaña A, 2026-09-13):** Linux: s6 hook entero n174 p50 = 1079 ms, s7
-  config+jq = 4 ms. W11: pendiente (D5). El término dominante es la carga del
-  modelo (≈0,95 s de ≈1 s), no el shell.
+  config+jq = 4 ms. El término dominante es la carga del modelo (≈0,95 s de
+  ≈1 s), no el shell.
+  **(W11, 2026-09-15, Task 15 de A):** hook `recall-inject.sh` entero p50 =
+  2312 ms, p95 = 2568 ms; config+jq p50 = 68 ms (C-H10 CERRADA, sin fusión de
+  llamadas). **En W11 el shell sí pesa:** `exo recall` en caliente ≈1,1 s y
+  el ≈1,2 s restante son ≈20 spawns de Git Bash a 25-60 ms cada uno (`jq -n
+  1` ≈55 ms, `exo --version` ≈60 ms). Queda sin medir el `PreToolUse:Bash`
+  triple. Evidencia: `evals/recall-coste/results/w11-2026-09-15.txt`.
 
 - [ ] **(revisión 2026-09-11) Los documentos del repo no llevan `tier`, así
   que nada distingue lo que debe ser verdad hoy de lo que solo fue verdad un
@@ -924,6 +930,16 @@
   de grafo, cachear el embedding de la query, embed en paralelo al arranque.
   Criterio de reapertura ya implementado:
   `plugins/exo/scripts/recall-latencia.sh` (campaña A, Task 13, D4).
+  **(W11, 2026-09-15) El instrumento de reapertura no ve la mitad del coste
+  en Windows.** `recall-latencia.sh` suma `elapsed_ms + refresh_ms` del
+  payload, es decir, el tiempo **interno** del engine: en W11 son ≈1,0 s de
+  un hook que tarda ≈2,3 s de reloj (p95 2568 ms). Con el umbral de 1.500 ms
+  no dispararía nunca en W11, aunque allí cada prompt paga más que en Linux.
+  **Acción:** que `recall-inject.sh` registre también la duración de reloj
+  del hook (p. ej. `hook_ms` desde `$EPOCHREALTIME`, sin spawn) y que el
+  criterio la use. Cambiar el umbral o la métrica es tocar el pre-registro de
+  A: hay que decidirlo antes de mirar los datos de la ventana. Evidencia:
+  `evals/recall-coste/results/w11-2026-09-15.txt`.
 
 - [ ] **(H28) La `distance` de vec0 es L2, no L2²; el
   umbral 0,40 del hook equivale a coseno 0,28.** Medido por el consultor

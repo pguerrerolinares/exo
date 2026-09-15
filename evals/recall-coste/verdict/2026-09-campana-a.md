@@ -39,6 +39,9 @@ git version 2.43.0
 línea base: `s4 n5000 p95=47 ≤ 250`), Task 12 (D5 pendiente: sin la medición
 de W11, la puerta C-H10 solo tiene el dato Linux) y Task 15 (manual de Paul,
 D5). El código de estas tres decisiones **no está en la rama**.
+**Actualización 2026-09-15:** Task 15 corrida en W11 y C-H10 CERRADA en las
+dos máquinas ⇒ la Task 12 queda **no ejecutada por puerta**, no pendiente
+(ver la sección W11).
 
 ## Predicciones (línea base)
 ```
@@ -123,7 +126,30 @@ C-noregresión	PASA
   filtro `jq` que mide `s10`, solo cuántas líneas le llegan en producción.
 
 ## W11 (Task 15)
-no medido (D5)
+
+Corrido el **2026-09-15** en la W11 de Paul (Git Bash), `exo 0.1.0`, plugin
+`exo@exo 1.1.2 @ ba4b75f`. Salida literal y observaciones en
+`evals/recall-coste/results/w11-2026-09-15.txt`.
+
+```
+p50_ms 2312 p95_ms 2568
+config_jq_p50_ms 68
+```
+
+- **C-H10, mitad W11: `config_jq_p50_ms = 68 ≤ 100` ⇒ CERRADA.** Con la mitad
+  Linux también cerrada (`s7 n174 p50 = 4 ≤ 30`), la puerta queda **CERRADA
+  en las dos máquinas: la Task 12 no se ejecuta**. `exo config` + `jq` es un
+  3% del hook en W11.
+- **Observación, no decide:** el hook entero en W11 (p50 2312 ms) duplica al
+  de Linux (`s6 n174` 1079 ms). `exo recall` en caliente son ≈1,1 s de reloj;
+  el ≈1,2 s restante es coste de spawn de Git Bash (≈20 procesos a 25-60 ms).
+  Margen frente al timeout de 5 s del hook: ≈2,4 s en p95.
+- **Observación, no decide (H3):** `recall-latencia.sh` mide
+  `elapsed_ms + refresh_ms`, que en W11 ve ≈1,0 s de ≈2,3 s reales. El
+  criterio de reapertura (p95 > 1.500 ms) no dispararía en W11 con la latencia
+  medida hoy. Va al backlog; no se cambia aquí un umbral pre-registrado.
+- Task 15 Step 3: `recall-latencia.sh` sobre el log de W11 → `INSUFICIENTE`
+  (3 disparos con `elapsed_ms`).
 
 ## Lo que buscó este veredicto para objetar
 
@@ -158,4 +184,11 @@ no medido (D5)
 - **Qué no se pudo objetar por falta de dato:** la puerta C-H10 solo tiene el
   lado Linux (`s7 n174 p50 = 4 ms`, muy por debajo de 30); sin W11 no hay con
   qué objetar el otro lado, y el veredicto lo deja explícito como «no medido
-  (D5)» en vez de asumir que Windows se comporta igual.
+  (D5)» en vez de asumir que Windows se comporta igual. **Cerrado el
+  2026-09-15** con la medición de la sección W11: Windows **no** se comporta
+  igual (config+jq 68 ms frente a 4), pero no llega al umbral de 100.
+- **W11 (2026-09-15):** la primera corrida del bloque, con la ruta del hint
+  (`plugins/exo/scripts`), dio `p50_ms 40` y exit 0 **sin que el hook llegara
+  a existir**. Se descartó por el `No such file or directory` de stderr y por
+  el log vacío, y se repitió con `<installPath>/scripts`. El 2312 ms vale
+  porque las 20 iteraciones dejaron 20 `recall-inject-emitted`.

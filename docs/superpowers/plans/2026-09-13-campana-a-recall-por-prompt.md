@@ -3395,9 +3395,11 @@ git commit -m "bench(campaña A): corrida después, veredicto contra el pre-regi
 
 **Lane:** fuera de la fábrica, **tarea manual de Paul** · **Hallazgos:** H3 H10 · **Bloqueada por:** D5.
 
-- [ ] **Step 1:** en la W11, desde Git Bash, con `exo --version` a mano, correr el bloque §W11 del pre-registro tal cual.
-- [ ] **Step 2:** pegar la salida completa en un comentario del ledger o en `evals/recall-coste/results/w11-<fecha>.txt`. Con eso, la Task 12 aplica C-H10 (config+jq p50 > 100 ms ⇒ puerta ABIERTA) y la Task 14 lo incorpora al veredicto.
+- [x] **Step 1:** en la W11, desde Git Bash, con `exo --version` a mano, correr el bloque §W11 del pre-registro tal cual.
+- [x] **Step 2:** pegar la salida completa en un comentario del ledger o en `evals/recall-coste/results/w11-<fecha>.txt`. Con eso, la Task 12 aplica C-H10 (config+jq p50 > 100 ms ⇒ puerta ABIERTA) y la Task 14 lo incorpora al veredicto.
 - [ ] **Step 3:** si la Task 13 ya está instalada en esa máquina, correr `bash <plugin>/scripts/recall-latencia.sh` dentro de 14 días y anotar el veredicto. Así se evalúa por primera vez el criterio de reapertura sobre la máquina donde más duele.
+
+> **Hecho el 2026-09-15** (`evals/recall-coste/results/w11-2026-09-15.txt`): Steps 1 y 2 ⇒ `config_jq_p50_ms 68`, C-H10 CERRADA en W11 y Linux, Task 12 no se ejecuta. Step 3 corrido una vez: `INSUFICIENTE` (3 disparos con `elapsed_ms`); queda abierto hasta tener 200 en la ventana. Ojo, hallazgo nuevo: ese criterio solo mide el tiempo interno del engine, ≈1,0 s de los ≈2,3 s que tarda el hook en W11 (ver `docs/backlog.md`). El hint del bloque (`plugins/exo/scripts`) no corresponde a la caché instalada, donde la ruta es `<installPath>/scripts`.
 
 ---
 
