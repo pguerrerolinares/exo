@@ -1,42 +1,23 @@
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 
-/// Directorios excluidos en cualquier nivel del árbol (§6.2 regla 3).
-const DOTDIRS_EXCLUIDOS: [&str; 3] = [".claude", ".omc", ".superpowers"];
-
 /// Recorre `raiz` recursivamente y devuelve las rutas absolutas de todos los
-/// ficheros `.md`, en orden determinista (ordenado por ruta), excluyendo
-/// `.claude/`, `.omc/` y `.superpowers/` en cualquier nivel. `archive/` SE
-/// incluye (§6.2 regla 4).
+/// ficheros `.md` (case-insensitive, `es_md`), en orden determinista
+/// (ordenado por ruta). Excluye TODO directorio que empiece por `.` en
+/// cualquier nivel — `.git/` incluido — igual que `walk_kb_excluyendo`.
+/// `archive/` SE incluye (§6.2 regla 4).
+///
+/// Unificada sobre `walk_kb_excluyendo` (Ola 1 G Task 4, backlog:821-845,
+/// decisión 9 de Paul: las dos funciones convivían con semánticas
+/// distintas desde G4b — `walk_kb` no normalizaba mayúsculas y caminaba
+/// dentro de `.git/`, 276/314 `openat` medidos por H29). **Cambio de
+/// comportamiento declarado**: un `NOTA.MD` que antes no se indexaba ahora
+/// sí; un `.git/x.md` que antes se recorría ahora no. Documentado en
+/// `docs/arquitectura.md`; `exo rebuild` recomendado tras actualizar si la
+/// KB tiene notas con extensión en mayúsculas.
 pub fn walk_kb(raiz: &Path) -> Result<Vec<PathBuf>> {
-    let mut encontradas = Vec::new();
-    visita(raiz, &mut encontradas)?;
-    encontradas.sort();
-    Ok(encontradas)
-}
-
-fn visita(dir: &Path, out: &mut Vec<PathBuf>) -> Result<()> {
-    let entradas =
-        std::fs::read_dir(dir).with_context(|| format!("leer directorio {}", dir.display()))?;
-    for entrada in entradas {
-        let entrada = entrada.with_context(|| format!("entrada de {}", dir.display()))?;
-        let ruta = entrada.path();
-        let tipo = entrada
-            .file_type()
-            .with_context(|| format!("file_type de {}", ruta.display()))?;
-
-        if tipo.is_dir() {
-            let nombre = entrada.file_name();
-            let nombre = nombre.to_string_lossy();
-            if DOTDIRS_EXCLUIDOS.contains(&nombre.as_ref()) {
-                continue;
-            }
-            visita(&ruta, out)?;
-        } else if tipo.is_file() && ruta.extension().and_then(|e| e.to_str()) == Some("md") {
-            out.push(ruta);
-        }
-    }
-    Ok(())
+    let (_, notas_rel) = walk_kb_excluyendo(raiz, &[])?;
+    Ok(notas_rel.into_iter().map(|rel| raiz.join(rel)).collect())
 }
 
 /// ¿Cae `rel` bajo un directorio excluido? Compara el **primer segmento** de la

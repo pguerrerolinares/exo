@@ -65,6 +65,32 @@ fn walker_orden_determinista() {
     assert_eq!(primera, segunda);
 }
 
+#[test]
+fn walk_kb_ahora_es_case_insensitive_como_walk_notas() {
+    // Cambio de comportamiento declarado (Ola 1 G Task 4, backlog:821-845,
+    // decisión 9 de Paul): antes de unificar, un NOTA.MD no se indexaba
+    // (walk_kb comparaba extensión exacta `Some("md")`); ahora sí.
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("NOTA.MD"), "x").unwrap();
+    let rutas = walk_kb(dir.path()).unwrap();
+    assert!(nombres(&rutas).contains(&"NOTA.MD".to_string()));
+}
+
+#[test]
+fn walk_kb_ya_no_recorre_dentro_de_punto_git() {
+    // Cambio de comportamiento declarado: antes walk_kb caminaba dentro de
+    // `.git/` (276/314 openat medidos por H29); ahora lo salta, como
+    // walk_kb_excluyendo.
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join(".git")).unwrap();
+    fs::write(dir.path().join(".git/dentro.md"), "x").unwrap();
+    fs::write(dir.path().join("fuera.md"), "x").unwrap();
+    let rutas = walk_kb(dir.path()).unwrap();
+    let vistas = nombres(&rutas);
+    assert!(!vistas.contains(&"dentro.md".to_string()));
+    assert!(vistas.contains(&"fuera.md".to_string()));
+}
+
 /// Árbol que ejercita las tres decisiones a la vez.
 fn arbol_excluible() -> tempfile::TempDir {
     let dir = tempfile::tempdir().unwrap();

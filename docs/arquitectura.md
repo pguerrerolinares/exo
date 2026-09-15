@@ -103,7 +103,7 @@ entera y reconstruye. La lógica vive en `engine/src/indexer.rs::indexa`.
 ```mermaid
 flowchart TD
     GUARD["verifica_modelo<br/>¿el índice se construyó con el modelo<br/>que pide la config? Si no: aborta,<br/>'corre exo rebuild'"] --> WALK
-    KB[("KB markdown")] --> WALK["walker::walk_kb<br/>*.md recursivo, orden determinista<br/>excluye .claude/ .omc/ .superpowers/<br/>incluye archive/"]
+    KB[("KB markdown")] --> WALK["walker::walk_kb<br/>*.md recursivo (case-insensitive),<br/>orden determinista<br/>excluye dotdirs (.git/ incluido)<br/>incluye archive/"]
     WALK --> MT{"¿mtime igual al<br/>de la tabla notas?"}
     MT -->|"sí"| SKIP["saltada<br/>(ni parseo ni modelo)"]
     MT -->|"no"| PARSE["nota::parsea_nota<br/>frontmatter YAML + cuerpo"]
@@ -469,8 +469,15 @@ tags: [core, indice]                  # tolerado, no lo consume el engine
 - Los **wikilinks** `[[destino]]` / `[[destino|alias]]` del cuerpo alimentan
   el grafo `aristas`; un link a nota inexistente queda con destino NULL y se
   cura solo cuando la nota aparece.
-- El walker excluye `.claude/`, `.omc/` y `.superpowers/` a cualquier nivel e
-  **incluye** `archive/`.
+- `walk_kb` (usada por `exo index`/`rebuild` y por `exo doctor`) y
+  `walk_kb_excluyendo` (usada por `exo lint`/`exo budget`) comparten una sola
+  implementación desde el 2026-09-15 (Ola 1, campaña G): excluyen cualquier
+  directorio que empiece por `.` en cualquier nivel (`.git/` incluido) y
+  reconocen `.md` sin distinguir mayúsculas. Antes de esa fecha, `walk_kb`
+  tenía una semántica distinta (case-sensitive, sin excluir `.git/`); si tu KB
+  tiene notas `.MD` en mayúsculas que antes no se indexaban, corre
+  `exo rebuild` tras actualizar. `archive/` SE **incluye** (nunca se excluye
+  por nombre, solo los dotdirs).
 - El core-index declara además una disciplina de presupuesto: cap de bytes por
   nota-índice con 15% de aire, y "retirar entradas muertas, no comprimir las
   vivas" — es contrato editorial de la KB, no lo impone el engine.

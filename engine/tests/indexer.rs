@@ -721,15 +721,22 @@ fn una_kb_movida_de_sitio_se_reindexa_sin_rechazo() {
 
 /// Repro del bug de review (Important 1, G4b): antes del fix, `lint::index_stale`
 /// decía "corre `exo index`" sobre CUALQUIER nota en disco y ausente de
-/// `notas` — incluida una nota `.MD` (extensión que `walker::walk_kb` nunca
-/// reconoce, case-sensitive) o una nota sin `permalink:` (que
-/// `nota::parsea_nota` salta a propósito, §6.2 regla 1). Correr `exo index`
-/// sobre esas dos, aunque sea dos veces como aquí, no las mete jamás en el
-/// índice — el remedio era falso y `lint` se quedaba en rojo permanente. Este
-/// test usa el indexer REAL (no filas de `notas` insertadas a mano) porque lo
-/// que hay que probar es su comportamiento real: que estas dos notas quedan
-/// fuera de `notas` pase lo que pase, y que `lint` ya no promete un arreglo
-/// que no arregla nada.
+/// `notas` — incluida una nota sin `permalink:` (que `nota::parsea_nota`
+/// salta a propósito, §6.2 regla 1). Correr `exo index` sobre ella, aunque
+/// sea dos veces como aquí, no la mete jamás en el índice — el remedio era
+/// falso y `lint` se quedaba en rojo permanente. Este test usa el indexer
+/// REAL (no filas de `notas` insertadas a mano) porque lo que hay que probar
+/// es su comportamiento real.
+///
+/// Hasta Ola 1 G Task 4 (unifica `walk_kb` sobre `walk_kb_excluyendo`,
+/// backlog:821-845, decisión 9 de Paul) este repro cubría también una nota
+/// `.MD` en mayúsculas, que el `walk_kb` de entonces (case-sensitive) nunca
+/// indexaba aunque `lint` (via `es_md`, case-insensitive) sí la viera como
+/// nota — la MISMA clase de mentira, con otra causa. Esa divergencia ya no
+/// existe: el `walk_kb` unificado SÍ indexa `MAYUSCULA.MD`, así que la
+/// fixture se conserva pero la aserción se invierte (guarda de
+/// no-regresión positiva) en vez de repetir un "nunca se indexa" que ahora
+/// sería falso.
 #[test]
 fn index_stale_no_promete_reindexar_lo_que_el_indexer_nunca_metera() {
     let kb = tempfile::tempdir().expect("tempdir kb");
@@ -739,9 +746,9 @@ fn index_stale_no_promete_reindexar_lo_que_el_indexer_nunca_metera() {
         "---\ntitle: Sin permalink\n---\n# contenido\n",
     )
     .expect("escribir nota sin permalink");
-    // Extensión en mayúsculas: `es_md` (lint, A5) la ve como nota; el walk
-    // del indexer (`Some("md")` exacto) no. Permalink válido a propósito,
-    // para que la única causa de que quede fuera sea la extensión.
+    // Extensión en mayúsculas: desde Task 4 el walk_kb unificado SÍ la
+    // indexa (ver docstring). Permalink válido para que quede claro que la
+    // extensión ya no es motivo de exclusión.
     std::fs::write(
         kb.path().join("MAYUSCULA.MD"),
         "---\ntitle: Mayúscula\npermalink: kb/mayuscula\n---\n# contenido\n",
@@ -772,8 +779,14 @@ fn index_stale_no_promete_reindexar_lo_que_el_indexer_nunca_metera() {
                 .expect("filas")
         };
         assert!(
-            !indexadas.contains("sin-permalink.md") && !indexadas.contains("MAYUSCULA.MD"),
-            "el repro asume que estas dos NUNCA se indexan: {indexadas:?}"
+            !indexadas.contains("sin-permalink.md"),
+            "el repro asume que esta NUNCA se indexa: {indexadas:?}"
+        );
+        assert!(
+            indexadas.contains("MAYUSCULA.MD"),
+            "Task 4 unificó walk_kb sobre walk_kb_excluyendo: MAYUSCULA.MD \
+             debe indexarse ahora (cambio de comportamiento declarado, \
+             decisión 9 de Paul): {indexadas:?}"
         );
 
         let rutas =
@@ -789,14 +802,11 @@ fn index_stale_no_promete_reindexar_lo_que_el_indexer_nunca_metera() {
         let mentirosos: Vec<_> = informe
             .hallazgos
             .iter()
-            .filter(|h| {
-                (h.ruta == "sin-permalink.md" || h.ruta == "MAYUSCULA.MD")
-                    && h.detalle.contains("corre `exo index`")
-            })
+            .filter(|h| h.ruta == "sin-permalink.md" && h.detalle.contains("corre `exo index`"))
             .collect();
         assert!(
             mentirosos.is_empty(),
-            "index_stale prometió `exo index` sobre notas que el indexer \
+            "index_stale prometió `exo index` sobre una nota que el indexer \
              nunca va a meter: {mentirosos:?} (rutas vistas por lint: {rutas:?})"
         );
     });
