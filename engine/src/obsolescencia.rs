@@ -448,6 +448,11 @@ mod tests {
         }
     }
 
+    // Dominio del axioma: `edad ≥ 0`, igual que kbx (`stale.go:82-83`,
+    // `TestScore_Axiom5`). Con `--now` anterior al commit `age_days` es
+    // negativo y el score también, en los dos binarios (paridad medida
+    // 2026-09-15: 35 notas, mín −9.29 con `--now 2026-09-01`). No se
+    // clampea: `age_days` es un campo gateado exactamente contra kbx.
     #[test]
     fn axioma_5_forma_finita_no_negativa_y_dos_decimales() {
         for tier in TIERS {
