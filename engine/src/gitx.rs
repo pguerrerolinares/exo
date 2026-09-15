@@ -332,6 +332,23 @@ pub fn md_staged(dir: &Path) -> Result<Vec<String>> {
 ///    commit no-merge que de verdad la tocó. Para un commit normal
 ///    (`nbloques == 1`) la regla es un no-op: toda ruta listada aparece en
 ///    su único bloque, igual que en el diseño original del brief.
+/// 4. **`--relative`** (fix de review, medido el 2026-09-15): cuando `dir`
+///    (la KB) es un SUBDIRECTORIO de un repo git más grande —caso real: `exo
+///    init --from-basic-memory` adopta una KB existente que ya vivía dentro
+///    de un repo con más contenido—, `git -C <dir> log --name-only` sin este
+///    flag imprime rutas relativas a la RAÍZ del repo (`sub/kb/a.md`), no a
+///    `dir` (`a.md`). El llamador (`indexer::indexa`) siempre busca con
+///    `ruta_rel = ruta_relativa(kb, ruta_abs)`, relativa a la KB — el lookup
+///    nunca casaba, y CADA nota degradaba en silencio al fallback per-nota en
+///    CADA corrida (la optimización de esta task quedaba anulada sin error ni
+///    log). `--relative` hace que git emita rutas relativas al directorio de
+///    `-C` y, de propina, filtra del todo los ficheros fuera de ese
+///    subdirectorio — no hace falta un filtro aparte para el fichero
+///    `fuera.md` del test de este caso. El fallback per-nota
+///    (`indexer::git_epoch_de`) no tiene este problema: ahí la ruta es un
+///    pathspec de ENTRADA relativo al `-C`, no una línea de salida a
+///    parsear, y git ya la resuelve así sin flags adicionales (confirmado con
+///    el mismo repo de prueba).
 ///
 /// Recorre el log COMPLETO una vez y se queda con el PRIMER epoch válido
 /// visto para cada ruta: git emite los commits del más reciente al más
@@ -352,6 +369,7 @@ pub fn epochs_de_todo_el_historial(dir: &Path) -> Result<HashMap<String, i64>> {
             "log",
             "-m",
             "--no-renames",
+            "--relative",
             "--format=%x01%H %ct",
             "--name-only",
         ])
@@ -910,6 +928,83 @@ mod tests {
     /// ficheros al merge, cuando en realidad cada uno pertenece a su commit
     /// de rama. Medido el 2026-09-15: con `-m` sin agrupar, este test
     /// diverge del fallback.
+    /// Fix de review de esta task: la KB puede ser un SUBDIRECTORIO de un repo
+    /// git más grande (caso real: `exo init --from-basic-memory` adopta una
+    /// KB existente que ya vive dentro de un repo con más contenido). Sin
+    /// `--relative`, `git -C <kb> log --name-only` imprime rutas relativas a
+    /// la RAÍZ del repo (`sub/kb/a.md`), no a la KB (`a.md`) — el lookup de
+    /// `indexer::indexa` (que compara contra `ruta_relativa(kb, ...)`, SIEMPRE
+    /// relativa a la KB) nunca casa, y todas las notas degradan en silencio al
+    /// fallback per-nota en cada corrida. Reproducido aquí: repo con la KB en
+    /// `sub/kb/` y un fichero FUERA de la KB en el mismo repo.
+    #[test]
+    fn epochs_de_todo_el_historial_con_kb_subdirectorio_del_repo_coincide_con_el_fallback() {
+        let dir = tempfile::tempdir().unwrap();
+        let raiz = dir.path();
+        let kb = raiz.join("sub").join("kb");
+        std::fs::create_dir_all(&kb).unwrap();
+        let cfg = raiz.join("gitconfig-vacio");
+        std::fs::write(&cfg, "").unwrap();
+        let corre = |args: &[&str], fecha: &str| {
+            let salida = Command::new("git")
+                .arg("-C")
+                .arg(raiz)
+                .args(args)
+                .env("GIT_CONFIG_GLOBAL", &cfg)
+                .env("GIT_CONFIG_SYSTEM", &cfg)
+                .env("GIT_AUTHOR_NAME", "f")
+                .env("GIT_AUTHOR_EMAIL", "f@k.local")
+                .env("GIT_COMMITTER_NAME", "f")
+                .env("GIT_COMMITTER_EMAIL", "f@k.local")
+                .env("GIT_AUTHOR_DATE", fecha)
+                .env("GIT_COMMITTER_DATE", fecha)
+                .output()
+                .unwrap();
+            assert!(salida.status.success(), "git {args:?} falló");
+        };
+        corre(&["init", "-q"], "2026-01-01T10:00:00+00:00");
+        std::fs::write(kb.join("a.md"), "alfa\n").unwrap();
+        corre(&["add", "."], "2026-01-01T10:00:00+00:00");
+        corre(&["commit", "-q", "-m", "a"], "2026-01-01T10:00:00+00:00");
+
+        std::fs::write(kb.join("b.md"), "beta\n").unwrap();
+        corre(&["add", "."], "2026-01-02T10:00:00+00:00");
+        corre(&["commit", "-q", "-m", "b"], "2026-01-02T10:00:00+00:00");
+
+        // Fichero FUERA de la KB, hermano de `sub/kb`, en el mismo repo: debe
+        // quedar invisible para el mapa (ni como clave con prefijo `sub/kb/`
+        // de otra ruta, ni como clave propia).
+        std::fs::write(raiz.join("fuera.md"), "fuera\n").unwrap();
+        corre(&["add", "."], "2026-01-03T10:00:00+00:00");
+        corre(
+            &["commit", "-q", "-m", "fuera"],
+            "2026-01-03T10:00:00+00:00",
+        );
+
+        let mapa = epochs_de_todo_el_historial(&kb).unwrap();
+        let esperado_a = crate::indexer::git_epoch_de(&kb, Path::new("a.md"));
+        let esperado_b = crate::indexer::git_epoch_de(&kb, Path::new("b.md"));
+
+        assert_eq!(
+            mapa.get("a.md").copied(),
+            esperado_a,
+            "a.md: la clave debe ser relativa a la KB, no al repo"
+        );
+        assert_eq!(
+            mapa.get("b.md").copied(),
+            esperado_b,
+            "b.md: la clave debe ser relativa a la KB, no al repo"
+        );
+        assert!(
+            !mapa.contains_key("fuera.md"),
+            "un fichero fuera de la KB no debe aparecer en el mapa"
+        );
+        assert!(
+            !mapa.keys().any(|k| k.contains("sub/kb")),
+            "las claves no deben llevar el prefijo del repo: {mapa:?}"
+        );
+    }
+
     #[test]
     fn epochs_de_todo_el_historial_en_un_merge_limpio_coincide_con_el_fallback() {
         let dir = tempfile::tempdir().unwrap();
