@@ -19,10 +19,17 @@
 #       existe (docs/instalacion.md §7, "Lo que NO hay todavía")
 #   (c) toda versión `vX.Y.Z` citada es un tag, o coincide con
 #       engine/Cargo.toml o con plugin.json
-#   (d) todo enlace `` `docs/...` ``, `` `evals/...` ``, `` `scripts/...` ``
-#       entre backticks resuelve a un fichero o directorio existente,
-#       resuelto contra la raíz del repo (`git rev-parse --show-toplevel`,
-#       adonde este script ya hace `cd` más abajo)
+#   (d) todo enlace `` `docs/...` ``, `` `evals/...` ``, `` `scripts/...` ``,
+#       `` `plugins/...` `` o `` `engine/...` `` entre backticks resuelve a
+#       un fichero o directorio existente, resuelto contra la raíz del repo
+#       (`git rev-parse --show-toplevel`, adonde este script ya hace `cd`
+#       más abajo). Prefijos ampliados (hallazgo del orquestador,
+#       2026-09-15): la Task 2 corrigió las rutas de hooks del README a
+#       `plugins/exo/scripts/<x>.sh`, pero el patrón original solo cazaba
+#       `docs|evals|scripts` — la clase exacta de deriva que motivó esta
+#       tarea (rutas de hooks rotas) quedaba sin gate en cuanto empezaban
+#       por `plugins/`. `engine/` se añade por la misma razón: es el otro
+#       directorio de primer nivel citado por ruta en estos docs.
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)" || exit 1
 
@@ -102,7 +109,8 @@ for doc in "${DOCS[@]}"; do
   done < <(grep -oE '\bv[0-9]+\.[0-9]+\.[0-9]+\b' "$doc" | sort -u)
 done
 
-# --- (d) Enlaces relativos a docs/, evals/, scripts/ resuelven -------------
+# --- (d) Enlaces relativos a docs/, evals/, scripts/, plugins/, engine/ ----
+# resuelven ------------------------------------------------------------------
 for doc in "${DOCS[@]}"; do
   while IFS= read -r ruta; do
     [ -n "$ruta" ] || continue
@@ -111,7 +119,7 @@ for doc in "${DOCS[@]}"; do
       echo "[FAIL] $doc cita \`$ruta\`, que no existe" >&2
       FALLOS=1
     fi
-  done < <(grep -oE '`(docs|evals|scripts)/[A-Za-z0-9_./-]*`' "$doc" | tr -d '`' | sort -u)
+  done < <(grep -oE '`(docs|evals|scripts|plugins|engine)/[A-Za-z0-9_./-]*`' "$doc" | tr -d '`' | sort -u)
 done
 
 if [ "$FALLOS" -eq 0 ]; then

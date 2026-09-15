@@ -105,7 +105,7 @@ plugins `process` y `reflex` en uno solo — el proceso de trabajo completo más
 la capa de reflejos que lo activa en el punto de acción. Sustituye a
 `superpowers` y a `paul-profile:orchestrate-personal` en el uso diario.
 
-Agente: `agents/executor.md` (`exo:executor`) — ejecutor de tareas de
+Agente: `plugins/exo/agents/executor.md` (`exo:executor`) — ejecutor de tareas de
 implementación acotadas, despachado por `orchestrate` (subagent-driven
 development).
 
