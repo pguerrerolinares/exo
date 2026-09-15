@@ -171,7 +171,108 @@ pub fn analiza(entorno: &Entorno) -> InformeDoctor {
         check_git_bash(entorno),
         check_detach(entorno),
         check_hook_precommit(entorno, cfg.as_ref()),
+        check_plugin_compat(entorno),
     ])
+}
+
+/// Parsea `"X.Y.Z"` a una tupla comparable por orden natural. `None` si no
+/// tiene esa forma exacta (tres componentes numéricos separados por punto) —
+/// un directorio que no es una versión (basura, `.DS_Store`) se descarta en
+/// vez de reventar el sort. Sin dependencia nueva: `semver` es una crate más
+/// para lo mismo que tres `parse::<u32>()`.
+pub fn parse_semver(s: &str) -> Option<(u32, u32, u32)> {
+    let mut partes = s.trim().split('.');
+    let mayor: u32 = partes.next()?.parse().ok()?;
+    let menor: u32 = partes.next()?.parse().ok()?;
+    let parche: u32 = partes.next()?.parse().ok()?;
+    if partes.next().is_some() {
+        return None;
+    }
+    Some((mayor, menor, parche))
+}
+
+/// El subdirectorio de versión MÁS ALTA bajo `base` (cada entrada es un
+/// directorio `X.Y.Z`, el layout de `~/.claude/plugins/cache/exo/<familia>/`).
+/// Compara semver real, no la cadena: `"1.10.0"` < `"1.9.0"` como texto,
+/// pero es la versión MAYOR — el bug que tenía `script_del_plugin` antes de
+/// esta campaña (Task 5 lo reutiliza para corregirlo). `None` si `base` no
+/// existe o no contiene ningún directorio con nombre de versión válido.
+pub fn version_dir_mas_alta(base: &Path) -> Option<(PathBuf, (u32, u32, u32))> {
+    let entradas = std::fs::read_dir(base).ok()?;
+    entradas
+        .flatten()
+        .filter(|e| e.path().is_dir())
+        .filter_map(|e| {
+            let nombre = e.file_name().to_string_lossy().into_owned();
+            parse_semver(&nombre).map(|v| (e.path(), v))
+        })
+        .max_by_key(|(_, v)| *v)
+}
+
+/// `ENGINE_MIN` es el fichero de una línea (`plugins/exo/ENGINE_MIN` en el
+/// repo, copiado tal cual al instalar) donde el PLUGIN declara la versión
+/// mínima de engine con la que fue probado. Este check compara ESE número
+/// contra `env!("CARGO_PKG_VERSION")` — la versión de ESTE binario, fijada
+/// en compilación — para detectar el caso que motiva la campaña H: un
+/// plugin actualizado (que ya no lleva los alias españoles retirados en
+/// 0.2.0, por ejemplo) corriendo contra un binario que se quedó atrás.
+fn check_plugin_compat(entorno: &Entorno) -> Check {
+    let base = entorno
+        .home
+        .join(".claude")
+        .join("plugins")
+        .join("cache")
+        .join("exo")
+        .join("exo");
+    let Some((dir, version)) = version_dir_mas_alta(&base) else {
+        return Check::nuevo(
+            "plugin_compat",
+            Estado::Warn,
+            base.display().to_string(),
+            "no encuentro el plugin exo instalado — sin plugin no hay hooks \
+             que puedan degradar, pero tampoco recall automático",
+        );
+    };
+    let ruta_min = dir.join("ENGINE_MIN");
+    let declarado = std::fs::read_to_string(&ruta_min).unwrap_or_default();
+    let declarado = declarado.trim();
+    let Some(min) = parse_semver(declarado) else {
+        return Check::nuevo(
+            "plugin_compat",
+            Estado::Warn,
+            ruta_min.display().to_string(),
+            "el plugin instalado no lleva un ENGINE_MIN legible (versión \
+             anterior a esta campaña) — no puedo comparar",
+        );
+    };
+    let (va, vb, vc) = version;
+    let propia_str = env!("CARGO_PKG_VERSION");
+    let propia = parse_semver(propia_str)
+        .expect("CARGO_PKG_VERSION de este crate siempre es X.Y.Z (engine/Cargo.toml)");
+    let artefacto = format!(
+        "binario {propia_str} · plugin {va}.{vb}.{vc} exige >= {declarado} ({})",
+        ruta_min.display()
+    );
+    if propia < min {
+        Check::nuevo(
+            "plugin_compat",
+            Estado::Fail,
+            artefacto,
+            format!(
+                "este binario ({propia_str}) es más viejo que lo que el \
+                 plugin instalado declara necesitar ({declarado}) — los \
+                 hooks pueden degradar con forma válida. Actualiza el \
+                 binario a >= {declarado}"
+            ),
+        )
+    } else {
+        Check::nuevo(
+            "plugin_compat",
+            Estado::Ok,
+            artefacto,
+            "el binario cumple el ENGINE_MIN que declara el plugin instalado",
+        )
+    }
 }
 
 /// Primera coincidencia de `nombre` (o `nombre.exe` en Windows) en un PATH

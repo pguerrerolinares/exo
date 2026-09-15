@@ -690,3 +690,61 @@ fn el_check_de_rutas_portables_pasa_con_el_indice_limpio() {
     let check = exo::doctor::check_rutas_portables_de(&db);
     assert_eq!(check.estado, exo::doctor::Estado::Ok);
 }
+
+/// Instala un `ENGINE_MIN` falso en el layout del plugin bajo `home`, en la
+/// familia y versión dadas. Devuelve el directorio de esa versión.
+fn plugin_con_engine_min(home: &Path, familia: &str, version: &str, engine_min: &str) -> PathBuf {
+    let dir = home
+        .join(".claude")
+        .join("plugins")
+        .join("cache")
+        .join("exo")
+        .join(familia)
+        .join(version);
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("ENGINE_MIN"), engine_min).unwrap();
+    dir
+}
+
+#[test]
+fn sin_plugin_instalado_plugin_compat_es_warn_no_fail() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("kb")).unwrap();
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "plugin_compat");
+    assert_eq!(
+        c.estado,
+        Estado::Warn,
+        "sin plugin no hay hooks que degradar, pero tampoco memoria"
+    );
+}
+
+#[test]
+fn plugin_con_engine_min_ya_satisfecho_es_ok() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("kb")).unwrap();
+    // "0.0.0" es <= a cualquier versión real del binario, sea cual sea hoy
+    // engine/Cargo.toml: el test no depende de ese número.
+    plugin_con_engine_min(&dir.path().join("home"), "exo", "1.0.0", "0.0.0");
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "plugin_compat");
+    assert_eq!(c.estado, Estado::Ok);
+}
+
+#[test]
+fn plugin_con_engine_min_futuro_es_fail() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("kb")).unwrap();
+    // "99.0.0" es mayor que cualquier versión real que este repo vaya a
+    // publicar: garantiza el caso "binario viejo" sin acoplar el test al
+    // valor actual de engine/Cargo.toml.
+    plugin_con_engine_min(&dir.path().join("home"), "exo", "1.0.0", "99.0.0");
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "plugin_compat");
+    assert_eq!(c.estado, Estado::Fail);
+    assert!(
+        c.detalle.contains("99.0.0"),
+        "dice qué ENGINE_MIN exige el plugin: {}",
+        c.detalle
+    );
+}

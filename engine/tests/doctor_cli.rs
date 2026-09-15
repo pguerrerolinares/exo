@@ -144,6 +144,10 @@ fn la_lista_de_checks_es_contrato_y_no_puede_encoger() {
             "git_bash",
             "detach",
             "kb_precommit_hook",
+            // Añadido 2026-09-15 (campaña H, Task 3): compara el binario
+            // contra el ENGINE_MIN que declara el plugin instalado. Mismo
+            // motivo que `index_paths_portable`: la lista crece, no encoge.
+            "plugin_compat",
         ]
     );
 }
