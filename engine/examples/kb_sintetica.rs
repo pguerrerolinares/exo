@@ -16,21 +16,48 @@
 //! con el umbral de producción (0.40) el arm vector nunca aportaba nada al
 //! bench.
 //!
-//! **Por qué 0.05 y no un sigma más alto (fix del orquestador, 2):**
-//! el techo SIN ruido (sigma=0) ya no es 1.0 — la query de `bench.sh` es
-//! una FRASE de 4 palabras del vocabulario (mean-pooled a un solo vector
-//! por el modelo), mientras que cada trozo usa el embedding de UNA sola
-//! palabra dominante; la mezcla de las otras 3 palabras en la query diluye
-//! la similitud incluso sin ruido — medido: coseno máximo 0.4747 con
-//! `KB_SINTETICA_SIGMA=0` sobre N=174, frente a 1.0 esperado si query y
-//! trozo fueran la misma palabra. El default de la Task 1 (sigma=0.5)
-//! añadía ruido gaussiano de norma esperada `sqrt(768)·0.5 ≈ 13.9` a un
-//! vector unitario — domina por completo la señal (0.4747 → ~0.35 tras
-//! renormalizar) y el arm vuelve a ser ciego al umbral. Con sigma=0.05 el
-//! ruido (norma esperada ≈1.39) reduce el techo a ~0.42-0.47 sin
-//! aplastarlo: algunas notas cruzan 0.40, la mayoría no — el arm discrimina
-//! el umbral en vez de ser trivialmente ciego (0 siempre) o trivialmente
-//! todo-pasa (siempre >0.40, como con sigma=0).
+//! **Por qué 0.05 y no un sigma más alto — calibración EMPÍRICA, no una
+//! fórmula cerrada (fix de review sobre el fix del orquestador, 2):**
+//! recon medido (`pool_de_vocabulario()`, 100.000 muestras de
+//! `Xorshift::normal()`, coseno sobre 24 palabras × 20 pares
+//! limpio/ruidoso): los vectores del pool son unitarios (norma
+//! 0.999999-1.000001), `normal()` es N(0,1) por componente (media
+//! muestral -0,0044, varianza 1,0016) y el shrinkage de UN solo trozo
+//! ruidoso frente a su propio vector limpio (coseno medio medido 0,5845)
+//! coincide casi exacto con la fórmula cerrada para ruido gaussiano
+//! ortogonal en expectativa a la señal en alta dimensión,
+//! `1/sqrt(1+768·sigma²)` (0,5852 para sigma=0,05). Esa fórmula, sin
+//! embargo, **no predice el techo real del bench**: aplicada
+//! ingenuamente al techo sin ruido (0,4747 × 0,585 ≈ 0,28) da un valor
+//! muy por debajo del máximo medido end-to-end sobre la KB completa
+//! (0,4230, N=174) — la búsqueda real agrega por MaxP entre ~19 trozos
+//! por nota, y los embeddings de las 24 palabras del vocabulario NO son
+//! ortogonales entre sí ni con la query (anisotropía típica de embeddings
+//! de frases cortas: coseno medio limpio entre pares de palabras del pool
+//! medido en 0,223, lejos de 0) — agregación + geometría real sin forma
+//! cerrada simple. Por eso sigma se calibra por SWEEP empírico sobre el
+//! pipeline completo (`search --type vector`, N=174, la misma query que
+//! usa `bench.sh`), no por la fórmula de shrinkage de un solo trozo:
+//!
+//! | sigma | max coseno | notas ≥0.40 / 174 |
+//! |---|---|---|
+//! | 0 (sin ruido) | 0.4747 | 149 |
+//! | 0.02 | 0.4668 | 110 |
+//! | 0.03 | 0.4514 | 81 |
+//! | 0.04 | 0.4361 | 64 |
+//! | 0.05 (elegido) | 0.4230 | 25 |
+//! | 0.06 | 0.4120 | 8 |
+//! | 0.07 | 0.4031 | 1 |
+//! | 0.08 | 0.3957 | 0 |
+//!
+//! 0.05 deja margen sobre 0.40 (0.4230) y discrimina de verdad — 25/174
+//! por encima, 149 por debajo — ni "ciego" (0 siempre, como 0.08) ni
+//! "trivial" (todo pasa, como sigma=0 con 149/174; ver el check de
+//! saturación en `bench.sh`, que falla si el corpus entero cruza 0.40).
+//! Si el gate de `bench.sh` empieza a fallar sin que nadie haya tocado
+//! este fichero (bump del modelo de embeddings o de la plataforma cambia
+//! la geometría del espacio), re-correr este sweep antes de subir o bajar
+//! sigma a ciegas.
 //!
 //! Uso: kb_sintetica <N> <DIR> [SEMILLA]  (env `KB_SINTETICA_SIGMA` opcional)
 use anyhow::{Context, Result, bail};

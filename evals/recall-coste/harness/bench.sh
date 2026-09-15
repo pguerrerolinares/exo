@@ -80,6 +80,26 @@ for N in "${TAMANOS[@]}"; do
     echo "bench: KB sintética ciega al umbral: el brazo vector no devuelve nada con 0.40 (N=$N)" >&2
     exit 1; }
 
+  # Fix de review sobre la Task 1: el check de arriba solo detecta "cero
+  # resultados" — con `--limit 4` y el corpus SATURADO (todas las notas
+  # >=0.40, p.ej. KB_SINTETICA_SIGMA=0) daría el mismo verde que con sigma
+  # bien calibrado, sin discriminar el umbral. Pedimos un límite >= a las
+  # notas de la KB y comprobamos que NO vuelven todas: si el corpus entero
+  # cruza 0.40, el umbral no aporta nada al bench. Tope del límite en 1000,
+  # no en N: con N=5000 y `--limit 5000`, `k = limit * K_FACTOR_INICIAL`
+  # (buscador.rs) da 40000 y revienta "too many SQL variables" en
+  # `permalinks_de_rowids` (límite de placeholders de SQLite, medido y
+  # confirmado — bug preexistente, fuera de scope, no relacionado con
+  # sigma); `--limit 1000` (k=8000) no lo dispara, verificado con N=174 y
+  # N=1000.
+  LIM_SAT=$((N < 1000 ? N : 1000))
+  "$BIN" search --db "$DB" --kb "$KB" --type vector --min-similarity 0.40 \
+    --limit "$LIM_SAT" --json "$Q" > "$OUT/saturacion-vector-n$N.json" || exit 1
+  CUENTA_SAT="$(jq '.data.results | length' "$OUT/saturacion-vector-n$N.json")"
+  [ "$CUENTA_SAT" -lt "$LIM_SAT" ] || {
+    echo "bench: KB sintética saturada: todo el corpus cruza 0.40, el umbral no discrimina (N=$N, limite=$LIM_SAT, resultados=$CUENTA_SAT)" >&2
+    exit 1; }
+
   jq -n --arg p "$Q" '{prompt:$p, session_id:"bench-a"}' > "$D/prompt.json"
 
   mide "s3-index-sin-cambios-n$N" "\"$BIN\" index --db \"$DB\" --kb \"$KB\" --json"
