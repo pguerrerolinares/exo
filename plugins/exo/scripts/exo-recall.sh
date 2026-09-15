@@ -34,6 +34,15 @@ RECON-FIRST (look before you leap) en tareas DURAS/desconocidas/time-boxed: ante
 EXO_BIN="${EXO_BIN:-$(command -v exo 2>/dev/null || echo "$HOME/.local/bin/exo")}"
 EXO_INDEX="${EXO_INDEX:-$HOME/.exo/index.db}"
 EXO_CAP="${EXO_RECALL_CAP:-6144}"
+# ENGINE_MIN (campaña H): el mínimo de engine que ESTE plugin declara
+# necesitar, sobreescribible por test (`ENGINE_MIN=x.y.z`, seam igual que
+# EXO_BIN/EXO_INDEX de arriba). Sin override, el fichero versionado junto al
+# plugin. El check vive SOLO aquí (SessionStart) y no en recall-inject.sh
+# (UserPromptSubmit, un spawn por prompt): SessionStart + `exo doctor` ya
+# lo cubren.
+. "$SCRIPT_DIR/_engine-version.sh" 2>/dev/null
+ENGINE_MIN="${ENGINE_MIN:-$(cat "$SCRIPT_DIR/../ENGINE_MIN" 2>/dev/null)}"
+ENGINE_MIN="${ENGINE_MIN:-0.0.0}"
 # Recientes en el digest. El camino viejo listaba hasta 15 permalinks de los
 # últimos 3 días; con 5 se perdían notas del mismo día (hallazgo del gate M6).
 # 10 cabe de sobra por número de notas, pero el margen de BYTES ya no sobra:
@@ -54,11 +63,12 @@ log_recall_fallback() {  # $1=reason $2=payload extra opcional
 # sin que nadie se entere (esto ya mordió una vez, F3.1): cada rama deja un
 # evento greppable con su razón, siempre best-effort.
 BASE=""
+ENGINE_VER=""
 if [ ! -x "$EXO_BIN" ]; then
   log_recall_fallback "no-engine" "bin=$EXO_BIN"
 elif [ ! -f "$EXO_INDEX" ]; then
   log_recall_fallback "no-index" "db=$EXO_INDEX"
-else
+elif ENGINE_VER="$(exo_version_de "$EXO_BIN")" && [ -n "$ENGINE_VER" ] && ! semver_lt "$ENGINE_VER" "$ENGINE_MIN"; then
   # El nombre de la KB sale de la config del engine, no de un literal: era el
   # último sitio donde `kb-demo` seguía cableado en el camino de arranque.
   # Resuelto AQUÍ (binario ejecutable e índice ya confirmados arriba) y no
@@ -99,6 +109,12 @@ else
     log_recall_fallback "no-contract"
     BASE=""
   fi
+else
+  ENGINE_VER="${ENGINE_VER:-desconocida}"
+  log_recall_fallback "engine-stale" "engine=$ENGINE_VER min=$ENGINE_MIN"
+  BASE="engine desactualizado ($ENGINE_VER < $ENGINE_MIN) — actualiza el binario instalado
+
+$FALLBACK"
 fi
 [ -n "$BASE" ] || BASE="$FALLBACK"
 TEXTO="$BASE"
