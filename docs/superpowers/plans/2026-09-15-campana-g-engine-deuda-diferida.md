@@ -20,7 +20,10 @@ atacan las dos patas vivas de «Techos de escala» (tres conexiones de DB por
 disjuntos (`walker`, `lint`, `escritor`+`main.rs`, `lib.rs`, `trinquete`) sin
 dependencias cruzadas entre sí. Task 10 es un rename mecánico
 (`kb-demo`→`kb-test`) transversal a los tests. Task 11 es el cambio de
-superficie de D6 (decisión ya tomada por Paul). Task 12 sincroniza
+superficie de D6 (decisión ya tomada por Paul), ampliado el mismo día para
+que `exo init` escriba su propio default de `[embeddings] min_similarity`
+desde la misma constante sellada, en vez de un segundo literal. Task 12
+sincroniza
 `docs/backlog.md`, cierra los ítems que la campaña resuelve y corrige tres
 afirmaciones caducadas del propio backlog con evidencia de código.
 
@@ -63,8 +66,10 @@ Todas verificadas hoy contra `origin/main` (worktree `campana-g`).
   (`evals/retrieval-heldout/verdict/c-verdict.md` §11). Ninguna task de
   este plan corre el harness de `evals/retrieval-heldout/`.
 - **`main.rs` es zona compartida con H (retiro de aliases españoles,
-  `:153-315`, y `--version`) en la misma ola.** G solo toca dos zonas
-  disjuntas: `:241` (Task 11, default de `--type`) y `:794-868` (Tasks 6-7,
+  `:153-315`, y `--version`) en la misma ola.** G toca tres zonas disjuntas:
+  `:11-26` y `:241` (Task 11, comentario/constantes sellados y default de
+  `--type`), `:651-657` (Task 11, ampliado el 2026-09-15: default de
+  `[embeddings] min_similarity` en `init_cmd`) y `:794-868` (Tasks 6-7,
   `write_new_cmd`/`write_append_cmd`). **Ninguna task de G usa ni añade un
   alias en español** — los tests nuevos de G usan siempre los nombres
   canónicos (`--min-similarity`, `--limit`, etc.), nunca `--min-similitud`
@@ -2741,22 +2746,49 @@ git commit -m "test(g, kb-test): kb-demo -> kb-test como fixture generico en los
 
 ---
 
-### Task 11: D6 — default de `exo search --type` pasa a `hybrid` + `--min-similarity 0.40`
+### Task 11: D6 — default de `exo search --type` pasa a `hybrid` + `--min-similarity 0.40`, y `exo init` alinea su propio default a la misma constante
 
-**Lane:** mecánica, superficie (decisión 1 de Paul, ya tomada). **Depende
-de:** ninguna task de este plan; **requiere que la ola haya mergeado H y F
-primero** (zona compartida de `main.rs`, ver Global Constraints).
+**Lane:** mecánica, superficie (decisión 1 de Paul, ya tomada; ampliada el
+2026-09-15: el default que `exo init` escribe en `[embeddings]
+min_similarity` sube de 0.35 a **0.40**, usando la MISMA constante que sella
+el default de `--type hybrid`, no un segundo literal — ver Step 5).
+**Depende de:** ninguna task de este plan; **requiere que la ola haya
+mergeado H y F primero** (zona compartida de `main.rs`, ver Global
+Constraints).
 
 **Files:**
-- Modify: `engine/src/main.rs:24-26` (constantes), `:241` (`ArgsSearch`),
-  `:982-1009` (`busca_cmd`)
-- Test: `engine/tests/flags.rs`, `engine/tests/help_producto.rs`
+- Modify: `engine/src/main.rs:11-26` (comentario + constantes), `:241`
+  (`ArgsSearch`), `:651-657` (`init_cmd`, default de `[embeddings]
+  min_similarity`), `:982-1009` (`busca_cmd`)
+- Modify: `engine/src/buscador.rs:238-241` (comentario, "hoy 0.35" pasa a
+  "hoy 0.40" — no toca código de la Task 2, ninguna línea en común)
+- Modify: `engine/src/escritor.rs:162-168` (comentario, el rango "0.35-0.40"
+  citado como calibración del dup-gate pasa a reflejar que ambos extremos
+  son ya la misma constante)
+- Modify: `engine/examples/kb_sintetica.rs:176-184` (`escribe_config`: el
+  config sintético escrito a mano pasa su literal de 0.35 a 0.40 — ningún
+  comando de `bench.sh` depende de este valor, porque todos pasan
+  `--min-similarity` explícito (Task 1), pero el fichero deja de describir
+  un `exo init` que ya no existe)
+- Modify: `docs/arquitectura.md` (§3.4, §3.5 y §3.8 — cuatro citas del
+  0.35/`fts` como default, incluida la tabla de comandos)
+- Test: `engine/tests/flags.rs`, `engine/tests/help_producto.rs`,
+  `engine/tests/inicia.rs`
 
 **Interfaces:**
 - Consumes: `TipoBusqueda` (enum ya existente, variantes `Fts`/`Vector`/
-  `Hybrid`), `busca_hybrid` (Task 2, firma sin cambios).
+  `Hybrid`), `busca_hybrid` (Task 2, firma sin cambios),
+  `exo::config::Embeddings`/`exo::config::carga_desde` (ya existentes, sin
+  cambio de firma).
 - Produces: nueva constante `MIN_SIMILARITY_SELLADO: f64 = 0.40` en
-  `main.rs`, junto a `BONUS_SELLADO`/`ESCALA_FTS_SELLADA`.
+  `main.rs`, junto a `BONUS_SELLADO`/`ESCALA_FTS_SELLADA` — **fuente única**
+  para dos consumidores: el default de `exo search --type hybrid` (Step 5) Y
+  el default que `exo init` escribe en `[embeddings] min_similarity` de una
+  config nueva (Step 5, mismo cuerpo). Antes de esta task existían dos
+  literales sin relación en el código (0.40 solo documentado en comentario;
+  0.35 hardcodeado en `init_cmd`) que coincidían con el sweep y con la
+  config heredada de basic-memory por pura casualidad histórica, nunca por
+  una fuente común.
 
 - [ ] **Step 1: Test que falla — el default es `hybrid`**
 
@@ -2785,8 +2817,122 @@ tests de aliases de ese fichero.)
 Run: `cd engine && cargo build --release --locked --bin exo && cargo test --release --locked el_default_de_search_type_es_hybrid_no_fts -- --nocapture`
 Expected: FAIL — `--help` muestra `[default: fts]`.
 
-- [ ] **Step 3: Cambiar el default en `ArgsSearch`, y el umbral sellado
-  para el camino Hybrid**
+- [ ] **Step 3: Test que falla — `exo init` (modo creación) sigue
+  escribiendo `min_similarity = 0.35`**
+
+Añade al final de `engine/tests/inicia.rs` (después de
+`valida_db_para_kb_rechaza_otra_kb_sin_mencionar_un_flag_que_init_no_tiene`,
+el último test del fichero):
+
+old_string:
+```rust
+    assert!(
+        msg.contains("otra KB"),
+        "sigue siendo el mismo guard: {msg}"
+    );
+}
+```
+
+new_string:
+```rust
+    assert!(
+        msg.contains("otra KB"),
+        "sigue siendo el mismo guard: {msg}"
+    );
+}
+
+/// D6 ampliado (decisión de Paul, 2026-09-15, Ola 1 G Task 11): el default
+/// que `exo init` escribe en `[embeddings] min_similarity` sube de 0.35 a
+/// 0.40 — la MISMA constante `MIN_SIMILARITY_SELLADO` que ya sella el
+/// default de `exo search --type hybrid` (`flags.rs`,
+/// `el_default_de_search_type_es_hybrid_no_fts`), no un segundo literal que
+/// solo coincidía con el primero por casualidad. Cubre solo el modo
+/// CREACIÓN (`init_cmd`, rama `else` sin `--from-basic-memory`) —
+/// `--from-basic-memory` sigue leyendo `semantic_min_similarity` del JSON
+/// de origen tal cual, sin cambios (ver
+/// `migra_desde_basic_memory_leyendo_el_proyecto_por_defecto` arriba, que
+/// sigue fijando 0.35 en su fixture a propósito: es el valor que trae ESA
+/// KB de origen, no un default de `exo init`).
+#[test]
+fn init_en_modo_creacion_escribe_min_similarity_0_40_por_defecto() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let kb = tmp.path().join("kb-nueva");
+    let config = tmp.path().join("config.toml");
+    let db = tmp.path().join("index.db");
+
+    let salida = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
+        .args(["init", "--kb"])
+        .arg(&kb)
+        .args(["--name", "kb-nueva", "--json"])
+        .env("EXO_CONFIG", &config)
+        .env("EXO_DB", &db)
+        .output()
+        .expect("ejecutar exo init");
+    assert!(
+        salida.status.success(),
+        "init falló: {}",
+        String::from_utf8_lossy(&salida.stderr)
+    );
+
+    let cfg = exo::config::carga_desde(&config)
+        .expect("releer la config que init acaba de escribir");
+    assert_eq!(
+        cfg.embeddings.min_similarity, 0.40,
+        "exo init en modo creación debe escribir min_similarity = 0.40, no \
+         0.35 — MIN_SIMILARITY_SELLADO en main.rs"
+    );
+}
+```
+
+- [ ] **Step 4: Correr el test y verlo fallar**
+
+Run: `cd engine && cargo build --release --locked --bin exo && cargo test --release --locked init_en_modo_creacion_escribe_min_similarity_0_40_por_defecto -- --nocapture`
+Expected: FAIL — `` assertion `left == right` failed: exo init en modo
+creación debe escribir min_similarity = 0.40, no 0.35 — MIN_SIMILARITY_SELLADO
+en main.rs
+  left: 0.35
+ right: 0.4 ``.
+
+- [ ] **Step 5: Cambiar el default en `ArgsSearch`, sellar el umbral del
+  camino Hybrid como constante, y alinear `exo init` a esa misma constante**
+
+Reescribe el comentario de cabecera de los defaults sellados — el motivo por
+el que el threshold NO se sellaba ("config es RO hasta M5a") caducó cuando
+M5a-02 cerró:
+
+old_string:
+```rust
+/// Defaults SELLADOS del arm hybrid (M2-07, §5.2.6 de la spec de fusión):
+/// ganadores del sweep 15+1 corridas (grid bonus{0,0.1,0.2,0.3,0.5}×
+/// β{0.6,0.8,1.0} + diagnóstica A, `evals/e1-read/reports/m2-07-impl-report.md`) —
+/// selección pre-registrada §5.2.4 (max hit@5=49/55 → 4 celdas empatadas en
+/// β=0.6 → menor bonus=0.0), confirmada nativa (§5.2.5, `--min-similarity
+/// 0.40` da 49/55 idéntico al post-hoc). Cubren SOLO el uso de `exo search
+/// --type hybrid` sin `--bonus`/`--fts-scale` explícitos; el sweep siempre
+/// pasó ambos flags, así que estos valores no afectaron su resultado. El
+/// threshold ganador (0.40) NO se sella aquí como constante — D-f3/§4.6: el
+/// valor difiere del 0.35 de config y config es RO hasta M5a, así que se
+/// pasa por `--min-similarity 0.40` explícito en corridas/consumidores hasta
+/// entonces (documentado en el verdict, no hardcodeado en el binario).
+```
+
+new_string:
+```rust
+/// Defaults SELLADOS del arm hybrid (M2-07, §5.2.6 de la spec de fusión):
+/// ganadores del sweep 15+1 corridas (grid bonus{0,0.1,0.2,0.3,0.5}×
+/// β{0.6,0.8,1.0} + diagnóstica A, `evals/e1-read/reports/m2-07-impl-report.md`) —
+/// selección pre-registrada §5.2.4 (max hit@5=49/55 → 4 celdas empatadas en
+/// β=0.6 → menor bonus=0.0), confirmada nativa (§5.2.5, `--min-similarity
+/// 0.40` da 49/55 idéntico al post-hoc). Cubren SOLO el uso de `exo search
+/// --type hybrid` sin `--bonus`/`--fts-scale` explícitos; el sweep siempre
+/// pasó ambos flags, así que estos valores no afectaron su resultado. El
+/// threshold ganador (0.40) SÍ se sella aquí como constante desde el
+/// 2026-09-15 (D6, decisión 1 de Paul, Ola 1 G Task 11): el motivo original
+/// para no sellarlo — D-f3/§4.6, "el valor difiere del 0.35 de config y
+/// config es RO hasta M5a" — caducó cuando M5a-02 (config propia) cerró el
+/// 2026-08-26 (`docs/backlog.md:1945`, "M5a-02 config propia: cerrado el
+/// 2026-08-26"). Ver `MIN_SIMILARITY_SELLADO` más abajo.
+```
 
 Añade la constante nueva junto a las dos existentes:
 
@@ -2801,8 +2947,12 @@ new_string:
 const BONUS_SELLADO: f64 = 0.0;
 const ESCALA_FTS_SELLADA: f64 = 0.6;
 /// D6 (decisión 1 de Paul, 2026-09-15): umbral de similitud coseno para el
-/// default nuevo de `exo search --type` (hybrid). Solo se usa cuando
-/// `--min-similarity` se omite Y `--type` resolvió a Hybrid — un
+/// default nuevo de `exo search --type` (hybrid) — y, desde el mismo día,
+/// el default que `exo init` escribe en `[embeddings] min_similarity` de
+/// una config nueva (`init_cmd`, rama de creación, más abajo): una sola
+/// constante para los dos usos en vez de dos literales que antes solo
+/// coincidían en intención, nunca en código. En el camino de search se usa
+/// cuando `--min-similarity` se omite Y `--type` resolvió a Hybrid — un
 /// `--type vector` explícito sigue cayendo a `[embeddings] min_similarity`
 /// de la config (comportamiento sin cambios, `min_similitud_efectivo` en
 /// `buscador.rs`). Valor validado por el held-out de la campaña C
@@ -2854,20 +3004,56 @@ new_string:
         )?,
 ```
 
-- [ ] **Step 4: Correr el test y verlo pasar**
+Y alinea el default de `exo init` (modo creación) a la misma constante:
+
+old_string:
+```rust
+        let emb = exo::config::Embeddings {
+            model: exo::MODELO_JINA_ES.to_string(),
+            // 768 es la dimensionalidad DE ESTE modelo (MODELO_JINA_ES): si
+            // se cambia uno, el otro tiene que cambiar con él.
+            dims: 768,
+            min_similarity: 0.35,
+        };
+```
+
+new_string:
+```rust
+        let emb = exo::config::Embeddings {
+            model: exo::MODELO_JINA_ES.to_string(),
+            // 768 es la dimensionalidad DE ESTE modelo (MODELO_JINA_ES): si
+            // se cambia uno, el otro tiene que cambiar con él.
+            dims: 768,
+            // D6 ampliado (decisión de Paul, 2026-09-15, Ola 1 G Task 11):
+            // MISMA constante que sella el default de `exo search --type
+            // hybrid` (cabecera de este fichero) — antes era un literal
+            // 0.35 propio, sin relación con el sweep de calibración ni con
+            // el umbral que el propio `exo search` usa por defecto.
+            min_similarity: MIN_SIMILARITY_SELLADO,
+        };
+```
+
+- [ ] **Step 6: Correr los dos tests y verlos pasar**
 
 Run: `cd engine && cargo build --release --locked --bin exo && cargo test --release --locked el_default_de_search_type_es_hybrid_no_fts -- --nocapture`
 Expected: PASS.
 
-- [ ] **Step 5: Correr la suite de flags y ayuda al completo**
+Run: `cd engine && cargo test --release --locked init_en_modo_creacion_escribe_min_similarity_0_40_por_defecto -- --nocapture`
+Expected: PASS.
 
-Run: `cd engine && cargo test --release --locked --test flags --test help_producto -- --nocapture`
+- [ ] **Step 7: Correr la suite de flags, ayuda e inicia al completo**
+
+Run: `cd engine && cargo test --release --locked --test flags --test help_producto --test inicia -- --nocapture`
 Expected: todos verdes. `los_flags_espanoles_siguen_parseando_como_alias` y
 `los_flags_ya_ingleses_no_se_han_movido` no dependen del default de
 `--type`, solo de qué flags existen — sin cambios ahí (H retira los
 aliases españoles en su propia rama, disjunta de esta).
+`migra_desde_basic_memory_leyendo_el_proyecto_por_defecto` y las pruebas de
+`escribe_config`/`carga_desde` en `inicia.rs` siguen usando 0.35 como valor
+de FIXTURE arbitrario (prueban round-trip de cualquier valor, no un
+default) — no se tocan y siguen en verde sin cambios.
 
-- [ ] **Step 6: Verificar los consumidores del plugin — ninguno depende de
+- [ ] **Step 8: Verificar los consumidores del plugin — ninguno depende de
   `fts` implícito**
 
 Run: `cd . && grep -rn "exo search" plugins/exo/ engine/tests/ 2>/dev/null | grep -v -- "--type"`
@@ -2886,29 +3072,185 @@ Run: `cd engine && cargo test --release --locked --test buscador_cli --test sear
 Expected: todos verdes SIN modificar esos dos ficheros (confirma la
 verificación del párrafo anterior).
 
-- [ ] **Step 7: Cerrar D6 en `docs/arquitectura.md` con cita al verdict**
+- [ ] **Step 9: Actualizar comentarios y `docs/arquitectura.md` que citaban
+  0.35 como default — ahora coincide con `MIN_SIMILARITY_SELLADO`**
 
-Busca la mención del default de `--type` en `docs/arquitectura.md` (§6 o
-donde documente el CLI de `search`) y actualiza:
+`engine/src/buscador.rs` (comentario de `similitud_desde_l2_cuadrado`, cita
+el default vigente):
 
-Si el fichero dice algo como «`exo search` por defecto usa `--type fts`»,
-sustitúyelo (usa el texto real que encuentres — la búsqueda es
-`grep -n "type fts\|--type=fts\|TipoBusqueda::Fts" docs/arquitectura.md`)
-por:
-
-```markdown
-`exo search` sin `--type` usa **hybrid** con `--min-similarity 0.40` desde
-el 2026-09-15 (D6, decisión 1 de Paul, campaña G): el held-out de la
-campaña C mostró que el modo medido (A0/hybrid) gana a FTS en 41/55 filas y
-FTS nunca gana a A0 (`evals/retrieval-heldout/verdict/c-verdict.md`). Un
-`--type fts` explícito sigue disponible sin cambios.
+old_string:
+```rust
+/// dos vectores unitarios, `||a-b||² = 2 - 2·cos(a,b)`, luego
+/// `cos(a,b) = 1 - ||a-b||²/2` — la conversión que usa esta función para
+/// comparar contra `[embeddings] min_similarity` (threshold pensado en escala
+/// coseno, config propia de `~/.exo/config.toml`, hoy 0.35).
 ```
 
-- [ ] **Step 8: Commit**
+new_string:
+```rust
+/// dos vectores unitarios, `||a-b||² = 2 - 2·cos(a,b)`, luego
+/// `cos(a,b) = 1 - ||a-b||²/2` — la conversión que usa esta función para
+/// comparar contra `[embeddings] min_similarity` (threshold pensado en escala
+/// coseno, config propia de `~/.exo/config.toml`, hoy 0.40 por defecto desde
+/// D6 — `MIN_SIMILARITY_SELLADO` en `main.rs`, Ola 1 G Task 11).
+```
+
+`engine/src/escritor.rs` (comentario de `solape_slug`, el rango citado
+como calibración del dup-gate — los dos extremos son ya la misma
+constante):
+
+old_string:
+```rust
+/// Solape de tokens entre dos slugs. **Deliberadamente NO usa retrieval
+/// semántico**: el umbral de `busca_hybrid` (0.35-0.40) está calibrado para
+/// "tráeme contexto relevante", que es otra pregunta que "esto ya existe" —
+/// usarlo como dup-gate produce falsos rojos (verificado: un título sin
+/// relación alguna puntuaba 0.36 contra una bitácora cualquiera). Un guard que
+/// rebota al cierre de sesión acaba desactivado, que es como murió el primer
+/// guard de kbx (spec M4 §7.3).
+```
+
+new_string:
+```rust
+/// Solape de tokens entre dos slugs. **Deliberadamente NO usa retrieval
+/// semántico**: el umbral de `busca_hybrid` (0.40 desde D6, Ola 1 G Task 11
+/// — antes 0.35-0.40 según viniera de config o del sellado del sweep, hoy
+/// los dos extremos son la misma constante `MIN_SIMILARITY_SELLADO`) está
+/// calibrado para "tráeme contexto relevante", que es otra pregunta que
+/// "esto ya existe" — usarlo como dup-gate produce falsos rojos (verificado:
+/// un título sin relación alguna puntuaba 0.36 contra una bitácora
+/// cualquiera). Un guard que rebota al cierre de sesión acaba desactivado,
+/// que es como murió el primer guard de kbx (spec M4 §7.3).
+```
+
+`engine/examples/kb_sintetica.rs` (`escribe_config`, el config sintético
+escrito a mano deja de describir un `exo init` que ya no existe):
+
+old_string:
+```rust
+            "schema_version = 1\n\n[kb]\npath = \"{}\"\nname = \"{NOMBRE_KB}\"\n\n\
+             [index]\ndb = \"{}\"\n\n[embeddings]\nmodel = \"{}\"\ndims = 768\n\
+             min_similarity = 0.35\n",
+```
+
+new_string:
+```rust
+            "schema_version = 1\n\n[kb]\npath = \"{}\"\nname = \"{NOMBRE_KB}\"\n\n\
+             [index]\ndb = \"{}\"\n\n[embeddings]\nmodel = \"{}\"\ndims = 768\n\
+             min_similarity = 0.40\n",
+```
+
+`docs/arquitectura.md` §3.4 (umbral en escala coseno):
+
+old_string:
+```
+`vectores` usa la métrica por defecto de vec0 (L2 al cuadrado), y para
+vectores unitarios `cos = 1 − L2²/2` — así el umbral `min_similarity` de la
+config (0.35 por defecto) se compara en escala coseno.
+```
+
+new_string:
+```
+`vectores` usa la métrica por defecto de vec0 (L2 al cuadrado), y para
+vectores unitarios `cos = 1 − L2²/2` — así el umbral `min_similarity` de la
+config (0.40 por defecto desde el 2026-09-15, D6 — antes 0.35, ver §3.5) se
+compara en escala coseno.
+```
+
+`docs/arquitectura.md` §3.5 (párrafo de apertura del pipeline de búsqueda):
+
+old_string:
+```
+### 3.5 Pipeline de búsqueda
+
+`exo search` tiene tres modos (`--type fts|vector|hybrid`, default `fts`),
+implementados en `engine/src/buscador.rs`. Todos devuelven resultados
+**a nivel de nota** (`type: "entity"`), nunca de trozo. Ojo con el default:
+el modo calibrado y medido (48/55 hit@5, §6) es `--type hybrid` **con el
+umbral pasado explícito** (`--min-similarity 0.40`); `fts` a secas es el modo
+léxico barato, no el medido. `exo recall --query` sí usa hybrid con los
+parámetros sellados de serie.
+```
+
+new_string:
+```
+### 3.5 Pipeline de búsqueda
+
+`exo search` tiene tres modos (`--type fts|vector|hybrid`, **default
+`hybrid` desde el 2026-09-15** — D6, decisión 1 de Paul, campaña G Task 11;
+antes `fts`), implementados en `engine/src/buscador.rs`. Todos devuelven
+resultados **a nivel de nota** (`type: "entity"`), nunca de trozo. El modo
+calibrado y medido (48/55 hit@5 in-sample, §6; held-out 41/55 gana a FTS,
+FTS a él en 0, `evals/retrieval-heldout/verdict/c-verdict.md`) es ahora
+justo el default: hybrid con `min_similarity = MIN_SIMILARITY_SELLADO =
+0.40` cuando no se pasa `--min-similarity` explícito — ya no hace falta
+pasarlo a mano. `fts` a secas sigue disponible con `--type fts`, es el modo
+léxico barato, no el medido. `exo recall --query` usa hybrid con los mismos
+parámetros sellados de serie.
+```
+
+`docs/arquitectura.md` §3.5 (bullet del modo hybrid):
+
+old_string:
+```
+- **hybrid**: los dos canales fusionados por unión. Los parámetros de fusión
+  van **sellados** en `main.rs` tras el sweep de calibración de M2-07:
+  `bonus = 0.0` y `β = 0.6` (`BONUS_SELLADO`, `ESCALA_FTS_SELLADA`),
+  sobreescribibles con `--bonus`/`--fts-scale`. El umbral ganador del sweep
+  (0.40) **no** está sellado como constante: difiere del 0.35 de config y los
+  consumidores lo pasan explícito con `--min-similarity 0.40` (así lo hace el
+  hook `recall-inject.sh`).
+```
+
+new_string:
+```
+- **hybrid**: los dos canales fusionados por unión. Los parámetros de fusión
+  van **sellados** en `main.rs` tras el sweep de calibración de M2-07:
+  `bonus = 0.0` y `β = 0.6` (`BONUS_SELLADO`, `ESCALA_FTS_SELLADA`),
+  sobreescribibles con `--bonus`/`--fts-scale`. El umbral ganador del sweep
+  (0.40) **sí** está sellado como constante desde el 2026-09-15
+  (`MIN_SIMILARITY_SELLADO`, D6 — decisión 1 de Paul, campaña G Task 11): el
+  motivo original para no sellarlo — D-f3/§4.6, "difiere del 0.35 de config
+  y config es RO hasta M5a" — caducó cuando M5a-02 (config propia) cerró el
+  2026-08-26 (`docs/backlog.md:1945`). `exo init` escribe ahora ese mismo
+  0.40 como default de `[embeddings] min_similarity` en una config nueva —
+  una sola constante, no dos literales que antes solo coincidían por
+  casualidad. El hook `recall-inject.sh` sigue pasando `--min-similarity
+  0.40` explícito (documenta su propio contrato de todos modos, no depende
+  del default).
+```
+
+`docs/arquitectura.md` §3.8 (tabla de comandos, fila de `exo search`):
+
+old_string:
+```
+| `exo search <query>` | Búsqueda FTS / vector / hybrid | `--type` (default `fts`), `--limit` (10), `--min-similarity`, `--bonus`, `--fts-scale`, `--db`, `--kb`, `--json` |
+```
+
+new_string:
+```
+| `exo search <query>` | Búsqueda FTS / vector / hybrid | `--type` (default `hybrid` desde D6, 2026-09-15), `--limit` (10), `--min-similarity` (default 0.40, `MIN_SIMILARITY_SELLADO`), `--bonus`, `--fts-scale`, `--db`, `--kb`, `--json` |
+```
+
+Fuera de alcance, NO tocar (verificado antes de escribir este Step):
+`.superpowers/fabrica/config.md:148`, `docs/superpowers/runbooks/2026-08-24-integracion-equipo-trabajo-windows.md:47`
+y todos los `evals/**/*.md`/`evals/**/*.py` que citan 0.35 — son registros
+históricos de mediciones y runbooks fechados (el umbral vigente en el
+momento de esa medición, o un ejemplo de `~/.basic-memory/config.json` de
+antes de M5a-02); reescribirlos sería falsificar un registro, no corregir
+un default. `engine/src/buscador.rs:384` (comentario de `K_FACTOR_INICIAL`,
+"a 95k trozos, `limite=10` con `sim≥0.35`...") es la misma clase: documenta
+la calibración medida por H29 en su momento, no el default actual — no se
+toca por la misma razón que las excepciones históricas de `kb-demo` en la
+Task 10.
+
+- [ ] **Step 10: Commit**
 
 ```bash
-git add engine/src/main.rs engine/tests/flags.rs docs/arquitectura.md
-git commit -m "feat(g, search-default): D6 - exo search sin --type usa hybrid + min-similarity 0.40 (decision de Paul 2026-09-15)"
+git add engine/src/main.rs engine/src/buscador.rs engine/src/escritor.rs \
+  engine/examples/kb_sintetica.rs engine/tests/flags.rs engine/tests/inicia.rs \
+  docs/arquitectura.md
+git commit -m "feat(g, search-default): D6 - exo search sin --type usa hybrid + min-similarity 0.40, exo init alinea su default a la misma constante (decision de Paul 2026-09-15)"
 ```
 
 ---
@@ -2947,8 +3289,10 @@ new_string:
 > (Task 8, commit `<commit Task 8>`, `KB-exo:16`), `trinquete --staged`
 > leyendo el tier del disco (Task 9, commit `<commit Task 9>`),
 > `kb-demo`→`kb-test` en los tests del engine (Task 10, commit
-> `<commit Task 10>`) y D6 — default `hybrid` + `--min-similarity 0.40`
-> (Task 11, commit `<commit Task 11>`, decisión 1 de Paul). **Corrige con
+> `<commit Task 10>`) y D6 — default `hybrid` + `--min-similarity 0.40`,
+> con `exo init` alineado a la misma constante `MIN_SIMILARITY_SELLADO`
+> para su propio default de `[embeddings] min_similarity` (Task 11, commit
+> `<commit Task 11>`, decisión 1 de Paul). **Corrige con
 > evidencia, sin cerrar por completo**: el conteo de `kb-demo` en tests
 > pasó de 8 a 11 ficheros (medido de nuevo hoy); el relato de campaña en
 > los comentarios de `buscador.rs`/`escritor.rs`/`indexer.rs`
@@ -2972,7 +3316,7 @@ old_string:
 new_string:
 ```
 | **Ruta portable** | grafía única de ruta (`/`) en el binario y ruta visible en la salida humana de `exo search` — apila sobre la campaña D, mergeada a `main` el **2026-09-15** vía PR #21 (`ba4b75f`); plan en `docs/superpowers/plans/2026-09-11-ruta-portable-y-columna-humana.md`, spec en `docs/superpowers/specs/2026-09-11-ruta-portable-y-columna-humana-design.md` |
-| **Campaña G** | 11 tasks del engine (bench sintético con vectores reales, `busca_hybrid` a una sola conexión, `git_epoch_de` en batch, `walk_kb` unificada, `budget_prose_drift` sin truncar, `escribe_nueva` con struct de parámetros, M4 #5/#6, assert de embeddings, `trinquete --staged` sobre el índice de git, `kb-demo`→`kb-test`, D6 default hybrid+0.40) — sin cambio de ranking (β/bonus/umbral/fusión intactos) — mergeada a `main` el **<fecha>** vía <PR de G>; plan en `docs/superpowers/plans/2026-09-15-campana-g-engine-deuda-diferida.md` |
+| **Campaña G** | 11 tasks del engine (bench sintético con vectores reales, `busca_hybrid` a una sola conexión, `git_epoch_de` en batch, `walk_kb` unificada, `budget_prose_drift` sin truncar, `escribe_nueva` con struct de parámetros, M4 #5/#6, assert de embeddings, `trinquete --staged` sobre el índice de git, `kb-demo`→`kb-test`, D6 default hybrid+0.40 con `exo init` alineado a la misma constante) — sin cambio de ranking (β/bonus/umbral/fusión intactos) — mergeada a `main` el **<fecha>** vía <PR de G>; plan en `docs/superpowers/plans/2026-09-15-campana-g-engine-deuda-diferida.md` |
 ```
 
 - [ ] **Step 3: Cerrar con evidencia — «Techos de escala» (`backlog:524-566`)**
@@ -3178,7 +3522,12 @@ new_string:
     (`main.rs`, `ArgsSearch.r#type` default `TipoBusqueda::Hybrid`).
     Cita: `evals/retrieval-heldout/verdict/c-verdict.md` (A0 gana a FTS en
     41/55 filas, FTS a A0 en 0 filas). `docs/arquitectura.md` actualizado
-    con la cita.
+    con la cita. **Ampliado el mismo día:** `exo init` (modo creación)
+    escribe ahora ese mismo 0.40 en `[embeddings] min_similarity` de la
+    config nueva, vía la misma constante `MIN_SIMILARITY_SELLADO` (antes
+    0.35, literal propio sin relación con el sweep) — el motivo por el que
+    no se compartía ("config es RO hasta M5a") caducó al cerrar M5a-02 el
+    2026-08-26 (`backlog:1945`).
 ```
 
 - [ ] **Step 12: Verificar que todos los `Edit` aplicaron**
@@ -3227,7 +3576,7 @@ antes de cerrar la Task 12.
   `old_string` del Step 3 de la Task 7 ya asume el `escribe_nueva(&NuevaNota{...})`
   que deja la Task 6.
 - Task 2 mantiene las firmas públicas de `busca`/`busca_vector`/`busca_hybrid`
-  exactamente iguales — Task 11 (Step 3) llama a `busca_hybrid` con la
+  exactamente iguales — Task 11 (Step 5) llama a `busca_hybrid` con la
   MISMA firma de 7 argumentos que ya tenía antes de la Task 2.
 - Task 10 depende de que la Task 6 ya haya convertido
   `engine/tests/escritor.rs` a `NuevaNota{...}` — el rename de la Task 10
@@ -3250,3 +3599,28 @@ antes de cerrar la Task 12.
 de código (ver informe de cierre) se hizo ANTES de escribir cada task, así
 que no quedó ninguna afirmación de la propuesta sin verificar contra
 `origin/main` antes de convertirla en Step.
+
+**Addendum 2026-09-15 (enmienda de Task 11 — decisión de Paul, alinear el
+default de `exo init`):** `git grep -n "0\.35"` contra `campana-g` antes de
+escribir la enmienda dio 4 ficheros de código con literales relevantes
+(`engine/src/main.rs:656`, `engine/src/buscador.rs:241`,
+`engine/src/escritor.rs:163`, `engine/examples/kb_sintetica.rs:183`) y 4
+citas en `docs/arquitectura.md` (§3.4, §3.5×2, §3.8) — todos cubiertos ahora
+por los Steps 3-9 de la Task 11. Quedan **deliberadamente fuera**, por ser
+registros históricos y no defaults vigentes (misma clase que las
+excepciones de `kb-demo` de la Task 10): `engine/src/buscador.rs:384`
+(medición H29 a 95k trozos), `evals/retrieval-heldout/harness/metricas.py:125`
+(harness del held-out ya gastado — Global Constraints prohíbe tocarlo),
+todos los `evals/**/*.md`/`*.py`/`verdict/*.md` que citan el 0.35 del sweep
+M0/M2 (medidas fechadas), `.superpowers/fabrica/config.md:148` y
+`docs/superpowers/runbooks/2026-08-24-integracion-equipo-trabajo-windows.md:47`
+(runbook fechado, describe `~/.basic-memory/config.json`, un sistema previo
+a M5a-02). Los tests que fijan `0.35` como valor de FIXTURE arbitrario en
+`engine/tests/{inicia,config,config_cmd,precedencia,doctor,doctor_cli,
+write_create_permalink}.rs` y `engine/tests/common/mod.rs::MIN_SIMILARITY`
+tampoco se tocan: prueban parseo/precedencia/round-trip de CUALQUIER valor
+de config, no el default que escribe `exo init` — cambiarlos sería mover el
+oráculo sin motivo. `MIN_SIMILARITY_SELLADO` queda como fuente única para
+los dos consumidores (default de `--type hybrid` y default de `exo init`),
+resolviendo la pregunta abierta del brief ("¿misma fuente que dos
+literales?") a favor de una constante — ver Step 5 de la Task 11.
