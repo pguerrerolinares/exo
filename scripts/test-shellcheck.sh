@@ -34,6 +34,17 @@
 # una sola línea, `run: >` (folded scalar) y cualquier `run: |` bajo
 # `shell: pwsh`/`powershell` (ver detalle junto a la extracción).
 #
+# Fix de review (orquestador, 2026-09-15): la extracción de más abajo es una
+# regex concreta (un espacio exacto tras "run:", sin comentario final). Si un
+# bloque real usa otra forma válida (más espacios, comentario tras el `|`,
+# CRLF) la extracción lo pierde y el gate seguía en verde reportando MENOS
+# bloques, sin avisar — un fallo real pasando en silencio. La guarda de
+# coherencia (justo después de la extracción, antes de tocar shellcheck)
+# cuenta con un grep deliberadamente más laxo qué líneas DECLARAN un bloque
+# `run: |`/`|-`/`|+` y exige que la extracción haya visto cada una; si no,
+# `exit 1` listando fichero:línea. Se evalúa ANTES del check de binario
+# ausente para que sea comprobable en esta máquina sin shellcheck instalado.
+#
 # Cada aviso se arregla o se justifica en el sitio con
 # `# shellcheck disable=SCxxxx # <por qué>`. No hay .shellcheckrc global a
 # propósito: una exclusión global no dice dónde ni por qué.
@@ -42,13 +53,6 @@
 # helper roto o una función mal llamada también cuentan.
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)" || exit 1
-
-SC="${SHELLCHECK:-shellcheck}"
-if ! command -v "$SC" >/dev/null 2>&1; then
-  echo "test-shellcheck: no encuentro shellcheck ('$SC'). Instálalo o pasa SHELLCHECK=<ruta>." >&2
-  exit 1
-fi
-"$SC" --version | sed -n '2p'
 
 . "$(dirname "$0")/_bash-versionado.sh" || { echo "test-shellcheck: no puedo cargar scripts/_bash-versionado.sh" >&2; exit 1; }
 bash_versionado
@@ -86,12 +90,16 @@ WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
 
 extraidos=()
+detectadas=()  # fichero:línea de cada "run: |" que la extracción reconoció — para la guarda de coherencia
 for wf in .github/workflows/*.yml; do
   base="$(basename "$wf" .yml)"
   n=0
   fichero=""
   indent=0
+  lineno=0
   while IFS= read -r linea; do
+    lineno=$((lineno + 1))
+    linea="${linea%$'\r'}"  # normaliza CRLF si el fichero llegara con \r (defensivo: eol=lf ya lo impide)
     if [ -n "$fichero" ]; then
       if [[ "$linea" =~ ^[[:space:]]*$ ]]; then
         printf '%s\n' "" >> "$fichero"
@@ -112,9 +120,52 @@ for wf in .github/workflows/*.yml; do
       fichero="$WORKDIR/${base}-run-${n}.sh"
       printf '#!/usr/bin/env bash\n' > "$fichero"
       extraidos+=("$fichero")
+      detectadas+=("$wf:$lineno")
     fi
   done < "$wf"
 done
+
+# Guarda de coherencia (fix de review): grep deliberadamente más laxo que la
+# regex de extracción de arriba — cero o más espacios entre "run:" y "|" (en
+# vez de exactamente uno) y comentario final opcional — para no perderse
+# ninguna forma válida de declarar el bloque. Cada línea que este grep marca
+# como declaración de un bloque `run: |`/`|-`/`|+` DEBE aparecer en
+# `detectadas[]`; si no, la extracción se quedó corta y el gate lo dice antes
+# de fallar en silencio con menos bloques de los que hay de verdad.
+declaradas=()
+for wf in .github/workflows/*.yml; do
+  while IFS=: read -r ln _resto; do
+    [ -n "$ln" ] && declaradas+=("$wf:$ln")
+  done < <(tr -d '\r' < "$wf" | grep -n -E '^[[:space:]]*run:[[:space:]]*\|[+-]?[[:space:]]*(#.*)?$')
+done
+
+faltantes=()
+for d in "${declaradas[@]}"; do
+  hallado=0
+  for e in "${detectadas[@]}"; do
+    if [ "$d" = "$e" ]; then
+      hallado=1
+      break
+    fi
+  done
+  [ "$hallado" -eq 0 ] && faltantes+=("$d")
+done
+
+if [ "${#faltantes[@]}" -gt 0 ]; then
+  echo "test-shellcheck: la extracción de run: | dejó bloques declarados sin ver (silencioso hasta ahora):" >&2
+  for f in "${faltantes[@]}"; do
+    echo "  - $f" >&2
+  done
+  echo "test-shellcheck: soporta la variante en la extracción de arriba, o justifica por qué se excluye a propósito — nunca la ignores en silencio." >&2
+  exit 1
+fi
+
+SC="${SHELLCHECK:-shellcheck}"
+if ! command -v "$SC" >/dev/null 2>&1; then
+  echo "test-shellcheck: no encuentro shellcheck ('$SC'). Instálalo o pasa SHELLCHECK=<ruta>." >&2
+  exit 1
+fi
+"$SC" --version | sed -n '2p'
 
 if "$SC" -x -P SCRIPTDIR "${ficheros[@]}" "${extraidos[@]}"; then
   echo "test-shellcheck: OK — ${#ficheros[@]} scripts + ${#extraidos[@]} bloques run: | de .github/workflows/ sin avisos"
