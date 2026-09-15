@@ -17,7 +17,17 @@ set -uo pipefail
 KB="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 EXO="${EXO_BIN:-$HOME/.local/bin/exo}"
 
-[ -x "$EXO" ] || { echo "kb-precommit: no encuentro exo en $EXO — instálalo con 'cargo build --release' en engine/ y copia el binario a \$HOME/.local/bin/exo(.exe) — commit permitido sin gate" >&2; exit 0; }
+# Fail-closed (campaña H, docs/backlog.md "kb-precommit.sh depende de que
+# exo esté instalado — si no, el gate degrada a 'commit permitido' en
+# silencio"): antes esto salía 0 con un aviso que nadie mira en un
+# pre-commit. El escape es explícito y consciente: `git commit --no-verify`.
+if [ ! -x "$EXO" ]; then
+  echo "kb-precommit: no encuentro un exo ejecutable en \$EXO_BIN ni en $EXO — commit BLOQUEADO (el gate es fail-closed)." >&2
+  echo "  1) instala el binario: 'cargo build --release' en engine/ y copia a \$HOME/.local/bin/exo(.exe)" >&2
+  echo "  2) o apunta a uno ya instalado: EXO_BIN=<ruta> git commit ..." >&2
+  echo "  3) si de verdad quieres saltarte el gate: git commit --no-verify (escape consciente, el commit queda sin verificar)" >&2
+  exit 1
+fi
 
 fail=0
 
