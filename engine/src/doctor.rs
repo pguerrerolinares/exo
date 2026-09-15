@@ -9,7 +9,7 @@
 //! «el código de salida no es evidencia; lo que valió fue mirar el artefacto
 //! real».
 use serde::Serialize;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Estado de un check. `Na` NO es `Ok`: es «aquí esto no se mide».
 #[derive(Serialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -165,6 +165,7 @@ pub fn analiza(entorno: &Entorno) -> InformeDoctor {
         check_fallback_del_hook(entorno),
         check_kb(entorno, cfg.as_ref()),
         check_indice(entorno, cfg.as_ref()),
+        check_rutas_portables(entorno, cfg.as_ref()),
         check_modelo(entorno, cfg.as_ref()),
         check_jq(entorno),
         check_git_bash(entorno),
@@ -379,6 +380,67 @@ fn check_indice(entorno: &Entorno, cfg: Option<&crate::config::Config>) -> Check
             artefacto,
             format!("{notas} nota(s) indexadas"),
         )
+    }
+}
+
+/// Núcleo testeable del check: toma la DB ya resuelta, para que un test no
+/// tenga que montar un `Entorno` entero.
+pub fn check_rutas_portables_de(db: &Path) -> Check {
+    if !db.is_file() {
+        return Check::nuevo(
+            "index_paths_portable",
+            Estado::Na,
+            db.display().to_string(),
+            "no hay índice todavía",
+        );
+    }
+    let nativas: i64 = match crate::abre_db(db).and_then(|c| {
+        Ok(c.query_row(
+            r"SELECT count(*) FROM notas WHERE ruta LIKE '%\%'",
+            [],
+            |r| r.get(0),
+        )?)
+    }) {
+        Ok(n) => n,
+        Err(e) => {
+            return Check::nuevo(
+                "index_paths_portable",
+                Estado::Fail,
+                db.display().to_string(),
+                format!("{e:#}"),
+            );
+        }
+    };
+    if nativas > 0 {
+        Check::nuevo(
+            "index_paths_portable",
+            Estado::Warn,
+            db.display().to_string(),
+            format!(
+                "{nativas} ruta(s) con separador nativo: este índice se escribió \
+                 con una versión anterior y sirve rutas que no se pueden pegar \
+                 en un comando — corre `exo index`"
+            ),
+        )
+    } else {
+        Check::nuevo(
+            "index_paths_portable",
+            Estado::Ok,
+            db.display().to_string(),
+            "todas las rutas del índice usan `/`",
+        )
+    }
+}
+
+fn check_rutas_portables(entorno: &Entorno, cfg: Option<&crate::config::Config>) -> Check {
+    match db_efectiva(entorno, cfg) {
+        Some(db) => check_rutas_portables_de(&db),
+        None => Check::nuevo(
+            "index_paths_portable",
+            Estado::Na,
+            "(sin config)",
+            "no hay config legible, así que no se sabe qué DB mirar",
+        ),
     }
 }
 

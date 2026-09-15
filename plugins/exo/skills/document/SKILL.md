@@ -17,12 +17,18 @@ aprendizajes técnicos durables, patrones recurrentes. Descarta lo efímero
 
 ## Paso 2 · Orienta barato, luego enruta
 
-Probe del engine antes de rutear: `exo search --db <db> --type hybrid --json
-"<topic>"` devuelve por candidata `permalink`, `score` y **`ruta`**. Elige
-"nota X, sección Y" y lee SOLO la ganadora antes de escribir. La `ruta` es
-imprescindible: el permalink NO es invertible (el slug come acentos, espacios
-y em-dashes), así que sin ella no puedes localizar el fichero. `exo targets`
-sigue sirviendo para ver headings sin body mientras exista. Degradación con
+Probe del engine antes de rutear: `exo search --type hybrid --limit 5 "<topic>"`
+da por candidata `permalink`, `type`, `score` y **la ruta absoluta**, en cuatro
+columnas separadas por tab y sin jq de por medio. Elige "nota X, sección Y" y lee
+SOLO la ganadora antes de escribir. La ruta es imprescindible: el permalink NO es
+invertible (el slug come acentos, espacios y em-dashes), así que sin ella no
+puedes localizar el fichero. Alternativa con snippet y misma búsqueda híbrida:
+`exo recall --query "<topic>" --limit 5`; `search` es la que además da el score.
+Si necesitas el envelope para un script: `exo search --type hybrid --json
+"<topic>" | jq -r '.data.results[] | "\(.score)  \(.permalink)  \(.path)"'` — los
+resultados cuelgan de `.data.results[]` (`.data` es un objeto, no un array) y el
+campo es `path`, nunca `ruta`. `exo targets` sigue sirviendo para ver headings sin
+body mientras exista. Degradación con
 aviso visible: si el engine falla, cae a búsqueda por texto y añade una línea
 al resumen final (`<engine> unavailable → fallback`) — nunca bloquees el
 cierre por esto.

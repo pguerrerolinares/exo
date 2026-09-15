@@ -109,6 +109,17 @@ pub fn lee_nota(ruta: &Path) -> Result<String> {
     Ok(String::from_utf8_lossy(&crudo).into_owned())
 }
 
+/// Una sola grafía de ruta para todo lo que el binario EMITE: `\` → `/`.
+///
+/// Incondicional a propósito, no `#[cfg(windows)]`. En Unix `\` es un carácter
+/// legal en un nombre de fichero, así que esto tiene ahí una arista — pero es
+/// la MISMA arista en todos los puntos que la llaman. Gatearla en unos sí y en
+/// otros no haría que `walk_kb` y el indexer discreparan ante un fichero
+/// `a\b.md`, y esa nota se vería «borrada» y reinsertada en cada corrida.
+pub fn ruta_portable(s: &str) -> String {
+    s.replace('\\', "/")
+}
+
 fn recorre(
     raiz: &Path,
     dir: &Path,
@@ -124,11 +135,12 @@ fn recorre(
         if nombre.starts_with('.') {
             continue;
         }
-        let rel = ruta
-            .strip_prefix(raiz)
-            .with_context(|| format!("{} fuera de la raíz {}", ruta.display(), raiz.display()))?
-            .to_string_lossy()
-            .replace('\\', "/");
+        let rel = ruta_portable(
+            &ruta
+                .strip_prefix(raiz)
+                .with_context(|| format!("{} fuera de la raíz {}", ruta.display(), raiz.display()))?
+                .to_string_lossy(),
+        );
         let tipo = entrada
             .file_type()
             .with_context(|| format!("file_type de {}", ruta.display()))?;

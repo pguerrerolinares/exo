@@ -158,6 +158,10 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
 
     let rutas_absolutas = walk_kb(kb)?;
 
+    // Antes de comparar nada: las filas escritas por una versión anterior
+    // llevan el separador nativo, y la comparación es por cadena exacta.
+    migra_rutas_portables(&conn)?;
+
     let existentes: HashMap<String, f64> = {
         let mut stmt = conn.prepare("SELECT ruta, mtime FROM notas")?;
         stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, f64>(1)?)))?
@@ -576,18 +580,44 @@ pub fn aviso_kb_root_lectura(conn: &Connection, kb: Option<&Path>) -> Option<Str
     ))
 }
 
-fn ruta_relativa(kb: &Path, ruta_abs: &Path) -> Result<String> {
-    Ok(ruta_abs
-        .strip_prefix(kb)
-        .with_context(|| {
-            format!(
-                "{} no está bajo la raíz {}",
-                ruta_abs.display(),
-                kb.display()
-            )
-        })?
-        .to_string_lossy()
-        .into_owned())
+/// Ruta de `ruta_abs` relativa a la raíz de la KB, **siempre con `/`**.
+///
+/// Pública porque es la cadena exacta que `indexa` compara contra
+/// `notas.ruta`: el gate necesita poder aseverar esa igualdad sin reimplementarla.
+pub fn ruta_relativa(kb: &Path, ruta_abs: &Path) -> Result<String> {
+    Ok(crate::walker::ruta_portable(
+        &ruta_abs
+            .strip_prefix(kb)
+            .with_context(|| {
+                format!(
+                    "{} no está bajo la raíz {}",
+                    ruta_abs.display(),
+                    kb.display()
+                )
+            })?
+            .to_string_lossy(),
+    ))
+}
+
+/// Pone `notas.ruta` en grafía portable. Idempotente: la segunda corrida
+/// afecta 0 filas. Devuelve cuántas migró.
+///
+/// **Solo desde el camino de escritura.** Un índice escrito antes de que
+/// `ruta_relativa` normalizara tiene filas con `\`, y esas filas no casan con
+/// lo que calcula el incremental: sin esto, la primera corrida tras el cambio
+/// ve TODAS las notas como nuevas y todas las filas como borradas, y vuelve a
+/// embeber la KB entera.
+///
+/// `UNIQUE(ruta)` no puede colisionar: una fila tiene un solo separador, no dos
+/// variantes de sí misma.
+pub fn migra_rutas_portables(conn: &rusqlite::Connection) -> Result<usize> {
+    let filas = conn
+        .execute(
+            r"UPDATE notas SET ruta = replace(ruta, '\', '/') WHERE ruta LIKE '%\%'",
+            [],
+        )
+        .context("migrar notas.ruta a grafía portable")?;
+    Ok(filas)
 }
 
 fn mtime_de(ruta: &Path) -> Result<f64> {

@@ -648,3 +648,45 @@ fn un_exo_sin_bit_de_ejecucion_no_cuenta_como_instalado() {
         "el fichero está, pero `[ -x ]` del hook diría que no"
     );
 }
+
+#[test]
+fn el_check_de_rutas_portables_avisa_cuando_el_indice_trae_backslash() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = dir.path().join("index.db");
+    let conn = exo::abre_db(&db).unwrap();
+    exo::schema::crea_schema(&conn).unwrap();
+    conn.execute(
+        "INSERT INTO notas (permalink, ruta, titulo, tipo, mtime, git_epoch)
+         VALUES ('kb/log/alpha', 'log\\alpha.md', 'alpha', 'note', 0.0, NULL)",
+        [],
+    )
+    .unwrap();
+    drop(conn);
+
+    let check = exo::doctor::check_rutas_portables_de(&db);
+    assert_eq!(check.id, "index_paths_portable");
+    assert_eq!(check.estado, exo::doctor::Estado::Warn);
+    assert!(
+        check.detalle.contains("exo index"),
+        "el detalle debe nombrar el remedio: {}",
+        check.detalle
+    );
+}
+
+#[test]
+fn el_check_de_rutas_portables_pasa_con_el_indice_limpio() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = dir.path().join("index.db");
+    let conn = exo::abre_db(&db).unwrap();
+    exo::schema::crea_schema(&conn).unwrap();
+    conn.execute(
+        "INSERT INTO notas (permalink, ruta, titulo, tipo, mtime, git_epoch)
+         VALUES ('kb/log/alpha', 'log/alpha.md', 'alpha', 'note', 0.0, NULL)",
+        [],
+    )
+    .unwrap();
+    drop(conn);
+
+    let check = exo::doctor::check_rutas_portables_de(&db);
+    assert_eq!(check.estado, exo::doctor::Estado::Ok);
+}

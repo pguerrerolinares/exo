@@ -73,16 +73,28 @@ fn con_resultados_no_imprime_no_results() {
     let dir = tempfile::tempdir().unwrap();
     let db = db_con_una_nota(dir.path());
 
+    // `--kb` explícito desde 2026-09-15: la salida humana emite la ruta
+    // ABSOLUTA de cada nota en una 4ª columna, así que necesita la raíz de la
+    // KB. Sin config ni $EXO_KB —que es justo lo que este test monta— el
+    // comando falla nombrando el remedio, en vez de emitir una ruta relativa
+    // que el consumidor no puede usar. El caso "sin resultados" de arriba NO
+    // lo necesita: esa rama imprime `no results` y sale antes de resolver nada.
     let out = Command::new(bin())
         .args(["search", "--db"])
         .arg(&db)
+        .arg("--kb")
+        .arg(dir.path())
         .arg("buscable")
         .env("EXO_CONFIG", "C:/no-existe-jamas/config.toml")
         .env_remove("EXO_KB")
         .output()
         .unwrap();
 
-    assert!(out.status.success());
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(
         !stdout.contains("no results"),

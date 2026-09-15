@@ -203,6 +203,14 @@ umbral pasado explícito** (`--min-similarity 0.40`); `fts` a secas es el modo
 léxico barato, no el medido. `exo recall --query` sí usa hybrid con los
 parámetros sellados de serie.
 
+Dos salidas, dos formas. La humana son cuatro columnas separadas por tab —
+`permalink`, `type`, `score` (4 decimales), **ruta absoluta** — y necesita la
+raíz de la KB (`--kb`, `$EXO_KB` o config). El `--json` emite el envelope §4:
+los resultados cuelgan de `.data.results[]` (`.data` es un objeto, no un array)
+y cada uno trae `permalink`, `type`, `score` y `path`, esta **relativa** a la
+raíz de la KB. Cuando el índice no tiene la ruta de un permalink, la humana
+imprime `(sin-ruta:rebuild)` y avisa por stderr; el envelope pone `path: null`.
+
 ```mermaid
 flowchart TD
     Q["query"] --> FTSQ["prepara_query<br/>tokens entre comillas, AND implícito<br/>(guiones, acentos y / no rompen MATCH)"]
@@ -292,7 +300,7 @@ Extraída del parser de clap (`engine/src/main.rs`):
 | `exo config` | Emite la config efectiva con rutas expandidas (existe porque jq no lee TOML) | `--json` |
 | `exo index` | Indexado incremental por mtime | `--db`, `--kb`, `--json` |
 | `exo rebuild` | Borra la DB y reconstruye desde cero | `--db`, `--kb`, `--json` |
-| `exo search <query>` | Búsqueda FTS / vector / hybrid | `--type` (default `fts`), `--limit` (10), `--min-similarity`, `--bonus`, `--fts-scale`, `--db`, `--json` |
+| `exo search <query>` | Búsqueda FTS / vector / hybrid | `--type` (default `fts`), `--limit` (10), `--min-similarity`, `--bonus`, `--fts-scale`, `--db`, `--kb`, `--json` |
 | `exo write new` | Nota nueva con dup-gate | `--dir`, `--title`, `--from`, `--tier`, `--force`, `--db`, `--kb`, `--json` |
 | `exo write append <permalink>` | Append a bitácora con gate de tier | `--from`, `--create`, `--force`, `--db`, `--kb`, `--json` |
 | `exo recall` | Bloque de arranque o consulta híbrida | `--query`, `--limit` (5), `--cap-bytes` (2048), `--content`, `--note`, `--refresh`, `--min-similarity`, `--db`, `--kb`, `--json` |

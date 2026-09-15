@@ -134,6 +134,11 @@ fn la_lista_de_checks_es_contrato_y_no_puede_encoger() {
             "hook_fallback_binary",
             "kb_readable",
             "index_db",
+            // Añadido 2026-09-15: delata un índice escrito antes de que
+            // `ruta_relativa` normalizara el separador. Va junto a `index_db`
+            // porque mira la misma DB. La lista CRECE, que es lo que este test
+            // permite; lo que prohíbe es que encoja en silencio.
+            "index_paths_portable",
             "embeddings_model",
             "jq",
             "git_bash",
