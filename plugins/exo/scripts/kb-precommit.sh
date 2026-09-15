@@ -15,7 +15,25 @@
 set -uo pipefail
 
 KB="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
-EXO="${EXO_BIN:-$HOME/.local/bin/exo}"
+
+# Resolución del binario, mismo orden de precedencia que usan los hooks del
+# plugin (exo-recall.sh/recall-inject.sh): EXO_BIN > $HOME/.local/bin/exo(.exe)
+# > `command -v exo`. El literal de ~/.local/bin va primero porque es el sitio
+# que `exo doctor` (`hook_fallback_binary`) sabe reportar por nombre; el PATH
+# es el último recurso, no el default (review final de H, I2: antes esto no
+# miraba el PATH en absoluto y bloqueaba con un `exo` bien instalado pero
+# resuelto solo por PATH).
+if [ -n "${EXO_BIN:-}" ]; then
+  EXO="$EXO_BIN"
+elif [ -x "$HOME/.local/bin/exo" ]; then
+  EXO="$HOME/.local/bin/exo"
+elif [ -x "$HOME/.local/bin/exo.exe" ]; then
+  EXO="$HOME/.local/bin/exo.exe"
+elif command -v exo >/dev/null 2>&1; then
+  EXO="$(command -v exo)"
+else
+  EXO="$HOME/.local/bin/exo"
+fi
 
 # Fail-closed (campaña H, docs/backlog.md "kb-precommit.sh depende de que
 # exo esté instalado — si no, el gate degrada a 'commit permitido' en
