@@ -833,10 +833,17 @@ fn la_migracion_normaliza_y_es_idempotente() {
     .unwrap();
 
     let migradas = exo::indexer::migra_rutas_portables(&conn).unwrap();
-    assert_eq!(migradas, 1, "la primera corrida migra la fila con backslash");
+    assert_eq!(
+        migradas, 1,
+        "la primera corrida migra la fila con backslash"
+    );
 
     let ruta: String = conn
-        .query_row("SELECT ruta FROM notas WHERE permalink = 'kb/log/alpha'", [], |r| r.get(0))
+        .query_row(
+            "SELECT ruta FROM notas WHERE permalink = 'kb/log/alpha'",
+            [],
+            |r| r.get(0),
+        )
         .unwrap();
     assert_eq!(ruta, "log/alpha.md");
 
@@ -868,8 +875,15 @@ fn tras_migrar_la_fila_casa_con_lo_que_calcula_el_incremental() {
     exo::indexer::migra_rutas_portables(&conn).unwrap();
 
     let en_db: String = conn
-        .query_row("SELECT ruta FROM notas WHERE permalink = 'kb/log/alpha'", [], |r| r.get(0))
+        .query_row(
+            "SELECT ruta FROM notas WHERE permalink = 'kb/log/alpha'",
+            [],
+            |r| r.get(0),
+        )
         .unwrap();
     let calculada = exo::indexer::ruta_relativa(kb, &kb.join("log").join("alpha.md")).unwrap();
-    assert_eq!(en_db, calculada, "la fila migrada debe casar con el incremental");
+    assert_eq!(
+        en_db, calculada,
+        "la fila migrada debe casar con el incremental"
+    );
 }

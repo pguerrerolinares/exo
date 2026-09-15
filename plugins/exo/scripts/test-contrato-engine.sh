@@ -163,7 +163,7 @@ else fail "contrato: schema_version == 2" "$(printf '%s' "$SALIDA" | jq -c '.sch
 # La receta que documentan document/SKILL.md y arquitectura.md es
 # `.data.results[] | .permalink, .path`. Si el envelope deriva, esa prosa pasa a
 # mentir en silencio (un `.ruta` devolvía `null` sin error de jq durante meses).
-SALIDA_S="$(timeout "${EXO_CONTRATO_TIMEOUT:-15}" "$EXO_BIN" search --type hybrid \
+SALIDA_S="$(con_timeout "${EXO_CONTRATO_TIMEOUT:-15}" "$EXO_BIN" search --type hybrid \
               --json --limit 3 --db "$EXO_INDEX" --kb "$EXO_KB" "doctrina" 2>/dev/null)"
 RC_S=$?
 if [ "$RC_S" -ne 0 ] || [ -z "$SALIDA_S" ]; then

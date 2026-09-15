@@ -137,9 +137,14 @@ fn el_aviso_no_entra_en_el_envelope() {
     let v: serde_json::Value = serde_json::from_slice(&salida.stdout).unwrap();
     // El aviso de ruta ausente va SOLO a stderr: `path: null` ya es inferible
     // desde `results`, y `warnings` es para lo que NO se puede inferir.
-    let avisos = v["data"]["warnings"].as_array().cloned().unwrap_or_default();
+    let avisos = v["data"]["warnings"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
     assert!(
-        !avisos.iter().any(|a| a.as_str().unwrap_or("").contains("sin ruta")),
+        !avisos
+            .iter()
+            .any(|a| a.as_str().unwrap_or("").contains("sin ruta")),
         "warnings: {avisos:?}"
     );
 }
@@ -176,7 +181,13 @@ fn sin_kb_resoluble_el_modo_humano_falla_con_remedio() {
         .env_remove("EXO_KB")
         .output()
         .unwrap();
-    assert!(!salida.status.success(), "debe fallar, no dar ruta relativa");
+    assert!(
+        !salida.status.success(),
+        "debe fallar, no dar ruta relativa"
+    );
     let err = String::from_utf8_lossy(&salida.stderr);
-    assert!(err.contains("--kb"), "el error debe nombrar el remedio: {err}");
+    assert!(
+        err.contains("--kb"),
+        "el error debe nombrar el remedio: {err}"
+    );
 }

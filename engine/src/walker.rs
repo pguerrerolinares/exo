@@ -138,9 +138,7 @@ fn recorre(
         let rel = ruta_portable(
             &ruta
                 .strip_prefix(raiz)
-                .with_context(|| {
-                    format!("{} fuera de la raíz {}", ruta.display(), raiz.display())
-                })?
+                .with_context(|| format!("{} fuera de la raíz {}", ruta.display(), raiz.display()))?
                 .to_string_lossy(),
         );
         let tipo = entrada
