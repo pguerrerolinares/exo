@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Helper COMPARTIDO: compara versiones semver X.Y.Z en bash puro — sin
 # `sort -V` (no está en macOS/BSD), sin `bc`, sin spawns extra. Lo usan
-# exo-recall.sh y recall-inject.sh (Task 2), hooks que corren en cada
-# sesión/prompt: un spawn de más ahí se paga en cada turno.
+# exo-recall.sh (Task 2, el único hook con check de versión — decisión de
+# Paul en pre-flight de H: `recall-inject.sh` corre en cada prompt y un `exo
+# --version` ahí sería un spawn extra) y el gate `scripts/test-versiones.sh`.
 #
 # Uso:
 #   . "$SCRIPT_DIR/_engine-version.sh"

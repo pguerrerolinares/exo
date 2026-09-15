@@ -38,8 +38,9 @@ if [ "$#" -ge 1 ] && [ "$1" != "v$engine" ]; then
 fi
 
 # ENGINE_MIN (campaña H): el mínimo de engine que el plugin instalado declara
-# necesitar (lo lee `exo doctor` del plugin en caché, y los hooks del propio
-# binario en ejecución). Tiene que ser <= la versión real de engine — un
+# necesitar (lo lee `exo doctor` del plugin en caché, y el hook
+# `exo-recall.sh` del propio binario en ejecución). Tiene que ser <= la
+# versión real de engine — un
 # ENGINE_MIN por delante de lo que el propio repo publica marcaría todo
 # binario recién compilado como "viejo".
 engine_min="$(tr -d '[:space:]' < plugins/exo/ENGINE_MIN 2>/dev/null || true)"
