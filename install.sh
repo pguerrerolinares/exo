@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Instalador de exo desde GitHub Releases.
 #
-# Deja el binario en $EXO_DIR (default ~/.local/bin) y en ningún otro sitio,
-# porque ahí es donde el pre-commit de la KB lo busca literalmente
-# (plugins/exo/scripts/kb-precommit.sh:18) y, si no está, ese gate sale 0:
-# commit permitido, sin gate, sin romper nada. Instalar en otro punto del PATH
-# apaga el gate sin que nadie se entere.
+# Deja el binario en $EXO_DIR (default ~/.local/bin) — el sitio que el
+# pre-commit de la KB mira primero (plugins/exo/scripts/kb-precommit.sh:18),
+# con $PATH como fallback si no está ahí. Si ninguno de los dos resuelve un
+# exo ejecutable, ese gate sale 1 y BLOQUEA el commit (fail-closed, campaña
+# H); el escape consciente es `git commit --no-verify`. Instalar exo en
+# cualquier otro punto del PATH también deja el gate operativo.
 set -euo pipefail
 
 REPO="${EXO_REPO:-pguerrerolinares/exo}"

@@ -5,8 +5,10 @@
 .DESCRIPTION
   Baja el binario de la release, verifica su SHA256 y lo deja en
   $HOME\.local\bin\exo.exe — la misma ruta que ve Git Bash como
-  ~/.local/bin/exo, que es donde kb-precommit.sh busca el binario. Si no está
-  ahí, ese gate sale 0 y el commit pasa sin gate.
+  ~/.local/bin/exo, que es el sitio que kb-precommit.sh mira primero (con
+  $PATH como fallback). Si ninguno de los dos resuelve un exo ejecutable,
+  ese gate sale 1 y BLOQUEA el commit (fail-closed); el escape consciente es
+  git commit --no-verify.
 #>
 [CmdletBinding()]
 param(
@@ -14,8 +16,10 @@ param(
     # OJO: `$HOME` de PowerShell sale de USERPROFILE/HOMEDRIVE+HOMEPATH y NO
     # mira `$env:HOME`, que Git Bash sí hereda. En una máquina con HOME puesto
     # a mano, los dos instaladores escribirían en sitios distintos y el
-    # `~/.local/bin/exo` que busca kb-precommit.sh quedaría vacío: commit
-    # permitido sin gate, en silencio. Se prefiere $env:HOME cuando existe.
+    # `~/.local/bin/exo` que busca kb-precommit.sh quedaría vacío ahí — el
+    # gate cae al fallback de $PATH, y si tampoco encuentra un exo ejecutable
+    # ahí, BLOQUEA el commit (fail-closed) en vez de pasarlo en silencio. Se
+    # prefiere $env:HOME cuando existe.
     [string]$Dir     = $(if ($env:EXO_DIR)     { $env:EXO_DIR }     else { Join-Path $(if ($env:HOME) { $env:HOME } else { $HOME }) '.local\bin' }),
     [string]$Repo    = $(if ($env:EXO_REPO)    { $env:EXO_REPO }    else { 'pguerrerolinares/exo' }),
     [string]$BaseUrl = $env:EXO_BASE_URL
