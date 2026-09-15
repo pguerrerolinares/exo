@@ -216,6 +216,9 @@ pub fn version_dir_mas_alta(base: &Path) -> Option<(PathBuf, (u32, u32, u32))> {
 /// en compilación — para detectar el caso que motiva la campaña H: un
 /// plugin actualizado (que ya no lleva los alias españoles retirados en
 /// 0.2.0, por ejemplo) corriendo contra un binario que se quedó atrás.
+/// OJO: compara el binario que EJECUTA `doctor` ahora mismo, no el que los
+/// hooks resuelven en un commit real — un `target/release/exo doctor` da
+/// `ok` aunque el `~/.local/bin/exo` que usan los hooks sea viejo.
 fn check_plugin_compat(entorno: &Entorno) -> Check {
     let base = entorno
         .home
@@ -318,10 +321,13 @@ fn check_binario_en_path(entorno: &Entorno) -> Check {
     }
 }
 
-/// El fallback literal de `plugins/exo/scripts/kb-precommit.sh:18`
-/// (`EXO="${EXO_BIN:-$HOME/.local/bin/exo}"`). Si ese fichero no está, la
-/// línea 20 del hook sale **0**: commit permitido, gate apagado, sin romper
-/// nada. Por eso esto es `fail` y no `warn`.
+/// El fallback literal de `plugins/exo/scripts/kb-precommit.sh`
+/// (`$HOME/.local/bin/exo(.exe)`, entre `EXO_BIN` y el fallback final a
+/// `$PATH` que también resuelve ese hook). Si este fichero falta Y tampoco
+/// hay un `exo` en `$PATH` (`binary_on_path`, arriba), el hook sale **1** y
+/// BLOQUEA el commit (fail-closed, campaña H) — ya no degrada en silencio.
+/// Sigue siendo `fail` y no `warn` porque, aunque el fallo ya no sea mudo,
+/// sí es evitable: instalar el binario aquí ahorra el commit bloqueado.
 ///
 /// Se reporta QUÉ fichero existe: medido el 2026-09-10 en el Git Bash de W11,
 /// msys resuelve `exo` → `exo.exe` en `stat()` y el test `-x` sobre la ruta
@@ -386,7 +392,8 @@ fn check_fallback_del_hook(entorno: &Entorno) -> Check {
             "hook_fallback_binary",
             Estado::Fail,
             artefacto,
-            "kb-precommit.sh:20 sale 0 sin gate — COMMIT PERMITIDO en silencio. \
+            "kb-precommit.sh BLOQUEA el commit si tampoco hay un exo en $PATH \
+             (fail-closed, campaña H) — no es silencioso, pero sí evitable. \
              Instala con install.sh/install.ps1 o copia el binario ahí",
         )
     }
