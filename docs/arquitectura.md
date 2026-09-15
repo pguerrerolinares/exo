@@ -307,14 +307,17 @@ Extraída del parser de clap (`engine/src/main.rs`):
 | `exo targets <tema>` | Candidatas de la KB para un tema, portado de `kbx targets` | `--limit` (10), `--db`, `--kb`, `--json` |
 | `exo rotate` | Divide una bitácora `tier: log` en frío (a `archive/log/`) y caliente, portado de `kbx rotate`. Solo el nivel superior de `log/`, sin recursión | `--hot-bytes` (20480), `--apply`, `--kb`, `--json` |
 | `exo stale` | Urgencia de actualización por nota (edad de último commit, degree, tier), portado de `kbx stale`. Solo lectura | `--now`, `--db`, `--kb`, `--json` |
-| `exo doctor` | Preflight de **entorno** (la máquina), frente a `lint`, que es de la KB. Diez checks; cada uno reporta el artefacto que miró y ninguno desaparece del informe: lo que no aplica sale como `na`. Emite el informe entero y luego gatea (exit 3 si hay algún `fail`; los `warn` no gatean) | `--json` |
+| `exo doctor` | Preflight de **entorno** (la máquina), frente a `lint`, que es de la KB. Doce checks; cada uno reporta el artefacto que miró y ninguno desaparece del informe: lo que no aplica sale como `na`. Emite el informe entero y luego gatea (exit 3 si hay algún `fail`; los `warn` no gatean) | `--json` |
 
 Los flags largos están en inglés. Los diez alias en español que aceptaban
 como forma escondida (`--limite`, `--titulo`, `--crea`, `--min-similitud`,
 `--escala-fts`, y otros cinco) ya **no existen**: se retiraron en `engine`
 0.2.0 (campaña H, commit `5353038`, 2026-09-15) — primera ruptura real de
-compatibilidad binario↔plugin del proyecto, cubierta por el check
-`plugin_compat` de `exo doctor`.
+compatibilidad, pero para quien invoque el CLI con esos flags, no para el
+plugin: `ENGINE_MIN` sigue en `0.1.0` porque ningún script del plugin los
+usaba. El check `plugin_compat` de `exo doctor` vigila esa otra dirección —
+un binario más viejo que el `ENGINE_MIN` que declara el plugin instalado —,
+no la retirada de los alias en sí.
 
 Idioma de la ayuda: los textos de producto y los errores propios van
 en español; el cromo que pinta clap (`Usage:`, `Options:`, `Commands:`…) y
@@ -379,10 +382,11 @@ Detalles que el diagrama no cuenta:
 
 - **`exo-recall.sh`** (SessionStart) inyecta el cuerpo del `core-index` de la
   KB (el mapa + doctrina) como `additionalContext`. Nunca bloquea el arranque:
-  ante engine ausente, índice ausente, bloque vacío o un bloque que no
-  contiene la frase-guarda `Contrato de memoria`, cae a un fallback de texto
-  embebido y deja un evento greppable con la razón (`no-engine`, `no-index`,
-  `no-contract`…). Tras una compactación de contexto, reafirma las reglas de
+  ante engine ausente, índice ausente, engine por debajo de `ENGINE_MIN`,
+  bloque vacío o un bloque que no contiene la frase-guarda `Contrato de
+  memoria`, cae a un fallback de texto embebido y deja un evento greppable
+  con la razón (`no-engine`, `no-index`, `engine-stale`, `no-contract`…).
+  Tras una compactación de contexto, reafirma las reglas de
   los reflejos que ya dispararon en la sesión.
 - **`estilo-directo.sh`** (SessionStart) inyecta una directiva de estilo de
   respuesta fija: texto estático desde `estilo-directo.md`, no depende del

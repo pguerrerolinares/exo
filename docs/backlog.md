@@ -7,7 +7,28 @@
 > duplicar. Cada item cita su evidencia; un item sin evidencia verificable no
 > entra.
 >
-> Última revisión: **2026-09-15** (bookkeeping de estado: entran por PR las
+> Última revisión: **2026-09-15** (campaña H — fail-closed de `doctor` y
+> cutover binario↔plugin, `docs/superpowers/plans/2026-09-15-campana-h-fail-closed.md`,
+> en la rama `campana-h`; PR de integración a `main` aún no abierto en el
+> momento de este commit, se actualiza esta línea cuando exista. Cierra con
+> evidencia: contrato `ENGINE_MIN` + helper bash (Task 1, commits
+> `edba38d`/`d5281ad`), `exo-recall.sh` detecta engine viejo — SOLO ese
+> hook, no `recall-inject.sh` (decisión de Paul en pre-flight: un `exo
+> --version` por prompt sería spawn extra, en conflicto con la latencia que
+> mide la futura campaña I) (Task 2, commit `5cee331`), check
+> `plugin_compat` en `exo doctor` (Task 3, commit `c6f910a`),
+> `check_git_bash` ya no da `ok` con un `bash` de WSL (Task 4, commits
+> `81b25b7`/`6e19791`/`1dfa600`), `script_del_plugin` ordena por semver real
+> (Task 5, commit `ed9f27f`), `kb-precommit.sh` fail-closed (Task 6, commit
+> `71f691b`), y el retiro de los 10 alias españoles — `engine` a 0.2.0,
+> plugin a 1.2.0 (Task 7, commit `5353038`). El cap de 6.144 B del bloque de
+> arranque se mide (5.869 B, 4,5% de aire) — la decisión de mantenerlo o
+> subirlo sigue **PENDIENTE-PAUL**, no está entre las decisiones que Paul
+> aceptó el 2026-09-15 (Task 8, este commit). Fuera de esta campaña: la
+> fusión de scripts y la reducción de spawns del hook — campaña I, después
+> de H.)
+>
+> Anterior: **2026-09-15** (bookkeeping de estado: entran por PR las
 > campañas D y E, un fix suelto de rutas y la Task 15 de A medida en W11 —
 > PR #19 campaña E (`36ef9aa`), PR #20 campaña D (`0494e3d`), PR #21 grafía
 > única de ruta en el binario + ruta en la salida humana de `search`
@@ -35,29 +56,9 @@
 > las líneas citadas. **Verificado y sigue igual**: los seis ítems «lo
 > cierra/lo subsume G5» ya estaban marcados huérfanos desde el 09-11 (nadie
 > los adoptó desde entonces) y `exo doctor` (`engine/src/doctor.rs`) existe
-> desde G5b — el item que lo menciona solo pedía un check puntual de desfase
-> de versión binario/plugin, que sigue sin dueño, no el comando entero.)
->
-> Anterior: **2026-09-15** (campaña H — fail-closed de `doctor` y
-> cutover binario↔plugin, `docs/superpowers/plans/2026-09-15-campana-h-fail-closed.md`,
-> en la rama `campana-h`; PR de integración a `main` aún no abierto en el
-> momento de este commit, se actualiza esta línea cuando exista. Cierra con
-> evidencia: contrato `ENGINE_MIN` + helper bash (Task 1, commits
-> `edba38d`/`d5281ad`), `exo-recall.sh` detecta engine viejo — SOLO ese
-> hook, no `recall-inject.sh` (decisión de Paul en pre-flight: un `exo
-> --version` por prompt sería spawn extra, en conflicto con la latencia que
-> mide la futura campaña I) (Task 2, commit `5cee331`), check
-> `plugin_compat` en `exo doctor` (Task 3, commit `c6f910a`),
-> `check_git_bash` ya no da `ok` con un `bash` de WSL (Task 4, commits
-> `81b25b7`/`6e19791`/`1dfa600`), `script_del_plugin` ordena por semver real
-> (Task 5, commit `ed9f27f`), `kb-precommit.sh` fail-closed (Task 6, commit
-> `71f691b`), y el retiro de los 10 alias españoles — `engine` a 0.2.0,
-> plugin a 1.2.0 (Task 7, commit `5353038`). El cap de 6.144 B del bloque de
-> arranque se mide (5.869 B, 4,5% de aire) — la decisión de mantenerlo o
-> subirlo sigue **PENDIENTE-PAUL**, no está entre las decisiones que Paul
-> aceptó el 2026-09-15 (Task 8, este commit). Fuera de esta campaña: la
-> fusión de scripts y la reducción de spawns del hook — campaña I, después
-> de H.)
+> desde G5b — el item que lo menciona pedía un check puntual de desfase de
+> versión binario/plugin: lo cierra la campaña H de arriba con el check
+> `plugin_compat`, no el comando entero.)
 >
 > Anterior: **2026-09-14** (campaña E — hooks honestos +
 > CI de coste trivial, `docs/superpowers/plans/2026-09-14-campana-e-hooks-honestos-y-ci.md`,
@@ -2085,8 +2086,12 @@
   se sustituyó por `los_flags_espanoles_ya_no_parsean_ni_como_alias_oculto`
   (mismos diez flags, aserción invertida) en vez de borrarse sin más — así
   un alias repuesto por accidente se vería rojo de inmediato. `engine`
-  0.1.0 → 0.2.0, `plugin.json`/`marketplace.json` 1.1.2 → 1.2.0,
-  `plugins/exo/ENGINE_MIN` 0.1.0 → 0.2.0. Grep exhaustivo de los ocho flags
+  0.1.0 → 0.2.0, `plugin.json`/`marketplace.json` 1.1.2 → 1.2.0.
+  `plugins/exo/ENGINE_MIN` se queda en `0.1.0` (decisión de Paul en la
+  review final de H, 2026-09-15): declara lo que el plugin 1.2.0 necesita de
+  verdad, y ningún script del plugin usa nada de engine 0.2.0 — la retirada
+  de aliases rompe a llamadores externos del CLI, no al plugin. Sube cuando
+  algún script del plugin use algo nuevo. Grep exhaustivo de los ocho flags
   españoles sobre `plugins/`, `docs/`, `scripts/`, `.github/workflows/`
   (hecho en el plan de H): ningún consumidor fuera del propio test de
   `flags.rs` los usaba — no hizo falta migrar ningún script ni skill.
