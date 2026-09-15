@@ -749,21 +749,57 @@ fn plugin_con_engine_min_futuro_es_fail() {
     );
 }
 
+// `ruta_sugiere_git_bash` pasó de bool a `Option<bool>` en el fix de review
+// de la Task 4 (orquestador, 2026-09-15): la heurística era booleana y
+// System32 (inconcluso "no contiene git") colapsaba con "no sé" — la MISMA
+// respuesta que una ruta desconocida, así que `es_git_bash` lanzaba
+// `--version` en ambos casos. Ahora `Some(false)` es concluyente-no y nunca
+// llega a ejecutar nada; `None` es lo único que sí decide por `--version`.
+// Único consumidor fuera de `doctor.rs`: este fichero (grep verificado).
+
 #[test]
-fn ruta_de_wsl_no_sugiere_git_bash() {
-    assert!(!exo::doctor::ruta_sugiere_git_bash(Path::new(
-        r"C:\Windows\System32\bash.exe"
-    )));
+fn ruta_de_wsl_bajo_system32_es_concluyente_no_sin_ejecutar_nada() {
+    assert_eq!(
+        exo::doctor::ruta_sugiere_git_bash(Path::new(r"C:\Windows\System32\bash.exe")),
+        Some(false)
+    );
+}
+
+#[test]
+fn ruta_del_alias_wsl_bajo_windowsapps_es_concluyente_no_sin_ejecutar_nada() {
+    assert_eq!(
+        exo::doctor::ruta_sugiere_git_bash(Path::new(
+            r"C:\Users\x\AppData\Local\Microsoft\WindowsApps\bash.exe"
+        )),
+        Some(false)
+    );
+    // Tolerante a `/` como separador, no solo a `\`.
+    assert_eq!(
+        exo::doctor::ruta_sugiere_git_bash(Path::new(
+            "/c/Users/x/AppData/Local/Microsoft/WindowsApps/bash.exe"
+        )),
+        Some(false)
+    );
 }
 
 #[test]
 fn ruta_bajo_git_for_windows_sugiere_git_bash_sin_ejecutar_nada() {
-    assert!(exo::doctor::ruta_sugiere_git_bash(Path::new(
-        r"C:\Program Files\Git\bin\bash.exe"
-    )));
-    assert!(exo::doctor::ruta_sugiere_git_bash(Path::new(
-        r"C:\Program Files\Git\usr\bin\bash.exe"
-    )));
+    assert_eq!(
+        exo::doctor::ruta_sugiere_git_bash(Path::new(r"C:\Program Files\Git\bin\bash.exe")),
+        Some(true)
+    );
+    assert_eq!(
+        exo::doctor::ruta_sugiere_git_bash(Path::new(r"C:\Program Files\Git\usr\bin\bash.exe")),
+        Some(true)
+    );
+}
+
+#[test]
+fn ruta_desconocida_es_inconclusa() {
+    assert_eq!(
+        exo::doctor::ruta_sugiere_git_bash(Path::new(r"C:\HerramientasVarias\bash.exe")),
+        None
+    );
 }
 
 #[test]
@@ -780,25 +816,126 @@ fn version_de_wsl_no_se_reconoce_como_git_bash() {
     ));
 }
 
+/// Compila un `.exe` real (no un fichero de texto con esa extensión) que,
+/// invocado con `--version`, imprime `linea` tal cual. Sirve para demostrar
+/// que un check NO lo ejecuta: un fichero de texto plano falla al lanzarse
+/// (Err) igual con la heurística vieja que con la nueva, así que NO
+/// distingue "cortó antes" de "lo intentó y falló" — hace falta un binario
+/// que, si SE LLEGA A LANZAR, dé una respuesta observable y distinta.
+/// `rustc` está garantizado en esta máquina (constraint de la ola: "cargo
+/// disponible" — rustc vive al lado).
+#[cfg(windows)]
+fn compila_bash_falso_que_dice(destino: &Path, linea: &str) {
+    let src_dir = tempfile::tempdir().unwrap();
+    let src = src_dir.path().join("fake_bash.rs");
+    fs::write(&src, format!("fn main() {{ println!({linea:?}); }}\n")).unwrap();
+    let status = std::process::Command::new("rustc")
+        .arg(&src)
+        .arg("-o")
+        .arg(destino)
+        .status()
+        .expect("rustc debe estar disponible junto a cargo para compilar el bash falso de prueba");
+    assert!(
+        status.success(),
+        "no se pudo compilar el bash falso de prueba en {}",
+        destino.display()
+    );
+}
+
+/// La línea de `--version` de un Git Bash (msys) de verdad. Si el check
+/// llegara a lanzar el bash falso bajo System32/WindowsApps, saldría esto y
+/// el veredicto pasaría de `Warn` a `Ok` — la señal de que hubo spawn.
+#[cfg(windows)]
+const VERSION_MSYS_DE_VERDAD: &str = "GNU bash, version 5.2.26(1)-release (x86_64-pc-msys)";
+
 #[cfg(windows)]
 #[test]
-fn bash_resuelto_bajo_system32_es_warn_no_ok() {
+fn bash_bajo_system32_no_se_ejecuta_aunque_diria_msys_si_se_lanzara() {
     let dir = tempfile::tempdir().unwrap();
     let bindir = dir.path().join("System32");
     fs::create_dir_all(&bindir).unwrap();
-    // No hace falta un bash.exe real: la ruta ya lo descarta (System32) y el
-    // intento de ejecutarlo fallará (no es un ejecutable válido), lo que
-    // `es_git_bash` trata igual que "no dijo msys/mingw".
-    fs::write(bindir.join("bash.exe"), b"no es un binario de verdad").unwrap();
+    compila_bash_falso_que_dice(&bindir.join("bash.exe"), VERSION_MSYS_DE_VERDAD);
     let mut env = entorno(dir.path());
     env.path = bindir.display().to_string();
     let informe = analiza(&env);
     let c = check(&informe, "git_bash");
-    assert_eq!(c.estado, Estado::Warn);
+    assert_eq!(
+        c.estado,
+        Estado::Warn,
+        "si esto da Ok es que SE LANZÓ el bash falso bajo System32 (que dice \
+         msys) en vez de cortar por la ruta antes de ejecutar nada: {c:?}"
+    );
     assert!(
         c.detalle.contains("WSL"),
         "dice que lo que resolvió es WSL, no Git Bash: {}",
         c.detalle
+    );
+}
+
+/// El alias de ejecución de la Store para el WSL vive bajo `WindowsApps`, no
+/// bajo `System32` — mismo caso concluyente-no, otro directorio.
+#[cfg(windows)]
+#[test]
+fn bash_bajo_windowsapps_no_se_ejecuta_aunque_diria_msys_si_se_lanzara() {
+    let dir = tempfile::tempdir().unwrap();
+    let bindir = dir.path().join("WindowsApps");
+    fs::create_dir_all(&bindir).unwrap();
+    compila_bash_falso_que_dice(&bindir.join("bash.exe"), VERSION_MSYS_DE_VERDAD);
+    let mut env = entorno(dir.path());
+    env.path = bindir.display().to_string();
+    let informe = analiza(&env);
+    let c = check(&informe, "git_bash");
+    assert_eq!(
+        c.estado,
+        Estado::Warn,
+        "si esto da Ok es que SE LANZÓ el bash falso bajo WindowsApps (que dice \
+         msys) en vez de cortar por la ruta antes de ejecutar nada: {c:?}"
+    );
+    assert!(
+        c.detalle.contains("WSL"),
+        "dice que lo que resolvió es WSL, no Git Bash: {}",
+        c.detalle
+    );
+}
+
+/// Ruta que no es ni System32/WindowsApps ni Git: inconclusa. Solo aquí
+/// `es_git_bash` decide preguntando con `--version`.
+#[cfg(windows)]
+#[test]
+fn bash_en_ruta_inconclusa_decide_por_version_dice_msys_es_ok() {
+    let dir = tempfile::tempdir().unwrap();
+    let bindir = dir.path().join("HerramientasVarias");
+    fs::create_dir_all(&bindir).unwrap();
+    compila_bash_falso_que_dice(&bindir.join("bash.exe"), VERSION_MSYS_DE_VERDAD);
+    let mut env = entorno(dir.path());
+    env.path = bindir.display().to_string();
+    let informe = analiza(&env);
+    let c = check(&informe, "git_bash");
+    assert_eq!(
+        c.estado,
+        Estado::Ok,
+        "ruta inconclusa + --version dice msys => Git Bash real: {c:?}"
+    );
+}
+
+#[cfg(windows)]
+#[test]
+fn bash_en_ruta_inconclusa_decide_por_version_sin_msys_es_warn() {
+    let dir = tempfile::tempdir().unwrap();
+    let bindir = dir.path().join("HerramientasVarias");
+    fs::create_dir_all(&bindir).unwrap();
+    compila_bash_falso_que_dice(
+        &bindir.join("bash.exe"),
+        "GNU bash, version 5.1.16(1)-release (x86_64-pc-linux-gnu)",
+    );
+    let mut env = entorno(dir.path());
+    env.path = bindir.display().to_string();
+    let informe = analiza(&env);
+    let c = check(&informe, "git_bash");
+    assert_eq!(
+        c.estado,
+        Estado::Warn,
+        "ruta inconclusa + --version sin msys/mingw => no es Git Bash: {c:?}"
     );
 }
 

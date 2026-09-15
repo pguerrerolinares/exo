@@ -654,12 +654,41 @@ fn check_jq(entorno: &Entorno) -> Check {
     }
 }
 
-/// Heurística barata: la ruta ya delata Git Bash sin lanzar ningún proceso.
-/// El `bash.exe` de WSL vive literalmente bajo `System32`; el de Git for
-/// Windows, bajo un directorio `Git\`.
-pub fn ruta_sugiere_git_bash(ruta: &Path) -> bool {
-    let s = ruta.to_string_lossy().to_lowercase();
-    s.contains("git") && !s.contains("system32")
+/// Heurística barata y TERNARIA: concluye sin lanzar ningún proceso cuando
+/// puede, y deja `None` (inconcluso) para que `es_git_bash` decida con
+/// `--version`.
+///
+/// Antes era booleana, y eso confundía "inconcluso" con "concluyente-no": la
+/// ruta del `bash.exe` de WSL vive bajo `System32` y no contiene `"git"`, así
+/// que la vieja heurística devolvía `false` — la MISMA respuesta que para una
+/// ruta desconocida. `es_git_bash` no podía distinguir los dos casos y
+/// lanzaba `--version` en ambos, es decir: lanzaba el `bash.exe` de WSL (que
+/// arranca la VM entera) solo para un check de doctor.
+///
+/// - `Some(true)`: la ruta vive bajo un directorio `git` — concluyente sí.
+/// - `Some(false)`: la ruta vive bajo `.../System32/` o `.../WindowsApps/` —
+///   el `bash.exe` de WSL vive literalmente bajo `System32`, y el alias de
+///   ejecución de la Store bajo `WindowsApps` — concluyente no, SIN lanzar
+///   nada.
+/// - `None`: ninguno de los dos patrones — inconcluso; solo este caso llega
+///   a `--version`.
+///
+/// Comparación case-insensitive y tolerante a `\` o `/` como separador: se
+/// normaliza a `/` y se antepone una barra para que un segmento en posición
+/// inicial (p.ej. una ruta relativa `"System32/bash.exe"`) tenga el mismo
+/// borde que uno interior.
+pub fn ruta_sugiere_git_bash(ruta: &Path) -> Option<bool> {
+    let s = format!(
+        "/{}",
+        ruta.to_string_lossy().to_lowercase().replace('\\', "/")
+    );
+    if s.contains("/system32/") || s.contains("/windowsapps/") {
+        return Some(false);
+    }
+    if s.contains("/git/") {
+        return Some(true);
+    }
+    None
 }
 
 /// El bash de WSL responde a `--version` como un GNU bash normal de Linux;
@@ -671,17 +700,19 @@ pub fn salida_indica_git_bash(salida: &str) -> bool {
     s.contains("msys") || s.contains("mingw")
 }
 
-/// `ruta` es un Git Bash de verdad: la vía barata (heurística de ruta)
-/// primero, y solo si es inconcluyente se le pregunta con `--version`. Un
-/// `Err` al ejecutar (ruta no es un binario válido) cuenta como "no lo es",
-/// nunca como pánico.
+/// `ruta` es un Git Bash de verdad: la vía barata (heurística de ruta,
+/// ahora ternaria) primero, y solo si es INCONCLUSA (`None`) se le pregunta
+/// con `--version` — un veredicto concluyente (`Some`) de
+/// `ruta_sugiere_git_bash` nunca lanza el proceso, ni para el sí ni para el
+/// no. Un `Err` al ejecutar (ruta no es un binario válido) cuenta como "no lo
+/// es", nunca como pánico.
 fn es_git_bash(ruta: &std::path::Path) -> bool {
-    if ruta_sugiere_git_bash(ruta) {
-        return true;
-    }
-    match std::process::Command::new(ruta).arg("--version").output() {
-        Ok(o) => salida_indica_git_bash(&String::from_utf8_lossy(&o.stdout)),
-        Err(_) => false,
+    match ruta_sugiere_git_bash(ruta) {
+        Some(veredicto) => veredicto,
+        None => match std::process::Command::new(ruta).arg("--version").output() {
+            Ok(o) => salida_indica_git_bash(&String::from_utf8_lossy(&o.stdout)),
+            Err(_) => false,
+        },
     }
 }
 
