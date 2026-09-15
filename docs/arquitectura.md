@@ -198,10 +198,12 @@ motivos, tal como los declara el código:
 `exo search` tiene tres modos (`--type fts|vector|hybrid`, default `fts`),
 implementados en `engine/src/buscador.rs`. Todos devuelven resultados
 **a nivel de nota** (`type: "entity"`), nunca de trozo. Ojo con el default:
-el modo calibrado y medido (48/55 hit@5, §6) es `--type hybrid` **con el
-umbral pasado explícito** (`--min-similarity 0.40`); `fts` a secas es el modo
-léxico barato, no el medido. `exo recall --query` sí usa hybrid con los
-parámetros sellados de serie.
+el modo calibrado y medido (48/55 hit@5 **in-sample**, §6; held-out
+**64/92**, Wilson 95 % [59,5 %, 78,0 %], **no comparable** con el 48/55 —
+distinta fuente de queries, §6) es `--type hybrid` **con el umbral pasado
+explícito** (`--min-similarity 0.40`); `fts` a secas es el modo léxico
+barato, no el medido. `exo recall --query` sí usa hybrid con los parámetros
+sellados de serie.
 
 Dos salidas, dos formas. La humana son cuatro columnas separadas por tab —
 `permalink`, `type`, `score` (4 decimales), **ruta absoluta** — y necesita la
@@ -491,7 +493,17 @@ corrida, y los números no se renegocian.
   latencia. Corrida final (2026-08-17, `verdict/m2-09-corrida.md`):
   **engine-hybrid 48/55 vs bm-hybrid 39/55**. Los parámetros sellados del
   hybrid (§3.5) salen del sweep de 15 celdas cuyos resultados están en
-  `retrieval-fase0/results/metrics-engine-hybrid-*`.
+  `retrieval-fase0/results/metrics-engine-hybrid-*`. Este 48/55 es
+  **in-sample**: los parámetros se eligieron sobre las mismas 55 queries que
+  lo reportan.
+- **`evals/retrieval-heldout/`** (campaña C, 2026-09-14): held-out real sobre
+  92 queries nuevas, nunca vistas por quien fijó los parámetros del hybrid.
+  hit@5 de A0 (el binario sellado): **64/92 = 69,6 %**, Wilson 95 %
+  **[59,5 %, 78,0 %]** (`verdict/c-verdict.md`). **No se compara con el
+  48/55**: cambian a la vez la fuente de las queries, la KB (138→174 notas,
+  con rotaciones a `archive/`) y el binario — mezclaría sobreajuste con
+  cambio de distribución. El held-out queda **consumido**: cualquier cambio
+  de fusión, umbral o troceado exige un gold nuevo (`c-verdict.md` §11).
 - **`evals/prep-m3/`**: eval de otra naturaleza — paridad de **movimientos**
   de las skills destiladas frente a sus fuentes de superpowers. El oráculo no
   es mecánico: checklists gold por skill (`gold/*.md`, con sección DESCARTES
