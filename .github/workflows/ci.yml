@@ -28,8 +28,8 @@ env:
   HF_HOME: ${{ github.workspace }}/.cache/huggingface
 
 jobs:
-  lint:
-    name: fmt + clippy
+  static-checks:
+    name: checks estáticos
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

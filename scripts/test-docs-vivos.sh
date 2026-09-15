@@ -70,7 +70,7 @@ sin_secciones_negativas() {
 
 # --- (b) Subcomandos citados existen en el binario -------------------------
 # Fuente de verdad: enum Comando / enum ComandoWrite de engine/src/main.rs
-# (parseo estático — este gate corre en el job `lint`, que no compila el
+# (parseo estático — este gate corre en el job `static-checks`, que no compila el
 # release; sin binario no hay `exo --help` que leer).
 COMANDOS="$(sed -n '/^enum Comando {/,/^}/p' engine/src/main.rs \
   | grep -oE '^    [A-Z][A-Za-z]+\(' | tr -d ' (' | tr '[:upper:]' '[:lower:]' | sort -u)"

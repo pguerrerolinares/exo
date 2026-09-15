@@ -21,7 +21,7 @@ trap 'rm -rf "$TMP"' EXIT
 # para poder subirlo con actions/upload-artifact tras un fallo.
 LOG="${EXO_HERMETICO_LOG:-$TMP/out.txt}"
 
-# --locked: `lint`/`msrv` ya lo tenían; el job que de verdad EJECUTA la
+# --locked: `static-checks`/`msrv` ya lo tenían; el job que de verdad EJECUTA la
 # suite (y release.yml, que llama a este mismo script) no. Sin esto, el job
 # más importante podía resolver un árbol de dependencias distinto del
 # Cargo.lock commiteado sin que nada lo dijera.
