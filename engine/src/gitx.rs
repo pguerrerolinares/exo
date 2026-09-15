@@ -374,6 +374,53 @@ pub fn md_staged(dir: &Path) -> Result<Vec<String>> {
 ///    `.max(1)` en el conteo de padres, que también deja intacto el caso de
 ///    un commit normal (1 padre, jamás omitido: sin `-m` de por medio no
 ///    aplica la omisión de bloque, solo afecta a merges).
+/// 6. **Contaminación: una ruta que pasa por un bloque omitido se excluye
+///    del mapa entero, no solo del merge que la omitió** (fix del
+///    orquestador, medido el 2026-09-15 contra `git merge -s ours`). El
+///    punto 5 evita que el MERGE se lleve una ruta TREESAME a un padre
+///    omitido, pero deja un hueco: si esa ruta también fue tocada por un
+///    commit MÁS ANTIGUO alcanzable solo por el padre omitido, ese commit
+///    antiguo tiene 1 solo padre real (`num_padres == nbloques_impresos ==
+///    1`, ninguna omisión) y supera el chequeo del punto 5 sin más — el
+///    lote le atribuiría a la ruta el epoch de un commit cuyo efecto la
+///    reescritura de padres de git (parent rewriting, parte de la
+///    simplificación de historia que usa `git log -1 -- ruta`) DESCARTA
+///    por completo: ese commit solo es alcanzable por el subgrafo
+///    no-TREESAME que el padre superviviente del merge tira, y el fallback
+///    per-nota nunca lo ve. Medido con `git merge -s ours`: el merge
+///    (2 padres, 1 solo bloque impreso porque el diff contra el padre
+///    superviviente queda vacío) no atribuye la ruta a sí mismo (punto 5),
+///    pero el commit de la rama descartada (1 padre, 1 bloque, sin omisión
+///    ninguna) sí "gana" el chequeo normal y le da un epoch que el
+///    fallback real nunca produciría — divergencia silenciosa que el punto
+///    5 por sí solo no cierra (ver el doc-comment del test
+///    `epochs_de_todo_el_historial_en_un_merge_ours_coincide_con_el_fallback`
+///    para la salida cruda medida). El stream plano de esta función no
+///    tiene grafo: no puede saber, al procesar ese commit antiguo, que un
+///    merge posterior en el tiempo (pero procesado ANTES, log en orden
+///    newest-first) va a descartar su resultado para esa ruta.
+///
+///    La regla: en cualquier commit donde `-m` OMITE al menos un bloque
+///    (`nbloques_impresos < num_padres`, leído de `%P`, no de cuántas
+///    cabeceras se llegaron a imprimir), toda ruta que aparezca en
+///    CUALQUIERA de los bloques SÍ impresos de ese commit se marca
+///    «contaminada» y se excluye del mapa **final entero** — sin importar
+///    en qué otro commit del stream (anterior o posterior en el recorrido)
+///    se le hubiera asignado un epoch. Es correcta por construcción:
+///    cualquier ruta que pase por un bloque omitido es, por definición,
+///    candidata a la reescritura de padres que solo el fallback per-nota
+///    puede seguir — así que abstenerse nunca da un epoch incorrecto, como
+///    mucho una nota de más cayendo al fallback. El coste queda acotado a
+///    las rutas tocadas por un commit con AL MENOS un bloque omitido, raro
+///    en una KB. Efecto colateral medido y aceptado: los casos (a) y (c)
+///    del punto 5 —que sí tienen un bloque omitido, pero cuya ruta
+///    contaminada tenía además un commit de rama limpio más abajo en el
+///    stream que le daba el epoch correcto por otra vía— ahora también
+///    caen al fallback per-nota en vez de resolverse desde el lote: sin
+///    grafo, esta función no puede distinguir "esta contaminada tiene un
+///    commit de rama limpio de sobra" de "esta contaminada solo es
+///    recuperable vía reescritura de padres", y tratar ambos casos igual
+///    (fallback) es la única postura que nunca da un dato incorrecto.
 ///
 /// Recorre el log COMPLETO una vez y se queda con el PRIMER epoch válido
 /// visto para cada ruta: git emite los commits del más reciente al más
@@ -413,17 +460,28 @@ pub fn epochs_de_todo_el_historial(dir: &Path) -> Result<HashMap<String, i64>> {
         .with_context(|| format!("git log de {} devolvió stdout no-UTF8", dir.display()))?;
 
     let mut epochs: HashMap<String, i64> = HashMap::new();
+    // Rutas «contaminadas» (punto 6 del comentario de la función): pasaron
+    // por un commit con al menos un bloque `-m` omitido, así que ningún
+    // epoch que el stream plano les asigne es de fiar. Se excluyen del mapa
+    // final SIN IMPORTAR en qué commit del stream (antes o después) se
+    // intentó insertar su epoch — de ahí que sea un set aparte, filtrado al
+    // final, y no una comprobación dentro de `cierra_grupo`.
+    let mut contaminadas: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     // Estado del grupo de bloques en curso (ver el comentario de la función,
-    // puntos 3 y 5): `hash_actual`/`epoch_actual` identifican el commit;
+    // puntos 3, 5 y 6): `hash_actual`/`epoch_actual` identifican el commit;
     // `num_padres` es el número REAL de padres del commit, leído de `%P` (no
-    // de cuántas cabeceras `-m` llegó a imprimir — punto 5); `cuenta` cuántos
-    // de los bloques IMPRESOS mencionan cada ruta; `vistas_en_bloque` evita
-    // contar una ruta dos veces si git la repitiera dentro del MISMO bloque
-    // (defensivo, no observado).
+    // de cuántas cabeceras `-m` llegó a imprimir); `nbloques_impresos` es,
+    // en cambio, exactamente eso — cuántas cabeceras `-m` imprimió de verdad
+    // para este commit (punto 6: la comparación entre ambos es lo que
+    // detecta un bloque omitido); `cuenta` cuántos de los bloques IMPRESOS
+    // mencionan cada ruta; `vistas_en_bloque` evita contar una ruta dos
+    // veces si git la repitiera dentro del MISMO bloque (defensivo, no
+    // observado).
     let mut hash_actual: Option<String> = None;
     let mut epoch_actual: Option<i64> = None;
     let mut num_padres: usize = 0;
+    let mut nbloques_impresos: usize = 0;
     let mut cuenta: HashMap<String, u32> = HashMap::new();
     let mut vistas_en_bloque: std::collections::HashSet<String> = std::collections::HashSet::new();
 
@@ -444,12 +502,24 @@ pub fn epochs_de_todo_el_historial(dir: &Path) -> Result<HashMap<String, i64>> {
                 .count()
                 .max(1);
             if hash_actual.as_deref() != Some(hash.as_str()) {
-                cierra_grupo(&mut epochs, epoch_actual, num_padres, &cuenta);
+                cierra_grupo(
+                    &mut epochs,
+                    &mut contaminadas,
+                    epoch_actual,
+                    num_padres,
+                    nbloques_impresos,
+                    &cuenta,
+                );
                 hash_actual = Some(hash);
                 epoch_actual = epoch;
                 num_padres = padres_de_esta_cabecera;
+                nbloques_impresos = 0;
                 cuenta.clear();
             }
+            // Cada cabecera `\x01` vista, sea la primera del grupo o una
+            // repetición de `-m` para otro padre del mismo commit, es UN
+            // bloque impreso — de ahí fuera del `if` de arriba.
+            nbloques_impresos += 1;
             vistas_en_bloque.clear();
             continue;
         }
@@ -461,35 +531,81 @@ pub fn epochs_de_todo_el_historial(dir: &Path) -> Result<HashMap<String, i64>> {
             *cuenta.entry(ruta).or_insert(0) += 1;
         }
     }
-    cierra_grupo(&mut epochs, epoch_actual, num_padres, &cuenta);
+    cierra_grupo(
+        &mut epochs,
+        &mut contaminadas,
+        epoch_actual,
+        num_padres,
+        nbloques_impresos,
+        &cuenta,
+    );
+
+    // Filtro final de contaminación (punto 6): se aplica DESPUÉS de recorrer
+    // el historial completo porque una ruta puede contaminarse en un commit
+    // reciente (procesado primero, stream newest-first) y haber recibido ya
+    // una entrada válida-en-apariencia de un commit más antiguo (procesado
+    // después) — o al revés. El orden de inserción no importa: contaminada
+    // es contaminada, se excluye siempre.
+    for ruta in &contaminadas {
+        epochs.remove(ruta);
+    }
 
     Ok(epochs)
 }
 
 /// Cierra el grupo de bloques de un commit (ver `epochs_de_todo_el_historial`,
-/// puntos 3 y 5 del comentario): una ruta entra en `epochs` (primer epoch
+/// puntos 3, 5 y 6 del comentario): una ruta entra en `epochs` (primer epoch
 /// visto gana, `or_insert`) solo si apareció en TANTOS bloques como PADRES
 /// tiene el commit (`num_padres`, leído de `%P`) — no como bloques llegó a
-/// IMPRIMIR `-m`. Para un commit normal (`num_padres == 1`) o un merge donde
-/// `-m` imprimió un bloque por padre, ambos números coinciden y la regla es
-/// la misma de siempre. La divergencia solo aparece en un merge donde `-m`
-/// OMITIÓ por completo el bloque de algún padre porque, tras `--relative` (o
-/// sin pathspec alguno), el diff contra ese padre quedó vacío — un
-/// `git merge -s ours`, o un merge no-ff cuyo primer padre no avanzó, o un
-/// merge donde uno de los padres solo tocaba rutas fuera de la KB. Contar
-/// bloques IMPRESOS en ese caso infla artificialmente el "aparece en todos
-/// los bloques" (con menos bloques que padres reales, un umbral más bajo es
-/// más fácil de alcanzar) y atribuye al merge una ruta que en realidad es
-/// TREESAME al padre omitido — exactamente la que `git log -1 -- ruta` (el
-/// fallback) NO atribuye al merge, sino al commit real de esa rama.
+/// IMPRIMIR `-m` (`nbloques_impresos`, contado cabecera a cabecera). Para un
+/// commit normal (`num_padres == 1`) o un merge donde `-m` imprimió un
+/// bloque por padre, `nbloques_impresos == num_padres` y la regla es la
+/// misma de siempre.
+///
+/// **Contaminación (punto 6):** cuando `-m` OMITE por completo el bloque de
+/// algún padre —porque, tras `--relative` (o sin pathspec alguno), el diff
+/// contra ese padre quedó vacío: un `git merge -s ours`, un merge no-ff cuyo
+/// primer padre no avanzó, o un merge donde uno de los padres solo tocaba
+/// rutas fuera de la KB— entonces `nbloques_impresos < num_padres`, y NINGUNA
+/// ruta de `cuenta` puede alcanzar `n == num_padres` (su cota máxima es
+/// `nbloques_impresos`). Contar bloques impresos en vez de padres reales
+/// (diseño anterior a esta task) infla el umbral y atribuye al merge una
+/// ruta TREESAME al padre omitido — divergencia real. El punto 5 ya evita
+/// ESA atribución equivocada; no basta: toda ruta que apareció en cualquiera
+/// de los bloques SÍ impresos de un commit con bloques omitidos se marca
+/// «contaminada» y se excluye del mapa final entero, sin importar si otro
+/// commit del stream (más antiguo o más reciente) le habría dado un epoch
+/// que por casualidad coincide con el fallback. La razón es la reescritura
+/// de padres de git (parent rewriting): un commit alcanzable solo por el
+/// padre omitido puede tocar esa misma ruta con un resultado que la
+/// simplificación de historia real (la que usa el fallback per-nota)
+/// DESCARTA por completo — el caso medido es `git merge -s ours`, ver el
+/// doc-comment del test
+/// `epochs_de_todo_el_historial_en_un_merge_ours_coincide_con_el_fallback`.
+/// El stream plano de esta función no tiene grafo: no puede saber, al
+/// procesar ese commit antiguo, que un merge (procesado antes, por venir
+/// después en el tiempo) va a descartar su resultado para esa ruta. Marcar
+/// contaminada la ruta y abstenerse (fallback per-nota) es la única postura
+/// que nunca da un epoch incorrecto.
 fn cierra_grupo(
     epochs: &mut HashMap<String, i64>,
+    contaminadas: &mut std::collections::HashSet<String>,
     epoch: Option<i64>,
     num_padres: usize,
+    nbloques_impresos: usize,
     cuenta: &HashMap<String, u32>,
 ) {
     let Some(epoch) = epoch else { return };
     if num_padres == 0 {
+        return;
+    }
+    if nbloques_impresos < num_padres {
+        // Bloque(s) omitido(s): ninguna ruta de este commit puede alcanzar
+        // `n == num_padres` (ver doc de arriba), así que no hace falta ni
+        // mirar `cuenta` para atribución — solo para contaminar.
+        for ruta in cuenta.keys() {
+            contaminadas.insert(ruta.clone());
+        }
         return;
     }
     for (ruta, n) in cuenta {
@@ -1203,11 +1319,25 @@ mod tests {
 
         let mapa = epochs_de_todo_el_historial(&kb).unwrap();
         let esperado_a = crate::indexer::git_epoch_de(&kb, Path::new("a.md"));
+        // Valor EFECTIVO (mapa si existe, si no el per-nota), no presencia en
+        // el mapa: con la regla de contaminación (punto 6 del doc-comment de
+        // `epochs_de_todo_el_historial`) este merge tiene un bloque omitido
+        // (el padre A, filtrado del todo por `--relative`), así que "a.md"
+        // —que SÍ aparece en el único bloque impreso, el de B— se marca
+        // contaminada y cae al fallback per-nota, aunque el commit "A toca
+        // a.md" más abajo en el stream le habría dado el mismo epoch por otra
+        // vía. Aceptado: nunca es un dato incorrecto, como mucho una nota más
+        // en el fallback (ver el punto 6 del doc-comment).
+        let efectivo = mapa.get("a.md").copied().or(esperado_a);
         assert_eq!(
-            mapa.get("a.md").copied(),
-            esperado_a,
+            efectivo, esperado_a,
             "a.md es TREESAME al merge respecto al padre A (bloque omitido): \
-             debe resolver al commit de A, no al merge"
+             el valor efectivo debe coincidir con el fallback per-nota"
+        );
+        assert!(
+            !mapa.contains_key("a.md"),
+            "a.md queda contaminada (bloque omitido en este merge) y debe \
+             caer al fallback, no resolverse desde el lote"
         );
     }
 
@@ -1269,9 +1399,6 @@ mod tests {
     /// ese grupo. Test dejado en rojo documentado (`#[ignore]`), no en la
     /// suite verde, para no fingir una cobertura que no existe.
     #[test]
-    #[ignore = "NEEDS_CONTEXT: diverge del fallback por reescritura de padres \
-                (parent rewriting) en un merge -s ours, no por el conteo de \
-                bloques que corrige el fix de %P — ver doc-comment"]
     fn epochs_de_todo_el_historial_en_un_merge_ours_coincide_con_el_fallback() {
         let dir = tempfile::tempdir().unwrap();
         let raiz = dir.path();
@@ -1324,11 +1451,104 @@ mod tests {
         );
 
         let mapa = epochs_de_todo_el_historial(raiz).unwrap();
+        let esperado = ultimo_commit_epoch(raiz, "b.md");
+        // Valor EFECTIVO: lo que `indexer::indexa` acaba usando de verdad
+        // (entrada del mapa si existe, si no el per-nota) — nunca debe
+        // divergir del fallback, esté o no la ruta en el mapa.
+        let efectivo = mapa.get("b.md").copied().unwrap_or(esperado);
         assert_eq!(
-            mapa.get("b.md"),
-            Some(&ultimo_commit_epoch(raiz, "b.md")),
-            "b.md es TREESAME al merge respecto al padre 'master' (bloque \
-             vacío omitido): debe resolver al commit base, no al merge"
+            efectivo, esperado,
+            "el valor efectivo (mapa o fallback) debe coincidir con el per-nota"
+        );
+        // La parte que de verdad falsifica la regla de contaminación: ANTES
+        // del fix, `mapa` contenía "b.md" con el epoch equivocado
+        // (el de "rama toca b", descartado por la reescritura de padres de
+        // `-s ours`) y el assert de arriba habría fallado. Con la regla, la
+        // ruta queda excluida del mapa y cae al fallback per-nota.
+        assert!(
+            !mapa.contains_key("b.md"),
+            "b.md debe caer al fallback per-nota: el lote (stream plano, sin \
+             grafo) no puede replicar la reescritura de padres de `-s ours`"
+        );
+    }
+
+    /// Variante barata del caso (b): mismo `git merge -s ours`, pero con la
+    /// KB en un SUBDIRECTORIO del repo (como el caso de subdirectorio y el
+    /// caso (a)) — combina `--relative` con la regla de contaminación del
+    /// punto 6. `fuera.md`, hermano de `sub/kb`, existe solo para confirmar
+    /// que sigue invisible para el mapa (mismo chequeo que el test de
+    /// subdirectorio de más arriba).
+    #[test]
+    fn epochs_de_todo_el_historial_en_un_merge_ours_con_kb_subdirectorio_coincide_con_el_fallback()
+    {
+        let dir = tempfile::tempdir().unwrap();
+        let raiz = dir.path();
+        let kb = raiz.join("sub").join("kb");
+        std::fs::create_dir_all(&kb).unwrap();
+        let cfg = raiz.join("gitconfig-vacio");
+        std::fs::write(&cfg, "").unwrap();
+        let corre = |args: &[&str], fecha: &str| {
+            let salida = Command::new("git")
+                .arg("-C")
+                .arg(raiz)
+                .args(args)
+                .env("GIT_CONFIG_GLOBAL", &cfg)
+                .env("GIT_CONFIG_SYSTEM", &cfg)
+                .env("GIT_AUTHOR_NAME", "f")
+                .env("GIT_AUTHOR_EMAIL", "f@k.local")
+                .env("GIT_COMMITTER_NAME", "f")
+                .env("GIT_COMMITTER_EMAIL", "f@k.local")
+                .env("GIT_AUTHOR_DATE", fecha)
+                .env("GIT_COMMITTER_DATE", fecha)
+                .output()
+                .unwrap();
+            assert!(salida.status.success(), "git {args:?} falló");
+        };
+        corre(&["init", "-q"], "2026-01-01T10:00:00+00:00");
+        std::fs::write(kb.join("b.md"), "base\n").unwrap();
+        std::fs::write(raiz.join("fuera.md"), "base\n").unwrap();
+        corre(&["add", "."], "2026-01-01T10:00:00+00:00");
+        corre(&["commit", "-q", "-m", "base"], "2026-01-01T10:00:00+00:00");
+        corre(
+            &["checkout", "-q", "-b", "rama"],
+            "2026-01-01T10:00:00+00:00",
+        );
+        std::fs::write(kb.join("b.md"), "cambio\n").unwrap();
+        corre(&["add", "."], "2026-01-02T10:00:00+00:00");
+        corre(
+            &["commit", "-q", "-m", "rama toca b"],
+            "2026-01-02T10:00:00+00:00",
+        );
+        corre(&["checkout", "-q", "master"], "2026-01-01T10:00:00+00:00");
+        corre(
+            &[
+                "merge",
+                "-s",
+                "ours",
+                "-q",
+                "--no-edit",
+                "rama",
+                "-m",
+                "merge ours",
+            ],
+            "2026-01-03T10:00:00+00:00",
+        );
+
+        let mapa = epochs_de_todo_el_historial(&kb).unwrap();
+        let esperado = crate::indexer::git_epoch_de(&kb, Path::new("b.md"));
+        let efectivo = mapa.get("b.md").copied().or(esperado);
+        assert_eq!(
+            efectivo, esperado,
+            "b.md (KB en subdirectorio, -s ours): el valor efectivo debe \
+             coincidir con el fallback per-nota"
+        );
+        assert!(
+            !mapa.contains_key("b.md"),
+            "b.md debe caer al fallback per-nota, igual que en la raíz"
+        );
+        assert!(
+            !mapa.contains_key("fuera.md") && !mapa.keys().any(|k| k.contains("sub/kb")),
+            "fuera.md no debe aparecer, y ninguna clave debe llevar el prefijo del repo"
         );
     }
 
@@ -1401,11 +1621,23 @@ mod tests {
         );
 
         let mapa = epochs_de_todo_el_historial(raiz).unwrap();
+        let esperado = ultimo_commit_epoch(raiz, "a.md");
+        // Valor EFECTIVO, no presencia en el mapa — mismo razonamiento que el
+        // caso (a): este merge también tiene un bloque omitido (contra
+        // 'feat', TREESAME), así que "a.md" queda contaminada y cae al
+        // fallback per-nota aunque el commit "feat toca a.md" le habría dado
+        // el mismo epoch por el camino normal. Aceptado (punto 6 del
+        // doc-comment de `epochs_de_todo_el_historial`).
+        let efectivo = mapa.get("a.md").copied().unwrap_or(esperado);
         assert_eq!(
-            mapa.get("a.md"),
-            Some(&ultimo_commit_epoch(raiz, "a.md")),
+            efectivo, esperado,
             "a.md es TREESAME al merge respecto al padre 'feat' (bloque \
-             vacío omitido): debe resolver al commit de 'feat', no al merge"
+             vacío omitido): el valor efectivo debe coincidir con el fallback"
+        );
+        assert!(
+            !mapa.contains_key("a.md"),
+            "a.md queda contaminada (bloque omitido en este merge) y debe \
+             caer al fallback, no resolverse desde el lote"
         );
     }
 }
