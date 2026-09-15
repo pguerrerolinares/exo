@@ -994,12 +994,43 @@ mod tests_knn_por_consulta {
 
 #[cfg(test)]
 mod tests_una_conexion {
+    /// Busca `{nombre}(` en `cuerpo` exigiendo que el carácter justo antes
+    /// del nombre (si lo hay) NO sea de identificador — así una llamada real
+    /// a `busca(` no se confunde con la cola de `busca_con(`,
+    /// `busca_vector_con(` o `busca_hybrid(` (que nunca contienen la
+    /// subcadena exacta `busca(` / `busca_vector(` seguida de `(`, pero el
+    /// chequeo de borde queda explícito para que la intención no dependa de
+    /// esa coincidencia estructural).
+    fn contiene_llamada(cuerpo: &str, nombre: &str) -> bool {
+        let patron = format!("{nombre}(");
+        let bytes = cuerpo.as_bytes();
+        let mut desde = 0;
+        while let Some(rel) = cuerpo[desde..].find(&patron) {
+            let abs = desde + rel;
+            let es_identificador = |b: u8| b == b'_' || b.is_ascii_alphanumeric();
+            let borde_ok = abs == 0 || !es_identificador(bytes[abs - 1]);
+            if borde_ok {
+                return true;
+            }
+            desde = abs + 1;
+        }
+        false
+    }
+
     /// Grep sobre el propio código fuente: `busca_hybrid` debe abrir la DB
     /// UNA sola vez (backlog:524-566, "tres aperturas de la DB por
     /// búsqueda hybrid"). No es un test de comportamiento — el
     /// comportamiento ya lo cubren `tests_fusion` y los tests de
     /// `tests/buscador_cli.rs` — es un gate de que el refactor no vuelve a
     /// crecer un segundo `abre_db` dentro de la función.
+    ///
+    /// Fix de review (orquestador): el conteo de `abre_db(` NO es falsable
+    /// contra la regresión real — volver a llamar a las funciones públicas
+    /// `busca(db_ruta, ...)` / `busca_vector(db_ruta, ...)` (que abren su
+    /// propia conexión cada una) deja el grep de `abre_db(` en verde, porque
+    /// esas aperturas viven en el cuerpo fuente de `busca`/`busca_vector`,
+    /// no en el de `busca_hybrid`. Se añaden dos aserciones que miran
+    /// directamente si `busca_hybrid` invoca esas funciones públicas.
     #[test]
     fn busca_hybrid_abre_una_sola_conexion() {
         let fuente = include_str!("buscador.rs");
@@ -1015,6 +1046,20 @@ mod tests_una_conexion {
             cuerpo.matches("abre_db(").count(),
             1,
             "busca_hybrid debe abrir la DB una sola vez:\n{cuerpo}"
+        );
+        assert!(
+            !contiene_llamada(cuerpo, "busca"),
+            "busca_hybrid no debe llamar a la función pública busca(db_ruta, ...) \
+             — cada llamada abre su propia conexión y rompe la garantía de una \
+             sola apertura; debe usar busca_con(&conn, ...) sobre la conexión ya \
+             abierta:\n{cuerpo}"
+        );
+        assert!(
+            !contiene_llamada(cuerpo, "busca_vector"),
+            "busca_hybrid no debe llamar a la función pública \
+             busca_vector(db_ruta, ...) — cada llamada abre su propia conexión y \
+             rompe la garantía de una sola apertura; debe usar \
+             busca_vector_con(&conn, ...) sobre la conexión ya abierta:\n{cuerpo}"
         );
     }
 }
