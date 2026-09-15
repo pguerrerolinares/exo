@@ -151,5 +151,31 @@ else
     "evento=$EV_ST payload=$PL_ST ctx='$CTX_ST'"
 fi
 
+# ------------------- engine-stale: --version no responde ⇒ engine=desconocida
+# Distinto de STUB_VIEJO de arriba (ese SÍ responde --version, solo que por
+# debajo de ENGINE_MIN): aquí el binario ni siquiera contesta con la forma
+# "exo X.Y.Z" que exo_version_de() espera (_engine-version.sh), así que
+# ENGINE_VER queda vacío y el hook no puede nombrar la versión real.
+STUB_SIN_VERSION="$TMP/exo-stub-sin-version"
+cat > "$STUB_SIN_VERSION" <<'EOF'
+#!/usr/bin/env bash
+case "$1" in
+  --version) exit 1 ;;
+  *) exit 0 ;;
+esac
+EOF
+chmod +x "$STUB_SIN_VERSION"
+
+: > "$LOGC"
+touch "$TMP/index-sin-version.db"
+run_hook '{"session_id":"sess-sinversion"}' EXO_BIN="$STUB_SIN_VERSION" EXO_INDEX="$TMP/index-sin-version.db" ENGINE_MIN=0.1.0
+EV_SV="$(ultimo_evento)"; PL_SV="$(ultimo_payload)"
+if [ "$EV_SV" = "recall-fallback" ] && contains "$PL_SV" "reason=engine-stale" && contains "$PL_SV" "engine=desconocida"; then
+  pass "engine-stale: --version no responde ⇒ recall-fallback reason=engine-stale engine=desconocida"
+else
+  fail "engine-stale: --version no responde ⇒ recall-fallback reason=engine-stale engine=desconocida" \
+    "evento=$EV_SV payload=$PL_SV"
+fi
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

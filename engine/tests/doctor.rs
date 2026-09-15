@@ -80,7 +80,7 @@ fn sin_binario_en_local_bin_el_gate_de_la_kb_queda_apagado_y_eso_es_fail() {
     assert_eq!(
         c.estado,
         Estado::Fail,
-        "kb-precommit.sh sale 0 —commit permitido— si este fichero no está"
+        "kb-precommit.sh BLOQUEA (fail-closed) si este fichero no está y tampoco hay exo en $PATH"
     );
     assert!(
         c.artefacto.contains(".local"),
@@ -716,6 +716,35 @@ fn sin_plugin_instalado_plugin_compat_es_warn_no_fail() {
         c.estado,
         Estado::Warn,
         "sin plugin no hay hooks que degradar, pero tampoco memoria"
+    );
+}
+
+#[test]
+fn plugin_presente_sin_fichero_engine_min_es_warn() {
+    // El estado de Paul el día 1 de esta campaña: plugin 1.1.2 ya instalado
+    // (versión anterior a que ENGINE_MIN existiera), sin ese fichero dentro.
+    // Distinto de `sin_plugin_instalado_plugin_compat_es_warn_no_fail`: aquí
+    // SÍ hay un directorio de versión bajo el cache, solo que no lleva
+    // ENGINE_MIN — `version_dir_mas_alta` lo encuentra, pero `parse_semver`
+    // sobre el contenido (vacío) da `None`.
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("kb")).unwrap();
+    let plugin_dir = dir
+        .path()
+        .join("home")
+        .join(".claude")
+        .join("plugins")
+        .join("cache")
+        .join("exo")
+        .join("exo")
+        .join("1.1.2");
+    fs::create_dir_all(&plugin_dir).unwrap();
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "plugin_compat");
+    assert_eq!(
+        c.estado,
+        Estado::Warn,
+        "plugin instalado sin ENGINE_MIN legible no es fail: no puedo comparar"
     );
 }
 
