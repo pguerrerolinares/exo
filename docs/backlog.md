@@ -38,6 +38,27 @@
 > desde G5b — el item que lo menciona solo pedía un check puntual de desfase
 > de versión binario/plugin, que sigue sin dueño, no el comando entero.)
 >
+> Anterior: **2026-09-15** (campaña H — fail-closed de `doctor` y
+> cutover binario↔plugin, `docs/superpowers/plans/2026-09-15-campana-h-fail-closed.md`,
+> en la rama `campana-h`; PR de integración a `main` aún no abierto en el
+> momento de este commit, se actualiza esta línea cuando exista. Cierra con
+> evidencia: contrato `ENGINE_MIN` + helper bash (Task 1, commits
+> `edba38d`/`d5281ad`), `exo-recall.sh` detecta engine viejo — SOLO ese
+> hook, no `recall-inject.sh` (decisión de Paul en pre-flight: un `exo
+> --version` por prompt sería spawn extra, en conflicto con la latencia que
+> mide la futura campaña I) (Task 2, commit `5cee331`), check
+> `plugin_compat` en `exo doctor` (Task 3, commit `c6f910a`),
+> `check_git_bash` ya no da `ok` con un `bash` de WSL (Task 4, commits
+> `81b25b7`/`6e19791`/`1dfa600`), `script_del_plugin` ordena por semver real
+> (Task 5, commit `ed9f27f`), `kb-precommit.sh` fail-closed (Task 6, commit
+> `71f691b`), y el retiro de los 10 alias españoles — `engine` a 0.2.0,
+> plugin a 1.2.0 (Task 7, commit `5353038`). El cap de 6.144 B del bloque de
+> arranque se mide (5.869 B, 4,5% de aire) — la decisión de mantenerlo o
+> subirlo sigue **PENDIENTE-PAUL**, no está entre las decisiones que Paul
+> aceptó el 2026-09-15 (Task 8, este commit). Fuera de esta campaña: la
+> fusión de scripts y la reducción de spawns del hook — campaña I, después
+> de H.)
+>
 > Anterior: **2026-09-14** (campaña E — hooks honestos +
 > CI de coste trivial, `docs/superpowers/plans/2026-09-14-campana-e-hooks-honestos-y-ci.md`,
 > integrada en la rama `e-hooks-honestos-y-ci` (Task 9, este commit); PR de
@@ -180,6 +201,7 @@
 | **Campaña E** | 9 tasks (hooks honestos: `inject-empty`, suite de `exo-recall.sh`, `no results` en `search`; engine: mensaje de guarda parametrizado, `rust-toolchain.toml`; CI: `--locked`+log+artifact en el gate hermético, orden de `release.yml`, gate de rutas personales) — ejecutada el **2026-09-14** en la rama `e-hooks-honestos-y-ci`; mergeada a `main` el **2026-09-15** vía PR #19 (`36ef9aa`); plan en `docs/superpowers/plans/2026-09-14-campana-e-hooks-honestos-y-ci.md` |
 | **Campaña D** | cutover kbx→exo: `rotate` y `stale` portados a Rust (`engine/src/rotacion.rs`, `engine/src/obsolescencia.rs`), pre-registro de paridad congelado antes de Rust (Task 1, `7edb5d0`), cuatro gates de paridad — targets (`4d047f4`), ratchet (`ab5d59b`), rotate (`cd196ff`), stale (`f059eb1`) — los cuatro PASA, consumidores reapuntados (Task 9, `0051638`+`aa82f95`: `distill`/`kb-precommit.sh`/`arquitectura.md` ya no invocan `kbx`) — ejecutada el **2026-09-14/15** en la rama `d-cutover-kbx`, apila la campaña E (`f46cbe3`); mergeada a `main` el **2026-09-15** vía PR #20 (`0494e3d`); plan en `docs/superpowers/plans/2026-09-14-campana-d-cutover-kbx.md`. Abierto: D-4 (permalink `nombre_kb()` vs literal fijo, recomendación ya aplicada en el código, formalmente pendiente de que Paul la zanje) y la acción (a) de «exo genérico» (`Paul`/`kb-demo` por nombres resueltos), fuera de alcance de D |
 | **Ruta portable** | grafía única de ruta (`/`) en el binario y ruta visible en la salida humana de `exo search` — apila sobre la campaña D, mergeada a `main` el **2026-09-15** vía PR #21 (`ba4b75f`); plan en `docs/superpowers/plans/2026-09-11-ruta-portable-y-columna-humana.md`, spec en `docs/superpowers/specs/2026-09-11-ruta-portable-y-columna-humana-design.md` |
+| **Campaña H** | 8 tasks (contrato `ENGINE_MIN`, `exo-recall.sh` detecta engine viejo, `exo doctor` check `plugin_compat`, `check_git_bash` sin falso `ok` de WSL, `script_del_plugin` por semver real, `kb-precommit.sh` fail-closed, retiro de los 10 alias españoles — engine 0.2.0/plugin 1.2.0, cap de 6.144 medido y PENDIENTE-PAUL) — ejecutada el **2026-09-15** en la rama `campana-h`; sin PR todavía; plan en `docs/superpowers/plans/2026-09-15-campana-h-fail-closed.md` |
 
 ---
 
@@ -404,7 +426,17 @@
   (b) pasada de `/distill` sobre `core-index` retirando entradas muertas (es
   índice: se retiran entradas, no se comprimen las vivas) — la propia entrada de
   exo está rancia, sigue diciendo «Frente: C10/M5a-02 config propia», que se
-  cerró hoy; (c) revisar si el cap de 6.144 sigue siendo el correcto.
+  cerró hoy; (c) **MEDIDA, decisión PENDIENTE-PAUL (campaña H, Task 8,
+  este commit, 2026-09-15):** medido con el binario instalado 0.1.0 (mismo
+  comando que usa `exo-recall.sh`, sin `--refresh`, solo lectura): 5.869 B
+  sobre el cap de 6.144, 4,5% de aire — tabla en
+  `docs/superpowers/runbooks/2026-09-15-release-v0.2.0.md`. La propuesta
+  (§5, decisión 16) recomienda mantener el cap en 6.144 y resolver la
+  presión con la evicción editorial de `core-index` en vez de subir el
+  número, pero esa decisión **no está entre las que Paul aceptó el
+  2026-09-15** (`propuesta.md` §6) — queda con el dato real delante, sin
+  cerrar por esta campaña. **Sigue abierta** también la acción (b),
+  editorial de la KB de Paul, fuera de esta campaña.
   **Cruce (2026-09-09):** misma clase de fallo que «`inject-emitted` se emite
   aunque no se inyecte nada» (en `## Cerrado con evidencia`) — el instrumento
   no reporta lo que no hizo. Las dos acciones convergen en **un campo del envelope** (truncado /
@@ -436,48 +468,6 @@
   comenta, `hooks/ponytail-subagent.js:31-38`— pero en el bloque de arranque lo
   barato es gritar. No es item nuevo: es el criterio que le falta a la acción
   (a).
-
-- [ ] **Restricción de orden en el cutover binario↔scripts — nada la aplica
-  hoy.** El alias oculto de D9 (ítem de retirar aliases españoles, abajo en
-  Media) protege *scripts viejos → binario nuevo*. Nada protege la dirección
-  contraria, que es justo la que produce un cutover real. Demostrado en la
-  Task 10 (2026-08-26): ejecutando los scripts migrados del repo contra el
-  binario v1 instalado, el hook de arranque no revienta — **sirve el texto de
-  fallback embebido** ("Tu memoria persistente es una KB de notas markdown
-  servida por..."), un bloque con forma correcta que no trae ni una nota de la
-  KB. Degrada con forma válida: el peor tipo de fallo silencioso, porque nadie
-  lo nota sin comparar contra lo que debería haber salido.
-  **Acción:** en el cutover de la ola 1B, el binario nuevo se instala ANTES o
-  en el mismo paso atómico que los scripts del plugin — nunca después. Y
-  `exo doctor` debe detectar el desfase entre la versión del binario instalado
-  y la versión del plugin: comprobación barata y falsable para un fallo que no
-  grita.
-  **Estado 2026-08-27:** la mitad del cutover está aplicada al plan — el
-  Step 1½ nuevo de la Task 8 de `plans/2026-08-26-ola1b-plugin-exo.md` compila
-  e instala el binario antes del plugin, y su check mira el envelope
-  (`schema_version == 2`), no el mtime. **El item sigue abierto** por la otra
-  mitad: el check permanente en `exo doctor` es G5 y no existe todavía.
-  Medido ese mismo día: `~/.local/bin/exo.exe` es del 24-08 17:11, anterior al
-  merge de la ola 1A (27-08 10:13) — el desfase no es hipotético, está vivo en
-  esta máquina ahora mismo.
-  **Cruce (2026-09-09):** la mitad viva —el check permanente en `exo doctor`—
-  no hay que diseñarla entera: `affaan-m/ECC` (MIT) la tiene hecha como
-  **install-state** —término literal suyo, `scripts/lib/install-state.js:11-13`,
-  con schema `ecc.install.v1`—. Verificado contra clone `5064474`: fingerprint
-  **SHA-256 por fichero** instalado (`install-lifecycle.js:203-205`, guardado
-  como `contentSha256`) y un `doctor` que reporta el drift con severidad
-  `ok|warning|error` (`install-lifecycle.js:1552-1571`, impresas en
-  `scripts/doctor.js:44-53`; hay un cuarto estado `'missing'`, `:1605`, para
-  cuando no hay install-state en absoluto).
-  **Corrección de una lectura previa equivocada:** su `repair` **no** repone el
-  byte sellado. En el camino normal recalcula el plan deseado contra los
-  manifiestos **actuales** del repo usando solo la selección grabada en
-  `state.request` (`install-lifecycle.js:1791-1826`) y reescribe únicamente lo
-  `missing` o `drifted` por hash (`:1906-2151`) — así que si el manifiesto
-  cambió desde la instalación, «repara» hacia el contenido nuevo, no hacia el
-  original. Para `exo doctor` la mitad valiosa es la **detección** del desfase;
-  el reponer-al-sello, que es lo que haría el trinquete, ahí no está y habría
-  que ponerlo. **Lo cierra G5 si lo adopta.** **(2026-09-11: G5b cerró sin adoptarlo — release `v0.1.0` publicada, ver `## Cerrado con evidencia`. La marca queda huérfana: necesita dueño o campaña propia.)**
 
 - [ ] **(pasada de coste 2026-09-09) El bucle de coste de la inyección está
   a un `join` de distancia: el emisor ya loguea los bytes que emite y nadie los
@@ -680,30 +670,6 @@
   reescrito. **Sigue abierta** la sub-propuesta 2 (`validate-hooks.js`/schema
   de `hooks.json`) — no pedida para esta campaña.
   **Lo cierra G5 si lo adopta.** **(2026-09-11: G5b cerró sin adoptarlo — release `v0.1.0` publicada, ver `## Cerrado con evidencia`. La marca queda huérfana: necesita dueño o campaña propia.)**
-
-- [ ] **(G4c, Task 13) `kb-precommit.sh` depende de que `exo` esté instalado
-  en cada máquina — si no, el gate degrada a "commit permitido" en
-  silencio.** `plugins/exo/scripts/kb-precommit.sh:18,20`: si el binario no
-  está en `$EXO_BIN` ni en `$HOME/.local/bin/exo(.exe)`, imprime un aviso en
-  stderr y sale `exit 0` — el commit pasa como si el gate no existiera. Tras
-  el cutover kbx→exo de la Task 13, esto ya no es hipotético: cualquier
-  máquina donde Paul retome G4d o trabajo sobre la KB sin haber instalado
-  `exo` en esa ruta tiene el hook enlazado pero sin protección real.
-  **Acción:** verificar `exo` instalado como parte de arrancar trabajo en una
-  máquina nueva, o subir el aviso de stderr a algo que no pase desapercibido
-  (el hook está enlazado, pero el gate no protege nada).
-
-- [ ] **Retirar los aliases españoles del CLI en la 1.1 del engine** (versión
-  propia del engine, distinta de la del plugin). Los diez flags
-  renombrados en la ola 1A (`--limite`→`--limit`, `--titulo`→`--title`,
-  `--contenido`→`--content`, `--nota`→`--note`, `--refresca`→`--refresh`,
-  `--crea`→`--create`, `--min-similitud`→`--min-similarity`,
-  `--escala-fts`→`--fts-scale`) mantienen el nombre viejo como `alias` oculto
-  para que un plugin cacheado no muera a mitad de un hook durante el cutover.
-  Al retirarlos, borrar también el test
-  `los_flags_espanoles_siguen_parseando_como_alias` de `engine/tests/flags.rs`
-  — si no, el borrado se ve rojo y alguien "arregla" el test reponiendo el
-  alias.
 
 - [ ] **Barrer los hallazgos vivos del gate M4** (`evals/e1-read/verdict/gate-m4.md`).
   Cerrados en `2f5f545`: traversal por `..` en `--dir`/`--titulo`, `--force` sin
@@ -2078,3 +2044,53 @@
   (`.env("EXO_CONFIG", &config)` explícito en el test). Es el argumento
   entero a favor del punto de encuentro único: un fallo de composición
   invisible a cualquiera de las dos pistas por separado.
+
+- [x] **Restricción de orden en el cutover binario↔scripts: cerrado el
+  2026-09-15 (campaña H, Tasks 1-3, commits `edba38d`/`d5281ad`/`5cee331`/
+  `c6f910a`).**
+  Las dos mitades que el ítem pedía: (1) el binario nuevo se instala ANTES
+  que el plugin — documentado como orden obligatorio en el runbook
+  `docs/superpowers/runbooks/2026-09-15-release-v0.2.0.md`; (2) `exo doctor`
+  detecta el desfase — check nuevo `plugin_compat` (`engine/src/doctor.rs`),
+  `fail` si el binario es más viejo que el `ENGINE_MIN` que declara el
+  plugin instalado, `warn` si no hay plugin. Además, el hook que sirve
+  memoria en `SessionStart` (`exo-recall.sh`) comprueba lo mismo antes de
+  servir nada y degrada con rastro (`reason=engine-stale`) en vez de servir
+  contenido de un binario no verificado — cierra también la mitad de
+  `KB-exo:44` sobre el mismo desfase. (`recall-inject.sh`, que corre en cada
+  prompt, NO lleva este check: decisión de Paul en pre-flight de H, sería un
+  spawn extra en conflicto con la latencia que mide la futura campaña I.)
+  El alias oculto de D9 (ítem de retirar aliases españoles) protegía solo
+  *scripts viejos → binario nuevo*; ese ítem se cierra aparte, más abajo.
+  [Texto histórico del ítem: demostrado en la Task 10 (2026-08-26) que
+  ejecutar scripts migrados contra el binario v1 servía el fallback embebido
+  sin avisar — degradación con forma válida. Precedente de forma:
+  `affaan-m/ECC` (install-state, `scripts/lib/install-state.js:11-13`).]
+
+- [x] **`kb-precommit.sh` degradaba a "commit permitido" en silencio: cerrado
+  el 2026-09-15 (campaña H, Task 6, `71f691b`).**
+  Fail-closed: sin `exo` ejecutable, `kb-precommit.sh` sale con `exit 1` (antes
+  `exit 0`) y tres líneas de remedio en stderr — instalar el binario, apuntar
+  `EXO_BIN=`, o `git commit --no-verify` como escape consciente y declarado.
+  Test: `plugins/exo/scripts/test-kb-precommit.sh` (nuevo).
+  [Texto histórico del ítem: `plugins/exo/scripts/kb-precommit.sh:18,20`
+  imprimía un aviso en stderr y salía `exit 0` si el binario no estaba en
+  `$EXO_BIN` ni en `$HOME/.local/bin/exo(.exe)` — el commit pasaba como si
+  el gate no existiera.]
+
+- [x] **Retirar los aliases españoles del CLI: cerrado el 2026-09-15
+  (campaña H, Task 7, `5353038`).**
+  Los 10 `alias = "..."` de `engine/src/main.rs` retirados; el test
+  `los_flags_espanoles_siguen_parseando_como_alias` de `engine/tests/flags.rs`
+  se sustituyó por `los_flags_espanoles_ya_no_parsean_ni_como_alias_oculto`
+  (mismos diez flags, aserción invertida) en vez de borrarse sin más — así
+  un alias repuesto por accidente se vería rojo de inmediato. `engine`
+  0.1.0 → 0.2.0, `plugin.json`/`marketplace.json` 1.1.2 → 1.2.0,
+  `plugins/exo/ENGINE_MIN` 0.1.0 → 0.2.0. Grep exhaustivo de los ocho flags
+  españoles sobre `plugins/`, `docs/`, `scripts/`, `.github/workflows/`
+  (hecho en el plan de H): ningún consumidor fuera del propio test de
+  `flags.rs` los usaba — no hizo falta migrar ningún script ni skill.
+  Runbook de la release: `docs/superpowers/runbooks/2026-09-15-release-v0.2.0.md`.
+  [Texto histórico del ítem: los diez flags renombrados en la ola 1A
+  mantenían el nombre viejo como alias oculto para que un plugin cacheado
+  no muriera a mitad de un hook durante el cutover.]
