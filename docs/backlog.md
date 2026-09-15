@@ -629,8 +629,12 @@
   descubrimiento que `test-shellcheck.sh` (índice de git, `.sh` + shebang,
   excluye `evals/`/`docs/`), corre en `ci.yml` job `lint`. Cubre exactamente
   el patrón que Paul decidió (solo rutas: `/home/<user>`, `/Users/<user>`,
-  `C:\Users\<user>`), sin detectar nombres propios. De paso arregló un falso
-  positivo no anticipado por el dictamen del consultor:
+  `C:\Users\<user>`), sin detectar nombres propios. Falso positivo conocido
+  por diseño: el gate caza por forma, así que `/home/runner`, `/Users/Shared`,
+  `C:/Users/Public` disparan; el arreglo es el que imprime el propio gate
+  (variable: `$HOME`, `$RUNNER_TEMP`, `$GITHUB_WORKSPACE`), no una allowlist.
+  De paso arregló un falso positivo no anticipado por el dictamen del
+  consultor:
   `test-contrato-engine.sh:45` mencionaba `` `/c/Users/...` `` en un
   comentario (subcadena que casaba el patrón sin ser una ruta real);
   reescrito. **Sigue abierta** la sub-propuesta 2 (`validate-hooks.js`/schema
