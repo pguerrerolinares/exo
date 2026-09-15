@@ -106,9 +106,10 @@ binario↔plugin) absorbe el rebase primero — misma regla ya usada en D/E.
   el rebase de F sea trivial.
 
 **Gotchas de entorno medidos** (Windows 11 + Git Bash, válidos para F/G/H):
-- `jq`/`.exe` con CRLF: wrappers `.exe` de utilidades pueden reintroducir
-  CRLF en la salida si se redirige a fichero sin normalizar — verificar con
-  `file`/`cat -A` antes de comparar salidas byte a byte en gates de paridad.
+- `jq`/`.exe` con CRLF: wrappers `.exe` de utilidades SÍ reintroducen CRLF en
+  la salida cuando se redirige a fichero sin normalizar — medido en H
+  (`tr -d '\r'` lo arregla); verificar con `file`/`cat -A` antes de comparar
+  salidas byte a byte en gates de paridad.
 - `core.filemode=false`: git en Windows no trackea el bit ejecutable por
   defecto, así que un script nuevo puede quedar `100644` en vez de `100755`
   sin que nadie lo note al hacer `git add` — verificar con
