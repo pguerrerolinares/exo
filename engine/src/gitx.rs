@@ -8,6 +8,7 @@
 //! plausible. Son dos funciones distintas a propósito, y esta es la razón.
 
 use anyhow::{Context, Result, bail};
+use std::collections::HashMap;
 use std::path::Path;
 use std::process::Command;
 
@@ -272,6 +273,167 @@ pub fn md_staged(dir: &Path) -> Result<Vec<String>> {
         .collect())
 }
 
+/// Epoch (segundos unix, fecha de COMMITTER `%ct` — mismo campo que
+/// `indexer::git_epoch_de`, nunca `%at` de autor, que puede diferir en un
+/// rebase/amend) del último commit que tocó cada ruta bajo `dir`, en una
+/// sola invocación de git en vez de una por nota indexada (Ola 1 G Task 3,
+/// backlog:524-566: "un proceso `git log -1` por nota indexada, caro en
+/// Windows").
+///
+/// **Diseño distinto del brief original de esta task, medido contra el
+/// fallback per-nota (`indexer::git_epoch_de` / `git log -1 -- ruta`) el
+/// 2026-09-15 con tres repos de prueba real (conflicto de merge, merge
+/// limpio, ruta no-ASCII + rename):**
+///
+/// 1. **`-c core.quotepath=false`** (global, antes de `log`): sin esto, git
+///    entrecomilla y escapa en octal cualquier byte no-ASCII del nombre de
+///    fichero (`"notas/caf\303\251 \342\200\224 x.md"`), y esa cadena nunca
+///    casaría con la clave portable (`notas/café — x.md`) que
+///    `indexer::ruta_relativa` calcula. La comparación es de OUTPUT, no de
+///    pathspec: `git log -1 -- <ruta-no-ascii>` (el fallback) no tiene este
+///    problema porque ahí la ruta es un argumento de entrada, nunca una
+///    línea de salida a parsear — medido: el fallback resuelve igual con y
+///    sin `quotepath`. Con `-z` en vez de `quotepath=false` el problema
+///    también se resolvería, pero cambiaría el formato de todo el parseo
+///    (registros separados por NUL en vez de líneas) para una ganancia que
+///    `quotepath=false` ya da sin tocar el resto del parser — se prefiere
+///    la opción de menor blast radius.
+/// 2. **`--no-renames`**: mismo argumento que `md_staged` ("por
+///    determinismo": qué ruta(s) lista un commit de rename no dependa de
+///    `diff.renames` de la máquina). Medido: con o sin el flag, la ruta que
+///    HOY existe en disco (la nueva tras el rename) obtiene el mismo epoch
+///    en este repo de prueba — pero sin el flag, si algún día una
+///    detección de rename por similitud emparejara mal dos ficheros no
+///    relacionados, la ruta nueva heredaría el epoch de un fichero ajeno.
+/// 3. **`-m` + agrupación por `%H`**: sin `-m`, un commit de MERGE no
+///    aparece en absoluto en `--name-only` (ninguna línea de fichero), así
+///    que una ruta cuyo último toque real fue la resolución de un
+///    CONFLICTO dentro del propio merge (la nota se edita a mano al
+///    resolver) recibe en el lote el epoch de la rama que git visita
+///    primero tras el merge — más viejo que el epoch real, DIVERGE del
+///    fallback (medido: repo con conflicto real, diverge sin `-m`). Con
+///    `-m` puro (sin agrupar) pasa lo contrario: un merge "limpio" donde
+///    cada rama tocó ficheros distintos hace que CADA fichero aparezca en
+///    el bloque de UN solo padre, y sin agrupar, `entry().or_insert()`
+///    igual lo atribuiría al merge — un FALSO positivo (medido: repo con
+///    merge limpio, diverge con `-m` sin agrupar). La regla que reconcilia
+///    ambos casos, medida contra el fallback en los dos repos: `-m` hace
+///    que `git log` repita la cabecera del commit (mismo `%H`, mismo `%ct`)
+///    una vez POR PADRE del merge, cada una seguida del listado de ficheros
+///    que cambian respecto a ESE padre. Agrupando las cabeceras
+///    consecutivas de igual `%H` (`nbloques` = cuántas veces se repite) y
+///    contando en cuántos de esos bloques aparece cada ruta, una ruta solo
+///    se atribuye al merge si aparece en **todos** sus bloques — "no es
+///    igual a NINGÚN padre", que es exactamente la condición bajo la que
+///    `git log -1 -- ruta` (sin `-m`, con simplificación de historia)
+///    considera un merge "interesante" para esa ruta. Una ruta que solo
+///    difiere de UN padre (trivial, la rama que no la tocó) no cuenta, y
+///    sigue el trámite normal: se recoge más abajo en el historial, en el
+///    commit no-merge que de verdad la tocó. Para un commit normal
+///    (`nbloques == 1`) la regla es un no-op: toda ruta listada aparece en
+///    su único bloque, igual que en el diseño original del brief.
+///
+/// Recorre el log COMPLETO una vez y se queda con el PRIMER epoch válido
+/// visto para cada ruta: git emite los commits del más reciente al más
+/// antiguo, así que el primero que la reclama (por la regla de arriba) es
+/// su último commit real.
+///
+/// Fail-loud como el resto de `gitx` (comentario de módulo): un `dir` que
+/// no es repo de git, o cualquier fallo de `git log`, propaga `Err` — el
+/// llamador (`indexer::indexa`) es quien decide degradar a fallback
+/// per-nota, nunca esta función.
+pub fn epochs_de_todo_el_historial(dir: &Path) -> Result<HashMap<String, i64>> {
+    let salida = Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args([
+            "-c",
+            "core.quotepath=false",
+            "log",
+            "-m",
+            "--no-renames",
+            "--format=%x01%H %ct",
+            "--name-only",
+        ])
+        .env("LC_ALL", "C")
+        .env("LANG", "C")
+        .output()
+        .with_context(|| format!("invocar git log --name-only en {}", dir.display()))?;
+    if !salida.status.success() {
+        bail!(
+            "git log --name-only en {}: {}",
+            dir.display(),
+            String::from_utf8_lossy(&salida.stderr).trim()
+        );
+    }
+    let texto = String::from_utf8(salida.stdout)
+        .with_context(|| format!("git log de {} devolvió stdout no-UTF8", dir.display()))?;
+
+    let mut epochs: HashMap<String, i64> = HashMap::new();
+
+    // Estado del grupo de bloques en curso (ver el comentario de la función,
+    // punto 3): `hash_actual`/`epoch_actual` identifican el commit; `nbloques`
+    // cuenta cuántas cabeceras de ese `%H` se han visto consecutivamente;
+    // `cuenta` cuántos de esos bloques mencionan cada ruta; `vistas_en_bloque`
+    // evita contar una ruta dos veces si git la repitiera dentro del MISMO
+    // bloque (defensivo, no observado).
+    let mut hash_actual: Option<String> = None;
+    let mut epoch_actual: Option<i64> = None;
+    let mut nbloques: u32 = 0;
+    let mut cuenta: HashMap<String, u32> = HashMap::new();
+    let mut vistas_en_bloque: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+    for linea in texto.lines() {
+        if let Some(resto) = linea.strip_prefix('\u{1}') {
+            let mut partes = resto.splitn(2, ' ');
+            let hash = partes.next().unwrap_or("").to_string();
+            let epoch = partes.next().and_then(|c| c.trim().parse::<i64>().ok());
+            if hash_actual.as_deref() != Some(hash.as_str()) {
+                cierra_grupo(&mut epochs, epoch_actual, nbloques, &cuenta);
+                hash_actual = Some(hash);
+                epoch_actual = epoch;
+                nbloques = 0;
+                cuenta.clear();
+            }
+            nbloques += 1;
+            vistas_en_bloque.clear();
+            continue;
+        }
+        if linea.is_empty() {
+            continue;
+        }
+        let ruta = linea.replace('\\', "/");
+        if vistas_en_bloque.insert(ruta.clone()) {
+            *cuenta.entry(ruta).or_insert(0) += 1;
+        }
+    }
+    cierra_grupo(&mut epochs, epoch_actual, nbloques, &cuenta);
+
+    Ok(epochs)
+}
+
+/// Cierra el grupo de bloques de un commit (ver `epochs_de_todo_el_historial`,
+/// punto 3 del comentario): una ruta entra en `epochs` (primer epoch visto
+/// gana, `or_insert`) solo si apareció en TODOS los bloques del grupo — para
+/// un commit normal (`nbloques == 1`) eso es cualquier ruta listada, sin
+/// cambio de comportamiento frente al diseño de un solo bloque por commit.
+fn cierra_grupo(
+    epochs: &mut HashMap<String, i64>,
+    epoch: Option<i64>,
+    nbloques: u32,
+    cuenta: &HashMap<String, u32>,
+) {
+    let Some(epoch) = epoch else { return };
+    if nbloques == 0 {
+        return;
+    }
+    for (ruta, n) in cuenta {
+        if *n == nbloques {
+            epochs.entry(ruta.clone()).or_insert(epoch);
+        }
+    }
+}
+
 /// ¿Resuelve `HEAD` a un commit? Falso en un repo recién iniciado sin
 /// commits (o fuera de un repo git). Devuelve `bool`, no `Result`: no hay
 /// distinción de fallo útil más allá de sí/no para el llamador — es
@@ -526,5 +688,288 @@ mod tests {
     fn head_resuelve_es_verdadero_tras_un_commit() {
         let dir = repo("log/a.md", "cuerpo\n");
         assert!(head_resuelve(dir.path()));
+    }
+
+    #[test]
+    fn epochs_de_todo_el_historial_da_el_ultimo_commit_por_ruta() {
+        let dir = repo("log/a.md", "primero\n");
+        let raiz = dir.path();
+        let cfg = raiz.join("gitconfig-vacio");
+        let corre = |args: &[&str], fecha: &str| {
+            let salida = Command::new("git")
+                .arg("-C")
+                .arg(raiz)
+                .args(args)
+                .env("GIT_CONFIG_GLOBAL", &cfg)
+                .env("GIT_CONFIG_SYSTEM", &cfg)
+                .env("GIT_AUTHOR_NAME", "f")
+                .env("GIT_AUTHOR_EMAIL", "f@k.local")
+                .env("GIT_COMMITTER_NAME", "f")
+                .env("GIT_COMMITTER_EMAIL", "f@k.local")
+                .env("GIT_AUTHOR_DATE", fecha)
+                .env("GIT_COMMITTER_DATE", fecha)
+                .output()
+                .unwrap();
+            assert!(salida.status.success(), "git {args:?} falló");
+        };
+        std::fs::write(raiz.join("log/b.md"), "b\n").unwrap();
+        corre(&["add", "."], "2026-07-02T10:00:00+02:00");
+        corre(&["commit", "-q", "-m", "b"], "2026-07-02T10:00:00+02:00");
+
+        let mapa = epochs_de_todo_el_historial(raiz).unwrap();
+        assert_eq!(
+            mapa.get("log/a.md"),
+            Some(&ultimo_commit_epoch(raiz, "log/a.md"))
+        );
+        assert_eq!(
+            mapa.get("log/b.md"),
+            Some(&ultimo_commit_epoch(raiz, "log/b.md"))
+        );
+        assert_ne!(mapa["log/a.md"], mapa["log/b.md"]);
+    }
+
+    /// Helper del test de arriba: epoch vía `%ct` per-nota, para comparar
+    /// contra el mapa de lote sin duplicar la conversión de fecha a mano.
+    fn ultimo_commit_epoch(dir: &Path, ruta_rel: &str) -> i64 {
+        let salida = Command::new("git")
+            .arg("-C")
+            .arg(dir)
+            .args(["log", "-1", "--format=%ct", "--", ruta_rel])
+            .output()
+            .unwrap();
+        String::from_utf8_lossy(&salida.stdout)
+            .trim()
+            .parse()
+            .unwrap()
+    }
+
+    #[test]
+    fn epochs_de_todo_el_historial_ignora_rutas_nunca_commiteadas() {
+        let dir = repo("log/a.md", "cuerpo\n");
+        std::fs::write(dir.path().join("log/sin-commit.md"), "x\n").unwrap();
+        let mapa = epochs_de_todo_el_historial(dir.path()).unwrap();
+        assert!(!mapa.contains_key("log/sin-commit.md"));
+    }
+
+    #[test]
+    fn epochs_de_todo_el_historial_falla_fuera_de_un_repo() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(epochs_de_todo_el_historial(dir.path()).is_err());
+    }
+
+    /// Caso límite 1 del brief (global-constraints): ruta con `é`/`—`/espacio.
+    /// `core.quotepath` (default `true`) entrecomilla y escapa en octal esos
+    /// bytes en la salida de `--name-only`; sin `-c core.quotepath=false` la
+    /// clave del mapa de lote no casaría con la ruta portable que calcula
+    /// `indexer::ruta_relativa`. Medido el 2026-09-15: sin el flag, este test
+    /// falla (la clave del mapa es la cadena octal-escapada).
+    #[test]
+    fn epochs_de_todo_el_historial_soporta_rutas_no_ascii() {
+        let dir = tempfile::tempdir().unwrap();
+        let raiz = dir.path();
+        std::fs::create_dir_all(raiz.join("notas")).unwrap();
+        let cfg = raiz.join("gitconfig-vacio");
+        std::fs::write(&cfg, "").unwrap();
+        let corre = |args: &[&str]| {
+            let salida = Command::new("git")
+                .arg("-C")
+                .arg(raiz)
+                .args(args)
+                .env("GIT_CONFIG_GLOBAL", &cfg)
+                .env("GIT_CONFIG_SYSTEM", &cfg)
+                .env("GIT_AUTHOR_NAME", "f")
+                .env("GIT_AUTHOR_EMAIL", "f@k.local")
+                .env("GIT_COMMITTER_NAME", "f")
+                .env("GIT_COMMITTER_EMAIL", "f@k.local")
+                .env("GIT_AUTHOR_DATE", "2026-07-01T10:00:00+02:00")
+                .env("GIT_COMMITTER_DATE", "2026-07-01T10:00:00+02:00")
+                .output()
+                .unwrap();
+            assert!(salida.status.success(), "git {args:?} falló");
+        };
+        corre(&["init", "-q"]);
+        std::fs::write(raiz.join("notas/café — x.md"), "contenido\n").unwrap();
+        corre(&["add", "."]);
+        corre(&["commit", "-q", "-m", "unicode"]);
+
+        let mapa = epochs_de_todo_el_historial(raiz).unwrap();
+        let esperado = ultimo_commit_epoch(raiz, "notas/café — x.md");
+        assert_eq!(mapa.get("notas/café — x.md"), Some(&esperado));
+    }
+
+    /// Caso límite 2: un `git mv` no debe hacer que la ruta ACTUAL (la nueva)
+    /// pierda su entrada ni herede el epoch equivocado — con `--no-renames` el
+    /// commit de rename lista ambas rutas (vieja borrada, nueva añadida) y la
+    /// nueva recibe el epoch del propio commit de rename, igual que el
+    /// fallback per-nota.
+    #[test]
+    fn epochs_de_todo_el_historial_tras_un_git_mv_coincide_con_el_fallback() {
+        let dir = repo("log/original.md", "cuerpo\n");
+        let raiz = dir.path();
+        let cfg = raiz.join("gitconfig-vacio");
+        let corre = |args: &[&str], fecha: &str| {
+            let salida = Command::new("git")
+                .arg("-C")
+                .arg(raiz)
+                .args(args)
+                .env("GIT_CONFIG_GLOBAL", &cfg)
+                .env("GIT_CONFIG_SYSTEM", &cfg)
+                .env("GIT_AUTHOR_NAME", "f")
+                .env("GIT_AUTHOR_EMAIL", "f@k.local")
+                .env("GIT_COMMITTER_NAME", "f")
+                .env("GIT_COMMITTER_EMAIL", "f@k.local")
+                .env("GIT_AUTHOR_DATE", fecha)
+                .env("GIT_COMMITTER_DATE", fecha)
+                .output()
+                .unwrap();
+            assert!(salida.status.success(), "git {args:?} falló");
+        };
+        corre(
+            &["mv", "log/original.md", "log/renombrada.md"],
+            "2026-07-02T10:00:00+02:00",
+        );
+        corre(
+            &["commit", "-q", "-m", "rename"],
+            "2026-07-02T10:00:00+02:00",
+        );
+
+        let mapa = epochs_de_todo_el_historial(raiz).unwrap();
+        let esperado = ultimo_commit_epoch(raiz, "log/renombrada.md");
+        assert_eq!(mapa.get("log/renombrada.md"), Some(&esperado));
+    }
+
+    /// Caso límite 3a: merge que RESUELVE UN CONFLICTO editando el fichero en
+    /// el propio commit de merge. Sin `-m`, `--name-only` no lista ficheros
+    /// de un merge en absoluto, y el lote atribuiría la ruta al commit de la
+    /// rama que git visita primero tras el merge — más viejo que el epoch
+    /// real. Medido el 2026-09-15: sin `-m` (o con `-m` sin agrupar por
+    /// `%H`), este test diverge del fallback.
+    #[test]
+    fn epochs_de_todo_el_historial_en_un_merge_con_conflicto_coincide_con_el_fallback() {
+        let dir = tempfile::tempdir().unwrap();
+        let raiz = dir.path();
+        let cfg = raiz.join("gitconfig-vacio");
+        let corre = |args: &[&str], fecha: &str| {
+            let salida = Command::new("git")
+                .arg("-C")
+                .arg(raiz)
+                .args(args)
+                .env("GIT_CONFIG_GLOBAL", &cfg)
+                .env("GIT_CONFIG_SYSTEM", &cfg)
+                .env("GIT_AUTHOR_NAME", "f")
+                .env("GIT_AUTHOR_EMAIL", "f@k.local")
+                .env("GIT_COMMITTER_NAME", "f")
+                .env("GIT_COMMITTER_EMAIL", "f@k.local")
+                .env("GIT_AUTHOR_DATE", fecha)
+                .env("GIT_COMMITTER_DATE", fecha)
+                .output()
+                .unwrap();
+            assert!(salida.status.success(), "git {args:?} falló");
+        };
+        std::fs::write(&cfg, "").unwrap();
+        corre(&["init", "-q"], "2026-01-01T10:00:00+00:00");
+        std::fs::write(raiz.join("conflict.md"), "base\n").unwrap();
+        corre(&["add", "."], "2026-01-01T10:00:00+00:00");
+        corre(&["commit", "-q", "-m", "base"], "2026-01-01T10:00:00+00:00");
+        corre(
+            &["checkout", "-q", "-b", "rama-a"],
+            "2026-01-01T10:00:00+00:00",
+        );
+        std::fs::write(raiz.join("conflict.md"), "version-a\n").unwrap();
+        corre(&["add", "."], "2026-01-02T10:00:00+00:00");
+        corre(&["commit", "-q", "-m", "a"], "2026-01-02T10:00:00+00:00");
+        corre(&["checkout", "-q", "master"], "2026-01-01T10:00:00+00:00");
+        std::fs::write(raiz.join("conflict.md"), "version-b\n").unwrap();
+        corre(&["add", "."], "2026-01-03T10:00:00+00:00");
+        corre(&["commit", "-q", "-m", "b"], "2026-01-03T10:00:00+00:00");
+        // El merge falla con conflicto (esperado, se ignora el status); se
+        // resuelve a mano y se commitea aparte con su propia fecha.
+        let _ = Command::new("git")
+            .arg("-C")
+            .arg(raiz)
+            .args(["merge", "rama-a", "-q", "-m", "merge with conflict"])
+            .env("GIT_CONFIG_GLOBAL", &cfg)
+            .env("GIT_CONFIG_SYSTEM", &cfg)
+            .output()
+            .unwrap();
+        std::fs::write(raiz.join("conflict.md"), "resuelto\n").unwrap();
+        corre(&["add", "."], "2026-01-04T10:00:00+00:00");
+        corre(
+            &["commit", "-q", "-m", "merge with conflict"],
+            "2026-01-04T10:00:00+00:00",
+        );
+
+        let mapa = epochs_de_todo_el_historial(raiz).unwrap();
+        let esperado = ultimo_commit_epoch(raiz, "conflict.md");
+        assert_eq!(mapa.get("conflict.md"), Some(&esperado));
+    }
+
+    /// Caso límite 3b, contraste del anterior: merge LIMPIO donde cada rama
+    /// tocó un fichero distinto (sin conflicto). Aquí `-m` sin agrupar por
+    /// `%H` produciría el falso positivo contrario: atribuiría AMBOS
+    /// ficheros al merge, cuando en realidad cada uno pertenece a su commit
+    /// de rama. Medido el 2026-09-15: con `-m` sin agrupar, este test
+    /// diverge del fallback.
+    #[test]
+    fn epochs_de_todo_el_historial_en_un_merge_limpio_coincide_con_el_fallback() {
+        let dir = tempfile::tempdir().unwrap();
+        let raiz = dir.path();
+        let cfg = raiz.join("gitconfig-vacio");
+        let corre = |args: &[&str], fecha: &str| {
+            let salida = Command::new("git")
+                .arg("-C")
+                .arg(raiz)
+                .args(args)
+                .env("GIT_CONFIG_GLOBAL", &cfg)
+                .env("GIT_CONFIG_SYSTEM", &cfg)
+                .env("GIT_AUTHOR_NAME", "f")
+                .env("GIT_AUTHOR_EMAIL", "f@k.local")
+                .env("GIT_COMMITTER_NAME", "f")
+                .env("GIT_COMMITTER_EMAIL", "f@k.local")
+                .env("GIT_AUTHOR_DATE", fecha)
+                .env("GIT_COMMITTER_DATE", fecha)
+                .output()
+                .unwrap();
+            assert!(salida.status.success(), "git {args:?} falló");
+        };
+        std::fs::write(&cfg, "").unwrap();
+        corre(&["init", "-q"], "2026-01-01T10:00:00+00:00");
+        std::fs::write(raiz.join("base.md"), "base\n").unwrap();
+        corre(&["add", "."], "2026-01-01T10:00:00+00:00");
+        corre(&["commit", "-q", "-m", "base"], "2026-01-01T10:00:00+00:00");
+        corre(
+            &["checkout", "-q", "-b", "rama-a"],
+            "2026-01-01T10:00:00+00:00",
+        );
+        std::fs::write(raiz.join("y.md"), "contenido-y\n").unwrap();
+        corre(&["add", "."], "2026-01-02T10:00:00+00:00");
+        corre(
+            &["commit", "-q", "-m", "add y on a"],
+            "2026-01-02T10:00:00+00:00",
+        );
+        corre(&["checkout", "-q", "master"], "2026-01-01T10:00:00+00:00");
+        std::fs::write(raiz.join("z.md"), "contenido-z\n").unwrap();
+        corre(&["add", "."], "2026-01-03T10:00:00+00:00");
+        corre(
+            &["commit", "-q", "-m", "add z on master"],
+            "2026-01-03T10:00:00+00:00",
+        );
+        corre(
+            &["merge", "rama-a", "-q", "-m", "clean merge", "--no-edit"],
+            "2026-01-04T10:00:00+00:00",
+        );
+
+        let mapa = epochs_de_todo_el_historial(raiz).unwrap();
+        assert_eq!(
+            mapa.get("y.md"),
+            Some(&ultimo_commit_epoch(raiz, "y.md")),
+            "y.md debe seguir con el epoch de su commit de rama, no el del merge"
+        );
+        assert_eq!(
+            mapa.get("z.md"),
+            Some(&ultimo_commit_epoch(raiz, "z.md")),
+            "z.md debe seguir con el epoch de su commit de rama, no el del merge"
+        );
+        assert_ne!(mapa["y.md"], mapa["z.md"]);
     }
 }

@@ -887,3 +887,78 @@ fn tras_migrar_la_fila_casa_con_lo_que_calcula_el_incremental() {
         "la fila migrada debe casar con el incremental"
     );
 }
+
+/// Test de EQUIVALENCIA (Ola 1 G Task 3), no de regresión: compara el
+/// resultado real de `indexa` contra `git_epoch_de` (el fallback per-nota)
+/// recalculado aparte. Pasa antes del cambio de rendimiento (hoy `indexa`
+/// llama a `git_epoch_de` per-nota) y debe seguir pasando después (cuando
+/// `indexa` usa `gitx::epochs_de_todo_el_historial` en lote) — es la prueba
+/// de que el refactor de la Task 3 no cambia ningún epoch guardado.
+#[test]
+fn git_epoch_por_lote_coincide_con_el_fallback_por_nota() {
+    let dir = tempfile::tempdir().unwrap();
+    let kb = dir.path();
+    git(kb, &["init", "-q"]);
+    git(kb, &["config", "user.email", "test@exo.local"]);
+    git(kb, &["config", "user.name", "exo-test"]);
+
+    let commit_con_fecha = |archivo: &str, fecha: &str| {
+        git(kb, &["add", archivo]);
+        let status = std::process::Command::new("git")
+            .arg("-C")
+            .arg(kb)
+            .args(["commit", "-q", "-m", archivo])
+            .env("GIT_AUTHOR_DATE", fecha)
+            .env("GIT_COMMITTER_DATE", fecha)
+            .status()
+            .expect("git commit");
+        assert!(status.success());
+    };
+
+    crea_nota(kb, "a.md", "kb-test/a", "Nota A", "contenido alfa");
+    commit_con_fecha("a.md", "2026-07-01T10:00:00+00:00");
+
+    crea_nota(kb, "b.md", "kb-test/b", "Nota B", "contenido beta");
+    commit_con_fecha("b.md", "2026-07-02T10:00:00+00:00");
+
+    // c.md nunca se commitea: ejercita el fallback per-nota (fuera del mapa
+    // de lote, `git_epoch_de` sobre un fichero sin commits da `None`).
+    crea_nota(kb, "c.md", "kb-test/c", "Nota C", "contenido gamma");
+
+    let (_guard, db) = db_temporal();
+    indexa(kb, &db).unwrap();
+
+    let conn = exo::abre_db(&db).unwrap();
+    let leer = |ruta: &str| -> Option<i64> {
+        conn.query_row(
+            "SELECT git_epoch FROM notas WHERE ruta = ?1",
+            rusqlite::params![ruta],
+            |r| r.get(0),
+        )
+        .unwrap()
+    };
+
+    let esperado_a = exo::indexer::git_epoch_de(kb, Path::new("a.md"));
+    let esperado_b = exo::indexer::git_epoch_de(kb, Path::new("b.md"));
+    let esperado_c = exo::indexer::git_epoch_de(kb, Path::new("c.md"));
+
+    assert_eq!(
+        leer("a.md"),
+        esperado_a,
+        "a.md debe coincidir con el fallback per-nota"
+    );
+    assert_eq!(
+        leer("b.md"),
+        esperado_b,
+        "b.md debe coincidir con el fallback per-nota"
+    );
+    assert_eq!(
+        leer("c.md"),
+        esperado_c,
+        "c.md sin commits debe seguir siendo None"
+    );
+    assert_ne!(
+        esperado_a, esperado_b,
+        "a y b deben tener epochs distintos (commits en fechas distintas)"
+    );
+}
