@@ -69,6 +69,14 @@ for N in "${TAMANOS[@]}"; do
   jq -e --argjson n "$N" '.data.indexed == 0 and .data.skipped == $n' "$OUT/fidelidad-n$N.json" >/dev/null || {
     echo "bench: índice sintético no fresco para N=$N: $(cat "$OUT/fidelidad-n$N.json")" >&2; exit 1; }
 
+  # Ola 1 G Task 1: el arm vector tiene que aportar algo con el umbral de
+  # producción, o el bench mide solo el canal FTS aunque diga "hybrid".
+  "$BIN" recall --db "$DB" --kb "$KB" "--query=$Q" --min-similarity 0.40 \
+    --limit 4 --cap-bytes 4000 --json > "$OUT/cobertura-vector-n$N.json" || exit 1
+  jq -e '.data.notes | length > 0' "$OUT/cobertura-vector-n$N.json" >/dev/null || {
+    echo "bench: arm vector sin resultados (umbral 0.40) para N=$N — kb_sintetica sigue ciega al umbral" >&2
+    exit 1; }
+
   jq -n --arg p "$Q" '{prompt:$p, session_id:"bench-a"}' > "$D/prompt.json"
 
   mide "s3-index-sin-cambios-n$N" "\"$BIN\" index --db \"$DB\" --kb \"$KB\" --json"

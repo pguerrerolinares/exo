@@ -1,13 +1,23 @@
-//! KB sintética para el bench de coste de la campaña A.
+//! KB sintética para el bench de coste de la campaña A (y el oráculo de
+//! coste de la Ola 1 G, Task 1: el arm vector necesita contenido correlado
+//! para no ser ciego al umbral, backlog:1046-1057).
 //!
 //! Pre-registro: `docs/superpowers/plans/2026-09-13-campana-a-preregistro-bench.md`.
 //! La FORMA copia la de la KB real medida el 2026-09-13 (174 notas, 3.290
 //! trozos de 617 caracteres de media, 727 aristas con 24 sin resolver, tiers
-//! 6 core / 60 stable / 105 log). El índice se construye SIN el modelo: los
-//! vectores son pseudoaleatorios y deterministas. Mide coste, no calidad.
+//! 6 core / 60 stable / 105 log). El TEXTO sigue siendo sintético (24
+//! palabras de vocabulario sin significado real) — mide coste, no calidad
+//! de retrieval — pero los VECTORES ya no son pseudoaleatorios: cada trozo
+//! usa el embedding REAL de su palabra de vocabulario dominante (pool de 24
+//! embeddings, calculado UNA VEZ con el modelo real, nunca por trozo) más
+//! ruido gaussiano `KB_SINTETICA_SIGMA` (default 0.5), renormalizado a
+//! norma unidad. Antes, un vector puramente aleatorio en 768 dims tiene
+//! similitud coseno esperada ~0 con cualquier query, así que con el umbral
+//! de producción (0.40) el arm vector nunca aportaba nada al bench.
 //!
-//! Uso: kb_sintetica <N> <DIR> [SEMILLA]
+//! Uso: kb_sintetica <N> <DIR> [SEMILLA]  (env `KB_SINTETICA_SIGMA` opcional)
 use anyhow::{Context, Result, bail};
+use exo::con_embedder_de_proceso;
 use rusqlite::params;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -69,6 +79,15 @@ impl Xorshift {
     /// Uniforme en [-1, 1).
     fn unidad(&mut self) -> f32 {
         (self.siguiente() >> 40) as f32 / (1u64 << 23) as f32 - 1.0
+    }
+
+    /// Normal estándar vía Box-Muller (forma polar simple), determinista con
+    /// la misma semilla. `.max(1e-6)` evita `ln(0)` en el caso borde
+    /// (probabilidad ~1/2^24 por muestra) sin añadir un segundo generador.
+    fn normal(&mut self) -> f32 {
+        let u1 = ((self.unidad() + 1.0) / 2.0).max(1e-6);
+        let u2 = (self.unidad() + 1.0) / 2.0;
+        (-2.0 * u1.ln()).sqrt() * (std::f32::consts::TAU * u2).cos()
     }
 }
 
@@ -189,18 +208,62 @@ fn escribe_config(dir: &Path, kb: &Path, db: &Path) -> Result<()> {
     .context("escribir config.toml")
 }
 
-fn vector_unitario(rng: &mut Xorshift) -> Vec<f32> {
-    let mut v: Vec<f32> = (0..768).map(|_| rng.unidad()).collect();
+/// Palabra del vocabulario más frecuente en `texto` — decide qué vector del
+/// pool real usa este trozo. La query del bench («trinquete techos indice
+/// memoria») también son solo palabras del vocabulario, así que compartir
+/// este criterio es lo que hace que query y contenido caigan en la MISMA
+/// región del espacio de embeddings real.
+fn palabra_dominante(texto: &str) -> usize {
+    let mut cuentas = [0usize; VOCABULARIO.len()];
+    for palabra in texto.split_whitespace() {
+        if let Some(i) = VOCABULARIO.iter().position(|v| *v == palabra) {
+            cuentas[i] += 1;
+        }
+    }
+    cuentas
+        .iter()
+        .enumerate()
+        .max_by_key(|(_, c)| **c)
+        .map(|(i, _)| i)
+        .unwrap_or(0)
+}
+
+/// Embeddings REALES de las 24 palabras del vocabulario — una sola pasada
+/// de batch (24 textos, no miles). Se calcula UNA VEZ por generación, nunca
+/// por trozo: la correlación de contenido que faltaba (backlog:1046-1057)
+/// sin pagar el coste de embeber la KB sintética entera.
+fn pool_de_vocabulario() -> Result<Vec<Vec<f32>>> {
+    let textos: Vec<String> = VOCABULARIO.iter().map(|w| w.to_string()).collect();
+    con_embedder_de_proceso(|embedder| embedder.embebe_batch(&textos))
+        .context("embed del pool de vocabulario para kb_sintetica")
+}
+
+/// Vector "real + ruido": embedding real de la palabra dominante del trozo
+/// más ruido gaussiano N(0, sigma²) por componente, renormalizado a norma
+/// unidad. `sigma=0` es el embedding real sin ruido; `sigma` alto lo acerca
+/// al `vector_unitario()` puramente aleatorio de antes de esta task.
+fn vector_desde_pool(pool: &[Vec<f32>], idx: usize, rng: &mut Xorshift, sigma: f32) -> Vec<f32> {
+    let base = &pool[idx];
+    let mut v: Vec<f32> = base.iter().map(|x| x + sigma * rng.normal()).collect();
     let norma = v.iter().map(|x| x * x).sum::<f32>().sqrt();
-    for x in &mut v {
-        *x /= norma;
+    if norma > 1e-9 {
+        for x in &mut v {
+            *x /= norma;
+        }
     }
     v
 }
 
-/// Construye el índice como lo dejaría `exo index`, salvo los vectores.
-/// Devuelve (trozos, aristas, aristas sin resolver).
-fn construye_indice(kb: &Path, db: &Path, n: usize, rng: &mut Xorshift) -> Result<(i64, i64, i64)> {
+/// Construye el índice como lo dejaría `exo index`, salvo el TEXTO (sigue
+/// siendo sintético). Devuelve (trozos, aristas, aristas sin resolver).
+fn construye_indice(
+    kb: &Path,
+    db: &Path,
+    n: usize,
+    rng: &mut Xorshift,
+    pool: &[Vec<f32>],
+    sigma: f32,
+) -> Result<(i64, i64, i64)> {
     let conn = exo::abre_db(db)?;
     exo::schema::crea_schema(&conn)?;
     let kb_abs = std::fs::canonicalize(kb).context("canonicalizar kb")?;
@@ -250,7 +313,8 @@ fn construye_indice(kb: &Path, db: &Path, n: usize, rng: &mut Xorshift) -> Resul
                 params![nota.permalink, orden as i64, texto],
             )?;
             let id = tx.last_insert_rowid();
-            exo::vectores::inserta(&tx, id, &vector_unitario(rng))?;
+            let idx = palabra_dominante(texto);
+            exo::vectores::inserta(&tx, id, &vector_desde_pool(pool, idx, rng, sigma))?;
         }
     }
     tx.commit()?;
@@ -292,9 +356,14 @@ fn main() -> Result<()> {
     }
     versiona(&kb)?;
     escribe_config(&dir, &kb, &db)?;
-    let (trozos, aristas, rotas) = construye_indice(&kb, &db, n, &mut rng)?;
+    let sigma: f32 = std::env::var("KB_SINTETICA_SIGMA")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0.5);
+    let pool = pool_de_vocabulario().context("pool de embeddings reales del vocabulario")?;
+    let (trozos, aristas, rotas) = construye_indice(&kb, &db, n, &mut rng, &pool, sigma)?;
     println!(
-        "kb_sintetica: N={n} semilla={semilla} trozos={trozos} aristas={aristas} sin_resolver={rotas}"
+        "kb_sintetica: N={n} semilla={semilla} sigma={sigma} trozos={trozos} aristas={aristas} sin_resolver={rotas}"
     );
     Ok(())
 }
