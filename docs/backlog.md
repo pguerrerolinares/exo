@@ -53,11 +53,13 @@
 > `plugins/exo/README.md` (ver Alta); el mismo
 > `cd "$(git rev-parse --show-toplevel)"` sin guarda contra una sustitución
 > vacía sigue en `test-rutas-personales.sh`, `test-exec-bit.sh` y
-> `test-versiones.sh` (ver Baja); `HF_HOME=""` (definida pero vacía)
+> `test-versiones.sh` (ver Baja); y `HF_HOME=""` (definida pero vacía)
 > resuelve a una ruta relativa `hub`, sin test que lo congele (ver Media); y
-> `docs/arquitectura.md` dice «cualquier directorio que empiece por `.`»
-> cuando el walker salta cualquier ENTRADA, también ficheros `.oculto.md`
-> (ver Media).)
+> `exo search` sin `--type` contra una DB sin tabla `vectores` falla duro
+> donde antes daba FTS, riesgo real bajo (review final de G, 2026-09-16,
+> M5, ver Baja). El ítem sobre `docs/arquitectura.md` («cualquier
+> directorio que empiece por `.`» vs. cualquier ENTRADA) se cerró en la
+> review final de G (M4, 2026-09-16), ver Media.)
 >
 > Anterior: **2026-09-16** (sync de `docs/backlog.md`, Task 9 de la
 > campaña F —
@@ -84,7 +86,10 @@
 > `doctor.rs:112-125` ya asumía lo contrario, así que fijar la variable en CI
 > sin tocar el engine convertía un miss ocasional en un miss permanente en
 > los tres SO. El arreglo de verdad pasa a la Task 13 de la campaña G
-> (`3b48220`), decisión de Paul del 2026-09-16. De paso corrige con cita los
+> (`3b48220` — hash pre-rebase, no ancestro de esta rama tras el rebase de G
+> sobre H+F; commit real `f519a45`, corregido en la review final de G, M6,
+> 2026-09-16, misma coletilla que `65d5a7a` en `:1063`), decisión de Paul
+> del 2026-09-16. De paso corrige con cita los
 > ítems caducados o mal registrados del `§4` de
 > `docs/superpowers/consultas/2026-09-15-campanas/propuesta.md` que le
 > tocaban a F: evicción de la KB, colisión `budget`/`cost`, `--db` en
@@ -442,7 +447,9 @@
   el check (e) de `test-docs-vivos.sh` (tabla de hooks) solo cuenta filas
   contra el `README.md` de la raíz — `plugins/exo/README.md:58` tiene su
   propia tabla `| Reflejo | Evento | Fichero | Qué hace | Abstención |` con
-  las mismas nueve filas, sin gate. Puede desfasarse igual que el README
+  las mismas diez filas (corregido en la review final de G, M3, 2026-09-16:
+  decía «nueve», `plugins/exo/README.md:58` trae diez comandos, contados),
+  sin gate. Puede desfasarse igual que el README
   raíz antes de este mismo item. **Acción:** extender el check (e) para
   recorrer los dos ficheros, o justificar por qué solo uno lo necesita.
 
@@ -802,8 +809,11 @@
   parámetros que no se hizo aquí. CERRADO el 2026-09-16 (campaña G, Task 6,
   commit `05ea6ed`).** `escribe_nueva(&NuevaNota{...})` — struct de
   parámetros con sus 10 call sites migrados, `#[allow(clippy::too_many_arguments)]`
-  retirado de `engine/src/escritor.rs`. `grep -rn too_many_arguments
-  engine/src` vacío.
+  retirado de `engine/src/escritor.rs`. El `#[allow]` sí desapareció (verificado:
+  ya no hay ninguno en `engine/src`); **corregido en la review final de G
+  (M2, 2026-09-16)**: `grep -rn too_many_arguments engine/src` NO sale vacío
+  — da un hit en `engine/src/escritor.rs:244`, el doc-comment que documenta
+  la deuda cerrada (menciona el nombre del lint en prosa, no el atributo).
 
 - [ ] **Rutas personales y `hooks.json` sin validar en CI — las dos
   sub-propuestas vivas del item de los `test-*.sh` del plugin (cerrado el
@@ -1058,13 +1068,12 @@
   heredan el cambio sin tocar sus llamadas — la nota de que
   `doctor.rs:312,451` también usaba `walk_kb`, no citada por el ítem
   original, queda resuelta con el mismo commit, no como trabajo aparte.
-  **Deuda nueva (campaña G, 2026-09-16, hallada en review):**
-  `docs/arquitectura.md` describe la exclusión como «cualquier directorio
-  que empiece por `.`», pero `recorre()` salta cualquier ENTRADA que
-  empiece por `.` — también ficheros sueltos como `.oculto.md`, no solo
-  directorios. La declaración del cambio de comportamiento (arriba) queda
-  correcta en el backlog; el texto de `arquitectura.md` es la imprecisión
-  a corregir cuando se toque ese documento por otra razón.
+  **Deuda nueva (campaña G, 2026-09-16, hallada en review) — CERRADA en la
+  review final de G (M4, 2026-09-16):** `docs/arquitectura.md` describía la
+  exclusión como «cualquier directorio que empiece por `.`»; corregido a
+  «cualquier ENTRADA que empiece por `.`» (`walker.rs::recorre` filtra por
+  nombre antes de distinguir directorio de fichero — también un fichero
+  suelto como `.oculto.md`, no solo directorios).
 
 - [x] **`indexer::ruta_relativa` guarda `notas.ruta` con el separador nativo
   del SO: cerrado, causa en el indexer arreglada el 2026-09-11
@@ -1641,9 +1650,12 @@
   `engine/src/{buscador,inicia,lib}.rs` en comentarios/plantilla. El fix
   (`kb-demo` → `kb-test`) es alcance de G (toca `engine/tests/` y
   `engine/src/`), no de F — F solo corrige el conteo caducado.
-  **Cerrado.** Renombrado a `kb-test` en los 11 ficheros de test +
+  **Cerrado.** Renombrado a `kb-test` en **9** ficheros de test +
   `engine/src/{buscador,inicia}.rs` (2 comentarios; `git grep -c kb-demo --
-  engine` = 4 tras el cambio). **Excepciones deliberadas, no tocadas**:
+  engine` = 4 tras el cambio) — corregido en la review final de G (M3,
+  2026-09-16: decía «11 ficheros de test»; `5a71911` tocó 9 de test + 2 de
+  `src/`, 11 en total, no 11 solo de test). **Excepciones
+  deliberadas, no tocadas**:
   `engine/tests/help_producto.rs:154` (gate anti-jerga que comprueba que
   `--help` no mencione el nombre real de la KB del autor),
   `engine/tests/escritor.rs:29` y `engine/tests/recall_contenido.rs:108`
@@ -1697,9 +1709,23 @@
   cd "$RAIZ"`) cuando se toquen por otra razón, o en un barrido dedicado
   de los `test-*.sh` del plugin.
 
----
-
-## Cerrado con evidencia (para no re-proponer)
+- [ ] **(NUEVO, review final campaña G, 2026-09-16, M5) `exo search` sin
+  `--type` contra una DB sin tabla `vectores` falla duro donde antes daba
+  FTS.** Regresión de superficie del default `hybrid` (D6, Task 11):
+  documentada hoy solo en un comentario de test
+  (`engine/tests/kb_root_lectura_cli.rs:497-500`,
+  `search_no_avisa_ni_falla_si_la_db_no_tiene_tabla_meta`, que por eso pasa
+  `--type fts` explícito para seguir ejerciendo la degradación vieja). Antes
+  de la Task 11, `exo search` sin `--type` resolvía a `fts`, que tolera
+  cualquier schema mínimo; ahora resuelve a `hybrid`, y el arm vector de una
+  DB que nunca creó la tabla `vectores` (no la vacía — la AUSENTE) revienta
+  con `"no such table: vectores"` en vez de degradar. **Riesgo real bajo**
+  (adjudicado en la Task 11 y confirmado aquí): `schema.rs` crea la tabla
+  `vectores` SIEMPRE al indexar, así que el caso solo se da con una DB que
+  nunca pasó por `exo index`/`exo rebuild` — schema ajeno o fichero vacío
+  creado a mano. **Acción:** si se toca `busca_hybrid`/`busca_vector_con`
+  por otra razón, degradar "tabla `vectores` ausente" igual que "0 filas en
+  `vectores`" (mismo aviso de cobertura, no un error duro).
 
 - [x] **(revisión 2026-09-04) `tier` no se persiste en el índice y cada
   arranque relee el frontmatter de TODAS las notas desde disco: cerrado —

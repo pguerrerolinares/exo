@@ -489,8 +489,12 @@ tags: [core, indice]                  # tolerado, no lo consume el engine
 - `walk_kb` (usada por `exo index`/`rebuild` y por `exo doctor`) y
   `walk_kb_excluyendo` (usada por `exo lint`/`exo budget`) comparten una sola
   implementación desde el 2026-09-15 (Ola 1, campaña G): excluyen cualquier
-  directorio que empiece por `.` en cualquier nivel (`.git/` incluido) y
-  reconocen `.md` sin distinguir mayúsculas. Antes de esa fecha, `walk_kb`
+  ENTRADA que empiece por `.` en cualquier nivel (`.git/` incluido, pero
+  también un fichero suelto como `.oculto.md` — corregido en la review
+  final de G, M4, 2026-09-16: `walker.rs::recorre` filtra por
+  `nombre.starts_with('.')` antes de distinguir directorio de fichero, no
+  solo directorios) y reconocen `.md` sin distinguir mayúsculas. Antes de
+  esa fecha, `walk_kb`
   tenía una semántica distinta (case-sensitive, sin excluir `.git/`); si tu KB
   tiene notas `.MD` en mayúsculas que antes no se indexaban, corre
   `exo rebuild` tras actualizar. `archive/` SE **incluye** (nunca se excluye

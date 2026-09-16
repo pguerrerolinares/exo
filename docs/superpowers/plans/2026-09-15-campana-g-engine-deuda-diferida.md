@@ -3405,8 +3405,10 @@ new_string:
 ```
   **[x] Cerrado el <fecha de ejecución> (campaña G, Task 6, commit
   `<commit Task 6>`):** `escribe_nueva(&NuevaNota{...})` — struct de
-  parámetros, `#[allow(clippy::too_many_arguments)]` retirado. `grep -rn
-  too_many_arguments engine/src` vacío.
+  parámetros, `#[allow(clippy::too_many_arguments)]` retirado (el `#[allow]`
+  sí desapareció; `grep -rn too_many_arguments engine/src` NO sale vacío,
+  da un hit en el doc-comment de `escritor.rs:244` que documenta la deuda
+  cerrada — corregido en la review final de G, M2, 2026-09-16).
 ```
 
 - [ ] **Step 7: Cerrar con evidencia — M4 #5 y #6 (`backlog:708-730`)**
