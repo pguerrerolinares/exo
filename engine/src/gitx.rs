@@ -400,18 +400,14 @@ pub fn md_staged(dir: &Path) -> Result<Vec<String>> {
 ///    merge posterior en el tiempo (pero procesado ANTES, log en orden
 ///    newest-first) va a descartar su resultado para esa ruta.
 ///
-///    La regla: en cualquier commit donde `-m` OMITE al menos un bloque
-///    (`nbloques_impresos < num_padres`, leído de `%P`, no de cuántas
-///    cabeceras se llegaron a imprimir), toda ruta que aparezca en
-///    CUALQUIERA de los bloques SÍ impresos de ese commit se marca
-///    «contaminada» y se excluye del mapa **final entero** — sin importar
-///    en qué otro commit del stream (anterior o posterior en el recorrido)
-///    se le hubiera asignado un epoch. Es correcta por construcción:
-///    cualquier ruta que pase por un bloque omitido es, por definición,
-///    candidata a la reescritura de padres que solo el fallback per-nota
-///    puede seguir — así que abstenerse nunca da un epoch incorrecto, como
-///    mucho una nota de más cayendo al fallback. El coste queda acotado a
-///    las rutas tocadas por un commit con AL MENOS un bloque omitido, raro
+///    La regla (ampliada el 2026-09-16, ver más abajo): en cualquier commit
+///    donde `-m` OMITE al menos un bloque (`nbloques_impresos < num_padres`,
+///    leído de `%P`, no de cuántas cabeceras se llegaron a imprimir), toda
+///    ruta que aparezca en CUALQUIERA de los bloques SÍ impresos de ese
+///    commit se marca «contaminada» y se excluye del mapa **final entero**
+///    — sin importar en qué otro commit del stream (anterior o posterior en
+///    el recorrido) se le hubiera asignado un epoch. El coste queda acotado
+///    a las rutas tocadas por un commit con AL MENOS un bloque omitido, raro
 ///    en una KB. Efecto colateral medido y aceptado: los casos (a) y (c)
 ///    del punto 5 —que sí tienen un bloque omitido, pero cuya ruta
 ///    contaminada tenía además un commit de rama limpio más abajo en el
@@ -421,6 +417,31 @@ pub fn md_staged(dir: &Path) -> Result<Vec<String>> {
 ///    commit de rama limpio de sobra" de "esta contaminada solo es
 ///    recuperable vía reescritura de padres", y tratar ambos casos igual
 ///    (fallback) es la única postura que nunca da un dato incorrecto.
+///
+///    **Ampliación 2026-09-16 (review final de la campaña G):** la regla de
+///    arriba solo miraba bloques OMITIDOS por completo, pero un commit puede
+///    imprimir TODOS sus bloques (`nbloques_impresos == num_padres`, sin
+///    omisión) y aun así descarrilar: si una ruta aparece en SOLO ALGUNOS de
+///    esos bloques (`0 < n < num_padres`), es TREESAME a por lo menos un
+///    padre para esa ruta concreta — mismo patrón de fondo que un bloque
+///    omitido (git sigue el subgrafo del padre no-TREESAME y tira el otro
+///    para esa ruta), solo que sin necesitar que el bloque entero quede
+///    vacío. Reproducido con git real: un merge de 2 padres que revierte
+///    `a.md` a la versión de un padre (conflicto resuelto a favor de ese
+///    lado) Y acepta `y.md` del otro sin conflicto — 2 bloques impresos, sin
+///    omisión, pero cada ruta aparece en uno solo (`n == 1`); el lote viejo
+///    ni atribuía ni contaminaba ninguna de las dos en este commit, y el
+///    stream plano se quedaba con el epoch del commit de la rama DESCARTADA
+///    para `a.md` (más reciente que el fallback real, nunca al revés) — ver
+///    el test `epochs_de_todo_el_historial_en_un_merge_que_revierte_una_ruta_y_acepta_otra_coincide_con_el_fallback`.
+///    La regla ampliada: en `cierra_grupo`, cuando `n < num_padres` para una
+///    ruta y `num_padres > 1`, esa ruta también se marca «contaminada» (el
+///    caso `num_padres == 1` no aplica: sin `-m` de por medio no hay
+///    TREESAME posible, es un commit normal). Con esto la garantía original
+///    vuelve a sostenerse de verdad: abstenerse nunca da un epoch incorrecto,
+///    como mucho una nota de más cayendo al fallback — el coste medido sobre
+///    la KB real de Paul (174 notas) sube de 15 a 21 caídas al fallback (ver
+///    report de la review final de G).
 ///
 /// Recorre el log COMPLETO una vez y se queda con el PRIMER epoch válido
 /// visto para cada ruta: git emite los commits del más reciente al más
@@ -584,9 +605,25 @@ pub fn epochs_de_todo_el_historial(dir: &Path) -> Result<HashMap<String, i64>> {
 /// `epochs_de_todo_el_historial_en_un_merge_ours_coincide_con_el_fallback`.
 /// El stream plano de esta función no tiene grafo: no puede saber, al
 /// procesar ese commit antiguo, que un merge (procesado antes, por venir
-/// después en el tiempo) va a descartar su resultado para esa ruta. Marcar
-/// contaminada la ruta y abstenerse (fallback per-nota) es la única postura
-/// que nunca da un epoch incorrecto.
+/// después en el tiempo) va a descartar su resultado para esa ruta.
+///
+/// **Ampliación 2026-09-16 (review final de G):** contaminar solo cuando un
+/// bloque entero falta no basta. Un merge puede imprimir los `num_padres`
+/// bloques completos y aun así una ruta puede aparecer en SOLO ALGUNOS de
+/// ellos (`0 < n < num_padres`) — TREESAME a por lo menos un padre para esa
+/// ruta, sin que ningún bloque quedara vacío. Es el mismo riesgo de
+/// reescritura de padres del párrafo de arriba, solo que sin la señal de
+/// "bloque omitido": si `num_padres > 1` y una ruta no llega a `n ==
+/// num_padres`, también se marca contaminada (ver el test
+/// `epochs_de_todo_el_historial_en_un_merge_que_revierte_una_ruta_y_acepta_otra_coincide_con_el_fallback`,
+/// que reproduce un merge con conflicto donde ninguna ruta ve su bloque
+/// omitido pero ambas son TREESAME a un padre distinto cada una). El caso
+/// `num_padres == 1` queda fuera a propósito: sin `-m` de por medio no hay
+/// TREESAME que detectar, es un commit normal y `n` solo puede ser 0 o 1.
+/// Marcar contaminada la ruta y abstenerse (fallback per-nota) es, con esta
+/// ampliación, la única postura que nunca da un epoch incorrecto — la
+/// promesa original del comentario de módulo solo se sostiene con las dos
+/// mitades de la regla juntas.
 fn cierra_grupo(
     epochs: &mut HashMap<String, i64>,
     contaminadas: &mut std::collections::HashSet<String>,
@@ -611,6 +648,16 @@ fn cierra_grupo(
     for (ruta, n) in cuenta {
         if *n as usize == num_padres {
             epochs.entry(ruta.clone()).or_insert(epoch);
+        } else if num_padres > 1 {
+            // Ningún bloque fue OMITIDO (si lo hubiera sido, ya habríamos
+            // vuelto arriba), pero esta ruta apareció en solo ALGUNOS de los
+            // bloques impresos: es TREESAME a por lo menos un padre para esta
+            // ruta. Igual que el bloque omitido, esto es la marca de que git
+            // sigue solo el subgrafo del padre no-TREESAME y descarta el
+            // otro para esta ruta — mismo riesgo de reescritura de padres que
+            // el punto 6 de arriba, solo que sin necesitar un bloque vacío
+            // entero. Contamina y abstente (ver doc-comment de la función).
+            contaminadas.insert(ruta.clone());
         }
     }
 }
@@ -1218,17 +1265,34 @@ mod tests {
         );
 
         let mapa = epochs_de_todo_el_historial(raiz).unwrap();
+        let esperado_y = ultimo_commit_epoch(raiz, "y.md");
+        let esperado_z = ultimo_commit_epoch(raiz, "z.md");
+        // Actualizado por la ampliación 2026-09-16 de la regla de
+        // contaminación (ver doc-comment de `cierra_grupo`, punto 6
+        // ampliado): en este merge de 2 padres SIN bloque omitido, `y.md`
+        // solo aparece en el bloque de `master` (TREESAME a `rama-a`) y
+        // `z.md` solo en el de `rama-a` (TREESAME a `master`) — ambas caen
+        // en `0 < n < num_padres` y quedan contaminadas, aunque en este caso
+        // concreto (adiciones disjuntas, sin conflicto real) el lote SIN la
+        // ampliación también acertaba. El valor efectivo sigue coincidiendo
+        // con el fallback; lo que cambia es que ya no se resuelve desde el
+        // mapa — coste aceptado de la regla ampliada, documentado en I1.
+        let efectivo_y = mapa.get("y.md").copied().unwrap_or(esperado_y);
+        let efectivo_z = mapa.get("z.md").copied().unwrap_or(esperado_z);
         assert_eq!(
-            mapa.get("y.md"),
-            Some(&ultimo_commit_epoch(raiz, "y.md")),
-            "y.md debe seguir con el epoch de su commit de rama, no el del merge"
+            efectivo_y, esperado_y,
+            "y.md: el valor efectivo (mapa o fallback) debe coincidir con el per-nota"
         );
         assert_eq!(
-            mapa.get("z.md"),
-            Some(&ultimo_commit_epoch(raiz, "z.md")),
-            "z.md debe seguir con el epoch de su commit de rama, no el del merge"
+            efectivo_z, esperado_z,
+            "z.md: el valor efectivo (mapa o fallback) debe coincidir con el per-nota"
         );
-        assert_ne!(mapa["y.md"], mapa["z.md"]);
+        assert_ne!(efectivo_y, efectivo_z);
+        assert!(
+            !mapa.contains_key("y.md") && !mapa.contains_key("z.md"),
+            "ambas caen al fallback per-nota bajo la regla de contaminación \
+             ampliada (TREESAME a un solo padre, sin bloque omitido)"
+        );
     }
 
     /// Caso (a) de la verificación dirigida (orquestador, 2026-09-15): KB en
@@ -1346,58 +1410,20 @@ mod tests {
     /// merge queda byte-idéntico al primer padre (estrategia `ours` descarta
     /// el contenido del otro padre).
     ///
-    /// **NEEDS_CONTEXT (verificación dirigida, orquestador, 2026-09-15): el
-    /// fix de `%P` (punto 5 del comentario de `epochs_de_todo_el_historial`)
-    /// NO cierra este caso — diverge por una razón estructuralmente distinta
-    /// a (a)/(c), que sí quedan verdes con ese fix.** Salida cruda medida
-    /// (repo desechable, mismas fechas que este test):
-    ///
-    /// ```text
-    /// \x01c3a3f28... 1767434400 53b0790...(master) 79144c8...(rama)
-    ///
-    /// b.md
-    /// \x0179144c8... 1767348000 53b0790...
-    ///
-    /// b.md
-    /// \x0153b0790... 1767261600
-    ///
-    /// b.md
-    /// ```
-    /// Fallback (`git log -1 -- b.md`): `53b0790...` (epoch 1767261600, el
-    /// commit BASE). Con el fix de `%P`: el merge (`num_padres=2`) NO
-    /// atribuye `b.md` (`cuenta=1 != 2`, correcto — mismo razonamiento que
-    /// (a)/(c)), pero el algoritmo sigue escaneando el stream plano en orden
-    /// y encuentra `79144c8...` ("rama toca b", 1 solo padre, `cuenta=1 ==
-    /// num_padres=1`) — lo atribuye a ESE commit, epoch 1767348000. Ninguno
-    /// de los dos coincide con el fallback real (`53b0790`, el commit base).
-    ///
-    /// La razón de fondo: `git log -1 -- ruta` no solo decide si UN merge
-    /// "muestra" una ruta — hace **reescritura de padres** (parent rewriting,
-    /// parte de la simplificación de historia por defecto): cuando un merge
-    /// es TREESAME a un padre para una ruta, esa ruta "salta" ese merge y
-    /// continúa la historia SOLO por el padre TREESAME, **descartando por
-    /// completo** el subgrafo alcanzable solo por el otro padre — aunque ese
-    /// subgrafo contenga commits que sí tocaron la ruta (aquí, "rama toca
-    /// b": su cambio a `b.md` fue descartado por la estrategia `-s ours`, así
-    /// que la simplificación real lo trata como si nunca hubiera existido
-    /// para `b.md`). `epochs_de_todo_el_historial` procesa el log como un
-    /// stream PLANO commit-a-commit, sin grafo: no tiene forma de saber, al
-    /// procesar `79144c8`, que su resultado para `b.md` fue descartado
-    /// aguas abajo por un merge posterior. Implementarlo bien exigiría un
-    /// recorrido del grafo consciente de POR RUTA (qué padre "sobrevive" en
-    /// cada merge treesame, por ruta) — o volver al fallback per-nota
-    /// exactamente en los casos con esta forma, lo que reintroduce el coste
-    /// que esta task existe para evitar. Dos salidas razonables, ninguna
-    /// obviamente mejor sin que el orquestador decida: (1) aceptar el riesgo
-    /// residual (`-s ours`/`-s theirs`/estrategias que descartan contenido
-    /// son raras frente a merges no-ff normales; el batch ya es
-    /// estrictamente más preciso que el diseño anterior, que TAMBIÉN
-    /// divergía aquí — atribuía a `c3a3f28` el merge en vez de `79144c8`,
-    /// ningún diseño lo tenía bien); (2) detectar el patrón "merge cuyo
-    /// árbol es idéntico a un padre" (comparando `%T` del merge contra `%T`
-    /// de cada padre) y forzar el fallback per-nota SOLO para las rutas de
-    /// ese grupo. Test dejado en rojo documentado (`#[ignore]`), no en la
-    /// suite verde, para no fingir una cobertura que no existe.
+    /// **M1 (triaje de la review final de G, 2026-09-16): este comentario
+    /// documentaba un `NEEDS_CONTEXT` con el test en `#[ignore]` — ya no es
+    /// cierto.** El fix de contaminación (punto 6 del comentario de
+    /// `epochs_de_todo_el_historial`, commit `6d08961`) SÍ cierra este caso:
+    /// el merge (`-s ours`, 2 padres, 1 solo bloque impreso porque el diff
+    /// contra el padre superviviente queda vacío) tiene `nbloques_impresos
+    /// (1) < num_padres (2)` — bloque omitido — así que TODA ruta de ese
+    /// bloque (`b.md`) se marca contaminada y se excluye del mapa **final
+    /// entero**, no solo del merge. El commit de la rama descartada ("rama
+    /// toca b", el que antes "ganaba" el chequeo normal con un epoch que el
+    /// fallback real nunca produciría) queda excluido igual, por la misma
+    /// regla. El test está en la suite verde, sin `#[ignore]`, desde ese
+    /// commit — ver el aserto `!mapa.contains_key("b.md")` más abajo, que
+    /// falsifica justo lo que este comentario negaba.
     #[test]
     fn epochs_de_todo_el_historial_en_un_merge_ours_coincide_con_el_fallback() {
         let dir = tempfile::tempdir().unwrap();
@@ -1638,6 +1664,128 @@ mod tests {
             !mapa.contains_key("a.md"),
             "a.md queda contaminada (bloque omitido en este merge) y debe \
              caer al fallback, no resolverse desde el lote"
+        );
+    }
+
+    /// Caso reportado en la review final de G (2026-09-16): un merge con
+    /// TODOS los bloques `-m` impresos (sin omisión, `nbloques_impresos ==
+    /// num_padres == 2`) puede seguir descarrilando el lote si una ruta
+    /// aparece en SOLO ALGUNOS de esos bloques. Aquí `master` y `rama` editan
+    /// `a.md` de forma distinta (conflicto real); el merge se resuelve
+    /// quedándose con la versión de `master` — a.md queda TREESAME al padre
+    /// `master` (no aparece en su bloque) pero SÍ difiere de `rama` (aparece
+    /// en su bloque): `n == 1 < num_padres == 2`. Con la regla vieja
+    /// (`cierra_grupo` solo miraba `n == num_padres` para atribuir, y solo
+    /// contaminaba cuando un bloque entero faltaba) esta ruta ni se atribuye
+    /// ni se contamina en el merge — sigue "viva" para el resto del stream
+    /// plano, que newest-first encuentra antes el commit de `rama` (más
+    /// reciente, YA DESCARTADO por la reescritura de padres del merge) que el
+    /// de `master` (más viejo, el que de verdad sobrevive) y el primer
+    /// `or_insert` se queda con el epoch equivocado — MÁS RECIENTE que el
+    /// fallback real, nunca al revés. `y.md`, aceptado de `rama` sin
+    /// conflicto, es TREESAME a `rama` (no en su bloque) y nuevo respecto a
+    /// `master` (en su bloque): mismo patrón `n == 1 < 2`, pero aquí el lote
+    /// viejo SÍ coincidía con el fallback por casualidad (solo hay un commit
+    /// que lo toca) — el fix lo manda igualmente a fallback, coste aceptado
+    /// (ver doc-comment de `cierra_grupo`, punto 6 ampliado).
+    #[test]
+    fn epochs_de_todo_el_historial_en_un_merge_que_revierte_una_ruta_y_acepta_otra_coincide_con_el_fallback()
+     {
+        let dir = tempfile::tempdir().unwrap();
+        let raiz = dir.path();
+        let cfg = raiz.join("gitconfig-vacio");
+        std::fs::write(&cfg, "").unwrap();
+        let corre = |args: &[&str], fecha: &str| {
+            let salida = Command::new("git")
+                .arg("-C")
+                .arg(raiz)
+                .args(args)
+                .env("GIT_CONFIG_GLOBAL", &cfg)
+                .env("GIT_CONFIG_SYSTEM", &cfg)
+                .env("GIT_AUTHOR_NAME", "f")
+                .env("GIT_AUTHOR_EMAIL", "f@k.local")
+                .env("GIT_COMMITTER_NAME", "f")
+                .env("GIT_COMMITTER_EMAIL", "f@k.local")
+                .env("GIT_AUTHOR_DATE", fecha)
+                .env("GIT_COMMITTER_DATE", fecha)
+                .output()
+                .unwrap();
+            assert!(salida.status.success(), "git {args:?} falló");
+        };
+        corre(&["init", "-q"], "2026-01-01T10:00:00+00:00");
+        std::fs::write(raiz.join("a.md"), "v1-base\n").unwrap();
+        corre(&["add", "."], "2026-01-01T10:00:00+00:00");
+        corre(&["commit", "-q", "-m", "base"], "2026-01-01T10:00:00+00:00");
+        corre(
+            &["checkout", "-q", "-b", "rama"],
+            "2026-01-01T10:00:00+00:00",
+        );
+        corre(&["checkout", "-q", "master"], "2026-01-01T10:00:00+00:00");
+        // master edita a.md ANTES que rama: esta es la versión que sobrevive
+        // (fecha t1, más vieja que la de rama).
+        std::fs::write(raiz.join("a.md"), "v1-master\n").unwrap();
+        corre(&["add", "."], "2026-01-02T10:00:00+00:00");
+        corre(
+            &["commit", "-q", "-m", "master edita a"],
+            "2026-01-02T10:00:00+00:00",
+        );
+        corre(&["checkout", "-q", "rama"], "2026-01-01T10:00:00+00:00");
+        // rama edita a.md DESPUÉS de master (fecha t2) y además añade y.md:
+        // esta versión de a.md queda descartada por el merge, pero es la más
+        // reciente de las dos.
+        std::fs::write(raiz.join("a.md"), "v2-rama\n").unwrap();
+        std::fs::write(raiz.join("y.md"), "rama nuevo\n").unwrap();
+        corre(&["add", "."], "2026-01-03T10:00:00+00:00");
+        corre(
+            &["commit", "-q", "-m", "rama edita a y agrega y"],
+            "2026-01-03T10:00:00+00:00",
+        );
+        corre(&["checkout", "-q", "master"], "2026-01-02T10:00:00+00:00");
+        // Conflicto real en a.md (master y rama lo editaron distinto); y.md
+        // no tiene conflicto, se auto-acepta de rama. Se ignora el status:
+        // el merge falla con conflicto, se resuelve a mano abajo.
+        let _ = Command::new("git")
+            .arg("-C")
+            .arg(raiz)
+            .args(["merge", "-q", "rama", "-m", "merge que revierte a"])
+            .env("GIT_CONFIG_GLOBAL", &cfg)
+            .env("GIT_CONFIG_SYSTEM", &cfg)
+            .output()
+            .unwrap();
+        // Resuelve el conflicto quedándose con la versión de master (revierte
+        // a.md "al lado viejo"); y.md ya quedó auto-aceptado de rama.
+        std::fs::write(raiz.join("a.md"), "v1-master\n").unwrap();
+        corre(&["add", "."], "2026-01-04T10:00:00+00:00");
+        corre(
+            &["commit", "-q", "-m", "merge que revierte a"],
+            "2026-01-04T10:00:00+00:00",
+        );
+
+        let mapa = epochs_de_todo_el_historial(raiz).unwrap();
+        let esperado_a = ultimo_commit_epoch(raiz, "a.md");
+        let esperado_y = ultimo_commit_epoch(raiz, "y.md");
+        let efectivo_a = mapa.get("a.md").copied().unwrap_or(esperado_a);
+        let efectivo_y = mapa.get("y.md").copied().unwrap_or(esperado_y);
+        assert_eq!(
+            efectivo_a, esperado_a,
+            "a.md: el valor efectivo (mapa o fallback) debe coincidir con el \
+             per-nota; ANTES del fix el lote daba el epoch de 'rama edita a' \
+             (descartado por el merge), más reciente que el real"
+        );
+        assert!(
+            !mapa.contains_key("a.md"),
+            "a.md debe caer al fallback per-nota: aparece en SOLO UNO de los \
+             dos bloques impresos (TREESAME a master, distinto de rama)"
+        );
+        assert_eq!(
+            efectivo_y, esperado_y,
+            "y.md: el valor efectivo debe coincidir con el per-nota"
+        );
+        assert!(
+            !mapa.contains_key("y.md"),
+            "y.md también aparece en SOLO UNO de los dos bloques (TREESAME a \
+             rama, nuevo respecto a master) y debe caer al fallback, aunque \
+             coincida con el lote por casualidad"
         );
     }
 }
