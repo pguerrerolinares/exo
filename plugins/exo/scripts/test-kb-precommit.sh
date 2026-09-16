@@ -92,7 +92,8 @@ MARCADO="$(cat "$MARCA" 2>/dev/null || echo "<sin marca>")"
 if [ "$RC5" -eq 0 ] && [ "$MARCADO" = "path" ]; then
   pass "precedencia: exo en \$PATH y en ~/.local/bin a la vez ⇒ gana \$PATH (mismo orden que los hooks)"
 else
-  fail "precedencia: exo en \$PATH y en ~/.local/bin a la vez ⇒ gana \$PATH (mismo orden que los hooks)" "rc=$RC5 marcado=$MARCADO"
+  fail "precedencia: exo en \$PATH y en ~/.local/bin a la vez ⇒ gana \$PATH (mismo orden que los hooks)" \
+    "rc=$RC5 marcado=$MARCADO salida=$OUT5"
 fi
 
 # ------------------- gate real rechaza (ratchet) ⇒ exit 1, sin cambiar -----
