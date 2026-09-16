@@ -171,7 +171,7 @@ Comprobación rápida:
 
 ```bash
 exo config --json    # config efectiva con rutas expandidas
-exo search "doctrina" --type hybrid --min-similarity 0.40 --limit 5
+exo search "doctrina" --type hybrid --min-similarity 0.40 --limit 5  # hybrid (el default) carga el modelo de embeddings; --type fts es el modo barato
 exo recall --limit 5
 ```
 

@@ -64,7 +64,8 @@ enum Comando {
     /// índice corrupto.
     Rebuild(ArgsIndex),
     /// Busca en la KB: texto completo (`fts`), semántica (`vector`) o las dos
-    /// fusionadas (`hybrid`).
+    /// fusionadas (`hybrid`, el default). Hybrid carga el modelo de
+    /// embeddings en memoria; `fts` es el modo léxico barato, sin ese coste.
     Search(ArgsSearch),
     /// Escribe en la KB: nota nueva o entrada de bitácora. No commitea ni
     /// indexa.
@@ -249,8 +250,11 @@ struct ArgsSearch {
     /// Tipo de búsqueda.
     #[arg(long, value_enum, default_value_t = TipoBusqueda::Hybrid)]
     r#type: TipoBusqueda,
-    /// Umbral de similitud coseno de la búsqueda semántica. Si se omite,
-    /// `[embeddings] min_similarity` de la config. Sin efecto en `--type fts`.
+    /// Umbral de similitud coseno del canal semántico. Precedencia por modo:
+    /// en `--type hybrid` (default), este flag o si no el umbral sellado
+    /// 0.40, sin mirar la config; en `--type vector`, este flag o si no
+    /// `[embeddings] min_similarity` de la config; en `--type fts`, sin
+    /// efecto.
     #[arg(long = "min-similarity", value_name = "MIN_SIMILARITY")]
     min_similitud: Option<f64>,
     /// Peso del canal más débil al fusionar (`max + bonus·min`). Solo

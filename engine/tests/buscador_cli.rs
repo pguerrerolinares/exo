@@ -1,7 +1,12 @@
 //! `exo search` contra el binario real, modo humano y `--json`.
 //!
-//! No usa `tests/common/mod.rs`: estos tests pasan `--db` y `--kb` explícitos,
-//! así que `resuelve_db`/`resuelve_kb` cortan en el flag y nunca cargan config.
+//! No usa `tests/common/mod.rs` para los tests de arriba: pasan `--db` y
+//! `--kb` explícitos, así que `resuelve_db`/`resuelve_kb` cortan en el flag y
+//! nunca cargan config. El test del final (`--type` real de `search` con
+//! `vectores` poblada) sí necesita `common::render_config`: `exo index`
+//! exige una config resoluble para saber qué modelo de embeddings usar.
+
+mod common;
 
 use std::process::Command;
 
@@ -189,5 +194,71 @@ fn sin_kb_resoluble_el_modo_humano_falla_con_remedio() {
     assert!(
         err.contains("--kb"),
         "el error debe nombrar el remedio: {err}"
+    );
+}
+
+/// Fix de review sobre la Task 11 (Minor de la review, cerrado end-to-end):
+/// `exo search <query> --json` SIN `--type`, contra una DB con `vectores`
+/// realmente poblada por `exo index` (embebida de verdad, no una fila
+/// insertada a mano) resuelve al canal Hybrid — el mismo contrato que
+/// `el_default_de_search_type_es_hybrid_no_fts` (`flags.rs`) comprueba solo
+/// en el `--help`, aquí verificado en el envelope real que emite el binario.
+#[test]
+fn search_sin_type_con_vectores_poblada_resuelve_hybrid() {
+    let kb = tempfile::tempdir().unwrap();
+    std::fs::write(
+        kb.path().join("a.md"),
+        "---\npermalink: kb-test/a\ntitle: A\n---\ncontenido buscable de la nota a\n",
+    )
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let db = dir.path().join("i.db");
+    let cfg = dir.path().join("config.toml");
+    std::fs::write(&cfg, common::render_config(kb.path(), "kb-test", &db)).unwrap();
+
+    let idx = Command::new(bin())
+        .args(["index", "--kb"])
+        .arg(kb.path())
+        .arg("--db")
+        .arg(&db)
+        .env("EXO_CONFIG", &cfg)
+        .output()
+        .unwrap();
+    assert!(
+        idx.status.success(),
+        "{}",
+        String::from_utf8_lossy(&idx.stderr)
+    );
+
+    // Confirma que la fixture puebla `vectores` de verdad — si esto fuera 0,
+    // el test estaría probando el mismo camino INERTE que ya cubren
+    // `buscador_cli`/`search_no_results_cli`, no el que abre esta review.
+    let filas_vectores: i64 = exo::abre_db(&db)
+        .unwrap()
+        .query_row("SELECT count(*) FROM vectores", [], |r| r.get(0))
+        .unwrap();
+    assert!(
+        filas_vectores > 0,
+        "la fixture no pobló `vectores`: {filas_vectores} filas"
+    );
+
+    let salida = Command::new(bin())
+        .args(["search", "buscable", "--kb"])
+        .arg(kb.path())
+        .arg("--db")
+        .arg(&db)
+        .arg("--json")
+        .env("EXO_CONFIG", &cfg)
+        .output()
+        .unwrap();
+    assert!(
+        salida.status.success(),
+        "{}",
+        String::from_utf8_lossy(&salida.stderr)
+    );
+    let v: serde_json::Value = serde_json::from_slice(&salida.stdout).unwrap();
+    assert_eq!(
+        v["data"]["search_type"], "hybrid",
+        "search sin --type debe resolver a hybrid: {v}"
     );
 }

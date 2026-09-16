@@ -259,4 +259,35 @@ fn el_default_de_search_type_es_hybrid_no_fts() {
         help_search.contains("[default: hybrid]"),
         "el --help de search debe declarar default hybrid, no fts:\n{help_search}"
     );
+
+    // Fix de review sobre la Task 11 (Important #1): el `--help` mentía
+    // sobre la precedencia — decía que `[embeddings] min_similarity` de la
+    // config se consulta "si se omite" el flag, pero eso ya no es cierto
+    // para el modo por defecto (hybrid resuelve al umbral sellado 0.40
+    // antes de mirar la config). El texto de `--min-similarity` debe
+    // declarar la precedencia real, modo a modo.
+    assert!(
+        help_search.contains("sellado"),
+        "el --help de --min-similarity debe nombrar el umbral sellado, no \
+         solo remitir a la config:\n{help_search}"
+    );
+    assert!(
+        help_search.contains("0.40"),
+        "el --help de --min-similarity debe declarar el valor del umbral \
+         sellado (0.40):\n{help_search}"
+    );
+    assert!(
+        help_search.contains("[embeddings] min_similarity"),
+        "el --help de --min-similarity debe seguir citando la config para \
+         el modo vector:\n{help_search}"
+    );
+
+    // Fix de review (Important #2): `exo search` sin flags pasa de FTS
+    // barato a hybrid, que carga el modelo de embeddings — coste que nadie
+    // avisaba en ningún `--help`.
+    assert!(
+        help_search.contains("embeddings"),
+        "el --help de search debe avisar del coste de cargar el modelo de \
+         embeddings en el modo hybrid por defecto:\n{help_search}"
+    );
 }
