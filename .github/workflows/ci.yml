@@ -19,6 +19,16 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  # `HF_HOME` NO se fija a propósito. El engine sí la respeta desde la Task 13
+  # de la campaña G (`ApiBuilder::from_env`, `engine/src/lib.rs`), pero sin
+  # ella `hf-hub` usa `~/.cache/huggingface/hub`, que es exactamente la ruta
+  # que el step de `actions/cache` guarda y restaura: fijarla no ganaría nada
+  # y el `runner` context no está disponible en un `env:` de nivel workflow
+  # (solo en steps), así que un `${{ runner.temp }}` aquí se expandiría a
+  # vacío. Precedente: la campaña F la fijó cuando el engine aún la ignoraba
+  # (`4cec5b7`, revertido en `6e4477a`) y la caché quedó apuntando a una ruta
+  # que nadie escribía — miss permanente, en verde. Si algún día hace falta
+  # moverla, va en el `env:` del step, con el mismo valor en el `path:`.
 
 jobs:
   static-checks:
