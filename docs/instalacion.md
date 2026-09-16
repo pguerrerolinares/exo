@@ -160,7 +160,12 @@ la misma ruta que usa el engine para descargar, así que su check
 `embeddings_model` no puede quedarse mirando un directorio distinto. Si ya
 tenías el modelo cacheado en el default y ahora defines `HF_HOME` por
 primera vez, la próxima indexación vuelve a pagar la descarga completa una
-vez, porque busca en la ruta nueva.
+vez, porque busca en la ruta nueva. Dos efectos que vienen de leer el
+entorno como lo hace `hf-hub` y conviene conocer: el token de HuggingFace se
+busca junto a la caché (`$HF_HOME/token` en vez de
+`~/.cache/huggingface/token`), y si defines **`$HF_ENDPOINT`** el modelo se
+descarga de esa URL en vez de la de HuggingFace — antes esa variable se
+ignoraba.
 
 Comprobación rápida:
 
