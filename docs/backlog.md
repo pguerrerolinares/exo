@@ -7,10 +7,42 @@
 > duplicar. Cada item cita su evidencia; un item sin evidencia verificable no
 > entra.
 >
-> Última revisión: **2026-09-15** (campaña H — fail-closed de `doctor` y
+> Última revisión: **2026-09-16** (sync de `docs/backlog.md`, Task 9 de la
+> campaña F —
+> `docs/superpowers/plans/2026-09-15-campana-f-superficie-publicable.md`,
+> ejecutada el 2026-09-15 en la rama `campana-f`, **sin PR todavía**. Cierra
+> con evidencia: la acción (c) del grep de afirmaciones frágiles, compartida
+> por «la documentación de referencia contradice el repo» y «los documentos
+> del repo no llevan `tier`» (`scripts/test-docs-vivos.sh`, Task 2, `7415317`
+> + `5d9179d`); el held-out 64/92 en `arquitectura.md` §3.5 y §6 junto al
+> 48/55 in-sample (Task 1, `849886c`); la sub-propuesta 2 de `hooks.json` sin
+> validar (`scripts/test-hooks-json.sh`, Task 3, `dcbc9ce`); el bash inline de
+> `run:` en los workflows sin gate (`scripts/test-shellcheck.sh` extendido,
+> Task 4, `9753441`+`2cf62e2`); la mitad que faltaba de «un rojo del job
+> `test` no se puede diagnosticar» —error de COMPILACIÓN— (Task 5, `324bbc2`
+> +`35b0069`); el job `lint` renombrado a `static-checks` con los 12 required
+> checks documentados para cuando Paul active branch protection (Task 7,
+> `8942969`); la mitad `Paul`→«el dueño de la KB» de «exo genérico» y el
+> idioma de los identificadores de código en `arquitectura.md` §3.8 (Task 8,
+> `7aba784`); y `docs/superpowers/` resuelta desde la campaña B (`2294349`),
+> solo verificada aquí. **`HF_HOME` NO se cierra**: el fix de `4cec5b7`
+> (Task 6) se revirtió en `6e4477a` — el engine ignora `HF_HOME`
+> (`Api::new()`→`ApiBuilder::new()`→`Cache::default()`,
+> `engine/src/lib.rs:240`; `Cache::from_env()` nunca se invoca) y
+> `doctor.rs:112-125` ya asumía lo contrario, así que fijar la variable en CI
+> sin tocar el engine convertía un miss ocasional en un miss permanente en
+> los tres SO. El arreglo de verdad pasa a la Task 13 de la campaña G
+> (`3b48220`), decisión de Paul del 2026-09-16. De paso corrige con cita los
+> ítems caducados o mal registrados del `§4` de
+> `docs/superpowers/consultas/2026-09-15-campanas/propuesta.md` que le
+> tocaban a F: evicción de la KB, colisión `budget`/`cost`, `--db` en
+> `document/SKILL.md`, `reflex-baseline.sh`, el conteo de `kb-demo`, la cita
+> de `main.rs:215`→`:241`, `budget_prose_drift` y `walk_kb` frente a
+> `walk_kb_excluyendo` — ver cada ítem para el detalle.)
+> Anterior: **2026-09-15** (campaña H — fail-closed de `doctor` y
 > cutover binario↔plugin, `docs/superpowers/plans/2026-09-15-campana-h-fail-closed.md`,
-> en la rama `campana-h`; PR de integración a `main` aún no abierto en el
-> momento de este commit, se actualiza esta línea cuando exista. Cierra con
+> ejecutada en la rama `campana-h` y **mergeada a `main` el 2026-09-16 vía
+> PR #24** (`3fcd8bf`). Cierra con
 > evidencia: contrato `ENGINE_MIN` + helper bash (Task 1, commits
 > `edba38d`/`d5281ad`), `exo-recall.sh` detecta engine viejo — SOLO ese
 > hook, no `recall-inject.sh` (decisión de Paul en pre-flight: un `exo
@@ -28,7 +60,7 @@
 > fusión de scripts y la reducción de spawns del hook — campaña I, después
 > de H.)
 >
-> Anterior: **2026-09-15** (bookkeeping de estado: entran por PR las
+> Antes: **2026-09-15** (bookkeeping de estado: entran por PR las
 > campañas D y E, un fix suelto de rutas y la Task 15 de A medida en W11 —
 > PR #19 campaña E (`36ef9aa`), PR #20 campaña D (`0494e3d`), PR #21 grafía
 > única de ruta en el binario + ruta en la salida humana de `search`
@@ -60,7 +92,7 @@
 > versión binario/plugin: lo cierra la campaña H de arriba con el check
 > `plugin_compat`, no el comando entero.)
 >
-> Anterior: **2026-09-14** (campaña E — hooks honestos +
+> Antes: **2026-09-14** (campaña E — hooks honestos +
 > CI de coste trivial, `docs/superpowers/plans/2026-09-14-campana-e-hooks-honestos-y-ci.md`,
 > integrada en la rama `e-hooks-honestos-y-ci` (Task 9, este commit); PR de
 > integración a `main` **aún no abierto** en el momento de este commit
@@ -192,7 +224,7 @@
 | | |
 |---|---|
 | **Cerradas** | C5 (M2-08+09, cierra E1 read) · C6 (M6, cutover del recall) · C7 (M4, write-path) |
-| **Pendientes** | C8 (M3+M1b, cutover de skills) → C9 (M5a, MCP + config propia — la sub-tarea de config propia ya cerró el 2026-08-26, `M5a-02`, ver `## Cerrado con evidencia`; el servidor MCP en sí sigue sin construir, ver «M5a (MCP propio) se diseñó contra un MCP…» en Baja) → C10 (M5b, desinstalar basic-memory, gated por C9 completo) |
+| **Pendientes** | C8 (M3+M1b, cutover de skills) → C9 (M5a, MCP + config propia — la sub-tarea de config propia ya cerró el 2026-08-26, `M5a-02`, ver `## Cerrado con evidencia`; el servidor MCP en sí sigue sin construir, ver «M5a (MCP propio) se diseñó contra un MCP…» en Baja) → C10 (M5b, desinstalar basic-memory, gated por C9 completo) (**F, 2026-09-15: C8 verificado HECHO** — 9 skills en `plugins/exo/skills/` + `plugins/exo/agents/executor.md` + `.claude-plugin/marketplace.json` sirviendo `plugins/exo/` como marketplace único; lo que queda de M1a/M1b es checklist de máquina, ver «Residuos de entorno del plan» más abajo, no trabajo de fábrica) |
 | **Medido** | engine-hybrid **48/55** hit@5 in-sample vs bm-hybrid 39/55, mismo día, paridad de corpus ∅, recall <2s (`evals/e1-read/verdict/m2-09-corrida.md`) · held-out **64/92** (campaña C, `evals/retrieval-heldout/verdict/c-verdict.md`) — no comparables entre sí: distinta fuente de queries |
 | **Tests** | 111 verdes / 0 rojos en la rama de M4, 98 en main previo (contados por el consultor del gate en esa ola; el CI que los corre solo llegó después, en G5a — 200 tests / 28 binarios). **El 2026-09-13 (cierre de campaña B), `cargo test --release --locked --no-fail-fast` en `engine/`: 478 tests verdes en 48 binarios, 2 ignorados, 0 rojos** |
 | **Release** | `v0.1.0` publicada el **2026-09-11** — tres binarios y sus tres `.sha256`, instalables por `install.sh` / `install.ps1`. Ver `## Cerrado con evidencia` |
@@ -202,7 +234,8 @@
 | **Campaña E** | 9 tasks (hooks honestos: `inject-empty`, suite de `exo-recall.sh`, `no results` en `search`; engine: mensaje de guarda parametrizado, `rust-toolchain.toml`; CI: `--locked`+log+artifact en el gate hermético, orden de `release.yml`, gate de rutas personales) — ejecutada el **2026-09-14** en la rama `e-hooks-honestos-y-ci`; mergeada a `main` el **2026-09-15** vía PR #19 (`36ef9aa`); plan en `docs/superpowers/plans/2026-09-14-campana-e-hooks-honestos-y-ci.md` |
 | **Campaña D** | cutover kbx→exo: `rotate` y `stale` portados a Rust (`engine/src/rotacion.rs`, `engine/src/obsolescencia.rs`), pre-registro de paridad congelado antes de Rust (Task 1, `7edb5d0`), cuatro gates de paridad — targets (`4d047f4`), ratchet (`ab5d59b`), rotate (`cd196ff`), stale (`f059eb1`) — los cuatro PASA, consumidores reapuntados (Task 9, `0051638`+`aa82f95`: `distill`/`kb-precommit.sh`/`arquitectura.md` ya no invocan `kbx`) — ejecutada el **2026-09-14/15** en la rama `d-cutover-kbx`, apila la campaña E (`f46cbe3`); mergeada a `main` el **2026-09-15** vía PR #20 (`0494e3d`); plan en `docs/superpowers/plans/2026-09-14-campana-d-cutover-kbx.md`. Abierto: D-4 (permalink `nombre_kb()` vs literal fijo, recomendación ya aplicada en el código, formalmente pendiente de que Paul la zanje) y la acción (a) de «exo genérico» (`Paul`/`kb-demo` por nombres resueltos), fuera de alcance de D |
 | **Ruta portable** | grafía única de ruta (`/`) en el binario y ruta visible en la salida humana de `exo search` — apila sobre la campaña D, mergeada a `main` el **2026-09-15** vía PR #21 (`ba4b75f`); plan en `docs/superpowers/plans/2026-09-11-ruta-portable-y-columna-humana.md`, spec en `docs/superpowers/specs/2026-09-11-ruta-portable-y-columna-humana-design.md` |
-| **Campaña H** | 8 tasks (contrato `ENGINE_MIN`, `exo-recall.sh` detecta engine viejo, `exo doctor` check `plugin_compat`, `check_git_bash` sin falso `ok` de WSL, `script_del_plugin` por semver real, `kb-precommit.sh` fail-closed, retiro de los 10 alias españoles — engine 0.2.0/plugin 1.2.0, cap de 6.144 medido y PENDIENTE-PAUL) — ejecutada el **2026-09-15** en la rama `campana-h`; sin PR todavía; plan en `docs/superpowers/plans/2026-09-15-campana-h-fail-closed.md` |
+| **Campaña H** | 8 tasks (contrato `ENGINE_MIN`, `exo-recall.sh` detecta engine viejo, `exo doctor` check `plugin_compat`, `check_git_bash` sin falso `ok` de WSL, `script_del_plugin` por semver real, `kb-precommit.sh` fail-closed, retiro de los 10 alias españoles — engine 0.2.0/plugin 1.2.0, cap de 6.144 medido y PENDIENTE-PAUL) — ejecutada el **2026-09-15** en la rama `campana-h`; mergeada a `main` el **2026-09-16** vía PR #24 (`3fcd8bf`); plan en `docs/superpowers/plans/2026-09-15-campana-h-fail-closed.md` |
+| **Campaña F** | 9 tasks (superficie publicable: held-out en `arquitectura.md`, gates `test-docs-vivos.sh`/`test-hooks-json.sh`, `test-shellcheck.sh` sobre `run: |` de los workflows, `test-hermetico.sh` distingue error de compilación, job `lint`→`static-checks`, `Paul`→«el dueño de la KB» + idioma de identificadores, sync de este backlog) — ejecutada el **2026-09-15** en la rama `campana-f`, **PR #25 abierto** (merge tras H); `HF_HOME` (Task 6, `4cec5b7`) se revirtió en `6e4477a` el 2026-09-16 — el engine no lo lee, arreglo diferido a la Task 13 de la campaña G; plan en `docs/superpowers/plans/2026-09-15-campana-f-superficie-publicable.md` |
 
 ---
 
@@ -263,7 +296,9 @@
   CONSUMIDO (§11): volver a tocar β, umbral o troceado exige uno nuevo.
   Acción (c) (default de `exo search --type`, `main.rs:215`): sigue abierta,
   PENDIENTE-PAUL con A0 vs A2 held-out delante (D6 del plan de C).
-  - [ ] (c) decidir si el default de `exo search --type` (`main.rs:215`)
+  - [ ] (c) decidir si el default de `exo search --type` (`main.rs:241` —
+    corregido 2026-09-15, campaña F: la línea citada, `:215`, quedó
+    desactualizada tras ediciones posteriores)
     pasa a ser el modo medido, o si el README deja de presentar el 48/55
     como «lo que hace exo» — PENDIENTE-PAUL, con A0 vs A2 held-out delante.
 
@@ -319,6 +354,30 @@
   suyo. Commit `3bc05aa`, documentado en `docs/instalacion.md` §5. Sigue
   abierta la acción (c) (el grep de afirmaciones frágiles en el `verify` de
   cierre, acotado a los cuatro `core`).
+  **(campaña F, 2026-09-15): acción (c) cerrada.** `scripts/test-docs-vivos.sh`
+  (commit de la Task 2 de F) corre en `ci.yml` job `static-checks` y comprueba,
+  sobre `README.md`/`docs/arquitectura.md`/`docs/instalacion.md`: ausencia de
+  frases muertas conocidas, que todo `exo <subcomando>` citado exista en
+  `enum Comando`, que toda versión citada sea un tag o coincida con
+  `Cargo.toml`/`plugin.json`, y que todo enlace a `docs/`/`evals/`/`scripts/`
+  resuelva. `docs/backlog.md` queda deliberadamente FUERA de este gate — es
+  un ledger histórico que cita a propósito frases ya muertas como evidencia
+  de ítems cerrados (esta misma línea, dentro de un momento); meterlo en el
+  gate lo pondría en rojo permanente. Ciclo rojo-verde demostrado con «Sin
+  CI» reinsertado en `arquitectura.md` y con un hook renombrado en
+  `hooks.json` (Task 3).
+  **Fix de la review final (2026-09-16): el check (c) no tenía ningún input
+  hoy** — cero citas `vX.Y.Z` en los tres docs (verificado,
+  `grep -oE '\bv[0-9]+\.[0-9]+\.[0-9]+\b'` vacío en los tres), así que su
+  bucle nunca itera: activo por diseño, no probado en la práctica hasta
+  ahora. Provocado un rojo real insertando `v9.9.9` en `README.md`
+  (`[FAIL] README.md cita v9.9.9, que no es un tag ni coincide con engine
+  (0.1.0) ni plugin (1.1.2)`, restaurado después). De paso se encontró que
+  el `actions/checkout@v4` de `ci.yml` (job `static-checks`) es shallow por
+  defecto y NO trae tags (`fetch-tags` es `false` salvo `fetch-depth: 0`):
+  el mismo rojo en CI habría sido un falso positivo contra un tag real que
+  solo existiera como tag. Arreglado con `fetch-tags: true` en ese
+  checkout (`ci.yml`).
 
 - [ ] **(revisión 2026-09-04) «exo genérico» sigue siendo el plugin de Paul
   para Paul.** Medido el 2026-09-04 sobre `plugins/exo/`: la cadena `Paul`
@@ -389,6 +448,19 @@
   viven en `exo`, `distill` ya no depende de `kbx` para nada;
   (c) ~~la release con binario de G5~~ **hecha el 2026-09-11**. El ítem
   sigue abierto solo por (a).
+  **(campaña F, 2026-09-15): cerrada la mitad `Paul` (acción a, parcial).**
+  `git grep -c Paul -- plugins/exo` da ahora solo `plugin.json:6`
+  (`author.name`, autoría legítima, no se toca). Las 11 ocurrencias en
+  lógica (`distill/SKILL.md` ×6, `distill/chequeos.md` ×1,
+  `recall-inject.sh` ×2, `git-add-all-guard.sh` ×1, `kb-precommit.sh` ×1 —
+  5 ficheros) pasan a «el dueño de la KB» (Task 8 de F). Término estático,
+  no resolución dinámica: a diferencia de
+  `kb-demo` (que la campaña E resolvió leyendo `exo config --json
+  .data.kb.name` en runtime), no existe un campo de config para el nombre
+  de una persona (`engine/src/config.rs`: `Config`/`Kb`/`Index`/`Embeddings`,
+  ninguno guarda un owner). **Sigue abierta** la mitad `kb-demo` en
+  `engine/tests/` (11 ficheros, no 8 — el conteo del backlog está caducado,
+  ver más abajo) — es alcance de G, no de F.
 
 - [ ] **El bloque de arranque va al 96% de su cap, y desborda en silencio.**
   Medido el 2026-08-27 al validar la Task 6 de la ola 1B: el bloque que
@@ -624,6 +696,9 @@
   regla se aplica por patrón de ruta, no por etiqueta. Sigue abierta la
   acción (c), compartida con la del item de Alta arriba: el grep de
   afirmaciones frágiles acotado a los cuatro vivos no existe todavía.
+  **(campaña F, 2026-09-15): acción (c) cerrada — ver el ítem de Alta
+  arriba («La documentación de referencia contradice el repo»), misma
+  acción, mismo commit.**
 
 - [ ] **`#[allow(clippy::too_many_arguments)]` en `escritor.rs` — la struct de
   parámetros que no se hizo aquí.** `escribe_nueva` toma 8 parámetros contra
@@ -668,8 +743,12 @@
   consultor:
   `test-contrato-engine.sh:45` mencionaba `` `/c/Users/...` `` en un
   comentario (subcadena que casaba el patrón sin ser una ruta real);
-  reescrito. **Sigue abierta** la sub-propuesta 2 (`validate-hooks.js`/schema
-  de `hooks.json`) — no pedida para esta campaña.
+  reescrito. **(campaña F, 2026-09-15): sub-propuesta 2 cerrada, con un diseño distinto
+  del precedente de ECC.** `scripts/test-hooks-json.sh` (Task 3 de F) valida
+  `hooks.json` con `jq` en vez de JSON Schema + Ajv (ECC exige Node/npm,
+  ausentes de este repo): eventos conocidos, `type=="command"`, script
+  referenciado existente y en 100755. Corre en `ci.yml` job `static-checks`.
+  Ciclo rojo-verde demostrado renombrando un script citado.
   **Lo cierra G5 si lo adopta.** **(2026-09-11: G5b cerró sin adoptarlo — release `v0.1.0` publicada, ver `## Cerrado con evidencia`. La marca queda huérfana: necesita dueño o campaña propia.)**
 
 - [ ] **Barrer los hallazgos vivos del gate M4** (`evals/e1-read/verdict/gate-m4.md`).
@@ -695,6 +774,10 @@
     `write_append_cmd` asume 3.
   - **#9 [baja]** el `SKILL.md` de `documenta` omite `--db` en los comandos del
     Paso 3; tomados literales fallan con error de clap.
+    **(campaña F, 2026-09-15): CADUCADO.** `ArgsWriteAppend.db: Option<PathBuf>`
+    existe (`engine/src/main.rs:172-176`); `document/SKILL.md:55` no menciona
+    `--db` porque se resuelve por config (M5a-02) — es correcto tal cual, no
+    un olvido.
 
 - [ ] **Un rojo del job `test` no se puede diagnosticar desde el CI.**
   `engine/scripts/test-hermetico.sh:19` manda toda la salida de `cargo test`
@@ -730,15 +813,34 @@
   abierto**: un error de COMPILACIÓN de la suite sigue sin casar ningún
   patrón de grep del script — ahora al menos queda íntegro en el artifact
   para leerlo a mano, pero nada lo resalta. Fuera del alcance de E.
+  **(campaña F, 2026-09-15): cerrada la última mitad.**
+  `engine/scripts/test-hermetico.sh` (Task 5 de F, `324bbc2`+`35b0069`)
+  distingue un error de compilación de `rustc`/`cargo`
+  (`^error\[E[0-9]+\]:|^error: could not compile`) de un fallo de test
+  normal, y lo resalta en un bloque `--- error de compilación ---` en
+  stderr. El regex inicial (`^error(\[E[0-9]+\])?:`) también casaba
+  `error: test failed, to rerun pass ...` — corregido en `35b0069` para no
+  etiquetar un test fallido como error de compilación. Verificado con
+  muestras sintéticas de cada caso (el árbol real compila hoy, así que el
+  bloque nuevo no se ejercita en el camino feliz).
 
 - [ ] **Hoy el CI no bloquea nada.** Paul decidió explícitamente no proteger
   `main` por ahora — no hay branch protection ni required status checks.
   Consecuencia: un PR rojo se puede mergear igualmente, así que el CI hoy es
   una notificación, no un gate de merge. Ver la matización añadida al item
   cerrado «CI mínimo — el gate que faltaba» en `## Cerrado con evidencia`.
-  **Acción:** activar branch protection con required status checks
-  (`lint`, `msrv`, `test` en los tres SO) cuando se decida que main debe
-  quedar protegida.
+  **Acción:** activar branch protection con required status checks cuando se
+  decida que main debe quedar protegida.
+  **(campaña F, 2026-09-15): el job `lint` se renombró a `static-checks` /
+  "checks estáticos" (Task 7 de F) precisamente para que la lista de
+  required checks describa lo que hace. Lista exacta de los 12 checks
+  resultantes (job → nombre mostrado): `static-checks` → "checks
+  estáticos" · `exec-bit` → "scripts de plugin ejecutables" · `msrv` →
+  "MSRV declarada (1.95)" · `test` → "test (ubuntu-latest/windows-latest/
+  macos-latest)" ×3 · `plugin-tests` → "tests del plugin (ubuntu-latest/
+  windows-latest/macos-latest)" ×3 · `install-gate` → "install gate
+  (ubuntu-latest/windows-latest/macos-latest)" ×3. Paul los activa en GitHub
+  después del merge — esta campaña no toca settings del repo.**
   **Cruce (2026-09-09):** con una cadena de release como la de `affaan-m/ECC`
   esto deja de ser una decisión suelta: su job de verificación exige que el
   commit del tag sea **exactamente `origin/main`** antes de empaquetar, con lo
@@ -772,6 +874,26 @@
     **Acción:** fijar `HF_HOME` explícito y la ruta derivada de él en un
     commit propio, verificando el `Cache restored` de los tres SO antes y
     después.
+    **(campaña F, 2026-09-16): NO se cierra — intentado y revertido.** La
+    Task 6 de F fijó `HF_HOME` en `ci.yml`/`release.yml` (commit `4cec5b7`),
+    pero Paul lo revirtió al día siguiente (`6e4477a`, 2026-09-16): el engine
+    ignora `HF_HOME` por completo. `engine/src/lib.rs:240` llama `Api::new()`
+    → `ApiBuilder::new()` → `Cache::default()` (hf-hub 0.5.0, `lib.rs:202-210`:
+    siempre `dirs::home_dir()/.cache/huggingface/hub`) — `Cache::from_env()`
+    (`lib.rs:42-50`), la única que lee la variable, no se invoca en ningún
+    punto del árbol. Peor: `doctor.rs:112-125` (`Entorno::del_proceso`) ya
+    asumía lo contrario y replica `Cache::from_env()` en su propio check, así
+    que con `HF_HOME` puesta `doctor` mira un directorio que el engine nunca
+    escribe. Fijar la variable solo en CI, sin tocar el engine, convertía un
+    miss ocasional en un **miss permanente en los tres SO** (descarga de
+    ~0,6 GB en cada corrida, siempre en verde) — exactamente la degradación
+    silenciosa que este ítem quería evitar, solo que en la otra dirección.
+    El arreglo de verdad (`ApiBuilder::from_env()` en el engine + alinear el
+    check de `doctor`, y solo entonces fijar la variable en CI) toca
+    `engine/src/`, fuera del alcance de F: queda planificado como **Task 13
+    de la campaña G** (`docs/superpowers/plans/2026-09-15-campana-g-engine-deuda-diferida.md`,
+    commit `3b48220` en la rama `campana-g`), decisión de Paul del
+    2026-09-16. Este ítem **sigue abierto**.
   - **`--locked` no llega al job `test`.** `lint` y `msrv` sí lo tienen
     (`ci.yml:46`, `:63`), pero el job que de verdad corre la suite invoca
     `engine/scripts/test-hermetico.sh`, que llama a `cargo test` sin
@@ -810,6 +932,17 @@
   no por tocar el walker — `evals/recall-coste/verdict/2026-09-campana-a.md:
   115,117`, «del walker (H29, no tocado en esta campaña)»): la mejora vino
   de otro lado, el walker sigue igual.
+  **(campaña F, 2026-09-15, sync del backlog): resuelto en la rama
+  `campana-g` (commit `65d5a7a`), pendiente de merge.** La unificación que
+  este ítem pedía —fusionar `walk_kb` en `walk_kb_excluyendo`— la hizo la
+  campaña G (Task 4 de su Ola 1, `backlog:821-845` citado en el propio
+  commit): ambas funciones comparten ya una sola implementación,
+  case-insensitive y sin descender dentro de ningún dotdir (`.git/`
+  incluido). `doctor.rs` e `indexer.rs` heredan el cambio sin tocar sus
+  llamadas — la nota de que `doctor.rs:312,451` también usaba `walk_kb`, no
+  citada por el ítem original, queda resuelta con el mismo commit, no como
+  trabajo aparte. Con el orden de merge H → F → G, ese commit no existe
+  todavía en `main`: este ítem **sigue abierto** hasta que G mergee.
 
 - [x] **`indexer::ruta_relativa` guarda `notas.ruta` con el separador nativo
   del SO: cerrado, causa en el indexer arreglada el 2026-09-11
@@ -875,6 +1008,22 @@
   consume toda la cifra, es trabajo para cuando una cita real mal formada
   haga daño de verdad, o para cuando exista el gate de paridad con Go y el
   fix se pueda decidir en los dos binarios a la vez.
+  **(campaña F, 2026-09-15): bloqueador CADUCADO — y una de las dos patas
+  resuelta en la rama `campana-g` (commit `3cbb6aa`), pendiente de merge.**
+  Los gates de paridad corrieron en la campaña D y kbx dejó de ser
+  dependencia de nada (`docs/backlog.md:214`, fila «Campaña D» — `:181` en
+  el momento en que G lo escribió, desplazada por este mismo sync); el
+  bloqueador que pedía esperar a esa paridad ya no aplica a ninguna de las
+  dos patas. La pata «trunca en vez de rechazar una cifra mal agrupada» la
+  resolvió la campaña G (Task 5 de su Ola 1): `TIER_Y_CIFRA` ahora consume
+  el número entero y una función aparte (`agrupacion_correcta`) valida el
+  agrupamiento en tríos, en vez de truncar y citar una cifra que no está en
+  el texto. Con el orden de merge H → F → G, ese commit no existe todavía
+  en `main`: esta pata **sigue abierta** hasta que G mergee. La pata «punto
+  ciego por adyacencia» sigue abierta también, pero ya no por el bloqueador
+  de paridad: es el precio deliberado de no tener falsos positivos,
+  declarado en el propio ítem — decisión de diseño, no trabajo pendiente de
+  G ni de F.
 
 - [ ] **La campaña de evicción de la KB está descalibrada (A3, G4b).** El
   censo "19 de 58 notas stable" y el objetivo de poda de 10.625 (medidos el
@@ -889,6 +1038,10 @@
   **Acción:** rehacer el censo y el objetivo de poda con `exo budget` sobre
   la KB real, con los umbrales canónicos (10.869 stable / 7.391 core), antes
   de ejecutar cualquier evicción.
+  **(campaña F, 2026-09-15): CERRADO — hecho el 2026-09-10.** `Memoria
+  v2:18` («La lista de partida la midió `exo budget` … eran 20, no 19»),
+  commit `efd9abc` — **de la KB `wisdom-paul`, no de este repo** (`exo` no
+  tiene ese SHA).
 
 - [ ] **(pasada de coste 2026-09-09) `exo budget` va a colisionar de nombre:
   el planeado mide tamaño de KB y el que hace falta mide coste de tokens.**
@@ -906,6 +1059,14 @@
   (nuevo); (b) si se decide un solo verbo, que la distinción viaje en el
   envelope y no en un `--flag`, para que el consumidor no adivine; (c) dejar
   la decisión escrita en la spec de G5, no solo aquí.
+  **(campaña F, 2026-09-15): caducado — parcialmente resuelto de hecho.**
+  `grep budget docs/arquitectura.md` → vacío (ya no lo lista como
+  "planeado"); `docs/instalacion.md:34` lo lista como verbo existente;
+  `Comando::Budget` vive en `engine/src/main.rs:68` desde G4b. La colisión
+  de nombre se resolvió de hecho: `budget` = bytes de KB. Queda solo el
+  nombre de un verbo de coste de tokens hipotético, decisión #3 del paquete
+  de Paul del 2026-09-15 (b/c: vive en `evals/` o no se construye hasta que
+  haga falta) — fuera de alcance de F.
 
 - [ ] **(pasada de coste 2026-09-09) M5a (MCP propio) se diseñó contra un MCP
   con estado; la revisión 2026-07-28 del spec lo abarató y dejó el diseño sin
@@ -1109,6 +1270,11 @@
   **Acción:** añadir la cifra held-out (y la advertencia de no
   comparabilidad, ver `## Estado` arriba) a `README.md` y
   `docs/arquitectura.md` §6. No toca retrieval, no exige held-out.
+  **(campaña F, 2026-09-15): cerrada.** `docs/arquitectura.md` §3.5 y §6
+  llevan ahora el held-out 64/92 (Wilson 95 % [59,5 %, 78,0 %]) junto al
+  48/55 in-sample, con la advertencia de no-comparabilidad (Task 1 de F).
+  `README.md` no necesitaba el cambio: no cita el 48/55 desde `c5c5b7f`
+  (verificado, `grep -c "48/55" README.md` → vacío).
 
 ## Baja
 
@@ -1128,6 +1294,27 @@
   `.github/workflows/*.yml` — extraerlos a ficheros temporales o usar el
   soporte de shellcheck para YAML embebido — o documentar explícitamente
   que ese bash queda fuera de todo gate y por qué.
+  **(campaña F, 2026-09-15): cerrada.** `scripts/test-shellcheck.sh` (Task 4
+  de F) extrae los bloques `run: |` de `.github/workflows/*.yml` a ficheros
+  temporales dedentados igual que hace GitHub Actions, y los suma a la lista
+  que ShellCheck revisa — sin dependencia nueva. `bash -n` NO es el oráculo
+  de este gate: tolera sintaxis que ShellCheck rechaza (los `${{ matrix.* }}`
+  de `release.yml` no son bash — GitHub Actions los interpola antes de que
+  el runner vea el script — y el parser de ShellCheck sí revienta con
+  ellos). **Fix de la review final (2026-09-16):** se detectó justo ese
+  reventón (SC2296, "Parameter expansions can't start with {", aborta el
+  resto del fichero) más un SC2012 real (`ls dist | wc -l` en
+  `release.yml`) que habrían puesto `static-checks` en rojo en el primer
+  push. Arreglado (placeholder `${GHA_EXPR:-}` en la extracción + `find`
+  en vez de `ls`) y **verificado con el veredicto real de ShellCheck
+  0.11.0**, no deducido: `docker run --rm -v "$PWD:/mnt" -w /mnt
+  koalaman/shellcheck:stable` (esta máquina no tiene el binario instalado;
+  no hay build de Windows). Salida real tras el fix: `test-shellcheck: OK —
+  49 scripts + 4 bloques run: | de .github/workflows/ sin avisos`. De paso
+  salió a la luz un SC2016 preexistente en `test-docs-vivos.sh` (backticks
+  literales de markdown en un patrón de `grep`, no sustitución de comandos)
+  — nadie lo había visto porque nadie había corrido ShellCheck de verdad
+  contra este árbol; justificado in situ con `# shellcheck disable=SC2016`.
 
 - [ ] **(NUEVO, revisión final campaña B, 2026-09-13) El job `lint` de
   `ci.yml` se llama «fmt + clippy» pero ya corre shellcheck y el gate de
@@ -1213,6 +1400,10 @@
   parte de identificadores de código (módulos y funciones en español,
   claves JSON en inglés) sigue abierta** — D1=C fija el idioma de la
   superficie de usuario, no el de `engine/src/`.
+  **(campaña F, 2026-09-15): cerrada.** `docs/arquitectura.md` §3.8 lleva
+  ahora la línea que faltaba (Task 8 de F): identificadores de código en
+  español (26 módulos de `engine/src/`), claves JSON y flags en inglés. Cero
+  rename de código — decisión #5 del paquete de Paul del 2026-09-15.
 
 - [ ] **(revisión 2026-09-04 · re-medido y ACOTADO el 2026-09-09) El relato
   de campaña en los comentarios se concentra en `main.rs` y `buscador.rs`, y
@@ -1263,11 +1454,20 @@
   los verdicts de esas campañas; `engine/src/main.rs` (comentario que citaba
   `reports/m2-07-impl-report.md`) actualizado en el mismo commit. Verificado:
   `git ls-files | grep reports/` da los 5 en su ruta nueva, ninguno en la
-  raíz. **`docs/superpowers/` sigue sin resolver** — sigue en G5/sin dueño.
+  raíz. **(campaña F, 2026-09-15): `docs/superpowers/` resuelta — decisión "se
+  queda", ya con su frase escrita.** Verificado que la frase ya existía
+  desde la campaña B (D5=b, commit `2294349`): `docs/arquitectura.md:5-13`
+  dice que `docs/superpowers/` son instantáneas (`tier: log` por convención
+  de ruta) que no se actualizan y se citan con su fecha. No hacía falta
+  ningún cambio nuevo — Task 8 de F solo lo verificó y lo cita aquí.
 
 - [ ] **Residuos de entorno del plan** (ya listados allí, se repiten aquí para no
   perderlos): `crontab -r` pendiente de M1a · `reflex-baseline.sh` traga errores
   de `jq` con `2>/dev/null` · cachés huérfanas de reflex 0.6.0/0.8.0.
+  **(campaña F, 2026-09-15): CADUCADO** lo de `reflex-baseline.sh`.
+  `reflex-baseline.sh` no tiene `2>/dev/null` sobre salida de `jq`; `:12-14`
+  valida cada línea con `jq -e .` y lista las inválidas por stderr.
+  Verificado leyendo el script completo.
 
 - [ ] **Decisión abierta: `archive/` en el ranking.** Es el 32%–39% del índice
   (54 de 138 notas). Se decide con la corrida de C5 delante o se cierra
@@ -1287,6 +1487,11 @@
   de nombres y rutas personales anotado en el item de Media «rutas personales
   y `hooks.json` sin validar en CI» (el item de `test-*.sh` que lo señalaba
   se cerró en la campaña B, ver `## Cerrado con evidencia`). **Lo cierra G5 si lo adopta.** **(2026-09-11: G5b cerró sin adoptarlo — release `v0.1.0` publicada, ver `## Cerrado con evidencia`. La marca queda huérfana: necesita dueño o campaña propia.)**
+  **(campaña F, 2026-09-15): conteo corregido, sigue abierto.** Hoy son
+  **11** ficheros (`git grep -l kb-demo -- engine/tests`), no 8, más
+  `engine/src/{buscador,inicia,lib}.rs` en comentarios/plantilla. El fix
+  (`kb-demo` → `kb-test`) es alcance de G (toca `engine/tests/` y
+  `engine/src/`), no de F — F solo corrige el conteo caducado.
 
 - [ ] **(pasada de coste 2026-09-09) Sinergias anotadas, dueño sin decidir: el
   mecanismo de guards de exo sirve para delegar I/O, y el método de evals de

@@ -53,7 +53,7 @@ verificar ni cómo commitear.
 
 ## Hooks
 
-Tabla exacta al cableado vivo de `hooks/hooks.json` (nueve comandos):
+Tabla exacta al cableado vivo de `hooks/hooks.json` (diez comandos):
 
 | Reflejo | Evento | Fichero | Qué hace | Abstención |
 |---|---|---|---|---|
@@ -62,6 +62,7 @@ Tabla exacta al cableado vivo de `hooks/hooks.json` (nueve comandos):
 | zero-residuo | `PreToolUse:Bash` | `scripts/git-add-all-guard.sh` | avisa ante `git add -A`/`--all`/`.` | calla en `git add <ficheros>` explícito |
 | verify-before-done | `PreToolUse:Bash` | `scripts/verify-before-commit.sh` | avisa antes de `git commit` si no hay test verde reciente | escape hatch `--no-verify`; calla en commits solo-docs |
 | exo-recall | `SessionStart` | `scripts/exo-recall.sh` | inyecta instrucción de memoria + digest 7d, servido por el engine `exo` (SQLite) | — (PUSH) |
+| estilo-directo | `SessionStart` | `scripts/estilo-directo.sh` | inyecta una directiva de estilo de respuesta estática (`estilo-directo.md`) | sin fichero `.md` legible, o si `jq` falla al construir el JSON |
 | document-remind | `Stop` | `scripts/document-remind.sh` | recuerda `/document` al cerrar | 1×/sesión + umbral de transcript |
 | exo-index | `Stop` | `scripts/exo-index.sh` | reindexa la KB al cierre de sesión | best-effort, fallback logueado |
 | subagent-inject | `SubagentStart` | `scripts/subagent-inject.sh` | inyecta doctrina/contexto al arrancar un subagente | — (PUSH) |

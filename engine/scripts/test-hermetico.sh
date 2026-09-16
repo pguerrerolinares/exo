@@ -21,7 +21,7 @@ trap 'rm -rf "$TMP"' EXIT
 # para poder subirlo con actions/upload-artifact tras un fallo.
 LOG="${EXO_HERMETICO_LOG:-$TMP/out.txt}"
 
-# --locked: `lint`/`msrv` ya lo tenían; el job que de verdad EJECUTA la
+# --locked: `static-checks`/`msrv` ya lo tenían; el job que de verdad EJECUTA la
 # suite (y release.yml, que llama a este mismo script) no. Sin esto, el job
 # más importante podía resolver un árbol de dependencias distinto del
 # Cargo.lock commiteado sin que nada lo dijera.
@@ -45,10 +45,30 @@ if [ "$EC" -ne 0 ]; then
   sed -n '/^failures:$/,/^test result: FAILED/p' "$LOG" >&2 || true
   echo "--- resumen ---" >&2
   grep -E '^test result: FAILED|--test ' "$LOG" >&2 || true
-  # Sigue sin haber un patrón específico para un error de COMPILACIÓN de la
-  # suite (docs/backlog.md, deuda conocida y NO cerrada aquí): con --locked
-  # y log completo, ese caso ahora al menos queda íntegro en $LOG (y, en CI,
-  # en el artifact) para leerlo a mano — no hay grep que lo resalte todavía.
+  # F5 (docs/backlog.md, ítem "Un rojo del job `test` no se puede
+  # diagnosticar desde el CI." — cítalo por título, no por línea: el sync de
+  # backlog.md desplaza líneas; ahí queda "Sigue abierto: un error de
+  # COMPILACIÓN de la suite sigue sin casar ningún patrón de grep"):
+  # distingue un error de rustc/cargo de un fallo de test normal. Fix de
+  # review (2026-09-15): el
+  # grupo opcional `(\[E[0-9]+\])?` de la versión anterior de este patrón
+  # también casaba con `error: test failed, to rerun pass `--test x`` — la
+  # línea que cargo imprime cuando un test SÍ COMPILA y SÍ FALLA — porque
+  # `error:` a secas ya cumplía la alternativa (confirmado con
+  # `printf 'error: test failed, to rerun pass...' | grep -qE
+  # '^error(\[E[0-9]+\])?:'`). El código de error (`error[EXXXX]:`) es
+  # opcional en un diagnóstico real de rustc — hay errores de sintaxis/tipo
+  # sin código — pero TODOS los que impiden generar el binario de test
+  # terminan en el resumen final de cargo `error: could not compile ...`;
+  # esa segunda alternativa por sí sola ya basta para detectar cualquier
+  # error de compilación (verificado con una muestra sintética sin código
+  # E). `error[E...]:` se conserva anclado (`^error\[E...\]:`, sin grupo
+  # opcional) solo para resaltar la línea de diagnóstico concreta en el
+  # bloque de visualización, no hace falta para la detección.
+  if grep -qE '^error\[E[0-9]+\]:|^error: could not compile' "$LOG"; then
+    echo "--- error de compilación ---" >&2
+    grep -E '^error\[E[0-9]+\]:|^error: could not compile|^[[:space:]]*-->' "$LOG" >&2 || true
+  fi
   exit 1
 fi
 echo "test-hermetico: OK — la suite corre sin ~/.exo/config.toml, con --locked; NO cubre la caché del modelo ONNX (~0,6 GB), que las suites de indexado siguen exigiendo."
