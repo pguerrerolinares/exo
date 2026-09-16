@@ -809,6 +809,32 @@ fn write_new_cmd(args: ArgsWriteNew) -> Result<()> {
     Ok(())
 }
 
+/// Walk de confirmación del gate M4 #5 (Ola 1 G Task 7): busca, DENTRO de
+/// `dir` (no recursivo — las bitácoras de `--create` viven a un nivel), un
+/// `.md` cuyo frontmatter declare exactamente `permalink`. `None` si `dir`
+/// no existe todavía (KB nueva) o si ningún fichero lo declara.
+fn busca_permalink_en_dir(kb: &Path, dir: &str, permalink: &str) -> Result<Option<PathBuf>> {
+    let carpeta = kb.join(dir);
+    if !carpeta.is_dir() {
+        return Ok(None);
+    }
+    for entrada in std::fs::read_dir(&carpeta)
+        .with_context(|| format!("leer directorio {}", carpeta.display()))?
+    {
+        let entrada = entrada.with_context(|| format!("entrada de {}", carpeta.display()))?;
+        let ruta = entrada.path();
+        if !exo::walker::es_md(&entrada.file_name().to_string_lossy()) {
+            continue;
+        }
+        if let Some(nota) = exo::nota::parsea_nota(&ruta)?
+            && nota.permalink == permalink
+        {
+            return Ok(Some(ruta));
+        }
+    }
+    Ok(None)
+}
+
 /// `exo write append`: resuelve permalink→ruta contra el índice y anexa. Con
 /// `--create`, una bitácora que no existe se crea en vez de fallar.
 fn write_append_cmd(args: ArgsWriteAppend) -> Result<()> {
@@ -823,14 +849,41 @@ fn write_append_cmd(args: ArgsWriteAppend) -> Result<()> {
             // rancio. Derivar la ruta del permalink es correcto SOLO para
             // crearla (`log/<slug>.md`); para una nota ya existente el slug no
             // es invertible y por eso jamás se adivina.
-            let (dir, slug_nota) = args
+            //
+            // M4 #6 (Ola 1 G Task 7, backlog:708-730): exige EXACTAMENTE 3
+            // segmentos. Antes, un permalink de 2 segmentos
+            // (<proyecto>/<slug>) colaba el primer segmento como <dir> vía
+            // `map_or(izq, ...)`, creando un directorio espurio
+            // (`<proyecto>/<slug>.md`) que no es ni el proyecto real ni un
+            // dir pedido por nadie.
+            let (izq, slug_nota) = args
                 .permalink
                 .rsplit_once('/')
-                .map(|(izq, slug)| (izq.rsplit_once('/').map_or(izq, |(_, d)| d), slug))
                 .context("permalink sin forma <proyecto>/<dir>/<slug>")?;
+            let (_, dir) = izq.rsplit_once('/').with_context(|| {
+                format!(
+                    "{:?} tiene menos de 3 segmentos (<proyecto>/<dir>/<slug>): \
+                     --create no puede inferir un directorio",
+                    args.permalink
+                )
+            })?;
             let rel = format!("{dir}/{slug_nota}.md");
 
             if !kb.join(&rel).exists() {
+                // M4 #5 (Ola 1 G Task 7, backlog:708-730): walk de
+                // confirmación antes de crear. El check de arriba solo mira
+                // la ruta CANÓNICA; con índice rancio, la bitácora real
+                // puede vivir bajo OTRO nombre de fichero con el mismo
+                // permalink (renombrada a mano tras `exo index`). Crear
+                // otra encima dejaría DOS ficheros con el mismo permalink.
+                if let Some(existente) = busca_permalink_en_dir(&kb, dir, &args.permalink)? {
+                    anyhow::bail!(
+                        "{} ya existe con este permalink bajo otro nombre: {} \
+                         (índice rancio: corre `exo rebuild` o usa ese fichero directamente)",
+                        args.permalink,
+                        existente.display()
+                    );
+                }
                 let proyecto = exo::nombre_kb()?;
                 escribe_nueva(&NuevaNota {
                     kb: &kb,

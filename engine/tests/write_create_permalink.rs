@@ -160,3 +160,114 @@ min_similarity = 0.35
         );
     });
 }
+
+#[test]
+fn write_append_create_con_permalink_de_dos_segmentos_falla_con_remedio() {
+    // M4 #6 (Ola 1 G Task 7, backlog:708-730): antes, un permalink de solo
+    // <proyecto>/<slug> colaba el primer segmento como si fuera <dir>, y
+    // creaba `<primer-segmento>/<slug>.md` — un directorio espurio. Ahora
+    // es error accionable, sin tocar el disco.
+    let kb_tmp = tempfile::tempdir().expect("tempdir kb");
+    let kb = kb_tmp.path().to_path_buf();
+
+    let work = tempfile::tempdir().expect("tempdir work");
+    let db = work.path().join("index.db");
+    let cuerpo_path = work.path().join("cuerpo.txt");
+    std::fs::write(&cuerpo_path, "cuerpo\n").expect("escribir cuerpo");
+
+    common::con_config(&kb, "proyecto", &db, || {
+        exo::indexer::indexa(&kb, &db).expect("bootstrap del índice");
+
+        let out = std::process::Command::new(bin())
+            .args(["write", "append", "--create", "--from"])
+            .arg(&cuerpo_path)
+            .args(["--kb"])
+            .arg(&kb)
+            .args(["--db"])
+            .arg(&db)
+            .args(["proyecto/slug-sin-dir"])
+            .output()
+            .expect("correr el binario");
+
+        assert_ne!(
+            out.status.code(),
+            Some(0),
+            "un permalink de 2 segmentos debe fallar, no crear un directorio espurio"
+        );
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert!(
+            stderr.contains("3 segmentos") || stderr.contains("<dir>"),
+            "el error debe nombrar el remedio (forma <proyecto>/<dir>/<slug>): {stderr}"
+        );
+        assert!(
+            !kb.join("proyecto").exists(),
+            "no debe crearse el directorio espurio 'proyecto/': {stderr}"
+        );
+    });
+}
+
+#[test]
+fn write_append_create_no_duplica_si_el_indice_esta_rancio() {
+    // M4 #5 (Ola 1 G Task 7, backlog:708-730): el fichero real vive bajo un
+    // nombre distinto del canónico (renombrado a mano tras un `exo index`
+    // que no se volvió a correr) pero declara el MISMO permalink. Antes,
+    // `--create` solo miraba la ruta canónica y creaba un segundo fichero
+    // con el mismo permalink; el walk de confirmación tiene que atraparlo.
+    let kb_tmp = tempfile::tempdir().expect("tempdir kb");
+    let kb = kb_tmp.path().to_path_buf();
+    std::fs::create_dir_all(kb.join("log")).expect("crear log/");
+
+    let work = tempfile::tempdir().expect("tempdir work");
+    let db = work.path().join("index.db");
+    let cuerpo_path = work.path().join("cuerpo.txt");
+    std::fs::write(&cuerpo_path, "cuerpo nuevo\n").expect("escribir cuerpo");
+
+    let permalink = "proyecto/log/bitacora-vieja";
+
+    common::con_config(&kb, "proyecto", &db, || {
+        // El índice queda RANCIO a propósito: se construye ANTES de que el
+        // fichero renombrado exista en disco (`log/` está vacío en este
+        // momento), y no se vuelve a correr tras crearlo — exactamente el
+        // desfase de un `exo index` que no se repitió tras un rename a
+        // mano. `ruta_de` sobre este `permalink` da `None` (nunca hubo fila
+        // que lo declarase), así que el CLI entra en la rama `--create`; el
+        // punto del test es que el walk de confirmación de disco atrapa el
+        // fichero de todas formas, ANTES de escribir un segundo con el
+        // mismo permalink.
+        exo::indexer::indexa(&kb, &db).expect("bootstrap del índice");
+
+        std::fs::write(
+            kb.join("log/Bitácora Renombrada A Mano.md"),
+            format!(
+                "---\npermalink: {permalink}\ntitle: Bitácora Renombrada A Mano\n---\ncontenido viejo\n"
+            ),
+        )
+        .expect("escribir bitacora renombrada");
+
+        let out = std::process::Command::new(bin())
+            .args(["write", "append", "--create", "--from"])
+            .arg(&cuerpo_path)
+            .args(["--kb"])
+            .arg(&kb)
+            .args(["--db"])
+            .arg(&db)
+            .args([permalink])
+            .output()
+            .expect("correr el binario");
+
+        assert_ne!(
+            out.status.code(),
+            Some(0),
+            "no debe crear un segundo fichero con el mismo permalink"
+        );
+        assert!(
+            !kb.join("log/bitacora-vieja.md").exists(),
+            "no debe crearse el fichero canónico duplicado"
+        );
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert!(
+            stderr.contains("ya existe con este permalink"),
+            "el error debe nombrar la causa: {stderr}"
+        );
+    });
+}
