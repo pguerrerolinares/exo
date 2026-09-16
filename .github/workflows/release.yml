@@ -17,9 +17,6 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
-  # F6 (docs/backlog.md:785-819): mismo fix que ci.yml — ver ese fichero
-  # para el porqué completo.
-  HF_HOME: ${{ github.workspace }}/.cache/huggingface
 
 jobs:
   # Job barato (segundos, sin toolchain de Rust) que se dispara ANTES de la
@@ -84,7 +81,7 @@ jobs:
       - name: Caché del modelo jina-es (revisión pineada)
         uses: actions/cache@v4
         with:
-          path: ${{ env.HF_HOME }}/hub/models--jinaai--jina-embeddings-v2-base-es
+          path: ~/.cache/huggingface/hub/models--jinaai--jina-embeddings-v2-base-es
           key: hf-jina-es-8e2d780d-${{ runner.os }}
       - name: cargo build --release
         working-directory: engine

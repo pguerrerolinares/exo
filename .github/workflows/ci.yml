@@ -19,13 +19,6 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
-  # F6 (docs/backlog.md:785-819): antes de esto, la ruta de caché dependía
-  # del default de `hf-hub` 0.5.0 (Cache::from_env usa $HF_HOME/hub si está
-  # puesta, ~/.cache/huggingface/hub si no) sin que nada lo dijera — un
-  # upgrade de hf-hub que cambiara ese default, o un runner que empezara a
-  # exportar HF_HOME por su cuenta, habría vaciado la caché en silencio,
-  # siempre en verde (descarga fría de 615 MB, invisible salvo en duración).
-  HF_HOME: ${{ github.workspace }}/.cache/huggingface
 
 jobs:
   static-checks:
@@ -151,7 +144,7 @@ jobs:
       - name: Caché del modelo jina-es (revisión pineada)
         uses: actions/cache@v4
         with:
-          path: ${{ env.HF_HOME }}/hub/models--jinaai--jina-embeddings-v2-base-es
+          path: ~/.cache/huggingface/hub/models--jinaai--jina-embeddings-v2-base-es
           key: hf-jina-es-8e2d780d-${{ runner.os }}
       # El gate ya existe y ya se demostró falsable (2026-08-27, re-demostrado
       # con --locked en la campaña E). El CI lo consume tal cual en vez de
