@@ -169,6 +169,24 @@ pub fn min_similitud_de_config() -> Result<f64> {
 pub const MODELO_JINA_ES: &str = "jinaai/jina-embeddings-v2-base-es";
 const REVISION_JINA_ES: &str = "8e2d780d8fd38f81ca9123ee28e4c5a968aaf21e";
 
+/// Ruta de caché de `hf_hub` para el proceso actual: `$HF_HOME/hub` si la
+/// variable está definida, si no `~/.cache/huggingface/hub` — exactamente lo
+/// que resuelve `hf_hub::Cache::from_env()` (hf-hub 0.5.0), delegado aquí en
+/// vez de reimplementado.
+///
+/// Fuente ÚNICA de esa ruta para el crate: `Embedder::con_modelo` construye
+/// su cliente hf-hub con `ApiBuilder::from_env()` (misma llamada, mismo
+/// resultado) y `doctor::Entorno::del_proceso` llama a esta función para su
+/// campo `cache_hf`. Antes de la Task 13 (G, 2026-09-16) el descargador
+/// ignoraba `HF_HOME` (`Api::new()` → `Cache::default()`) mientras `doctor`
+/// reimplementaba el cálculo a mano asumiendo que sí lo respetaba: dos
+/// caminos que podían divergir en silencio. **No dupliques este cálculo en
+/// otro sitio** — si `doctor` o un futuro llamador necesitan la ruta de
+/// caché, que llamen a esta función.
+pub fn cache_hf_del_entorno() -> std::path::PathBuf {
+    hf_hub::Cache::from_env().path().clone()
+}
+
 /// Repo de HF para un modelo, con revisión fija si es uno de los nuestros.
 /// Un modelo ajeno sigue resolviendo `main` (no rompemos a quien cambie el
 /// modelo en su config), pero `con_modelo` lo dice por stderr en vez de
@@ -227,7 +245,7 @@ impl Embedder {
             InitOptionsUserDefined, Pooling, TextEmbedding, TokenizerFiles,
             UserDefinedEmbeddingModel,
         };
-        use hf_hub::api::sync::Api;
+        use hf_hub::api::sync::ApiBuilder;
 
         let repo_id = repo_hf(modelo);
         if repo_id.revision() == "main" {
@@ -237,7 +255,13 @@ impl Embedder {
                  comparable con la línea base del eval."
             );
         }
-        let repo = Api::new().context("crear cliente hf-hub")?.repo(repo_id);
+        // `from_env()` (no `Api::new()`, que cae a `Cache::default()` y ROMPE
+        // `HF_HOME`): Task 13, ver doc de `cache_hf_del_entorno` — misma ruta
+        // que usa `doctor::Entorno::del_proceso` para el check `embeddings_model`.
+        let repo = ApiBuilder::from_env()
+            .build()
+            .context("crear cliente hf-hub")?
+            .repo(repo_id);
         let leer = |fichero: &str| -> Result<Vec<u8>> {
             let ruta = repo
                 .get(fichero)
