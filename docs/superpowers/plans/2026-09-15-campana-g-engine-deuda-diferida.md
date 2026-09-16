@@ -3624,3 +3624,93 @@ oráculo sin motivo. `MIN_SIMILARITY_SELLADO` queda como fuente única para
 los dos consumidores (default de `--type hybrid` y default de `exo init`),
 resolviendo la pregunta abierta del brief ("¿misma fuente que dos
 literales?") a favor de una constante — ver Step 5 de la Task 11.
+
+---
+
+### Task 13: el engine respeta `HF_HOME` (añadida el 2026-09-16 por decisión de Paul)
+
+**Lane:** mecánica. **Depende de:** nada (toca `engine/src/lib.rs` y
+`engine/src/doctor.rs`; coordinar con Task 8, que también edita `lib.rs`).
+**Oráculo:** con `HF_HOME` apuntando a un directorio temporal, el modelo se
+descarga/lee bajo `$HF_HOME/hub`; sin la variable, bajo
+`~/.cache/huggingface/hub` (comportamiento actual, sin cambios).
+
+**Origen:** la Task 6 de la campaña F fijaba `HF_HOME` en los workflows y
+apuntaba `actions/cache` a esa ruta. La review descubrió que **el engine
+ignora la variable**: `engine/src/lib.rs:240` llama `Api::new()`, que baja a
+`ApiBuilder::new()` → `Cache::default()` (hf-hub 0.5.0, `lib.rs:202-210`:
+`dirs::home_dir()/.cache/huggingface/hub`), y `Cache::from_env()`
+(`lib.rs:42-50`), la única que lee `HF_HOME`, no se invoca nunca. Con aquel
+cambio, la caché de CI apuntaba a una ruta que nadie escribe: miss permanente
+en los tres SO, en verde, con ~0,6 GB descargados por corrida. La campaña F
+revirtió su commit (`6e4477a`) y el arreglo real vive aquí porque toca
+`engine/src/`. Además `doctor.rs:112-125` (`Entorno::del_proceso`) YA asume
+que el engine respeta `HF_HOME` («la caché replica lo que hace `hf_hub`
+(`Cache::from_env`)»): hoy esa afirmación es falsa y el check de modelo mira
+un directorio que el engine no usa si la variable está puesta.
+
+**Files:**
+- Modify: `engine/src/lib.rs` (call site del cliente hf-hub)
+- Modify: `engine/src/doctor.rs` (solo el doc-comment, si tras el cambio pasa
+  a ser cierto)
+- Test: `engine/tests/` (fichero nuevo o el que encaje: el check de doctor
+  vive en `tests/doctor.rs`)
+
+**Interfaces:**
+- Consumes: `hf_hub::api::sync::ApiBuilder` (ya en el árbol de dependencias,
+  sin `Cargo.toml` nuevo).
+- Produces: ningún cambio de firma pública.
+
+- [ ] **Step 1: Test que falla**
+
+Test que, con `HF_HOME` apuntando a un tempdir, comprueba que la ruta que el
+engine resuelve para la caché cae bajo esa variable. Si probar el descargador
+real es caro o exige red, prueba el helper que resuelve la caché (extrae una
+función pura `cache_hf_del_entorno() -> PathBuf` si hace falta, y que
+`doctor::Entorno::del_proceso` la use también, para que el check y el
+descargador no puedan volver a divergir). Rojo esperado: la ruta resuelta
+ignora `HF_HOME`.
+
+- [ ] **Step 2: Implementación**
+
+En `engine/src/lib.rs:240` sustituye el cliente por uno construido desde el
+entorno:
+
+```rust
+let api = hf_hub::api::sync::ApiBuilder::from_env()
+    .build()
+    .context("crear cliente hf-hub")?;
+let repo = api.repo(repo_id);
+```
+
+Verifica en el crate instalado (`~/.cargo/registry/src/*/hf-hub-0.5.0/src/api/sync.rs`)
+que `ApiBuilder::from_env()` existe en 0.5.0 y usa `Cache::from_env()`; si el
+nombre difiere, usa el equivalente y dilo en el report.
+
+- [ ] **Step 3: Verde + doctor coherente**
+
+El test del Step 1 pasa. `doctor::Entorno::del_proceso` y el descargador
+resuelven la MISMA ruta (idealmente compartiendo la función del Step 1). El
+doc-comment de `doctor.rs:113-114` deja de ser una promesa y pasa a describir
+el hecho.
+
+- [ ] **Step 4: Verificación**
+
+`cd engine && cargo test --release --locked` (suite completa) +
+`cargo fmt --check` + `cargo clippy --all-targets --locked -- -D warnings`.
+Con `HF_HOME` sin definir, el modelo cacheado de esta máquina se sigue
+encontrando (no re-descarga): compruébalo corriendo un test `--ignored` de
+embedding y midiendo que no descarga.
+
+- [ ] **Step 5: CI (opcional, si la Task 12 no lo cubre)**
+
+Con el engine ya respetando la variable, `HF_HOME` explícito en
+`.github/workflows/{ci,release}.yml` y `actions/cache` apuntando a
+`$HF_HOME/hub/...` vuelve a ser correcto — es exactamente el commit `4cec5b7`
+que F revirtió (`6e4477a`), reaplicable tal cual. Si se reaplica, documenta
+que la primera corrida por SO tras el merge hace descarga fría.
+
+**Aviso de comportamiento:** para un usuario con `HF_HOME` definida, el
+modelo pasa a buscarse bajo esa ruta y se descargará una vez. Declararlo en
+`docs/arquitectura.md` o `docs/instalacion.md` donde se describa la caché del
+modelo.
