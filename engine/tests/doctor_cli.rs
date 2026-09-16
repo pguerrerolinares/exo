@@ -20,7 +20,7 @@ fn config_valida(dir: &std::path::Path) -> std::path::PathBuf {
     fs::write(
         &ruta,
         format!(
-            "schema_version = 1\n\n[kb]\npath = \"{}\"\nname = \"kb-demo\"\n\n\
+            "schema_version = 1\n\n[kb]\npath = \"{}\"\nname = \"kb-test\"\n\n\
              [index]\ndb = \"{}\"\n\n[embeddings]\n\
              model = \"jinaai/jina-embeddings-v2-base-es\"\ndims = 768\n\
              min_similarity = 0.35\n",

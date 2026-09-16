@@ -66,7 +66,7 @@ fn nueva_genera_frontmatter_completo_y_ruta_correcta() {
     let kb = kb_falsa();
     let esc = escribe_nueva(&NuevaNota {
         kb: kb.path(),
-        proyecto: "kb-demo",
+        proyecto: "kb-test",
         dir: "projects",
         titulo: "Proyecto Nuevo — de prueba",
         cuerpo: "cuerpo de la nota\n",
@@ -76,7 +76,7 @@ fn nueva_genera_frontmatter_completo_y_ruta_correcta() {
     })
     .unwrap();
 
-    assert_eq!(esc.permalink, "kb-demo/projects/proyecto-nuevo-de-prueba");
+    assert_eq!(esc.permalink, "kb-test/projects/proyecto-nuevo-de-prueba");
     assert_eq!(esc.ruta_rel, "projects/Proyecto Nuevo — de prueba.md");
     assert!(esc.creada);
 
@@ -84,7 +84,7 @@ fn nueva_genera_frontmatter_completo_y_ruta_correcta() {
     assert!(escrito.starts_with("---\n"), "debe abrir con frontmatter");
     assert!(escrito.contains("title: Proyecto Nuevo — de prueba\n"));
     assert!(escrito.contains("type: note\n"));
-    assert!(escrito.contains("permalink: kb-demo/projects/proyecto-nuevo-de-prueba\n"));
+    assert!(escrito.contains("permalink: kb-test/projects/proyecto-nuevo-de-prueba\n"));
     assert!(escrito.contains("tier: stable\n"));
     assert!(escrito.ends_with("cuerpo de la nota\n"));
 }
@@ -95,7 +95,7 @@ fn nueva_respeta_el_frontmatter_que_ya_trae_el_cuerpo() {
     let kb = kb_falsa();
     let esc = escribe_nueva(&NuevaNota {
         kb: kb.path(),
-        proyecto: "kb-demo",
+        proyecto: "kb-test",
         dir: "projects",
         titulo: "Con Tags",
         cuerpo: "---\ntags:\n- uno\n- dos\ntype: research\n---\ncuerpo\n",
@@ -108,7 +108,7 @@ fn nueva_respeta_el_frontmatter_que_ya_trae_el_cuerpo() {
     let escrito = std::fs::read_to_string(kb.path().join(&esc.ruta_rel)).unwrap();
     assert!(escrito.contains("type: research\n"), "no pisa el type dado");
     assert!(escrito.contains("- uno\n"), "conserva tags del autor");
-    assert!(escrito.contains("permalink: kb-demo/projects/con-tags\n"));
+    assert!(escrito.contains("permalink: kb-test/projects/con-tags\n"));
     assert!(
         !escrito.contains("type: note"),
         "no debe duplicar la clave type"
@@ -130,7 +130,7 @@ fn nueva_jamas_pisa_una_nota_existente() {
 
     let err = escribe_nueva(&NuevaNota {
         kb: kb.path(),
-        proyecto: "kb-demo",
+        proyecto: "kb-test",
         dir: "projects",
         titulo: "Ya Existe",
         cuerpo: "nuevo\n",
@@ -152,12 +152,12 @@ fn nueva_con_candidatas_duplicadas_rechaza_sin_escribir() {
     let kb = kb_falsa();
     let err = escribe_nueva(&NuevaNota {
         kb: kb.path(),
-        proyecto: "kb-demo",
+        proyecto: "kb-test",
         dir: "projects",
         titulo: "Tema Repetido",
         cuerpo: "cuerpo\n",
         tier: None,
-        dup_candidatas: &[("kb-demo/projects/tema-repe".into(), 0.9)],
+        dup_candidatas: &[("kb-test/projects/tema-repe".into(), 0.9)],
         forzado: false,
     })
     .unwrap_err();
@@ -175,7 +175,7 @@ fn append_a_bitacora_no_relee_ni_reescribe_el_cuerpo() {
     escribe_nota(
         &kb,
         "log/x-bitacora.md",
-        "---\npermalink: kb-demo/log/x-bitacora\ntier: log\n---\n# X\n\nentrada vieja\n",
+        "---\npermalink: kb-test/log/x-bitacora\ntier: log\n---\n# X\n\nentrada vieja\n",
     );
 
     let esc = escribe_append(
@@ -204,7 +204,7 @@ fn append_a_canon_se_rechaza_por_defecto() {
     escribe_nota(
         &kb,
         "projects/canon.md",
-        "---\npermalink: kb-demo/projects/canon\ntier: stable\n---\ncuerpo\n",
+        "---\npermalink: kb-test/projects/canon\ntier: stable\n---\ncuerpo\n",
     );
 
     let err = escribe_append(
@@ -228,7 +228,7 @@ fn append_a_canon_forzado_escribe_y_queda_registrado() {
     escribe_nota(
         &kb,
         "projects/canon.md",
-        "---\npermalink: kb-demo/projects/canon\ntier: core\n---\ncuerpo\n",
+        "---\npermalink: kb-test/projects/canon\ntier: core\n---\ncuerpo\n",
     );
 
     let esc = escribe_append(kb.path(), "projects/canon.md", "excepcion\n", true).unwrap();
@@ -251,13 +251,13 @@ fn dup_gate_caza_el_unico_duplicado_real_de_la_historia() {
     // 2026-07-11: se creó `log/ai-news-bitacora.md` existiendo ya la canónica
     // `ai-news-pipeline-bitacora`. Único duplicado en 153 invocaciones.
     let indexados = vec![
-        "kb-demo/log/ai-news-pipeline-bitacora".to_string(),
-        "kb-demo/log/exo-bitacora".to_string(),
-        "kb-demo/projects/cge".to_string(),
+        "kb-test/log/ai-news-pipeline-bitacora".to_string(),
+        "kb-test/log/exo-bitacora".to_string(),
+        "kb-test/projects/cge".to_string(),
     ];
     let candidatas = exo::escritor::dup_candidatas("ai-news-bitacora", &indexados);
     assert_eq!(candidatas.len(), 1, "debe cazar exactamente la canónica");
-    assert_eq!(candidatas[0].0, "kb-demo/log/ai-news-pipeline-bitacora");
+    assert_eq!(candidatas[0].0, "kb-test/log/ai-news-pipeline-bitacora");
 }
 
 #[test]
@@ -265,10 +265,10 @@ fn dup_gate_no_dispara_con_bitacoras_de_frentes_distintos() {
     // El falso positivo mata al guard: bitácoras y notas que comparten UNA
     // palabra son la norma en esta KB, no una señal de duplicado.
     let indexados = vec![
-        "kb-demo/log/exo-bitacora".to_string(),
-        "kb-demo/log/kbx-bitacora".to_string(),
-        "kb-demo/log/backlog-diario".to_string(),
-        "kb-demo/Backlog — frentes abiertos".to_string(),
+        "kb-test/log/exo-bitacora".to_string(),
+        "kb-test/log/kbx-bitacora".to_string(),
+        "kb-test/log/backlog-diario".to_string(),
+        "kb-test/Backlog — frentes abiertos".to_string(),
     ];
     for nuevo in [
         "cge-bitacora",
@@ -301,7 +301,7 @@ fn titulo_con_barra_no_crea_subdirectorio() {
     let kb = kb_falsa();
     let esc = escribe_nueva(&NuevaNota {
         kb: kb.path(),
-        proyecto: "kb-demo",
+        proyecto: "kb-test",
         dir: "projects",
         titulo: "pguerrero.me — Hub personal / portfolio",
         cuerpo: "cuerpo\n",
@@ -337,7 +337,7 @@ fn jamas_se_escribe_fuera_de_la_kb() {
     ] {
         let err = escribe_nueva(&NuevaNota {
             kb: kb.path(),
-            proyecto: "kb-demo",
+            proyecto: "kb-test",
             dir,
             titulo,
             cuerpo: "cuerpo\n",
@@ -360,7 +360,7 @@ fn new_forzado_queda_registrado_en_el_envelope() {
     let kb = kb_falsa();
     let esc = escribe_nueva(&NuevaNota {
         kb: kb.path(),
-        proyecto: "kb-demo",
+        proyecto: "kb-test",
         dir: "projects",
         titulo: "Forzada",
         cuerpo: "cuerpo\n",

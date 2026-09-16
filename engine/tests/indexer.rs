@@ -45,21 +45,21 @@ fn kb_fixture() -> tempfile::TempDir {
     crea_nota(
         dir.path(),
         "a.md",
-        "kb-demo/a",
+        "kb-test/a",
         "Nota A",
         "contenido alfa buscable",
     );
     crea_nota(
         dir.path(),
         "b.md",
-        "kb-demo/b",
+        "kb-test/b",
         "Nota B",
         "contenido beta buscable",
     );
     crea_nota(
         dir.path(),
         "c.md",
-        "kb-demo/c",
+        "kb-test/c",
         "Nota C",
         "contenido gamma buscable",
     );
@@ -190,7 +190,7 @@ fn index_borra_notas_ausentes() {
             .query_row("SELECT count(*) FROM notas_fts", [], |r| r.get(0))
             .unwrap();
         assert_eq!(n_fts, 2);
-        assert!(!permalinks(&db).contains("kb-demo/b"));
+        assert!(!permalinks(&db).contains("kb-test/b"));
     });
 }
 
@@ -221,7 +221,7 @@ fn link_roto_no_es_error() {
     crea_nota(
         kb.path(),
         "a.md",
-        "kb-demo/a",
+        "kb-test/a",
         "Nota A",
         "contenido alfa buscable con [[link roto]]",
     );
@@ -234,8 +234,8 @@ fn link_roto_no_es_error() {
             "indexar un link roto debe ser exit 0, no error"
         );
 
-        let (origen, destino_permalink) = arista(&db, "kb-demo/a", "link roto");
-        assert_eq!(origen, "kb-demo/a");
+        let (origen, destino_permalink) = arista(&db, "kb-test/a", "link roto");
+        assert_eq!(origen, "kb-test/a");
         assert_eq!(destino_permalink, None);
     });
 }
@@ -247,7 +247,7 @@ fn wikilink_a_nota_existente_resuelve_destino_permalink() {
     crea_nota(
         kb.path(),
         "a.md",
-        "kb-demo/a",
+        "kb-test/a",
         "Nota A",
         "ver [[Nota B]] para más",
     );
@@ -256,8 +256,8 @@ fn wikilink_a_nota_existente_resuelve_destino_permalink() {
     common::con_config(kb.path(), "kb-test", &db, || {
         indexa(kb.path(), &db).unwrap();
 
-        let (_, destino_permalink) = arista(&db, "kb-demo/a", "Nota B");
-        assert_eq!(destino_permalink, Some("kb-demo/b".to_string()));
+        let (_, destino_permalink) = arista(&db, "kb-test/a", "Nota B");
+        assert_eq!(destino_permalink, Some("kb-test/b".to_string()));
     });
 }
 
@@ -267,7 +267,7 @@ fn wikilink_con_alias_se_guarda_entero_y_resuelve_por_parte_antes_del_pipe() {
     crea_nota(
         kb.path(),
         "a.md",
-        "kb-demo/a",
+        "kb-test/a",
         "Nota A",
         "ver [[Nota B|texto alias]] aquí",
     );
@@ -276,8 +276,8 @@ fn wikilink_con_alias_se_guarda_entero_y_resuelve_por_parte_antes_del_pipe() {
     common::con_config(kb.path(), "kb-test", &db, || {
         indexa(kb.path(), &db).unwrap();
 
-        let (_, destino_permalink) = arista(&db, "kb-demo/a", "Nota B|texto alias");
-        assert_eq!(destino_permalink, Some("kb-demo/b".to_string()));
+        let (_, destino_permalink) = arista(&db, "kb-test/a", "Nota B|texto alias");
+        assert_eq!(destino_permalink, Some("kb-test/b".to_string()));
     });
 }
 
@@ -287,7 +287,7 @@ fn wikilink_roto_se_cura_solo_cuando_aparece_la_nota_destino() {
     crea_nota(
         kb.path(),
         "a.md",
-        "kb-demo/a",
+        "kb-test/a",
         "Nota A",
         "ver [[Nota Nueva]] aquí",
     );
@@ -295,13 +295,13 @@ fn wikilink_roto_se_cura_solo_cuando_aparece_la_nota_destino() {
 
     common::con_config(kb.path(), "kb-test", &db, || {
         indexa(kb.path(), &db).unwrap();
-        let (_, antes) = arista(&db, "kb-demo/a", "Nota Nueva");
+        let (_, antes) = arista(&db, "kb-test/a", "Nota Nueva");
         assert_eq!(antes, None);
 
         crea_nota(
             kb.path(),
             "d.md",
-            "kb-demo/d",
+            "kb-test/d",
             "Nota Nueva",
             "contenido delta",
         );
@@ -309,8 +309,8 @@ fn wikilink_roto_se_cura_solo_cuando_aparece_la_nota_destino() {
         git(kb.path(), &["commit", "-q", "-m", "añade Nota Nueva"]);
 
         indexa(kb.path(), &db).unwrap();
-        let (_, despues) = arista(&db, "kb-demo/a", "Nota Nueva");
-        assert_eq!(despues, Some("kb-demo/d".to_string()));
+        let (_, despues) = arista(&db, "kb-test/a", "Nota Nueva");
+        assert_eq!(despues, Some("kb-test/d".to_string()));
     });
 }
 
@@ -324,7 +324,7 @@ fn reindexar_una_nota_que_pierde_un_link_borra_la_arista_vieja() {
     crea_nota(
         kb.path(),
         "a.md",
-        "kb-demo/a",
+        "kb-test/a",
         "Nota A",
         "ver [[Nota B]] aquí",
     );
@@ -340,7 +340,7 @@ fn reindexar_una_nota_que_pierde_un_link_borra_la_arista_vieja() {
         crea_nota(
             kb.path(),
             "a.md",
-            "kb-demo/a",
+            "kb-test/a",
             "Nota A",
             "contenido sin ningún link ya",
         );
@@ -360,7 +360,7 @@ fn wikilink_duplicado_en_la_misma_nota_no_duplica_fila() {
     crea_nota(
         kb.path(),
         "a.md",
-        "kb-demo/a",
+        "kb-test/a",
         "Nota A",
         "[[Nota B]] y otra vez [[Nota B]]",
     );
@@ -378,7 +378,7 @@ fn rebuild_doble_da_el_mismo_conteo_de_aristas() {
     crea_nota(
         kb.path(),
         "a.md",
-        "kb-demo/a",
+        "kb-test/a",
         "Nota A",
         "ver [[Nota B]] y [[link roto]]",
     );
@@ -408,12 +408,12 @@ fn index_puebla_trozos_y_vectores_con_rowid_igual_a_trozo_id() {
     common::con_config(kb.path(), "kb-test", &db, || {
         indexa(kb.path(), &db).unwrap();
 
-        assert_eq!(cuenta_trozos(&db, "kb-demo/a"), 1);
-        assert_eq!(cuenta_trozos(&db, "kb-demo/b"), 1);
-        assert_eq!(cuenta_trozos(&db, "kb-demo/c"), 1);
+        assert_eq!(cuenta_trozos(&db, "kb-test/a"), 1);
+        assert_eq!(cuenta_trozos(&db, "kb-test/b"), 1);
+        assert_eq!(cuenta_trozos(&db, "kb-test/c"), 1);
         assert_eq!(cuenta_vectores(&db), 3);
 
-        let ids_a = ids_de_trozos(&db, "kb-demo/a");
+        let ids_a = ids_de_trozos(&db, "kb-test/a");
         let rowids = rowids_de_vectores(&db);
         assert!(
             ids_a.is_subset(&rowids),
@@ -431,20 +431,20 @@ fn reindexar_nota_cambiada_reemplaza_trozos_y_vectores() {
 
     common::con_config(kb.path(), "kb-test", &db, || {
         indexa(kb.path(), &db).unwrap();
-        let ids_antes = ids_de_trozos(&db, "kb-demo/a");
+        let ids_antes = ids_de_trozos(&db, "kb-test/a");
         assert_eq!(ids_antes.len(), 1);
 
         std::thread::sleep(std::time::Duration::from_millis(10));
         crea_nota(
             kb.path(),
             "a.md",
-            "kb-demo/a",
+            "kb-test/a",
             "Nota A",
             "contenido alfa completamente distinto ahora",
         );
         indexa(kb.path(), &db).unwrap();
 
-        let ids_despues = ids_de_trozos(&db, "kb-demo/a");
+        let ids_despues = ids_de_trozos(&db, "kb-test/a");
         assert_eq!(
             ids_despues.len(),
             1,
@@ -476,7 +476,7 @@ fn borrar_nota_borra_tambien_sus_vectores() {
 
     common::con_config(kb.path(), "kb-test", &db, || {
         indexa(kb.path(), &db).unwrap();
-        let ids_b = ids_de_trozos(&db, "kb-demo/b");
+        let ids_b = ids_de_trozos(&db, "kb-test/b");
         assert_eq!(ids_b.len(), 1);
         assert!(rowids_de_vectores(&db).is_superset(&ids_b));
 
@@ -484,7 +484,7 @@ fn borrar_nota_borra_tambien_sus_vectores() {
         let resumen = indexa(kb.path(), &db).unwrap();
         assert_eq!(resumen.borradas, 1);
 
-        assert_eq!(cuenta_trozos(&db, "kb-demo/b"), 0);
+        assert_eq!(cuenta_trozos(&db, "kb-test/b"), 0);
         let rowids_despues = rowids_de_vectores(&db);
         for id_b in &ids_b {
             assert!(
@@ -502,13 +502,13 @@ fn borrar_nota_borra_tambien_sus_vectores() {
 #[test]
 fn nota_con_cuerpo_vacio_no_genera_trozos() {
     let kb = kb_fixture();
-    crea_nota(kb.path(), "vacia.md", "kb-demo/vacia", "Vacía", "");
+    crea_nota(kb.path(), "vacia.md", "kb-test/vacia", "Vacía", "");
     let (_db_dir, db) = db_temporal();
 
     common::con_config(kb.path(), "kb-test", &db, || {
         let resumen = indexa(kb.path(), &db).unwrap();
         assert_eq!(resumen.indexadas, 4);
-        assert_eq!(cuenta_trozos(&db, "kb-demo/vacia"), 0);
+        assert_eq!(cuenta_trozos(&db, "kb-test/vacia"), 0);
     });
 }
 

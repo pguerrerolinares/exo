@@ -22,7 +22,7 @@ pub struct Resultado {
     /// `SCHEMA_VERSION` (envelope §4).
     ///
     /// Existe porque la ruta NO es derivable del permalink: el slug come
-    /// acentos, espacios y em-dashes (`kb-demo/projects/exo-framework-…`
+    /// acentos, espacios y em-dashes (`kb-test/projects/exo-framework-…`
     /// vive en `projects/exo — framework unificado de trabajo agéntico.md`) y
     /// eso no se invierte. Sin este campo, cuando muera basic-memory el agente
     /// no tiene forma de localizar el fichero que va a editar con `Edit`.

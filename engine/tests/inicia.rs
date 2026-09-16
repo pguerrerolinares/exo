@@ -3,8 +3,8 @@
 //! sobrevive en el engine, y es explícita.
 
 const BM_JSON: &str = r#"{
-  "projects": { "kb-demo": { "path": "C:/proyectos/homework/kb-demo" } },
-  "default_project": "kb-demo",
+  "projects": { "kb-test": { "path": "C:/proyectos/homework/kb-test" } },
+  "default_project": "kb-test",
   "semantic_embedding_model": "jinaai/jina-embeddings-v2-base-es",
   "semantic_embedding_dimensions": 768,
   "semantic_min_similarity": 0.35
@@ -15,11 +15,11 @@ fn migra_desde_basic_memory_leyendo_el_proyecto_por_defecto() {
     let (kb, nombre, emb) = exo::inicia::desde_basic_memory(BM_JSON).expect("migrar");
     assert_eq!(
         kb,
-        std::path::PathBuf::from("C:/proyectos/homework/kb-demo")
+        std::path::PathBuf::from("C:/proyectos/homework/kb-test")
     );
-    // El nombre sale de `default_project`, NO de un literal "kb-demo"
+    // El nombre sale de `default_project`, NO de un literal "kb-test"
     // hardcodeado: ese literal era justo el acoplamiento que se viene a matar.
-    assert_eq!(nombre, "kb-demo");
+    assert_eq!(nombre, "kb-test");
     assert_eq!(emb.model, "jinaai/jina-embeddings-v2-base-es");
     assert_eq!(emb.dims, 768);
     assert_eq!(emb.min_similarity, 0.35);
@@ -199,7 +199,7 @@ fn un_nombre_con_salto_de_linea_es_rechazado_por_la_validacion() {
 /// afectados por la whitelist nueva.
 #[test]
 fn los_nombres_habituales_siguen_pasando_la_validacion() {
-    for nombre in ["demo", "kb-demo", "mi-kb.v2", "kb_2"] {
+    for nombre in ["demo", "kb-test", "mi-kb.v2", "kb_2"] {
         exo::inicia::valida_nombre(nombre)
             .unwrap_or_else(|e| panic!("{nombre:?} debería pasar: {e}"));
     }
