@@ -45,9 +45,12 @@ if [ "$EC" -ne 0 ]; then
   sed -n '/^failures:$/,/^test result: FAILED/p' "$LOG" >&2 || true
   echo "--- resumen ---" >&2
   grep -E '^test result: FAILED|--test ' "$LOG" >&2 || true
-  # F5 (docs/backlog.md:732-765, "Sigue abierto: un error de COMPILACIÓN de
-  # la suite sigue sin casar ningún patrón de grep"): distingue un error de
-  # rustc/cargo de un fallo de test normal. Fix de review (2026-09-15): el
+  # F5 (docs/backlog.md, ítem "Un rojo del job `test` no se puede
+  # diagnosticar desde el CI." — cítalo por título, no por línea: el sync de
+  # backlog.md desplaza líneas; ahí queda "Sigue abierto: un error de
+  # COMPILACIÓN de la suite sigue sin casar ningún patrón de grep"):
+  # distingue un error de rustc/cargo de un fallo de test normal. Fix de
+  # review (2026-09-15): el
   # grupo opcional `(\[E[0-9]+\])?` de la versión anterior de este patrón
   # también casaba con `error: test failed, to rerun pass `--test x`` — la
   # línea que cargo imprime cuando un test SÍ COMPILA y SÍ FALLA — porque
