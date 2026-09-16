@@ -111,18 +111,20 @@ pub struct Entorno {
 }
 
 impl Entorno {
-    /// El entorno real del proceso. La caché replica lo que hace `hf_hub`
-    /// (`Cache::from_env`): `$HF_HOME/hub`, y si no `~/.cache/huggingface/hub`.
+    /// El entorno real del proceso. `cache_hf` es la ruta que de verdad usa
+    /// el descargador (`Embedder::con_modelo`, vía `ApiBuilder::from_env()`):
+    /// ambos llaman a `crate::cache_hf_del_entorno()` (Task 13) en vez de
+    /// calcular la ruta cada uno por su lado — antes de esa tarea este
+    /// constructor reimplementaba a mano la lógica de `HF_HOME` mientras el
+    /// descargador la ignoraba del todo, dos caminos que podían divergir en
+    /// silencio.
     ///
     /// `kb`/`db` salen en `None`: este constructor no conoce flags de CLI, así
     /// que quien lo invoque (`doctor_cmd`) los rellena aplicando la misma
     /// precedencia que el resto de verbos.
     pub fn del_proceso() -> Self {
         let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
-        let cache_hf = match std::env::var_os("HF_HOME") {
-            Some(h) => PathBuf::from(h).join("hub"),
-            None => home.join(".cache").join("huggingface").join("hub"),
-        };
+        let cache_hf = crate::cache_hf_del_entorno();
         Self {
             config: crate::config::ruta_config()
                 .unwrap_or_else(|_| home.join(".exo").join("config.toml")),

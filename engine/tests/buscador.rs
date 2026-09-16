@@ -31,21 +31,21 @@ fn kb_fixture() -> tempfile::TempDir {
     crea_nota(
         kb.path(),
         "agent-develop.md",
-        "kb-demo/log/agent-develop-bitacora",
+        "kb-test/log/agent-develop-bitacora",
         "Bitácora agent-develop",
         "contenido de la bitácora agent-develop, con guiones y acentos: café",
     );
     crea_nota(
         kb.path(),
         "poco.md",
-        "kb-demo/poco",
+        "kb-test/poco",
         "Nota con poca relevancia",
         "buscable una vez nada más",
     );
     crea_nota(
         kb.path(),
         "mucho.md",
-        "kb-demo/mucho",
+        "kb-test/mucho",
         "Nota con mucha relevancia",
         "buscable buscable buscable buscable buscable",
     );
@@ -85,7 +85,7 @@ fn query_con_guiones_y_acentos_no_revienta() {
             resultado
                 .results
                 .iter()
-                .any(|r| r.permalink == "kb-demo/log/agent-develop-bitacora"),
+                .any(|r| r.permalink == "kb-test/log/agent-develop-bitacora"),
             "{:?}",
             resultado.results
         );
@@ -114,8 +114,8 @@ fn resultados_ordenados_por_score_descendente() {
         indexa(kb.path(), &db).unwrap();
         let resultado = busca(&db, "buscable", 10, None).unwrap();
         assert_eq!(resultado.results.len(), 2, "{:?}", resultado.results);
-        assert_eq!(resultado.results[0].permalink, "kb-demo/mucho");
-        assert_eq!(resultado.results[1].permalink, "kb-demo/poco");
+        assert_eq!(resultado.results[0].permalink, "kb-test/mucho");
+        assert_eq!(resultado.results[1].permalink, "kb-test/poco");
         assert!(resultado.results[0].score >= resultado.results[1].score);
     });
 }
@@ -206,7 +206,7 @@ fn busca_vector_con_db_poblada_devuelve_entidades_ordenadas() {
             resultado
                 .results
                 .iter()
-                .any(|r| r.permalink == "kb-demo/log/agent-develop-bitacora"),
+                .any(|r| r.permalink == "kb-test/log/agent-develop-bitacora"),
             "la nota de la bitácora debería aparecer sobre threshold: {:?}",
             resultado.results
         );
@@ -309,7 +309,7 @@ fn threshold_filtra_vector_pre_fusion() {
             hybrid
                 .results
                 .iter()
-                .any(|r| r.permalink == "kb-demo/log/agent-develop-bitacora"),
+                .any(|r| r.permalink == "kb-test/log/agent-develop-bitacora"),
             "el candidato FTS debe sobrevivir aunque el vector quede filtrado: {:?}",
             hybrid.results
         );

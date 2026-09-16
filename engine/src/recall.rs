@@ -507,7 +507,13 @@ fn tier_de(ruta: &Path) -> Option<String> {
 /// Modo consulta (brief §Tarea 2): `busca_hybrid` con los defaults sellados
 /// (`bonus`/`escala_fts` los pasa el llamador — M2-07, `BONUS_SELLADO`/
 /// `ESCALA_FTS_SELLADA` viven en `main.rs`, no se duplican aquí) y
-/// `--min-similarity` con el mismo default de config que `search`. El
+/// `min_similitud` YA resuelto por el llamador (`recall_cmd` en `main.rs`,
+/// I2 — decisión 2 de Paul, review final de G, 2026-09-16): si el flag se
+/// omitió, el llamador pasa `Some(MIN_SIMILARITY_SELLADO)`, no `None`, así
+/// que esta función nunca deja que `busca_hybrid` caiga a
+/// `[embeddings] min_similarity` de la config — mismo umbral sellado que
+/// `search --type hybrid`, no "el mismo default de config" (afirmación
+/// vieja, falsa desde este fix). El
 /// snippet de cada nota es su PRIMER trozo (`orden = 0`): la fusión
 /// hybrid no expone qué trozo individual disparó el match de una entidad
 /// (agrega por máxima similitud, spec fusión) y recalcular esa similitud

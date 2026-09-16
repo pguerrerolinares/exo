@@ -22,7 +22,7 @@ pub struct Resultado {
     /// `SCHEMA_VERSION` (envelope §4).
     ///
     /// Existe porque la ruta NO es derivable del permalink: el slug come
-    /// acentos, espacios y em-dashes (`kb-demo/projects/exo-framework-…`
+    /// acentos, espacios y em-dashes (`kb-test/projects/exo-framework-…`
     /// vive en `projects/exo — framework unificado de trabajo agéntico.md`) y
     /// eso no se invierte. Sin este campo, cuando muera basic-memory el agente
     /// no tiene forma de localizar el fichero que va a editar con `Edit`.
@@ -174,13 +174,26 @@ pub fn busca(db_ruta: &Path, query: &str, limite: usize, kb: Option<&Path>) -> R
     if !db_ruta.exists() {
         anyhow::bail!("DB no encontrada: {}", db_ruta.display());
     }
-
-    let inicio = Instant::now();
     let conn = abre_db(db_ruta)?;
+    busca_con(&conn, query, limite, kb)
+}
+
+/// Cuerpo de `busca` sobre una conexión YA ABIERTA (Ola 1 G Task 2,
+/// backlog:524-566: antes `busca_hybrid` pagaba tres `abre_db` — una por
+/// `busca()`, una por `busca_vector()`, una propia para `enriquece_rutas` —
+/// esta variante deja que el llamador decida la conexión). Mismo cuerpo que
+/// antes tenía `busca`, palabra por palabra.
+fn busca_con(
+    conn: &rusqlite::Connection,
+    query: &str,
+    limite: usize,
+    kb: Option<&Path>,
+) -> Result<Busqueda> {
+    let inicio = Instant::now();
     // Sobre la conexión que YA está abierta para esta consulta — nunca una
     // propia (ver `indexer::aviso_kb_root_lectura`). `kb: None` (comando sin
     // KB resoluble) o cualquier fallo interno degradan a `None` solos.
-    let aviso_kb_root = crate::indexer::aviso_kb_root_lectura(&conn, kb);
+    let aviso_kb_root = crate::indexer::aviso_kb_root_lectura(conn, kb);
     let fts_query = prepara_query(query);
 
     // Query vacía tras normalizar (p.ej. solo whitespace): éxito con
@@ -213,7 +226,7 @@ pub fn busca(db_ruta: &Path, query: &str, limite: usize, kb: Option<&Path>) -> R
     };
 
     let mut results = results;
-    enriquece_rutas(&conn, &mut results)?;
+    enriquece_rutas(conn, &mut results)?;
 
     Ok(Busqueda {
         query: query.to_string(),
@@ -238,7 +251,8 @@ pub fn busca(db_ruta: &Path, query: &str, limite: usize, kb: Option<&Path>) -> R
 /// dos vectores unitarios, `||a-b||² = 2 - 2·cos(a,b)`, luego
 /// `cos(a,b) = 1 - ||a-b||²/2` — la conversión que usa esta función para
 /// comparar contra `[embeddings] min_similarity` (threshold pensado en escala
-/// coseno, config propia de `~/.exo/config.toml`, hoy 0.35).
+/// coseno, config propia de `~/.exo/config.toml`, hoy 0.40 por defecto desde
+/// D6 — `MIN_SIMILARITY_SELLADO` en `main.rs`, Ola 1 G Task 11).
 fn similitud_desde_l2_cuadrado(distancia_l2_cuadrado: f64) -> f64 {
     1.0 - distancia_l2_cuadrado / 2.0
 }
@@ -279,11 +293,23 @@ pub fn busca_vector(
     if !db_ruta.exists() {
         anyhow::bail!("DB no encontrada: {}", db_ruta.display());
     }
-
-    let inicio = Instant::now();
     let conn = abre_db(db_ruta)?;
+    busca_vector_con(&conn, query, limite, min_similitud, kb)
+}
+
+/// Cuerpo de `busca_vector` sobre una conexión YA ABIERTA (Ola 1 G Task 2,
+/// mismo motivo que `busca_con`). Mismo cuerpo que antes tenía
+/// `busca_vector`, palabra por palabra.
+fn busca_vector_con(
+    conn: &rusqlite::Connection,
+    query: &str,
+    limite: usize,
+    min_similitud: Option<f64>,
+    kb: Option<&Path>,
+) -> Result<Busqueda> {
+    let inicio = Instant::now();
     // Mismo aviso best-effort que `busca`, sobre esta misma conexión.
-    let aviso_kb_root = crate::indexer::aviso_kb_root_lectura(&conn, kb);
+    let aviso_kb_root = crate::indexer::aviso_kb_root_lectura(conn, kb);
 
     let total_vectores: i64 = conn
         .query_row("SELECT count(*) FROM vectores", [], |r| r.get(0))
@@ -299,13 +325,13 @@ pub fn busca_vector(
                 .context("embed de la query")?;
         let embedding = embeddings.pop().expect("un embedding de la query");
 
-        busca_vector_con_embedding(&conn, &embedding, limite, umbral, total_vectores as usize)
+        busca_vector_con_embedding(conn, &embedding, limite, umbral, total_vectores as usize)
             .context("KNN acotado por consulta")?
     };
 
     let mut results = results;
-    enriquece_rutas(&conn, &mut results)?;
-    let avisos = avisos_cobertura_vector(&conn)?;
+    enriquece_rutas(conn, &mut results)?;
+    let avisos = avisos_cobertura_vector(conn)?;
 
     Ok(Busqueda {
         query: query.to_string(),
@@ -570,9 +596,12 @@ pub fn busca_hybrid(
     }
 
     let inicio = Instant::now();
+    // Ola 1 G Task 2 (backlog:524-566): UNA conexión para los dos arms y el
+    // enriquecido de rutas — antes eran tres `abre_db` distintos.
+    let conn = abre_db(db_ruta)?;
 
     const K_C: usize = 50;
-    let fts = busca(db_ruta, query, K_C, kb)?;
+    let fts = busca_con(&conn, query, K_C, kb)?;
     let aviso_fts = fts.aviso_kb_root;
     let candidatos_fts: Vec<(String, f64)> = fts
         .results
@@ -586,12 +615,10 @@ pub fn busca_hybrid(
     // solo alcanzable con `--bonus` explícito, `BONUS_SELLADO` es 0.0 —
     // vuelve al arm vector exhaustivo de siempre.
     let limite_vector = if bonus == 0.0 { limite } else { usize::MAX };
-    let vector = busca_vector(db_ruta, query, limite_vector, min_similitud, kb)?;
+    let vector = busca_vector_con(&conn, query, limite_vector, min_similitud, kb)?;
     let avisos = vector.avisos;
-    // El aviso de kb_root sale de la MISMA DB por los dos arms (`fts` y
-    // `vector` abren conexiones distintas, pero contra el mismo fichero):
-    // cualquiera de los dos vale, `or` evita duplicar el texto en el
-    // resultado final.
+    // El aviso de kb_root sale de la MISMA conexión por los dos arms ahora:
+    // cualquiera de los dos vale, `or` evita duplicar el texto.
     let aviso_kb_root = aviso_fts.or(vector.aviso_kb_root);
     let v_por_entidad: HashMap<String, f64> = vector
         .results
@@ -600,9 +627,7 @@ pub fn busca_hybrid(
         .collect();
 
     let mut results = fusiona(&v_por_entidad, &f_por_entidad, bonus, limite);
-    // Conexión propia: los dos arms de arriba ya cerraron las suyas, y aquí
-    // solo quedan `limite` filas que resolver.
-    enriquece_rutas(&abre_db(db_ruta)?, &mut results)?;
+    enriquece_rutas(&conn, &mut results)?;
 
     Ok(Busqueda {
         query: query.to_string(),
@@ -965,5 +990,77 @@ mod tests_knn_por_consulta {
                 );
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests_una_conexion {
+    /// Busca `{nombre}(` en `cuerpo` exigiendo que el carácter justo antes
+    /// del nombre (si lo hay) NO sea de identificador — así una llamada real
+    /// a `busca(` no se confunde con la cola de `busca_con(`,
+    /// `busca_vector_con(` o `busca_hybrid(` (que nunca contienen la
+    /// subcadena exacta `busca(` / `busca_vector(` seguida de `(`, pero el
+    /// chequeo de borde queda explícito para que la intención no dependa de
+    /// esa coincidencia estructural).
+    fn contiene_llamada(cuerpo: &str, nombre: &str) -> bool {
+        let patron = format!("{nombre}(");
+        let bytes = cuerpo.as_bytes();
+        let mut desde = 0;
+        while let Some(rel) = cuerpo[desde..].find(&patron) {
+            let abs = desde + rel;
+            let es_identificador = |b: u8| b == b'_' || b.is_ascii_alphanumeric();
+            let borde_ok = abs == 0 || !es_identificador(bytes[abs - 1]);
+            if borde_ok {
+                return true;
+            }
+            desde = abs + 1;
+        }
+        false
+    }
+
+    /// Grep sobre el propio código fuente: `busca_hybrid` debe abrir la DB
+    /// UNA sola vez (backlog:524-566, "tres aperturas de la DB por
+    /// búsqueda hybrid"). No es un test de comportamiento — el
+    /// comportamiento ya lo cubren `tests_fusion` y los tests de
+    /// `tests/buscador_cli.rs` — es un gate de que el refactor no vuelve a
+    /// crecer un segundo `abre_db` dentro de la función.
+    ///
+    /// Fix de review (orquestador): el conteo de `abre_db(` NO es falsable
+    /// contra la regresión real — volver a llamar a las funciones públicas
+    /// `busca(db_ruta, ...)` / `busca_vector(db_ruta, ...)` (que abren su
+    /// propia conexión cada una) deja el grep de `abre_db(` en verde, porque
+    /// esas aperturas viven en el cuerpo fuente de `busca`/`busca_vector`,
+    /// no en el de `busca_hybrid`. Se añaden dos aserciones que miran
+    /// directamente si `busca_hybrid` invoca esas funciones públicas.
+    #[test]
+    fn busca_hybrid_abre_una_sola_conexion() {
+        let fuente = include_str!("buscador.rs");
+        let inicio = fuente
+            .find("pub fn busca_hybrid(")
+            .expect("busca_hybrid debe existir en buscador.rs");
+        let cuerpo = &fuente[inicio..];
+        let fin_cuerpo = cuerpo
+            .find("\n}\n")
+            .expect("busca_hybrid debe cerrar con '\\n}\\n'");
+        let cuerpo = &cuerpo[..fin_cuerpo];
+        assert_eq!(
+            cuerpo.matches("abre_db(").count(),
+            1,
+            "busca_hybrid debe abrir la DB una sola vez:\n{cuerpo}"
+        );
+        assert!(
+            !contiene_llamada(cuerpo, "busca"),
+            "busca_hybrid no debe llamar a la función pública busca(db_ruta, ...) \
+             — cada llamada abre su propia conexión y rompe la garantía de una \
+             sola apertura; debe usar busca_con(&conn, ...) sobre la conexión ya \
+             abierta:\n{cuerpo}"
+        );
+        assert!(
+            !contiene_llamada(cuerpo, "busca_vector"),
+            "busca_hybrid no debe llamar a la función pública \
+             busca_vector(db_ruta, ...) — cada llamada abre su propia conexión y \
+             rompe la garantía de una sola apertura; debe usar \
+             busca_vector_con(&conn, ...) sobre la conexión ya abierta:\n{cuerpo}"
+        );
     }
 }

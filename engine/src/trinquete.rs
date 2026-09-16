@@ -540,7 +540,14 @@ pub fn comprueba(
     declaradas: &[Declarada],
     presupuestos: crate::presupuesto::Presupuestos,
 ) -> Result<Informe> {
-    comprueba_contra(kb, declaradas, presupuestos, carga, tamano_de_disco)
+    comprueba_contra(
+        kb,
+        declaradas,
+        presupuestos,
+        carga,
+        tamano_de_disco,
+        contenido_de_disco,
+    )
 }
 
 /// Tamaño de una nota en el índice de git, en bytes crudos. `None` si el
@@ -565,7 +572,14 @@ pub fn comprueba_staged(
     declaradas: &[Declarada],
     presupuestos: crate::presupuesto::Presupuestos,
 ) -> Result<Informe> {
-    comprueba_contra(kb, declaradas, presupuestos, carga_staged, tamano_de_indice)
+    comprueba_contra(
+        kb,
+        declaradas,
+        presupuestos,
+        carga_staged,
+        tamano_de_indice,
+        contenido_de_indice,
+    )
 }
 
 /// El núcleo del trinquete, parametrizado por de dónde salen los sellos
@@ -584,6 +598,7 @@ fn comprueba_contra(
     presupuestos: crate::presupuesto::Presupuestos,
     carga_actual: impl Fn(&Path) -> Result<Sellos>,
     tamano_de: impl Fn(&Path, &str) -> Option<i64>,
+    lee_contenido: impl Fn(&Path, &str) -> Option<String>,
 ) -> Result<Informe> {
     let Some(head) = carga_head(kb)? else {
         return Ok(Informe {
@@ -633,10 +648,10 @@ fn comprueba_contra(
         &nacio_demasiado_grande,
     ));
     hallazgos.extend(sellos_escapados_de_tier(
-        kb,
         &actual,
         declaradas,
         presupuestos,
+        |ruta| lee_contenido(kb, ruta),
     ));
 
     hallazgos.sort_by(|a, b| a.ruta.cmp(&b.ruta));
@@ -827,14 +842,16 @@ fn checks_de_declaracion(
 /// prueba de que tuvo techo. Solo mira los sellos SIN `Declarada` — con
 /// `Declarada` ya pasó por `checks_de_declaracion`.
 ///
-/// Lee el tier del **disco** también en `--staged`: es el comportamiento
-/// heredado de antes de partir `comprueba_contra`, y este refactor no lo
-/// cambia.
+/// `contenido_de` decide DE DÓNDE sale el contenido de cada nota (Ola 1 G
+/// Task 9, backlog:1086-1099): antes leía SIEMPRE del disco, también en
+/// `--staged` — comportamiento heredado, no una decisión deliberada. Ahora
+/// `comprueba_contra` pasa `contenido_de_disco` o `contenido_de_indice`
+/// según el modo, igual que ya hacía con `tamano_de`.
 fn sellos_escapados_de_tier(
-    kb: &Path,
     actual: &Sellos,
     declaradas: &[Declarada],
     presupuestos: crate::presupuesto::Presupuestos,
+    contenido_de: impl Fn(&str) -> Option<String>,
 ) -> Vec<Hallazgo> {
     let rutas_declaradas: BTreeSet<&str> = declaradas.iter().map(|d| d.ruta.as_str()).collect();
     let mut hallazgos = Vec::new();
@@ -842,8 +859,8 @@ fn sellos_escapados_de_tier(
         if rutas_declaradas.contains(ruta.as_str()) {
             continue;
         }
-        let Ok(contenido) = std::fs::read_to_string(kb.join(ruta)) else {
-            continue; // nota borrada: el sello huérfano se queda, nada que mirar.
+        let Some(contenido) = contenido_de(ruta) else {
+            continue; // nota borrada (o sin stage): el sello huérfano se queda.
         };
         let tier = crate::frontmatter::tier(&contenido);
         if !tier.is_empty() && presupuestos.para_tier(&tier).unwrap_or(0) <= 0 {
@@ -857,6 +874,20 @@ fn sellos_escapados_de_tier(
         }
     }
     hallazgos
+}
+
+/// Contenido de una nota en el árbol de trabajo (Ola 1 G Task 9). `None` si
+/// no se puede leer (nota borrada, permisos).
+fn contenido_de_disco(kb: &Path, ruta: &str) -> Option<String> {
+    std::fs::read_to_string(kb.join(ruta)).ok()
+}
+
+/// Contenido de una nota en el índice de git, stage 0 (Ola 1 G Task 9,
+/// backlog:1086-1099): mismo idioma que `tamano_de_indice` (`gitx::muestra`,
+/// objeto `:./<ruta>`). `None` si el objeto no está en el índice (fichero
+/// no staged, staged como borrado).
+fn contenido_de_indice(kb: &Path, ruta: &str) -> Option<String> {
+    gitx::muestra(kb, &format!(":./{ruta}")).ok().flatten()
 }
 
 /// `min(sello_actual, declarado)`: el techo que `--seal` escribiría. Para
@@ -1278,7 +1309,9 @@ mod tests {
         std::fs::write(kb.path().join("a.md"), "---\ntier: log\n---\nx\n").unwrap();
         std::fs::write(kb.path().join("b.md"), "---\ntier: core\n---\nx\n").unwrap();
         let actual = sellos(&[("a.md", 9000), ("b.md", 9000), ("borrada.md", 9000)]);
-        let h = sellos_escapados_de_tier(kb.path(), &actual, &[], crate::presupuesto::NOMINALES);
+        let h = sellos_escapados_de_tier(&actual, &[], crate::presupuesto::NOMINALES, |ruta| {
+            std::fs::read_to_string(kb.path().join(ruta)).ok()
+        });
         assert_eq!(
             h.len(),
             1,
@@ -1295,7 +1328,68 @@ mod tests {
         std::fs::write(kb.path().join("a.md"), "---\ntier: log\n---\nx\n").unwrap();
         let actual = sellos(&[("a.md", 9000)]);
         let decl = [declarada("a.md", 9000, 0, 10)];
-        let h = sellos_escapados_de_tier(kb.path(), &actual, &decl, crate::presupuesto::NOMINALES);
+        let h = sellos_escapados_de_tier(&actual, &decl, crate::presupuesto::NOMINALES, |ruta| {
+            std::fs::read_to_string(kb.path().join(ruta)).ok()
+        });
         assert!(h.is_empty());
+    }
+
+    #[test]
+    fn escapados_en_staged_lee_el_tier_del_indice_no_del_disco() {
+        // Task 9 (Ola 1 G, backlog:1086-1099): antes, `sellos_escapados_de_tier`
+        // leía SIEMPRE del disco, también en `--staged` — un `git add` con
+        // `tier: log` (sin presupuesto) seguido de un edit sin re-stage a
+        // `tier: core` (con presupuesto) escapaba el gate `--staged` en
+        // silencio: el índice dice `log`, el disco dice `core`, y el
+        // trinquete miraba el disco.
+        let dir = tempfile::tempdir().unwrap();
+        let kb = dir.path();
+        let cfg = kb.join("gitconfig-vacio");
+        std::fs::write(&cfg, "").unwrap();
+        let git = |args: &[&str]| {
+            let st = std::process::Command::new("git")
+                .arg("-C")
+                .arg(kb)
+                .args(args)
+                .env("GIT_CONFIG_GLOBAL", &cfg)
+                .env("GIT_CONFIG_SYSTEM", &cfg)
+                .env("GIT_AUTHOR_NAME", "f")
+                .env("GIT_AUTHOR_EMAIL", "f@k.local")
+                .env("GIT_COMMITTER_NAME", "f")
+                .env("GIT_COMMITTER_EMAIL", "f@k.local")
+                .status()
+                .unwrap();
+            assert!(st.success(), "git {args:?}");
+        };
+        git(&["init", "-q"]);
+        std::fs::write(kb.join("a.md"), "---\ntier: log\n---\nx\n").unwrap();
+        git(&["add", "a.md"]);
+        // Tras el `add`, se edita el DISCO a un tier con presupuesto — sin
+        // volver a stagear.
+        std::fs::write(kb.join("a.md"), "---\ntier: core\n---\nx\n").unwrap();
+
+        let actual = sellos(&[("a.md", 9000)]);
+
+        let h_indice =
+            sellos_escapados_de_tier(&actual, &[], crate::presupuesto::NOMINALES, |ruta| {
+                crate::gitx::muestra(kb, &format!(":./{ruta}"))
+                    .ok()
+                    .flatten()
+            });
+        assert_eq!(
+            h_indice.len(),
+            1,
+            "el índice sigue diciendo tier: log (sin presupuesto): {h_indice:?}"
+        );
+        assert_eq!(h_indice[0].ruta, "a.md");
+
+        let h_disco =
+            sellos_escapados_de_tier(&actual, &[], crate::presupuesto::NOMINALES, |ruta| {
+                std::fs::read_to_string(kb.join(ruta)).ok()
+            });
+        assert!(
+            h_disco.is_empty(),
+            "el disco dice tier: core (con presupuesto), no debe escapar: {h_disco:?}"
+        );
     }
 }

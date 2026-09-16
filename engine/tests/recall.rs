@@ -58,31 +58,31 @@ fn kb_arranque() -> tempfile::TempDir {
     commitea_con_epoch(
         kb.path(),
         "core-b.md",
-        &nota_md("kb-demo/core-b", "Core B", Some("core"), "contenido core b"),
+        &nota_md("kb-test/core-b", "Core B", Some("core"), "contenido core b"),
         1_700_000_000,
     );
     commitea_con_epoch(
         kb.path(),
         "core-a.md",
-        &nota_md("kb-demo/core-a", "Core A", Some("core"), "contenido core a"),
+        &nota_md("kb-test/core-a", "Core A", Some("core"), "contenido core a"),
         1_700_000_001,
     );
     commitea_con_epoch(
         kb.path(),
         "r-viejo.md",
-        &nota_md("kb-demo/r-viejo", "Reciente viejo", None, "contenido viejo"),
+        &nota_md("kb-test/r-viejo", "Reciente viejo", None, "contenido viejo"),
         1_700_000_002,
     );
     commitea_con_epoch(
         kb.path(),
         "r-medio.md",
-        &nota_md("kb-demo/r-medio", "Reciente medio", None, "contenido medio"),
+        &nota_md("kb-test/r-medio", "Reciente medio", None, "contenido medio"),
         1_700_000_003,
     );
     commitea_con_epoch(
         kb.path(),
         "r-nuevo.md",
-        &nota_md("kb-demo/r-nuevo", "Reciente nuevo", None, "contenido nuevo"),
+        &nota_md("kb-test/r-nuevo", "Reciente nuevo", None, "contenido nuevo"),
         1_700_000_004,
     );
 
@@ -110,10 +110,10 @@ fn recall_arranque_cores_en_orden_de_ruta_y_recientes_por_git_hasta_limite() {
         assert_eq!(
             permalinks,
             vec![
-                "kb-demo/core-a", // orden de RUTA ("core-a.md" < "core-b.md"), no de commit
-                "kb-demo/core-b",
-                "kb-demo/r-nuevo", // recientes: 2 más nuevos por git_epoch, viejo excluido por limite=2
-                "kb-demo/r-medio",
+                "kb-test/core-a", // orden de RUTA ("core-a.md" < "core-b.md"), no de commit
+                "kb-test/core-b",
+                "kb-test/r-nuevo", // recientes: 2 más nuevos por git_epoch, viejo excluido por limite=2
+                "kb-test/r-medio",
             ],
             "{:?}",
             bruto.notas
@@ -156,7 +156,7 @@ fn recall_arranque_no_duplica_core_en_recientes() {
         let apariciones_core_a = bruto
             .notas
             .iter()
-            .filter(|n| n.permalink == "kb-demo/core-a")
+            .filter(|n| n.permalink == "kb-test/core-a")
             .count();
         assert_eq!(apariciones_core_a, 1, "{:?}", bruto.notas);
     });

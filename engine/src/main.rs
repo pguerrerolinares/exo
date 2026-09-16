@@ -3,7 +3,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use exo::{
     buscador::{busca, busca_hybrid, busca_vector},
     envelope,
-    escritor::{escribe_append, escribe_nueva},
+    escritor::{NuevaNota, escribe_append, escribe_nueva},
     indexer::indexa,
     recall::{recall_arranque, recall_consulta, renderiza, resuelve_rutas_absolutas},
 };
@@ -17,12 +17,26 @@ use std::path::{Path, PathBuf};
 /// 0.40` da 49/55 idéntico al post-hoc). Cubren SOLO el uso de `exo search
 /// --type hybrid` sin `--bonus`/`--fts-scale` explícitos; el sweep siempre
 /// pasó ambos flags, así que estos valores no afectaron su resultado. El
-/// threshold ganador (0.40) NO se sella aquí como constante — D-f3/§4.6: el
-/// valor difiere del 0.35 de config y config es RO hasta M5a, así que se
-/// pasa por `--min-similarity 0.40` explícito en corridas/consumidores hasta
-/// entonces (documentado en el verdict, no hardcodeado en el binario).
+/// threshold ganador (0.40) SÍ se sella aquí como constante desde el
+/// 2026-09-15 (D6, decisión 1 de Paul, Ola 1 G Task 11): el motivo original
+/// para no sellarlo — D-f3/§4.6, "el valor difiere del 0.35 de config y
+/// config es RO hasta M5a" — caducó cuando M5a-02 (config propia) cerró el
+/// 2026-08-26 (`docs/backlog.md:2117`, "M5a-02 config propia: cerrado el
+/// 2026-08-26"). Ver `MIN_SIMILARITY_SELLADO` más abajo.
 const BONUS_SELLADO: f64 = 0.0;
 const ESCALA_FTS_SELLADA: f64 = 0.6;
+/// D6 (decisión 1 de Paul, 2026-09-15): umbral de similitud coseno para el
+/// default nuevo de `exo search --type` (hybrid) — y, desde el mismo día,
+/// el default que `exo init` escribe en `[embeddings] min_similarity` de
+/// una config nueva (`init_cmd`, rama de creación, más abajo): una sola
+/// constante para los dos usos en vez de dos literales que antes solo
+/// coincidían en intención, nunca en código. En el camino de search se usa
+/// cuando `--min-similarity` se omite Y `--type` resolvió a Hybrid — un
+/// `--type vector` explícito sigue cayendo a `[embeddings] min_similarity`
+/// de la config (comportamiento sin cambios, `min_similitud_efectivo` en
+/// `buscador.rs`). Valor validado por el held-out de la campaña C
+/// (`evals/retrieval-heldout/verdict/c-verdict.md`).
+const MIN_SIMILARITY_SELLADO: f64 = 0.40;
 
 #[derive(Parser)]
 #[command(
@@ -50,7 +64,8 @@ enum Comando {
     /// índice corrupto.
     Rebuild(ArgsIndex),
     /// Busca en la KB: texto completo (`fts`), semántica (`vector`) o las dos
-    /// fusionadas (`hybrid`).
+    /// fusionadas (`hybrid`, el default). Hybrid carga el modelo de
+    /// embeddings en memoria; `fts` es el modo léxico barato, sin ese coste.
     Search(ArgsSearch),
     /// Escribe en la KB: nota nueva o entrada de bitácora. No commitea ni
     /// indexa.
@@ -233,10 +248,13 @@ struct ArgsSearch {
     #[arg(long = "limit", value_name = "LIMIT", default_value_t = 10)]
     limite: usize,
     /// Tipo de búsqueda.
-    #[arg(long, value_enum, default_value_t = TipoBusqueda::Fts)]
+    #[arg(long, value_enum, default_value_t = TipoBusqueda::Hybrid)]
     r#type: TipoBusqueda,
-    /// Umbral de similitud coseno de la búsqueda semántica. Si se omite,
-    /// `[embeddings] min_similarity` de la config. Sin efecto en `--type fts`.
+    /// Umbral de similitud coseno del canal semántico. Precedencia por modo:
+    /// en `--type hybrid` (default), este flag o si no el umbral sellado
+    /// 0.40, sin mirar la config; en `--type vector`, este flag o si no
+    /// `[embeddings] min_similarity` de la config; en `--type fts`, sin
+    /// efecto.
     #[arg(long = "min-similarity", value_name = "MIN_SIMILARITY")]
     min_similitud: Option<f64>,
     /// Peso del canal más débil al fusionar (`max + bonus·min`). Solo
@@ -276,8 +294,10 @@ struct ArgsRecall {
     /// por líneas enteras.
     #[arg(long, default_value_t = 2048)]
     cap_bytes: usize,
-    /// Umbral de similitud coseno en modo consulta. Si se omite, el de la
-    /// config. Sin efecto en modo arranque.
+    /// Umbral de similitud coseno en modo consulta: este flag o si no el
+    /// umbral sellado 0.40, sin mirar la config — misma precedencia que
+    /// `search --type hybrid` (I2, decisión 2 de Paul, review final de la
+    /// campaña G, 2026-09-16). Sin efecto en modo arranque.
     #[arg(long = "min-similarity", value_name = "MIN_SIMILARITY")]
     min_similitud: Option<f64>,
     /// Modo arranque con el CUERPO de las notas `tier: core` y la lista de
@@ -635,7 +655,12 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
             // 768 es la dimensionalidad DE ESTE modelo (MODELO_JINA_ES): si
             // se cambia uno, el otro tiene que cambiar con él.
             dims: 768,
-            min_similarity: 0.35,
+            // D6 ampliado (decisión de Paul, 2026-09-15, Ola 1 G Task 11):
+            // MISMA constante que sella el default de `exo search --type
+            // hybrid` (cabecera de este fichero) — antes era un literal
+            // 0.35 propio, sin relación con el sweep de calibración ni con
+            // el umbral que el propio `exo search` usa por defecto.
+            min_similarity: MIN_SIMILARITY_SELLADO,
         };
 
         exo::inicia::valida_nombre(&nombre)?;
@@ -794,19 +819,45 @@ fn write_new_cmd(args: ArgsWriteNew) -> Result<()> {
         exo::escritor::dup_candidatas(&exo::escritor::slug(&args.titulo), &indexados)
     };
 
-    let esc = escribe_nueva(
-        &kb,
-        &proyecto,
-        &args.dir,
-        &args.titulo,
-        &cuerpo,
-        args.tier.as_deref(),
-        &candidatas,
-        args.force,
-    )?;
+    let esc = escribe_nueva(&NuevaNota {
+        kb: &kb,
+        proyecto: &proyecto,
+        dir: &args.dir,
+        titulo: &args.titulo,
+        cuerpo: &cuerpo,
+        tier: args.tier.as_deref(),
+        dup_candidatas: &candidatas,
+        forzado: args.force,
+    })?;
 
     emite_escritura(esc, args.json);
     Ok(())
+}
+
+/// Walk de confirmación del gate M4 #5 (Ola 1 G Task 7): busca, DENTRO de
+/// `dir` (no recursivo — las bitácoras de `--create` viven a un nivel), un
+/// `.md` cuyo frontmatter declare exactamente `permalink`. `None` si `dir`
+/// no existe todavía (KB nueva) o si ningún fichero lo declara.
+fn busca_permalink_en_dir(kb: &Path, dir: &str, permalink: &str) -> Result<Option<PathBuf>> {
+    let carpeta = kb.join(dir);
+    if !carpeta.is_dir() {
+        return Ok(None);
+    }
+    for entrada in std::fs::read_dir(&carpeta)
+        .with_context(|| format!("leer directorio {}", carpeta.display()))?
+    {
+        let entrada = entrada.with_context(|| format!("entrada de {}", carpeta.display()))?;
+        let ruta = entrada.path();
+        if !exo::walker::es_md(&entrada.file_name().to_string_lossy()) {
+            continue;
+        }
+        if let Some(nota) = exo::nota::parsea_nota(&ruta)?
+            && nota.permalink == permalink
+        {
+            return Ok(Some(ruta));
+        }
+    }
+    Ok(None)
 }
 
 /// `exo write append`: resuelve permalink→ruta contra el índice y anexa. Con
@@ -823,17 +874,53 @@ fn write_append_cmd(args: ArgsWriteAppend) -> Result<()> {
             // rancio. Derivar la ruta del permalink es correcto SOLO para
             // crearla (`log/<slug>.md`); para una nota ya existente el slug no
             // es invertible y por eso jamás se adivina.
-            let (dir, slug_nota) = args
+            //
+            // M4 #6 (Ola 1 G Task 7, backlog:708-730): exige EXACTAMENTE 3
+            // segmentos. Antes, un permalink de 2 segmentos
+            // (<proyecto>/<slug>) colaba el primer segmento como <dir> vía
+            // `map_or(izq, ...)`, creando un directorio espurio
+            // (`<proyecto>/<slug>.md`) que no es ni el proyecto real ni un
+            // dir pedido por nadie.
+            let (izq, slug_nota) = args
                 .permalink
                 .rsplit_once('/')
-                .map(|(izq, slug)| (izq.rsplit_once('/').map_or(izq, |(_, d)| d), slug))
                 .context("permalink sin forma <proyecto>/<dir>/<slug>")?;
+            let (_, dir) = izq.rsplit_once('/').with_context(|| {
+                format!(
+                    "{:?} tiene menos de 3 segmentos (<proyecto>/<dir>/<slug>): \
+                     --create no puede inferir un directorio",
+                    args.permalink
+                )
+            })?;
             let rel = format!("{dir}/{slug_nota}.md");
 
             if !kb.join(&rel).exists() {
+                // M4 #5 (Ola 1 G Task 7, backlog:708-730): walk de
+                // confirmación antes de crear. El check de arriba solo mira
+                // la ruta CANÓNICA; con índice rancio, la bitácora real
+                // puede vivir bajo OTRO nombre de fichero con el mismo
+                // permalink (renombrada a mano tras `exo index`). Crear
+                // otra encima dejaría DOS ficheros con el mismo permalink.
+                if let Some(existente) = busca_permalink_en_dir(&kb, dir, &args.permalink)? {
+                    anyhow::bail!(
+                        "{} ya existe con este permalink bajo otro nombre: {} \
+                         (índice rancio: corre `exo rebuild` o usa ese fichero directamente)",
+                        args.permalink,
+                        existente.display()
+                    );
+                }
                 let proyecto = exo::nombre_kb()?;
-                escribe_nueva(&kb, &proyecto, dir, slug_nota, "", Some("log"), &[], false)
-                    .context("crear la bitácora con --create")?;
+                escribe_nueva(&NuevaNota {
+                    kb: &kb,
+                    proyecto: &proyecto,
+                    dir,
+                    titulo: slug_nota,
+                    cuerpo: "",
+                    tier: Some("log"),
+                    dup_candidatas: &[],
+                    forzado: false,
+                })
+                .context("crear la bitácora con --create")?;
                 eprintln!("write: bitácora creada en {rel}");
             }
             rel
@@ -919,7 +1006,13 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
                 &db,
                 q,
                 args.limite,
-                args.min_similitud,
+                // I2 (decisión 2 de Paul, review final de G, 2026-09-16):
+                // mismo unwrap_or que `busca_cmd` para `--type hybrid` — el
+                // sellado manda salvo flag explícito, la config ya no entra
+                // en este camino (antes caía a `min_similitud_efectivo` de
+                // `buscador.rs`, que resuelve `None` contra
+                // `[embeddings] min_similarity`, 0.35 por defecto).
+                Some(args.min_similitud.unwrap_or(MIN_SIMILARITY_SELLADO)),
                 BONUS_SELLADO,
                 ESCALA_FTS_SELLADA,
                 &kb,
@@ -983,7 +1076,7 @@ fn busca_cmd(args: ArgsSearch) -> Result<()> {
             &db,
             &args.query,
             args.limite,
-            args.min_similitud,
+            Some(args.min_similitud.unwrap_or(MIN_SIMILARITY_SELLADO)),
             args.bonus.unwrap_or(BONUS_SELLADO),
             args.escala_fts.unwrap_or(ESCALA_FTS_SELLADA),
             kb.as_deref(),

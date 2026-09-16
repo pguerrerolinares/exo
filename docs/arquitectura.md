@@ -103,7 +103,7 @@ entera y reconstruye. La lógica vive en `engine/src/indexer.rs::indexa`.
 ```mermaid
 flowchart TD
     GUARD["verifica_modelo<br/>¿el índice se construyó con el modelo<br/>que pide la config? Si no: aborta,<br/>'corre exo rebuild'"] --> WALK
-    KB[("KB markdown")] --> WALK["walker::walk_kb<br/>*.md recursivo, orden determinista<br/>excluye .claude/ .omc/ .superpowers/<br/>incluye archive/"]
+    KB[("KB markdown")] --> WALK["walker::walk_kb<br/>*.md recursivo (case-insensitive),<br/>orden determinista<br/>excluye dotdirs (.git/ incluido)<br/>incluye archive/"]
     WALK --> MT{"¿mtime igual al<br/>de la tabla notas?"}
     MT -->|"sí"| SKIP["saltada<br/>(ni parseo ni modelo)"]
     MT -->|"no"| PARSE["nota::parsea_nota<br/>frontmatter YAML + cuerpo"]
@@ -189,21 +189,31 @@ motivos, tal como los declara el código:
   embeddings a norma unidad, propiedad que el buscador explota: la DDL de
   `vectores` usa la métrica por defecto de vec0 (L2 al cuadrado), y para
   vectores unitarios `cos = 1 − L2²/2` — así el umbral `min_similarity` de la
-  config (0.35 por defecto) se compara en escala coseno.
+  config (0.40 por defecto desde el 2026-09-15, D6 — antes 0.35, ver §3.5) se
+  compara en escala coseno.
 - El modelo se carga **una vez por proceso**, perezosamente
   (`con_embedder_de_proceso`): un `exo index` sin cambios no lo paga.
 
 ### 3.5 Pipeline de búsqueda
 
-`exo search` tiene tres modos (`--type fts|vector|hybrid`, default `fts`),
-implementados en `engine/src/buscador.rs`. Todos devuelven resultados
-**a nivel de nota** (`type: "entity"`), nunca de trozo. Ojo con el default:
-el modo calibrado y medido (48/55 hit@5 **in-sample**, §6; held-out
-**64/92**, Wilson 95 % [59,5 %, 78,0 %], **no comparable** con el 48/55 —
-distinta fuente de queries, §6) es `--type hybrid` **con el umbral pasado
-explícito** (`--min-similarity 0.40`); `fts` a secas es el modo léxico
-barato, no el medido. `exo recall --query` sí usa hybrid con los parámetros
-sellados de serie.
+`exo search` tiene tres modos (`--type fts|vector|hybrid`, **default
+`hybrid` desde el 2026-09-15** — D6, decisión 1 de Paul, campaña G Task 11;
+antes `fts`), implementados en `engine/src/buscador.rs`. Todos devuelven
+resultados **a nivel de nota** (`type: "entity"`), nunca de trozo. El modo
+calibrado y medido (48/55 hit@5 **in-sample**, §6; held-out **64/92**,
+Wilson 95 % [59,5 %, 78,0 %], **no comparable** con el 48/55 — distinta
+fuente de queries, §6) es ahora justo el default: `--type hybrid` con
+`min_similarity = MIN_SIMILARITY_SELLADO = 0.40` cuando `--min-similarity`
+se omite — ya no hace falta pasarlo a mano. `fts` a secas sigue disponible
+con `--type fts`, es el modo léxico barato, no el medido. `exo recall
+--query` usa hybrid con los mismos parámetros sellados de serie (I2, review
+final de la campaña G, decisión 2 de Paul, 2026-09-16: `recall_cmd` en
+`main.rs` resuelve `--min-similarity` omitido a `MIN_SIMILARITY_SELLADO`
+antes de llamar a `recall_consulta`, igual que `search --type hybrid` desde
+la Task 11 — **cambio de ranking** para quien tenga `[embeddings]
+min_similarity` distinto de 0.40 en su config, ya que antes `recall --query`
+sin flag caía a ese valor de config, 0.35 en la máquina de Paul; ahora la
+config deja de mandar en este camino).
 
 Dos salidas, dos formas. La humana son cuatro columnas separadas por tab —
 `permalink`, `type`, `score` (4 decimales), **ruta absoluta** — y necesita la
@@ -237,9 +247,16 @@ flowchart TD
   van **sellados** en `main.rs` tras el sweep de calibración de M2-07:
   `bonus = 0.0` y `β = 0.6` (`BONUS_SELLADO`, `ESCALA_FTS_SELLADA`),
   sobreescribibles con `--bonus`/`--fts-scale`. El umbral ganador del sweep
-  (0.40) **no** está sellado como constante: difiere del 0.35 de config y los
-  consumidores lo pasan explícito con `--min-similarity 0.40` (así lo hace el
-  hook `recall-inject.sh`).
+  (0.40) **sí** está sellado como constante desde el 2026-09-15
+  (`MIN_SIMILARITY_SELLADO`, D6 — decisión 1 de Paul, campaña G Task 11): el
+  motivo original para no sellarlo — D-f3/§4.6, "difiere del 0.35 de config
+  y config es RO hasta M5a" — caducó cuando M5a-02 (config propia) cerró el
+  2026-08-26 (`docs/backlog.md:2117`). `exo init` escribe ahora ese mismo
+  0.40 como default de `[embeddings] min_similarity` en una config nueva —
+  una sola constante, no dos literales que antes solo coincidían por
+  casualidad. El hook `recall-inject.sh` sigue pasando `--min-similarity
+  0.40` explícito (documenta su propio contrato de todos modos, no depende
+  del default).
 - **Avisos de degradación**: si `vectores` está vacía o a medio poblar
   respecto a `trozos`, el envelope lleva `warnings` ("arm vector INERTE" /
   "cobertura vectorial PARCIAL") y se imprimen por stderr — un hybrid que en
@@ -302,10 +319,10 @@ Extraída del parser de clap (`engine/src/main.rs`):
 | `exo config` | Emite la config efectiva con rutas expandidas (existe porque jq no lee TOML) | `--json` |
 | `exo index` | Indexado incremental por mtime | `--db`, `--kb`, `--json` |
 | `exo rebuild` | Borra la DB y reconstruye desde cero | `--db`, `--kb`, `--json` |
-| `exo search <query>` | Búsqueda FTS / vector / hybrid | `--type` (default `fts`), `--limit` (10), `--min-similarity`, `--bonus`, `--fts-scale`, `--db`, `--kb`, `--json` |
+| `exo search <query>` | Búsqueda FTS / vector / hybrid | `--type` (default `hybrid` desde D6, 2026-09-15), `--limit` (10), `--min-similarity` (default 0.40, `MIN_SIMILARITY_SELLADO`), `--bonus`, `--fts-scale`, `--db`, `--kb`, `--json` |
 | `exo write new` | Nota nueva con dup-gate | `--dir`, `--title`, `--from`, `--tier`, `--force`, `--db`, `--kb`, `--json` |
 | `exo write append <permalink>` | Append a bitácora con gate de tier | `--from`, `--create`, `--force`, `--db`, `--kb`, `--json` |
-| `exo recall` | Bloque de arranque o consulta híbrida | `--query`, `--limit` (5), `--cap-bytes` (2048), `--content`, `--note`, `--refresh`, `--min-similarity`, `--db`, `--kb`, `--json` |
+| `exo recall` | Bloque de arranque o consulta híbrida | `--query`, `--limit` (5), `--cap-bytes` (2048), `--content`, `--note`, `--refresh`, `--min-similarity` (default 0.40 en modo consulta, `MIN_SIMILARITY_SELLADO`, I2), `--db`, `--kb`, `--json` |
 | `exo targets <tema>` | Candidatas de la KB para un tema, portado de `kbx targets` | `--limit` (10), `--db`, `--kb`, `--json` |
 | `exo rotate` | Divide una bitácora `tier: log` en frío (a `archive/log/`) y caliente, portado de `kbx rotate`. Solo el nivel superior de `log/`, sin recursión | `--hot-bytes` (20480), `--apply`, `--kb`, `--json` |
 | `exo stale` | Urgencia de actualización por nota (edad de último commit, degree, tier), portado de `kbx stale`. Solo lectura | `--now`, `--db`, `--kb`, `--json` |
@@ -469,8 +486,19 @@ tags: [core, indice]                  # tolerado, no lo consume el engine
 - Los **wikilinks** `[[destino]]` / `[[destino|alias]]` del cuerpo alimentan
   el grafo `aristas`; un link a nota inexistente queda con destino NULL y se
   cura solo cuando la nota aparece.
-- El walker excluye `.claude/`, `.omc/` y `.superpowers/` a cualquier nivel e
-  **incluye** `archive/`.
+- `walk_kb` (usada por `exo index`/`rebuild` y por `exo doctor`) y
+  `walk_kb_excluyendo` (usada por `exo lint`/`exo budget`) comparten una sola
+  implementación desde el 2026-09-15 (Ola 1, campaña G): excluyen cualquier
+  ENTRADA que empiece por `.` en cualquier nivel (`.git/` incluido, pero
+  también un fichero suelto como `.oculto.md` — corregido en la review
+  final de G, M4, 2026-09-16: `walker.rs::recorre` filtra por
+  `nombre.starts_with('.')` antes de distinguir directorio de fichero, no
+  solo directorios) y reconocen `.md` sin distinguir mayúsculas. Antes de
+  esa fecha, `walk_kb`
+  tenía una semántica distinta (case-sensitive, sin excluir `.git/`); si tu KB
+  tiene notas `.MD` en mayúsculas que antes no se indexaban, corre
+  `exo rebuild` tras actualizar. `archive/` SE **incluye** (nunca se excluye
+  por nombre, solo los dotdirs).
 - El core-index declara además una disciplina de presupuesto: cap de bytes por
   nota-índice con 15% de aire, y "retirar entradas muertas, no comprimir las
   vivas" — es contrato editorial de la KB, no lo impone el engine.

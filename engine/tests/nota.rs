@@ -15,10 +15,10 @@ fn permalink_del_frontmatter_se_honra() {
     let ruta = escribe(
         &dir,
         "x.md",
-        "---\npermalink: kb-demo/x/y\ntitle: X\n---\ncuerpo de la nota\n",
+        "---\npermalink: kb-test/x/y\ntitle: X\n---\ncuerpo de la nota\n",
     );
     let nota = parsea_nota(&ruta).unwrap().expect("debe parsear");
-    assert_eq!(nota.permalink, "kb-demo/x/y");
+    assert_eq!(nota.permalink, "kb-test/x/y");
 }
 
 #[test]
@@ -49,7 +49,7 @@ fn titulo_de_frontmatter_o_stem() {
     let con_titulo = escribe(
         &dir,
         "a.md",
-        "---\npermalink: kb-demo/a\ntitle: Título explícito\n---\ncuerpo\n",
+        "---\npermalink: kb-test/a\ntitle: Título explícito\n---\ncuerpo\n",
     );
     let nota = parsea_nota(&con_titulo).unwrap().unwrap();
     assert_eq!(nota.titulo, "Título explícito");
@@ -57,7 +57,7 @@ fn titulo_de_frontmatter_o_stem() {
     let sin_titulo = escribe(
         &dir,
         "mi-nota-b.md",
-        "---\npermalink: kb-demo/b\n---\ncuerpo\n",
+        "---\npermalink: kb-test/b\n---\ncuerpo\n",
     );
     let nota = parsea_nota(&sin_titulo).unwrap().unwrap();
     assert_eq!(nota.titulo, "mi-nota-b");
@@ -69,7 +69,7 @@ fn tipo_del_frontmatter_se_lee() {
     let ruta = escribe(
         &dir,
         "c.md",
-        "---\npermalink: kb-demo/c\ntype: nota\n---\ncuerpo\n",
+        "---\npermalink: kb-test/c\ntype: nota\n---\ncuerpo\n",
     );
     let nota = parsea_nota(&ruta).unwrap().unwrap();
     assert_eq!(nota.tipo.as_deref(), Some("nota"));
@@ -81,7 +81,7 @@ fn cuerpo_es_lo_que_sigue_al_frontmatter() {
     let ruta = escribe(
         &dir,
         "d.md",
-        "---\npermalink: kb-demo/d\n---\nlínea 1\nlínea 2\n",
+        "---\npermalink: kb-test/d\n---\nlínea 1\nlínea 2\n",
     );
     let nota = parsea_nota(&ruta).unwrap().unwrap();
     assert_eq!(nota.cuerpo, "línea 1\nlínea 2");

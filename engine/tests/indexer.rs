@@ -45,21 +45,21 @@ fn kb_fixture() -> tempfile::TempDir {
     crea_nota(
         dir.path(),
         "a.md",
-        "kb-demo/a",
+        "kb-test/a",
         "Nota A",
         "contenido alfa buscable",
     );
     crea_nota(
         dir.path(),
         "b.md",
-        "kb-demo/b",
+        "kb-test/b",
         "Nota B",
         "contenido beta buscable",
     );
     crea_nota(
         dir.path(),
         "c.md",
-        "kb-demo/c",
+        "kb-test/c",
         "Nota C",
         "contenido gamma buscable",
     );
@@ -190,7 +190,7 @@ fn index_borra_notas_ausentes() {
             .query_row("SELECT count(*) FROM notas_fts", [], |r| r.get(0))
             .unwrap();
         assert_eq!(n_fts, 2);
-        assert!(!permalinks(&db).contains("kb-demo/b"));
+        assert!(!permalinks(&db).contains("kb-test/b"));
     });
 }
 
@@ -221,7 +221,7 @@ fn link_roto_no_es_error() {
     crea_nota(
         kb.path(),
         "a.md",
-        "kb-demo/a",
+        "kb-test/a",
         "Nota A",
         "contenido alfa buscable con [[link roto]]",
     );
@@ -234,8 +234,8 @@ fn link_roto_no_es_error() {
             "indexar un link roto debe ser exit 0, no error"
         );
 
-        let (origen, destino_permalink) = arista(&db, "kb-demo/a", "link roto");
-        assert_eq!(origen, "kb-demo/a");
+        let (origen, destino_permalink) = arista(&db, "kb-test/a", "link roto");
+        assert_eq!(origen, "kb-test/a");
         assert_eq!(destino_permalink, None);
     });
 }
@@ -247,7 +247,7 @@ fn wikilink_a_nota_existente_resuelve_destino_permalink() {
     crea_nota(
         kb.path(),
         "a.md",
-        "kb-demo/a",
+        "kb-test/a",
         "Nota A",
         "ver [[Nota B]] para más",
     );
@@ -256,8 +256,8 @@ fn wikilink_a_nota_existente_resuelve_destino_permalink() {
     common::con_config(kb.path(), "kb-test", &db, || {
         indexa(kb.path(), &db).unwrap();
 
-        let (_, destino_permalink) = arista(&db, "kb-demo/a", "Nota B");
-        assert_eq!(destino_permalink, Some("kb-demo/b".to_string()));
+        let (_, destino_permalink) = arista(&db, "kb-test/a", "Nota B");
+        assert_eq!(destino_permalink, Some("kb-test/b".to_string()));
     });
 }
 
@@ -267,7 +267,7 @@ fn wikilink_con_alias_se_guarda_entero_y_resuelve_por_parte_antes_del_pipe() {
     crea_nota(
         kb.path(),
         "a.md",
-        "kb-demo/a",
+        "kb-test/a",
         "Nota A",
         "ver [[Nota B|texto alias]] aquí",
     );
@@ -276,8 +276,8 @@ fn wikilink_con_alias_se_guarda_entero_y_resuelve_por_parte_antes_del_pipe() {
     common::con_config(kb.path(), "kb-test", &db, || {
         indexa(kb.path(), &db).unwrap();
 
-        let (_, destino_permalink) = arista(&db, "kb-demo/a", "Nota B|texto alias");
-        assert_eq!(destino_permalink, Some("kb-demo/b".to_string()));
+        let (_, destino_permalink) = arista(&db, "kb-test/a", "Nota B|texto alias");
+        assert_eq!(destino_permalink, Some("kb-test/b".to_string()));
     });
 }
 
@@ -287,7 +287,7 @@ fn wikilink_roto_se_cura_solo_cuando_aparece_la_nota_destino() {
     crea_nota(
         kb.path(),
         "a.md",
-        "kb-demo/a",
+        "kb-test/a",
         "Nota A",
         "ver [[Nota Nueva]] aquí",
     );
@@ -295,13 +295,13 @@ fn wikilink_roto_se_cura_solo_cuando_aparece_la_nota_destino() {
 
     common::con_config(kb.path(), "kb-test", &db, || {
         indexa(kb.path(), &db).unwrap();
-        let (_, antes) = arista(&db, "kb-demo/a", "Nota Nueva");
+        let (_, antes) = arista(&db, "kb-test/a", "Nota Nueva");
         assert_eq!(antes, None);
 
         crea_nota(
             kb.path(),
             "d.md",
-            "kb-demo/d",
+            "kb-test/d",
             "Nota Nueva",
             "contenido delta",
         );
@@ -309,8 +309,8 @@ fn wikilink_roto_se_cura_solo_cuando_aparece_la_nota_destino() {
         git(kb.path(), &["commit", "-q", "-m", "añade Nota Nueva"]);
 
         indexa(kb.path(), &db).unwrap();
-        let (_, despues) = arista(&db, "kb-demo/a", "Nota Nueva");
-        assert_eq!(despues, Some("kb-demo/d".to_string()));
+        let (_, despues) = arista(&db, "kb-test/a", "Nota Nueva");
+        assert_eq!(despues, Some("kb-test/d".to_string()));
     });
 }
 
@@ -324,7 +324,7 @@ fn reindexar_una_nota_que_pierde_un_link_borra_la_arista_vieja() {
     crea_nota(
         kb.path(),
         "a.md",
-        "kb-demo/a",
+        "kb-test/a",
         "Nota A",
         "ver [[Nota B]] aquí",
     );
@@ -340,7 +340,7 @@ fn reindexar_una_nota_que_pierde_un_link_borra_la_arista_vieja() {
         crea_nota(
             kb.path(),
             "a.md",
-            "kb-demo/a",
+            "kb-test/a",
             "Nota A",
             "contenido sin ningún link ya",
         );
@@ -360,7 +360,7 @@ fn wikilink_duplicado_en_la_misma_nota_no_duplica_fila() {
     crea_nota(
         kb.path(),
         "a.md",
-        "kb-demo/a",
+        "kb-test/a",
         "Nota A",
         "[[Nota B]] y otra vez [[Nota B]]",
     );
@@ -378,7 +378,7 @@ fn rebuild_doble_da_el_mismo_conteo_de_aristas() {
     crea_nota(
         kb.path(),
         "a.md",
-        "kb-demo/a",
+        "kb-test/a",
         "Nota A",
         "ver [[Nota B]] y [[link roto]]",
     );
@@ -408,12 +408,12 @@ fn index_puebla_trozos_y_vectores_con_rowid_igual_a_trozo_id() {
     common::con_config(kb.path(), "kb-test", &db, || {
         indexa(kb.path(), &db).unwrap();
 
-        assert_eq!(cuenta_trozos(&db, "kb-demo/a"), 1);
-        assert_eq!(cuenta_trozos(&db, "kb-demo/b"), 1);
-        assert_eq!(cuenta_trozos(&db, "kb-demo/c"), 1);
+        assert_eq!(cuenta_trozos(&db, "kb-test/a"), 1);
+        assert_eq!(cuenta_trozos(&db, "kb-test/b"), 1);
+        assert_eq!(cuenta_trozos(&db, "kb-test/c"), 1);
         assert_eq!(cuenta_vectores(&db), 3);
 
-        let ids_a = ids_de_trozos(&db, "kb-demo/a");
+        let ids_a = ids_de_trozos(&db, "kb-test/a");
         let rowids = rowids_de_vectores(&db);
         assert!(
             ids_a.is_subset(&rowids),
@@ -431,20 +431,20 @@ fn reindexar_nota_cambiada_reemplaza_trozos_y_vectores() {
 
     common::con_config(kb.path(), "kb-test", &db, || {
         indexa(kb.path(), &db).unwrap();
-        let ids_antes = ids_de_trozos(&db, "kb-demo/a");
+        let ids_antes = ids_de_trozos(&db, "kb-test/a");
         assert_eq!(ids_antes.len(), 1);
 
         std::thread::sleep(std::time::Duration::from_millis(10));
         crea_nota(
             kb.path(),
             "a.md",
-            "kb-demo/a",
+            "kb-test/a",
             "Nota A",
             "contenido alfa completamente distinto ahora",
         );
         indexa(kb.path(), &db).unwrap();
 
-        let ids_despues = ids_de_trozos(&db, "kb-demo/a");
+        let ids_despues = ids_de_trozos(&db, "kb-test/a");
         assert_eq!(
             ids_despues.len(),
             1,
@@ -476,7 +476,7 @@ fn borrar_nota_borra_tambien_sus_vectores() {
 
     common::con_config(kb.path(), "kb-test", &db, || {
         indexa(kb.path(), &db).unwrap();
-        let ids_b = ids_de_trozos(&db, "kb-demo/b");
+        let ids_b = ids_de_trozos(&db, "kb-test/b");
         assert_eq!(ids_b.len(), 1);
         assert!(rowids_de_vectores(&db).is_superset(&ids_b));
 
@@ -484,7 +484,7 @@ fn borrar_nota_borra_tambien_sus_vectores() {
         let resumen = indexa(kb.path(), &db).unwrap();
         assert_eq!(resumen.borradas, 1);
 
-        assert_eq!(cuenta_trozos(&db, "kb-demo/b"), 0);
+        assert_eq!(cuenta_trozos(&db, "kb-test/b"), 0);
         let rowids_despues = rowids_de_vectores(&db);
         for id_b in &ids_b {
             assert!(
@@ -502,13 +502,13 @@ fn borrar_nota_borra_tambien_sus_vectores() {
 #[test]
 fn nota_con_cuerpo_vacio_no_genera_trozos() {
     let kb = kb_fixture();
-    crea_nota(kb.path(), "vacia.md", "kb-demo/vacia", "Vacía", "");
+    crea_nota(kb.path(), "vacia.md", "kb-test/vacia", "Vacía", "");
     let (_db_dir, db) = db_temporal();
 
     common::con_config(kb.path(), "kb-test", &db, || {
         let resumen = indexa(kb.path(), &db).unwrap();
         assert_eq!(resumen.indexadas, 4);
-        assert_eq!(cuenta_trozos(&db, "kb-demo/vacia"), 0);
+        assert_eq!(cuenta_trozos(&db, "kb-test/vacia"), 0);
     });
 }
 
@@ -721,15 +721,22 @@ fn una_kb_movida_de_sitio_se_reindexa_sin_rechazo() {
 
 /// Repro del bug de review (Important 1, G4b): antes del fix, `lint::index_stale`
 /// decía "corre `exo index`" sobre CUALQUIER nota en disco y ausente de
-/// `notas` — incluida una nota `.MD` (extensión que `walker::walk_kb` nunca
-/// reconoce, case-sensitive) o una nota sin `permalink:` (que
-/// `nota::parsea_nota` salta a propósito, §6.2 regla 1). Correr `exo index`
-/// sobre esas dos, aunque sea dos veces como aquí, no las mete jamás en el
-/// índice — el remedio era falso y `lint` se quedaba en rojo permanente. Este
-/// test usa el indexer REAL (no filas de `notas` insertadas a mano) porque lo
-/// que hay que probar es su comportamiento real: que estas dos notas quedan
-/// fuera de `notas` pase lo que pase, y que `lint` ya no promete un arreglo
-/// que no arregla nada.
+/// `notas` — incluida una nota sin `permalink:` (que `nota::parsea_nota`
+/// salta a propósito, §6.2 regla 1). Correr `exo index` sobre ella, aunque
+/// sea dos veces como aquí, no la mete jamás en el índice — el remedio era
+/// falso y `lint` se quedaba en rojo permanente. Este test usa el indexer
+/// REAL (no filas de `notas` insertadas a mano) porque lo que hay que probar
+/// es su comportamiento real.
+///
+/// Hasta Ola 1 G Task 4 (unifica `walk_kb` sobre `walk_kb_excluyendo`,
+/// backlog:821-845, decisión 9 de Paul) este repro cubría también una nota
+/// `.MD` en mayúsculas, que el `walk_kb` de entonces (case-sensitive) nunca
+/// indexaba aunque `lint` (via `es_md`, case-insensitive) sí la viera como
+/// nota — la MISMA clase de mentira, con otra causa. Esa divergencia ya no
+/// existe: el `walk_kb` unificado SÍ indexa `MAYUSCULA.MD`, así que la
+/// fixture se conserva pero la aserción se invierte (guarda de
+/// no-regresión positiva) en vez de repetir un "nunca se indexa" que ahora
+/// sería falso.
 #[test]
 fn index_stale_no_promete_reindexar_lo_que_el_indexer_nunca_metera() {
     let kb = tempfile::tempdir().expect("tempdir kb");
@@ -739,9 +746,9 @@ fn index_stale_no_promete_reindexar_lo_que_el_indexer_nunca_metera() {
         "---\ntitle: Sin permalink\n---\n# contenido\n",
     )
     .expect("escribir nota sin permalink");
-    // Extensión en mayúsculas: `es_md` (lint, A5) la ve como nota; el walk
-    // del indexer (`Some("md")` exacto) no. Permalink válido a propósito,
-    // para que la única causa de que quede fuera sea la extensión.
+    // Extensión en mayúsculas: desde Task 4 el walk_kb unificado SÍ la
+    // indexa (ver docstring). Permalink válido para que quede claro que la
+    // extensión ya no es motivo de exclusión.
     std::fs::write(
         kb.path().join("MAYUSCULA.MD"),
         "---\ntitle: Mayúscula\npermalink: kb/mayuscula\n---\n# contenido\n",
@@ -772,8 +779,14 @@ fn index_stale_no_promete_reindexar_lo_que_el_indexer_nunca_metera() {
                 .expect("filas")
         };
         assert!(
-            !indexadas.contains("sin-permalink.md") && !indexadas.contains("MAYUSCULA.MD"),
-            "el repro asume que estas dos NUNCA se indexan: {indexadas:?}"
+            !indexadas.contains("sin-permalink.md"),
+            "el repro asume que esta NUNCA se indexa: {indexadas:?}"
+        );
+        assert!(
+            indexadas.contains("MAYUSCULA.MD"),
+            "Task 4 unificó walk_kb sobre walk_kb_excluyendo: MAYUSCULA.MD \
+             debe indexarse ahora (cambio de comportamiento declarado, \
+             decisión 9 de Paul): {indexadas:?}"
         );
 
         let rutas =
@@ -789,14 +802,11 @@ fn index_stale_no_promete_reindexar_lo_que_el_indexer_nunca_metera() {
         let mentirosos: Vec<_> = informe
             .hallazgos
             .iter()
-            .filter(|h| {
-                (h.ruta == "sin-permalink.md" || h.ruta == "MAYUSCULA.MD")
-                    && h.detalle.contains("corre `exo index`")
-            })
+            .filter(|h| h.ruta == "sin-permalink.md" && h.detalle.contains("corre `exo index`"))
             .collect();
         assert!(
             mentirosos.is_empty(),
-            "index_stale prometió `exo index` sobre notas que el indexer \
+            "index_stale prometió `exo index` sobre una nota que el indexer \
              nunca va a meter: {mentirosos:?} (rutas vistas por lint: {rutas:?})"
         );
     });
@@ -885,5 +895,80 @@ fn tras_migrar_la_fila_casa_con_lo_que_calcula_el_incremental() {
     assert_eq!(
         en_db, calculada,
         "la fila migrada debe casar con el incremental"
+    );
+}
+
+/// Test de EQUIVALENCIA (Ola 1 G Task 3), no de regresión: compara el
+/// resultado real de `indexa` contra `git_epoch_de` (el fallback per-nota)
+/// recalculado aparte. Pasa antes del cambio de rendimiento (hoy `indexa`
+/// llama a `git_epoch_de` per-nota) y debe seguir pasando después (cuando
+/// `indexa` usa `gitx::epochs_de_todo_el_historial` en lote) — es la prueba
+/// de que el refactor de la Task 3 no cambia ningún epoch guardado.
+#[test]
+fn git_epoch_por_lote_coincide_con_el_fallback_por_nota() {
+    let dir = tempfile::tempdir().unwrap();
+    let kb = dir.path();
+    git(kb, &["init", "-q"]);
+    git(kb, &["config", "user.email", "test@exo.local"]);
+    git(kb, &["config", "user.name", "exo-test"]);
+
+    let commit_con_fecha = |archivo: &str, fecha: &str| {
+        git(kb, &["add", archivo]);
+        let status = std::process::Command::new("git")
+            .arg("-C")
+            .arg(kb)
+            .args(["commit", "-q", "-m", archivo])
+            .env("GIT_AUTHOR_DATE", fecha)
+            .env("GIT_COMMITTER_DATE", fecha)
+            .status()
+            .expect("git commit");
+        assert!(status.success());
+    };
+
+    crea_nota(kb, "a.md", "kb-test/a", "Nota A", "contenido alfa");
+    commit_con_fecha("a.md", "2026-07-01T10:00:00+00:00");
+
+    crea_nota(kb, "b.md", "kb-test/b", "Nota B", "contenido beta");
+    commit_con_fecha("b.md", "2026-07-02T10:00:00+00:00");
+
+    // c.md nunca se commitea: ejercita el fallback per-nota (fuera del mapa
+    // de lote, `git_epoch_de` sobre un fichero sin commits da `None`).
+    crea_nota(kb, "c.md", "kb-test/c", "Nota C", "contenido gamma");
+
+    let (_guard, db) = db_temporal();
+    indexa(kb, &db).unwrap();
+
+    let conn = exo::abre_db(&db).unwrap();
+    let leer = |ruta: &str| -> Option<i64> {
+        conn.query_row(
+            "SELECT git_epoch FROM notas WHERE ruta = ?1",
+            rusqlite::params![ruta],
+            |r| r.get(0),
+        )
+        .unwrap()
+    };
+
+    let esperado_a = exo::indexer::git_epoch_de(kb, Path::new("a.md"));
+    let esperado_b = exo::indexer::git_epoch_de(kb, Path::new("b.md"));
+    let esperado_c = exo::indexer::git_epoch_de(kb, Path::new("c.md"));
+
+    assert_eq!(
+        leer("a.md"),
+        esperado_a,
+        "a.md debe coincidir con el fallback per-nota"
+    );
+    assert_eq!(
+        leer("b.md"),
+        esperado_b,
+        "b.md debe coincidir con el fallback per-nota"
+    );
+    assert_eq!(
+        leer("c.md"),
+        esperado_c,
+        "c.md sin commits debe seguir siendo None"
+    );
+    assert_ne!(
+        esperado_a, esperado_b,
+        "a y b deben tener epochs distintos (commits en fechas distintas)"
     );
 }

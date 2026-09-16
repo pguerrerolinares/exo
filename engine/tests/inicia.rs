@@ -3,8 +3,8 @@
 //! sobrevive en el engine, y es explícita.
 
 const BM_JSON: &str = r#"{
-  "projects": { "kb-demo": { "path": "C:/proyectos/homework/kb-demo" } },
-  "default_project": "kb-demo",
+  "projects": { "kb-test": { "path": "C:/proyectos/homework/kb-test" } },
+  "default_project": "kb-test",
   "semantic_embedding_model": "jinaai/jina-embeddings-v2-base-es",
   "semantic_embedding_dimensions": 768,
   "semantic_min_similarity": 0.35
@@ -15,11 +15,11 @@ fn migra_desde_basic_memory_leyendo_el_proyecto_por_defecto() {
     let (kb, nombre, emb) = exo::inicia::desde_basic_memory(BM_JSON).expect("migrar");
     assert_eq!(
         kb,
-        std::path::PathBuf::from("C:/proyectos/homework/kb-demo")
+        std::path::PathBuf::from("C:/proyectos/homework/kb-test")
     );
-    // El nombre sale de `default_project`, NO de un literal "kb-demo"
+    // El nombre sale de `default_project`, NO de un literal "kb-test"
     // hardcodeado: ese literal era justo el acoplamiento que se viene a matar.
-    assert_eq!(nombre, "kb-demo");
+    assert_eq!(nombre, "kb-test");
     assert_eq!(emb.model, "jinaai/jina-embeddings-v2-base-es");
     assert_eq!(emb.dims, 768);
     assert_eq!(emb.min_similarity, 0.35);
@@ -199,7 +199,7 @@ fn un_nombre_con_salto_de_linea_es_rechazado_por_la_validacion() {
 /// afectados por la whitelist nueva.
 #[test]
 fn los_nombres_habituales_siguen_pasando_la_validacion() {
-    for nombre in ["demo", "kb-demo", "mi-kb.v2", "kb_2"] {
+    for nombre in ["demo", "kb-test", "mi-kb.v2", "kb_2"] {
         exo::inicia::valida_nombre(nombre)
             .unwrap_or_else(|e| panic!("{nombre:?} debería pasar: {e}"));
     }
@@ -753,5 +753,47 @@ fn valida_db_para_kb_rechaza_otra_kb_sin_mencionar_un_flag_que_init_no_tiene() {
     assert!(
         msg.contains("otra KB"),
         "sigue siendo el mismo guard: {msg}"
+    );
+}
+
+/// D6 ampliado (decisión de Paul, 2026-09-15, Ola 1 G Task 11): el default
+/// que `exo init` escribe en `[embeddings] min_similarity` sube de 0.35 a
+/// 0.40 — la MISMA constante `MIN_SIMILARITY_SELLADO` que ya sella el
+/// default de `exo search --type hybrid` (`flags.rs`,
+/// `el_default_de_search_type_es_hybrid_no_fts`), no un segundo literal que
+/// solo coincidía con el primero por casualidad. Cubre solo el modo
+/// CREACIÓN (`init_cmd`, rama `else` sin `--from-basic-memory`) —
+/// `--from-basic-memory` sigue leyendo `semantic_min_similarity` del JSON
+/// de origen tal cual, sin cambios (ver
+/// `migra_desde_basic_memory_leyendo_el_proyecto_por_defecto` arriba, que
+/// sigue fijando 0.35 en su fixture a propósito: es el valor que trae ESA
+/// KB de origen, no un default de `exo init`).
+#[test]
+fn init_en_modo_creacion_escribe_min_similarity_0_40_por_defecto() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let kb = tmp.path().join("kb-nueva");
+    let config = tmp.path().join("config.toml");
+    let db = tmp.path().join("index.db");
+
+    let salida = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
+        .args(["init", "--kb"])
+        .arg(&kb)
+        .args(["--name", "kb-nueva", "--json"])
+        .env("EXO_CONFIG", &config)
+        .env("EXO_DB", &db)
+        .output()
+        .expect("ejecutar exo init");
+    assert!(
+        salida.status.success(),
+        "init falló: {}",
+        String::from_utf8_lossy(&salida.stderr)
+    );
+
+    let cfg =
+        exo::config::carga_desde(&config).expect("releer la config que init acaba de escribir");
+    assert_eq!(
+        cfg.embeddings.min_similarity, 0.40,
+        "exo init en modo creación debe escribir min_similarity = 0.40, no \
+         0.35 — MIN_SIMILARITY_SELLADO en main.rs"
     );
 }

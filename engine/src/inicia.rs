@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 
 /// Lee el JSON de basic-memory y devuelve `(ruta_kb, nombre_kb, embeddings)`.
 ///
-/// El nombre sale de `default_project`, **no** de un literal `"kb-demo"`:
+/// El nombre sale de `default_project`, **no** de un literal `"kb-test"`:
 /// ese literal (`lib.rs:93` en la versión anterior) era el acoplamiento que
 /// esta ola viene a matar; reintroducirlo aquí sería cambiar de sitio el bug.
 pub fn desde_basic_memory(json: &str) -> Result<(PathBuf, String, Embeddings)> {
@@ -60,7 +60,7 @@ pub fn desde_basic_memory(json: &str) -> Result<(PathBuf, String, Embeddings)> {
 ///
 /// Whitelist, no blacklist — una blacklist de "caracteres peligrosos" siempre
 /// se deja alguno fuera (¿y `:`? ¿y los caracteres de control?). Se admite
-/// ASCII alfanumérico + `-_.`: alcanza para nombres reales (`kb-demo`,
+/// ASCII alfanumérico + `-_.`: alcanza para nombres reales (`kb-test`,
 /// `mi-kb.v2`) y no dice nada sobre cómo se escapa en TOML, en YAML o en una
 /// ruta — no hace falta, porque nunca lleva un carácter que necesite escape.
 pub fn valida_nombre(nombre: &str) -> Result<()> {

@@ -101,8 +101,8 @@ fn acepta_barras_de_windows_en_el_path_de_la_kb() {
 schema_version = 1
 
 [kb]
-path = 'C:\proyectos\homework\kb-demo'
-name = "kb-demo"
+path = 'C:\proyectos\homework\kb-test'
+name = "kb-test"
 
 [index]
 db = "~/.exo/index.db"
@@ -116,7 +116,7 @@ min_similarity = 0.35
     let cfg = exo::config::carga_desde(&ruta).expect("carga con backslashes");
     assert_eq!(
         cfg.kb.path,
-        std::path::PathBuf::from(r"C:\proyectos\homework\kb-demo")
+        std::path::PathBuf::from(r"C:\proyectos\homework\kb-test")
     );
 }
 

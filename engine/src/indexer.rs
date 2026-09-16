@@ -162,6 +162,23 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
     // llevan el separador nativo, y la comparación es por cadena exacta.
     migra_rutas_portables(&conn)?;
 
+    // Ola 1 G Task 3 (backlog:524-566): un `git log` para TODA la KB en vez
+    // de uno por nota. `None` hasta que la primera nota REALMENTE necesita un
+    // `git_epoch` (se puebla más abajo con `get_or_insert_with`, dentro del
+    // bucle) — perezoso a propósito, no un detalle de estilo: un `exo index`
+    // sin cambios (todas las notas `saltadas`, el escenario `s3` del bench de
+    // la Task 1) nunca llega a la línea que consulta `git_epoch`, y antes de
+    // esta guarda eso significaba CERO procesos git. Calcular el lote
+    // incondicionalmente aquí arriba —como hacía la primera versión de esta
+    // task— cambiaba ese caso de 0 procesos a 1 (el `git log --name-only`
+    // sobre el historial completo, aunque su resultado nunca se llegara a
+    // consultar): una regresión medible en el caso más común, justo el que
+    // Task 1 instrumentó (medido el 2026-09-15, ver report). `unwrap_or_default()`
+    // en el `get_or_insert_with` degrada a mapa vacío si `kb` no es repo git o
+    // `git log` falla — mismo resultado final que antes (fallback per-nota
+    // para cada ruta, `git_epoch_de` ya es fail-silent).
+    let mut epochs_batch: Option<HashMap<String, i64>> = None;
+
     let existentes: HashMap<String, f64> = {
         let mut stmt = conn.prepare("SELECT ruta, mtime FROM notas")?;
         stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, f64>(1)?)))?
@@ -194,7 +211,19 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
             continue;
         };
 
-        let git_epoch = git_epoch_de(kb, Path::new(&ruta_rel));
+        // El lote se calcula aquí, la primera vez que una nota de VERDAD lo
+        // necesita (`get_or_insert_with`, memoizado para el resto de esta
+        // corrida de `indexa`) — nunca antes del bucle (ver el comentario de
+        // más arriba). Solo si la ruta no aparece en el lote (nunca
+        // commiteada, o el lote degradó a vacío) se paga el spawn per-nota de
+        // `git_epoch_de`.
+        let mapa_epochs = epochs_batch.get_or_insert_with(|| {
+            crate::gitx::epochs_de_todo_el_historial(kb).unwrap_or_default()
+        });
+        let git_epoch = mapa_epochs
+            .get(&ruta_rel)
+            .copied()
+            .or_else(|| git_epoch_de(kb, Path::new(&ruta_rel)));
 
         // Transacción por nota (M6, hallazgo del gate): sin esto, el upsert
         // de `notas` (mtime fresco) quedaba commiteado ANTES de embeber los

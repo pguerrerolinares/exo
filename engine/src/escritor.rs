@@ -160,12 +160,14 @@ fn sin_diacritico(c: char) -> char {
 const UMBRAL_DUP: f64 = 0.6;
 
 /// Solape de tokens entre dos slugs. **Deliberadamente NO usa retrieval
-/// semántico**: el umbral de `busca_hybrid` (0.35-0.40) está calibrado para
-/// "tráeme contexto relevante", que es otra pregunta que "esto ya existe" —
-/// usarlo como dup-gate produce falsos rojos (verificado: un título sin
-/// relación alguna puntuaba 0.36 contra una bitácora cualquiera). Un guard que
-/// rebota al cierre de sesión acaba desactivado, que es como murió el primer
-/// guard de kbx (spec M4 §7.3).
+/// semántico**: el umbral de `busca_hybrid` (0.40 desde D6, Ola 1 G Task 11
+/// — antes 0.35-0.40 según viniera de config o del sellado del sweep, hoy
+/// los dos extremos son la misma constante `MIN_SIMILARITY_SELLADO`) está
+/// calibrado para "tráeme contexto relevante", que es otra pregunta que
+/// "esto ya existe" — usarlo como dup-gate produce falsos rojos (verificado:
+/// un título sin relación alguna puntuaba 0.36 contra una bitácora
+/// cualquiera). Un guard que rebota al cierre de sesión acaba desactivado,
+/// que es como murió el primer guard de kbx (spec M4 §7.3).
 ///
 /// Extra: es determinista y no carga el modelo ONNX, así que el gate no le
 /// añade segundos al cierre de sesión.
@@ -237,32 +239,32 @@ pub fn dup_candidatas(slug_nuevo: &str, permalinks: &[String]) -> Vec<(String, f
     encontradas
 }
 
+/// Parámetros de `escribe_nueva` (Ola 1 G Task 6, backlog:637-647): antes
+/// eran 8 argumentos posicionales contra el umbral de 7 de clippy, con
+/// `#[allow(clippy::too_many_arguments)]` declarado como deuda desde G5a
+/// (2026-09-02). `dup_candidatas` lo calcula el llamador (el CLI, con
+/// `busca_hybrid`): este módulo no conoce el índice, solo el filesystem.
+pub struct NuevaNota<'a> {
+    pub kb: &'a Path,
+    pub proyecto: &'a str,
+    pub dir: &'a str,
+    pub titulo: &'a str,
+    pub cuerpo: &'a str,
+    pub tier: Option<&'a str>,
+    pub dup_candidatas: &'a [(String, f64)],
+    pub forzado: bool,
+}
+
 /// Crea una nota nueva. `cuerpo` puede traer frontmatter propio: se conserva
 /// **literal** y solo se le añaden delante las claves que falten (M4-03).
 /// Nunca sobrescribe un fichero existente — eso es error duro, no gate: lo
-/// correcto ante una colisión es append o edit.
-///
-/// `dup_candidatas` lo calcula el llamador (el CLI, con `busca_hybrid`): este
-/// módulo no conoce el índice, solo el filesystem. Si llega no vacío,
-/// `Rechazo::Duplicada` sin tocar el disco.
-// Ocho parámetros contra el umbral de 7 de clippy. Se declara en vez de
-// refactorizar: agrupar en una struct de parámetros toca el camino de
-// escritura y sus tests, y el cambio que trajo este `allow` era montar el CI
-// (G5a, 2026-09-02). La deuda es la struct de parámetros, no el `allow`.
-#[allow(clippy::too_many_arguments)]
-pub fn escribe_nueva(
-    kb: &Path,
-    proyecto: &str,
-    dir: &str,
-    titulo: &str,
-    cuerpo: &str,
-    tier: Option<&str>,
-    dup_candidatas: &[(String, f64)],
-    forzado: bool,
-) -> Result<Escritura> {
-    if !dup_candidatas.is_empty() {
+/// correcto ante una colisión es append o edit. Si `dup_candidatas` llega no
+/// vacío, `Rechazo::Duplicada` sin tocar el disco.
+pub fn escribe_nueva(n: &NuevaNota) -> Result<Escritura> {
+    if !n.dup_candidatas.is_empty() {
         return Err(Rechazo::Duplicada {
-            candidatas: dup_candidatas
+            candidatas: n
+                .dup_candidatas
                 .iter()
                 .map(|(permalink, score)| Candidata {
                     permalink: permalink.clone(),
@@ -273,12 +275,12 @@ pub fn escribe_nueva(
         .into());
     }
 
-    verifica_segmento(dir, "--dir")?;
-    verifica_segmento(titulo, "--title")?;
+    verifica_segmento(n.dir, "--dir")?;
+    verifica_segmento(n.titulo, "--title")?;
 
-    let permalink = format!("{proyecto}/{dir}/{}", slug(titulo));
-    let ruta_rel = format!("{dir}/{}.md", nombre_fichero(titulo));
-    let ruta_abs = kb.join(&ruta_rel);
+    let permalink = format!("{}/{}/{}", n.proyecto, n.dir, slug(n.titulo));
+    let ruta_rel = format!("{}/{}.md", n.dir, nombre_fichero(n.titulo));
+    let ruta_abs = n.kb.join(&ruta_rel);
 
     if ruta_abs.exists() {
         anyhow::bail!(
@@ -287,8 +289,8 @@ pub fn escribe_nueva(
         );
     }
 
-    let (yaml_previo, cuerpo_limpio) = separa_frontmatter(cuerpo);
-    let (frontmatter, completado) = compone_frontmatter(&yaml_previo, titulo, &permalink, tier);
+    let (yaml_previo, cuerpo_limpio) = separa_frontmatter(n.cuerpo);
+    let (frontmatter, completado) = compone_frontmatter(&yaml_previo, n.titulo, &permalink, n.tier);
 
     let contenido = format!("---\n{frontmatter}---\n{cuerpo_limpio}");
     escribe_atomico(&ruta_abs, &contenido)?;
@@ -300,7 +302,7 @@ pub fn escribe_nueva(
         ruta_abs: crate::walker::ruta_portable(&ruta_abs.display().to_string()),
         creada: true,
         frontmatter_completado: completado,
-        forzado,
+        forzado: n.forzado,
     })
 }
 

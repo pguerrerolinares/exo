@@ -247,3 +247,70 @@ fn los_flags_ya_ingleses_no_se_han_movido() {
         "recall --help ya no muestra --cap-bytes:\n{help_recall}"
     );
 }
+
+#[test]
+fn el_default_de_search_type_es_hybrid_no_fts() {
+    // D6 (decisión 1 de Paul, 2026-09-15): el held-out ya decidió — A0
+    // (hybrid) gana a FTS en 41/55 filas, FTS a A0 en 0
+    // (evals/retrieval-heldout/verdict/c-verdict.md). Este test comprueba
+    // el `--help`: el default declarado por clap aparece ahí literal.
+    let help_search = help_de(&["search", "--help"]);
+    assert!(
+        help_search.contains("[default: hybrid]"),
+        "el --help de search debe declarar default hybrid, no fts:\n{help_search}"
+    );
+
+    // Fix de review sobre la Task 11 (Important #1): el `--help` mentía
+    // sobre la precedencia — decía que `[embeddings] min_similarity` de la
+    // config se consulta "si se omite" el flag, pero eso ya no es cierto
+    // para el modo por defecto (hybrid resuelve al umbral sellado 0.40
+    // antes de mirar la config). El texto de `--min-similarity` debe
+    // declarar la precedencia real, modo a modo.
+    assert!(
+        help_search.contains("sellado"),
+        "el --help de --min-similarity debe nombrar el umbral sellado, no \
+         solo remitir a la config:\n{help_search}"
+    );
+    assert!(
+        help_search.contains("0.40"),
+        "el --help de --min-similarity debe declarar el valor del umbral \
+         sellado (0.40):\n{help_search}"
+    );
+    assert!(
+        help_search.contains("[embeddings] min_similarity"),
+        "el --help de --min-similarity debe seguir citando la config para \
+         el modo vector:\n{help_search}"
+    );
+
+    // Fix de review (Important #2): `exo search` sin flags pasa de FTS
+    // barato a hybrid, que carga el modelo de embeddings — coste que nadie
+    // avisaba en ningún `--help`.
+    assert!(
+        help_search.contains("embeddings"),
+        "el --help de search debe avisar del coste de cargar el modelo de \
+         embeddings en el modo hybrid por defecto:\n{help_search}"
+    );
+}
+
+#[test]
+fn el_help_de_recall_declara_el_umbral_sellado_igual_que_search() {
+    // I2 (review final de la campaña G, decisión 2 de Paul, 2026-09-16):
+    // `recall --query` usaba `[embeddings] min_similarity` de la config
+    // (0.35 en la máquina de Paul) cuando se omitía `--min-similarity`,
+    // mientras `search --type hybrid` ya resolvía al umbral sellado 0.40
+    // desde la Task 11. `docs/arquitectura.md` afirmaba que ambos usaban
+    // "los mismos parámetros sellados" — falso hasta este fix. El --help
+    // de `recall` debe declarar la MISMA precedencia real que el de
+    // `search` (flag > sellado 0.40), no remitir solo a la config.
+    let help_recall = help_de(&["recall", "--help"]);
+    assert!(
+        help_recall.contains("sellado"),
+        "el --help de recall --min-similarity debe nombrar el umbral \
+         sellado, no solo remitir a la config:\n{help_recall}"
+    );
+    assert!(
+        help_recall.contains("0.40"),
+        "el --help de recall --min-similarity debe declarar el valor del \
+         umbral sellado (0.40):\n{help_recall}"
+    );
+}

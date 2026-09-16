@@ -169,6 +169,24 @@ pub fn min_similitud_de_config() -> Result<f64> {
 pub const MODELO_JINA_ES: &str = "jinaai/jina-embeddings-v2-base-es";
 const REVISION_JINA_ES: &str = "8e2d780d8fd38f81ca9123ee28e4c5a968aaf21e";
 
+/// Ruta de caché de `hf_hub` para el proceso actual: `$HF_HOME/hub` si la
+/// variable está definida, si no `~/.cache/huggingface/hub` — exactamente lo
+/// que resuelve `hf_hub::Cache::from_env()` (hf-hub 0.5.0), delegado aquí en
+/// vez de reimplementado.
+///
+/// Fuente ÚNICA de esa ruta para el crate: `Embedder::con_modelo` construye
+/// su cliente hf-hub con `ApiBuilder::from_env()` (misma llamada, mismo
+/// resultado) y `doctor::Entorno::del_proceso` llama a esta función para su
+/// campo `cache_hf`. Antes de la Task 13 (G, 2026-09-16) el descargador
+/// ignoraba `HF_HOME` (`Api::new()` → `Cache::default()`) mientras `doctor`
+/// reimplementaba el cálculo a mano asumiendo que sí lo respetaba: dos
+/// caminos que podían divergir en silencio. **No dupliques este cálculo en
+/// otro sitio** — si `doctor` o un futuro llamador necesitan la ruta de
+/// caché, que llamen a esta función.
+pub fn cache_hf_del_entorno() -> std::path::PathBuf {
+    hf_hub::Cache::from_env().path().clone()
+}
+
 /// Repo de HF para un modelo, con revisión fija si es uno de los nuestros.
 /// Un modelo ajeno sigue resolviendo `main` (no rompemos a quien cambie el
 /// modelo en su config), pero `con_modelo` lo dice por stderr en vez de
@@ -227,7 +245,7 @@ impl Embedder {
             InitOptionsUserDefined, Pooling, TextEmbedding, TokenizerFiles,
             UserDefinedEmbeddingModel,
         };
-        use hf_hub::api::sync::Api;
+        use hf_hub::api::sync::ApiBuilder;
 
         let repo_id = repo_hf(modelo);
         if repo_id.revision() == "main" {
@@ -237,7 +255,13 @@ impl Embedder {
                  comparable con la línea base del eval."
             );
         }
-        let repo = Api::new().context("crear cliente hf-hub")?.repo(repo_id);
+        // `from_env()` (no `Api::new()`, que cae a `Cache::default()` y ROMPE
+        // `HF_HOME`): Task 13, ver doc de `cache_hf_del_entorno` — misma ruta
+        // que usa `doctor::Entorno::del_proceso` para el check `embeddings_model`.
+        let repo = ApiBuilder::from_env()
+            .build()
+            .context("crear cliente hf-hub")?
+            .repo(repo_id);
         let leer = |fichero: &str| -> Result<Vec<u8>> {
             let ruta = repo
                 .get(fichero)
@@ -264,12 +288,60 @@ impl Embedder {
 
     /// Embebe un batch de textos en una sola pasada (usado por el indexer
     /// para los trozos de una nota; también sirve para embeber la query de
-    /// `exo search --type vector` como batch de 1).
+    /// `exo search --type vector` como batch de 1). Cada vector se valida
+    /// (Ola 1 G Task 8, `KB-exo:16`) antes de devolverse — la única guarda
+    /// existente estaba en la LECTURA (`vectores::lee`, `BYTES_ESPERADOS`),
+    /// nunca en la escritura: un embedding corrupto entraba al índice sin
+    /// avisar y solo se notaba después, en un KNN con resultados raros.
     pub fn embebe_batch(&mut self, textos: &[String]) -> Result<Vec<Vec<f32>>> {
-        self.te
+        let vectores = self
+            .te
             .embed(textos, None)
-            .context("embed batch con fastembed")
+            .context("embed batch con fastembed")?;
+        let total = vectores.len();
+        for (i, v) in vectores.iter().enumerate() {
+            verifica_embedding(v, i, total)?;
+        }
+        Ok(vectores)
     }
+}
+
+/// Dimensión y norma esperadas de un embedding de jina-es: 768 componentes
+/// (mismo contrato que `vectores::BYTES_ESPERADOS = 768 * 4`), norma ~1.0
+/// porque fastembed normaliza siempre (ver doc de `Embedder::desde_config`).
+///
+/// Tolerancia `0.99..=1.01` medida contra el modelo real (cache local,
+/// jina-embeddings-v2-base-es, sha pineado `REVISION_JINA_ES`) el
+/// 2026-09-15, sobre los casos de riesgo — texto normal, `""`, texto muy
+/// largo (~5000 palabras, se trunca), solo espacios, y solo emoji/unicode
+/// (`🦀🔥✨` + `漢字`): las 5 normas cayeron en `[0.999999702, 1.000000238]`,
+/// ruido de redondeo de f32 (~3e-7) alrededor de 1.0, ninguna NaN/Inf. El
+/// margen `±0.01` es ~30000x ese ruido — sin falsos positivos en salida
+/// legítima, pero sigue atrapando una corrupción real (vector cero, NaN
+/// propagado a 0.0, o un modelo futuro que no normalice).
+///
+/// Zona de la futura campaña J (cuantización int8 de jina): si J cambia el
+/// tipo de salida de `embebe_batch` a algo que no sea `f32` unitario, este
+/// assert (dimensión Y norma ~1.0) hay que revisarlo entero, no solo la
+/// tolerancia.
+///
+/// Falla ALTO en vez de dejar pasar un vector corrupto al índice.
+fn verifica_embedding(v: &[f32], idx: usize, total: usize) -> Result<()> {
+    const DIMS_ESPERADAS: usize = 768;
+    if v.len() != DIMS_ESPERADAS {
+        anyhow::bail!(
+            "embedding {idx}/{total} con {} dims, se esperaban {DIMS_ESPERADAS}",
+            v.len()
+        );
+    }
+    let norma: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+    if !(0.99..=1.01).contains(&norma) {
+        anyhow::bail!(
+            "embedding {idx}/{total} con norma {norma:.4}, se esperaba ~1.0 \
+             (fastembed normaliza siempre: el modelo no está normalizando o produjo NaN/Inf)"
+        );
+    }
+    Ok(())
 }
 
 /// Cache del `Embedder` a nivel de PROCESO (no por llamada): `exo
@@ -308,6 +380,33 @@ pub fn embedder_desde_config() -> Result<(Vec<f32>, usize)> {
     let mut embedder = Embedder::con_modelo(&cfg.modelo)?;
     let mut out = embedder.embebe_batch(&["el exocortex recuerda por ti".to_string()])?;
     Ok((out.pop().expect("un embedding"), cfg.dims))
+}
+
+#[cfg(test)]
+mod tests_verifica_embedding {
+    use super::verifica_embedding;
+
+    #[test]
+    fn rechaza_dimension_equivocada() {
+        let v = vec![0.5_f32; 100];
+        let err = verifica_embedding(&v, 0, 1).unwrap_err();
+        assert!(err.to_string().contains("100 dims"), "{err}");
+    }
+
+    #[test]
+    fn rechaza_norma_fuera_de_rango() {
+        let mut v = vec![0.0_f32; 768];
+        v[0] = 5.0; // norma 5.0, muy lejos de 1.0
+        let err = verifica_embedding(&v, 0, 1).unwrap_err();
+        assert!(err.to_string().contains("norma"), "{err}");
+    }
+
+    #[test]
+    fn acepta_un_vector_unitario_real() {
+        let mut v = vec![0.0_f32; 768];
+        v[0] = 1.0; // norma exacta 1.0
+        assert!(verifica_embedding(&v, 0, 1).is_ok());
+    }
 }
 
 #[cfg(test)]

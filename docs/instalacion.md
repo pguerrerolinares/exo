@@ -153,11 +153,25 @@ concreta de HuggingFace) a la caché local. En frío son varios minutos
 (~6 medidos en la máquina de referencia); las corridas siguientes no
 vuelven a pagarlo.
 
+**La caché respeta `$HF_HOME`** (Task 13, G, 2026-09-16): si la variable
+está definida, el modelo se busca y se descarga bajo `$HF_HOME/hub`; si no,
+bajo `~/.cache/huggingface/hub` (el default de siempre). `exo doctor` mira
+la misma ruta que usa el engine para descargar, así que su check
+`embeddings_model` no puede quedarse mirando un directorio distinto. Si ya
+tenías el modelo cacheado en el default y ahora defines `HF_HOME` por
+primera vez, la próxima indexación vuelve a pagar la descarga completa una
+vez, porque busca en la ruta nueva. Dos efectos que vienen de leer el
+entorno como lo hace `hf-hub` y conviene conocer: el token de HuggingFace se
+busca junto a la caché (`$HF_HOME/token` en vez de
+`~/.cache/huggingface/token`), y si defines **`$HF_ENDPOINT`** el modelo se
+descarga de esa URL en vez de la de HuggingFace — antes esa variable se
+ignoraba.
+
 Comprobación rápida:
 
 ```bash
 exo config --json    # config efectiva con rutas expandidas
-exo search "doctrina" --type hybrid --min-similarity 0.40 --limit 5
+exo search "doctrina" --type hybrid --min-similarity 0.40 --limit 5  # hybrid (el default) carga el modelo de embeddings; --type fts es el modo barato
 exo recall --limit 5
 ```
 

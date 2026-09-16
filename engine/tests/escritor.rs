@@ -2,7 +2,7 @@
 //! `title`/`permalink` REALES de la KB de producción: son el contrato que ya
 //! está en disco, no una convención inventada aquí.
 
-use exo::escritor::{Rechazo, escribe_append, escribe_nueva, slug};
+use exo::escritor::{NuevaNota, Rechazo, escribe_append, escribe_nueva, slug};
 use std::io::Write;
 
 fn kb_falsa() -> tempfile::TempDir {
@@ -64,19 +64,19 @@ fn slug_conserva_el_punto_y_colapsa_lo_demas() {
 #[test]
 fn nueva_genera_frontmatter_completo_y_ruta_correcta() {
     let kb = kb_falsa();
-    let esc = escribe_nueva(
-        kb.path(),
-        "kb-demo",
-        "projects",
-        "Proyecto Nuevo — de prueba",
-        "cuerpo de la nota\n",
-        Some("stable"),
-        &[],
-        false,
-    )
+    let esc = escribe_nueva(&NuevaNota {
+        kb: kb.path(),
+        proyecto: "kb-test",
+        dir: "projects",
+        titulo: "Proyecto Nuevo — de prueba",
+        cuerpo: "cuerpo de la nota\n",
+        tier: Some("stable"),
+        dup_candidatas: &[],
+        forzado: false,
+    })
     .unwrap();
 
-    assert_eq!(esc.permalink, "kb-demo/projects/proyecto-nuevo-de-prueba");
+    assert_eq!(esc.permalink, "kb-test/projects/proyecto-nuevo-de-prueba");
     assert_eq!(esc.ruta_rel, "projects/Proyecto Nuevo — de prueba.md");
     assert!(esc.creada);
 
@@ -84,7 +84,7 @@ fn nueva_genera_frontmatter_completo_y_ruta_correcta() {
     assert!(escrito.starts_with("---\n"), "debe abrir con frontmatter");
     assert!(escrito.contains("title: Proyecto Nuevo — de prueba\n"));
     assert!(escrito.contains("type: note\n"));
-    assert!(escrito.contains("permalink: kb-demo/projects/proyecto-nuevo-de-prueba\n"));
+    assert!(escrito.contains("permalink: kb-test/projects/proyecto-nuevo-de-prueba\n"));
     assert!(escrito.contains("tier: stable\n"));
     assert!(escrito.ends_with("cuerpo de la nota\n"));
 }
@@ -93,22 +93,22 @@ fn nueva_genera_frontmatter_completo_y_ruta_correcta() {
 fn nueva_respeta_el_frontmatter_que_ya_trae_el_cuerpo() {
     // M4-03: auto-completa lo que falta, JAMÁS pisa lo que el autor puso.
     let kb = kb_falsa();
-    let esc = escribe_nueva(
-        kb.path(),
-        "kb-demo",
-        "projects",
-        "Con Tags",
-        "---\ntags:\n- uno\n- dos\ntype: research\n---\ncuerpo\n",
-        Some("log"),
-        &[],
-        false,
-    )
+    let esc = escribe_nueva(&NuevaNota {
+        kb: kb.path(),
+        proyecto: "kb-test",
+        dir: "projects",
+        titulo: "Con Tags",
+        cuerpo: "---\ntags:\n- uno\n- dos\ntype: research\n---\ncuerpo\n",
+        tier: Some("log"),
+        dup_candidatas: &[],
+        forzado: false,
+    })
     .unwrap();
 
     let escrito = std::fs::read_to_string(kb.path().join(&esc.ruta_rel)).unwrap();
     assert!(escrito.contains("type: research\n"), "no pisa el type dado");
     assert!(escrito.contains("- uno\n"), "conserva tags del autor");
-    assert!(escrito.contains("permalink: kb-demo/projects/con-tags\n"));
+    assert!(escrito.contains("permalink: kb-test/projects/con-tags\n"));
     assert!(
         !escrito.contains("type: note"),
         "no debe duplicar la clave type"
@@ -128,16 +128,16 @@ fn nueva_jamas_pisa_una_nota_existente() {
         "---\npermalink: x\n---\nviejo\n",
     );
 
-    let err = escribe_nueva(
-        kb.path(),
-        "kb-demo",
-        "projects",
-        "Ya Existe",
-        "nuevo\n",
-        None,
-        &[],
-        false,
-    )
+    let err = escribe_nueva(&NuevaNota {
+        kb: kb.path(),
+        proyecto: "kb-test",
+        dir: "projects",
+        titulo: "Ya Existe",
+        cuerpo: "nuevo\n",
+        tier: None,
+        dup_candidatas: &[],
+        forzado: false,
+    })
     .unwrap_err();
 
     // Colisión de ruta = error duro (exit 1), NO un gate saltable: lo correcto
@@ -150,16 +150,16 @@ fn nueva_jamas_pisa_una_nota_existente() {
 #[test]
 fn nueva_con_candidatas_duplicadas_rechaza_sin_escribir() {
     let kb = kb_falsa();
-    let err = escribe_nueva(
-        kb.path(),
-        "kb-demo",
-        "projects",
-        "Tema Repetido",
-        "cuerpo\n",
-        None,
-        &[("kb-demo/projects/tema-repe".into(), 0.9)],
-        false,
-    )
+    let err = escribe_nueva(&NuevaNota {
+        kb: kb.path(),
+        proyecto: "kb-test",
+        dir: "projects",
+        titulo: "Tema Repetido",
+        cuerpo: "cuerpo\n",
+        tier: None,
+        dup_candidatas: &[("kb-test/projects/tema-repe".into(), 0.9)],
+        forzado: false,
+    })
     .unwrap_err();
 
     let rechazo = err.downcast_ref::<Rechazo>().expect("debe ser gate");
@@ -175,7 +175,7 @@ fn append_a_bitacora_no_relee_ni_reescribe_el_cuerpo() {
     escribe_nota(
         &kb,
         "log/x-bitacora.md",
-        "---\npermalink: kb-demo/log/x-bitacora\ntier: log\n---\n# X\n\nentrada vieja\n",
+        "---\npermalink: kb-test/log/x-bitacora\ntier: log\n---\n# X\n\nentrada vieja\n",
     );
 
     let esc = escribe_append(
@@ -204,7 +204,7 @@ fn append_a_canon_se_rechaza_por_defecto() {
     escribe_nota(
         &kb,
         "projects/canon.md",
-        "---\npermalink: kb-demo/projects/canon\ntier: stable\n---\ncuerpo\n",
+        "---\npermalink: kb-test/projects/canon\ntier: stable\n---\ncuerpo\n",
     );
 
     let err = escribe_append(
@@ -228,7 +228,7 @@ fn append_a_canon_forzado_escribe_y_queda_registrado() {
     escribe_nota(
         &kb,
         "projects/canon.md",
-        "---\npermalink: kb-demo/projects/canon\ntier: core\n---\ncuerpo\n",
+        "---\npermalink: kb-test/projects/canon\ntier: core\n---\ncuerpo\n",
     );
 
     let esc = escribe_append(kb.path(), "projects/canon.md", "excepcion\n", true).unwrap();
@@ -251,13 +251,13 @@ fn dup_gate_caza_el_unico_duplicado_real_de_la_historia() {
     // 2026-07-11: se creó `log/ai-news-bitacora.md` existiendo ya la canónica
     // `ai-news-pipeline-bitacora`. Único duplicado en 153 invocaciones.
     let indexados = vec![
-        "kb-demo/log/ai-news-pipeline-bitacora".to_string(),
-        "kb-demo/log/exo-bitacora".to_string(),
-        "kb-demo/projects/cge".to_string(),
+        "kb-test/log/ai-news-pipeline-bitacora".to_string(),
+        "kb-test/log/exo-bitacora".to_string(),
+        "kb-test/projects/cge".to_string(),
     ];
     let candidatas = exo::escritor::dup_candidatas("ai-news-bitacora", &indexados);
     assert_eq!(candidatas.len(), 1, "debe cazar exactamente la canónica");
-    assert_eq!(candidatas[0].0, "kb-demo/log/ai-news-pipeline-bitacora");
+    assert_eq!(candidatas[0].0, "kb-test/log/ai-news-pipeline-bitacora");
 }
 
 #[test]
@@ -265,10 +265,10 @@ fn dup_gate_no_dispara_con_bitacoras_de_frentes_distintos() {
     // El falso positivo mata al guard: bitácoras y notas que comparten UNA
     // palabra son la norma en esta KB, no una señal de duplicado.
     let indexados = vec![
-        "kb-demo/log/exo-bitacora".to_string(),
-        "kb-demo/log/kbx-bitacora".to_string(),
-        "kb-demo/log/backlog-diario".to_string(),
-        "kb-demo/Backlog — frentes abiertos".to_string(),
+        "kb-test/log/exo-bitacora".to_string(),
+        "kb-test/log/kbx-bitacora".to_string(),
+        "kb-test/log/backlog-diario".to_string(),
+        "kb-test/Backlog — frentes abiertos".to_string(),
     ];
     for nuevo in [
         "cge-bitacora",
@@ -299,16 +299,16 @@ fn titulo_con_barra_no_crea_subdirectorio() {
     // Caso REAL de la KB: el título lleva `/` y basic-memory lo colapsa a `-`
     // en el nombre de fichero, conservando el title literal en el frontmatter.
     let kb = kb_falsa();
-    let esc = escribe_nueva(
-        kb.path(),
-        "kb-demo",
-        "projects",
-        "pguerrero.me — Hub personal / portfolio",
-        "cuerpo\n",
-        None,
-        &[],
-        false,
-    )
+    let esc = escribe_nueva(&NuevaNota {
+        kb: kb.path(),
+        proyecto: "kb-test",
+        dir: "projects",
+        titulo: "pguerrero.me — Hub personal / portfolio",
+        cuerpo: "cuerpo\n",
+        tier: None,
+        dup_candidatas: &[],
+        forzado: false,
+    })
     .unwrap();
 
     assert_eq!(
@@ -335,16 +335,16 @@ fn jamas_se_escribe_fuera_de_la_kb() {
         ("/etc", "nota"),
         ("projects/../..", "nota"),
     ] {
-        let err = escribe_nueva(
-            kb.path(),
-            "kb-demo",
+        let err = escribe_nueva(&NuevaNota {
+            kb: kb.path(),
+            proyecto: "kb-test",
             dir,
             titulo,
-            "cuerpo\n",
-            None,
-            &[],
-            true, // ni siquiera --force lo permite: no es un gate, es error
-        )
+            cuerpo: "cuerpo\n",
+            tier: None,
+            dup_candidatas: &[],
+            forzado: true, // ni siquiera --force lo permite: no es un gate, es error
+        })
         .unwrap_err();
         assert!(
             !err.is::<Rechazo>(),
@@ -358,16 +358,16 @@ fn jamas_se_escribe_fuera_de_la_kb() {
 fn new_forzado_queda_registrado_en_el_envelope() {
     // §7.3: una vía de excepción sin rastro es peor que no tenerla.
     let kb = kb_falsa();
-    let esc = escribe_nueva(
-        kb.path(),
-        "kb-demo",
-        "projects",
-        "Forzada",
-        "cuerpo\n",
-        None,
-        &[],
-        true,
-    )
+    let esc = escribe_nueva(&NuevaNota {
+        kb: kb.path(),
+        proyecto: "kb-test",
+        dir: "projects",
+        titulo: "Forzada",
+        cuerpo: "cuerpo\n",
+        tier: None,
+        dup_candidatas: &[],
+        forzado: true,
+    })
     .unwrap();
     assert!(esc.forzado, "--force debe ser auditable en el envelope");
 }
@@ -382,16 +382,16 @@ fn el_absolute_path_de_write_no_lleva_barra_invertida() {
     // append a cualquier tier que no sea `log` (gate `AppendACanon`, §7.1 de
     // escritor.rs) y este test no quiere ejercer ese gate, solo la forma de
     // las rutas emitidas.
-    let e = exo::escritor::escribe_nueva(
+    let e = exo::escritor::escribe_nueva(&exo::escritor::NuevaNota {
         kb,
-        "kb",
-        "log",
-        "alpha",
-        "cuerpo\n",
-        Some("log"),
-        &[],
-        false,
-    )
+        proyecto: "kb",
+        dir: "log",
+        titulo: "alpha",
+        cuerpo: "cuerpo\n",
+        tier: Some("log"),
+        dup_candidatas: &[],
+        forzado: false,
+    })
     .unwrap();
 
     assert!(!e.ruta_abs.contains('\\'), "absolute_path: {}", e.ruta_abs);
