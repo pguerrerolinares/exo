@@ -63,8 +63,11 @@ if [ "${#ficheros[@]}" -eq 0 ]; then
   exit 1
 fi
 
-# F4 (docs/backlog.md:1148-1163): el bash inline de `run: |` en
-# .github/workflows/*.yml no es un fichero .sh — bash_versionado() no lo ve.
+# F4 (docs/backlog.md, ítem "(NUEVO, revisión final campaña B, 2026-09-13)
+# El bash inline de `run:` en `.github/workflows/*.yml` no pasa por ningún
+# gate" — cítalo por título, no por línea: el sync de backlog.md desplaza
+# líneas): el bash inline de `run: |` en .github/workflows/*.yml no es un
+# fichero .sh — bash_versionado() no lo ve.
 # Cada bloque se extrae a un fichero temporal con la MISMA dedentación que
 # aplica GitHub Actions (recorta hasta la columna de "run:" + 2) y se suma a
 # la lista que shellcheck revisa. Sin `yq` ni dependencia nueva: lectura
@@ -86,12 +89,49 @@ fi
 #   clave `shell:` del step — si algún día se añade un `run: |` bajo pwsh,
 #   se colaría aquí como si fuera bash y shellcheck lo marcaría en falso.
 #   Gap documentado, no implementado por ausencia de caso real hoy.
+#
+# Fix crítico (review final, 2026-09-16): `${{ matrix.target }}` / `${{
+# matrix.bin }}` (release.yml, bloque "Empaquetar y calcular el SHA256") NO
+# son bash — GitHub Actions los sustituye por texto ANTES de que el runner
+# vea el script; `${{` no es una expansión válida de shell. `bash -n` los
+# tolera (no es un error de sintaxis Bourne), pero el parser de ShellCheck
+# 0.11.0 sí revienta con ellos (medido vía Docker: SC2296 "Parameter
+# expansions can't start with {", y aborta el resto del fichero). Cada
+# ocurrencia se sustituye por `${GHA_EXPR:-}` antes de escribirse al fichero
+# temporal: sigue siendo una expansión de parámetro bash válida (no cambia
+# la sintaxis del bloque — `case "${{ matrix.bin }}" in *.exe)` sigue siendo
+# un `case` válido con `${GHA_EXPR:-}` de sujeto) y, al parecer una variable
+# con valor por defecto en vez de una palabra suelta, no dispara SC2194
+# ("¿olvidaste el $ de una variable?", medido vía Docker con un literal
+# `GHA_EXPR` sin `$`). Perder de vista el valor real que GitHub inyectará es
+# aceptable: ShellCheck analiza sintaxis y patrones de shell, no el valor
+# concreto de `matrix.target`/`matrix.bin`.
+sustituye_expr_gha() {
+  # shellcheck disable=SC2016 # comillas simples deliberadas: es el programa de sed, no bash quien debe ver el $
+  sed -E 's/\$\{\{[^}]*\}\}/${GHA_EXPR:-}/g'
+}
+
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
 
+# m4 (review final, 2026-09-16): sin nullglob, un glob que no casa nada deja
+# el patrón literal `.github/workflows/*.yml` como único "fichero" del
+# bucle — ni la extracción ni la guarda de coherencia de abajo lo detectan
+# (ambas leen de una redirección que falla en silencio sin `set -e`), y el
+# gate reportaba "+ 0 bloques" en verde como si de verdad no hubiera ningún
+# `run: |` que analizar. Misma clase de guarda que la de `ficheros[]` de
+# arriba.
+shopt -s nullglob
+WORKFLOWS=(.github/workflows/*.yml)
+shopt -u nullglob
+if [ "${#WORKFLOWS[@]}" -eq 0 ]; then
+  echo "test-shellcheck: no se encontró ningún workflow en .github/workflows/*.yml — el glob está roto" >&2
+  exit 1
+fi
+
 extraidos=()
 detectadas=()  # fichero:línea de cada "run: |" que la extracción reconoció — para la guarda de coherencia
-for wf in .github/workflows/*.yml; do
+for wf in "${WORKFLOWS[@]}"; do
   base="$(basename "$wf" .yml)"
   n=0
   fichero=""
@@ -109,7 +149,7 @@ for wf in .github/workflows/*.yml; do
       if [ "${#cur}" -lt "$indent" ]; then
         fichero=""
       else
-        printf '%s\n' "${linea:$indent}" >> "$fichero"
+        printf '%s\n' "${linea:$indent}" | sustituye_expr_gha >> "$fichero"
         continue
       fi
     fi
@@ -133,7 +173,7 @@ done
 # `detectadas[]`; si no, la extracción se quedó corta y el gate lo dice antes
 # de fallar en silencio con menos bloques de los que hay de verdad.
 declaradas=()
-for wf in .github/workflows/*.yml; do
+for wf in "${WORKFLOWS[@]}"; do
   while IFS=: read -r ln _resto; do
     [ -n "$ln" ] && declaradas+=("$wf:$ln")
   done < <(tr -d '\r' < "$wf" | grep -n -E '^[[:space:]]*run:[[:space:]]*\|[+-]?[[:space:]]*(#.*)?$')

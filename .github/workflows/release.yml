@@ -146,7 +146,7 @@ jobs:
           # —un artifact que sube de menos, un cambio de nombres— y el daño
           # que evita es el mismo: install.sh daría 404 en esa plataforma y
           # nadie lo sabría hasta que alguien intentara instalar.
-          n="$(ls dist | wc -l)"
+          n="$(find dist -maxdepth 1 -mindepth 1 | wc -l)"
           [ "$n" -eq 6 ] || { echo "esperaba 6 ficheros en dist, hay $n" >&2; exit 1; }
       # Un tag que no casa con Cargo.toml publicaría binarios cuyo
       # `exo --version` dice otra cosa.
