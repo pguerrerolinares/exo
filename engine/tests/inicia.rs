@@ -755,3 +755,45 @@ fn valida_db_para_kb_rechaza_otra_kb_sin_mencionar_un_flag_que_init_no_tiene() {
         "sigue siendo el mismo guard: {msg}"
     );
 }
+
+/// D6 ampliado (decisión de Paul, 2026-09-15, Ola 1 G Task 11): el default
+/// que `exo init` escribe en `[embeddings] min_similarity` sube de 0.35 a
+/// 0.40 — la MISMA constante `MIN_SIMILARITY_SELLADO` que ya sella el
+/// default de `exo search --type hybrid` (`flags.rs`,
+/// `el_default_de_search_type_es_hybrid_no_fts`), no un segundo literal que
+/// solo coincidía con el primero por casualidad. Cubre solo el modo
+/// CREACIÓN (`init_cmd`, rama `else` sin `--from-basic-memory`) —
+/// `--from-basic-memory` sigue leyendo `semantic_min_similarity` del JSON
+/// de origen tal cual, sin cambios (ver
+/// `migra_desde_basic_memory_leyendo_el_proyecto_por_defecto` arriba, que
+/// sigue fijando 0.35 en su fixture a propósito: es el valor que trae ESA
+/// KB de origen, no un default de `exo init`).
+#[test]
+fn init_en_modo_creacion_escribe_min_similarity_0_40_por_defecto() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let kb = tmp.path().join("kb-nueva");
+    let config = tmp.path().join("config.toml");
+    let db = tmp.path().join("index.db");
+
+    let salida = std::process::Command::new(env!("CARGO_BIN_EXE_exo"))
+        .args(["init", "--kb"])
+        .arg(&kb)
+        .args(["--name", "kb-nueva", "--json"])
+        .env("EXO_CONFIG", &config)
+        .env("EXO_DB", &db)
+        .output()
+        .expect("ejecutar exo init");
+    assert!(
+        salida.status.success(),
+        "init falló: {}",
+        String::from_utf8_lossy(&salida.stderr)
+    );
+
+    let cfg =
+        exo::config::carga_desde(&config).expect("releer la config que init acaba de escribir");
+    assert_eq!(
+        cfg.embeddings.min_similarity, 0.40,
+        "exo init en modo creación debe escribir min_similarity = 0.40, no \
+         0.35 — MIN_SIMILARITY_SELLADO en main.rs"
+    );
+}

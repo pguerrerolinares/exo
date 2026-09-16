@@ -251,7 +251,8 @@ fn busca_con(
 /// dos vectores unitarios, `||a-b||² = 2 - 2·cos(a,b)`, luego
 /// `cos(a,b) = 1 - ||a-b||²/2` — la conversión que usa esta función para
 /// comparar contra `[embeddings] min_similarity` (threshold pensado en escala
-/// coseno, config propia de `~/.exo/config.toml`, hoy 0.35).
+/// coseno, config propia de `~/.exo/config.toml`, hoy 0.40 por defecto desde
+/// D6 — `MIN_SIMILARITY_SELLADO` en `main.rs`, Ola 1 G Task 11).
 fn similitud_desde_l2_cuadrado(distancia_l2_cuadrado: f64) -> f64 {
     1.0 - distancia_l2_cuadrado / 2.0
 }

@@ -17,12 +17,26 @@ use std::path::{Path, PathBuf};
 /// 0.40` da 49/55 idéntico al post-hoc). Cubren SOLO el uso de `exo search
 /// --type hybrid` sin `--bonus`/`--fts-scale` explícitos; el sweep siempre
 /// pasó ambos flags, así que estos valores no afectaron su resultado. El
-/// threshold ganador (0.40) NO se sella aquí como constante — D-f3/§4.6: el
-/// valor difiere del 0.35 de config y config es RO hasta M5a, así que se
-/// pasa por `--min-similarity 0.40` explícito en corridas/consumidores hasta
-/// entonces (documentado en el verdict, no hardcodeado en el binario).
+/// threshold ganador (0.40) SÍ se sella aquí como constante desde el
+/// 2026-09-15 (D6, decisión 1 de Paul, Ola 1 G Task 11): el motivo original
+/// para no sellarlo — D-f3/§4.6, "el valor difiere del 0.35 de config y
+/// config es RO hasta M5a" — caducó cuando M5a-02 (config propia) cerró el
+/// 2026-08-26 (`docs/backlog.md:2117`, "M5a-02 config propia: cerrado el
+/// 2026-08-26"). Ver `MIN_SIMILARITY_SELLADO` más abajo.
 const BONUS_SELLADO: f64 = 0.0;
 const ESCALA_FTS_SELLADA: f64 = 0.6;
+/// D6 (decisión 1 de Paul, 2026-09-15): umbral de similitud coseno para el
+/// default nuevo de `exo search --type` (hybrid) — y, desde el mismo día,
+/// el default que `exo init` escribe en `[embeddings] min_similarity` de
+/// una config nueva (`init_cmd`, rama de creación, más abajo): una sola
+/// constante para los dos usos en vez de dos literales que antes solo
+/// coincidían en intención, nunca en código. En el camino de search se usa
+/// cuando `--min-similarity` se omite Y `--type` resolvió a Hybrid — un
+/// `--type vector` explícito sigue cayendo a `[embeddings] min_similarity`
+/// de la config (comportamiento sin cambios, `min_similitud_efectivo` en
+/// `buscador.rs`). Valor validado por el held-out de la campaña C
+/// (`evals/retrieval-heldout/verdict/c-verdict.md`).
+const MIN_SIMILARITY_SELLADO: f64 = 0.40;
 
 #[derive(Parser)]
 #[command(
@@ -233,7 +247,7 @@ struct ArgsSearch {
     #[arg(long = "limit", value_name = "LIMIT", default_value_t = 10)]
     limite: usize,
     /// Tipo de búsqueda.
-    #[arg(long, value_enum, default_value_t = TipoBusqueda::Fts)]
+    #[arg(long, value_enum, default_value_t = TipoBusqueda::Hybrid)]
     r#type: TipoBusqueda,
     /// Umbral de similitud coseno de la búsqueda semántica. Si se omite,
     /// `[embeddings] min_similarity` de la config. Sin efecto en `--type fts`.
@@ -635,7 +649,12 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
             // 768 es la dimensionalidad DE ESTE modelo (MODELO_JINA_ES): si
             // se cambia uno, el otro tiene que cambiar con él.
             dims: 768,
-            min_similarity: 0.35,
+            // D6 ampliado (decisión de Paul, 2026-09-15, Ola 1 G Task 11):
+            // MISMA constante que sella el default de `exo search --type
+            // hybrid` (cabecera de este fichero) — antes era un literal
+            // 0.35 propio, sin relación con el sweep de calibración ni con
+            // el umbral que el propio `exo search` usa por defecto.
+            min_similarity: MIN_SIMILARITY_SELLADO,
         };
 
         exo::inicia::valida_nombre(&nombre)?;
@@ -1045,7 +1064,7 @@ fn busca_cmd(args: ArgsSearch) -> Result<()> {
             &db,
             &args.query,
             args.limite,
-            args.min_similitud,
+            Some(args.min_similitud.unwrap_or(MIN_SIMILARITY_SELLADO)),
             args.bonus.unwrap_or(BONUS_SELLADO),
             args.escala_fts.unwrap_or(ESCALA_FTS_SELLADA),
             kb.as_deref(),

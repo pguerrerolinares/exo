@@ -247,3 +247,16 @@ fn los_flags_ya_ingleses_no_se_han_movido() {
         "recall --help ya no muestra --cap-bytes:\n{help_recall}"
     );
 }
+
+#[test]
+fn el_default_de_search_type_es_hybrid_no_fts() {
+    // D6 (decisión 1 de Paul, 2026-09-15): el held-out ya decidió — A0
+    // (hybrid) gana a FTS en 41/55 filas, FTS a A0 en 0
+    // (evals/retrieval-heldout/verdict/c-verdict.md). Este test comprueba
+    // el `--help`: el default declarado por clap aparece ahí literal.
+    let help_search = help_de(&["search", "--help"]);
+    assert!(
+        help_search.contains("[default: hybrid]"),
+        "el --help de search debe declarar default hybrid, no fts:\n{help_search}"
+    );
+}

@@ -243,7 +243,7 @@ fn escribe_config(dir: &Path, kb: &Path, db: &Path) -> Result<()> {
         format!(
             "schema_version = 1\n\n[kb]\npath = \"{}\"\nname = \"{NOMBRE_KB}\"\n\n\
              [index]\ndb = \"{}\"\n\n[embeddings]\nmodel = \"{}\"\ndims = 768\n\
-             min_similarity = 0.35\n",
+             min_similarity = 0.40\n",
             barras(kb),
             barras(db),
             exo::MODELO_JINA_ES

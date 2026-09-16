@@ -189,21 +189,24 @@ motivos, tal como los declara el código:
   embeddings a norma unidad, propiedad que el buscador explota: la DDL de
   `vectores` usa la métrica por defecto de vec0 (L2 al cuadrado), y para
   vectores unitarios `cos = 1 − L2²/2` — así el umbral `min_similarity` de la
-  config (0.35 por defecto) se compara en escala coseno.
+  config (0.40 por defecto desde el 2026-09-15, D6 — antes 0.35, ver §3.5) se
+  compara en escala coseno.
 - El modelo se carga **una vez por proceso**, perezosamente
   (`con_embedder_de_proceso`): un `exo index` sin cambios no lo paga.
 
 ### 3.5 Pipeline de búsqueda
 
-`exo search` tiene tres modos (`--type fts|vector|hybrid`, default `fts`),
-implementados en `engine/src/buscador.rs`. Todos devuelven resultados
-**a nivel de nota** (`type: "entity"`), nunca de trozo. Ojo con el default:
-el modo calibrado y medido (48/55 hit@5 **in-sample**, §6; held-out
-**64/92**, Wilson 95 % [59,5 %, 78,0 %], **no comparable** con el 48/55 —
-distinta fuente de queries, §6) es `--type hybrid` **con el umbral pasado
-explícito** (`--min-similarity 0.40`); `fts` a secas es el modo léxico
-barato, no el medido. `exo recall --query` sí usa hybrid con los parámetros
-sellados de serie.
+`exo search` tiene tres modos (`--type fts|vector|hybrid`, **default
+`hybrid` desde el 2026-09-15** — D6, decisión 1 de Paul, campaña G Task 11;
+antes `fts`), implementados en `engine/src/buscador.rs`. Todos devuelven
+resultados **a nivel de nota** (`type: "entity"`), nunca de trozo. El modo
+calibrado y medido (48/55 hit@5 **in-sample**, §6; held-out **64/92**,
+Wilson 95 % [59,5 %, 78,0 %], **no comparable** con el 48/55 — distinta
+fuente de queries, §6) es ahora justo el default: `--type hybrid` con
+`min_similarity = MIN_SIMILARITY_SELLADO = 0.40` cuando `--min-similarity`
+se omite — ya no hace falta pasarlo a mano. `fts` a secas sigue disponible
+con `--type fts`, es el modo léxico barato, no el medido. `exo recall
+--query` usa hybrid con los mismos parámetros sellados de serie.
 
 Dos salidas, dos formas. La humana son cuatro columnas separadas por tab —
 `permalink`, `type`, `score` (4 decimales), **ruta absoluta** — y necesita la
@@ -237,9 +240,16 @@ flowchart TD
   van **sellados** en `main.rs` tras el sweep de calibración de M2-07:
   `bonus = 0.0` y `β = 0.6` (`BONUS_SELLADO`, `ESCALA_FTS_SELLADA`),
   sobreescribibles con `--bonus`/`--fts-scale`. El umbral ganador del sweep
-  (0.40) **no** está sellado como constante: difiere del 0.35 de config y los
-  consumidores lo pasan explícito con `--min-similarity 0.40` (así lo hace el
-  hook `recall-inject.sh`).
+  (0.40) **sí** está sellado como constante desde el 2026-09-15
+  (`MIN_SIMILARITY_SELLADO`, D6 — decisión 1 de Paul, campaña G Task 11): el
+  motivo original para no sellarlo — D-f3/§4.6, "difiere del 0.35 de config
+  y config es RO hasta M5a" — caducó cuando M5a-02 (config propia) cerró el
+  2026-08-26 (`docs/backlog.md:2117`). `exo init` escribe ahora ese mismo
+  0.40 como default de `[embeddings] min_similarity` en una config nueva —
+  una sola constante, no dos literales que antes solo coincidían por
+  casualidad. El hook `recall-inject.sh` sigue pasando `--min-similarity
+  0.40` explícito (documenta su propio contrato de todos modos, no depende
+  del default).
 - **Avisos de degradación**: si `vectores` está vacía o a medio poblar
   respecto a `trozos`, el envelope lleva `warnings` ("arm vector INERTE" /
   "cobertura vectorial PARCIAL") y se imprimen por stderr — un hybrid que en
@@ -302,7 +312,7 @@ Extraída del parser de clap (`engine/src/main.rs`):
 | `exo config` | Emite la config efectiva con rutas expandidas (existe porque jq no lee TOML) | `--json` |
 | `exo index` | Indexado incremental por mtime | `--db`, `--kb`, `--json` |
 | `exo rebuild` | Borra la DB y reconstruye desde cero | `--db`, `--kb`, `--json` |
-| `exo search <query>` | Búsqueda FTS / vector / hybrid | `--type` (default `fts`), `--limit` (10), `--min-similarity`, `--bonus`, `--fts-scale`, `--db`, `--kb`, `--json` |
+| `exo search <query>` | Búsqueda FTS / vector / hybrid | `--type` (default `hybrid` desde D6, 2026-09-15), `--limit` (10), `--min-similarity` (default 0.40, `MIN_SIMILARITY_SELLADO`), `--bonus`, `--fts-scale`, `--db`, `--kb`, `--json` |
 | `exo write new` | Nota nueva con dup-gate | `--dir`, `--title`, `--from`, `--tier`, `--force`, `--db`, `--kb`, `--json` |
 | `exo write append <permalink>` | Append a bitácora con gate de tier | `--from`, `--create`, `--force`, `--db`, `--kb`, `--json` |
 | `exo recall` | Bloque de arranque o consulta híbrida | `--query`, `--limit` (5), `--cap-bytes` (2048), `--content`, `--note`, `--refresh`, `--min-similarity`, `--db`, `--kb`, `--json` |

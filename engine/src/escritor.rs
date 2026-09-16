@@ -160,12 +160,14 @@ fn sin_diacritico(c: char) -> char {
 const UMBRAL_DUP: f64 = 0.6;
 
 /// Solape de tokens entre dos slugs. **Deliberadamente NO usa retrieval
-/// semántico**: el umbral de `busca_hybrid` (0.35-0.40) está calibrado para
-/// "tráeme contexto relevante", que es otra pregunta que "esto ya existe" —
-/// usarlo como dup-gate produce falsos rojos (verificado: un título sin
-/// relación alguna puntuaba 0.36 contra una bitácora cualquiera). Un guard que
-/// rebota al cierre de sesión acaba desactivado, que es como murió el primer
-/// guard de kbx (spec M4 §7.3).
+/// semántico**: el umbral de `busca_hybrid` (0.40 desde D6, Ola 1 G Task 11
+/// — antes 0.35-0.40 según viniera de config o del sellado del sweep, hoy
+/// los dos extremos son la misma constante `MIN_SIMILARITY_SELLADO`) está
+/// calibrado para "tráeme contexto relevante", que es otra pregunta que
+/// "esto ya existe" — usarlo como dup-gate produce falsos rojos (verificado:
+/// un título sin relación alguna puntuaba 0.36 contra una bitácora
+/// cualquiera). Un guard que rebota al cierre de sesión acaba desactivado,
+/// que es como murió el primer guard de kbx (spec M4 §7.3).
 ///
 /// Extra: es determinista y no carga el modelo ONNX, así que el gate no le
 /// añade segundos al cierre de sesión.

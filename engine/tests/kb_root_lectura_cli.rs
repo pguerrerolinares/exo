@@ -493,6 +493,12 @@ fn search_sin_kb_resoluble_no_avisa_y_no_falla() {
 /// Misma degradación que `recall_no_avisa_ni_falla_si_la_db_no_tiene_tabla_meta`,
 /// para `search` (camino independiente: `busca`/`busca_vector` hacen su
 /// propia llamada a `aviso_kb_root_lectura` sobre su propia conexión).
+/// `--type fts` explícito (D6, Ola 1 G Task 11): la fixture no crea
+/// `vectores` en absoluto (`db_sin_tabla_meta`, ni siquiera vacía), así que
+/// el arm vector del nuevo default `hybrid` fallaría con "no such table:
+/// vectores" — un error real, distinto de la degradación "0 vectores" que sí
+/// tolera `aviso_kb_root_lectura`. Este test prueba el camino FTS puro
+/// contra una DB con schema mínimo, no el default de `exo search`.
 #[test]
 fn search_no_avisa_ni_falla_si_la_db_no_tiene_tabla_meta() {
     let kb_pedida = tempfile::tempdir().unwrap();
@@ -501,7 +507,7 @@ fn search_no_avisa_ni_falla_si_la_db_no_tiene_tabla_meta() {
     let cfg = config_con_kb(dir.path(), kb_pedida.path());
 
     let out = Command::new(bin())
-        .args(["search", "--db"])
+        .args(["search", "--type", "fts", "--db"])
         .arg(&db)
         .arg("buscable")
         .env("EXO_CONFIG", &cfg)
