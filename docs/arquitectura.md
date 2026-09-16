@@ -309,13 +309,17 @@ Extraída del parser de clap (`engine/src/main.rs`):
 | `exo targets <tema>` | Candidatas de la KB para un tema, portado de `kbx targets` | `--limit` (10), `--db`, `--kb`, `--json` |
 | `exo rotate` | Divide una bitácora `tier: log` en frío (a `archive/log/`) y caliente, portado de `kbx rotate`. Solo el nivel superior de `log/`, sin recursión | `--hot-bytes` (20480), `--apply`, `--kb`, `--json` |
 | `exo stale` | Urgencia de actualización por nota (edad de último commit, degree, tier), portado de `kbx stale`. Solo lectura | `--now`, `--db`, `--kb`, `--json` |
-| `exo doctor` | Preflight de **entorno** (la máquina), frente a `lint`, que es de la KB. Diez checks; cada uno reporta el artefacto que miró y ninguno desaparece del informe: lo que no aplica sale como `na`. Emite el informe entero y luego gatea (exit 3 si hay algún `fail`; los `warn` no gatean) | `--json` |
+| `exo doctor` | Preflight de **entorno** (la máquina), frente a `lint`, que es de la KB. Doce checks; cada uno reporta el artefacto que miró y ninguno desaparece del informe: lo que no aplica sale como `na`. Emite el informe entero y luego gatea (exit 3 si hay algún `fail`; los `warn` no gatean) | `--json` |
 
-Los flags largos están en inglés con **alias ocultos en español**
-(`--limite`, `--titulo`, `--crea`, `--min-similitud`, `--escala-fts`) durante
-el cutover; el backlog los marca para retirar en la 1.1 **del engine**
-(engine y plugin son dos artefactos con versiones propias; esto no dice
-nada de cuándo versiona el plugin).
+Los flags largos están en inglés. Los diez alias en español que aceptaban
+como forma escondida (`--limite`, `--titulo`, `--crea`, `--min-similitud`,
+`--escala-fts`, y otros cinco) ya **no existen**: se retiraron en `engine`
+0.2.0 (campaña H, commit `5353038`, 2026-09-15) — primera ruptura real de
+compatibilidad, pero para quien invoque el CLI con esos flags, no para el
+plugin: `ENGINE_MIN` sigue en `0.1.0` porque ningún script del plugin los
+usaba. El check `plugin_compat` de `exo doctor` vigila esa otra dirección —
+un binario más viejo que el `ENGINE_MIN` que declara el plugin instalado —,
+no la retirada de los alias en sí.
 
 Idioma de la ayuda: los textos de producto y los errores propios van
 en español; el cromo que pinta clap (`Usage:`, `Options:`, `Commands:`…) y
@@ -388,10 +392,11 @@ Detalles que el diagrama no cuenta:
 
 - **`exo-recall.sh`** (SessionStart) inyecta el cuerpo del `core-index` de la
   KB (el mapa + doctrina) como `additionalContext`. Nunca bloquea el arranque:
-  ante engine ausente, índice ausente, bloque vacío o un bloque que no
-  contiene la frase-guarda `Contrato de memoria`, cae a un fallback de texto
-  embebido y deja un evento greppable con la razón (`no-engine`, `no-index`,
-  `no-contract`…). Tras una compactación de contexto, reafirma las reglas de
+  ante engine ausente, índice ausente, engine por debajo de `ENGINE_MIN`,
+  bloque vacío o un bloque que no contiene la frase-guarda `Contrato de
+  memoria`, cae a un fallback de texto embebido y deja un evento greppable
+  con la razón (`no-engine`, `no-index`, `engine-stale`, `no-contract`…).
+  Tras una compactación de contexto, reafirma las reglas de
   los reflejos que ya dispararon en la sesión.
 - **`estilo-directo.sh`** (SessionStart) inyecta una directiva de estilo de
   respuesta fija: texto estático desde `estilo-directo.md`, no depende del
@@ -527,10 +532,13 @@ resultados, no un benchmark reproducible por un tercero tal cual.
 Bordes explícitos del sistema; el detalle y el siguiente paso de cada uno
 viven en `docs/backlog.md`:
 
-- **El check de desfase binario↔scripts del plugin no existe.** No está entre
-  los diez checks de `exo doctor` (§3.8): si los scripts nuevos corren contra
-  un binario viejo, el hook de arranque degrada al fallback embebido **con
-  forma válida**, sin gritar.
+- **El desfase binario↔plugin solo se vigila en dos sitios.** `exo doctor`
+  lo compara en el check `plugin_compat` (§3.8) y `exo-recall.sh` degrada con
+  `engine-stale` y aviso visible en el bloque de arranque, ambos contra
+  `plugins/exo/ENGINE_MIN` (campaña H). `recall-inject.sh` **no** lo comprueba
+  —sería un spawn de `exo --version` por prompt— y `ENGINE_MIN` solo es tan
+  honesto como quien lo sube cuando un script empieza a necesitar una versión
+  nueva del engine.
 - **MCP propio (M5a) y desinstalación de basic-memory (M5b)**: pendientes. El
   engine ya no depende de basic-memory para funcionar (la única lectura que
   queda es la migración explícita `exo init --from-basic-memory`), pero el
@@ -540,9 +548,9 @@ viven en `docs/backlog.md`:
   el gate de hermeticidad (`engine/scripts/test-hermetico.sh`) cubre la config
   pero no esa segunda dependencia. `exo-recall.sh`, el hook de SessionStart,
   no tiene suite de test propia.
-- **Aliases españoles del CLI**: vivos como alias ocultos, marcados para
-  retirar en la 1.1 **del engine** (versión propia, distinta de la del
-  plugin).
+- ~~**Aliases españoles del CLI**: vivos como forma escondida del flag,
+  marcados para retirar en la 1.1 del engine.~~ **Retirados en `engine`
+  0.2.0** (campaña H, commit `5353038`, 2026-09-15) — ya no parsean.
 - **Troceado y fusión son la calibración de un corpus concreto**: 900 chars,
   β=0.6, bonus=0.0 y el umbral 0.40 son los ganadores del sweep sobre la KB
   del autor; no hay mecanismo de recalibración para otra KB.

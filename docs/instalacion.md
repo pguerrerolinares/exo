@@ -50,11 +50,14 @@ Los dos hacen lo mismo: detectan la plataforma, bajan el binario de la última
 release, **verifican su SHA256 antes de copiar nada**, lo dejan en
 `~/.local/bin/exo` (`exo.exe` en Windows) y cierran corriendo `exo doctor`.
 
-**Por qué `~/.local/bin` y no otro sitio del PATH:** es la ruta literal que
-mira el pre-commit de la KB (`plugins/exo/scripts/kb-precommit.sh:18`). Si el
-binario no está ahí, ese hook sale 0 —commit permitido, sin gate— y no rompe
-nada al hacerlo. `exo doctor` tiene un check dedicado a eso
-(`hook_fallback_binary`).
+**Por qué `~/.local/bin` y no otro sitio del PATH:** es donde caen los dos
+instaladores, y como `~/.local/bin` suele estar en el `PATH`, el pre-commit
+de la KB (`plugins/exo/scripts/kb-precommit.sh:20-21`) lo resuelve por
+`command -v exo` — mismo orden que usan los hooks — antes de mirar el
+literal `$HOME/.local/bin/exo(.exe)` como fallback. Si ninguno de los dos
+resuelve un `exo` ejecutable, ese hook sale 1 y BLOQUEA el commit
+(fail-closed) — el escape consciente es `git commit --no-verify`. `exo
+doctor` tiene un check dedicado al literal (`hook_fallback_binary`).
 
 Variables reconocidas: `EXO_DIR` (destino), `EXO_VERSION` (un tag concreto en
 vez de `latest`), `EXO_INIT_KB` + `EXO_INIT_NAME` (encadenan `exo init`).
@@ -65,7 +68,7 @@ vez de `latest`), `EXO_INIT_KB` + `EXO_INIT_NAME` (encadenan `exo init`).
 exo doctor
 ```
 
-Diez checks de entorno; cada uno dice **el artefacto que miró**. `warn`
+Doce checks de entorno; cada uno dice **el artefacto que miró**. `warn`
 informa, `fail` sale con código 3. Con `--json` emite el envelope v2.
 
 ## 3. Compilar el engine
@@ -170,9 +173,11 @@ claude plugin install exo@exo
 
 Los hooks del plugin necesitan el binario ya instalado (sección 3) y `jq`.
 Si el engine no está, el plugin no rompe la sesión: degrada a fallbacks
-embebidos y lo deja anotado en `~/.claude/reflex-log.jsonl`. Ese silencio
-tiene su deuda: el check de desfase binario↔plugin sigue sin existir en
-`exo doctor` — ver `docs/backlog.md`.
+embebidos y lo deja anotado en `~/.claude/reflex-log.jsonl`. El desfase
+binario↔plugin (un binario más viejo que lo que el plugin instalado declara
+necesitar) sí tiene check dedicado en `exo doctor` (`plugin_compat`,
+campaña H) y en el hook `exo-recall.sh` (SessionStart) — ver
+`docs/backlog.md`.
 
 **Versiones.** El engine y el plugin versionan por separado: `exo --version`
 es la del binario (= tag de la release); el plugin lleva la suya en

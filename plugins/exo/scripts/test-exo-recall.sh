@@ -64,10 +64,17 @@ else
 fi
 
 # ------------------- no-index: EXO_BIN ejecutable, EXO_INDEX ausente ------
+# --version responde por encima de ENGINE_MIN (mismo motivo que STUB_FELIZ más
+# abajo): este stub también se usa en el caso no-config, que SÍ llega al guard
+# de versión (índice presente) — sin esto, no-config se confundiría con
+# engine-stale.
 STUB_OK="$TMP/exo-stub-ok"
 cat > "$STUB_OK" <<'EOF'
 #!/usr/bin/env bash
-exit 0
+case "$1" in
+  --version) echo "exo 9.0.0" ;;
+  *) exit 0 ;;
+esac
 EOF
 chmod +x "$STUB_OK"
 
@@ -97,6 +104,7 @@ STUB_FELIZ="$TMP/exo-stub-feliz"
 cat > "$STUB_FELIZ" <<'EOF'
 #!/usr/bin/env bash
 case "$1" in
+  --version) echo "exo 9.0.0" ;;
   config) echo '{"schema_version":2,"command":"config","data":{"kb":{"name":"kb-test","path":"/tmp/kb-test"}}}' ;;
   recall) echo "Contrato de memoria: bloque de prueba camino feliz." ;;
   *) exit 1 ;;
@@ -106,7 +114,7 @@ chmod +x "$STUB_FELIZ"
 
 : > "$LOGC"
 touch "$TMP/index-feliz.db"
-run_hook '{"session_id":"sess-ok"}' EXO_BIN="$STUB_FELIZ" EXO_INDEX="$TMP/index-feliz.db"
+run_hook '{"session_id":"sess-ok"}' EXO_BIN="$STUB_FELIZ" EXO_INDEX="$TMP/index-feliz.db" ENGINE_MIN=0.1.0
 CTX_OK="$(printf '%s' "$HOOK_OUT" | jq -r '.hookSpecificOutput.additionalContext' 2>/dev/null)"
 if contains "$CTX_OK" "Contrato de memoria" \
    && ! contains "$CTX_OK" "Tu memoria persistente es una KB" \
@@ -115,6 +123,58 @@ if contains "$CTX_OK" "Contrato de memoria" \
 else
   fail "camino feliz: bloque real inyectado, sin fallback ni log de degradación" \
     "ctx='$CTX_OK' log=$(cat "$LOGC" 2>/dev/null)"
+fi
+
+# ------------------- engine-stale: exo responde, pero por debajo de ENGINE_MIN
+STUB_VIEJO="$TMP/exo-stub-viejo"
+cat > "$STUB_VIEJO" <<'EOF'
+#!/usr/bin/env bash
+case "$1" in
+  --version) echo "exo 0.1.0" ;;
+  config) echo '{"schema_version":2,"command":"config","data":{"kb":{"name":"kb-test","path":"/tmp/kb-test"}}}' ;;
+  recall) echo "Contrato de memoria: no debería llegar aquí." ;;
+  *) exit 1 ;;
+esac
+EOF
+chmod +x "$STUB_VIEJO"
+
+: > "$LOGC"
+touch "$TMP/index-viejo.db"
+run_hook '{"session_id":"sess-stale"}' EXO_BIN="$STUB_VIEJO" EXO_INDEX="$TMP/index-viejo.db" ENGINE_MIN=9.9.9
+EV_ST="$(ultimo_evento)"; PL_ST="$(ultimo_payload)"
+CTX_ST="$(printf '%s' "$HOOK_OUT" | jq -r '.hookSpecificOutput.additionalContext' 2>/dev/null)"
+if [ "$EV_ST" = "recall-fallback" ] && contains "$PL_ST" "reason=engine-stale" \
+   && contains "$CTX_ST" "engine desactualizado"; then
+  pass "engine-stale: version por debajo de ENGINE_MIN ⇒ recall-fallback + aviso en el bloque"
+else
+  fail "engine-stale: version por debajo de ENGINE_MIN ⇒ recall-fallback + aviso en el bloque" \
+    "evento=$EV_ST payload=$PL_ST ctx='$CTX_ST'"
+fi
+
+# ------------------- engine-stale: --version no responde ⇒ engine=desconocida
+# Distinto de STUB_VIEJO de arriba (ese SÍ responde --version, solo que por
+# debajo de ENGINE_MIN): aquí el binario ni siquiera contesta con la forma
+# "exo X.Y.Z" que exo_version_de() espera (_engine-version.sh), así que
+# ENGINE_VER queda vacío y el hook no puede nombrar la versión real.
+STUB_SIN_VERSION="$TMP/exo-stub-sin-version"
+cat > "$STUB_SIN_VERSION" <<'EOF'
+#!/usr/bin/env bash
+case "$1" in
+  --version) exit 1 ;;
+  *) exit 0 ;;
+esac
+EOF
+chmod +x "$STUB_SIN_VERSION"
+
+: > "$LOGC"
+touch "$TMP/index-sin-version.db"
+run_hook '{"session_id":"sess-sinversion"}' EXO_BIN="$STUB_SIN_VERSION" EXO_INDEX="$TMP/index-sin-version.db" ENGINE_MIN=0.1.0
+EV_SV="$(ultimo_evento)"; PL_SV="$(ultimo_payload)"
+if [ "$EV_SV" = "recall-fallback" ] && contains "$PL_SV" "reason=engine-stale" && contains "$PL_SV" "engine=desconocida"; then
+  pass "engine-stale: --version no responde ⇒ recall-fallback reason=engine-stale engine=desconocida"
+else
+  fail "engine-stale: --version no responde ⇒ recall-fallback reason=engine-stale engine=desconocida" \
+    "evento=$EV_SV payload=$PL_SV"
 fi
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"

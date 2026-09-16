@@ -45,6 +45,94 @@ M0 Fase 0 ──→ M1a repo ──→ M2 E1-read ──→ M4 E2-write ──�
                       M7 templates (diferible)
 ```
 
+## ACTUALIZACIÓN 2026-09-15 — ola 1: campañas H, F y G (manda sobre todo lo de abajo)
+
+Tras el cierre de D+E (PR #19-#22, todos mergeados el 2026-09-15), un
+consultor Fable propuso F→K en
+`docs/superpowers/consultas/2026-09-15-campanas/propuesta.md` (§6 =
+decisiones de Paul sobre el paquete de decisiones del §5). La ola 1 son las
+tres campañas que no piden nada caro a Paul: F, G y H, en tres ramas
+paralelas.
+
+| Orden de merge | Campaña | Plan |
+|---|---|---|
+| 1 | **H — Fail-closed: `doctor` y cutover binario↔plugin que no mienten** | `docs/superpowers/plans/2026-09-15-campana-h-fail-closed.md` |
+| 2 | **F — Superficie publicable: docs vivos, gates estáticos, «genérico»** | `docs/superpowers/plans/2026-09-15-campana-f-superficie-publicable.md` |
+| 3 | **G — Engine: deuda diferida sin cambio de ranking** | `docs/superpowers/plans/2026-09-15-campana-g-engine-deuda-diferida.md` |
+
+Orden H → F → G: la que más toca (H, primera ruptura real de compatibilidad
+binario↔plugin) absorbe el rebase primero — misma regla ya usada en D/E.
+
+**Decisiones de Paul resueltas** (`propuesta.md` §6):
+- **#1 (D6, default de `exo search --type`)**: `hybrid` + `--min-similarity
+  0.40` — entra en G, junto con el default de `exo init` a 0.40.
+- **#5 (idioma de identificadores de código)**: español, una línea en
+  `arquitectura.md` §3.8 (identificadores en español, claves JSON/flags en
+  inglés) — entra en F.
+- **#8 (branch protection)**: en dos pasos — F renombra primero el job
+  `lint` (a algo que refleje sus steps); los required checks los activa Paul
+  después, fuera de la fábrica.
+- **#9 (`walk_kb` unificado)**: unificar sobre `walk_kb_excluyendo`, cambio
+  de comportamiento declarado (`.git/` deja de recorrerse, `NOTA.MD` empieza
+  a indexarse) — entra en G.
+- **#10 (check de desfase binario↔plugin en `doctor` + hooks)**: entra en H.
+  Deroga la exclusión que la campaña E había fijado («check de desfase en
+  `doctor` FUERA», bloque 2026-09-14 de este mismo config).
+- **#11 (`kb-precommit.sh` sin `exo`)**: fail-closed, `exit 1`, escape
+  consciente documentado (`git commit --no-verify`) — entra en H.
+- **#14 (`docs/superpowers/`)**: se queda con su nombre actual, una frase en
+  `arquitectura.md` explicándolo — entra en F.
+- **Retirar los aliases españoles del CLI → `engine` 0.2.0**: entra en H, es
+  la primera ruptura real de compatibilidad binario↔plugin del proyecto.
+- **Check de versión en hooks (decisión de Paul en pre-flight de H, no en la
+  propuesta original)**: SOLO en `exo-recall.sh` (SessionStart) y
+  `exo doctor`; `recall-inject.sh` (UserPromptSubmit, un spawn por prompt)
+  NO lo lleva, para no chocar con la latencia que medirá la futura campaña I.
+
+**Zonas de colisión, releídas antes de cada task**:
+- `engine/src/main.rs`: H toca los alias (`:153-315`, Task 7) y nada del
+  `--version` (clap lo deriva de `Cargo.toml`); G toca el default de
+  `--type` (`:241`) y `write_append_cmd` (`:832-868`) — disjuntas.
+- `engine/src/doctor.rs`: G solo añade llamadas al `walk_kb` unificado
+  (`check_kb`, `mtime_mas_reciente`); H añade `check_plugin_compat` (función
+  nueva) y edita `check_git_bash`/`script_del_plugin` — cero líneas
+  compartidas.
+- `plugins/exo/scripts/{kb-precommit,exo-recall,recall-inject}.sh`: F solo
+  toca comentarios/texto (idioma, «genérico»); el código de estos scripts lo
+  tocan H (check de versión, fail-closed) y, después, la campaña I.
+- `docs/arquitectura.md` §3.8: F añade una línea sobre idioma de
+  identificadores; H (Task 8) ya corrigió ahí las menciones de los alias
+  españoles retirados en `5353038`, sin tocar el resto del párrafo, para que
+  el rebase de F sea trivial.
+
+**Gotchas de entorno medidos** (Windows 11 + Git Bash, válidos para F/G/H):
+- `jq`/`.exe` con CRLF: wrappers `.exe` de utilidades SÍ reintroducen CRLF en
+  la salida cuando se redirige a fichero sin normalizar — medido en H
+  (`tr -d '\r'` lo arregla); verificar con `file`/`cat -A` antes de comparar
+  salidas byte a byte en gates de paridad.
+- `core.filemode=false`: git en Windows no trackea el bit ejecutable por
+  defecto, así que un script nuevo puede quedar `100644` en vez de `100755`
+  sin que nadie lo note al hacer `git add` — verificar con
+  `git ls-files -s <script>` antes de dar un script nuevo por bueno (H, Task
+  1, lo pisó y lo corrigió en `d5281ad`).
+- `grep`/locale con caracteres no-ASCII: bajo el locale por defecto de esta
+  máquina (`LC_ALL`/`LANG` vacíos, resuelve a `C` pese a lo que reporta
+  `locale`), el `.` de una regex de `grep` **no** hace match con un
+  carácter multibyte UTF-8 (`↔`, vocales con tilde, `ñ`) — hace falta
+  `LC_ALL=C.UTF-8` o `LC_ALL=en_US.UTF-8` explícito. Medido en H, Task 8: el
+  oráculo `grep -n "cutover binario.scripts: cerrado" docs/backlog.md` da
+  vacío sin el override y encuentra la línea con él puesto. Cualquier
+  oráculo de F/G/H que use `.` como comodín sobre texto en español debe
+  fijar el locale explícitamente o evitar el comodín sobre no-ASCII.
+
+**Se mantienen**: el régimen de gates de §Ejecución de gates, la línea roja
+(`git push`, tag y release = SIEMPRE Paul, nunca un consultor ni un
+executor), y la regla PENDIENTE-PAUL (una decisión sin dueño citable no se
+adjudica, queda encolada — el cap de 6.144 de H, Task 8, es un ejemplo vivo
+de esta ola).
+
+---
+
 ## ACTUALIZACIÓN 2026-09-14 — campañas D+E en la misma fábrica (manda sobre todo lo de abajo)
 
 A, B y C mergeadas (PR #13, #14, #16). La siguiente fábrica ejecuta **dos

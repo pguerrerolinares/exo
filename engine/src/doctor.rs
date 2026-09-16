@@ -171,7 +171,111 @@ pub fn analiza(entorno: &Entorno) -> InformeDoctor {
         check_git_bash(entorno),
         check_detach(entorno),
         check_hook_precommit(entorno, cfg.as_ref()),
+        check_plugin_compat(entorno),
     ])
+}
+
+/// Parsea `"X.Y.Z"` a una tupla comparable por orden natural. `None` si no
+/// tiene esa forma exacta (tres componentes numéricos separados por punto) —
+/// un directorio que no es una versión (basura, `.DS_Store`) se descarta en
+/// vez de reventar el sort. Sin dependencia nueva: `semver` es una crate más
+/// para lo mismo que tres `parse::<u32>()`.
+pub fn parse_semver(s: &str) -> Option<(u32, u32, u32)> {
+    let mut partes = s.trim().split('.');
+    let mayor: u32 = partes.next()?.parse().ok()?;
+    let menor: u32 = partes.next()?.parse().ok()?;
+    let parche: u32 = partes.next()?.parse().ok()?;
+    if partes.next().is_some() {
+        return None;
+    }
+    Some((mayor, menor, parche))
+}
+
+/// El subdirectorio de versión MÁS ALTA bajo `base` (cada entrada es un
+/// directorio `X.Y.Z`, el layout de `~/.claude/plugins/cache/exo/<familia>/`).
+/// Compara semver real, no la cadena: `"1.10.0"` < `"1.9.0"` como texto,
+/// pero es la versión MAYOR — el bug que tenía `script_del_plugin` antes de
+/// esta campaña (Task 5 lo reutiliza para corregirlo). `None` si `base` no
+/// existe o no contiene ningún directorio con nombre de versión válido.
+pub fn version_dir_mas_alta(base: &Path) -> Option<(PathBuf, (u32, u32, u32))> {
+    let entradas = std::fs::read_dir(base).ok()?;
+    entradas
+        .flatten()
+        .filter(|e| e.path().is_dir())
+        .filter_map(|e| {
+            let nombre = e.file_name().to_string_lossy().into_owned();
+            parse_semver(&nombre).map(|v| (e.path(), v))
+        })
+        .max_by_key(|(_, v)| *v)
+}
+
+/// `ENGINE_MIN` es el fichero de una línea (`plugins/exo/ENGINE_MIN` en el
+/// repo, copiado tal cual al instalar) donde el PLUGIN declara la versión
+/// mínima de engine con la que fue probado. Este check compara ESE número
+/// contra `env!("CARGO_PKG_VERSION")` — la versión de ESTE binario, fijada
+/// en compilación — para detectar el caso que motiva la campaña H: un
+/// plugin actualizado (que ya no lleva los alias españoles retirados en
+/// 0.2.0, por ejemplo) corriendo contra un binario que se quedó atrás.
+/// OJO: compara el binario que EJECUTA `doctor` ahora mismo, no el que los
+/// hooks resuelven en un commit real — un `target/release/exo doctor` da
+/// `ok` aunque el `~/.local/bin/exo` que usan los hooks sea viejo.
+fn check_plugin_compat(entorno: &Entorno) -> Check {
+    let base = entorno
+        .home
+        .join(".claude")
+        .join("plugins")
+        .join("cache")
+        .join("exo")
+        .join("exo");
+    let Some((dir, version)) = version_dir_mas_alta(&base) else {
+        return Check::nuevo(
+            "plugin_compat",
+            Estado::Warn,
+            base.display().to_string(),
+            "no encuentro el plugin exo instalado — sin plugin no hay hooks \
+             que puedan degradar, pero tampoco recall automático",
+        );
+    };
+    let ruta_min = dir.join("ENGINE_MIN");
+    let declarado = std::fs::read_to_string(&ruta_min).unwrap_or_default();
+    let declarado = declarado.trim();
+    let Some(min) = parse_semver(declarado) else {
+        return Check::nuevo(
+            "plugin_compat",
+            Estado::Warn,
+            ruta_min.display().to_string(),
+            "el plugin instalado no lleva un ENGINE_MIN legible (versión \
+             anterior a esta campaña) — no puedo comparar",
+        );
+    };
+    let (va, vb, vc) = version;
+    let propia_str = env!("CARGO_PKG_VERSION");
+    let propia = parse_semver(propia_str)
+        .expect("CARGO_PKG_VERSION de este crate siempre es X.Y.Z (engine/Cargo.toml)");
+    let artefacto = format!(
+        "binario {propia_str} · plugin {va}.{vb}.{vc} exige >= {declarado} ({})",
+        ruta_min.display()
+    );
+    if propia < min {
+        Check::nuevo(
+            "plugin_compat",
+            Estado::Fail,
+            artefacto,
+            format!(
+                "este binario ({propia_str}) es más viejo que lo que el \
+                 plugin instalado declara necesitar ({declarado}) — los \
+                 hooks pueden degradar con forma válida. Actualiza el \
+                 binario a >= {declarado}"
+            ),
+        )
+    } else {
+        Check::nuevo(
+            "plugin_compat",
+            Estado::Ok,
+            artefacto,
+            "el binario cumple el ENGINE_MIN que declara el plugin instalado",
+        )
+    }
 }
 
 /// Primera coincidencia de `nombre` (o `nombre.exe` en Windows) en un PATH
@@ -217,10 +321,14 @@ fn check_binario_en_path(entorno: &Entorno) -> Check {
     }
 }
 
-/// El fallback literal de `plugins/exo/scripts/kb-precommit.sh:18`
-/// (`EXO="${EXO_BIN:-$HOME/.local/bin/exo}"`). Si ese fichero no está, la
-/// línea 20 del hook sale **0**: commit permitido, gate apagado, sin romper
-/// nada. Por eso esto es `fail` y no `warn`.
+/// El fallback literal de `plugins/exo/scripts/kb-precommit.sh`
+/// (`$HOME/.local/bin/exo(.exe)`, después de `EXO_BIN` y de `command -v exo`
+/// —el PATH, que ese hook mira primero, mismo orden que los hooks del
+/// plugin—). Si este fichero falta Y tampoco hay un `exo` en `$PATH`
+/// (`binary_on_path`, arriba), el hook sale **1** y
+/// BLOQUEA el commit (fail-closed, campaña H) — ya no degrada en silencio.
+/// Sigue siendo `fail` y no `warn` porque, aunque el fallo ya no sea mudo,
+/// sí es evitable: instalar el binario aquí ahorra el commit bloqueado.
 ///
 /// Se reporta QUÉ fichero existe: medido el 2026-09-10 en el Git Bash de W11,
 /// msys resuelve `exo` → `exo.exe` en `stat()` y el test `-x` sobre la ruta
@@ -285,7 +393,8 @@ fn check_fallback_del_hook(entorno: &Entorno) -> Check {
             "hook_fallback_binary",
             Estado::Fail,
             artefacto,
-            "kb-precommit.sh:20 sale 0 sin gate — COMMIT PERMITIDO en silencio. \
+            "kb-precommit.sh BLOQUEA el commit si tampoco hay un exo en $PATH \
+             (fail-closed, campaña H) — no es silencioso, pero sí evitable. \
              Instala con install.sh/install.ps1 o copia el binario ahí",
         )
     }
@@ -553,6 +662,68 @@ fn check_jq(entorno: &Entorno) -> Check {
     }
 }
 
+/// Heurística barata y TERNARIA: concluye sin lanzar ningún proceso cuando
+/// puede, y deja `None` (inconcluso) para que `es_git_bash` decida con
+/// `--version`.
+///
+/// Antes era booleana, y eso confundía "inconcluso" con "concluyente-no": la
+/// ruta del `bash.exe` de WSL vive bajo `System32` y no contiene `"git"`, así
+/// que la vieja heurística devolvía `false` — la MISMA respuesta que para una
+/// ruta desconocida. `es_git_bash` no podía distinguir los dos casos y
+/// lanzaba `--version` en ambos, es decir: lanzaba el `bash.exe` de WSL (que
+/// arranca la VM entera) solo para un check de doctor.
+///
+/// - `Some(true)`: la ruta vive bajo un directorio `git` — concluyente sí.
+/// - `Some(false)`: la ruta vive bajo `.../System32/` o `.../WindowsApps/` —
+///   el `bash.exe` de WSL vive literalmente bajo `System32`, y el alias de
+///   ejecución de la Store bajo `WindowsApps` — concluyente no, SIN lanzar
+///   nada.
+/// - `None`: ninguno de los dos patrones — inconcluso; solo este caso llega
+///   a `--version`.
+///
+/// Comparación case-insensitive y tolerante a `\` o `/` como separador: se
+/// normaliza a `/` y se antepone una barra para que un segmento en posición
+/// inicial (p.ej. una ruta relativa `"System32/bash.exe"`) tenga el mismo
+/// borde que uno interior.
+pub fn ruta_sugiere_git_bash(ruta: &Path) -> Option<bool> {
+    let s = format!(
+        "/{}",
+        ruta.to_string_lossy().to_lowercase().replace('\\', "/")
+    );
+    if s.contains("/system32/") || s.contains("/windowsapps/") {
+        return Some(false);
+    }
+    if s.contains("/git/") {
+        return Some(true);
+    }
+    None
+}
+
+/// El bash de WSL responde a `--version` como un GNU bash normal de Linux;
+/// el de Git Bash (msys2) declara su propia plataforma en la misma línea
+/// (`x86_64-pc-msys` / `mingw`). Función pura: sin esto, probar la rama que
+/// SÍ lanza el proceso exigiría fabricar un `bash.exe` real por plataforma.
+pub fn salida_indica_git_bash(salida: &str) -> bool {
+    let s = salida.to_lowercase();
+    s.contains("msys") || s.contains("mingw")
+}
+
+/// `ruta` es un Git Bash de verdad: la vía barata (heurística de ruta,
+/// ahora ternaria) primero, y solo si es INCONCLUSA (`None`) se le pregunta
+/// con `--version` — un veredicto concluyente (`Some`) de
+/// `ruta_sugiere_git_bash` nunca lanza el proceso, ni para el sí ni para el
+/// no. Un `Err` al ejecutar (ruta no es un binario válido) cuenta como "no lo
+/// es", nunca como pánico.
+fn es_git_bash(ruta: &std::path::Path) -> bool {
+    match ruta_sugiere_git_bash(ruta) {
+        Some(veredicto) => veredicto,
+        None => match std::process::Command::new(ruta).arg("--version").output() {
+            Ok(o) => salida_indica_git_bash(&String::from_utf8_lossy(&o.stdout)),
+            Err(_) => false,
+        },
+    }
+}
+
 /// Claude Code usa Git Bash como shell de hooks en Windows: sin él los
 /// `.sh` del plugin no corren. Fuera de Windows sale `na` —no desaparece—
 /// porque una fila ausente no se distingue de un check que nunca existió.
@@ -566,11 +737,19 @@ fn check_git_bash(entorno: &Entorno) -> Check {
         );
     }
     match busca_en_path(&entorno.path, "bash") {
-        Some(ruta) => Check::nuevo(
+        Some(ruta) if es_git_bash(&ruta) => Check::nuevo(
             "git_bash",
             Estado::Ok,
             ruta.display().to_string(),
             "Claude Code puede correr los hooks .sh del plugin",
+        ),
+        Some(ruta) => Check::nuevo(
+            "git_bash",
+            Estado::Warn,
+            ruta.display().to_string(),
+            "resuelve a un bash que no es Git Bash (probablemente WSL): los \
+             hooks .sh de Claude Code esperan Git Bash — instala Git for \
+             Windows y ponlo antes en el PATH",
         ),
         None => Check::nuevo(
             "git_bash",
@@ -737,12 +916,17 @@ fn check_hook_precommit(entorno: &Entorno, cfg: Option<&crate::config::Config>) 
 /// instalado en la KB: el plugin `exo` primero y el `reflex` viejo como
 /// fallback declarado del cutover. Devuelve la ruta y si viene de `exo`.
 ///
-/// El shim se queda con la versión más alta por `sort -V`; aquí basta con que
-/// **alguna** resuelva, así que se ordena lexicográficamente y se toma la
-/// última. La diferencia importaría para decir QUÉ versión corre, no para
-/// decir si el gate puede correr, que es lo que este check afirma.
+/// El shim real se queda con la versión más alta por `sort -V`: esto lo
+/// replica de verdad (campaña H) reutilizando `parse_semver`/comparación
+/// numérica de Task 3, en vez del `sort()` lexicográfico de texto que este
+/// fichero tenía antes — `"1.10.0" < "1.9.0"` como cadena, al revés que como
+/// versión, y con dos versiones instaladas a la vez elegía la vieja.
 ///
-/// Sin la crate `glob`: dos `read_dir` no pagan una dependencia.
+/// No reutiliza `version_dir_mas_alta`: aquí la versión más alta que NO
+/// tiene `kb-precommit.sh` no debe ganar a una más baja que sí lo tiene, así
+/// que el filtro por presencia del script va inline, junto a la comparación.
+///
+/// Sin la crate `glob`: `read_dir` no paga una dependencia.
 fn script_del_plugin(home: &std::path::Path) -> Option<(PathBuf, bool)> {
     for (familia, es_exo) in [("exo", true), ("reflex", false)] {
         let base = home
@@ -754,14 +938,18 @@ fn script_del_plugin(home: &std::path::Path) -> Option<(PathBuf, bool)> {
         let Ok(entradas) = std::fs::read_dir(&base) else {
             continue;
         };
-        let mut candidatos: Vec<PathBuf> = entradas
+        let candidato = entradas
             .flatten()
-            .map(|e| e.path().join("scripts").join("kb-precommit.sh"))
-            .filter(|p| p.is_file())
-            .collect();
-        candidatos.sort();
-        if let Some(ultimo) = candidatos.pop() {
-            return Some((ultimo, es_exo));
+            .filter_map(|e| {
+                let nombre = e.file_name().to_string_lossy().into_owned();
+                let v = parse_semver(&nombre)?;
+                let script = e.path().join("scripts").join("kb-precommit.sh");
+                script.is_file().then_some((script, v))
+            })
+            .max_by_key(|(_, v)| *v)
+            .map(|(script, _)| script);
+        if let Some(script) = candidato {
+            return Some((script, es_exo));
         }
     }
     None

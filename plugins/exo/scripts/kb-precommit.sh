@@ -15,9 +15,36 @@
 set -uo pipefail
 
 KB="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
-EXO="${EXO_BIN:-$HOME/.local/bin/exo}"
 
-[ -x "$EXO" ] || { echo "kb-precommit: no encuentro exo en $EXO — instálalo con 'cargo build --release' en engine/ y copia el binario a \$HOME/.local/bin/exo(.exe) — commit permitido sin gate" >&2; exit 0; }
+# Resolución del binario, mismo orden de precedencia que usan los hooks del
+# plugin (exo-recall.sh:34, recall-inject.sh:23): EXO_BIN > `command -v exo`
+# > $HOME/.local/bin/exo(.exe). El PATH gana sobre el literal de ~/.local/bin
+# porque así resuelven los hooks; divergir aquí significa que el pre-commit
+# y los hooks pueden acabar usando binarios distintos en la misma máquina
+# (bug de precedencia detectado en review, fix de H).
+if [ -n "${EXO_BIN:-}" ]; then
+  EXO="$EXO_BIN"
+elif command -v exo >/dev/null 2>&1; then
+  EXO="$(command -v exo)"
+elif [ -x "$HOME/.local/bin/exo" ]; then
+  EXO="$HOME/.local/bin/exo"
+elif [ -x "$HOME/.local/bin/exo.exe" ]; then
+  EXO="$HOME/.local/bin/exo.exe"
+else
+  EXO="$HOME/.local/bin/exo"
+fi
+
+# Fail-closed (campaña H, docs/backlog.md "kb-precommit.sh depende de que
+# exo esté instalado — si no, el gate degrada a 'commit permitido' en
+# silencio"): antes esto salía 0 con un aviso que nadie mira en un
+# pre-commit. El escape es explícito y consciente: `git commit --no-verify`.
+if [ ! -x "$EXO" ]; then
+  echo "kb-precommit: no encuentro un exo ejecutable en \$EXO_BIN ni en $EXO — commit BLOQUEADO (el gate es fail-closed)." >&2
+  echo "  1) instala el binario: 'cargo build --release' en engine/ y copia a \$HOME/.local/bin/exo(.exe)" >&2
+  echo "  2) o apunta a uno ya instalado: EXO_BIN=<ruta> git commit ..." >&2
+  echo "  3) si de verdad quieres saltarte el gate: git commit --no-verify (escape consciente, el commit queda sin verificar)" >&2
+  exit 1
+fi
 
 fail=0
 
