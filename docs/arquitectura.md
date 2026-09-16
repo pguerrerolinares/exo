@@ -206,7 +206,14 @@ fuente de queries, §6) es ahora justo el default: `--type hybrid` con
 `min_similarity = MIN_SIMILARITY_SELLADO = 0.40` cuando `--min-similarity`
 se omite — ya no hace falta pasarlo a mano. `fts` a secas sigue disponible
 con `--type fts`, es el modo léxico barato, no el medido. `exo recall
---query` usa hybrid con los mismos parámetros sellados de serie.
+--query` usa hybrid con los mismos parámetros sellados de serie (I2, review
+final de la campaña G, decisión 2 de Paul, 2026-09-16: `recall_cmd` en
+`main.rs` resuelve `--min-similarity` omitido a `MIN_SIMILARITY_SELLADO`
+antes de llamar a `recall_consulta`, igual que `search --type hybrid` desde
+la Task 11 — **cambio de ranking** para quien tenga `[embeddings]
+min_similarity` distinto de 0.40 en su config, ya que antes `recall --query`
+sin flag caía a ese valor de config, 0.35 en la máquina de Paul; ahora la
+config deja de mandar en este camino).
 
 Dos salidas, dos formas. La humana son cuatro columnas separadas por tab —
 `permalink`, `type`, `score` (4 decimales), **ruta absoluta** — y necesita la
@@ -315,7 +322,7 @@ Extraída del parser de clap (`engine/src/main.rs`):
 | `exo search <query>` | Búsqueda FTS / vector / hybrid | `--type` (default `hybrid` desde D6, 2026-09-15), `--limit` (10), `--min-similarity` (default 0.40, `MIN_SIMILARITY_SELLADO`), `--bonus`, `--fts-scale`, `--db`, `--kb`, `--json` |
 | `exo write new` | Nota nueva con dup-gate | `--dir`, `--title`, `--from`, `--tier`, `--force`, `--db`, `--kb`, `--json` |
 | `exo write append <permalink>` | Append a bitácora con gate de tier | `--from`, `--create`, `--force`, `--db`, `--kb`, `--json` |
-| `exo recall` | Bloque de arranque o consulta híbrida | `--query`, `--limit` (5), `--cap-bytes` (2048), `--content`, `--note`, `--refresh`, `--min-similarity`, `--db`, `--kb`, `--json` |
+| `exo recall` | Bloque de arranque o consulta híbrida | `--query`, `--limit` (5), `--cap-bytes` (2048), `--content`, `--note`, `--refresh`, `--min-similarity` (default 0.40 en modo consulta, `MIN_SIMILARITY_SELLADO`, I2), `--db`, `--kb`, `--json` |
 | `exo targets <tema>` | Candidatas de la KB para un tema, portado de `kbx targets` | `--limit` (10), `--db`, `--kb`, `--json` |
 | `exo rotate` | Divide una bitácora `tier: log` en frío (a `archive/log/`) y caliente, portado de `kbx rotate`. Solo el nivel superior de `log/`, sin recursión | `--hot-bytes` (20480), `--apply`, `--kb`, `--json` |
 | `exo stale` | Urgencia de actualización por nota (edad de último commit, degree, tier), portado de `kbx stale`. Solo lectura | `--now`, `--db`, `--kb`, `--json` |

@@ -294,8 +294,10 @@ struct ArgsRecall {
     /// por líneas enteras.
     #[arg(long, default_value_t = 2048)]
     cap_bytes: usize,
-    /// Umbral de similitud coseno en modo consulta. Si se omite, el de la
-    /// config. Sin efecto en modo arranque.
+    /// Umbral de similitud coseno en modo consulta: este flag o si no el
+    /// umbral sellado 0.40, sin mirar la config — misma precedencia que
+    /// `search --type hybrid` (I2, decisión 2 de Paul, review final de la
+    /// campaña G, 2026-09-16). Sin efecto en modo arranque.
     #[arg(long = "min-similarity", value_name = "MIN_SIMILARITY")]
     min_similitud: Option<f64>,
     /// Modo arranque con el CUERPO de las notas `tier: core` y la lista de
@@ -1004,7 +1006,13 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
                 &db,
                 q,
                 args.limite,
-                args.min_similitud,
+                // I2 (decisión 2 de Paul, review final de G, 2026-09-16):
+                // mismo unwrap_or que `busca_cmd` para `--type hybrid` — el
+                // sellado manda salvo flag explícito, la config ya no entra
+                // en este camino (antes caía a `min_similitud_efectivo` de
+                // `buscador.rs`, que resuelve `None` contra
+                // `[embeddings] min_similarity`, 0.35 por defecto).
+                Some(args.min_similitud.unwrap_or(MIN_SIMILARITY_SELLADO)),
                 BONUS_SELLADO,
                 ESCALA_FTS_SELLADA,
                 &kb,
