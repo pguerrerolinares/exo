@@ -5,9 +5,11 @@
 # plugin, aplicada a lo que hooks.json declara.
 #
 # Sin dependencia nueva: en vez de JSON Schema + Ajv (precedente de ECC,
-# backlog.md:649-682, que exige Node/npm — ausentes de este repo), las
-# mismas comprobaciones concretas con jq, que ya es una dependencia del
-# plugin.
+# docs/backlog.md, ítem "Rutas personales y `hooks.json` sin validar en CI —
+# las dos sub-propuestas vivas del item de los `test-*.sh` del plugin" —
+# cítalo por título, no por línea: el sync de backlog.md desplaza líneas —
+# que exige Node/npm, ausentes de este repo), las mismas comprobaciones
+# concretas con jq, que ya es una dependencia del plugin.
 #
 # jq en Windows/Git Bash emite CRLF: cada salida que se compara o se lee
 # línea a línea pasa por `tr -d '\r'` — sin eso, "PreToolUse\r" no es igual
@@ -19,6 +21,17 @@ HOOKS=plugins/exo/hooks/hooks.json
 command -v jq >/dev/null 2>&1 || { echo "test-hooks-json: jq requerido" >&2; exit 1; }
 [ -f "$HOOKS" ] || { echo "test-hooks-json: no existe $HOOKS" >&2; exit 1; }
 jq -e . "$HOOKS" >/dev/null 2>&1 || { echo "test-hooks-json: $HOOKS no es JSON válido" >&2; exit 1; }
+
+# I5 (review final, 2026-09-16): con `.hooks` ausente o `{}`, los tres bucles
+# de abajo leen cero líneas cada uno — cero hallazgos no es lo mismo que cero
+# problemas, y el gate seguía en verde sin haber mirado ni un hook. Mismo
+# estilo de guarda que la de "no se encontró ningún script" en
+# scripts/test-shellcheck.sh.
+N_HOOKS="$(jq -r '[.hooks[]?[]?.hooks[]?] | length' "$HOOKS" | tr -d '\r')"
+if [ "$N_HOOKS" -eq 0 ]; then
+  echo "test-hooks-json: cero hooks en $HOOKS — el recorrido está roto, o .hooks está vacío/ausente" >&2
+  exit 1
+fi
 
 FALLOS=0
 EVENTOS_VALIDOS="PreToolUse SessionStart Stop SubagentStart UserPromptSubmit"
