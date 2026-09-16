@@ -709,9 +709,15 @@ mod tests {
                 .env("GIT_COMMITTER_DATE", "2026-07-01T10:00:00+02:00")
                 .output()
                 .unwrap();
-            assert!(salida.status.success(), "git {args:?} falló");
+            assert!(
+                salida.status.success(),
+                "git {args:?} falló (status {:?})\nstdout:\n{}\nstderr:\n{}",
+                salida.status,
+                String::from_utf8_lossy(&salida.stdout),
+                String::from_utf8_lossy(&salida.stderr)
+            );
         };
-        corre(&["init", "-q"]);
+        corre(&["init", "-q", "-b", "master"]);
         std::fs::create_dir_all(raiz.join("log")).unwrap();
         std::fs::write(raiz.join(nombre_fichero), contenido).unwrap();
         corre(&["add", "."]);
@@ -814,7 +820,13 @@ mod tests {
                 .env("GIT_COMMITTER_DATE", "2026-07-01T10:01:00+02:00")
                 .output()
                 .unwrap();
-            assert!(salida.status.success(), "git {args:?} falló");
+            assert!(
+                salida.status.success(),
+                "git {args:?} falló (status {:?})\nstdout:\n{}\nstderr:\n{}",
+                salida.status,
+                String::from_utf8_lossy(&salida.stdout),
+                String::from_utf8_lossy(&salida.stderr)
+            );
         };
         std::fs::write(raiz.join("log/a.md"), "segundo\n").unwrap();
         corre(&["add", "."]);
@@ -903,12 +915,18 @@ mod tests {
         let salida = Command::new("git")
             .arg("-C")
             .arg(dir.path())
-            .args(["init", "-q"])
+            .args(["init", "-q", "-b", "master"])
             .env("GIT_CONFIG_GLOBAL", &cfg)
             .env("GIT_CONFIG_SYSTEM", &cfg)
             .output()
             .unwrap();
-        assert!(salida.status.success());
+        assert!(
+            salida.status.success(),
+            "git init falló (status {:?})\nstdout:\n{}\nstderr:\n{}",
+            salida.status,
+            String::from_utf8_lossy(&salida.stdout),
+            String::from_utf8_lossy(&salida.stderr)
+        );
         assert!(!head_resuelve(dir.path()));
     }
 
@@ -938,7 +956,13 @@ mod tests {
                 .env("GIT_COMMITTER_DATE", fecha)
                 .output()
                 .unwrap();
-            assert!(salida.status.success(), "git {args:?} falló");
+            assert!(
+                salida.status.success(),
+                "git {args:?} falló (status {:?})\nstdout:\n{}\nstderr:\n{}",
+                salida.status,
+                String::from_utf8_lossy(&salida.stdout),
+                String::from_utf8_lossy(&salida.stderr)
+            );
         };
         std::fs::write(raiz.join("log/b.md"), "b\n").unwrap();
         corre(&["add", "."], "2026-07-02T10:00:00+02:00");
@@ -1013,9 +1037,15 @@ mod tests {
                 .env("GIT_COMMITTER_DATE", "2026-07-01T10:00:00+02:00")
                 .output()
                 .unwrap();
-            assert!(salida.status.success(), "git {args:?} falló");
+            assert!(
+                salida.status.success(),
+                "git {args:?} falló (status {:?})\nstdout:\n{}\nstderr:\n{}",
+                salida.status,
+                String::from_utf8_lossy(&salida.stdout),
+                String::from_utf8_lossy(&salida.stderr)
+            );
         };
-        corre(&["init", "-q"]);
+        corre(&["init", "-q", "-b", "master"]);
         std::fs::write(raiz.join("notas/café — x.md"), "contenido\n").unwrap();
         corre(&["add", "."]);
         corre(&["commit", "-q", "-m", "unicode"]);
@@ -1050,7 +1080,13 @@ mod tests {
                 .env("GIT_COMMITTER_DATE", fecha)
                 .output()
                 .unwrap();
-            assert!(salida.status.success(), "git {args:?} falló");
+            assert!(
+                salida.status.success(),
+                "git {args:?} falló (status {:?})\nstdout:\n{}\nstderr:\n{}",
+                salida.status,
+                String::from_utf8_lossy(&salida.stdout),
+                String::from_utf8_lossy(&salida.stderr)
+            );
         };
         corre(
             &["mv", "log/original.md", "log/renombrada.md"],
@@ -1092,10 +1128,16 @@ mod tests {
                 .env("GIT_COMMITTER_DATE", fecha)
                 .output()
                 .unwrap();
-            assert!(salida.status.success(), "git {args:?} falló");
+            assert!(
+                salida.status.success(),
+                "git {args:?} falló (status {:?})\nstdout:\n{}\nstderr:\n{}",
+                salida.status,
+                String::from_utf8_lossy(&salida.stdout),
+                String::from_utf8_lossy(&salida.stderr)
+            );
         };
         std::fs::write(&cfg, "").unwrap();
-        corre(&["init", "-q"], "2026-01-01T10:00:00+00:00");
+        corre(&["init", "-q", "-b", "master"], "2026-01-01T10:00:00+00:00");
         std::fs::write(raiz.join("conflict.md"), "base\n").unwrap();
         corre(&["add", "."], "2026-01-01T10:00:00+00:00");
         corre(&["commit", "-q", "-m", "base"], "2026-01-01T10:00:00+00:00");
@@ -1110,16 +1152,40 @@ mod tests {
         std::fs::write(raiz.join("conflict.md"), "version-b\n").unwrap();
         corre(&["add", "."], "2026-01-03T10:00:00+00:00");
         corre(&["commit", "-q", "-m", "b"], "2026-01-03T10:00:00+00:00");
-        // El merge falla con conflicto (esperado, se ignora el status); se
-        // resuelve a mano y se commitea aparte con su propia fecha.
-        let _ = Command::new("git")
+        // El merge debe fallar con conflicto (se resuelve a mano abajo y se
+        // commitea aparte con su propia fecha). Identidad incluida: sin ella,
+        // en un runner sin `user.name`/`user.email` configurables por
+        // autodetección (hostname sin dominio), git puede abortar el merge
+        // ANTES de tocar el árbol — un fallo distinto y silencioso que no es
+        // el conflicto que este test quiere ejercitar.
+        let salida = Command::new("git")
             .arg("-C")
             .arg(raiz)
             .args(["merge", "rama-a", "-q", "-m", "merge with conflict"])
             .env("GIT_CONFIG_GLOBAL", &cfg)
             .env("GIT_CONFIG_SYSTEM", &cfg)
+            .env("GIT_AUTHOR_NAME", "f")
+            .env("GIT_AUTHOR_EMAIL", "f@k.local")
+            .env("GIT_COMMITTER_NAME", "f")
+            .env("GIT_COMMITTER_EMAIL", "f@k.local")
             .output()
             .unwrap();
+        assert!(
+            !salida.status.success(),
+            "el merge debía conflictuar en conflict.md, pero salió con éxito \
+             (status {:?}) — el fixture no está ejerciendo el caso de \
+             conflicto\nstdout:\n{}\nstderr:\n{}",
+            salida.status,
+            String::from_utf8_lossy(&salida.stdout),
+            String::from_utf8_lossy(&salida.stderr)
+        );
+        let en_conflicto = std::fs::read_to_string(raiz.join("conflict.md")).unwrap();
+        assert!(
+            en_conflicto.contains("<<<<<<<"),
+            "el merge falló pero conflict.md no tiene marcadores de conflicto \
+             (¿abortó antes de tocar el árbol en vez de conflictuar?); \
+             contenido:\n{en_conflicto}"
+        );
         std::fs::write(raiz.join("conflict.md"), "resuelto\n").unwrap();
         corre(&["add", "."], "2026-01-04T10:00:00+00:00");
         corre(
@@ -1170,9 +1236,15 @@ mod tests {
                 .env("GIT_COMMITTER_DATE", fecha)
                 .output()
                 .unwrap();
-            assert!(salida.status.success(), "git {args:?} falló");
+            assert!(
+                salida.status.success(),
+                "git {args:?} falló (status {:?})\nstdout:\n{}\nstderr:\n{}",
+                salida.status,
+                String::from_utf8_lossy(&salida.stdout),
+                String::from_utf8_lossy(&salida.stderr)
+            );
         };
-        corre(&["init", "-q"], "2026-01-01T10:00:00+00:00");
+        corre(&["init", "-q", "-b", "master"], "2026-01-01T10:00:00+00:00");
         std::fs::write(kb.join("a.md"), "alfa\n").unwrap();
         corre(&["add", "."], "2026-01-01T10:00:00+00:00");
         corre(&["commit", "-q", "-m", "a"], "2026-01-01T10:00:00+00:00");
@@ -1235,10 +1307,16 @@ mod tests {
                 .env("GIT_COMMITTER_DATE", fecha)
                 .output()
                 .unwrap();
-            assert!(salida.status.success(), "git {args:?} falló");
+            assert!(
+                salida.status.success(),
+                "git {args:?} falló (status {:?})\nstdout:\n{}\nstderr:\n{}",
+                salida.status,
+                String::from_utf8_lossy(&salida.stdout),
+                String::from_utf8_lossy(&salida.stderr)
+            );
         };
         std::fs::write(&cfg, "").unwrap();
-        corre(&["init", "-q"], "2026-01-01T10:00:00+00:00");
+        corre(&["init", "-q", "-b", "master"], "2026-01-01T10:00:00+00:00");
         std::fs::write(raiz.join("base.md"), "base\n").unwrap();
         corre(&["add", "."], "2026-01-01T10:00:00+00:00");
         corre(&["commit", "-q", "-m", "base"], "2026-01-01T10:00:00+00:00");
@@ -1348,9 +1426,15 @@ mod tests {
                 .env("GIT_COMMITTER_DATE", fecha)
                 .output()
                 .unwrap();
-            assert!(salida.status.success(), "git {args:?} falló");
+            assert!(
+                salida.status.success(),
+                "git {args:?} falló (status {:?})\nstdout:\n{}\nstderr:\n{}",
+                salida.status,
+                String::from_utf8_lossy(&salida.stdout),
+                String::from_utf8_lossy(&salida.stderr)
+            );
         };
-        corre(&["init", "-q"], "2026-01-01T10:00:00+00:00");
+        corre(&["init", "-q", "-b", "master"], "2026-01-01T10:00:00+00:00");
         std::fs::write(kb.join("a.md"), "base\n").unwrap();
         std::fs::write(raiz.join("fuera.md"), "base\n").unwrap();
         corre(&["add", "."], "2026-01-01T10:00:00+00:00");
@@ -1445,9 +1529,15 @@ mod tests {
                 .env("GIT_COMMITTER_DATE", fecha)
                 .output()
                 .unwrap();
-            assert!(salida.status.success(), "git {args:?} falló");
+            assert!(
+                salida.status.success(),
+                "git {args:?} falló (status {:?})\nstdout:\n{}\nstderr:\n{}",
+                salida.status,
+                String::from_utf8_lossy(&salida.stdout),
+                String::from_utf8_lossy(&salida.stderr)
+            );
         };
-        corre(&["init", "-q"], "2026-01-01T10:00:00+00:00");
+        corre(&["init", "-q", "-b", "master"], "2026-01-01T10:00:00+00:00");
         std::fs::write(raiz.join("b.md"), "base\n").unwrap();
         corre(&["add", "."], "2026-01-01T10:00:00+00:00");
         corre(&["commit", "-q", "-m", "base"], "2026-01-01T10:00:00+00:00");
@@ -1528,9 +1618,15 @@ mod tests {
                 .env("GIT_COMMITTER_DATE", fecha)
                 .output()
                 .unwrap();
-            assert!(salida.status.success(), "git {args:?} falló");
+            assert!(
+                salida.status.success(),
+                "git {args:?} falló (status {:?})\nstdout:\n{}\nstderr:\n{}",
+                salida.status,
+                String::from_utf8_lossy(&salida.stdout),
+                String::from_utf8_lossy(&salida.stderr)
+            );
         };
-        corre(&["init", "-q"], "2026-01-01T10:00:00+00:00");
+        corre(&["init", "-q", "-b", "master"], "2026-01-01T10:00:00+00:00");
         std::fs::write(kb.join("b.md"), "base\n").unwrap();
         std::fs::write(raiz.join("fuera.md"), "base\n").unwrap();
         corre(&["add", "."], "2026-01-01T10:00:00+00:00");
@@ -1614,9 +1710,15 @@ mod tests {
                 .env("GIT_COMMITTER_DATE", fecha)
                 .output()
                 .unwrap();
-            assert!(salida.status.success(), "git {args:?} falló");
+            assert!(
+                salida.status.success(),
+                "git {args:?} falló (status {:?})\nstdout:\n{}\nstderr:\n{}",
+                salida.status,
+                String::from_utf8_lossy(&salida.stdout),
+                String::from_utf8_lossy(&salida.stderr)
+            );
         };
-        corre(&["init", "-q"], "2026-01-01T10:00:00+00:00");
+        corre(&["init", "-q", "-b", "master"], "2026-01-01T10:00:00+00:00");
         std::fs::write(raiz.join("a.md"), "base\n").unwrap();
         corre(&["add", "."], "2026-01-01T10:00:00+00:00");
         corre(&["commit", "-q", "-m", "base"], "2026-01-01T10:00:00+00:00");
@@ -1710,9 +1812,15 @@ mod tests {
                 .env("GIT_COMMITTER_DATE", fecha)
                 .output()
                 .unwrap();
-            assert!(salida.status.success(), "git {args:?} falló");
+            assert!(
+                salida.status.success(),
+                "git {args:?} falló (status {:?})\nstdout:\n{}\nstderr:\n{}",
+                salida.status,
+                String::from_utf8_lossy(&salida.stdout),
+                String::from_utf8_lossy(&salida.stderr)
+            );
         };
-        corre(&["init", "-q"], "2026-01-01T10:00:00+00:00");
+        corre(&["init", "-q", "-b", "master"], "2026-01-01T10:00:00+00:00");
         std::fs::write(raiz.join("a.md"), "v1-base\n").unwrap();
         corre(&["add", "."], "2026-01-01T10:00:00+00:00");
         corre(&["commit", "-q", "-m", "base"], "2026-01-01T10:00:00+00:00");
@@ -1742,16 +1850,43 @@ mod tests {
         );
         corre(&["checkout", "-q", "master"], "2026-01-02T10:00:00+00:00");
         // Conflicto real en a.md (master y rama lo editaron distinto); y.md
-        // no tiene conflicto, se auto-acepta de rama. Se ignora el status:
-        // el merge falla con conflicto, se resuelve a mano abajo.
-        let _ = Command::new("git")
+        // no tiene conflicto, se auto-acepta de rama. Identidad incluida:
+        // sin ella, en un runner sin `user.name`/`user.email` autodetectables
+        // (hostname sin dominio — el caso medido en CI, ubuntu-latest y
+        // windows-latest, no macos-latest), git puede abortar el merge ANTES
+        // de tocar el árbol. En ese caso a.md se queda en "v1-master" (el
+        // checkout de arriba), el `std::fs::write` de abajo escribe el MISMO
+        // contenido, `git add .` no stagea nada y el `commit` de más abajo
+        // revienta con "nothing to commit" — el síntoma real medido en el
+        // run 35105962845, tres pasos después de la causa.
+        let salida = Command::new("git")
             .arg("-C")
             .arg(raiz)
             .args(["merge", "-q", "rama", "-m", "merge que revierte a"])
             .env("GIT_CONFIG_GLOBAL", &cfg)
             .env("GIT_CONFIG_SYSTEM", &cfg)
+            .env("GIT_AUTHOR_NAME", "f")
+            .env("GIT_AUTHOR_EMAIL", "f@k.local")
+            .env("GIT_COMMITTER_NAME", "f")
+            .env("GIT_COMMITTER_EMAIL", "f@k.local")
             .output()
             .unwrap();
+        assert!(
+            !salida.status.success(),
+            "el merge debía conflictuar en a.md, pero salió con éxito \
+             (status {:?}) — el fixture no está ejerciendo el caso de \
+             conflicto\nstdout:\n{}\nstderr:\n{}",
+            salida.status,
+            String::from_utf8_lossy(&salida.stdout),
+            String::from_utf8_lossy(&salida.stderr)
+        );
+        let en_conflicto = std::fs::read_to_string(raiz.join("a.md")).unwrap();
+        assert!(
+            en_conflicto.contains("<<<<<<<"),
+            "el merge falló pero a.md no tiene marcadores de conflicto \
+             (¿abortó antes de tocar el árbol en vez de conflictuar?); \
+             contenido:\n{en_conflicto}"
+        );
         // Resuelve el conflicto quedándose con la versión de master (revierte
         // a.md "al lado viejo"); y.md ya quedó auto-aceptado de rama.
         std::fs::write(raiz.join("a.md"), "v1-master\n").unwrap();
