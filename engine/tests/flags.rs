@@ -1,5 +1,7 @@
-//! Superficie CLI v1.0: los flags largos están en inglés y los españoles
-//! siguen parseando como alias oculto durante la ventana de migración.
+//! Superficie CLI 0.2.0: los flags largos están en inglés. Los diez alias
+//! españoles de la ventana de migración de 0.1.0 se retiraron en esta
+//! versión (campaña H) — un flag español ya es tan inexistente como
+//! cualquier otro que nunca haya existido.
 //!
 //! Se prueba contra el BINARIO, no contra clap por unidad: lo que se afirma
 //! es "esta línea de comandos funciona", y eso solo lo demuestra ejecutarla.
@@ -86,46 +88,50 @@ fn los_flags_ingleses_existen() {
 }
 
 #[test]
-fn los_flags_espanoles_siguen_parseando_como_alias() {
-    // La ventana de migración: un script viejo cacheado no debe morir con
-    // "unexpected argument" a mitad de un hook. Los diez pares, no una
-    // muestra: un alias borrado o mal escrito en cualquiera de los diez
-    // reproduce ese fallo, y solo se detecta probándolos todos.
+fn los_flags_espanoles_ya_no_parsean_ni_como_alias_oculto() {
+    // 0.2.0 retira los diez alias ocultos de la 0.1.0 (docs/backlog.md,
+    // "Retirar los aliases españoles del CLI"): un script viejo que use
+    // --limite/--titulo/etc. tiene que fallar con el mismo "unexpected
+    // argument" que cualquier otro flag inexistente, no colarse en silencio.
     assert!(
-        acepta_el_flag(&["write", "new", "--dir", "d", "--titulo", "T", "--from", "-"]),
-        "alias --titulo"
+        !acepta_el_flag(&["write", "new", "--dir", "d", "--titulo", "T", "--from", "-"]),
+        "--titulo ya no debe parsear"
     );
     assert!(
-        acepta_el_flag(&["write", "append", "--from", "-", "--crea", "p"]),
-        "alias --crea"
+        !acepta_el_flag(&["write", "append", "--from", "-", "--crea", "p"]),
+        "--crea ya no debe parsear"
     );
     assert!(
-        acepta_el_flag(&["search", "--limite", "3", "q"]),
-        "alias --limite (search)"
+        !acepta_el_flag(&["search", "--limite", "3", "q"]),
+        "--limite (search) ya no debe parsear"
     );
     assert!(
-        acepta_el_flag(&["search", "--min-similitud", "0.4", "q"]),
-        "alias --min-similitud (search)"
+        !acepta_el_flag(&["search", "--min-similitud", "0.4", "q"]),
+        "--min-similitud (search) ya no debe parsear"
     );
     assert!(
-        acepta_el_flag(&["search", "--escala-fts", "0.6", "q"]),
-        "alias --escala-fts"
+        !acepta_el_flag(&["search", "--escala-fts", "0.6", "q"]),
+        "--escala-fts ya no debe parsear"
     );
     assert!(
-        acepta_el_flag(&["recall", "--limite", "3"]),
-        "alias --limite (recall)"
+        !acepta_el_flag(&["recall", "--limite", "3"]),
+        "--limite (recall) ya no debe parsear"
     );
     assert!(
-        acepta_el_flag(&["recall", "--min-similitud", "0.4"]),
-        "alias --min-similitud (recall)"
+        !acepta_el_flag(&["recall", "--min-similitud", "0.4"]),
+        "--min-similitud (recall) ya no debe parsear"
     );
     assert!(
-        acepta_el_flag(&["recall", "--contenido", "--nota", "x/y"]),
-        "alias --contenido/--nota"
+        !acepta_el_flag(&["recall", "--contenido"]),
+        "--contenido ya no debe parsear"
     );
     assert!(
-        acepta_el_flag(&["recall", "--refresca"]),
-        "alias --refresca"
+        !acepta_el_flag(&["recall", "--nota", "x/y"]),
+        "--nota ya no debe parsear"
+    );
+    assert!(
+        !acepta_el_flag(&["recall", "--refresca"]),
+        "--refresca ya no debe parsear"
     );
 }
 

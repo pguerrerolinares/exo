@@ -150,7 +150,7 @@ struct ArgsWriteNew {
     dir: String,
     /// Título de la nota. De él salen el nombre de fichero y el slug del
     /// permalink.
-    #[arg(long = "title", alias = "titulo", value_name = "TITLE")]
+    #[arg(long = "title", value_name = "TITLE")]
     titulo: String,
     /// Fichero con el cuerpo (`-` = stdin). El contenido NO viaja por argv:
     /// el agente lo escribe con su tool `Write` y aquí solo se referencia,
@@ -182,7 +182,7 @@ struct ArgsWriteAppend {
     #[arg(long)]
     from: String,
     /// Crea la bitácora (`tier: log`) si no existe.
-    #[arg(long = "create", alias = "crea")]
+    #[arg(long = "create")]
     crea: bool,
     /// Anexa aunque el destino no sea `tier: log`. Queda registrado en el
     /// envelope (`forced: true`) para que la excepción sea auditable.
@@ -230,23 +230,14 @@ struct ArgsSearch {
     #[arg(long)]
     kb: Option<PathBuf>,
     /// Máximo de resultados.
-    #[arg(
-        long = "limit",
-        alias = "limite",
-        value_name = "LIMIT",
-        default_value_t = 10
-    )]
+    #[arg(long = "limit", value_name = "LIMIT", default_value_t = 10)]
     limite: usize,
     /// Tipo de búsqueda.
     #[arg(long, value_enum, default_value_t = TipoBusqueda::Fts)]
     r#type: TipoBusqueda,
     /// Umbral de similitud coseno de la búsqueda semántica. Si se omite,
     /// `[embeddings] min_similarity` de la config. Sin efecto en `--type fts`.
-    #[arg(
-        long = "min-similarity",
-        alias = "min-similitud",
-        value_name = "MIN_SIMILARITY"
-    )]
+    #[arg(long = "min-similarity", value_name = "MIN_SIMILARITY")]
     min_similitud: Option<f64>,
     /// Peso del canal más débil al fusionar (`max + bonus·min`). Solo
     /// `--type hybrid`; si se omite, el default del engine.
@@ -254,7 +245,7 @@ struct ArgsSearch {
     bonus: Option<f64>,
     /// Escala de normalización del score de texto completo antes de
     /// fusionar. Solo `--type hybrid`; si se omite, el default del engine.
-    #[arg(long = "fts-scale", alias = "escala-fts", value_name = "FTS_SCALE")]
+    #[arg(long = "fts-scale", value_name = "FTS_SCALE")]
     escala_fts: Option<f64>,
     /// Emite el resultado como envelope JSON en stdout.
     #[arg(long)]
@@ -279,12 +270,7 @@ struct ArgsRecall {
     query: Option<String>,
     /// Máximo de notas: en modo arranque, cuántas recientes (las `tier: core`
     /// entran siempre); en modo consulta, cuántos resultados.
-    #[arg(
-        long = "limit",
-        alias = "limite",
-        value_name = "LIMIT",
-        default_value_t = 5
-    )]
+    #[arg(long = "limit", value_name = "LIMIT", default_value_t = 5)]
     limite: usize,
     /// Presupuesto de bytes del bloque de salida (texto o `--json`); trunca
     /// por líneas enteras.
@@ -292,27 +278,23 @@ struct ArgsRecall {
     cap_bytes: usize,
     /// Umbral de similitud coseno en modo consulta. Si se omite, el de la
     /// config. Sin efecto en modo arranque.
-    #[arg(
-        long = "min-similarity",
-        alias = "min-similitud",
-        value_name = "MIN_SIMILARITY"
-    )]
+    #[arg(long = "min-similarity", value_name = "MIN_SIMILARITY")]
     min_similitud: Option<f64>,
     /// Modo arranque con el CUERPO de las notas `tier: core` y la lista de
     /// recientes, en vez de una línea por nota. Es lo que inyecta el hook de
     /// inicio de sesión. Incompatible con `--query`.
-    #[arg(long = "content", alias = "contenido")]
+    #[arg(long = "content")]
     contenido: bool,
     /// Permalink de la nota cuyo cuerpo se quiere en `--content` (p.ej.
     /// `core/core-index`). Sin este flag, `--content` vuelca TODAS las
     /// `tier: core` — que en una KB con un core grande agota el presupuesto
     /// con la primera. Qué nota es "la de arranque" lo decide el consumidor,
     /// no el engine.
-    #[arg(long = "note", alias = "nota", value_name = "NOTE")]
+    #[arg(long = "note", value_name = "NOTE")]
     nota: Option<String>,
     /// Refresca el índice (incremental) ANTES de servir, para no devolver una
     /// KB rancia. Barato si nada cambió; si el índice no existe, lo construye.
-    #[arg(long = "refresh", alias = "refresca")]
+    #[arg(long = "refresh")]
     refresca: bool,
     /// Emite el resultado como envelope JSON en stdout. Sin él, un bloque de
     /// texto plano (el que inyectan los hooks).
