@@ -344,6 +344,18 @@
   gate lo pondría en rojo permanente. Ciclo rojo-verde demostrado con «Sin
   CI» reinsertado en `arquitectura.md` y con un hook renombrado en
   `hooks.json` (Task 3).
+  **Fix de la review final (2026-09-16): el check (c) no tenía ningún input
+  hoy** — cero citas `vX.Y.Z` en los tres docs (verificado,
+  `grep -oE '\bv[0-9]+\.[0-9]+\.[0-9]+\b'` vacío en los tres), así que su
+  bucle nunca itera: activo por diseño, no probado en la práctica hasta
+  ahora. Provocado un rojo real insertando `v9.9.9` en `README.md`
+  (`[FAIL] README.md cita v9.9.9, que no es un tag ni coincide con engine
+  (0.1.0) ni plugin (1.1.2)`, restaurado después). De paso se encontró que
+  el `actions/checkout@v4` de `ci.yml` (job `static-checks`) es shallow por
+  defecto y NO trae tags (`fetch-tags` es `false` salvo `fetch-depth: 0`):
+  el mismo rojo en CI habría sido un falso positivo contra un tag real que
+  solo existiera como tag. Arreglado con `fetch-tags: true` en ese
+  checkout (`ci.yml`).
 
 - [ ] **(revisión 2026-09-04) «exo genérico» sigue siendo el plugin de Paul
   para Paul.** Medido el 2026-09-04 sobre `plugins/exo/`: la cadena `Paul`
@@ -954,15 +966,17 @@
   no por tocar el walker — `evals/recall-coste/verdict/2026-09-campana-a.md:
   115,117`, «del walker (H29, no tocado en esta campaña)»): la mejora vino
   de otro lado, el walker sigue igual.
-  **(campaña F, 2026-09-15, sync del backlog): CERRADO por G.** La
-  unificación que este ítem pedía —fusionar `walk_kb` en
-  `walk_kb_excluyendo`— la hizo la campaña G (Task 4 de su Ola 1,
-  `backlog:821-845` citado en el propio commit, `65d5a7a`): ambas funciones
-  comparten ya una sola implementación, case-insensitive y sin descender
-  dentro de ningún dotdir (`.git/` incluido). `doctor.rs` e `indexer.rs`
-  heredan el cambio sin tocar sus llamadas — la nota de que `doctor.rs:
-  312,451` también usaba `walk_kb`, no citada por el ítem original, queda
-  resuelta con el mismo commit, no como trabajo aparte.
+  **(campaña F, 2026-09-15, sync del backlog): resuelto en la rama
+  `campana-g` (commit `65d5a7a`), pendiente de merge.** La unificación que
+  este ítem pedía —fusionar `walk_kb` en `walk_kb_excluyendo`— la hizo la
+  campaña G (Task 4 de su Ola 1, `backlog:821-845` citado en el propio
+  commit): ambas funciones comparten ya una sola implementación,
+  case-insensitive y sin descender dentro de ningún dotdir (`.git/`
+  incluido). `doctor.rs` e `indexer.rs` heredan el cambio sin tocar sus
+  llamadas — la nota de que `doctor.rs:312,451` también usaba `walk_kb`, no
+  citada por el ítem original, queda resuelta con el mismo commit, no como
+  trabajo aparte. Con el orden de merge H → F → G, ese commit no existe
+  todavía en `main`: este ítem **sigue abierto** hasta que G mergee.
 
 - [x] **`indexer::ruta_relativa` guarda `notas.ruta` con el separador nativo
   del SO: cerrado, causa en el indexer arreglada el 2026-09-11
@@ -1028,20 +1042,22 @@
   consume toda la cifra, es trabajo para cuando una cita real mal formada
   haga daño de verdad, o para cuando exista el gate de paridad con Go y el
   fix se pueda decidir en los dos binarios a la vez.
-  **(campaña F, 2026-09-15): bloqueador CADUCADO — y una de las dos patas ya
-  CERRADA por G.** Los gates de paridad corrieron en la campaña D y kbx dejó
-  de ser dependencia de nada (`docs/backlog.md:214`, fila «Campaña D» —
-  `:181` en el momento en que G lo escribió, desplazada por este mismo sync);
-  el bloqueador que pedía
-  esperar a esa paridad ya no aplica a ninguna de las dos patas. La pata
-  «trunca en vez de rechazar una cifra mal agrupada» la cerró la campaña G
-  (Task 5 de su Ola 1, commit `3cbb6aa`): `TIER_Y_CIFRA` ahora consume el
-  número entero y una función aparte (`agrupacion_correcta`) valida el
+  **(campaña F, 2026-09-15): bloqueador CADUCADO — y una de las dos patas
+  resuelta en la rama `campana-g` (commit `3cbb6aa`), pendiente de merge.**
+  Los gates de paridad corrieron en la campaña D y kbx dejó de ser
+  dependencia de nada (`docs/backlog.md:214`, fila «Campaña D» — `:181` en
+  el momento en que G lo escribió, desplazada por este mismo sync); el
+  bloqueador que pedía esperar a esa paridad ya no aplica a ninguna de las
+  dos patas. La pata «trunca en vez de rechazar una cifra mal agrupada» la
+  resolvió la campaña G (Task 5 de su Ola 1): `TIER_Y_CIFRA` ahora consume
+  el número entero y una función aparte (`agrupacion_correcta`) valida el
   agrupamiento en tríos, en vez de truncar y citar una cifra que no está en
-  el texto. La pata «punto ciego por adyacencia» sigue abierta, pero ya no
-  por el bloqueador de paridad: es el precio deliberado de no tener falsos
-  positivos, declarado en el propio ítem — decisión de diseño, no trabajo
-  pendiente de G ni de F.
+  el texto. Con el orden de merge H → F → G, ese commit no existe todavía
+  en `main`: esta pata **sigue abierta** hasta que G mergee. La pata «punto
+  ciego por adyacencia» sigue abierta también, pero ya no por el bloqueador
+  de paridad: es el precio deliberado de no tener falsos positivos,
+  declarado en el propio ítem — decisión de diseño, no trabajo pendiente de
+  G ni de F.
 
 - [ ] **La campaña de evicción de la KB está descalibrada (A3, G4b).** El
   censo "19 de 58 notas stable" y el objetivo de poda de 10.625 (medidos el
@@ -1058,7 +1074,8 @@
   de ejecutar cualquier evicción.
   **(campaña F, 2026-09-15): CERRADO — hecho el 2026-09-10.** `Memoria
   v2:18` («La lista de partida la midió `exo budget` … eran 20, no 19»),
-  commit `efd9abc`.
+  commit `efd9abc` — **de la KB `wisdom-paul`, no de este repo** (`exo` no
+  tiene ese SHA).
 
 - [ ] **(pasada de coste 2026-09-09) `exo budget` va a colisionar de nombre:
   el planeado mide tamaño de KB y el que hace falta mide coste de tokens.**
@@ -1314,10 +1331,24 @@
   **(campaña F, 2026-09-15): cerrada.** `scripts/test-shellcheck.sh` (Task 4
   de F) extrae los bloques `run: |` de `.github/workflows/*.yml` a ficheros
   temporales dedentados igual que hace GitHub Actions, y los suma a la lista
-  que ShellCheck revisa — sin dependencia nueva. Verificado: los 4 bloques
-  reales (1 en `ci.yml`, 3 en `release.yml`) pasan `bash -n`; el veredicto de
-  ShellCheck se lee en el primer run de CI tras el merge (esta máquina de
-  desarrollo no tiene ShellCheck instalado).
+  que ShellCheck revisa — sin dependencia nueva. `bash -n` NO es el oráculo
+  de este gate: tolera sintaxis que ShellCheck rechaza (los `${{ matrix.* }}`
+  de `release.yml` no son bash — GitHub Actions los interpola antes de que
+  el runner vea el script — y el parser de ShellCheck sí revienta con
+  ellos). **Fix de la review final (2026-09-16):** se detectó justo ese
+  reventón (SC2296, "Parameter expansions can't start with {", aborta el
+  resto del fichero) más un SC2012 real (`ls dist | wc -l` en
+  `release.yml`) que habrían puesto `static-checks` en rojo en el primer
+  push. Arreglado (placeholder `${GHA_EXPR:-}` en la extracción + `find`
+  en vez de `ls`) y **verificado con el veredicto real de ShellCheck
+  0.11.0**, no deducido: `docker run --rm -v "$PWD:/mnt" -w /mnt
+  koalaman/shellcheck:stable` (esta máquina no tiene el binario instalado;
+  no hay build de Windows). Salida real tras el fix: `test-shellcheck: OK —
+  49 scripts + 4 bloques run: | de .github/workflows/ sin avisos`. De paso
+  salió a la luz un SC2016 preexistente en `test-docs-vivos.sh` (backticks
+  literales de markdown en un patrón de `grep`, no sustitución de comandos)
+  — nadie lo había visto porque nadie había corrido ShellCheck de verdad
+  contra este árbol; justificado in situ con `# shellcheck disable=SC2016`.
 
 - [ ] **(NUEVO, revisión final campaña B, 2026-09-13) El job `lint` de
   `ci.yml` se llama «fmt + clippy» pero ya corre shellcheck y el gate de
