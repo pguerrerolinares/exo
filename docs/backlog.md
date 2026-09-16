@@ -7,7 +7,59 @@
 > duplicar. Cada item cita su evidencia; un item sin evidencia verificable no
 > entra.
 >
-> Última revisión: **2026-09-16** (sync de `docs/backlog.md`, Task 9 de la
+> Última revisión: **2026-09-16** (campaña G — deuda diferida del engine
+> sin cambio de ranking,
+> `docs/superpowers/plans/2026-09-15-campana-g-engine-deuda-diferida.md`,
+> ejecutada en la rama `campana-g`, **sin PR todavía**. Cierra con
+> evidencia: dos patas vivas de «Techos de escala» — tres conexiones de DB
+> en `busca_hybrid` (Task 2, commit `03761c0`) y un `git log` por nota
+> indexada (Task 3, commits `0098199`/`950fad5`/`50a06cc`/`c0ec949`), con el
+> bench sintético corregido primero para medirlas de verdad (Task 1,
+> commits `58656f2`/`a71e7c5`/`e2e53e0`) — `walk_kb` unificada sobre
+> `walk_kb_excluyendo` (Task 4, commit `940ea46`, decisión 9 de Paul), la
+> pata de agrupación de `budget_prose_drift` que quedaba (Task 5, commit
+> `2764bfe`), el `allow(too_many_arguments)` de `escribe_nueva` (Task 6,
+> commit `05ea6ed`), M4 #5 y #6 del gate M4 (Task 7, commit `f5c5956`), el
+> assert de dimensión/norma tras `embebe_batch` (Task 8, commit `c61d313`,
+> `KB-exo:16`), `trinquete --staged` leyendo el tier del índice de git en
+> vez del disco (Task 9, commit `4fff601`), `kb-demo`→`kb-test` en los
+> tests del engine (Task 10, commit `5a71911`), D6 — default `hybrid` +
+> `--min-similarity 0.40`, con `exo init` alineado a la misma constante
+> `MIN_SIMILARITY_SELLADO` para su propio default de
+> `[embeddings] min_similarity` (Task 11, commits `003f93a`/`5eb1593`,
+> decisión 1 de Paul), y `HF_HOME` — el engine ya la respeta
+> (`ApiBuilder::from_env()`, Task 13, commits `eebfd6c`/`281328e`), con la
+> variable deliberadamente SIN fijar en los tres workflows de CI (`4119fd3`:
+> sin ella `hf-hub` ya usa la ruta que `actions/cache` cachea, y
+> `runner.temp` no se expande en un `env:` de nivel workflow; el porqué
+> queda escrito en `.github/workflows/ci.yml`, esto no es una promesa
+> incumplida). **Corrige con evidencia, sin cerrar por completo**: el
+> relato de campaña en los comentarios de
+> `buscador.rs`/`escritor.rs`/`indexer.rs` NO se mueve al verdict en esta
+> campaña — habría exigido reescribir ~10 funciones solo por higiene de
+> comentarios, sin oráculo de comportamiento; queda abierto para quien lo
+> priorice. Fuera de esta campaña: la fusión de `buscador.rs` (campaña J,
+> después) y el punto ciego por adyacencia de `budget_prose_drift`
+> (deliberado, ver Media). **Deuda nueva que G destapó, registrada en su
+> sitio con evidencia**: `permalinks_de_rowids` revienta el límite de
+> placeholders de SQLite con `exo search --type vector --limit 5000` (ver
+> «Techos de escala», Media); `exo ratchet --staged` hace un `git show` por
+> nota sellada además del de `tamano_de_indice` (ver
+> `sellos_escapados_de_tier`, Baja); la coma no se reconoce como separador
+> de miles en `budget_prose_drift`, preexistente (ver Media); la regla de
+> merges contaminados en `gitx` podría comparar `%T` en vez de descartar
+> por bloques omitidos (ver «Techos de escala», Media); `test-docs-vivos.sh`
+> solo gatea la tabla de hooks del README raíz, no la de
+> `plugins/exo/README.md` (ver Alta); el mismo
+> `cd "$(git rev-parse --show-toplevel)"` sin guarda contra una sustitución
+> vacía sigue en `test-rutas-personales.sh`, `test-exec-bit.sh` y
+> `test-versiones.sh` (ver Baja); `HF_HOME=""` (definida pero vacía)
+> resuelve a una ruta relativa `hub`, sin test que lo congele (ver Media); y
+> `docs/arquitectura.md` dice «cualquier directorio que empiece por `.`»
+> cuando el walker salta cualquier ENTRADA, también ficheros `.oculto.md`
+> (ver Media).)
+>
+> Anterior: **2026-09-16** (sync de `docs/backlog.md`, Task 9 de la
 > campaña F —
 > `docs/superpowers/plans/2026-09-15-campana-f-superficie-publicable.md`,
 > ejecutada el 2026-09-15 en la rama `campana-f`, **sin PR todavía**. Cierra
@@ -39,7 +91,7 @@
 > `document/SKILL.md`, `reflex-baseline.sh`, el conteo de `kb-demo`, la cita
 > de `main.rs:215`→`:241`, `budget_prose_drift` y `walk_kb` frente a
 > `walk_kb_excluyendo` — ver cada ítem para el detalle.)
-> Anterior: **2026-09-15** (campaña H — fail-closed de `doctor` y
+> Antes: **2026-09-15** (campaña H — fail-closed de `doctor` y
 > cutover binario↔plugin, `docs/superpowers/plans/2026-09-15-campana-h-fail-closed.md`,
 > ejecutada en la rama `campana-h` y **mergeada a `main` el 2026-09-16 vía
 > PR #24** (`3fcd8bf`). Cierra con
@@ -230,12 +282,13 @@
 | **Release** | `v0.1.0` publicada el **2026-09-11** — tres binarios y sus tres `.sha256`, instalables por `install.sh` / `install.ps1`. Ver `## Cerrado con evidencia` |
 | **Campaña A** | ejecutada el **2026-09-13**; Task 15 (medición W11) corrida el **2026-09-15** → C-H10 CERRADA en Linux y W11, Task 12 no se ejecuta por puerta — mergeada a `main` el **2026-09-13** vía PR #13 (`ef5100b`); la Task 15/W11 entró aparte, mergeada a `main` el **2026-09-15** vía PR #22 (`6e8b85f`); veredicto en `evals/recall-coste/verdict/2026-09-campana-a.md` |
 | **Campaña B** | ejecutada el **2026-09-13**, las 13 tasks (H6, H8, H9, H11, H12, H13, H15, H16, H18, H20, H21, H22, H26) — mergeada a `main` el **2026-09-13** vía PR #14 (`219506b`); plan en `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md`; H25 queda como checklist externo de Paul |
-| **Campaña C** | held-out pre-registrado, **sin cambio de producción** — mergeada a `main` el **2026-09-14** vía PR #16 (`cb25541`); veredicto en `evals/retrieval-heldout/verdict/c-verdict.md`. El held-out queda consumido; D6 (default de `exo search --type`) PENDIENTE-PAUL |
+| **Campaña C** | held-out pre-registrado, **sin cambio de producción** — mergeada a `main` el **2026-09-14** vía PR #16 (`cb25541`); veredicto en `evals/retrieval-heldout/verdict/c-verdict.md`. El held-out queda consumido; D6 (default de `exo search --type`) **CERRADO por la campaña G**, ver Alta |
 | **Campaña E** | 9 tasks (hooks honestos: `inject-empty`, suite de `exo-recall.sh`, `no results` en `search`; engine: mensaje de guarda parametrizado, `rust-toolchain.toml`; CI: `--locked`+log+artifact en el gate hermético, orden de `release.yml`, gate de rutas personales) — ejecutada el **2026-09-14** en la rama `e-hooks-honestos-y-ci`; mergeada a `main` el **2026-09-15** vía PR #19 (`36ef9aa`); plan en `docs/superpowers/plans/2026-09-14-campana-e-hooks-honestos-y-ci.md` |
 | **Campaña D** | cutover kbx→exo: `rotate` y `stale` portados a Rust (`engine/src/rotacion.rs`, `engine/src/obsolescencia.rs`), pre-registro de paridad congelado antes de Rust (Task 1, `7edb5d0`), cuatro gates de paridad — targets (`4d047f4`), ratchet (`ab5d59b`), rotate (`cd196ff`), stale (`f059eb1`) — los cuatro PASA, consumidores reapuntados (Task 9, `0051638`+`aa82f95`: `distill`/`kb-precommit.sh`/`arquitectura.md` ya no invocan `kbx`) — ejecutada el **2026-09-14/15** en la rama `d-cutover-kbx`, apila la campaña E (`f46cbe3`); mergeada a `main` el **2026-09-15** vía PR #20 (`0494e3d`); plan en `docs/superpowers/plans/2026-09-14-campana-d-cutover-kbx.md`. Abierto: D-4 (permalink `nombre_kb()` vs literal fijo, recomendación ya aplicada en el código, formalmente pendiente de que Paul la zanje) y la acción (a) de «exo genérico» (`Paul`/`kb-demo` por nombres resueltos), fuera de alcance de D |
 | **Ruta portable** | grafía única de ruta (`/`) en el binario y ruta visible en la salida humana de `exo search` — apila sobre la campaña D, mergeada a `main` el **2026-09-15** vía PR #21 (`ba4b75f`); plan en `docs/superpowers/plans/2026-09-11-ruta-portable-y-columna-humana.md`, spec en `docs/superpowers/specs/2026-09-11-ruta-portable-y-columna-humana-design.md` |
 | **Campaña H** | 8 tasks (contrato `ENGINE_MIN`, `exo-recall.sh` detecta engine viejo, `exo doctor` check `plugin_compat`, `check_git_bash` sin falso `ok` de WSL, `script_del_plugin` por semver real, `kb-precommit.sh` fail-closed, retiro de los 10 alias españoles — engine 0.2.0/plugin 1.2.0, cap de 6.144 medido y PENDIENTE-PAUL) — ejecutada el **2026-09-15** en la rama `campana-h`; mergeada a `main` el **2026-09-16** vía PR #24 (`3fcd8bf`); plan en `docs/superpowers/plans/2026-09-15-campana-h-fail-closed.md` |
 | **Campaña F** | 9 tasks (superficie publicable: held-out en `arquitectura.md`, gates `test-docs-vivos.sh`/`test-hooks-json.sh`, `test-shellcheck.sh` sobre `run: |` de los workflows, `test-hermetico.sh` distingue error de compilación, job `lint`→`static-checks`, `Paul`→«el dueño de la KB» + idioma de identificadores, sync de este backlog) — ejecutada el **2026-09-15** en la rama `campana-f`, **PR #25 abierto** (merge tras H); `HF_HOME` (Task 6, `4cec5b7`) se revirtió en `6e4477a` el 2026-09-16 — el engine no lo lee, arreglo diferido a la Task 13 de la campaña G; plan en `docs/superpowers/plans/2026-09-15-campana-f-superficie-publicable.md` |
+| **Campaña G** | 11 tasks del engine (bench sintético con vectores reales, `busca_hybrid` a una sola conexión, `git_epoch_de` en batch, `walk_kb` unificada, `budget_prose_drift` sin truncar, `escribe_nueva` con struct de parámetros, M4 #5/#6, assert de embeddings, `trinquete --staged` sobre el índice de git, `kb-demo`→`kb-test`, D6 default hybrid+0.40 con `exo init` alineado a la misma constante, y `HF_HOME` respetada por el engine) — sin cambio de ranking (β/bonus/umbral/fusión intactos) — ejecutada en la rama `campana-g`, **sin PR todavía**; plan en `docs/superpowers/plans/2026-09-15-campana-g-engine-deuda-diferida.md` |
 
 ---
 
@@ -294,13 +347,20 @@
   NETO de solape (+2,2 pp observados) se habría visto ganador el 38–50 % de
   las veces si la mejora real fuera de 2–3 pp. El held-out queda
   CONSUMIDO (§11): volver a tocar β, umbral o troceado exige uno nuevo.
-  Acción (c) (default de `exo search --type`, `main.rs:215`): sigue abierta,
-  PENDIENTE-PAUL con A0 vs A2 held-out delante (D6 del plan de C).
-  - [ ] (c) decidir si el default de `exo search --type` (`main.rs:241` —
-    corregido 2026-09-15, campaña F: la línea citada, `:215`, quedó
-    desactualizada tras ediciones posteriores)
-    pasa a ser el modo medido, o si el README deja de presentar el 48/55
-    como «lo que hace exo» — PENDIENTE-PAUL, con A0 vs A2 held-out delante.
+  Acción (c) (default de `exo search --type`, `main.rs:241`): **CERRADA el
+  2026-09-16 por la campaña G, ver el checklist justo abajo.**
+  - [x] (c) **CERRADO el 2026-09-16 (campaña G, Task 11, commits
+    `003f93a`/`5eb1593`, decisión 1 de Paul, 2026-09-15).** `exo search`
+    sin `--type` usa `hybrid` con `--min-similarity 0.40` (`main.rs`,
+    `ArgsSearch.r#type` default `TipoBusqueda::Hybrid`). Cita:
+    `evals/retrieval-heldout/verdict/c-verdict.md` (A0 gana a FTS en 41/55
+    filas, FTS a A0 en 0 filas). El `--help` ya explica la precedencia real
+    del umbral y el coste del default hybrid (`5eb1593`). **Ampliado el
+    mismo día:** `exo init` (modo creación) escribe ahora ese mismo 0.40 en
+    `[embeddings] min_similarity` de la config nueva, vía la misma
+    constante `MIN_SIMILARITY_SELLADO` (antes 0.35, literal propio sin
+    relación con el sweep) — el motivo por el que no se compartía ("config
+    es RO hasta M5a") caducó al cerrar M5a-02 el 2026-08-26.
 
 - [ ] **(revisión 2026-09-04) La documentación de referencia contradice el
   repo el mismo día en que se escribió.** Medido el 2026-09-04:
@@ -378,6 +438,13 @@
   el mismo rojo en CI habría sido un falso positivo contra un tag real que
   solo existiera como tag. Arreglado con `fetch-tags: true` en ese
   checkout (`ci.yml`).
+  **Deuda nueva (campaña G, 2026-09-16, hallada al verificar esta task):**
+  el check (e) de `test-docs-vivos.sh` (tabla de hooks) solo cuenta filas
+  contra el `README.md` de la raíz — `plugins/exo/README.md:58` tiene su
+  propia tabla `| Reflejo | Evento | Fichero | Qué hace | Abstención |` con
+  las mismas nueve filas, sin gate. Puede desfasarse igual que el README
+  raíz antes de este mismo item. **Acción:** extender el check (e) para
+  recorrer los dos ficheros, o justificar por qué solo uno lo necesita.
 
 - [ ] **(revisión 2026-09-04) «exo genérico» sigue siendo el plugin de Paul
   para Paul.** Medido el 2026-09-04 sobre `plugins/exo/`: la cadena `Paul`
@@ -627,6 +694,37 @@
   junto al tercer `abre_db`: «los dos arms de arriba ya cerraron las suyas»,
   decisión consciente, no descuido) y `indexer::git_epoch_de` sigue
   spawneando un proceso `git log -1` por nota.
+  **(cerrado con evidencia el 2026-09-16, campaña G): las cuatro patas
+  quedan cerradas.** `busca_hybrid` abre la DB una sola vez desde `03761c0`
+  (Task 2 de G, gate falsable con un test que detecta volver a llamar a
+  `busca()`/`busca_vector()`, `db2331a`) y `indexer::git_epoch_de` ya no se
+  llama una vez por nota — `gitx::epochs_de_todo_el_historial` hace un solo
+  `git log --format=%x01%H %ct --name-only` por `indexa`, con fallback
+  fail-silent per-nota para lo que el lote no cubra, desde `0098199` (Task
+  3 de G). Medido sobre la misma KB sintética de 5.000 notas: 5.000 spawns
+  per-nota = **3m42,5s** frente a **53ms** en una sola invocación en lote —
+  byte-idéntico `search --type hybrid`/`recall`/`git_epoch` guardado antes
+  y después. El diseño del lote necesitó tres correcciones sobre el brief
+  original, todas verificadas con tests dirigidos: `--relative` (KB como
+  subdirectorio de un repo git, `950fad5`), `%P` como número real de padres
+  de un merge en vez de contar bloques impresos (`50a06cc`), y toda ruta de
+  un merge con bloques `-m` omitidos cae al fallback per-nota en vez de
+  arriesgar un epoch distinto del que daría `git log -1 -- ruta` (`c0ec949`).
+  **Deuda nueva destapada al medir (campaña G, 2026-09-16):**
+  `permalinks_de_rowids` (`buscador.rs`) revienta el límite de placeholders
+  de SQLite ("too many SQL variables") con `exo search --type vector
+  --limit 5000` sobre la KB sintética — `--limit 1000` no lo dispara.
+  Encontrado durante la Task 1 (bench sintético) al calibrar el brazo
+  vector, no arreglado en esta campaña (fuera del alcance de las Tasks
+  2-3). **Acción:** trocear el `IN (...)` en lotes bajo el límite de
+  SQLite, o cambiar a un join contra una tabla temporal, cuando alguien
+  necesite `--limit` de ese orden de verdad. Y, precisión pendiente en el
+  diseño de `c0ec949`: la regla de merges contaminados descarta por
+  "bloques omitidos" en vez de comparar `%T` (el árbol resultante) del
+  merge contra el de cada padre — sería más preciso y metería menos rutas
+  al fallback per-nota; hoy es conservador a propósito (nunca da un epoch
+  incorrecto), así que no es un bug, es una oportunidad de precisión sin
+  medir su beneficio real.
 
 - [ ] **(revisión 2026-09-04) El coste del hook completo en Windows no está
   medido; solo el del binario.** `plugins/exo/hooks/hooks.json` cablea
@@ -700,17 +798,12 @@
   arriba («La documentación de referencia contradice el repo»), misma
   acción, mismo commit.**
 
-- [ ] **`#[allow(clippy::too_many_arguments)]` en `escritor.rs` — la struct de
-  parámetros que no se hizo aquí.** `escribe_nueva` toma 8 parámetros contra
-  el umbral de 7 de clippy; declarado en `engine/src/escritor.rs:252` en vez
-  de refactorizar, porque agrupar en una struct de parámetros toca el camino
-  de escritura y sus tests, y G5a era una tarea de CI, no de refactor.
-  **Acción:** introducir una struct de parámetros para `escribe_nueva` (y
-  revisar sus llamadores y tests) cuando se toque ese camino por otra razón.
-  Esta entrada es localizable con `grep -rn too_many_arguments docs/backlog.md`;
-  el `#[allow(clippy::too_many_arguments)]` en sí vive en
-  `engine/src/escritor.rs:252` — el comentario de código no cita esta entrada
-  del backlog por nombre.
+- [x] **`#[allow(clippy::too_many_arguments)]` en `escritor.rs` — la struct de
+  parámetros que no se hizo aquí. CERRADO el 2026-09-16 (campaña G, Task 6,
+  commit `05ea6ed`).** `escribe_nueva(&NuevaNota{...})` — struct de
+  parámetros con sus 10 call sites migrados, `#[allow(clippy::too_many_arguments)]`
+  retirado de `engine/src/escritor.rs`. `grep -rn too_many_arguments
+  engine/src` vacío.
 
 - [ ] **Rutas personales y `hooks.json` sin validar en CI — las dos
   sub-propuestas vivas del item de los `test-*.sh` del plugin (cerrado el
@@ -761,17 +854,21 @@
   `2026-08-18-m4-write-design.md`). Cerrado también en la ola 1A (M5a-02, ver
   `## Cerrado con evidencia`): el **disenso del consultor** — el prefijo de
   proyecto sale de `[kb] name` en la config propia, no de `kb.file_name()`.
-  **Vivos 4, por orden de daño:**
-  - **#5 [media]** sin fallback walk+parse (la spec §3.2 lo afirma en presente):
-    con índice rancio, un `--crea` puede dejar **dos ficheros con el mismo
-    permalink**. Riesgo hoy bajo (las 26 bitácoras de `log/` son slug-clean).
-    Mínimo: walk de confirmación antes de crear.
+  **Vivos 4 en origen; #5 y #6 cerrados por G (arriba), #9 caducado por F
+  (abajo) — vivo 1 (#8):**
+  - [x] **#5 [media] CERRADO el 2026-09-16 (campaña G, Task 7, commit
+    `f5c5956`):** `busca_permalink_en_dir` hace el walk de confirmación
+    antes de crear con `--create`; test
+    `write_append_create_no_duplica_si_el_indice_esta_rancio` en
+    `engine/tests/write_create_permalink.rs`.
   - **#8 [baja]** divergencia de slug medida **19/127** frente a basic-memory
     (`_` conservado en 10 bitácoras rotadas, CamelCase separado, `§`→`ss`).
     Autoconsistente, pero conviene decidirlo **por escrito antes de M5b**,
     porque las bitácoras rotadas de `/consolida` usan `_` en el título.
-  - **#6 [baja]** `--crea` con permalink de 2 segmentos crea directorio espurio;
-    `write_append_cmd` asume 3.
+  - [x] **#6 [baja] CERRADO el 2026-09-16 (campaña G, Task 7, commit
+    `f5c5956`):** un permalink de <3 segmentos ahora es error accionable
+    ("tiene menos de 3 segmentos"), no crea directorio. Test
+    `write_append_create_con_permalink_de_dos_segmentos_falla_con_remedio`.
   - **#9 [baja]** el `SKILL.md` de `documenta` omite `--db` en los comandos del
     Paso 3; tomados literales fallan con error de clap.
     **(campaña F, 2026-09-15): CADUCADO.** `ArgsWriteAppend.db: Option<PathBuf>`
@@ -851,9 +948,10 @@
   `verify`, antes de cualquier paso de empaquetado.
   **Lo subsume G5 si adopta esa cadena.** **(2026-09-11: G5b cerró sin adoptarlo — release `v0.1.0` publicada, ver `## Cerrado con evidencia`. La marca queda huérfana: necesita dueño o campaña propia.)**
 
-- [ ] **Dos endurecimientos del CI que se decidieron NO aplicar en G5a, y por
-      qué.** Hallazgos Minor de la review final de rama; se anotan para que la
-      omisión sea una decisión y no un olvido.
+- [x] **Dos endurecimientos del CI que se decidieron NO aplicar en G5a, y por
+      qué. Las dos patas cerradas (`--locked` en campaña E, `HF_HOME` en
+      campaña G, ver abajo).** Hallazgos Minor de la review final de rama; se
+      anotan para que la omisión sea una decisión y no un olvido.
       **Cruce (2026-09-09):** los dos son precondiciones de un release
       reproducible, no mejoras de higiene sueltas. Si G5 monta la cadena de
       custodia del artefacto —`--locked` en el job que de verdad corre la
@@ -890,10 +988,24 @@
     silenciosa que este ítem quería evitar, solo que en la otra dirección.
     El arreglo de verdad (`ApiBuilder::from_env()` en el engine + alinear el
     check de `doctor`, y solo entonces fijar la variable en CI) toca
-    `engine/src/`, fuera del alcance de F: queda planificado como **Task 13
-    de la campaña G** (`docs/superpowers/plans/2026-09-15-campana-g-engine-deuda-diferida.md`,
-    commit `3b48220` en la rama `campana-g`), decisión de Paul del
-    2026-09-16. Este ítem **sigue abierto**.
+    `engine/src/`, fuera del alcance de F.
+    **Cerrado el 2026-09-16 (campaña G, Task 13, commits
+    `eebfd6c`/`281328e`).** `lib.rs` y `doctor.rs` comparten ahora
+    `cache_hf_del_entorno` como fuente única: con `HF_HOME` puesta, el
+    engine descarga (y `doctor` comprueba) el mismo directorio derivado de
+    ella (`ApiBuilder::from_env()`), y sin ella ambos caen al mismo default
+    de antes — sin re-descargar lo ya cacheado. **`HF_HOME` en CI: cerrado
+    SIN cambio funcional (2026-09-16, `4119fd3`).** Decisión del
+    orquestador: no se fija en los workflows porque sin ella `hf-hub` ya
+    usa `~/.cache/huggingface/hub`, la misma ruta que `actions/cache`
+    guarda, y `runner.temp` no se expande dentro de un `env:` de nivel
+    workflow — fijarla ahí habría dejado `HF_HOME=/hf-cache` literal, sin
+    efecto. El porqué queda escrito en `.github/workflows/ci.yml`; no se
+    promete un cambio que no existe. **Deuda nueva (campaña G, 2026-09-16,
+    minor del review de la Task 13):** `HF_HOME=""` (variable definida pero
+    vacía, distinto de no definida) resuelve a una ruta relativa `hub` en
+    vez de al default — sin test que congele ese caso. Este ítem queda
+    **cerrado**.
   - **`--locked` no llega al job `test`.** `lint` y `msrv` sí lo tienen
     (`ci.yml:46`, `:63`), pero el job que de verdad corre la suite invoca
     `engine/scripts/test-hermetico.sh`, que llama a `cargo test` sin
@@ -907,8 +1019,12 @@
     fijar — fuera del alcance de esta campaña, el ítem padre sigue abierto
     por esa mitad.
 
-- [ ] **`walker::walk_kb` frente a `walk_kb_excluyendo`: conviven con semánticas
-  distintas desde G4b.** Verificado en `engine/src/walker.rs`: `walk_kb`
+- [x] **`walker::walk_kb` frente a `walk_kb_excluyendo`: conviven con semánticas
+  distintas desde G4b.** **Cerrado el 2026-09-16 (campaña G, Task 4, commit
+  `940ea46`, decisión 9 de Paul):** `walk_kb` delega en
+  `walk_kb_excluyendo(raiz, &[])` — case-insensitive, ya no camina dentro
+  de `.git/`. Cambio de comportamiento declarado en `docs/arquitectura.md`
+  (recomienda `exo rebuild`). Verificado en `engine/src/walker.rs`: `walk_kb`
   (`:11-40`, la que usa `indexer::indexa` en `indexer.rs:158`) compara la
   extensión con `== Some("md")` sin normalizar mayúsculas — un `NOTA.MD` no se
   indexa — y solo excluye `.claude/`, `.omc/` y `.superpowers/`
@@ -933,16 +1049,22 @@
   115,117`, «del walker (H29, no tocado en esta campaña)»): la mejora vino
   de otro lado, el walker sigue igual.
   **(campaña F, 2026-09-15, sync del backlog): resuelto en la rama
-  `campana-g` (commit `65d5a7a`), pendiente de merge.** La unificación que
-  este ítem pedía —fusionar `walk_kb` en `walk_kb_excluyendo`— la hizo la
-  campaña G (Task 4 de su Ola 1, `backlog:821-845` citado en el propio
-  commit): ambas funciones comparten ya una sola implementación,
-  case-insensitive y sin descender dentro de ningún dotdir (`.git/`
-  incluido). `doctor.rs` e `indexer.rs` heredan el cambio sin tocar sus
-  llamadas — la nota de que `doctor.rs:312,451` también usaba `walk_kb`, no
-  citada por el ítem original, queda resuelta con el mismo commit, no como
-  trabajo aparte. Con el orden de merge H → F → G, ese commit no existe
-  todavía en `main`: este ítem **sigue abierto** hasta que G mergee.
+  `campana-g`, cerrado arriba el 2026-09-16 (commit real `940ea46` tras el
+  rebase de G sobre H+F — `65d5a7a` era el hash pre-rebase citado por
+  F).** La unificación que este ítem pedía —fusionar `walk_kb` en
+  `walk_kb_excluyendo`— la hizo la campaña G (Task 4): ambas funciones
+  comparten ya una sola implementación, case-insensitive y sin descender
+  dentro de ningún dotdir (`.git/` incluido). `doctor.rs` e `indexer.rs`
+  heredan el cambio sin tocar sus llamadas — la nota de que
+  `doctor.rs:312,451` también usaba `walk_kb`, no citada por el ítem
+  original, queda resuelta con el mismo commit, no como trabajo aparte.
+  **Deuda nueva (campaña G, 2026-09-16, hallada en review):**
+  `docs/arquitectura.md` describe la exclusión como «cualquier directorio
+  que empiece por `.`», pero `recorre()` salta cualquier ENTRADA que
+  empiece por `.` — también ficheros sueltos como `.oculto.md`, no solo
+  directorios. La declaración del cambio de comportamiento (arriba) queda
+  correcta en el backlog; el texto de `arquitectura.md` es la imprecisión
+  a corregir cuando se toque ese documento por otra razón.
 
 - [x] **`indexer::ruta_relativa` guarda `notas.ruta` con el separador nativo
   del SO: cerrado, causa en el indexer arreglada el 2026-09-11
@@ -1008,22 +1130,32 @@
   consume toda la cifra, es trabajo para cuando una cita real mal formada
   haga daño de verdad, o para cuando exista el gate de paridad con Go y el
   fix se pueda decidir en los dos binarios a la vez.
-  **(campaña F, 2026-09-15): bloqueador CADUCADO — y una de las dos patas
-  resuelta en la rama `campana-g` (commit `3cbb6aa`), pendiente de merge.**
-  Los gates de paridad corrieron en la campaña D y kbx dejó de ser
-  dependencia de nada (`docs/backlog.md:214`, fila «Campaña D» — `:181` en
-  el momento en que G lo escribió, desplazada por este mismo sync); el
-  bloqueador que pedía esperar a esa paridad ya no aplica a ninguna de las
-  dos patas. La pata «trunca en vez de rechazar una cifra mal agrupada» la
-  resolvió la campaña G (Task 5 de su Ola 1): `TIER_Y_CIFRA` ahora consume
-  el número entero y una función aparte (`agrupacion_correcta`) valida el
-  agrupamiento en tríos, en vez de truncar y citar una cifra que no está en
-  el texto. Con el orden de merge H → F → G, ese commit no existe todavía
-  en `main`: esta pata **sigue abierta** hasta que G mergee. La pata «punto
-  ciego por adyacencia» sigue abierta también, pero ya no por el bloqueador
-  de paridad: es el precio deliberado de no tener falsos positivos,
-  declarado en el propio ítem — decisión de diseño, no trabajo pendiente de
-  G ni de F.
+  **(campaña F, 2026-09-15): bloqueador CADUCADO.** Los gates de paridad
+  corrieron en la campaña D y kbx dejó de ser dependencia de nada (fila
+  «Campaña D» en `## Estado`); el bloqueador que pedía esperar a esa
+  paridad ya no aplica a ninguna de las dos patas.
+  **Cerrado el 2026-09-16 (campaña G, Task 5, commit `2764bfe`): la pata
+  «trunca en vez de rechazar una cifra mal agrupada».** `TIER_Y_CIFRA`
+  ahora consume el número ENTERO (sin exigir grupos de tres dígitos en la
+  propia regex) y una función aparte, `agrupacion_correcta`, valida que
+  agrupe en tríos — una captura mal formada ("1.2345") se ignora en vez de
+  truncarse a "1.234" y citar una cifra que no está en el texto. Test:
+  `la_deriva_de_prosa_ignora_una_cifra_mal_agrupada`
+  (`engine/tests/lint_presupuesto.rs`). **Deuda nueva registrada al cerrar
+  (campaña G, 2026-09-16, preexistente, no regresión):** la coma no se
+  reconoce como separador de miles — el comentario de `TIER_Y_CIFRA` declara
+  que solo el punto lo es («la KB está escrita en castellano»), así que
+  `[0-9]+(?:\.[0-9]+)*` deja de consumir en cuanto ve la coma: «core 12,500
+  B» produce el MISMO tipo de cita truncada que el bug de esta Task 5 acaba
+  de arreglar para el punto — «cita core 12B, el tool aplica 8500B» — solo
+  que aquí es el comportamiento heredado de antes de la Task 5 (la regex
+  vieja ya paraba en la coma), no una regresión suya. Test:
+  `la_deriva_de_prosa_no_reconoce_la_coma_como_separador_de_miles`, con la
+  decisión de scope escrita en el propio test: documentarlo, no ampliarlo.
+  La pata «punto ciego por adyacencia»
+  sigue abierta también, pero ya no por el bloqueador de paridad: es el
+  precio deliberado de no tener falsos positivos, declarado en el propio
+  ítem — decisión de diseño, no trabajo pendiente de G ni de F.
 
 - [ ] **La campaña de evicción de la KB está descalibrada (A3, G4b).** El
   censo "19 de 58 notas stable" y el objetivo de poda de 10.625 (medidos el
@@ -1211,8 +1343,9 @@
     edit` con el About del README) — fuera del plan de tasks, ver la
     sección «Checklist externo para Paul (H25)» del plan de campaña B.
 
-- [ ] **(NUEVO, campaña B, 2026-09-13, H15) `trinquete::sellos_escapados_de_tier`
-  lee el tier del disco también en `--staged`.** El propio código lo
+- [x] **(NUEVO, campaña B, 2026-09-13, H15) `trinquete::sellos_escapados_de_tier`
+  lee el tier del disco también en `--staged`. CERRADO el 2026-09-16
+  (campaña G, Task 9, commit `4fff601`).** El propio código lo
   declara (`engine/src/trinquete.rs:830-832`, comentario añadido al partir
   `comprueba_contra` en tres familias): «Lee el tier del **disco** también
   en `--staged`: es el comportamiento heredado de antes de partir
@@ -1225,6 +1358,21 @@
   (`fe46443`) si el comportamiento heredado es intencional o es el mismo
   tipo de deuda que ya viven otras funciones de este módulo — no se toca a
   ciegas un gate que ya se demostró falsable.
+  **Cerrado:** `sellos_escapados_de_tier` recibe un closure `contenido_de`;
+  `comprueba_staged` le pasa `contenido_de_indice`
+  (`gitx::muestra(kb, ":./<ruta>")`) en vez de leer disco. Test
+  `escapados_en_staged_lee_el_tier_del_indice_no_del_disco`. La
+  verificación cruzada contra `internal/ratchet` de kbx que pedía la
+  acción original queda como checklist **opcional** de Paul (kbx ya no es
+  referencia desde la campaña D), no bloqueante — no se corrió en esta
+  campaña. **Deuda nueva destapada al cerrar (campaña G, 2026-09-16):**
+  `comprueba_staged` sigue haciendo un `git show` por cada nota sellada
+  además del que ya hacía `tamano_de_indice` — itera todo
+  `.kbx-ratchet.json`, un proceso git por nota sellada en vez de un
+  `git show` por lote. Hoy son ~11 notas selladas en la KB real: coste
+  acotado, no medido como problema. **Acción futura:** `git cat-file
+  --batch` si el número de notas selladas crece lo suficiente para que se
+  note.
 
 - [ ] **(campaña C, verdict §9) Orden dentro del top: vector y RRF superan a
   la fusión sellada en ranking, no en cobertura.** Held-out: vector supera a
@@ -1474,7 +1622,8 @@
   declarando que se queda indexado. Llevar la decisión abierta indefinidamente es
   peor que cualquiera de las dos opciones.
 
-- [ ] **`kb-demo` como fixture por defecto en 8 ficheros de test.** Medido
+- [x] **`kb-demo` como fixture por defecto en 8 ficheros de test. CERRADO el
+  2026-09-16 (campaña G, Task 10, commit `5a71911`).** Medido
   el 2026-09-01: `engine/tests/{buscador,config,escritor,indexer,inicia,nota,
   recall,recall_contenido}.rs` usan literalmente `"kb-demo"` como nombre
   de KB / permalink de partida en sus fixtures. En un repo que se publica, el
@@ -1492,6 +1641,15 @@
   `engine/src/{buscador,inicia,lib}.rs` en comentarios/plantilla. El fix
   (`kb-demo` → `kb-test`) es alcance de G (toca `engine/tests/` y
   `engine/src/`), no de F — F solo corrige el conteo caducado.
+  **Cerrado.** Renombrado a `kb-test` en los 11 ficheros de test +
+  `engine/src/{buscador,inicia}.rs` (2 comentarios; `git grep -c kb-demo --
+  engine` = 4 tras el cambio). **Excepciones deliberadas, no tocadas**:
+  `engine/tests/help_producto.rs:154` (gate anti-jerga que comprueba que
+  `--help` no mencione el nombre real de la KB del autor),
+  `engine/tests/escritor.rs:29` y `engine/tests/recall_contenido.rs:108`
+  (procedencia histórica de datos reales, comentario, no fixture),
+  `engine/src/lib.rs:103` (hecho histórico sobre una versión anterior del
+  código, no un default vigente).
 
 - [ ] **(pasada de coste 2026-09-09) Sinergias anotadas, dueño sin decidir: el
   mecanismo de guards de exo sirve para delegar I/O, y el método de evals de
@@ -1517,6 +1675,27 @@
   hooks vive aquí, pero el worker barato vive fuera (plataforma on-prem) y el
   catálogo de skills a evaluar también. Si se decide que exo asume delegación,
   esto sube a item propio con su gate; si no, se cierra como «no es de exo».
+
+- [ ] **(NUEVO, campaña G, 2026-09-16) El `cd "$(git rev-parse --show-toplevel)"`
+  sin guarda contra una sustitución vacía sigue en tres gates de CI.**
+  La review final de `test-docs-vivos.sh` (campaña F, 2026-09-16) encontró y
+  arregló el fallo silencioso: `cd "$(git rev-parse --show-toplevel)"`
+  directo no protege nada si la sustitución sale vacía — `cd ""` devuelve
+  `0` sin moverse (medido), así que un `|| exit 1` puesto sobre el propio
+  `cd` nunca dispara y el resto del gate corre contra el cwd del caller, no
+  la raíz del repo. F aplicó el fix (capturar en una variable, comprobar
+  que no esté vacía, solo entonces `cd`) en `test-docs-vivos.sh`,
+  `test-hooks-json.sh` y `test-shellcheck.sh` — los tres gates que tocó esa
+  campaña. **Verificado en esta campaña (`git grep -n 'rev-parse
+  --show-toplevel' scripts/`)**: el mismo patrón sin guarda sigue vivo en
+  `scripts/test-rutas-personales.sh:20` (tiene `|| exit 1` pegado al `cd`,
+  pero eso no cubre el caso de sustitución vacía), `scripts/test-exec-bit.sh:21`
+  y `scripts/test-versiones.sh:16` (ninguno de los dos tiene ni siquiera
+  ese `|| exit 1`). Los tres corren en `ci.yml` job `lint`/`static-checks`.
+  **Acción:** aplicarles el mismo patrón (`RAIZ="$(git rev-parse
+  --show-toplevel)" || exit 1; [ -n "$RAIZ" ] || { echo ... ; exit 1; };
+  cd "$RAIZ"`) cuando se toquen por otra razón, o en un barrido dedicado
+  de los `test-*.sh` del plugin.
 
 ---
 
