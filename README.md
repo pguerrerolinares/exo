@@ -109,7 +109,7 @@ Agente: `plugins/exo/agents/executor.md` (`exo:executor`) — ejecutor de tareas
 implementación acotadas, despachado por `orchestrate` (subagent-driven
 development).
 
-Hooks (nueve, cableados en `plugins/exo/hooks/hooks.json`; tabla completa con
+Hooks (diez, cableados en `plugins/exo/hooks/hooks.json`; tabla completa con
 qué hace cada uno y su abstención en `plugins/exo/README.md`):
 
 | Reflejo | Evento | Fichero |
@@ -119,6 +119,7 @@ qué hace cada uno y su abstención en `plugins/exo/README.md`):
 | zero-residuo | `PreToolUse:Bash` | `plugins/exo/scripts/git-add-all-guard.sh` |
 | verify-before-done | `PreToolUse:Bash` | `plugins/exo/scripts/verify-before-commit.sh` |
 | exo-recall | `SessionStart` | `plugins/exo/scripts/exo-recall.sh` |
+| estilo-directo | `SessionStart` | `plugins/exo/scripts/estilo-directo.sh` |
 | document-remind | `Stop` | `plugins/exo/scripts/document-remind.sh` |
 | exo-index | `Stop` | `plugins/exo/scripts/exo-index.sh` |
 | subagent-inject | `SubagentStart` | `plugins/exo/scripts/subagent-inject.sh` |
