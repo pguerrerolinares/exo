@@ -3,7 +3,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use exo::{
     buscador::{busca, busca_hybrid, busca_vector},
     envelope,
-    escritor::{escribe_append, escribe_nueva},
+    escritor::{NuevaNota, escribe_append, escribe_nueva},
     indexer::indexa,
     recall::{recall_arranque, recall_consulta, renderiza, resuelve_rutas_absolutas},
 };
@@ -794,16 +794,16 @@ fn write_new_cmd(args: ArgsWriteNew) -> Result<()> {
         exo::escritor::dup_candidatas(&exo::escritor::slug(&args.titulo), &indexados)
     };
 
-    let esc = escribe_nueva(
-        &kb,
-        &proyecto,
-        &args.dir,
-        &args.titulo,
-        &cuerpo,
-        args.tier.as_deref(),
-        &candidatas,
-        args.force,
-    )?;
+    let esc = escribe_nueva(&NuevaNota {
+        kb: &kb,
+        proyecto: &proyecto,
+        dir: &args.dir,
+        titulo: &args.titulo,
+        cuerpo: &cuerpo,
+        tier: args.tier.as_deref(),
+        dup_candidatas: &candidatas,
+        forzado: args.force,
+    })?;
 
     emite_escritura(esc, args.json);
     Ok(())
@@ -832,8 +832,17 @@ fn write_append_cmd(args: ArgsWriteAppend) -> Result<()> {
 
             if !kb.join(&rel).exists() {
                 let proyecto = exo::nombre_kb()?;
-                escribe_nueva(&kb, &proyecto, dir, slug_nota, "", Some("log"), &[], false)
-                    .context("crear la bitácora con --create")?;
+                escribe_nueva(&NuevaNota {
+                    kb: &kb,
+                    proyecto: &proyecto,
+                    dir,
+                    titulo: slug_nota,
+                    cuerpo: "",
+                    tier: Some("log"),
+                    dup_candidatas: &[],
+                    forzado: false,
+                })
+                .context("crear la bitácora con --create")?;
                 eprintln!("write: bitácora creada en {rel}");
             }
             rel
