@@ -10,7 +10,7 @@
 # sus afirmaciones frágiles las cierra un humano al cerrar el ítem
 # (backlog.md:283-285), no este gate.
 #
-# Cuatro comprobaciones sobre README.md / docs/arquitectura.md /
+# Cinco comprobaciones sobre README.md / docs/arquitectura.md /
 # docs/instalacion.md:
 #   (a) ausencia de frases muertas conocidas
 #   (b) todo `exo <subcomando>` citado existe en enum Comando de main.rs
@@ -30,8 +30,21 @@
 #       tarea (rutas de hooks rotas) quedaba sin gate en cuanto empezaban
 #       por `plugins/`. `engine/` se añade por la misma razón: es el otro
 #       directorio de primer nivel citado por ruta en estos docs.
+#   (e) la tabla de hooks de README.md (`| Reflejo | Evento | Fichero |`)
+#       tiene tantas filas como `hooks/hooks.json` cablea de verdad (I1,
+#       review final 2026-09-16: «nueve» en el README, diez en el JSON).
 set -uo pipefail
-cd "$(git rev-parse --show-toplevel)" || exit 1
+# Fix de la review final (2026-09-16): `cd "$(git rev-parse --show-toplevel)"`
+# directo tenía un fallo silencioso — si la sustitución sale vacía, `cd ""`
+# devuelve 0 sin moverse (medido), así que `|| exit 1` nunca dispara y el
+# resto del gate corre contra el cwd del caller, no la raíz del repo.
+# Captura y comprueba antes de moverse.
+RAIZ="$(git rev-parse --show-toplevel)" || exit 1
+if [ -z "$RAIZ" ]; then
+  echo "test-docs-vivos: git rev-parse --show-toplevel no devolvió nada" >&2
+  exit 1
+fi
+cd "$RAIZ" || exit 1
 
 # `grep`/`awk` con `.` o clases sobre texto con multibyte (é, —, ↔, presentes
 # en los tres docs) puede fallar en este Git Bash sin un locale UTF-8
@@ -42,9 +55,20 @@ export LC_ALL=C.UTF-8
 FALLOS=0
 DOCS=(README.md docs/arquitectura.md docs/instalacion.md)
 
+# Fix de la review final (2026-09-16): sin esto, un doc core borrado o
+# renombrado (fusión de ramas, typo) hacía que TODOS los bucles de abajo
+# leyeran cero líneas de ese fichero — el gate seguía en verde con el doc
+# ausente, exactamente la clase de fallo silencioso que este gate existe
+# para cazar en los otros tres.
+for doc in "${DOCS[@]}"; do
+  [ -f "$doc" ] || { echo "[FAIL] falta $doc" >&2; exit 1; }
+done
+
 # --- (a) Frases muertas conocidas ------------------------------------------
-# Lista curada (docs/backlog.md:247-298), no heurística: un falso positivo
-# nuevo se añade a mano.
+# Lista curada (docs/backlog.md, ítem "(revisión 2026-09-04) La
+# documentación de referencia contradice el repo el mismo día en que se
+# escribió" — cítalo por título, no por línea: el sync de backlog.md
+# desplaza líneas), no heurística: un falso positivo nuevo se añade a mano.
 FRASES_MUERTAS=(
   "Sin CI"
   "no hay ningún tag"
@@ -112,6 +136,7 @@ done
 # --- (d) Enlaces relativos a docs/, evals/, scripts/, plugins/, engine/ ----
 # resuelven ------------------------------------------------------------------
 for doc in "${DOCS[@]}"; do
+  # shellcheck disable=SC2016 # backticks literales de markdown en el patrón de grep, no sustitución de comandos
   while IFS= read -r ruta; do
     [ -n "$ruta" ] || continue
     destino="${ruta%/}"
@@ -122,7 +147,26 @@ for doc in "${DOCS[@]}"; do
   done < <(grep -oE '`(docs|evals|scripts|plugins|engine)/[A-Za-z0-9_./-]*`' "$doc" | tr -d '`' | sort -u)
 done
 
+# --- (e) La tabla de hooks del README tiene tantas filas como hooks reales -
+# I1 (review final, 2026-09-16): el README llegó a decir «nueve hooks» con
+# `hooks.json` cableando diez — nadie lo comprobó hasta la review. Cuenta
+# filas de la tabla `| Reflejo | Evento | Fichero |` de README.md (hasta la
+# primera línea que ya no empieza por `|`) y la compara contra el cableado
+# vivo.
+HOOKS_REAL="$(jq -r '[.hooks[]?[]?.hooks[]?] | length' plugins/exo/hooks/hooks.json | tr -d '\r')"
+FILAS_TABLA="$(awk '
+  /^\| Reflejo \| Evento \| Fichero \|$/ { en_tabla = 1; next }
+  en_tabla && /^\|---/ { next }
+  en_tabla && /^\|/ { n++; next }
+  en_tabla { exit }
+  END { print n + 0 }
+' README.md)"
+if [ "$FILAS_TABLA" -ne "$HOOKS_REAL" ]; then
+  echo "[FAIL] README.md: la tabla de hooks tiene $FILAS_TABLA fila(s) pero plugins/exo/hooks/hooks.json cablea $HOOKS_REAL" >&2
+  FALLOS=1
+fi
+
 if [ "$FALLOS" -eq 0 ]; then
-  echo "[OK] test-docs-vivos: README.md/docs/{arquitectura,instalacion}.md sin frases muertas, subcomandos inventados, versiones huérfanas ni enlaces rotos"
+  echo "[OK] test-docs-vivos: README.md/docs/{arquitectura,instalacion}.md sin frases muertas, subcomandos inventados, versiones huérfanas, enlaces rotos ni tabla de hooks desfasada"
 fi
 exit "$FALLOS"

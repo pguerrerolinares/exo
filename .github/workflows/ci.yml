@@ -26,7 +26,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      # `fetch-tags: true`: el check (c) de test-docs-vivos.sh valida una
+      # versión `vX.Y.Z` citada contra `git tag -l` además de Cargo.toml/
+      # plugin.json. Sin esto, el `actions/checkout@v4` por defecto (shallow,
+      # sin tags) deja `git tag -l` vacío en este runner — cualquier cita de
+      # versión real que solo exista como tag daría un falso "no es un tag"
+      # aquí, aunque sí lo sea en un checkout completo.
       - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
