@@ -15,7 +15,15 @@
 # línea a línea pasa por `tr -d '\r'` — sin eso, "PreToolUse\r" no es igual
 # a "PreToolUse" y el gate falla en todo, no en nada.
 set -uo pipefail
-cd "$(git rev-parse --show-toplevel)" || exit 1
+# `cd "$(git rev-parse --show-toplevel)"` directo tiene un fallo silencioso: si la
+# sustitución sale vacía, `cd ""` devuelve 0 sin moverse y el `|| exit 1` nunca
+# dispara (mismo fix que en test-docs-vivos.sh, review final de F 2026-09-16).
+RAIZ="$(git rev-parse --show-toplevel)" || exit 1
+if [ -z "$RAIZ" ]; then
+  echo "test-hooks-json: git rev-parse --show-toplevel no devolvió nada" >&2
+  exit 1
+fi
+cd "$RAIZ" || exit 1
 
 HOOKS=plugins/exo/hooks/hooks.json
 command -v jq >/dev/null 2>&1 || { echo "test-hooks-json: jq requerido" >&2; exit 1; }

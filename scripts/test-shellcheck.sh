@@ -52,7 +52,15 @@
 # `-x -P SCRIPTDIR`: sigue los `. "$(dirname "$0")/_helper.sh"`, así que un
 # helper roto o una función mal llamada también cuentan.
 set -uo pipefail
-cd "$(git rev-parse --show-toplevel)" || exit 1
+# `cd "$(git rev-parse --show-toplevel)"` directo tiene un fallo silencioso: si la
+# sustitución sale vacía, `cd ""` devuelve 0 sin moverse y el `|| exit 1` nunca
+# dispara (mismo fix que en test-docs-vivos.sh, review final de F 2026-09-16).
+RAIZ="$(git rev-parse --show-toplevel)" || exit 1
+if [ -z "$RAIZ" ]; then
+  echo "test-shellcheck: git rev-parse --show-toplevel no devolvió nada" >&2
+  exit 1
+fi
+cd "$RAIZ" || exit 1
 
 . "$(dirname "$0")/_bash-versionado.sh" || { echo "test-shellcheck: no puedo cargar scripts/_bash-versionado.sh" >&2; exit 1; }
 bash_versionado
