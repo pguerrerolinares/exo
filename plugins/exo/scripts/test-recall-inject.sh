@@ -294,6 +294,14 @@ if not_contains "$BLOQUE" "no sustituye tu brief"; then pass "formato: no arrast
 else fail "formato: no arrastra la cabecera de subagentes" "$BLOQUE"; fi
 if contains "$BLOQUE" "ignóralo si no aplica"; then pass "formato: licencia explícita de ignorar"
 else fail "formato: licencia explícita de ignorar" "$BLOQUE"; fi
+# #23: sin declarar su alcance, el bloque se lee como "ya busqué" y el agente
+# completa con grep en vez de buscar. El pie dice que es UNA query y da el
+# comando literal; sin `--type hybrid` el literal sería fts (default del
+# binario 0.1.0), o sea grep con pasos extra.
+if contains "$BLOQUE" "UNA query"; then pass "formato: declara su alcance (una sola query)"
+else fail "formato: declara su alcance (una sola query)" "$BLOQUE"; fi
+if contains "$BLOQUE" "exo search --type hybrid"; then pass "formato: pie con el comando literal de búsqueda hybrid"
+else fail "formato: pie con el comando literal de búsqueda hybrid" "$BLOQUE"; fi
 
 BYTES="$(printf '%s' "$BLOQUE" | wc -c)"
 if [ "$BYTES" -le "$EXO_INJECT_CAP" ]; then pass "cap: bloque ≤${EXO_INJECT_CAP} B ($BYTES)"
@@ -334,6 +342,11 @@ fi
 # Y que el recorte no parta palabras por la mitad.
 if not_contains "$BLOQUE2" "palabr…" ; then pass "cap: recorta a frontera de palabra"
 else fail "cap: recorta a frontera de palabra" "cortó dentro de una palabra"; fi
+# El pie se descuenta del presupuesto por hit: si crece, recorta los snippets
+# sin que ningún otro assert se entere (un pie de 300 B pasaba la suite). Con
+# snippets de tamaño real, el pie actual tiene que dejarlos enteros.
+if not_contains "$BLOQUE2" "…"; then pass "cap: el pie no recorta snippets de tamaño real"
+else fail "cap: el pie no recorta snippets de tamaño real" "$BLOQUE2"; fi
 
 # F2: mutation testing encontró que dos invariantes de la spec se pueden borrar
 # del código y la suite entera sigue en verde (`recorta` → identidad, y el
