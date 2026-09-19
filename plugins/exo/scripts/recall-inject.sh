@@ -220,7 +220,12 @@ fi
 # cuenta CARACTERES — con eso el presupuesto se descuadra y los snippets salen
 # recortados de más. `utf8bytelength` cuenta lo que el cap mide de verdad.
 EXO_INJECT_CAP="${EXO_INJECT_CAP:-1024}"
-FOOTER='(puede no venir al caso: ignóralo si no aplica)'
+# El pie declara el ALCANCE del bloque (#23): sin eso, "ya busqué" es una
+# inferencia razonable y el agente completa con grep en vez de buscar. La
+# licencia de ignorar se queda: es la defensa contra falsos positivos de M6-06.
+# `--type hybrid` va explícito porque el default del binario es fts. Se descuenta
+# del presupuesto por hit: medido, hasta ~113 B no recorta snippets reales.
+FOOTER='(ignóralo si no aplica) Es top-3 de UNA query: para más, exo search --type hybrid "<q>"'
 
 # Compartidos entre el jq de composición y el cálculo de PERMALINKS más abajo:
 # el filtro de core-index y el límite de punteros no pueden vivir duplicados en
@@ -315,7 +320,11 @@ def recorta($n):
           (if $raiz == "" then .path else (.path | ltrimstr($raiz + "/")) end) as $rel
           | ($rel | split("/") | last | sub("\\.md$"; "")) as $stem
           | (if (.title | laxo) == ($stem | laxo) then "- \($rel)" else "- \($rel) — \(.title)" end) as $linea1
-          | ($por_hit - ($linea1 | utf8bytelength) - 5) as $presu
+          # 7 = prefijo "  · " (5 B: el punto medio pesa 2) + los DOS saltos de
+          # línea del hit. Con 5 el bloque se pasaba del cap hasta 6 B; lo
+          # tapaba la holgura del corte a frontera de palabra hasta que el pie
+          # de #23 lo destapó.
+          | ($por_hit - ($linea1 | utf8bytelength) - 7) as $presu
           | (.snippet | pela_header | gsub("  +"; " ") | recorta(if $presu < 40 then 40 else $presu end)) as $snip
           | [$linea1, "  · \($snip)"]
         )
