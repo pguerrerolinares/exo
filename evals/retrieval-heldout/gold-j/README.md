@@ -145,9 +145,15 @@ riesgo ya documentado arriba.
 
 **Para completar, el día que Paul decida:**
 
-1. Resolver el permiso de lectura de `~/.claude/projects` (o decidir
-   explícitamente juzgar sin `agent-search`, asumiendo el riesgo del párrafo
-   anterior).
+1. El permiso de lectura de `~/.claude/projects` **ya no es el bloqueo**
+   (addendum «tercer intento» abajo: se entregó un fichero crudo con ese
+   permiso ya concedido). El bloqueo actual es de **calidad de la
+   extracción**: hace falta una extracción que, en el propio paso de parseo
+   del JSON, aísle el argumento de query de cada `exo search` (como hizo la
+   campaña C, ver el addendum) en vez de volcar la línea de comando completa
+   para que un filtro de texto la limpie después. Alternativa: decidir
+   explícitamente juzgar sin `agent-search`, asumiendo el riesgo ya
+   documentado arriba.
 2. Si se resuelve (1): correr el Step 3 del plan (Task 6) para producir
    `agent-search.jsonl`, añadir esas filas a `queries.jsonl` (continuando la
    numeración `qNNN` a partir de `q230` para no reordenar ni tener que
@@ -193,6 +199,69 @@ riesgo ya documentado arriba.
 
    Precondición de `--tope-usd 10`: el presupuesto autorizado (plan, Global
    Constraints) es tope $10, gasto esperado ≈ $6 con kimi-k3.
+
+## Addendum 2026-09-20 (bis) — tercer intento de `agent-search`, el formato del crudo está roto
+
+Se entregó un tercer fichero (`$PRIV_J/agent-search-cmds.txt`), esta vez con
+el permiso de `~/.claude/projects` ya resuelto y descrito como «169 comandos
+`exo search` únicos, extraídos parseando los bloques `tool_use`». La
+inspección mecánica no confirma esa descripción:
+
+- El fichero tiene **2.808 líneas no vacías**, no 169. Causa: el Step 3 exige
+  aplanar los saltos de línea de cada comando a un espacio antes de escribir
+  una línea por comando (`agent-search-cmds.txt` no lo hizo); varios
+  comandos capturados escriben ficheros con heredoc (`cat > … <<'EOF' … EOF`)
+  y ese cuerpo multilínea —con sus propias líneas en blanco— quedó tal cual
+  en el fichero, indistinguible de un separador de registro. Partir por
+  líneas en blanco tampoco resuelve el límite: de 429 bloques así obtenidos,
+  solo 53 contienen la subcadena `exo search`; los otros 376 son prosa/markdown
+  sin relación aparente, evidencia de que la extracción capturó más que
+  bloques `tool_use`/`Bash` aislados que contuvieran `exo search`.
+- Solo **184 líneas físicas** contienen la subcadena `exo search` (no 169).
+- Se corrió `limpia_agent_search.py` **sin modificar**, tal cual pide la
+  tarea, sobre el fichero entregado: `{"entrada": 2808, "salida": 2,
+  "descartes": {"no_parsea": 1225, "marcador": 1581, "vacia": 0,
+  "dup-exclusion": 0, "dup-pool": 0}}`.
+- Diagnóstico adicional (no se usó para el gold, solo para separar el
+  problema de aplanado del resto): se repitió la limpieza restringida a esas
+  184 líneas. Resultado idéntico en las supervivientes: `{"entrada": 184,
+  "salida": 2, "descartes": {"no_parsea": 18, "marcador": 164, "vacia": 0,
+  "dup-exclusion": 0, "dup-pool": 0}}`. Las 2 filas que sobreviven en ambos
+  casos son la misma pareja: un fragmento de 2 caracteres y uno de 8, sin
+  forma de query — misma firma de fallo que las 46 filas ya descartadas en
+  el addendum anterior.
+- Clasificación automática (recuento, no texto) de las 184 líneas: ≈80 tienen
+  forma de invocación directa (`exo search --…` / `exo search "…"`), pero 27
+  son bucles `for … in` sobre varias queries a la vez, 24 citan `exo search`
+  como cadena literal dentro de un `grep` (comandos que buscan la frase, no
+  que buscan CON el comando), 38 la mencionan entre backticks dentro de
+  prosa/specs, y 13 redirigen el resultado a `jq`. Causa raíz de por qué
+  incluso las ≈80 de forma directa casi no sobreviven: `MARCADORES` en
+  `limpia_agent_search.py` (no tocado) trata el carácter `|` como marcador de
+  doc/test, y prácticamente toda invocación real en este corpus canaliza la
+  salida a `jq`/`head`/`grep` para poder leerla — el filtro las descarta como
+  si fueran ejemplos de spec. Es un desajuste estructural frente al método de
+  C (`pool.jsonl` de C ya trae solo `{query, session_id, ts}`: la query se
+  aisló en el propio parseo del JSON, sin pasar una línea de comando
+  compuesta por un filtro de texto).
+- Techo teórico (solo diagnóstico, **no se usó para el gold**): saltándose
+  `MARCADORES` por completo y aplicando solo `pool.query_de_comando` + dedupe
+  a las 184 líneas, salen **14** queries distintas, de las cuales 6/14 son
+  fragmentos de menos de 8 caracteres sin espacio. Ni siquiera en el mejor
+  caso posible este fichero se acerca al rango 60-120 esperado.
+
+**Conclusión, con el mismo criterio ya aplicado dos veces en este README:**
+meter estas 2 filas (o las 14 del techo teórico, con 6/14 fragmentos) sería
+peor que no tener `agent-search` — parecería un estrato real siendo ruido.
+**No se usó ninguna fila.** `queries.jsonl`, `candidatos.jsonl` y
+`paquetes.jsonl` siguen en 229 filas, sin cambios (mismos sha256 que antes
+de este intento). El gold de C no se tocó (`no_nulas: 92`, `errores: 0`,
+sha256 `614ae599…c43a75`, verificado con `valida_gold.py` en este mismo
+intento). Ningún número de este README cambia por este addendum salvo el
+punto 1 de «Para completar» arriba (el permiso ya no es el bloqueo; la
+calidad de la extracción sí lo es). `agent-search-cmds.txt` y los ficheros
+de diagnóstico de este intento quedan en `$PRIV_J` como evidencia de
+auditoría, marcados como no consumibles.
 
 ## Recall del kit (generador de candidatos) — F7, review de rama 2026-09-20
 
