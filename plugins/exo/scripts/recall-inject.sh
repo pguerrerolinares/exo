@@ -13,7 +13,24 @@
 # entra en el turno como si fuera material de la KB. Todo lo que no sea el
 # JSON final va a stderr o a /dev/null.
 set -uo pipefail
+# $EPOCHREALTIME (usado más abajo) imprime con COMA decimal bajo un locale
+# cuyo LC_NUMERIC la use (es_ES.utf8, verificado real en la máquina de
+# Paul; Git Bash en Windows hereda el locale regional de Windows) --
+# forzarlo a C es el mismo patrón que ya usa `recall-latencia.sh:13`.
+# `_hook-ms.sh` normaliza coma->punto también por su cuenta (cinturón y
+# tirantes), pero fijar el locale aquí es más barato que confiar solo en esa
+# normalización defensiva.
+export LC_NUMERIC=C
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# hook_ms (campaña I, decisión #12): reloj de pared del hook entero, medido
+# desde AQUÍ (antes de leer stdin, para que ese spawn de `cat` también
+# cuente) hasta el evento `emitted`. La única parte que no se puede medir es
+# el `dirname`/`cd`/`pwd` de la línea de arriba, necesarios para localizar
+# este mismo helper -- unos pocos ms de suelo de proceso, no el shell que
+# esta campaña mide.
+. "$SCRIPT_DIR/_hook-ms.sh" 2>/dev/null
+HOOK_START=""
+hook_ms_soportado 2>/dev/null && HOOK_START="$EPOCHREALTIME"
 
 if [ -t 0 ]; then INPUT=""; else INPUT="$(cat)"; fi
 [ -n "$INPUT" ] || exit 0
@@ -370,7 +387,8 @@ fi
 
 # Los tiempos van ANTES de permalinks: `_reflex-log.sh` corta el payload a
 # 2000 chars y la lista de permalinks es lo único que puede crecer.
-log_ri "emitted" "n_hits=$N bytes=$BYTES elapsed_ms=${ELAPSED_MS:-?} refresh_ms=${REFRESH_MS:-?} permalinks=$PERMALINKS"
+hook_ms_de "$HOOK_START"
+log_ri "emitted" "n_hits=$N bytes=$BYTES elapsed_ms=${ELAPSED_MS:-?} refresh_ms=${REFRESH_MS:-?} hook_ms=${HOOK_MS:-NA} permalinks=$PERMALINKS"
 
 # ÚNICA escritura a stdout del script entero (P6).
 printf '%s' "$JSON_OUT"

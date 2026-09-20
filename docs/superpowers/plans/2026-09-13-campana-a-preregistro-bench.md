@@ -149,6 +149,21 @@ Paul (D4 del plan). Si los cambia al gatear, se sustituyen aquí y en las tres
 constantes de la Task 13 antes de ejecutarla. La ventana se evalúa **por
 máquina**: el log vive en el `$HOME` de cada una, y W11 no se mezcla con Linux.
 
+**Enmienda (2026-09-19, decisión de Paul #12, campaña I):** el criterio de
+p95 pasa de `elapsed_ms + refresh_ms` (tiempo interno del engine, el que
+reporta el propio `exo recall`) a **`hook_ms`** (reloj de pared del hook
+`recall-inject.sh` entero, medido con `$EPOCHREALTIME`, sin spawn). Motivo:
+en W11 el shell alrededor del binario cuesta tanto como el binario mismo
+(`evals/recall-coste/results/w11-2026-09-15.txt`: hook p50 2.312 ms frente a
+`elapsed_ms+refresh_ms` ~993-1.003 ms en las tres muestras registradas) —
+con la métrica vieja, el criterio de 1.500 ms nunca se dispara en W11 aunque
+cada prompt cueste el doble. El umbral (1.500 ms), el porcentaje de
+timeouts (2%) y el mínimo de disparos (200) **no cambian**: la enmienda es
+solo de qué mide el reloj, no de dónde está la barrera. Implementado en
+`docs/superpowers/plans/2026-09-19-campana-i-latencia-hook-w11.md` (Task 1).
+No se reescribe el texto de arriba: esto es un anexo fechado, como pide el
+propio contrato de pre-registro de la cabecera de este fichero.
+
 ## W11 (manual, sujeto a D5)
 
 El bench de arriba es solo de Linux. En la W11 de Paul, desde Git Bash, con

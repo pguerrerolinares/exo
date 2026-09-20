@@ -11,11 +11,23 @@ FAIL=0
 pass() { printf '[PASS] %s\n' "$1"; PASS=$((PASS+1)); }
 fail() { printf '[FAIL] %s — %s\n' "$1" "$2"; FAIL=$((FAIL+1)); }
 
-# emite <n> <elapsed_ms> <refresh_ms> <session> <fecha>
+# emite <n> <base_ms> <refresh_ms> <session> <fecha>
+# `hook_ms` del payload sintético = base_ms + refresh_ms (fix de la review
+# adversarial 2026-09-19): las CINCO llamadas a `emite` de este fichero ya
+# existían antes de la campaña I con estos mismos números pensados como
+# "elapsed_ms + refresh_ms suman la latencia total del caso" (ver los
+# comentarios de cada caso, p. ej. "p95 = 910" = 900+10). Si `hook_ms`
+# fuera solo `base_ms` sin sumar `refresh_ms`, el caso 1 daría p95=900 en vez
+# de los 910 que su propia aserción espera — desalineación real, detectada
+# corriendo el test, no solo leyéndolo. Sumar aquí preserva las CINCO
+# aserciones existentes sin tocarlas: no es una fórmula real de producción
+# (hook_ms de verdad es un número medido, no una suma), es una elección de
+# este fixture sintético para no reescribir comentarios y aserciones que ya
+# estaban bien.
 emite() {
-  awk -v n="$1" -v e="$2" -v r="$3" -v s="$4" -v d="$5" 'BEGIN {
+  awk -v n="$1" -v b="$2" -v r="$3" -v s="$4" -v d="$5" 'BEGIN {
     for (i = 0; i < n; i++)
-      printf "{\"ts\":\"%sT10:00:00Z\",\"reflex\":\"recall-inject-emitted\",\"session_id\":\"%s\",\"agent_id\":\"\",\"agent_type\":\"\",\"tool\":\"\",\"payload\":\"n_hits=3 bytes=900 elapsed_ms=%d refresh_ms=%d permalinks=kb/a,kb/b\"}\n", d, s, e, r
+      printf "{\"ts\":\"%sT10:00:00Z\",\"reflex\":\"recall-inject-emitted\",\"session_id\":\"%s\",\"agent_id\":\"\",\"agent_type\":\"\",\"tool\":\"\",\"payload\":\"n_hits=3 bytes=900 elapsed_ms=999 refresh_ms=%d hook_ms=%d permalinks=kb/a,kb/b\"}\n", d, s, r, (b+r)
   }'
 }
 timeouts() {  # timeouts <n> <fecha>

@@ -554,8 +554,12 @@ if grep 'recall-inject-degraded' "$REFLEX_LOG_FILE" 2>/dev/null | grep -q 'reaso
   pass "H2: el aviso del engine deja rastro engine-warning"
 else fail "H2: el aviso del engine deja rastro engine-warning" "$(cat "$REFLEX_LOG_FILE" 2>/dev/null)"; fi
 PL_AV="$(jq -r 'select(.reflex=="recall-inject-emitted") | .payload' "$REFLEX_LOG_FILE" 2>/dev/null | tail -1)"
-if contains "$PL_AV" "elapsed_ms=987 refresh_ms=12 permalinks="; then pass "H3: emitted lleva elapsed_ms y refresh_ms antes de permalinks"
-else fail "H3: emitted lleva elapsed_ms y refresh_ms antes de permalinks" "payload='$PL_AV'"; fi
+if contains "$PL_AV" "elapsed_ms=987 refresh_ms=12 hook_ms=" \
+   && printf '%s' "$PL_AV" | grep -qE 'hook_ms=(NA|[0-9]+) permalinks='; then
+  pass "H3/I1: emitted lleva elapsed_ms, refresh_ms y hook_ms (NA o entero) antes de permalinks"
+else
+  fail "H3/I1: emitted lleva elapsed_ms, refresh_ms y hook_ms antes de permalinks" "payload='$PL_AV'"
+fi
 
 : > "$REFLEX_LOG_FILE"
 run_hook "kbx trinquete" "$CUATRO"
