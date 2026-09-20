@@ -193,6 +193,53 @@ muerte del proceso a medio HTTP).
   registrados en el diario (aviso informativo; el gasto heredado no se
   toca).
 
+Enmienda 2026-09-20 (e), cuarta ronda de review adversarial — (d) numeraba
+los intentos con `for i in range(reintentos)` dentro de `kimi()`, que
+SIEMPRE arranca en `intento=1` porque no tiene memoria de cuántos intentos
+hubo para ese id en corridas anteriores. `reconstruye_gasto()` resolvía
+cada marca `en_vuelo` por la clave `(id, intento)` con un `pop` que no
+comprobaba que la resolución fuera de la MISMA llamada física que escribió
+la marca. Secuencia real: (1) RUN1 escribe y fsyncea `en_vuelo id=X
+intento=1`, el proceso muere (`kill -9`) tras salir hacia la API ->
+`reconstruye_gasto` la cuenta como desconocida, correcto. (2) El operador
+reanuda con el mismo `--out`; `kimi()` reintenta X desde `intento=1` otra
+vez (mismo número, porque no sabe que ya hubo un intento 1 en el diario) y
+esta vez la respuesta llega bien -> se escribe `ok id=X intento=1`. (3) Al
+reconstruir desde el principio, ese `ok` resuelve la clave `(X, 1)`, que ya
+estaba ocupada por la marca huérfana del crash, y la BORRA del libro de
+pendientes: la llamada perdida en el crash, que el proveedor pudo haber
+facturado, deja de contar como dólar o como desconocida. Solo alcanzable
+con `--tolerancia-desconocidas > 0` (con el default, la propia desconocida
+del crash ya para el pipeline al reanudar) -- pero es justo la
+configuración a la que el diseño empuja a un operador real, porque con
+tolerancia 0 un solo timeout normal deja el job bloqueado sin otra forma de
+continuar (ver nota de operabilidad más abajo).
+Arreglo: la identidad de un intento tiene que sobrevivir a una reanudación,
+no depender de un contador que reinicia con el proceso. `marca_en_vuelo()`
+genera ahora un **nonce opaco por intento** (`uuid4().hex`), lo escribe en
+la marca `en_vuelo` y lo devuelve; `kimi()` pasa ese mismo nonce a
+`contabiliza()`/`contabiliza_desconocida()`, que lo persisten en la línea
+de resolución. `reconstruye_gasto()` empareja marca y resolución SOLO por
+nonce -nunca por `(id, intento)`-, así que una resolución nueva JAMÁS puede
+apagar la marca huérfana de otra llamada física, sin importar qué número
+de intento reutilice. Se prefirió el nonce (frente a derivar el número de
+intento contando las líneas ya existentes en el diario para ese id al
+arrancar `kimi()`) porque una identidad opaca no depende de releer y
+contar bien el diario en cada arranque -un ficha de conteo con un borde
+mal calculado sigue siendo colisionable por construcción; un nonce único
+no lo es-. Invariante que no cambia: una marca `en_vuelo` sin resolución
+propia SIEMPRE cuenta como desconocida al reconstruir, pase lo que pase
+después con ese id.
+Nota de operabilidad (conocida, no cerrada en esta ronda): con
+`--tolerancia-desconocidas 0` (el default), una sola llamada perdida deja
+el pipeline bloqueado sin otra salida documentada que asumir el riesgo
+explícitamente subiendo la tolerancia -y esa es justo la presión de diseño
+que llevó al bug de esta enmienda a ser alcanzable en la práctica. No se
+cierra aquí una vía "operable pero segura" para ese caso (p.ej. una
+resolución manual del operador con un id concreto y un coste explícito)
+porque diseñarla mal reabriría un agujero de contabilidad como este; queda
+documentada como limitación conocida en `--help` de `--tolerancia-desconocidas`.
+
 Uso: juez.py paquetes --candidatos C --snap KB --out P.jsonl
      juez.py modelos --env-keys F
      juez.py kimi --paquetes P.jsonl --env-keys F --model M --out R.jsonl
@@ -408,19 +455,29 @@ def reconstruye_gasto(ruta_diario, precio_entrada, precio_salida):
     entre ambos, que corre ANTES de esto en `procesa_lote`-.
     Cada línea lleva `"tipo"` desde (d): `header` y `override_trazabilidad`
     se ignoran para el cómputo; `en_vuelo` (marca escrita ANTES de lanzar la
-    llamada, C2) se guarda como pendiente hasta encontrar su línea de
-    resolución por `(id, intento)` -si el diario se acaba con marcas sin
-    resolver (proceso muerto entre facturar y resolver), cada una cuenta
-    como DESCONOCIDA, nunca como cero-. `ok` y `usage_invalido` resuelven
-    la marca en vuelo correspondiente; solo `desconocida` (F1: respuesta
-    perdida, nunca llegó) consume la tolerancia -`usage_invalido` (C3: la
-    respuesta llegó pero el `usage` no es utilizable, un bug de schema) se
-    cuenta aparte en `usage_invalidas_heredadas`, informativo, para no
-    consumir para siempre `--tolerancia-desconocidas` por un motivo que no
-    tiene nada que ver con una llamada perdida (hallazgo Important de (d)).
-    Diarios legados de antes de (d) no tienen `"tipo"`: por compatibilidad
-    conservadora, una línea sin `"tipo"` y `usd: null` cuenta como
-    `desconocida` (el comportamiento de antes de (d), que ya era seguro).
+    llamada, C2) se guarda como pendiente hasta encontrar SU línea de
+    resolución -emparejada por `"nonce"` (enmienda (e); NUNCA por
+    `(id, intento)`, que se reinicia en cada arranque de `kimi()` y por eso
+    una resolución de una llamada FÍSICA distinta podía apagar por error la
+    marca huérfana de otra con el mismo `(id, intento)` tras una
+    reanudación -ver enmienda (e) más arriba para el repro completo-)- si
+    el diario se acaba con marcas sin resolver (proceso muerto entre
+    facturar y resolver, o cuyo nonce nunca vuelve a aparecer), cada una
+    cuenta como DESCONOCIDA, nunca como cero. `ok` y `usage_invalido`
+    resuelven la marca en vuelo correspondiente; solo `desconocida` (F1:
+    respuesta perdida, nunca llegó) consume la tolerancia -`usage_invalido`
+    (C3: la respuesta llegó pero el `usage` no es utilizable, un bug de
+    schema) se cuenta aparte en `usage_invalidas_heredadas`, informativo,
+    para no consumir para siempre `--tolerancia-desconocidas` por un motivo
+    que no tiene nada que ver con una llamada perdida (hallazgo Important
+    de (d)). Diarios legados de antes de (d) no tienen `"tipo"`: por
+    compatibilidad conservadora, una línea sin `"tipo"` y `usd: null`
+    cuenta como `desconocida` (el comportamiento de antes de (d), que ya
+    era seguro); diarios de antes de (e) tienen `en_vuelo` sin `"nonce"` --
+    esas marcas nunca pueden emparejarse (ninguna resolución nueva lleva un
+    `"nonce"` que las identifique) y por tanto SIEMPRE cuentan como
+    desconocidas si aparecen sin resolver, la misma asimetría deliberada de
+    siempre (falso positivo posible, falso negativo nunca).
     Avisa por stderr si los precios del run actual difieren de los últimos
     registrados en el diario (F5) -el `usd` ya persistido por llamada no se
     recalcula con los precios de hoy."""
@@ -433,11 +490,17 @@ def reconstruye_gasto(ruta_diario, precio_entrada, precio_salida):
         tipo = fila.get("tipo")
         if tipo in ("header", "override_trazabilidad"):
             continue
-        clave = (fila.get("id"), fila.get("intento"))
+        nonce = fila.get("nonce")
         if tipo == "en_vuelo":
+            # sin nonce (diario de antes de (e)): clave única por línea, nunca emparejable ->
+            # si queda sin resolver por el camino "normal" de abajo, cuenta como desconocida.
+            clave = nonce if nonce is not None else ("_sin_nonce", n)
             en_vuelo_pendientes[clave] = n
             continue
-        en_vuelo_pendientes.pop(clave, None)  # esta línea resuelve la marca en vuelo, si había
+        # (e): esta línea resuelve la marca en vuelo de SU MISMA llamada física -identificada
+        # por nonce, nunca por (id, intento), que un `kimi()` reanudado puede reutilizar-.
+        if nonce is not None:
+            en_vuelo_pendientes.pop(nonce, None)
         if "precio_entrada" in fila and "precio_salida" in fila:
             precios_vistos = (fila["precio_entrada"], fila["precio_salida"])
         usd = fila.get("usd")
@@ -514,27 +577,34 @@ def kimi(paq, key, model, reintentos=3, http=_http, contabiliza=None,
     `marca_en_vuelo(intento)` (enmienda (d), C2) se llama JUSTO ANTES de
     `http()`, para que un `kill -9` real entre el envío y el retorno deje
     una marca ya fsyncada en el diario -sin ella, ese hueco no dejaba
-    ninguna traza-."""
+    ninguna traza-. Devuelve un `nonce` opaco (enmienda (e)) que identifica
+    esta llamada física de forma única A TRAVÉS de reanudaciones -el número
+    de intento (`i + 1`) NO sirve para eso: `kimi()` siempre arranca en
+    `intento=1` en cada invocación nueva, incluida la de un proceso que
+    reanuda tras un crash, así que dos llamadas físicas distintas pueden
+    compartir `(id, intento)`-; ese nonce se pasa tal cual a
+    `contabiliza()`/`contabiliza_desconocida()` para que la línea que
+    resuelve la marca lleve el mismo nonce y solo pueda resolver SU propia
+    marca (ver `reconstruye_gasto()`)."""
     ultimo = None
     for i in range(reintentos):
         if tope_alcanzado is not None and tope_alcanzado():
             return None, "tope superado: reintento no lanzado"
-        if marca_en_vuelo is not None:
-            marca_en_vuelo(i + 1)
+        nonce = marca_en_vuelo(i + 1) if marca_en_vuelo is not None else None
         try:
             r = http(f"{BASE}/chat/completions", key, cuerpo_peticion(paq, model))
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
             motivo = f"{type(e).__name__}: {str(e)[:120]}"
             ultimo = motivo
             if contabiliza_desconocida is not None:
-                _, err_desc = contabiliza_desconocida(i + 1, motivo)
+                _, err_desc = contabiliza_desconocida(i + 1, motivo, nonce)
                 if err_desc is not None:
                     return None, f"GASTO_DESCONOCIDO: {err_desc}"
             time.sleep(2 ** i)
             continue
         uso = r.get("usage")
         if contabiliza is not None:
-            _, err_costo = contabiliza(uso, i + 1)
+            _, err_costo = contabiliza(uso, i + 1, nonce)
             if err_costo is not None:
                 return None, f"USAGE_INVALIDO: {err_costo}"
         try:
@@ -682,14 +752,21 @@ def procesa_lote(ruta_paquetes, out, key, model, precio_entrada, precio_salida,
             os.fsync(fh_diario.fileno())
 
         def marca_en_vuelo(intento):
-            _diario({"tipo": "en_vuelo", "id": paq_actual["id"], "intento": intento, "ts": time.time()})
+            # (e): nonce opaco por llamada FÍSICA, único a través de reanudaciones -el número
+            # de intento se reinicia en cada arranque de kimi() y NO sirve como identidad, ver
+            # el docstring de reconstruye_gasto()-. Se devuelve para que la línea que resuelva
+            # esta marca (contabiliza/contabiliza_desconocida) lleve el mismo nonce.
+            nonce = uuid.uuid4().hex
+            _diario({"tipo": "en_vuelo", "id": paq_actual["id"], "intento": intento,
+                     "nonce": nonce, "ts": time.time()})
+            return nonce
 
-        def contabiliza(usage, intento):
+        def contabiliza(usage, intento, nonce):
             nonlocal gasto
             c, err = costo(usage, precio_entrada, precio_salida)
             _diario({
                 "tipo": "usage_invalido" if err is not None else "ok",
-                "id": paq_actual["id"], "intento": intento, "ts": time.time(),
+                "id": paq_actual["id"], "intento": intento, "nonce": nonce, "ts": time.time(),
                 "prompt_tokens": usage.get("prompt_tokens") if isinstance(usage, dict) else None,
                 "completion_tokens": usage.get("completion_tokens") if isinstance(usage, dict) else None,
                 "usd": None if err is not None else c,
@@ -703,11 +780,11 @@ def procesa_lote(ruta_paquetes, out, key, model, precio_entrada, precio_salida,
             tok[1] += usage["completion_tokens"]
             return c, None
 
-        def contabiliza_desconocida(intento, motivo):
+        def contabiliza_desconocida(intento, motivo, nonce):
             nonlocal desconocidas
             _diario({
                 "tipo": "desconocida",
-                "id": paq_actual["id"], "intento": intento, "ts": time.time(),
+                "id": paq_actual["id"], "intento": intento, "nonce": nonce, "ts": time.time(),
                 "prompt_tokens": None, "completion_tokens": None, "usd": None,
                 "precio_entrada": precio_entrada, "precio_salida": precio_salida,
                 "motivo_desconocida": motivo,
@@ -853,7 +930,11 @@ def main():
                            "cuenta antes de lanzar la siguiente llamada, igual que el tope de gasto. "
                            "Una llamada 'usage_invalido' (C3: la API respondió pero el usage no es "
                            "utilizable) NO consume esta tolerancia -es un motivo distinto, ver "
-                           "--acepto-riesgo-gasto-no-verificable para el otro tipo de incoherencia-.")
+                           "--acepto-riesgo-gasto-no-verificable para el otro tipo de incoherencia-. "
+                           "LIMITACIÓN CONOCIDA (operabilidad, enmienda (e)): con el default (0), una "
+                           "sola llamada perdida bloquea el job sin otra salida documentada que subir "
+                           "este número y asumir el riesgo explícitamente -no hay una bandera para "
+                           "'resolver a mano' un id concreto sin reabrir un agujero de contabilidad-.")
     a_k.add_argument("--acepto-riesgo-gasto-no-verificable", action="store_true",
                       dest="acepto_riesgo_gasto",
                       help="BANDERA DE ALTO RIESGO, nombre largo a propósito para que no se active "

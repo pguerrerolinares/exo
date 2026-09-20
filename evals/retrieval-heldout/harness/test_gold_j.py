@@ -595,6 +595,87 @@ class TestJuezCoherenciaDiario(unittest.TestCase):
             self.assertEqual(desconocidas, 1)  # marca sin resolver -> desconocida, nunca cero
             self.assertEqual(usage_invalidas, 0)
 
+    def test_C2_resume_tras_kill_9_no_pierde_la_marca_huerfana(self):
+        """Enmienda (e), el bug real que motivó el fix: el test de arriba
+        (test_C2_kill_9_real_...) solo comprueba el estado DENTRO de la
+        corrida que crashea; nunca comprueba el resume posterior, que es
+        donde vivía el bug. `kimi()` numera los intentos con
+        `for i in range(reintentos)`, arrancando SIEMPRE en 1 -sin memoria
+        de que este mismo id ya tuvo un intento 1 en una corrida anterior-.
+        Al reanudar con el mismo --out tras el kill -9, el reintento vuelve
+        a numerarse intento=1 y, si esta vez la respuesta llega bien, su
+        resolución 'ok' (id=c1, intento=1) coincidía -antes de (e)- con la
+        clave de la marca huérfana del crash y la borraba del libro de
+        pendientes al reconstruir: esa llamada, que el proveedor pudo haber
+        facturado durante el crash, dejaba de contar como dólar o como
+        desconocida. Repro: mata un proceso real (mismo patrón que arriba)
+        justo después de que escriba y fsyncee la marca en_vuelo, luego
+        reanuda con el MISMO --out y un http() que esta vez responde bien,
+        y comprueba que tras el resume la marca huérfana SIGUE contando
+        como desconocida y que el gasto acumulado la incluye (no la
+        sustituye). Solo alcanzable con --tolerancia-desconocidas > 0 (con
+        el default, la propia desconocida del crash ya para el pipeline al
+        reanudar); por eso el resume la sube a 1."""
+        with tempfile.TemporaryDirectory() as d:
+            ruta = self._paquetes(d, ["c1"])
+            out = Path(d) / "out.jsonl"
+            ruta_diario = f"{out}.gasto.jsonl"
+            harness_dir = str(Path(__file__).resolve().parent)
+            script = Path(d) / "runner.py"
+            script.write_text(
+                "import sys, time\n"
+                f"sys.path.insert(0, {harness_dir!r})\n"
+                "import juez as jz\n"
+                "def http(url, key, cuerpo=None, timeout=120):\n"
+                "    time.sleep(60)\n"
+                "    raise AssertionError('no debería llegar aqui: se mata antes')\n"
+                f"jz.procesa_lote({str(ruta)!r}, {str(out)!r}, 'k', 'kimi-k3', "
+                "precio_entrada=3.0, precio_salida=15.0, reintentos=1, http=http)\n",
+                encoding="utf-8",
+            )
+            proc = subprocess.Popen([sys.executable, str(script)])
+            try:
+                limite = time.time() + 10
+                marcado = False
+                while time.time() < limite:
+                    if Path(ruta_diario).exists():
+                        lineas = [json.loads(l) for l in Path(ruta_diario).read_text(encoding="utf-8").splitlines() if l.strip()]
+                        if any(l.get("tipo") == "en_vuelo" and l.get("id") == "c1" for l in lineas):
+                            marcado = True
+                            break
+                    time.sleep(0.02)
+                self.assertTrue(marcado, "la marca en_vuelo no apareció en el diario a tiempo")
+                proc.kill()  # SIGKILL real
+                proc.wait(timeout=5)
+            finally:
+                if proc.poll() is None:
+                    proc.kill()
+                    proc.wait(timeout=5)
+
+            # estado tras el crash: --out vacío (nunca llegó a escribir la fila de c1).
+            self.assertEqual(out.read_text(encoding="utf-8"), "")
+
+            # RESUME: mismo --out, mismo id c1, esta vez http() responde bien. tolerancia=1
+            # para poder completar el resume pese a la desconocida heredada del crash.
+            resultado = jz.procesa_lote(str(ruta), str(out), "k", "kimi-k3",
+                                         precio_entrada=3.0, precio_salida=15.0,
+                                         reintentos=1, tolerancia_desconocidas=1,
+                                         http=self._http_ok)
+            self.assertEqual(resultado["ok"], 1)
+            # LA ASERCIÓN QUE FALLABA ANTES DE (e): la huérfana del crash SIGUE contando,
+            # el 'ok' del resume (mismo id, mismo número de intento) no la borra.
+            self.assertEqual(resultado["desconocidas"], 1)
+            # coste real del resume (_http_ok: prompt_tokens=1000, completion_tokens=100):
+            # 1000/1e6*3 + 100/1e6*15 = 0.003 + 0.0015 = 0.0045 -- el gasto INCLUYE la llamada
+            # de resume, y la huérfana (usd null) no se confunde con coste cero.
+            self.assertAlmostEqual(resultado["gasto_usd"], 0.0045)
+
+            # y reconstruye_gasto sobre el diario final, releído desde cero, coincide.
+            gasto, tok, desconocidas, usage_invalidas = jz.reconstruye_gasto(ruta_diario, 3.0, 15.0)
+            self.assertEqual(desconocidas, 1)
+            self.assertAlmostEqual(gasto, 0.0045)
+            self.assertEqual(usage_invalidas, 0)
+
 
 class TestAcuerdo(unittest.TestCase):
     def j(self, e, a=(), r="r"):
