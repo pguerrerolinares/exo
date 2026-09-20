@@ -473,11 +473,14 @@ def reconstruye_gasto(ruta_diario, precio_entrada, precio_salida):
     de (d)). Diarios legados de antes de (d) no tienen `"tipo"`: por
     compatibilidad conservadora, una línea sin `"tipo"` y `usd: null`
     cuenta como `desconocida` (el comportamiento de antes de (d), que ya
-    era seguro); diarios de antes de (e) tienen `en_vuelo` sin `"nonce"` --
-    esas marcas nunca pueden emparejarse (ninguna resolución nueva lleva un
-    `"nonce"` que las identifique) y por tanto SIEMPRE cuentan como
-    desconocidas si aparecen sin resolver, la misma asimetría deliberada de
-    siempre (falso positivo posible, falso negativo nunca).
+    era seguro); diarios de antes de (e) tienen `en_vuelo` sin `"nonce"` Y
+    sus líneas de resolución (ok/desconocida/usage_invalido) tampoco llevan
+    `"nonce"` -- TODAS las líneas quedan sin emparejar. Cada marca en vuelo
+    pendiente cuenta como DESCONOCIDA; pero incluso las resoluciones que
+    llegaron a escribirse quedan huérfanas (sin poder identificarse por
+    nonce) y se cuentan como desconocidas también. Reanudar un diario sano
+    de la versión anterior con tolerancia 0 pararía el pipeline. La asimetría
+    es deliberada (falso positivo posible, falso negativo nunca).
     Avisa por stderr si los precios del run actual difieren de los últimos
     registrados en el diario (F5) -el `usd` ya persistido por llamada no se
     recalcula con los precios de hoy."""
@@ -934,7 +937,11 @@ def main():
                            "LIMITACIÓN CONOCIDA (operabilidad, enmienda (e)): con el default (0), una "
                            "sola llamada perdida bloquea el job sin otra salida documentada que subir "
                            "este número y asumir el riesgo explícitamente -no hay una bandera para "
-                           "'resolver a mano' un id concreto sin reabrir un agujero de contabilidad-.")
+                           "'resolver a mano' un id concreto sin reabrir un agujero de contabilidad-. "
+                           "AVISO: reanudar un diario de la versión pre-nonce (anterior a enmienda "
+                           "(e)) con tolerancia 0 pararía el pipeline porque todas sus líneas quedan "
+                           "sin emparejar; hoy esto es teórico (no hay diarios reales de esa versión "
+                           "aún).")
     a_k.add_argument("--acepto-riesgo-gasto-no-verificable", action="store_true",
                       dest="acepto_riesgo_gasto",
                       help="BANDERA DE ALTO RIESGO, nombre largo a propósito para que no se active "
