@@ -1443,8 +1443,10 @@ def main():
     for k in ("candidatos", "fable", "kimi", "gold-out", "descartes-out", "informe-out"):
         ap.add_argument(f"--{k}", required=True)
     ap.add_argument("--snap")
-    ap.add_argument("--kappa-min", type=float, default=0.60)
-    ap.add_argument("--po-min", type=float, default=0.70)
+    # F9 del review de rama (2026-09-20): sin default -obligatorios-, para
+    # que un suelo firmado (D-J11) no pueda olvidarse por omisión del flag.
+    ap.add_argument("--kappa-min", type=float, required=True)
+    ap.add_argument("--po-min", type=float, required=True)
     a = ap.parse_args()
     cands = [json.loads(l) for l in open(a.candidatos, encoding="utf-8") if l.strip()]
     textos = None

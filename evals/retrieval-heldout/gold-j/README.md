@@ -63,15 +63,49 @@ parecería un estrato válido sin serlo.
 Este kit se generó **sin `agent-search`**: `queries.jsonl`, `candidatos.jsonl`
 y `paquetes.jsonl` tienen 229 filas (`prompt` 139 · `hard` 30 · `archive` 20 ·
 `negativo` 40), no 289-349 como habría sido con `agent-search` (60-120 filas
-más, cota del plan). **Riesgo real sobre el suelo de no nulas (60, §11):**
-sumando los rangos «no nulas esperadas tras acuerdo» de §3 del pre-registro
-para los estratos presentes — `prompt` 20-30, `hard` 20-25, `archive` 12-16,
-`negativo` 0 — el rango sin `agent-search` es **52-71 no nulas**, que
-**se solapa con el suelo de 60 sin garantizarlo**: en el peor caso del rango
-(52) el gold no llegaría al suelo y J PARA; en el mejor caso (71) sí. Con
-`agent-search` (que aporta 40-70 no nulas esperadas) el objetivo total
-92-141 deja margen mucho más cómodo sobre el suelo. Juzgar sin `agent-search`
-es una apuesta real, no una formalidad.
+más, cota del plan). **Riesgo real sobre el suelo de no nulas (60, §11)**
+(actualizado con el recall real del kit medido en «Recall del kit» abajo —
+`archive` 14/20, no el 20/20 que el §3 asumía en el mejor caso):
+
+- **Recuento estimado de no nulas con el kit tal cual: ≈ 52-73, mediana ≈ 64**
+  (`prompt` 20-30 + `hard` 20-25 + `archive` recortado por el recall real a
+  ≈ 8-14 en vez de 12-16 + `negativo` 0). **Probabilidad de quedar por
+  debajo del suelo de 60: ~35-45 %** — no es una formalidad, es una apuesta
+  real con el kit en su estado actual.
+- **Si se repite el Step 7 del bloque `archive` (`q170`-`q189`, ver «Recall
+  del kit» arriba) antes de juzgar:** el rango sube a **≈ 55-76** y el
+  riesgo de no llegar al suelo baja a **~30 %**. Barato (un lote de 20
+  candidatos con un agente fresco) frente al coste de fallar (abajo).
+- **El otro suelo que nadie citaba explícitamente: `archive` ≥ 8 filas no
+  nulas** (§11, `no_nulas_por_estrato.archive`) para que D-C (la decisión
+  sobre penalizar `archive/`) pueda tomarse. Lo esperado tras acuerdo sobre
+  las 14 candidatas reales son **10-12 filas**: pasa, pero **sin margen** —
+  un acuerdo algo peor de lo esperado en ese estrato concreto (no en el
+  total) deja a D-C sin decidir, aunque el gold global sí llegue al suelo
+  de 60.
+- **Lo que se pierde si el suelo global falla NO es el dinero:** el kit tal
+  cual son ≈ 0,45-0,6 M tokens de entrada para Kimi (ver «Recuentos» abajo)
+  ⇒ **≈ $2 con kimi-k3, no los ≈ $6** que cita la Task 7 Step 3 del plan
+  (esa cifra es para el job completo de ≈ 280 filas CON `agent-search`, que
+  este kit no tiene). Lo que se pierde de verdad: **las 229 queries quedan
+  consumidas** (§11, «Prohibido: … re-juzgar filas», y el gold entero queda
+  «consumido» tras el verdict) — no se pueden re-juzgar ni reciclar en un
+  segundo intento, y **`agent-search` quedaría fuera de este gold para
+  siempre** (el estrato con las únicas queries reales de agentes, D-J11):
+  cualquier necesidad futura de retrieval-para-agentes exigiría un gold
+  nuevo desde cero, no una ampliación de este.
+- **Recomendación del review (no del kit — la decisión es de Paul):**
+  esperar a que se resuelva el permiso de lectura de `agent-search` (punto 1
+  de «Para completar» abajo) antes de juzgar. Es el único estrato con
+  queries reales lanzadas por agentes en producción; sin él, el gold
+  responde una pregunta distinta de la que D-J11 firmó (relevancia para
+  `prompt` + generadas, no para el patrón de uso real de `exo search` por
+  agentes). Con `agent-search` (40-70 no nulas esperadas) el objetivo total
+  92-141 deja margen mucho más cómodo sobre el suelo, y el riesgo de arriba
+  desaparece. Pero esto es una recomendación, no un bloqueo: si Paul decide
+  juzgar con el kit tal cual (o tras repetir el Step 7 de `archive`),
+  asumiendo el ~30-45 % de riesgo y la pérdida irreversible de las 229
+  queries si falla, esa es una decisión válida y suya.
 
 **Para completar, el día que Paul decida:**
 
