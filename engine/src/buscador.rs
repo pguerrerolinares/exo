@@ -61,12 +61,47 @@ pub struct Busqueda {
     pub aviso_kb_root: Option<String>,
 }
 
+/// Existe `tabla` en el schema de `conn` — vía `sqlite_master`, que también
+/// registra las tablas virtuales (`vectores` es `USING vec0(...)`) con
+/// `type='table'`.
+fn tabla_existe(conn: &rusqlite::Connection, tabla: &str) -> Result<bool> {
+    Ok(conn
+        .query_row(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?1",
+            params![tabla],
+            |_| Ok(()),
+        )
+        .optional()
+        .with_context(|| format!("comprobar existencia de la tabla {tabla}"))?
+        .is_some())
+}
+
 /// Avisos de cobertura del arm vector: compara filas de `vectores` contra
 /// filas de `trozos`, que es la relación 1:1 que mantiene el indexer.
 ///
 /// Corpus vacío (`trozos == 0`) no avisa: una DB recién creada no está
-/// degradada, está vacía. Avisar ahí sería el falso rojo simétrico.
+/// degradada, está vacía. Avisar ahí sería el falso rojo simétrico. Eso
+/// asume que el schema SÍ existe (`exo index`/`rebuild` ya corrieron) — una
+/// tabla `vectores` AUSENTE (Campaña L Task 1: «exo search sin --type
+/// contra una DB sin tabla vectores falla duro donde antes daba FTS»,
+/// review final de G, 2026-09-16, M5) es un caso distinto: la DB no es
+/// "vacía todavía", es "nunca pasó por el indexer" — por eso este chequeo
+/// va ANTES del early-return de `trozos == 0`, y avisa aunque `trozos`
+/// también sea 0 (fixture real: `db_sin_tabla_meta` en
+/// `engine/tests/kb_root_lectura_cli.rs` no crea NI `trozos` NI `vectores`
+/// — sin este orden, el early-return de `trozos == 0` se comía el aviso
+/// antes de llegar a mirar `vectores`, dejando un fallback MUDO).
 fn avisos_cobertura_vector(conn: &rusqlite::Connection) -> Result<Vec<String>> {
+    if !tabla_existe(conn, "vectores")? {
+        return Ok(vec![
+            "arm vector INERTE: la tabla `vectores` no existe (la DB nunca \
+             pasó por `exo index`/`exo rebuild`).              El resultado \
+             sale de FTS puro aunque se etiquete hybrid;              corre \
+             `exo index` antes de fiarte del ranking."
+                .to_string(),
+        ]);
+    }
+
     let trozos: i64 = conn
         .query_row("SELECT count(*) FROM trozos", [], |f| f.get(0))
         .context("contar filas de trozos")?;
@@ -311,9 +346,14 @@ fn busca_vector_con(
     // Mismo aviso best-effort que `busca`, sobre esta misma conexión.
     let aviso_kb_root = crate::indexer::aviso_kb_root_lectura(conn, kb);
 
-    let total_vectores: i64 = conn
-        .query_row("SELECT count(*) FROM vectores", [], |r| r.get(0))
-        .context("contar filas de vectores")?;
+    // Campaña L Task 1: tabla `vectores` AUSENTE cuenta como 0 vectores, en
+    // vez de un `Err` duro (ver doc de `tabla_existe`/`avisos_cobertura_vector`).
+    let total_vectores: i64 = if tabla_existe(conn, "vectores")? {
+        conn.query_row("SELECT count(*) FROM vectores", [], |r| r.get(0))
+            .context("contar filas de vectores")?
+    } else {
+        0
+    };
 
     let results = if total_vectores == 0 || query.trim().is_empty() {
         Vec::new()
