@@ -4,6 +4,16 @@
 # existentes en test-recall-inject.sh, para que ninguna task que reescriba el
 # parseo (jq/sed/tr -> bash) cambie ni un byte de lo que se inyecta.
 #
+# LIMITACIÓN CONOCIDA: los seis fixtures (CUATRO/GORDO/RECORTE/TITREP/UNICO/
+# AVISA) cubren la COMPOSICIÓN del bloque con hits reales -- cero hits (gate
+# que calla, DB/binario ausente, "recall vacío") y envelope inválido no están
+# entre ellos, a propósito: el plan de la Task 2 nombra estos seis fixtures
+# uno por uno y añadir otros se saldría de su contrato. Por eso este golden
+# NO es por sí solo una red de regresión completa -- esos otros casos (P1,
+# P2, P4, P5, el gate léxico, `norm_token`) solo los cubre
+# `test-recall-inject.sh`, y este script se corre SIEMPRE junto a esa suite,
+# nunca en su lugar.
+#
 # RECAPTURA=1 (re)escribe los goldens. Sin ella, compara y FALLA si faltan o
 # difieren -- nunca aprueba en silencio un golden ausente.
 set -uo pipefail

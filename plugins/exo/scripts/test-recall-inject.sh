@@ -600,5 +600,108 @@ if grep -q 'reason=empty warn=aviso: arm vector INERTE' "$REFLEX_LOG_FILE" 2>/de
   pass "H2: vacío con aviso largo sigue siendo empty y lleva el aviso"
 else fail "H2: vacío con aviso largo sigue siendo empty y lleva el aviso" "$(cat "$REFLEX_LOG_FILE" 2>/dev/null)"; fi
 
+# --------------------------------------- T-norm: norm_token, par a par ---
+# `norm_token` (recall-inject.sh) hace la normalización LETRA A LETRA con 40
+# sustituciones literales (14 de pliegue de acento incluyendo Ñ/ñ, 26 de
+# mayúscula->minúscula): ninguna suite hasta ahora ejercía una sustitución
+# aislada, solo el efecto agregado sobre palabras completas vía el gate. Un
+# review adversarial (2026-09-19) demostró que borrar la línea de `Ú` pasa
+# esta misma suite y el golden en verde -- una regresión de una línea
+# invisible. Este bloque la cierra: recorre las 40 parejas una por una y
+# falla nombrando la que no folda.
+#
+# La función se EXTRAE del script real (no se copia a mano): si se borra o
+# cambia una línea de la definición, la extracción la pierde también, así
+# que el test nunca compara contra una copia obsoleta.
+NORM_TOKEN_SRC="$(sed -n '/^norm_token() {/,/^}/p' "$HOOK")"
+if [ -z "$NORM_TOKEN_SRC" ]; then
+  fail "norm_token: extracción" "no encontré la función en $HOOK"
+fi
+
+# Data-driven: "entrada esperado" por línea, bash 3.2 safe (sin arrays
+# asociativos, sin ${var,,}). `esperado` es la salida FINAL de `norm_token`
+# (acento Y mayúscula plegados: las dos tandas corren dentro de la misma
+# llamada, así que "Á" folda a "a", no a "A" -- un valor intermedio que
+# `norm_token` nunca devuelve). El ORDEN de las parejas sigue exactamente al
+# de las líneas 116-125 del hook para que un `diff` visual entre esta lista y
+# esa función sea directo.
+NORM_PARES='Á a
+É e
+Í i
+Ó o
+Ú u
+Ü u
+Ñ n
+á a
+é e
+í i
+ó o
+ú u
+ü u
+ñ n
+A a
+B b
+C c
+D d
+E e
+F f
+G g
+H h
+I i
+J j
+K k
+L l
+M m
+N n
+O o
+P p
+Q q
+R r
+S s
+T t
+U u
+V v
+W w
+X x
+Y y
+Z z'
+
+# $1 = etiqueta del locale  $2 = valor de LC_ALL a forzar (nunca vacío: el
+# propio bash -c de abajo necesita un valor concreto que probar, no "lo que
+# haya heredado el runner").
+verifica_norm_pares() {
+  local etiqueta="$1" loc="$2" entrada esperado obtenido
+  while IFS=' ' read -r entrada esperado; do
+    [ -n "$entrada" ] || continue
+    # bash -c en un proceso aparte (no un subshell `()`) para que LC_ALL se
+    # pueda forzar SOLO en esta llamada, sin filtrar al resto de la suite
+    # (F2b ya usa el mismo patrón de proceso aparte para el mismo motivo).
+    # NORM_TOKEN_SRC viaja por entorno, no interpolado en el programa de
+    # `bash -c`, para no pelear con el quoting de las comillas simples de la
+    # propia función.
+    obtenido="$(NORM_TOKEN_SRC="$NORM_TOKEN_SRC" LC_ALL="$loc" bash -c '
+      eval "$NORM_TOKEN_SRC"
+      norm_token "$1"
+      printf "%s" "$TOKEN_NORM"
+    ' _ "$entrada" 2>/dev/null)"
+    if [ "$obtenido" = "$esperado" ]; then
+      pass "norm_token[$etiqueta]: '$entrada' -> '$esperado'"
+    else
+      fail "norm_token[$etiqueta]: '$entrada' -> '$esperado'" "obtuvo '$obtenido'"
+    fi
+  done <<EOF
+$NORM_PARES
+EOF
+}
+
+if [ -n "$NORM_TOKEN_SRC" ]; then
+  verifica_norm_pares "LC_ALL=C" "C"
+  if locale -a 2>/dev/null | grep -qi '^es_ES\.utf8$'; then
+    verifica_norm_pares "LC_ALL=es_ES.utf8" "es_ES.utf8"
+  else
+    pass "norm_token: SKIP LC_ALL=es_ES.utf8 (no instalado en esta máquina)"
+  fi
+fi
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

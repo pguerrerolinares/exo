@@ -243,9 +243,14 @@ fi
 # Envelope + metadatos en UNA SOLA pasada de jq (campaña I; antes eran dos:
 # un `jq -e` solo para validar la forma y un `jq -r` separado para extraer
 # los campos). Si el envelope no tiene `data.notes`, jq emite el centinela
-# "envelope-ilegible" (sin tabs, indistinguible de un fallo de jq — ambos
-# caen al mismo `case` de abajo). `@tsv` con los avisos AL FINAL, porque
-# `read` colapsa un campo vacío en medio (el tab es whitespace de IFS).
+# "envelope-ilegible" en vez de un `@tsv` — pero el TEXTO del centinela no es
+# observable ni importa: el `case` de abajo solo mira si `$META` lleva un tab
+# o no (un fallo de jq que deje `$META` vacío cae en la misma rama). El
+# mensaje `err=envelope-ilegible` que loguea esa rama (más abajo) es un
+# literal hardcodeado APARTE, no una lectura de este centinela; que compartan
+# el mismo texto es legibilidad, no acoplamiento. `@tsv` con los avisos AL
+# FINAL, porque `read` colapsa un campo vacío en medio (el tab es whitespace
+# de IFS).
 META="$(printf '%s' "$SALIDA" | jq -r '
   if (has("data") and (.data | has("notes"))) then
     [ (.data.truncated // false | tostring),
