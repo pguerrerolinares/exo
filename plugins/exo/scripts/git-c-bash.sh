@@ -24,7 +24,8 @@ INPUT="$(cat)"
 # ESTO ASUME que el harness serializa el input con `JSON.stringify`, que
 # nunca escapa ASCII (review final de rama, 2026-09-20; corrección de un
 # comentario anterior que decía "sin poder perder", estrictamente falso: un
-# encoder que SÍ escapara ASCII, p.ej. "g" -> "g", rompería el match
+# encoder que SÍ escapara ASCII -- p.ej. la "g" de "git" como secuencia de
+# escape Unicode U+0067 en vez del byte literal -- rompería el match
 # `*git*` sin que este pre-filtro lo note. No ocurre con el harness real,
 # pero la garantía es del harness, no de este `case`).
 case "$INPUT" in
