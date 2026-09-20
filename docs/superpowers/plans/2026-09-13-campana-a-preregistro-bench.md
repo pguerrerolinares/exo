@@ -164,6 +164,31 @@ solo de qué mide el reloj, no de dónde está la barrera. Implementado en
 No se reescribe el texto de arriba: esto es un anexo fechado, como pide el
 propio contrato de pre-registro de la cabecera de este fichero.
 
+**Anexo (2026-09-20, review final de rama, campaña I): `hook_ms` infraestima
+el coste, con sesgo sistemático hacia NO-REABRIR.** `hook_ms_de` se llama
+ANTES de loguear el propio evento `emitted` (`recall-inject.sh:435-436`), así
+que el `date` + `jq` de `_reflex-log.sh` que escriben ESE evento quedan fuera
+del reloj — no se puede medir el propio log sin otro spawn, así que no es un
+bug corregible, pero sesga la métrica que decide REABRIR/NO-REABRIR y tiene
+que quedar escrito donde se lee esa decisión. Medido en Linux: el coste
+externo (reloj de pared del proceso completo) es 70-76 ms mientras `hook_ms`
+reporta 57-64 ms para la misma invocación ⇒ **12-13 ms sistemáticamente
+fuera del reloj**. Consistente con la Task 6: hyperfine de `s6-hook-entero`
+(coste externo) da p95 1045/1082/1183 ms (N=174/1000/5000) frente al p95 de
+`hook_ms` de 1035/1069/1173 ms que reporta `docs/backlog.md` para las mismas
+corridas — la misma brecha de ~10-14 ms. Ese tramo son 4 spawns que el
+reloj no ve: arranque de bash, el `dirname`/`pwd` que localiza el propio
+script (antes de `HOOK_START`), y el `date` + `jq` del `reflex_log` del
+evento `emitted` (después de que `hook_ms_de` ya cerró la medición). **En
+W11, a 25-60 ms por spawn** (medición de Paul,
+`evals/recall-coste/results/w11-2026-09-15.txt`), **esos mismos 4 spawns son
+100-250 ms que el instrumento nunca ve**, y el umbral de 1.500 ms p95 se
+compara contra una cifra que ya venía por debajo del coste real. No cambia
+el umbral (sigue siendo pre-registro, no se ajusta a la vista del sesgo):
+cambia lo que hay que saber al leer un veredicto NO-REABRIR cerca del
+límite. Comentario correspondiente en `plugins/exo/scripts/recall-inject.sh`
+(líneas junto a `HOOK_START`).
+
 ## W11 (manual, sujeto a D5)
 
 El bench de arriba es solo de Linux. En la W11 de Paul, desde Git Bash, con

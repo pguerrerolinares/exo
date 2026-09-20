@@ -24,10 +24,18 @@ export LC_NUMERIC=C
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # hook_ms (campaña I, decisión #12): reloj de pared del hook entero, medido
 # desde AQUÍ (antes de leer stdin, para que ese spawn de `cat` también
-# cuente) hasta el evento `emitted`. La única parte que no se puede medir es
-# el `dirname`/`cd`/`pwd` de la línea de arriba, necesarios para localizar
-# este mismo helper -- unos pocos ms de suelo de proceso, no el shell que
-# esta campaña mide.
+# cuente) hasta justo antes de loguear el evento `emitted` (`hook_ms_de` se
+# llama primero, así que su propio cálculo tampoco cuenta). Lo que no se
+# puede medir: el `dirname`/`cd`/`pwd` de la línea de arriba (antes de
+# HOOK_START) y, DESPUÉS del corte, el `date`+`jq` de `_reflex-log.sh` que
+# escriben ESE MISMO evento `emitted` -- no se puede medir el propio log sin
+# otro spawn. Review final de rama (2026-09-20): en Linux son ~12-13 ms
+# fuera del reloj (coste externo 70-76 ms vs. `hook_ms` 57-64 ms,
+# consistente con el hyperfine de la Task 6 en `docs/backlog.md`); en W11,
+# a 25-60 ms/spawn (`evals/recall-coste/results/w11-2026-09-15.txt`), son
+# 100-250 ms que el instrumento nunca ve -- el umbral de 1.500 ms se compara
+# contra una cifra ya subestimada. Detalle en el anexo fechado 2026-09-20 de
+# `docs/superpowers/plans/2026-09-13-campana-a-preregistro-bench.md`.
 . "$SCRIPT_DIR/_hook-ms.sh" 2>/dev/null
 HOOK_START=""
 hook_ms_soportado 2>/dev/null && HOOK_START="$EPOCHREALTIME"

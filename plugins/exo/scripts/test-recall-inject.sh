@@ -572,11 +572,26 @@ if grep 'recall-inject-degraded' "$REFLEX_LOG_FILE" 2>/dev/null | grep -q 'reaso
   pass "H2: el aviso del engine deja rastro engine-warning"
 else fail "H2: el aviso del engine deja rastro engine-warning" "$(cat "$REFLEX_LOG_FILE" 2>/dev/null)"; fi
 PL_AV="$(jq -r 'select(.reflex=="recall-inject-emitted") | .payload' "$REFLEX_LOG_FILE" 2>/dev/null | tail -1)"
-if contains "$PL_AV" "elapsed_ms=987 refresh_ms=12 hook_ms=" \
-   && printf '%s' "$PL_AV" | grep -qE 'hook_ms=(NA|[0-9]+) permalinks='; then
-  pass "H3/I1: emitted lleva elapsed_ms, refresh_ms y hook_ms (NA o entero) antes de permalinks"
+# El instrumento no se puede apagar en silencio (review final de rama,
+# 2026-09-20): en bash >= 5, `hook_ms_soportado` es verdadero, así que
+# `hook_ms` TIENE que ser un entero positivo medido -- "NA" en esa versión
+# es el propio instrumento fallando calladito (p. ej. `hook_ms_de` mutado
+# para no devolver nada, o `HOOK_START` sin capturar). Solo se acepta "NA"
+# en bash < 5, donde `hook_ms_soportado` es falso por diseño y no hay reloj
+# que medir. Esta suite corre con el mismo bash que ejecuta el hook (mismo
+# shebang `#!/usr/bin/env bash`), así que `${BASH_VERSINFO[0]}` aquí es el
+# de verdad.
+if [ "${BASH_VERSINFO[0]:-0}" -ge 5 ]; then
+  HOOK_MS_RE='hook_ms=([1-9][0-9]*) permalinks='
 else
-  fail "H3/I1: emitted lleva elapsed_ms, refresh_ms y hook_ms antes de permalinks" "payload='$PL_AV'"
+  HOOK_MS_RE='hook_ms=(NA|[0-9]+) permalinks='
+fi
+if contains "$PL_AV" "elapsed_ms=987 refresh_ms=12 hook_ms=" \
+   && printf '%s' "$PL_AV" | grep -qE "$HOOK_MS_RE"; then
+  pass "H3/I1: emitted lleva elapsed_ms, refresh_ms y hook_ms (bash>=5: entero >0; bash<5: NA) antes de permalinks"
+else
+  fail "H3/I1: emitted lleva elapsed_ms, refresh_ms y hook_ms antes de permalinks" \
+    "payload='$PL_AV' bash=${BASH_VERSINFO[0]:-desconocido}"
 fi
 
 : > "$REFLEX_LOG_FILE"

@@ -766,8 +766,18 @@
   bucle léxico (`norm_token`/`gate_skip` reescritos con expansión de
   parámetros bash pura; quedan 3 `tr` fuera del bucle, en ramas de log de
   error no ejercidas por el trace de referencia). Medido con
-  `strace -f -c -e trace=execve` sobre el prompt de referencia: 14 → 7
-  `execve` reales por invocación. Los tres `PreToolUse:Bash`
+  `strace -f -c -e trace=execve` sobre el prompt de referencia:
+  **invocaciones de `jq`/`sed`/`tr` por prompt: 14-15 → 7** (corrección
+  review final de rama, 2026-09-20: la redacción anterior, «14 → 7 `execve`
+  reales por invocación», se leía como *execve totales* y no lo era —
+  **`execve` totales del hook: 32 → 24, −25%**; con prompts que empiezan
+  por stopwords el ahorro crece, 47 → 24, porque `norm_token`/`gate_skip`
+  dejaron de gastar `sed`+`tr` por token). Stub y prompt de esta medición no
+  están commiteados — se reproducen con el mismo prompt del pre-registro de
+  A, `"como funciona el trinquete de techos"`, y cualquier binario `exo` de
+  stub que responda a `config`/`recall` (mismo procedimiento que
+  `docs/superpowers/plans/2026-09-19-campana-i-latencia-hook-w11.md`, Step 4
+  de la Task 4). Los tres `PreToolUse:Bash`
   (`git-c-bash.sh`, `git-add-all-guard.sh`, `verify-before-commit.sh`)
   ganaron un pre-filtro bash que evita el spawn de `jq` cuando el comando no
   contiene "git": 4 → 2 `execve` por invocación sin "git". Bloque inyectado
