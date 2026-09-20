@@ -370,3 +370,15 @@ Tomadas en sesión, una a una, sobre la tabla de §5. Con esto el paquete queda
   D-J2 = 113 · D-J3 = sí, verificación adversarial del gold · **D-J4 =
   NETO ≥ 4** · D-J5 = (a) H28 solo nombre y doc · D-J6 = int8 fuera · D-J7 =
   0,90 · D-J8 = 0,25 · D-J9 = tal cual · D-J10 = lenient decide.
+- **D-J1/D-J2 REVOCADAS el mismo día** por Paul: «ya ni leo la kb, todo se
+  maneja a través de los agentes; ya no me importa que sea legible para mí,
+  sino para los propios agentes». El gold de J pasa a ser **100 % agéntico,
+  0 h de Paul**: queries reales de agentes minadas de los transcripts
+  (estrato `agent-search`, sustituye a `keyword`; minado autorizado por
+  Paul), jueces a ciegas **fable + Kimi (Moonshot)** —otra familia de modelo,
+  para romper la correlación de errores Claude–Claude— y un suelo de acuerdo
+  pre-registrado por debajo del cual J para. **Paul autoriza explícitamente
+  enviar trozos de la KB `wisdom-paul` y queries de agentes a la API de
+  Moonshot** («no me importa mandar a kimi, continua por ahí»). Por la misma
+  tesis, la evicción editorial de `core-index` (#16) la hace un agente, no
+  Paul.
