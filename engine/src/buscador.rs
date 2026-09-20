@@ -383,10 +383,26 @@ fn busca_vector_con(
     })
 }
 
+/// Como máximo `LOTE_PERMALINKS` placeholders por consulta — el límite real
+/// de variables de SQLite bundled es 32.766 (medido empíricamente contra
+/// rusqlite 0.40.1/libsqlite3-sys 0.38.1; NO son los 999 de versiones de
+/// sqlite3 anteriores a 3.32.0). 500 deja margen amplio frente a los dos
+/// límites conocidos (32.766 de SQLite, y `K_MIN`/`limite·K_FACTOR_INICIAL`
+/// de `busca_vector_con_embedding`) sin volver a tocar esta constante si el
+/// corpus crece.
+const LOTE_PERMALINKS: usize = 500;
+
 /// Resuelve `permalink` para un conjunto concreto de rowids de `trozos`
 /// (H29): reemplaza el `SELECT id, permalink FROM trozos` completo que
 /// pagaba una tabla entera por consulta cuando el KNN solo necesitaba unas
 /// decenas de filas. `rowids` vacío ⇒ mapa vacío sin tocar la DB.
+///
+/// Campaña L Task 2 (backlog «Techos de escala»): trocea `rowids` en lotes
+/// de `LOTE_PERMALINKS` — sin trocear, `exo search --type vector --limit
+/// 5000` sobre una KB con más de 32.766 vectores totales revienta "too many
+/// SQL variables" (el bucle de `busca_vector_con_embedding` pide
+/// `k = min(total_vectores, limite·K_FACTOR_INICIAL)`, y con `--limit 5000`
+/// eso es `min(total_vectores, 40000)`).
 fn permalinks_de_rowids(
     conn: &rusqlite::Connection,
     rowids: &[i64],
@@ -394,6 +410,19 @@ fn permalinks_de_rowids(
     if rowids.is_empty() {
         return Ok(HashMap::new());
     }
+    let mut mapa = HashMap::with_capacity(rowids.len());
+    for lote in rowids.chunks(LOTE_PERMALINKS) {
+        mapa.extend(permalinks_de_rowids_lote(conn, lote)?);
+    }
+    Ok(mapa)
+}
+
+/// Un solo `IN (...)` — asume que el llamador (`permalinks_de_rowids`) ya
+/// troceó `rowids` bajo el límite de placeholders de SQLite.
+fn permalinks_de_rowids_lote(
+    conn: &rusqlite::Connection,
+    rowids: &[i64],
+) -> Result<HashMap<i64, String>> {
     let placeholders = std::iter::repeat_n("?", rowids.len())
         .collect::<Vec<_>>()
         .join(",");
@@ -1102,5 +1131,73 @@ mod tests_una_conexion {
              rompe la garantía de una sola apertura; debe usar \
              busca_vector_con(&conn, ...) sobre la conexión ya abierta:\n{cuerpo}"
         );
+    }
+}
+
+#[cfg(test)]
+mod tests_permalinks_lote {
+    use super::*;
+    use crate::abre_db_en_memoria;
+    use crate::schema::crea_schema;
+
+    /// TDD rojo: sin trocear, un `IN (...)` de 40.000 placeholders revienta
+    /// el límite de variables de SQLite (32.766, medido empíricamente contra
+    /// rusqlite 0.40.1/libsqlite3-sys 0.38.1 — bundled, no el 999 de
+    /// versiones de sqlite3 anteriores a 3.32.0). No hace falta poblar
+    /// `trozos`: SQLite rechaza la sentencia al PREPARARLA, antes de mirar
+    /// una sola fila — por eso `crea_schema` sin insertar nada ya basta para
+    /// reproducir el reventón.
+    #[test]
+    fn trocea_por_encima_del_limite_de_placeholders_de_sqlite() {
+        let conn = abre_db_en_memoria().expect("db en memoria");
+        crea_schema(&conn).expect("crea_schema");
+        let rowids: Vec<i64> = (1..=40_000).collect();
+        let resultado = permalinks_de_rowids(&conn, &rowids);
+        assert!(
+            resultado.is_ok(),
+            "permalinks_de_rowids debe trocear el IN(...) bajo el límite de \
+             placeholders de SQLite: {:?}",
+            resultado.err()
+        );
+        assert!(
+            resultado.unwrap().is_empty(),
+            "ningún id de los 40.000 existe de verdad en trozos (vacía): el \
+             mapa debe salir vacío, no un error"
+        );
+    }
+
+    /// Equivalencia: trocear en lotes de `LOTE_PERMALINKS` no puede perder ni
+    /// inventar filas frente a una única consulta sin trocear. 650 filas
+    /// reales (por encima del lote de 500 con el default de esta task, así
+    /// que `permalinks_de_rowids` internamente ejecuta DOS lotes) contra la
+    /// misma consulta hecha de una sola vez con `permalinks_de_rowids_lote`
+    /// (650 está muy por debajo del límite real de 32.766, así que la
+    /// versión sin trocear es aquí la referencia válida, no el bug).
+    #[test]
+    fn union_de_lotes_coincide_con_una_sola_consulta_sin_trocear() {
+        let mut conn = abre_db_en_memoria().expect("db en memoria");
+        crea_schema(&conn).expect("crea_schema");
+        let tx = conn.transaction().expect("abrir transacción");
+        let mut ids: Vec<i64> = Vec::new();
+        for i in 0..650i64 {
+            let permalink = format!("nota-{i}");
+            tx.execute(
+                "INSERT INTO notas (permalink, ruta, titulo, mtime) VALUES (?1, ?2, ?3, 0.0)",
+                rusqlite::params![permalink, format!("{permalink}.md"), permalink],
+            )
+            .expect("insertar nota");
+            tx.execute(
+                "INSERT INTO trozos (id, permalink, orden, texto) VALUES (?1, ?2, 0, 'x')",
+                rusqlite::params![i, permalink],
+            )
+            .expect("insertar trozo");
+            ids.push(i);
+        }
+        tx.commit().expect("commit del corpus");
+
+        let sin_trocear = permalinks_de_rowids_lote(&conn, &ids).expect("consulta sin trocear");
+        let troceado = permalinks_de_rowids(&conn, &ids).expect("consulta troceada");
+        assert_eq!(sin_trocear.len(), 650);
+        assert_eq!(sin_trocear, troceado);
     }
 }
