@@ -19,6 +19,34 @@
 > el acuerdo supera el suelo (§11), no una firma humana. Cualquier otro cambio
 > exige reabrir el borrador por escrito antes de que exista el gold.
 >
+> **Punto abierto (review, I-4):** el T0 está pendiente. La cláusula de D-J8
+> se ejerce así: el tope solo cambia si la cobertura (no nulas de las 55 con
+> ≥ 1 token raro) a 0,25 es < 80 %; entonces pasa al menor de {0,30; 0,35}
+> que la alcance; en cualquier otro caso se anota «cláusula no ejercida». La
+> enmienda se commitea antes de generar `paquetes.jsonl`.
+>
+> **Enmienda 2026-09-20 (T0, cláusula D-J8): cláusula no ejercida.** Cobertura
+> de no nulas con ≥ 1 token raro a df ≤ ⌈0,25·174⌉ = 44 es 52/55 ≈ 94,5 %
+> ≥ 80 %; por la regla anterior el tope de F1 se queda en 0,25 (evidencia:
+> `evals/retrieval-heldout/verdict/diagnostico-55.md` línea «F1 (FTS OR sobre
+> tokens raros, tope df 25 %): 52/55 queries tendrían canal léxico, 11 de los
+> misses. Valor para D-J8: 0,25 se mantiene — cobertura 52/55 ≈ 94,5 % ≥ 80 %,
+> cláusula no ejercida.»). §4 no cambia.
+>
+> **Enmienda 2026-09-20 (F5, honestidad del pre-registro sobre la regla del
+> tope `df`): la regla se fijó con el dry-run in-sample ya visible; el T0
+> solo añadió la captura de hoy.** Verificado: `DF_RARO = 0,25` es una
+> constante del código (`diagnostico.py`), sin barrido — el T0 no la afinó
+> buscando pasar el umbral, y ⌈0,25·174⌉ = 44 con 52/55 coincide con el
+> fichero de la captura de hoy, así que el efecto numérico de esto es nulo.
+> Pero la secuencia temporal importa para la honestidad del proceso: el §2.6
+> (hecho de partida 6) ya citaba el dry-run del 2026-09-19 con «52/55 queries
+> tienen ≥1 token "raro"» **antes** de que la regla del «< 80 % ⇒ sube al
+> menor de {0,30; 0,35}» se redactara el 2026-09-20 — la cláusula se escribió
+> ya sabiendo el número que iba a evaluar. La anotación «cláusula no
+> ejercida» de arriba estaba, en ese sentido, pre-decidida; el T0 no la
+> decidió, la confirmó. Se declara aquí para que quede escrito.
+>
 > **Qué se ha observado al redactarlo, y qué no.** Visto: el verdict público
 > de C (`evals/retrieval-heldout/verdict/c-verdict.md`, `agregados*.md`), las
 > capturas privadas de C **solo en agregado** (distribución de scores, plazas
@@ -158,6 +186,9 @@
   `{"id": "j001", "query": str, "source":
   "prompt"|"agent-search"|"hard"|"archive"|"negativo", "expected_permalink":
   str|null, "acceptable_permalinks": [str], "notes": str}`.
+  `valida_gold.FUENTES` admite además `keyword` (alineado con este schema,
+  M-6 del review): admitido-sin-uso, ningún generador de §3 lo emite en esta
+  fábrica; se reserva para una fase futura de queries por palabras clave.
   `acceptable_permalinks`: máx. 2, distintos de `expected`, existentes en el
   snapshot, y **solo los admitidos por ambos jueces** (`acuerdo.fusiona`);
   `notes` lleva las razones de los dos jueces y el `solape_lexico` de la fila.
@@ -171,10 +202,39 @@
   | `archive` | preguntas por un hecho fechado que vive **hoy** solo en `archive/log/` (comprobado por el generador con grep en la bitácora viva), sobre 20 rotaciones al azar (semilla `20260919`) | subagente fresco | 20 | 12–16 (exige expected bajo `archive/`) |
   | `negativo` | temas **ausentes** de la KB; `expected` null por definición; ausencia comprobada **mecánicamente** (`grep -ril` de 3–5 `topic_terms` sobre el snapshot entero = 0 ficheros) **y** por los dos jueces (ambos null sobre las candidatas que un agente intentó encontrar) | subagente fresco | 40 | 0 (30–36 nulas verdaderas) |
 
-  Objetivo total: **100–130 no nulas**; suelo 60 (§11). Nulas de `prompt`
+  Objetivo total: **92–141 no nulas** (suma de los rangos «no nulas
+  esperadas tras acuerdo» de la tabla; corrección del review, M-5 — este
+  fichero decía 100-130 aquí, 80-95 más abajo y la tabla sumaba 92-141: se
+  fija 92-141 en los tres sitios); suelo 60 (§11). Nulas de `prompt`
   (por inferibilidad) = corpus negativo **débil**, solo descriptivo.
-  `negativo` = corpus negativo **verdadero**: ids pares → calibración de G1,
-  ids impares → evaluación de G1 (§4).
+  `negativo` = corpus negativo **verdadero**: ids `jNNN` pares → calibración
+  de G1, ids `jNNN` impares → evaluación de G1 (§4) — `jNNN` es el id que
+  `acuerdo.py` renumera al escribir el gold (§10), no `qNNN` (corrección del
+  review, M-3). **Orden = ids `qNNN` ascendentes (F6, review de rama
+  2026-09-20):** el split pares/impares es sobre `jNNN`, y `jNNN` lo asigna
+  `acuerdo.py` numerando secuencialmente las filas de `cands` en el orden en
+  que aparecen en `candidatos.jsonl` (§7 de este documento, `construye`) —
+  ese orden no está fijado por ningún criterio salvo el del fichero de
+  entrada. Se fija aquí: dentro del estrato `negativo`, `queries.jsonl` (y
+  por tanto `candidatos.jsonl` y `paquetes.jsonl`) mantiene el orden de
+  `qNNN` ascendente sin barajar (a diferencia de `prompt`, que sí se baraja
+  con semilla propia, arriba) — así el split pares/impares de calibración/
+  evaluación de G1 es reproducible y no depende de un accidente de
+  generación.
+- **`prompt` incluye consultas del propio día de diseño (F6, declarado):**
+  del pool de 139 prompts reales en este kit, **35 son del 2026-09-19**, el
+  mismo día en que se diseñó este experimento (`pool.jsonl`, campo `ts`). No
+  es fuga del gold (son prompts de producción anteriores a la redacción de
+  este borrador, no queries fabricadas para el diseño), pero se declara
+  porque el generador de `hard`/`archive`/`negativo` y parte del propio
+  pre-registro se escribieron el mismo día.
+- **`hard` es "sin palabras literales" solo a medias (F6, declarado):** la
+  mediana de `solape_lexico` (§3, auditoría del sesgo léxico) del estrato
+  `hard` en el kit es **p50 = 0,50** — la mitad de las paráfrasis conserva
+  al menos la mitad de los tokens ≥4 letras de la nota original, pese a la
+  instrucción «sin palabras literales» al generador. Descriptivo: no cambia
+  el diseño ni el guard léxico de D-A (§3, §6), que ya usa `solape_lexico`
+  medido, no la instrucción al generador, como criterio.
 - **Candidatos.** Un agente filesystem-only (sin `exo`, sin `kbx`, sin ver
   `author_expected` ni `topic_terms`) propone ≤ 5 notas por query, con al
   menos 2 por navegación temática (core-index, títulos) y no por grep, y con
@@ -197,7 +257,16 @@
 - **Entrada al gold y desempate (D-J11):** una fila entra si el acuerdo es
   *estricto* (mismo `expected`, null incluido) o *lenient* (el `expected` de
   un juez está en los `acceptable` del otro; entonces `expected` = el que
-  ambos admiten y el otro pasa a `acceptable`). **Los desacuerdos se
+  ambos admiten, y el `expected` descartado del otro juez pasa a
+  `acceptable` **solo si el primer juez también lo admite** en su propio
+  `acceptable`: «entra solo con acuerdo», D-J11 — corregido en `acuerdo.fusiona`
+  el 2026-09-20 tras el review, I-2; antes de la corrección una nota vista
+  por un solo juez podía colarse en `acceptable` y contar hit). **Tie-break
+  asimétrico, declarado (I-2):** si en una fila ambas direcciones lenient
+  valen a la vez (el `expected` de fable está en lo aceptable de Kimi **y**
+  viceversa), hoy gana **fable** por el orden de los `if` en `fusiona`; no se
+  corrige (no hay criterio no arbitrario para preferir uno u otro en ese
+  empate exacto), solo se declara. **Los desacuerdos se
   descartan**, se listan en privado y se cuentan en público. No hay tercer
   juez: un opus de desempate convertiría cada desacuerdo en 2 Claude contra
   1 Kimi y el gold quedaría etiquetado de hecho por una familia; el pool sobra
@@ -210,33 +279,68 @@
   estricto, con cada permalink y el null como categorías nominales. Por qué
   κ y no solo `p_o`: en `prompt` ≈ 70 % de las filas son null y dos jueces
   que dijeran null siempre acordarían el 49 % por azar; κ descuenta ese azar.
-  Por qué también `p_o`: con muchas categorías (permalinks) κ ≈ `p_o` y la
-  paradoja de la prevalencia puede hundir κ con acuerdo alto (Feinstein &
-  Cicchetti, J Clin Epidemiol 1990, «High agreement but low kappa» — de
-  memoria). 0,60 es el límite inferior de «substantial» en la escala de
-  Landis & Koch (Biometrics 33, 1977 — segura); 0,70 de acuerdo bruto es el
-  suelo que, con ≈ 280 filas juzgadas, deja ≥ 190 filas y ≥ 90 no nulas. Se
+  **Con ≈ 57 % de nulas, `p_e` ≈ 0,32 y κ ≥ 0,60 equivale a `p_o` estricto ≥
+  0,73: κ es el criterio operativo y `p_o` ≥ 0,70 (lenient) el redundante. El
+  estrato `negativo` (null-null por construcción) infla κ y `p_o` pooled; se
+  publica también κ y `p_o` excluyendo `negativo` como descriptivo (Feinstein
+  & Cicchetti, J Clin Epidemiol 43(6):543-549, 1990, sobre la dependencia de
+  κ de los marginales; corrección del review, I-3, 2026-09-20 — la
+  formulación anterior, «κ ≈ p_o con muchas categorías», no aplicaba aquí: el
+  null es una única categoría mayoritaria, no muchas equiprobables).** 0,60
+  es la **frontera moderate/substantial** de Landis & Koch (Biometrics 33(1),
+  1977: 0,41-0,60 es *moderate*, 0,61-0,80 es *substantial* — 0,60 es el
+  techo de *moderate*, no el suelo de *substantial*; corrección del review,
+  I-6). 0,70 de acuerdo bruto es el
+  suelo que, con ≈ 280 filas juzgadas, deja ≥ 190 filas y coincide con el
+  objetivo total de 92–141 no nulas (§3, M-5 del review). Se
   calcula también por estrato: un estrato con `p_o < 0,60` se marca «flojo»
-  y se reporta, sin decidir por sí solo (la decisión es sobre el total). **Si
-  el suelo global no pasa, J PARA: es un resultado** («dos familias de modelo
+  y se reporta, sin decidir por sí solo (la decisión es sobre el total).
+  **κ / `p_o` sin `negativo`** se computa siempre y se reporta como línea
+  adicional del informe (`acuerdo.construye`, sobre todas las filas con
+  `source != "negativo"`); no cambia el exit ni el suelo firmado (0,60 ∧
+  0,70), es descriptivo. **Si
+  el suelo global (con `negativo` incluido, tal como firmó D-J11) no pasa, J
+  PARA: es un resultado** («dos familias de modelo
   no coinciden en qué nota sirve al agente»), se publica el informe de
   acuerdo y no se congela nada.
 - **Sesgo léxico de los jueces LLM, declarado.** Un juez LLM tiende a llamar
   relevante a la nota que repite las palabras de la consulta (Alaofi, Thomas,
-  Scholer & Sanderson, SIGIR 2024 — de memoria; Clarke & Dietz 2024 y
-  Soboroff 2024 sobre por qué los juicios LLM no sustituyen a los humanos —
-  de memoria; Thomas, Spielman, Craswell & Mitra, SIGIR 2024, y Faggioli et
-  al., ICTIR 2023, sobre el acuerdo LLM–humano — de memoria; la Task 5 del
-  plan verifica las cinco). Aquí no hay humano al que compararse, así que el
-  sesgo se **mide y se contiene**, no se niega: (i) `juez.SISTEMA` pide
+  Scholer & Sanderson, **SIGIR-AP 2024** (no SIGIR 2024; corrección del
+  review, M-8), DOI 10.1145/3673791.3698431;
+  Clarke & Dietz 2024 y Soboroff 2024 sobre por qué los juicios LLM no
+  sustituyen a los humanos; Thomas, Spielman, Craswell & Mitra, SIGIR 2024, y
+  Faggioli et al., ICTIR 2023, sobre el acuerdo LLM–humano; verificadas Task
+  5, §7). Aquí no hay humano al que compararse, así que el
+  sesgo se **mide; el guard solo acota el daño en filas no léxicas**, no se
+  contiene y no se niega — corrección del review (I-1, 2026-09-20): el guard
+  de (iii) exige `NETO ≥ 0` solo sobre el subconjunto de solape **bajo**
+  (`< 0,5`), pero el sesgo real produce falsos ARREGLA de F1 en filas de
+  solape **alto**, que ese subconjunto no mira; dentro del subconjunto que sí
+  mira, F1 apenas difiere del baseline, así que el guard pasa por
+  construcción con frecuencia (cuantificado por el review: veta un F1 «igual
+  al baseline» solo el 37 % de las veces). El guard **acota el daño que se
+  ve**, no lo impide: (i) `juez.SISTEMA` pide
   explícitamente no premiar la repetición literal; (ii) `acuerdo.py` calcula
   por fila `solape_lexico` (fracción de tokens ≥ 4 letras de la query
-  presentes en la nota esperada) y publica la distribución en filas
+  presentes en la nota esperada, **por subcadena, no por token** — «nota»
+  casa con «notación»; declarado, M-4 del review) y publica la distribución
+  en filas
   acordadas frente a descartadas: si los desacuerdos se concentran en solape
-  bajo, el gold está sesgado hacia lo léxico y se dice; (iii) el sesgo
+  bajo, el gold está sesgado hacia lo léxico y se dice (para las filas
+  descartadas, `solape_lexico` usa `fab.expected or kim.expected` — el
+  `expected` del primer juez que lo tenga, lo cual es **asimétrico**: si
+  fable no propuso `expected` pero Kimi sí, se audita el de Kimi, y
+  viceversa; declarado, M-4); (iii) el sesgo
   favorece a F1 (FTS sobre raros) y a A2, así que **D-A lleva un guard**: F1
   solo GANA si además `NETO ≥ 0` en el subconjunto «léxicamente difícil»
-  (`solape_lexico < 0,5`) de las no nulas (§6); (iv) los candidatos incluyen
+  (`solape_lexico < 0,5`) de las no nulas (§6); **además, como descriptivo
+  obligatorio del verdict de D-A (pre-registrado, I-1 del review), se
+  publica el reparto de los ARREGLA de F1 por `solape_lexico` ≥/< 0,5, con
+  esta lectura literal: si ≥ 80 % de los ARREGLA de F1 caen en solape ≥ 0,5 y
+  la mediana de solape de las filas descartadas es ≥ 0,2 inferior a la de
+  las acordadas, el GANA de D-A se publica con la etiqueta *compatible con
+  sesgo léxico del gold*. Es una etiqueta, no un veto: no toca D-J4 ni
+  D-J11**; (iv) los candidatos incluyen
   ≥ 2 notas por navegación temática para que el juez pueda elegir una nota
   que responde sin repetir.
 - **Modo de decisión:** lenient (`{expected} ∪ acceptable`), strict como
@@ -259,6 +363,12 @@
 copia de `idx-base.db`: la réplica FTS-AND (oráculo) y la lista FTS de F1.
 Todos los rankings se calculan offline (`metricas.py` + módulo `brazos.py`
 de la fase 2). Scores vector en la escala `s` del binario (§2.2).
+**Nota para la fase 2 (M-9 del review):** hoy `metricas.rankings` solo conoce
+`sellado|sellado-035|rrf|vector|fts`; F1, S1, P1 y G1 de la tabla de abajo
+**no existen en código todavía** — son prosa de este borrador, no celdas
+computables. Congelar hoy sería congelar prosa, no un `brazos.py` verificado;
+la Task 8 (congelación) no se ejecuta en esta fábrica, así que esto queda
+como nota abierta para cuando `brazos.py` se escriba.
 
 | brazo | definición exacta | papel |
 |---|---|---|
@@ -268,7 +378,7 @@ de la fase 2). Scores vector en la escala `s` del binario (§2.2).
 | **F1** `fts-raro` | tokens = `query.split()` como `prepara_query`; `df(tok)` = nº de notas con `MATCH '"tok"'`; se conservan los tokens con **1 ≤ df ≤ ⌈0,25·N_notas⌉** (T0 puede sustituir 0,25 una vez, con evidencia in-sample anotada aquí; dry-run: 52/55 queries con ≥1 raro); `MATCH` = raros unidos con `OR`, `-bm25`, `LIMIT 50`; 0 raros ⇒ canal FTS vacío. La fusión es la sellada, idéntica a A0, sobre esa lista | candidato Q1 |
 | **S1** `combsum` | `score = v_adm + 0.6·f/f_max`, `v_adm = v` si v ≥ 0,40, si no 0; admisión = unión; orden (−score, permalink); top-10. β = 0,6 heredado, sin afinar | candidato Q2 |
 | **P1** `archive-0.90` | score × **0,90** para permalinks que contienen `/archive/`, antes de ordenar (valor único declarado; D-J7) | candidato Q3 |
-| **G1** `abstiene-τ` | top-5 vacío si `score(top1) < τ`; **τ = percentil 70 de los scores top-1 del brazo incumbente sobre los `negativo` de ids pares** (calibración); se evalúa sobre `negativo` impares y sobre todas las no nulas | candidato Q4 |
+| **G1** `abstiene-τ` | top-5 vacío si `score(top1) < τ`; **τ = percentil 70 de los scores top-1 del brazo incumbente sobre los `negativo` de ids pares** (calibración): valor en la posición `⌈0,7·n⌉` de la lista **ascendente** de esos scores top-1 (n = nº de `negativo` pares con top-1 no vacío); abstiene si `score(top1) < τ` (estricto, no `≤`) (método fijado, corrección del review, M-2); se evalúa sobre `negativo` impares y sobre todas las no nulas | candidato Q4 |
 
 - **Celdas que se calculan** (todas, para el informe): A0, A1, A2, A3, F1,
   S1∘A0, S1∘F1, P1∘{A0, F1, S1∘A0, S1∘F1}, G1∘(incumbente de D-C). Solo las
@@ -298,7 +408,12 @@ de la fase 2). Scores vector en la escala `s` del binario (§2.2).
   sub-tipo `hard` corta/larga (S4 de C); queries con fusión activa por modo
   FTS (AND vs raro); plazas de `archive/` en el top-5 por brazo; Wilson;
   McNemar exacto; IC95 bootstrap pareado de ΔMRR@10 (10.000 remuestreos,
-  semilla `20260919`).
+  semilla `20260913` — corrección del review, M-1: este fichero decía
+  `20260919`, `metricas.py` tiene `SEMILLA = 20260913`; gana el código.
+  Método (`metricas.bootstrap_ic95`, declarado): percentil 2,5/97,5 sobre
+  las 10.000 medias remuestreadas, `random.Random(semilla)`, remuestreo con
+  reemplazo **por query** — cada remuestreo saca `m` deltas de MRR con
+  reemplazo del vector de `m` deltas pareados, uno por query, y promedia).
 
 ## 6. Reglas de decisión (fijadas antes de correr)
 
@@ -343,15 +458,24 @@ directamente contra su predecesora, nunca una combinación no medida):**
   abstención del backlog se cierran como «medido con held-out J, no
   adoptado» con las cifras, y ninguno se reabre sin un gold nuevo. NO GANA no
   significa «son iguales» (§7).
-- **Empate o ambigüedad:** lo adjudica un fable fresco con este texto delante
-  y cita textual. Los números no se renegocian.
+- **No hay empates** (corrección del review, I-5: la formulación anterior
+  —«lo adjudica un fable fresco con este texto delante»— abría una puerta
+  post hoc justo donde el pre-registro no puede abrirla, un humano o un
+  modelo interpretando el texto después de ver los números). `metricas.decide`
+  congelado **es** la regla: la regla GANA (§6) y las reglas D-A/D-B/D-C/D-D
+  son funciones puras de (ARREGLA, ROMPE, IC95, guards) sobre el gold
+  congelado, sin remanente de ambigüedad que adjudicar. Si una lectura
+  humana del texto de este documento discrepa de lo que computa el código
+  congelado, **manda el código**, y la discrepancia se anota como errata en
+  el verdict (no se recomputa nada, no se re-juzga nada: se corrige la prosa
+  para la próxima campaña).
 
 ## 7. Tamaño, potencia y multiplicidad
 
 **Qué puede ver la regla** (cálculo exacto multinomial sobre (ARREGLA, ROMPE),
 sin veto MRR, script de recon 2026-09-19; `a` = P(X acierta, I falla), `b` =
 al revés; «igual, disc. d» = a = b = d/2). Con el gold agéntico el N
-esperado es **100–130 no nulas**; se muestran N = 60–100 con las tres reglas
+esperado es **92–141 no nulas** (§3, corrección del review M-5); se muestran N = 60–100 con las tres reglas
 (para leer la firma D-J4) y N = 100–180 con NETO ≥ 4:
 
 | escenario verdadero | N=60 ≥3 | N=60 ≥4 | N=60 ≥5 | N=80 ≥3 | N=80 ≥4 | N=80 ≥5 | N=100 ≥3 | N=100 ≥4 | N=100 ≥5 | McNemar α=0,05 N=100 |
@@ -382,7 +506,7 @@ para ≥3: 0,07/0,13 · 0,15/0,16 · 0,81/0,93; la errata de C en la fila «+5 p
 está corregida aquí con el supuesto declarado. Con N ≥ 150 y disc. 5 % la
 probabilidad de adoptar un igual sube, no baja: `NETO ≥ 4` es absoluto y una
 discordancia rara con N grande produce NETO 4 por azar más a menudo. No se
-corrige: N real ≈ 100–130 y la cota familiar queda ≈ 0,32.)
+corrige: N real ≈ 92–141 y la cota familiar queda ≈ 0,32.)
 
 **Multiplicidad — el challenge al esbozo.** El esbozo proponía 8 brazos con
 `NETO ≥ 3` sobre un solo gold. Con k decisiones independientes y un candidato
@@ -411,7 +535,7 @@ así que la tasa real es menor, pero no se sabe cuánto. Decisión de diseño:
 2. **NETO ≥ 4** (D-J4, firmado 2026-09-19): con k=3 la cota familiar baja de
    0,41 a 0,32 y la potencia ante +8 pp está en 0,91–0,94 (N=100–120). NETO
    ≥ 5 bajaría la cota a 0,21 pagando +5 pp → 0,55.
-3. **N esperado 100–130** (§3): potencia ante +5 pp 0,67–0,74 con NETO ≥ 4.
+3. **N esperado 92–141** (§3): potencia ante +5 pp 0,67–0,74 con NETO ≥ 4.
    Una diferencia de 3 pp sigue siendo casi invisible (0,42–0,48): la regla
    es una **regla de decisión con tasas de error declaradas**, no una
    afirmación de significación (Webber, Moffat & Zobel, CIKM 2008; Smucker,
@@ -423,7 +547,13 @@ así que la tasa real es menor, pero no se sabe cuánto. Decisión de diseño:
    asimétrico. Con 15–18 negativos de evaluación, 9/15 (60 %) da Wilson
    [0,36, 0,80]; el guard `ROMPE ≤ 2` sobre ~80 aciertos se cumple con
    probabilidad ≈ 0,95 si la pérdida real por fila es 1 %, ≈ 0,57 si es 3 %:
-   G1 solo se adopta si casi no cuesta.
+   G1 solo se adopta si casi no cuesta. **Declarado (corrección del review,
+   M-7):** «abstiene en ≥ 60 % de evaluación» es casi tautológico con
+   τ = p70 — por construcción la tasa esperada sobre el propio calibrado es
+   ≈ 0,70, y P(≥9/15 con p verdadero 0,70) ≈ 0,87, así que esa mitad de la
+   regla D-D casi siempre se cumple sola. El contenido informativo real de
+   D-D está en el guard, no en el umbral de abstención: **`ROMPE ≤ 2`** es
+   la condición que de verdad puede fallar y la que decide si G1 se adopta.
 5. **Fiabilidad del gold como fuente de ruido adicional:** una etiqueta
    errónea compartida por ambos jueces castiga o premia a todos los brazos
    por igual (no fabrica un GANA por sí sola salvo que se concentre en filas
@@ -434,14 +564,28 @@ así que la tasa real es menor, pero no se sabe cuánto. Decisión de diseño:
 sabe): Cormack, Clarke & Büttcher SIGIR 2009 (RRF); Fox & Shaw TREC-2 1994
 (CombSUM/CombMAX); Lee SIGIR 1997; Voorhees & Buckley SIGIR 2002; Smucker et
 al. CIKM 2007; Webber et al. CIKM 2008; McNemar 1947; Wilson 1927; Efron &
-Tibshirani 1993; Cohen 1960; Landis & Koch 1977 — **seguras**. Carterette
-ACM TOIS 30(1) 2012; Boytsov, Belova & Westfall SIGIR 2013; Sakai IRJ 19(3)
-2016; Maurer, Hothorn & Lehmacher 1995; Westfall & Krishen JSPI 99 (2001);
-Feinstein & Cicchetti 1990; Thomas et al. SIGIR 2024; Faggioli et al. ICTIR
-2023; Alaofi et al. SIGIR 2024; Clarke & Dietz 2024 (arXiv); Soboroff 2024
-(arXiv) — **de memoria, sin DOI comprobado en esta sesión**: la Task 5 del
-plan las verifica; si alguna no existe tal cual, se retira sin que cambie
-ninguna regla (ninguna regla depende de ellas: dependen de las tablas).
+Tibshirani 1993; Cohen 1960 — **seguras**.
+
+Las 12 siguientes están **verificadas 2026-09-20 (review adversarial, Task
+5)**, con DOI/identificador comprobado — ya no son «de memoria»:
+
+- Alaofi, Thomas, Scholer & Sanderson — SIGIR-AP 2024 — DOI
+  10.1145/3673791.3698431 (corregida de «SIGIR 2024», M-8)
+- Landis & Koch — Biometrics 33(1):159-174, 1977 — PMID 843571
+- Feinstein & Cicchetti — J Clin Epidemiol 43(6):543-549, 1990 — PMID
+  2348207
+- Thomas, Spielman, Craswell & Mitra — DOI 10.1145/3626772.3657707
+- Faggioli et al. — DOI 10.1145/3578337.3605136
+- Clarke & Dietz — arXiv:2412.17156
+- Soboroff — arXiv:2409.15133
+- Carterette — DOI 10.1145/2094072.2094076
+- Boytsov, Belova & Westfall — DOI 10.1145/2484028.2484034
+- Sakai — DOI 10.1007/s10791-015-9273-z
+- Maurer, Hothorn & Lehmacher, 1995 — capítulo de libro, sin DOI
+- Westfall & Krishen — DOI 10.1016/S0378-3758(01)00077-5
+
+Ninguna regla dependía de ellas (dependen de las tablas); la verificación
+solo cambia el estado de las citas, no ninguna cifra.
 
 **Protocolo de latencia:** no aplica en J (ningún brazo cambia el índice ni el
 KNN; F1 añade una consulta FTS más por query, ≤ ms). Se mide en la fase 2 solo
@@ -500,9 +644,31 @@ objeta con cita y Paul responde `CAMBIA A`.
 - Binario de medición: `<commit de main post-G/L; se anota en verdict/j-condiciones.md en la fase 2, no aquí>`, `cargo build --release --locked`
 - Modelo de Kimi: `<id elegido por la regla de la Task 7 Step 1>` de entre `<lista de /v1/models en kimi-modelos.json>`; llamadas `<n>`, tokens `<prompt> / <completion>`, coste `<$>`
 - Acuerdo: filas juzgadas por ambos `<n>` · `p_o <x>` · `κ <x>` · descartes `<n>` (desacuerdo `<n>`, negativo con nota `<n>`, archive fuera de archive/ `<n>`) · estratos flojos (`p_o < 0,60`): `<ninguno | lista>` · auditoría léxica: mediana de solape acordadas `<x>` / descartadas `<x>`
+- κ / p_o sin `negativo` ni candidatos vacíos: `<x> / <x>` (descriptivo, I-3 del review + F3 del review de rama 2026-09-20; no cambia el exit ni el suelo firmado 0,60 ∧ 0,70)
 - `sha256(gold-j.jsonl)`: `<salida de valida_gold.py>`
 - Filas: `<total>` · `<no nulas>` · por estrato `prompt <n> · agent-search <n> · hard <n> · archive <n>` · nulas `<prompt n · negativo n>` · negativos de evaluación (impares) `<n>` · con acceptable `<n>` · no nulas «léxicamente difíciles» (solape < 0,5) `<n>`
 - Aprobación del gold: `acuerdo.py exit 0 el <fecha>` (suelo superado; no hay línea de Paul) · gate del pre-registro: línea `GATE: PRE-REGISTRO J CONGELADO <fecha>` del consultor fable en `.superpowers/fabrica/verdicts/j-consultor-gate.md`
+- **Precondición dura antes de la primera captura de la fase 2 (F4, review de
+  rama 2026-09-20 — cierra el séptimo grado de libertad):** este §10 dice que
+  «manda `metricas.decide` congelado» (§6), pero F1/S1/P1/G1 (§4) **no
+  existen en código todavía** — son prosa de este borrador (nota M-9 del
+  review original, §4), y `brazos.py` es explícitamente de la fase 2. Si
+  `brazos.py` y la extensión de `metricas.decide` para el camino secuencial
+  de §6 se escribieran **después** de ver los datos, las decisiones que ese
+  código tiene que tomar (el `f_max` exacto de F1; si la admisión "unión" de
+  S1 cuenta una nota que solo tiene score FTS con `v_adm = 0` o la descarta;
+  si P1 multiplica el factor 0,90 antes o después de tomar el `max` de la
+  fusión; el criterio de empate cuando dos brazos ordenan listas distintas
+  con el mismo score) dejarían de ser reglas pre-registradas y pasarían a
+  ser código escrito con los números delante. Por eso: `brazos.py` +
+  `metricas.decide` (extendido) + **tests-oráculo por brazo** (filas fixture
+  sintéticas con la salida exacta esperada, uno por cada decisión de arriba)
+  deben existir **committeados** antes de la primera captura sobre el gold
+  congelado. Cambiar cualquiera de los dos DESPUÉS de esa primera captura
+  invalida la medición hecha con la versión anterior (no se recomputa con el
+  código nuevo sobre los mismos resultados: se declara qué versión aplicó y,
+  si hace falta el cambio, se repite la captura y la medición desde cero).
+  Ver kill-criterion correspondiente en §11.
 - Commit de congelación: el que introduce este bloque relleno y cambia la cabecera a `CONGELADO`.
 
 ## 11. Circuit breakers y kill-criteria
@@ -523,14 +689,43 @@ objeta con cita y Paul responde `CAMBIA A`.
 - **Guard léxico de D-A** (§3, §6): F1 no GANA si `NETO < 0` en el subconjunto
   «léxicamente difícil» (`solape_lexico < 0,5`); si ese subconjunto tiene
   < 20 filas, el guard se reporta pero no veta (se declara).
+- **`brazos.py`/`metricas.decide` sin commitear y sin tests-oráculo por brazo
+  antes de la primera captura sobre el gold** (F4, review de rama
+  2026-09-20, §10): STOP, la fase 2 no captura nada. F1/S1/P1/G1 son prosa
+  de §4 hasta que ese commit exista; congelar la medición con esas
+  definiciones sin fijar en código sería congelar prosa, no una regla de
+  decisión verificable. Si `brazos.py` o `metricas.decide` cambian
+  **después** de la primera captura, esa medición queda invalidada (no se
+  recomputa con el código nuevo): se declara qué versión produjo qué
+  resultado y, si el cambio es necesario, se repite la captura entera.
 - **Kimi:** si el humo de 3 paquetes falla por `response_format` o el modelo
   elegido por la regla no existe, STOP y PENDIENTE-PAUL (no se improvisa
   modo de salida ni modelo). Coste acumulado > $10: STOP. Cualquier fila sin
   juicio válido de **ambos** jueces tras 3 reintentos queda fuera del gold y
-  se cuenta como descarte «sin juicio de ambos».
-- **Fuga de la key o de datos:** si `git grep 'sk-' -- evals` o `grep -c
-  wisdom-paul` sobre un fichero público no dan 0, el commit no se hace; si
-  ya se hizo, se reescribe la rama antes de cualquier push.
+  se cuenta como descarte «sin juicio de ambos». **El tope de 3 reintentos es
+  por corrida, no por fila a lo largo de toda la campaña** (F6, review de
+  rama 2026-09-20): `procesa_lote` es reanudable por id (`juez.py`), y una
+  reanudación vuelve a intentar los ids sin juicio válido con otros 3
+  reintentos propios, sin memoria de los intentos de corridas anteriores —
+  así que cuántas veces se reintentó de verdad una fila antes de que se
+  cuente como descarte depende de cuántas veces el operador reanudó el
+  pipeline, una decisión que hoy no queda registrada. Antes de la Task 7 (si
+  se ejecuta): fijar un máximo de reanudaciones por el pipeline completo (no
+  solo por llamada), o registrar explícitamente en el ledger cuántas
+  reanudaciones tuvo cada corrida de Kimi.
+- **Fuga de la key o de datos (F6, sincronizado con Global Constraints el
+  2026-09-20 — el gate viejo de esta línea nacía en rojo):** si
+  `LC_ALL=C git grep --untracked -cE 'sk-[A-Za-z0-9]{20,}' -- evals` da algo
+  distinto de "sin salida" (exit 1), o si `grep -c wisdom-paul <fichero>` da
+  distinto de 0 sobre cada `.md` que se vaya a commitear bajo `evals/`
+  (`verdict/`, `gold-j/`) — **no** sobre este pre-registro ni sobre otros
+  ficheros de `docs/superpowers/plans/`, que sí citan `wisdom-paul` por
+  nombre y no son el fichero público cuya fuga se vigila —, el commit no se
+  hace; si ya se hizo, se reescribe la rama antes de cualquier push. El
+  patrón `'sk-'` a secas nacía en rojo el mismo día que se escribió (3 falsos
+  positivos preexistentes en `evals/prep-m3/`, p.ej. «task-specific»
+  contiene el substring `sk-`): un gate que nace en rojo se normaliza y deja
+  de proteger, por eso el patrón exige forma de key de Moonshot.
 - **Fidelidad ≠ 100 %** en cualquiera de los dos oráculos (§4): STOP, se
   diagnostica el harness o el binario; tope 2 reintentos; al tercero,
   PENDIENTE-PAUL. No se mide ni se decide.

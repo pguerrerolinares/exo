@@ -106,7 +106,16 @@ decisión vive en `docs/superpowers/plans/2026-09-19-campana-j-preregistro-BORRA
   `kimi_api_key`; el fichero es gitignored en ese repo). Se lee en runtime
   con `juez.py --env-keys`; **nunca** se imprime, se copia, se exporta a un
   fichero ni entra en el repo exo (público). Antes de cada commit bajo
-  `evals/`: `git grep -c 'sk-' -- evals` = 0.
+  `evals/`: `LC_ALL=C git grep --untracked -cE 'sk-[A-Za-z0-9]{20,}' -- evals`
+  = sin salida (exit 1). **Enmienda 2026-09-20:** el patrón genérico
+  `'sk-'` nace en rojo hoy mismo — tres falsos positivos preexistentes en
+  `evals/prep-m3/` (p.ej. «task-specific» contiene el substring `sk-`) — y
+  un gate que nace en rojo se normaliza y deja de proteger. Este patrón
+  exige forma de key de Moonshot (`sk-` + ≥20 caracteres alfanuméricos)
+  aplicado sobre TODO `evals/`, sin acotar el directorio (acotar reduciría
+  el alcance de la línea roja en vez de arreglar el falso positivo);
+  `--untracked` para que el gate vea también ficheros nuevos antes del
+  primer `git add`.
 - **Régimen de fábrica vigente:** `.superpowers/fabrica/config.md`
   §ACTUALIZACIÓN 2026-09-19: «J fase 1 — T0 diagnóstico + pre-registro
   borrador + kit de gold … evals; **no toca `engine/src`**» y «J no congela
@@ -1434,8 +1443,10 @@ def main():
     for k in ("candidatos", "fable", "kimi", "gold-out", "descartes-out", "informe-out"):
         ap.add_argument(f"--{k}", required=True)
     ap.add_argument("--snap")
-    ap.add_argument("--kappa-min", type=float, default=0.60)
-    ap.add_argument("--po-min", type=float, default=0.70)
+    # F9 del review de rama (2026-09-20): sin default -obligatorios-, para
+    # que un suelo firmado (D-J11) no pueda olvidarse por omisión del flag.
+    ap.add_argument("--kappa-min", type=float, required=True)
+    ap.add_argument("--po-min", type=float, required=True)
     a = ap.parse_args()
     cands = [json.loads(l) for l in open(a.candidatos, encoding="utf-8") if l.strip()]
     textos = None
@@ -1779,7 +1790,7 @@ Expected: `0` y `0` antes del add.
 ENV_KEYS=/home/paul/Documentos/proyectos/wisdom-ai-news/.env-keys
 python3 evals/retrieval-heldout/harness/juez.py modelos --env-keys "$ENV_KEYS" | tee "$PRIV_J/kimi-modelos.json"
 ```
-Expected: lista JSON de ids. **Regla de elección, escrita antes de ver la lista:** el modelo es `kimi-k3` si aparece; si no, el id `kimi-k2*` de mayor versión que aparezca; si no hay ninguno `kimi-k2*`, PENDIENTE-PAUL (no se elige a ojo). El id elegido va a `KIMI_MODEL` y al borrador §10 en la Task 8. Precio de lista (web, 2026-09; verificar en platform.moonshot.ai): kimi-k3 $0,95 / $4,00 por millón de tokens (entrada / salida), K3 $3 / $15.
+Expected: lista JSON de ids. **Regla de elección, escrita antes de ver la lista:** el modelo es `kimi-k3` si aparece; si no, el id `kimi-k2*` de mayor versión que aparezca; si no hay ninguno `kimi-k2*`, PENDIENTE-PAUL (no se elige a ojo). El id elegido va a `KIMI_MODEL` y al borrador §10 en la Task 8. Precio de lista (web, 2026-09; verificar en platform.moonshot.ai): kimi-k3 $3 / $15 por millón de tokens (entrada / salida), kimi-k2.6 $0,95 / $4,00. **Errata corregida 2026-09-20:** esta tabla tenía los precios invertidos (decía kimi-k3 $0,95/$4,00 y "K3" $3/$15); la versión correcta es la de §Global Constraints, de donde sale la estimación de ≈$6 para el job completo con k3.
 
 - [ ] **Step 2: Humo con 3 paquetes**
 
@@ -1796,7 +1807,7 @@ Expected: `{"llamadas": 3, "ok": 3, "errores": [], "prompt_tokens": <n>, ...}` y
 python3 evals/retrieval-heldout/harness/juez.py kimi --paquetes "$PRIV_J/paquetes.jsonl" --env-keys "$ENV_KEYS" --model "$KIMI_MODEL" --out "$PRIV_J/juicio-kimi.jsonl" 2> "$PRIV_J/juicio-kimi.log"
 python3 evals/retrieval-heldout/harness/juez.py valida --respuestas "$PRIV_J/juicio-kimi.jsonl" --candidatos "$PRIV_J/candidatos.jsonl"
 ```
-Expected: `ok` = nº de paquetes (el script reanuda por id si se corta; reintentos 3 con backoff); `invalidas: 0`. Anotar `prompt_tokens`/`completion_tokens` y el coste (`tokens × precio`) en el ledger. Presupuesto: ≈ 280 llamadas × ≈ 5–6 k tokens ≈ 1,5 M tokens de entrada + ≈ 30 k de salida ≈ **$2 con kimi-k3** (≈ $6 con K3); tope autorizado por este plan: **$10**; por encima, STOP.
+Expected: `ok` = nº de paquetes (el script reanuda por id si se corta; reintentos 3 con backoff); `invalidas: 0`. Anotar `prompt_tokens`/`completion_tokens` y el coste (`tokens × precio`) en el ledger. Presupuesto: ≈ 280 llamadas × ≈ 5–6 k tokens ≈ 1,5 M tokens de entrada + ≈ 30 k de salida ≈ **$6 con kimi-k3** (≈ $2 con kimi-k2.6; Paul eligió k3 el 2026-09-19 por calidad de juez, ver Global Constraints); tope autorizado por este plan: **$10**; por encima, STOP. **Errata corregida 2026-09-20 (F6 del review de rama):** esta línea tenía los precios invertidos (decía "≈ $2 con kimi-k3 (≈ $6 con K3)"); precios verificados contra la web oficial de Moonshot el 2026-09-20: kimi-k3 $3/$15 por millón de tokens (entrada/salida), kimi-k2.6 $0,95/$4,00 — la versión correcta es la del Step 1 de esta Task y de Global Constraints, de donde sale la estimación de ≈$6 con k3.
 
 - [ ] **Step 4: fable como juez (ciego; lotes de 25 paquetes; un subagente fresco por lote)**
 
@@ -1872,7 +1883,7 @@ Expected: hash y fecha. Registrar en el ledger `preregistro_congelado: <hash>`. 
 
 Despachar un subagente **fable** fresco (que no haya sido juez ni revisor) con este brief literal:
 
-"Eres el consultor-gate del pre-registro congelado `docs/superpowers/plans/2026-09-19-campana-j-preregistro-BORRADOR.md` (commit `<hash>`). Comprueba, con comandos y sin fiarte del ledger: (1) `git diff <hash> -- <fichero>` vacío; (2) `sha256sum ~/.local/share/exo-evals/j-heldout/gold-j.jsonl` = §10; (3) `valida_gold.py` exit 0 con los recuentos de §10; (4) re-ejecuta `acuerdo.py` con los mismos argumentos de la Task 7 a un fichero temporal y compara κ, p_o y recuentos con `evals/retrieval-heldout/verdict/gold-j-acuerdo.md` (deben coincidir); (5) abre 10 filas del gold al azar (semilla 20260919) más las 5 de menor `solape_lexico` en `notes` y, leyendo las notas en `kb-snap`, di si la etiqueta es defendible; (6) confirma que ningún fichero commiteado contiene texto de query ni permalinks por fila (`grep -c wisdom-paul` = 0 en `verdict/gold-j-acuerdo.md`, `gold-j/README.md`, `verdict/diagnostico-55.md`); (7) confirma que ningún fichero del repo contiene la key (`git grep -c 'sk-' -- evals` = 0). Escribe `.superpowers/fabrica/verdicts/j-consultor-gate.md` con cada comprobación, su comando y su salida, y termina con UNA línea: `GATE: PRE-REGISTRO J CONGELADO <fecha>` o `GATE: PRE-REGISTRO J RECHAZADO <motivo>`. Si RECHAZADO, no se mide nada: la fábrica corrige y repite este gate."
+"Eres el consultor-gate del pre-registro congelado `docs/superpowers/plans/2026-09-19-campana-j-preregistro-BORRADOR.md` (commit `<hash>`). Comprueba, con comandos y sin fiarte del ledger: (1) `git diff <hash> -- <fichero>` vacío; (2) `sha256sum ~/.local/share/exo-evals/j-heldout/gold-j.jsonl` = §10; (3) `valida_gold.py` exit 0 con los recuentos de §10; (4) re-ejecuta `acuerdo.py` con los mismos argumentos de la Task 7 a un fichero temporal y compara κ, p_o y recuentos con `evals/retrieval-heldout/verdict/gold-j-acuerdo.md` (deben coincidir); (5) abre 10 filas del gold al azar (semilla 20260919) más las 5 de menor `solape_lexico` en `notes` y, leyendo las notas en `kb-snap`, di si la etiqueta es defendible; (6) confirma que ningún fichero commiteado contiene texto de query ni permalinks por fila (`grep -c wisdom-paul` = 0 en `verdict/gold-j-acuerdo.md`, `gold-j/README.md`, `verdict/diagnostico-55.md`); (7) confirma que ningún fichero del repo contiene la key (`LC_ALL=C git grep --untracked -cE 'sk-[A-Za-z0-9]{20,}' -- evals` sin salida, exit 1). Escribe `.superpowers/fabrica/verdicts/j-consultor-gate.md` con cada comprobación, su comando y su salida, y termina con UNA línea: `GATE: PRE-REGISTRO J CONGELADO <fecha>` o `GATE: PRE-REGISTRO J RECHAZADO <motivo>`. Si RECHAZADO, no se mide nada: la fábrica corrige y repite este gate."
 
 `RECHAZADO` ⇒ se corrige lo señalado (si toca el gold, el sha cambia y la congelación se rehace desde el Step 1), nuevo gate. Registrar la línea final en el ledger.
 
