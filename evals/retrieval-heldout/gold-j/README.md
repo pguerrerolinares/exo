@@ -107,6 +107,42 @@ más, cota del plan). **Riesgo real sobre el suelo de no nulas (60, §11)**
   asumiendo el ~30-45 % de riesgo y la pérdida irreversible de las 229
   queries si falla, esa es una decisión válida y suya.
 
+## Addendum 2026-09-20 — segundo intento de `agent-search`, sigue sin poder generarse
+
+Se recibió un nuevo fichero crudo (`$PRIV_J/agent-search-raw-2026-09-20.txt`,
+293 comandos `exo search` supuestamente únicos, extraídos y deduplicados sin
+contexto de conversación) como sustituto del de 221 líneas ya descartado
+arriba. Se corrió `limpia_agent_search.py` **sin modificar**, con las mismas
+dos listas de exclusión (las 55 y las 147 de C): `{"entrada": 293, "salida":
+46, "descartes": {"no_parsea": 42, "marcador": 195, "vacia": 1,
+"dup-exclusion": 0, "dup-pool": 9}}`.
+
+Inspección manual de las 46 filas supervivientes: **0 son queries usables**.
+Todas son fragmentos de una sola palabra o de puntuación (artículos,
+conectores, restos de markdown) — nada que un agente pudiera plausiblemente
+haber escrito como argumento de `exo search`. Causa raíz: el fichero crudo
+**no es** lo que pide el Step 3 (parseo de bloques `tool_use` con
+`name=="Bash"` cuyo `input.command` contiene `exo search`), sino, aparentemente,
+una captura tipo grep de cualquier texto de transcript que **menciona** la
+frase "exo search" — prosa de specs, informes de benchmark, mensajes de
+commit, documentos de planificación. Evidencia: 0 de las 293 líneas
+contienen un carácter `"` literal (una query real multi-palabra citada lo
+tendría); 35/293 terminan en un flag de CLI sin texto de query, el mismo
+patrón de truncamiento que ya invalidó el fichero de 221 líneas.
+
+Por el mismo criterio ya aplicado arriba: meter estas 46 filas sería peor que
+no tener `agent-search` — parecería un estrato real de queries de agentes
+siendo ruido. **No se usó**: ninguna fila entró en `queries.jsonl` /
+`candidatos.jsonl` / `paquetes.jsonl`, ningún número de este README cambió,
+`agent-search` sigue en 0. `agent-search-raw-2026-09-20.txt` y el
+`agent-search.jsonl` de 46 filas resultante quedan en `$PRIV_J` como
+evidencia de auditoría, marcados como no consumibles.
+
+**Sigue pendiente:** una re-extracción real que siga el Step 3 al pie de la
+letra (parseo del JSON de los bloques `tool_use`/`Bash`, no un grep de
+texto), o la decisión explícita de Paul de juzgar sin `agent-search` con el
+riesgo ya documentado arriba.
+
 **Para completar, el día que Paul decida:**
 
 1. Resolver el permiso de lectura de `~/.claude/projects` (o decidir
