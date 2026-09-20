@@ -42,11 +42,18 @@ utilidad para el agente, y el gold lo etiquetan jueces LLM de dos familias.
 
 ## Estado del kit — qué falta para juzgar
 
-Este kit **no incluye juicio** (Task 7 del plan). La fábrica paró el juicio
-con Kimi porque el control de gasto del breaker de `juez.py` tiene un fallo
-detectado en review adversarial (el libro de gasto puede mentir en un caso
-concreto); el arreglo de ese breaker es de otro frente y no se ha tocado
-aquí. Nadie llamó a ninguna API de pago para construir este kit.
+Este kit **no incluye juicio** (Task 7 del plan) — pero, a diferencia de
+cuando se escribió esta sección por primera vez, **ya no hay ningún
+bloqueo técnico para correrlo**. La fábrica había parado el juicio con
+Kimi porque el control de gasto del breaker de `juez.py` tenía un fallo
+detectado en review adversarial (el libro de gasto podía mentir en un caso
+concreto); **ese arreglo ya está cerrado y mergeado** (commit `bb82cab`,
+identidad por nonce a prueba de reanudación con test de resume tras
+`kill -9` real, más `6fcb3bb` de compatibilidad documental; review
+adversarial independiente: Approved). El techo de gasto es ahora
+estructural (≈$10,02 con tolerancia 0 = tope + una llamada de overshoot),
+no depende de que un bug no se dispare. Nadie llamó a ninguna API de pago
+para construir este kit.
 
 **El estrato `agent-search` ya está incorporado (2026-09-20, cuarto
 intento).** Los tres intentos anteriores fallaron por motivos distintos
@@ -146,13 +153,16 @@ siendo ruido. **No se usó**: ninguna fila entró en `queries.jsonl` /
 `agent-search.jsonl` de 46 filas resultante quedan en `$PRIV_J` como
 evidencia de auditoría, marcados como no consumibles.
 
-**Sigue pendiente:** una re-extracción real que siga el Step 3 al pie de la
-letra (parseo del JSON de los bloques `tool_use`/`Bash`, no un grep de
-texto), o la decisión explícita de Paul de juzgar sin `agent-search` con el
-riesgo ya documentado arriba.
+**Sigue pendiente (histórico, a fecha de este segundo intento):** una
+re-extracción real que siga el Step 3 al pie de la letra (parseo del JSON
+de los bloques `tool_use`/`Bash`, no un grep de texto), o la decisión
+explícita de Paul de juzgar sin `agent-search` con el riesgo ya
+documentado arriba. **Ya resuelto**: ver el addendum «cuarto intento —
+resuelto» más abajo — esta re-extracción se hizo y `agent-search` ya está
+incorporado.
 
-**Para completar, el día que Paul decida (actualizado 2026-09-20, cuarto
-intento):**
+**Para completar, el día que Paul decida (actualizado 2026-09-20, con el
+breaker de `juez.py` ya arreglado):**
 
 1. ~~El permiso de lectura de `~/.claude/projects`~~ y ~~la calidad de la
    extracción de `agent-search`~~ **ya no son el bloqueo**: el estrato está
@@ -164,9 +174,16 @@ intento):**
    este directorio), así que añadirlo ahora, antes de cualquier juicio, es
    la ampliación limpia que el matiz de más abajo exige — no hace falta
    volver a juzgar nada porque nada se ha juzgado aún.
-2. Que el arreglo del breaker de `juez.py` esté cerrado y mergeado (otro
-   frente de la fábrica). Esto sigue siendo lo único que falta antes de
-   poder correr Kimi.
+2. ~~Que el arreglo del breaker de `juez.py` esté cerrado y mergeado~~ **ya
+   está**: commit `bb82cab` (identidad por nonce a prueba de reanudación,
+   con test de resume tras `kill -9` real) + `6fcb3bb` (compatibilidad
+   documental), review adversarial independiente Approved. El techo de
+   gasto es ahora estructural (≈$10,02 con tolerancia 0 = tope + una
+   llamada de overshoot), no depende de que un bug no se dispare. **No
+   queda ninguna precondición técnica pendiente** — lo único que falta es
+   la decisión de Paul de juzgar, con el coste (≈$2,7-$4,5) y el riesgo
+   (suelo global ya no es la apuesta que era; el suelo específico de
+   `archive`, ≥8, sigue sin margen) ya documentados arriba.
 3. Correr el juicio (Task 7 del plan) sobre las **285 filas** actuales, con
    `$PRIV_J = ~/.local/share/exo-evals/j-heldout`:
 
