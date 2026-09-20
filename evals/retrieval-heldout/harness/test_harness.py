@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Tests del harness de la campaña C. Uso:
 python3 -m unittest -v evals/retrieval-heldout/harness/test_harness.py"""
+import contextlib
+import io
 import json
 import sqlite3
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import metricas as m  # noqa: E402
@@ -219,6 +222,47 @@ class TestPool(unittest.TestCase):
     def test_mas_cercano_sin_mensajes_es_none(self):
         self.assertIsNone(pl.mas_cercano(pl._ts("2026-08-23T10:00:00Z"), []))
 
+    def test_filtra_ventana_es_exclusiva_en_ambos_bordes(self):
+        # El comentario junto a VENTANAS dice "ambos límites son exclusivos":
+        # un timestamp exactamente en `ini` o en `fin` debe quedar fuera.
+        ini, fin = pl.VENTANAS["prompt"]
+        cands = [
+            {"query": "justo en el inicio", "source": "prompt", "session_id": "s", "ts": ini},
+            {"query": "justo en el fin", "source": "prompt", "session_id": "s", "ts": fin},
+        ]
+        pool_, desc = pl.filtra(cands, [])
+        self.assertEqual(pool_, [])
+        self.assertEqual(desc["fuera-de-ventana"], 2)
+
+    def test_main_in_sample_es_repetible_de_verdad(self):
+        # Ejercita main() end-to-end (argparse --in-sample repetible
+        # incluido) en vez de fusionar las exclusiones a mano: si main()
+        # solo mirara a.in_sample[0], "consulta dos" no se excluiría y el
+        # pool tendría 2 candidatas en vez de 1.
+        with tempfile.TemporaryDirectory() as d:
+            in1 = Path(d) / "in1.jsonl"
+            in1.write_text(json.dumps({"query": "consulta uno"}) + "\n", encoding="utf-8")
+            in2 = Path(d) / "in2.jsonl"
+            in2.write_text(json.dumps({"query": "consulta dos"}) + "\n", encoding="utf-8")
+            candidatas = [
+                {"query": "consulta uno", "source": "prompt", "session_id": "s", "ts": "2026-08-23T00:00:00Z"},
+                {"query": "consulta dos", "source": "prompt", "session_id": "s", "ts": "2026-08-24T00:00:00Z"},
+                {"query": "consulta tres", "source": "prompt", "session_id": "s", "ts": "2026-08-25T00:00:00Z"},
+            ]
+            argv = ["pool.py", "--in-sample", str(in1), "--in-sample", str(in2),
+                    "--out-dir", d, "--cuota", "prompt=1"]
+            buf = io.StringIO()
+            with mock.patch.object(sys, "argv", argv), \
+                 mock.patch.object(pl, "pool_search_notes", return_value=iter([])), \
+                 mock.patch.object(pl, "pool_comandos", return_value=iter([])), \
+                 mock.patch.object(pl, "pool_prompts", return_value=iter(candidatas)), \
+                 contextlib.redirect_stdout(buf):
+                pl.main()
+            salida = json.loads(buf.getvalue())
+            self.assertEqual(salida["pool"]["prompt"], 1)
+            muestra = [json.loads(l) for l in (Path(d) / "muestra.jsonl").read_text(encoding="utf-8").splitlines()]
+            self.assertEqual(muestra[0]["query"], "consulta tres")
+
 
 import valida_gold as vg  # noqa: E402
 import diagnostico as dg  # noqa: E402
@@ -254,16 +298,66 @@ class TestValidaGold(unittest.TestCase):
         self.assertTrue(vg.valida([self.fila(), self.fila(query="otra")], self.PERMS, []))
 
     def test_estratos_j(self):
-        perms = self.PERMS | {"kb/archive/log/x-2026-01-01_2026-02-02"}
+        # Sin colisión con "/log/": si mutara el prefijo de la regla archive
+        # de "/archive/" a "/log/", un permalink que contuviera ambos
+        # substrings (p.ej. kb/archive/log/...) pasaría el test por
+        # coincidencia. kb/archive/research/... solo contiene "/archive/".
+        perms = self.PERMS | {"kb/archive/research/x-2026-01-01_2026-02-02"}
         self.assertEqual(vg.valida([self.fila(id="j1", source="keyword")], perms, []), [])
         self.assertEqual(vg.valida([self.fila(id="j2", source="negativo", expected_permalink=None)], perms, []), [])
-        self.assertEqual(vg.valida([self.fila(id="j3", source="archive", expected_permalink="kb/archive/log/x-2026-01-01_2026-02-02")], perms, []), [])
+        self.assertEqual(vg.valida([self.fila(id="j3", source="archive", expected_permalink="kb/archive/research/x-2026-01-01_2026-02-02")], perms, []), [])
         self.assertTrue(vg.valida([self.fila(id="j4", source="negativo")], perms, []))
         self.assertTrue(vg.valida([self.fila(id="j5", source="archive")], perms, []))
         self.assertTrue(vg.valida([self.fila(id="j6", source="archive", expected_permalink=None)], perms, []))
 
     def test_exclusion_multiple(self):
         self.assertTrue(vg.valida([self.fila(query="Gold de C tal cual")], self.PERMS, [pl.normaliza("fabrica campaña"), pl.normaliza("gold de C tal cual")]))
+
+    def test_main_in_sample_es_repetible_de_verdad(self):
+        # Ejercita valida_gold.main() end-to-end (argparse --in-sample
+        # repetible incluido): si main() solo mirara a.in_sample[0], la
+        # query del segundo fichero de exclusión no se detectaría como dup.
+        with tempfile.TemporaryDirectory() as d:
+            kb = Path(d) / "kb"
+            kb.mkdir()
+            (kb / "a.md").write_text("---\npermalink: kb/a\n---\n# a\n", encoding="utf-8")
+            gold = Path(d) / "gold.jsonl"
+            gold.write_text(json.dumps(self.fila(query="Gold de C tal cual")) + "\n", encoding="utf-8")
+            in1 = Path(d) / "in1.jsonl"
+            in1.write_text(json.dumps({"query": "fabrica campaña"}) + "\n", encoding="utf-8")
+            in2 = Path(d) / "in2.jsonl"
+            in2.write_text(json.dumps({"query": "gold de c tal cual"}) + "\n", encoding="utf-8")
+            argv = ["valida_gold.py", "--gold", str(gold), "--kb", str(kb),
+                    "--in-sample", str(in1), "--in-sample", str(in2)]
+            buf = io.StringIO()
+            with mock.patch.object(sys, "argv", argv), contextlib.redirect_stdout(buf), self.assertRaises(SystemExit) as cm:
+                vg.main()
+            self.assertEqual(cm.exception.code, 1)
+            salida = json.loads(buf.getvalue())
+            self.assertEqual(salida["errores"], 1)
+
+    def test_main_reporta_nulas_por_estrato(self):
+        with tempfile.TemporaryDirectory() as d:
+            kb = Path(d) / "kb"
+            kb.mkdir()
+            (kb / "a.md").write_text("---\npermalink: kb/a\n---\n# a\n", encoding="utf-8")
+            filas = [
+                {"id": "j1", "query": "q negativa uno", "source": "negativo", "expected_permalink": None, "acceptable_permalinks": [], "notes": "x"},
+                {"id": "j2", "query": "q negativa dos", "source": "negativo", "expected_permalink": None, "acceptable_permalinks": [], "notes": "x"},
+                {"id": "j3", "query": "q positiva", "source": "prompt", "expected_permalink": "kb/a", "acceptable_permalinks": [], "notes": "x"},
+            ]
+            gold = Path(d) / "gold.jsonl"
+            gold.write_text("\n".join(json.dumps(f) for f in filas) + "\n", encoding="utf-8")
+            insample = Path(d) / "in.jsonl"
+            insample.write_text("", encoding="utf-8")
+            argv = ["valida_gold.py", "--gold", str(gold), "--kb", str(kb), "--in-sample", str(insample)]
+            buf = io.StringIO()
+            with mock.patch.object(sys, "argv", argv), contextlib.redirect_stdout(buf), self.assertRaises(SystemExit) as cm:
+                vg.main()
+            self.assertEqual(cm.exception.code, 0)
+            salida = json.loads(buf.getvalue())
+            self.assertEqual(salida["nulas_por_estrato"], {"negativo": 2})
+            self.assertEqual(salida["nulas"], 2)
 
 
 class TestDiagnostico(unittest.TestCase):
@@ -313,6 +407,63 @@ class TestDiagnostico(unittest.TestCase):
         d = dg.diagnostica_fila(f, rot, dfs)
         self.assertTrue(d["hit5"] and d["rotacion_top5"] and d["archive_top5"] == 1 and d["causas"] == [])
         self.assertEqual(dg.diagnostica_fila(f, None, dfs)["causas"], ["captura-error"])
+
+    def test_hit5_boundary_es_inclusivo(self):
+        # K_HIT=5: rango_hybrid == 5 es HIT (`<=`); ningún caso de test_causas
+        # tiene rh exactamente en el borde, así que mutar `<=` a `<` no
+        # rompía nada hasta este test.
+        f = self.filas()[0]
+        dfs = [("cge", 3), ("bitácora", 0)]
+        borde = {"fts": [], "vector": [("kb/log/cge-bitacora", 0.5)],
+                 "hybrid": [("a", 0.9), ("b", 0.8), ("c", 0.7), ("d", 0.6), ("kb/log/cge-bitacora", 0.5)]}
+        d = dg.diagnostica_fila(f, borde, dfs)
+        self.assertEqual(d["rango_hybrid"], 5)
+        self.assertTrue(d["hit5"])
+        self.assertEqual(d["causas"], [])
+
+    def test_causa_rotacion_en_top5_es_alcanzable_en_un_miss(self):
+        # rotacion_top5 solo se vuelve causa si la fila sigue siendo miss
+        # (si fuera hit, diagnostica_fila retorna antes de añadir causas):
+        # la esperada no debe estar en el hybrid.
+        f = self.filas()[0]  # expected kb/log/cge-bitacora
+        dfs = [("cge", 3), ("bitácora", 0)]
+        cap = {"fts": [], "vector": [],
+               "hybrid": [("kb/archive/log/cge-bitacora-2026-01-01_2026-02-02", 0.5),
+                          ("kb/x2", 0.4), ("kb/x3", 0.35), ("kb/x4", 0.3), ("kb/x5", 0.25)]}
+        d = dg.diagnostica_fila(f, cap, dfs)
+        self.assertFalse(d["hit5"])
+        self.assertTrue(d["rotacion_top5"])
+        self.assertIn("rotacion-en-top5", d["causas"])
+
+    def test_causa_etiqueta_reverificar_es_alcanzable(self):
+        # self.filas()[0] siempre es m01, que no está en REVERIFICAR: sin una
+        # fila cuyo id sí esté, esta causa nunca se añadía.
+        self.assertIn("m07", dg.REVERIFICAR)
+        f = {"id": "m07", "query": "cge bitácora", "source": "log",
+             "expected_permalink": "kb/log/cge-bitacora", "acceptable_permalinks": []}
+        dfs = [("cge", 3), ("bitácora", 0)]
+        bajo = {"fts": [], "vector": [("kb/log/cge-bitacora", 0.30), ("kb/z", 0.5)], "hybrid": [("kb/z", 0.5)]}
+        d = dg.diagnostica_fila(f, bajo, dfs)
+        self.assertFalse(d["hit5"])
+        self.assertIn("etiqueta-reverificar", d["causas"])
+
+    def test_causas_bordes_exactos_umbral_y_rva(self):
+        f = self.filas()[0]
+        dfs = [("cge", 3), ("bitácora", 0)]
+        # sv == UMBRAL_SELLADO (0.40) exacto: el umbral de admisión es `<`
+        # estricto, así que NO cae en "vector-bajo-umbral".
+        en_umbral = {"fts": [], "vector": [("kb/log/cge-bitacora", m.UMBRAL_SELLADO)], "hybrid": []}
+        d = dg.diagnostica_fila(f, en_umbral, dfs)
+        self.assertNotIn("vector-bajo-umbral", d["causas"])
+        self.assertIn("fusion-desplaza", d["causas"])
+        # rva == K_HIT (5) exacto: cae en "fusion-desplaza", no en
+        # "vector-lejos" (el split es `rva > K_HIT`, no `>=`).
+        en_khit = {"fts": [], "vector": [(f"kb/v{i}", 0.9 - i / 10) for i in range(4)] + [("kb/log/cge-bitacora", 0.5)],
+                   "hybrid": []}
+        d2 = dg.diagnostica_fila(f, en_khit, dfs)
+        self.assertEqual(d2["rango_vector_adm"], 5)
+        self.assertIn("fusion-desplaza", d2["causas"])
+        self.assertNotIn("vector-lejos", d2["causas"])
 
     def test_informe_publico_no_filtra_texto(self):
         filas = self.filas()
