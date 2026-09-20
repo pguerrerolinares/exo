@@ -46,12 +46,19 @@ ultimo_payload() { tail -1 "$LOGC" 2>/dev/null | jq -r '.payload // empty' 2>/de
 # `read` con IFS=tab trata el tab como whitespace de IFS y COLAPSA un campo
 # vacío inicial en vez de respetarlo como delimitador -- con `source`
 # ausente (el caso normal), el valor de session_id se cuela en SOURCE y SID
-# queda vacío. Se prueba en AISLADO (no a través del hook completo): el uso
-# real de estas dos variables en exo-recall.sh exige SOURCE=="compact" Y SID
-# no vacío A LA VEZ, y el mismo desplazamiento que ensucia una las dos
-# también vacía la otra -- el bug queda enmascarado en el comportamiento
-# visible del hook para CUALQUIER prompt real, así que probarlo a través del
-# hook nunca lo detectaría. Esto prueba la TÉCNICA (jq + read), no el hook.
+# queda vacío. El uso real de estas dos variables en exo-recall.sh exige
+# SOURCE=="compact" Y SID no vacío A LA VEZ para disparar la reafirmación, y
+# el mismo desplazamiento que ensucia una de las dos también vacía la otra:
+# la corrupción NUNCA hace que ambas condiciones del gate se cumplan a la vez
+# (verificado exhaustivamente -- ver hallazgo del review adversarial del
+# 2026-09-20 documentado en el plan), así que el bug queda estructuralmente
+# enmascarado en el comportamiento visible del hook para CUALQUIER input,
+# incluido SOURCE=="compact" con SID no vacío. Por eso NINGÚN golden de
+# `test-exo-recall-golden.sh` -- ni el existente `reafirma-compact` (que YA
+# tiene esa combinación) ni uno nuevo -- puede exponer esta regresión por el
+# output final: se prueba aquí, extrayendo la asignación LITERAL de
+# exo-recall.sh (mismo patrón que `norm_token` en test-recall-inject.sh) y
+# aserta directamente sobre SOURCE/SID, sin pasar por el gate.
 JSON_SIN_SOURCE='{"session_id":"sess-solo-id"}'
 
 # Contraprueba: la forma naif (@tsv + IFS=tab) SÍ desalinea -- documenta por
@@ -66,14 +73,25 @@ else
     "SOURCE_TAB='$SOURCE_TAB' SID_TAB='$SID_TAB'"
 fi
 
-# El caso real: con \x1f (unit separator, no es whitespace de IFS) no desalinea.
-SOURCE_X1F=""; SID_X1F=""
-IFS=$'\x1f' read -r SOURCE_X1F SID_X1F <<< "$(printf '%s' "$JSON_SIN_SOURCE" | jq -r '[(.source // ""), (.session_id // "")] | join("\u001f")')"
-if [ "$SOURCE_X1F" = "" ] && [ "$SID_X1F" = "sess-solo-id" ]; then
-  pass "campaña I: separador \\x1f no desalinea SOURCE/SID con source ausente"
+# El caso real: se EXTRAE la asignación de SOURCE/SID del propio $HOOK (no se
+# copia a mano) y se evalúa aquí. Si alguien revierte el separador a
+# @tsv/tab en exo-recall.sh, esta aserción lo detecta directamente sobre el
+# código vivo -- a diferencia del golden, que (según el razonamiento de
+# arriba) nunca vería la diferencia en el output final del hook.
+HOOK_SOURCE_SID_SRC="$(sed -n '/^SOURCE=""; SID=""$/,+1p' "$HOOK")"
+if [ -z "$HOOK_SOURCE_SID_SRC" ]; then
+  fail "campaña I: extracción de la asignación SOURCE/SID" "no encontré el bloque en $HOOK -- revisar el patrón sed"
 else
-  fail "campaña I: separador \\x1f no desalinea SOURCE/SID con source ausente" \
-    "SOURCE_X1F='$SOURCE_X1F' SID_X1F='$SID_X1F'"
+  SOURCE=""; SID=""
+  # shellcheck disable=SC2034 # INPUT la lee $HOOK_SOURCE_SID_SRC dentro del eval de abajo
+  INPUT="$JSON_SIN_SOURCE"
+  eval "$HOOK_SOURCE_SID_SRC"
+  if [ "$SOURCE" = "" ] && [ "$SID" = "sess-solo-id" ]; then
+    pass "campaña I: código real de exo-recall.sh no desalinea SOURCE/SID con source ausente"
+  else
+    fail "campaña I: código real de exo-recall.sh no desalinea SOURCE/SID con source ausente" \
+      "SOURCE='$SOURCE' SID='$SID'"
+  fi
 fi
 
 # ------------------- no-engine: EXO_BIN no ejecutable ----------------------

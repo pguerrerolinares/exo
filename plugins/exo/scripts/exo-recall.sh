@@ -125,6 +125,13 @@ TEXTO="$BASE"
 # trata el tab como whitespace de IFS y colapsa un campo vacío inicial (el
 # caso normal de `source`, ausente en casi todo prompt) -- verificado que
 # `@tsv` + `IFS=tab` desalinea SOURCE/SID en ese caso, `\x1f` no.
+#
+# Caveat conocido (review adversarial 2026-09-20, construido y comprobado):
+# un byte `\x1f` LITERAL dentro de `source` sí desalinearía (ese campo no
+# pasa por el mismo escapado de jq que evita el problema con tabs/newlines
+# embebidos). Riesgo práctico bajo y se acepta: `source` es un enum que fija
+# el harness de Claude Code ("startup"/"resume"/"clear"/"compact"/"vscode"),
+# no texto libre que un agente o un tercero pueda inyectar.
 SOURCE=""; SID=""
 IFS=$'\x1f' read -r SOURCE SID <<< "$(printf '%s' "$INPUT" | jq -r '[(.source // ""), (.session_id // "")] | join("\u001f")' 2>/dev/null)"
 
