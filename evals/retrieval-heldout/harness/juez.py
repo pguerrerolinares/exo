@@ -387,7 +387,11 @@ def modelos(env_keys):
 def cuerpo_peticion(paq, model):
     return {
         "model": model,
-        "temperature": 0,
+        # temperature 1, no 0: la API de Moonshot devuelve 400 "invalid
+        # temperature: only 1 is allowed for this model" con 0 (probado en
+        # kimi-k3 y kimi-k2.6). Declarado en el pre-registro; no "arreglar"
+        # de vuelta a 0.
+        "temperature": 1,
         "messages": [{"role": "system", "content": SISTEMA}, {"role": "user", "content": paq["texto"]}],
         "response_format": {"type": "json_schema", "json_schema": {"name": "juicio", "schema": SCHEMA, "strict": True}},
     }

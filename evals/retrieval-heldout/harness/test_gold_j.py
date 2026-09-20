@@ -78,7 +78,15 @@ class TestJuez(unittest.TestCase):
         self.assertIsNone(err)
         self.assertEqual((d["expected"], d["usage"]["prompt_tokens"]), ("kb/a", 10))
         self.assertEqual(llamadas, [(jz.BASE + "/chat/completions", "kimi-k3", "json_schema")])
-        self.assertEqual(jz.cuerpo_peticion(paq, "m")["temperature"], 0)
+        # temperature 1, no 0: la API de Moonshot rechaza 0 con 400 ("invalid
+        # temperature: only 1 is allowed for this model") en kimi-k3 y
+        # kimi-k2.6 (probado con llamadas reales); no es preferencia de
+        # estilo, es el único valor que la API acepta.
+        self.assertEqual(
+            jz.cuerpo_peticion(paq, "m")["temperature"], 1,
+            "temperature debe ser 1: la API de Moonshot da 400 con 0 (única "
+            "opción que acepta, no una elección de determinismo)",
+        )
 
 
 class TestJuezPresupuesto(unittest.TestCase):

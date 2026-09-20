@@ -249,11 +249,20 @@
   - **Kimi** (Moonshot, otra familia de modelo, para romper la correlación de
     errores Claude–Claude): `juez.py kimi`, API OpenAI-compatible en
     `https://api.moonshot.ai/v1`, `response_format: json_schema` estricto,
-    `temperature 0`, misma instrucción `juez.SISTEMA`, 3 reintentos con
+    `temperature 1`, misma instrucción `juez.SISTEMA`, 3 reintentos con
     backoff. Modelo: `kimi-k3` (elegido por Paul 2026-09-19 tras ver la lista real de `/v1/models`: k2.6, k2.7-code, k2.7-code-highspeed, k3); si no lo lista, el `kimi-k*`
     de mayor versión; fijado en §10 en runtime.
   - **sonnet** solo genera (queries `hard`/`archive`/`negativo`, candidatos);
     nunca juzga.
+- **`temperature 1` del juez Kimi, no 0 (F6, declarado, 2026-09-20):** se
+  pidió `temperature 0` por determinismo; la API de Moonshot lo rechaza con
+  400 en los dos modelos probados (`kimi-k3` y `kimi-k2.6`): `{"error":
+  {"message":"invalid temperature: only 1 is allowed for this model",
+  "type":"invalid_request_error"}}`. Se usa `1`, el único valor que la API
+  acepta. Se pierde la reproducibilidad bit a bit de una corrida del juez;
+  queda en pie la defensa del diseño: dos jueces independientes (fable y
+  Kimi) y su acuerdo medido contra el suelo pre-registrado (κ ≥ 0,60 ∧
+  p_o ≥ 0,70, arriba), no la determinación de una sola llamada.
 - **Entrada al gold y desempate (D-J11):** una fila entra si el acuerdo es
   *estricto* (mismo `expected`, null incluido) o *lenient* (el `expected` de
   un juez está en los `acceptable` del otro; entonces `expected` = el que
