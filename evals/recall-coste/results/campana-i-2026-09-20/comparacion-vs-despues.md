@@ -43,6 +43,15 @@ C-H23 (s8 n5000 p50=327)	NO ABRIR
 C-noregresión	FALLA
 PreToolUse:Bash triple (git status), Linux: 41 ms
 
+**Nota (review final de rama, 2026-09-20): `C-noregresión` FALLA por
+`s5-search-fts-n174` (3→6 ms) y no queda anotado en ningún sitio que se lea
+— ni el addendum de abajo, ni `docs/backlog.md`, ni el mensaje de commit de
+la Task 6 lo mencionan.** Es 3 ms de ruido sobre un escenario de 3-6 ms
+(FTS, ni pasa por `recall-inject.sh` ni por el proceso residente de esta
+campaña), no una regresión que cambie ninguna decisión de la Task 6 — pero
+el criterio formal FALLA y tiene que decirse, no quedar enterrado en esta
+tabla.
+
 ## Addendum: hook_ms real (decisión #12 de Paul) y hallazgos del propio instrumento
 
 No pedido literalmente por los Steps 1-4 de la Task 6, pero es el número que

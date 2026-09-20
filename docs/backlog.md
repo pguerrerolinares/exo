@@ -790,10 +790,16 @@
   **1069 ms** (N=1000), **1173 ms** (N=5000); p50 respectivamente 1016, 1039
   y 1151 ms. Umbral decisión #12 (Paul, 1.500 ms p95 por SO): Linux se
   cumple con margen (peor caso 1173 ms). Triple `PreToolUse:Bash`: **41 ms**
-  (cota inferior; no decide). **Windows sigue en blanco** — lo mide Paul en
-  Task 7. Ítem **sigue EN CURSO, pendiente solo de W11**.
+  (cota inferior; no decide). `C-noregresión` **FALLA** por
+  `s5-search-fts-n174` (3→6 ms) — ruido de 3 ms en FTS, ajeno al hook y al
+  proceso residente, no cambia ninguna decisión de la Task 6 (detalle en
+  `evals/recall-coste/results/campana-i-2026-09-20/comparacion-vs-despues.md`).
+  **Windows sigue en blanco** — lo mide Paul en Task 7. Ítem **sigue EN
+  CURSO, pendiente solo de W11**.
   Commits: `c462506`, `17afb9b` (Task 1); `d2b069d`, `c00e55e` (Task 2);
-  `ee44a5a` (Task 3); `bc4896a` (Task 4).
+  `ee44a5a`, `2588384` (Task 3, el segundo es el fix del review adversarial
+  que sustituye la reproducción standalone de SOURCE/SID por extracción del
+  código real); `bc4896a` (Task 4).
 
 - [ ] **(campaña I, Task 6, detectados al correr el bench — preexistentes de
   campaña G, deliberadamente no arreglados fuera del alcance de I) Dos bugs en

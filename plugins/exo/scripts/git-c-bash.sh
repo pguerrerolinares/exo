@@ -20,7 +20,13 @@ INPUT="$(cat)"
 # patrones -- se ahorra el spawn de jq que solo serviría para descartarlo.
 # Si "git" aparece en OTRO campo del JSON (cwd, description...) el filtro
 # simplemente no descarta y se sigue el camino de siempre: nunca produce un
-# falso NEGATIVO de disparo, como mucho pierde una oportunidad de ahorro.
+# falso NEGATIVO de disparo, como mucho pierde una oportunidad de ahorro --
+# ESTO ASUME que el harness serializa el input con `JSON.stringify`, que
+# nunca escapa ASCII (review final de rama, 2026-09-20; corrección de un
+# comentario anterior que decía "sin poder perder", estrictamente falso: un
+# encoder que SÍ escapara ASCII, p.ej. "g" -> "g", rompería el match
+# `*git*` sin que este pre-filtro lo note. No ocurre con el harness real,
+# pero la garantía es del harness, no de este `case`).
 case "$INPUT" in
   *git*) : ;;
   *) exit 0 ;;

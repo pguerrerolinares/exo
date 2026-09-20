@@ -259,12 +259,27 @@ fi
 # el mismo texto es legibilidad, no acoplamiento. `@tsv` con los avisos AL
 # FINAL, porque `read` colapsa un campo vacío en medio (el tab es whitespace
 # de IFS).
+#
+# Los CUATRO campos van blindados por tipo (review final de rama,
+# 2026-09-20): antes, un tipo inesperado en uno solo (p. ej. `warnings` como
+# string en vez de array, o `elapsed_s` como string) hacía que jq entero
+# fallara -- `* 1000` sobre un string no es un tipo válido -- y eso volvía
+# indistinguible de un envelope roto: caía en la MISMA rama
+# `envelope-ilegible` y el bloque, que SÍ tenía `data.notes` legible, se
+# quedaba sin inyectar. La fusión con la pasada anterior (dos jq separados,
+# uno solo para la forma) sí toleraba esto: un fallo en los metadatos no
+# tocaba la extracción de `notes`. serde fija los tipos en el engine, así
+# que es improbable, pero si pasa, los metadatos son telemetría
+# (elapsed/refresh/avisos) y el bloque es el producto -- un metadato raro
+# degrada, no apaga el bloque.
 META="$(printf '%s' "$SALIDA" | jq -r '
   if (has("data") and (.data | has("notes"))) then
-    [ (.data.truncated // false | tostring),
-      ((.data.elapsed_s // 0) * 1000 | floor | tostring),
-      ((.data.refresh_s // 0) * 1000 | floor | tostring),
-      ((.data.warnings // []) | join(" | ")) ] | @tsv
+    [ (.data.truncated // false | if type == "boolean" then tostring else "false" end),
+      ((.data.elapsed_s // 0) | if type == "number" then (. * 1000 | floor) else 0 end | tostring),
+      ((.data.refresh_s // 0) | if type == "number" then (. * 1000 | floor) else 0 end | tostring),
+      ((.data.warnings // []) | if type == "array" then join(" | ")
+                                 elif type == "string" then .
+                                 else "" end) ] | @tsv
   else
     "envelope-ilegible"
   end' 2>/dev/null)" || META=""
@@ -440,7 +455,12 @@ fi
 
 # Los tiempos van ANTES de permalinks: `_reflex-log.sh` corta el payload a
 # 2000 chars y la lista de permalinks es lo único que puede crecer.
-hook_ms_de "$HOOK_START"
+# `2>/dev/null` (review final de rama, 2026-09-20): igual que el `source` de
+# la línea 33 -- si `_hook-ms.sh` no cargó, `hook_ms_de` no existe y sin este
+# guard el error "orden no encontrada" sale por stderr EN CADA PROMPT del
+# usuario (`hook_ms=NA` en el payload ya queda correcto vía `${HOOK_MS:-NA}`
+# de la línea de abajo; esto solo calla el ruido).
+hook_ms_de "$HOOK_START" 2>/dev/null
 log_ri "emitted" "n_hits=$N bytes=$BYTES elapsed_ms=${ELAPSED_MS:-?} refresh_ms=${REFRESH_MS:-?} hook_ms=${HOOK_MS:-NA} permalinks=$PERMALINKS"
 
 # ÚNICA escritura a stdout del script entero (P6).

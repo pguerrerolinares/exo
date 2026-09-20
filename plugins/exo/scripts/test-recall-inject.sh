@@ -599,6 +599,34 @@ run_hook "kbx trinquete" "$CUATRO"
 if grep -q 'engine-warning' "$REFLEX_LOG_FILE" 2>/dev/null; then fail "H2: sin avisos no hay engine-warning" "$(cat "$REFLEX_LOG_FILE")"
 else pass "H2: sin avisos no hay engine-warning"; fi
 
+# ------------------------------ F7: metadato con tipo raro no apaga el bloque ---
+# `warnings` como STRING (en vez de array) y `elapsed_s` como STRING (en vez
+# de número): el envelope SÍ tiene `data.notes` legible -- lo raro es un
+# metadato, no el envelope -- así que el bloque tiene que inyectarse igual
+# (review final de rama, 2026-09-20: antes de blindar los cuatro campos por
+# tipo, esto caía en la misma rama que un envelope roto de verdad y el
+# bloque se quedaba en blanco con un motivo de log que mentía).
+TIPO_RARO="$TMP/exo-tipo-raro"
+cat > "$TIPO_RARO" <<'JSON'
+#!/usr/bin/env bash
+cat <<'PAYLOAD'
+{"command":"recall","data":{"cap_bytes":4000,"mode":"consulta","elapsed_s":"no-soy-numero","refresh_s":0.0123,"warnings":"no soy un array","notes":[
+{"permalink":"kb-demo/log/kbx-bitacora","path":"/kb/log/kbx-bitacora.md","score":0.5,"snippet":"bitacora de kbx","tier":null,"title":"kbx-bitacora"}
+],"query":"kbx","truncated":false},"schema_version":2}
+PAYLOAD
+JSON
+chmod +x "$TIPO_RARO"
+: > "$REFLEX_LOG_FILE"
+run_hook "kbx trinquete" "$TIPO_RARO"
+BL_RARO="$(printf '%s' "$HOOK_OUT" | jq -r '.hookSpecificOutput.additionalContext' 2>/dev/null)"
+if [ "$HOOK_RC" -eq 0 ] && contains "$BL_RARO" "kbx-bitacora" \
+   && ! grep -q 'envelope-ilegible' "$REFLEX_LOG_FILE" 2>/dev/null; then
+  pass "F7: metadato con tipo raro (warnings/elapsed_s) degrada, no apaga el bloque"
+else
+  fail "F7: metadato con tipo raro (warnings/elapsed_s) degrada, no apaga el bloque" \
+    "rc=$HOOK_RC out='$HOOK_OUT' log='$(cat "$REFLEX_LOG_FILE" 2>/dev/null)'"
+fi
+
 # rc=1 con un aviso de más de 300 B delante de «recall vacío»: antes el
 # `head -c 300` del stderr se quedaba solo con el aviso y lo logueaba como error.
 VACIO_AVISA="$TMP/exo-vacio-avisa"

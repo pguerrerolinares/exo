@@ -164,6 +164,22 @@ solo de qué mide el reloj, no de dónde está la barrera. Implementado en
 No se reescribe el texto de arriba: esto es un anexo fechado, como pide el
 propio contrato de pre-registro de la cabecera de este fichero.
 
+**Anexo (2026-09-20, review final de rama, campaña I): en bash < 5, `hook_ms`
+es siempre `NA` y el criterio nunca puede REABRIR ni NO-REABRIR, solo
+INSUFICIENTE.** `hook_ms_soportado` (`_hook-ms.sh`) es `[ "${BASH_VERSINFO[0]}" -ge 5 ]`
+— macOS trae `/bin/bash` 3.2 de fábrica (Apple dejó de actualizarlo por la
+licencia GPLv3) y no hay reloj de pared que medir ahí sin un spawn, que es
+justo lo que esta campaña existe para evitar. Con `hook_ms` siempre vacío,
+`recall-latencia.sh` cuenta `disparos_medidos = 0` para siempre en esa
+máquina, y el veredicto queda fijo en `INSUFICIENTE (menos de 200
+disparos)` sin importar cuánto se use el hook. **Esto es by design, no un
+hueco**: el umbral «1.500 ms p95 por SO» (decisión #12) se pensó para W11 y
+Linux — las dos plataformas de Paul con bash ≥5 real (Git Bash en W11,
+bash del sistema en Linux) — y nunca tuvo pensado macOS. Si alguna vez
+Paul usa macOS con el `/bin/bash` de fábrica, el criterio de reapertura de
+este hook simplemente no aplica ahí; haría falta un bash ≥5 instalado
+aparte (Homebrew) para que `hook_ms` mida algo.
+
 **Anexo (2026-09-20, review final de rama, campaña I): `hook_ms` infraestima
 el coste, con sesgo sistemático hacia NO-REABRIR.** `hook_ms_de` se llama
 ANTES de loguear el propio evento `emitted` (`recall-inject.sh:435-436`), así
