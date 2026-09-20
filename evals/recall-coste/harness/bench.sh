@@ -143,7 +143,15 @@ done
 
 {
   printf 'id\tp50_ms\tp95_ms\tmean_ms\tcorridas_fallidas\tcorridas\trc_directa\n'
-  for f in "$OUT"/s*.json; do
+  # `s[0-9]*.json`, no `s*.json`: los ficheros de saturación se llaman
+  # `saturacion-vector-n$N.json` — también empiezan por "s" — pero son un
+  # envelope de `exo search` (`{"data":{"results":[...]}}`), no un export
+  # de hyperfine (`{"results":[{"times":[...]}]}`). Con el glob amplio caían
+  # en este bucle y el jq de abajo fallaba contra ellos escribiendo a
+  # stderr sin tocar `resumen.tsv` — silencioso en la práctica en un bench
+  # largo. Todo id real de `mide()` empieza por "s<dígito>" (s1, s1b, s2...
+  # s10), así que el glob estrecho basta y no excluye ningún caso legítimo.
+  for f in "$OUT"/s[0-9]*.json; do
     id="$(basename "$f" .json)"
     rc="$(cat "$OUT/$id.rc" 2>/dev/null)"
     jq -r --arg id "$id" --arg rc "$rc" '
@@ -153,8 +161,9 @@ done
           ($t[(($n - 1) * 0.95 | floor)] * 1000 | floor),
           ($r.mean * 1000 | floor),
           ([ ($r.exit_codes // [])[] | select(. != 0) ] | length),
-          $n, $rc ] | map(tostring) | @tsv' "$f"
+          $n, $rc ] | map(tostring) | @tsv' "$f" \
+      || { echo "bench: resumen: $f no tiene forma de export de hyperfine" >&2; exit 1; }
   done | sort
-} > "$OUT/resumen.tsv"
+} > "$OUT/resumen.tsv" || exit 1
 
 column -t -s "$(printf '\t')" "$OUT/resumen.tsv"
