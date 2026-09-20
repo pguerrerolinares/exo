@@ -51,13 +51,22 @@ def kappa(pares):
 
 
 def fusiona(a, b, tipo):
+    """§3/D-J11: acceptable_permalinks son "solo los admitidos por ambos
+    jueces". En un acuerdo lenient, el `expected` descartado (el del juez
+    que no fija `exp`) solo entra en `extra` si el juez ganador TAMBIEN lo
+    tiene en su propio `acceptable` -si no, es una nota que solo vio un
+    juez y no debe poder producir un hit- (fix review 2026-09-20, I-2).
+    Tie-break asimétrico declarado en el borrador §3: si ambas direcciones
+    lenient valen a la vez, gana `a` (fable, por el orden de los `if`)."""
     comunes = [x for x in a["acceptable"] if x in b["acceptable"]]
     if tipo == "estricto":
         exp, extra = a["expected"], []
     elif a["expected"] is not None and a["expected"] in b["acceptable"]:
-        exp, extra = a["expected"], ([b["expected"]] if b["expected"] else [])
+        exp = a["expected"]
+        extra = [b["expected"]] if b["expected"] and b["expected"] in a["acceptable"] else []
     else:
-        exp, extra = b["expected"], ([a["expected"]] if a["expected"] else [])
+        exp = b["expected"]
+        extra = [a["expected"]] if a["expected"] and a["expected"] in b["acceptable"] else []
     acc = []
     for x in extra + comunes:
         if x != exp and x not in acc:
@@ -101,8 +110,15 @@ def construye(cands, fab, kim, textos, kappa_min, po_min):
     k_total = kappa([(a, b) for a, b, _ in todos])
     po_total = sum(1 for _, _, t in todos if t) / max(1, len(todos))
     pasa = k_total >= kappa_min and po_total >= po_min
+    # I-3 del review (2026-09-20): `negativo` es null-null por construcción y
+    # infla κ/p_o pooled (Feinstein & Cicchetti 1990). Descriptivo: no toca
+    # `pasa` ni el suelo firmado (D-J11).
+    todos_sin_neg = [p for s, v in por_src.items() for p in v if s != "negativo"]
+    k_sin_neg = kappa([(a, b) for a, b, _ in todos_sin_neg])
+    po_sin_neg = sum(1 for _, _, t in todos_sin_neg if t) / max(1, len(todos_sin_neg))
     L = ["# Acuerdo entre jueces — gold J (fable × Kimi, ciegos)", ""]
     L.append(f"- filas juzgadas por ambos: {len(todos)} · acuerdo (estricto+lenient): {sum(1 for _, _, t in todos if t)} ({po_total:.3f}) · estricto: {sum(1 for _, _, t in todos if t == 'estricto')} · κ estricto: {k_total:.3f}")
+    L.append(f"- κ / p_o sin `negativo`: {k_sin_neg:.3f} / {po_sin_neg:.3f} (sobre {len(todos_sin_neg)} filas; descriptivo, no decide)")
     L.append(f"- suelo pre-registrado: κ ≥ {kappa_min} y acuerdo ≥ {po_min} → {'PASA' if pasa else 'NO PASA: J PARA'}")
     L += ["", "| estrato | juzgadas | acuerdo | p_o | κ | entran al gold | no nulas |", "|---|---|---|---|---|---|---|"]
     entradas = Counter(g["source"] for g in gold)

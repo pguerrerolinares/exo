@@ -602,6 +602,35 @@ class TestAcuerdo(unittest.TestCase):
         self.assertEqual(ac.fusiona(self.j("a", ["b"]), self.j("b", ["a", "c"]), "lenient"), ("a", ["b"]))
         self.assertEqual(ac.fusiona(self.j("b", ["a"]), self.j("a", ["b"]), "lenient"), ("b", ["a"]))
 
+    def test_fusiona_extra_solo_entra_si_el_otro_juez_tambien_lo_admite(self):
+        """Review 2026-09-20, I-2: `acceptable_permalinks` son "solo los
+        admitidos por ambos jueces" (borrador §3, D-J11: "entra solo con
+        acuerdo"). Caso: fable dice expected="a" (acceptable=[]) y kimi dice
+        expected="x" (acceptable=["a"]) -> lenient porque a.expected="a" está
+        en b.acceptable=["a"]. El "x" de kimi NO está en el acceptable de
+        fable (que es []), así que "x" -una nota que solo vio kimi- no debe
+        colarse en `acceptable_permalinks`."""
+        fable = self.j("a", [])
+        kimi = self.j("x", ["a"])
+        self.assertEqual(ac.acuerdo_fila(fable, kimi), "lenient")
+        self.assertEqual(ac.fusiona(fable, kimi, "lenient"), ("a", []))
+
+        # Caso simétrico con a y b invertidos (b.expected="a" en a.acceptable="x"->no,
+        # aquí forzamos la otra rama del if): kimi decide, y el expected de fable
+        # descartado solo entra si kimi lo admite en su acceptable.
+        fable2 = self.j("y", ["b"])
+        kimi2 = self.j("b", [])
+        self.assertEqual(ac.acuerdo_fila(fable2, kimi2), "lenient")
+        self.assertEqual(ac.fusiona(fable2, kimi2, "lenient"), ("b", []))
+
+    def test_fusiona_extra_entra_cuando_ambos_lo_admiten(self):
+        """Control positivo del fix de I-2: si el "extra" SÍ está en el
+        acceptable del otro juez, entra normalmente (no se rompe el caso
+        legítimo, solo el asimétrico)."""
+        fable = self.j("a", ["x"])
+        kimi = self.j("x", ["a"])
+        self.assertEqual(ac.fusiona(fable, kimi, "lenient"), ("a", ["x"]))
+
     def test_kappa(self):
         self.assertAlmostEqual(ac.kappa([("a", "a"), ("b", "b"), ("a", "b"), ("b", "a")]), 0.0)
         self.assertEqual(ac.kappa([("a", "a"), ("b", "b")]), 1.0)
@@ -628,6 +657,25 @@ class TestAcuerdo(unittest.TestCase):
         self.assertNotIn("kb/a", inf)
         self.assertEqual(po, 0.75)
         self.assertIn("solape_lexico=", gold[0]["notes"])
+        # I-3 del review (2026-09-20): κ/p_o excluyendo el estrato `negativo`
+        # es descriptivo (no decide `pasa`) y aparece como línea propia del
+        # informe. Cálculo a mano de las 3 filas juzgadas sin `negativo`
+        # (c1 estricto, c3 estricto, c4 desacuerdo): p_o = 2/3, κ = 0.5.
+        self.assertIn("κ / p_o sin `negativo`: 0.500 / 0.667 (sobre 3 filas; descriptivo, no decide)", inf)
+
+    def test_construye_kappa_po_sin_negativo_no_cambia_exit(self):
+        """La línea descriptiva κ/p_o sin `negativo` no debe alterar `pasa`
+        ni el `k`/`po` que decide el exit code (suelo firmado 0,60 ∧ 0,70,
+        D-J11): siguen calculándose SOBRE TODAS las filas, `negativo`
+        incluido."""
+        cands = [{"id": "c1", "query": "q1", "source": "prompt", "candidatos": ["kb/a"]},
+                 {"id": "c2", "query": "q2", "source": "negativo", "candidatos": ["kb/a"]}]
+        fab = {"c1": self.j("kb/a"), "c2": self.j(None)}
+        kim = {"c1": self.j("kb/a"), "c2": self.j(None)}
+        gold, desc, inf, k, po = ac.construye(cands, fab, kim, None, 0.60, 0.70)
+        # con negativo incluido: 2 pares perfectamente de acuerdo -> κ=1.0, po=1.0.
+        self.assertEqual((k, po), (1.0, 1.0))
+        self.assertIn("κ / p_o sin `negativo`: 1.000 / 1.000 (sobre 1 filas; descriptivo, no decide)", inf)
 
     def test_solape_lexico(self):
         self.assertEqual(ac.solape_lexico("fusión rrf combsum", "la fusion por rrf"), 0.5)
