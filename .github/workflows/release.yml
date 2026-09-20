@@ -10,6 +10,11 @@ on:
       tag:
         description: 'Tag ya existente a publicar (p. ej. v0.1.0)'
         required: true
+      force:
+        description: 'Reemplazar los assets si la release ya los tiene (cambia sus sha256)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -159,25 +164,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.inputs.tag || github.ref_name }}
+          FORCE: ${{ github.event.inputs.force == 'true' && '1' || '' }}
         shell: bash
-        run: |
-          set -euo pipefail
-          gh release create "$TAG" dist/* \
-            --repo "$GITHUB_REPOSITORY" \
-            --verify-tag \
-            --title "exo $TAG" \
-            --notes "Binarios para linux-x86_64, windows-x86_64 y macos-arm64, cada uno con su \`.sha256\`.
-
-          Instalación (requiere \`git\` y \`jq\`; ni Rust ni toolchain C):
-
-          \`\`\`bash
-          curl -fsSL https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$TAG/install.sh | bash
-          \`\`\`
-
-          En PowerShell:
-
-          \`\`\`powershell
-          irm https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$TAG/install.ps1 | iex
-          \`\`\`
-
-          Detalle: \`docs/instalacion.md\`."
+        run: bash scripts/release-publish.sh "$TAG"
