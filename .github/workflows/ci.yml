@@ -93,6 +93,27 @@ jobs:
       - name: Publicar una release es idempotente
         if: always()
         run: bash scripts/test-release-publish.sh
+      - name: El gate del bump del plugin es falsable
+        if: always()
+        run: bash scripts/test-plugin-bump.sh
+
+  plugin-bump:
+    name: el plugin no cambia sin subir de versión
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # `fetch-depth: 0` y job aparte: el gate compara contra la base del PR
+      # (o contra el commit anterior en un push a main), y en el clon shallow
+      # por defecto ese commit no existe en el runner — el gate se abstendría
+      # educadamente y daría verde, que es exactamente tan útil como no
+      # tenerlo. El resto de jobs no paga este clon.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: version sube si plugins/exo/ cambia
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: bash scripts/plugin-bump-gate.sh
 
   exec-bit:
     name: scripts de plugin ejecutables
