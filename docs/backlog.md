@@ -760,7 +760,7 @@
   el ≈1,2 s restante son ≈20 spawns de Git Bash a 25-60 ms cada uno (`jq -n
   1` ≈55 ms, `exo --version` ≈60 ms). Queda sin medir el `PreToolUse:Bash`
   triple. Evidencia: `evals/recall-coste/results/w11-2026-09-15.txt`.
-  **(campaña I, 2026-09-19, EN CURSO — cierre pendiente de Tasks 6/7):**
+  **(campaña I, 2026-09-19, EN CURSO — cierre pendiente de Task 7):**
   `recall-inject.sh` pasó de 7 `jq` + 2 `sed` + 5 `tr` (más 2 `sed` + 1 `tr`
   POR TOKEN dentro del gate léxico) a 6 `jq` + 0 `sed` + 0 `tr` dentro del
   bucle léxico (`norm_token`/`gate_skip` reescritos con expansión de
@@ -775,12 +775,33 @@
   `plugins/exo/scripts/testdata/golden-{recall-inject,exo-recall}/`). Task 5
   (fundir los tres guards en uno) se descartó por criterio numérico: el
   pre-filtro de la Task 4 ya bajó los guards de 4 a 2 `execve`; fundir tres
-  guards de seguridad en uno no compensaba el ahorro adicional. **Pendiente
-  para cerrar el ítem:** el p95 de reloj en W11 (Task 7, PAUL-STEP, aún no
-  entregada por Paul) y la comparación Linux vía
-  `evals/recall-coste/harness/compara.sh despues campana-i-<fecha>` (Task 6,
-  encolada, aún no ejecutada). Commits: `c462506`, `17afb9b` (Task 1);
-  `d2b069d`, `c00e55e` (Task 2); `ee44a5a` (Task 3); `bc4896a` (Task 4).
+  guards de seguridad en uno no compensaba el ahorro adicional.
+  **Task 6 (Linux, commit `3b19519`):** `hook_ms` p95 = **1035 ms** (N=174),
+  **1069 ms** (N=1000), **1173 ms** (N=5000); p50 respectivamente 1016, 1039
+  y 1151 ms. Umbral decisión #12 (Paul, 1.500 ms p95 por SO): Linux se
+  cumple con margen (peor caso 1173 ms). Triple `PreToolUse:Bash`: **41 ms**
+  (cota inferior; no decide). **Windows sigue en blanco** — lo mide Paul en
+  Task 7. Ítem **sigue EN CURSO, pendiente solo de W11**.
+  Commits: `c462506`, `17afb9b` (Task 1); `d2b069d`, `c00e55e` (Task 2);
+  `ee44a5a` (Task 3); `bc4896a` (Task 4).
+
+- [ ] **(campaña I, Task 6, detectados al correr el bench — preexistentes de
+  campaña G, deliberadamente no arreglados fuera del alcance de I) Dos bugs en
+  `evals/recall-coste/harness/bench.sh`.** (a) `EXO_CONFIG` queda apuntando
+  al `config.toml` de la N anterior, que el propio `bench.sh` ya ha borrado.
+  El generador `kb_sintetica` (desde commit `58656f2`) necesita esa config para
+  su pool de embeddings ⇒ **falla dura al pasar de N=174 a N=1000**,
+  reproducible de forma determinista. Rodeo conocido: `BENCH_KEEP=1`, flag que
+  el propio script ya soporta. (b) El glob del resumen (`"$OUT"/s*.json`) barre
+  también `saturacion-vector-n*.json` y lanza **3 errores cosméticos de `jq` a
+  stderr**; no corrompe `resumen.tsv` (verificado fila a fila).
+  **Nota sobre el baseline:** el baseline `despues` (commit `41e01bf`, campaña A,
+  2026-09-13) ya no aísla la ganancia de la campaña I — entre medias aterrizaron
+  commits de campaña G en `engine/src` (`58656f2`, `a71e7c5`, `e2e53e0`,
+  `003f93a`) que cambiaron rendimiento del binario. Por eso `s1`, `s1b` y `s2`,
+  que no pasan por `recall-inject.sh`, también mejoraron mucho (p.ej.
+  `s2-query-n5000` p50 de 10828 a 1067 ms). **Conclusión: el número válido es
+  el `hook_ms` absoluto, no el delta contra `despues`.**
 
 - [ ] **(revisión 2026-09-11) Los documentos del repo no llevan `tier`, así
   que nada distingue lo que debe ser verdad hoy de lo que solo fue verdad un
