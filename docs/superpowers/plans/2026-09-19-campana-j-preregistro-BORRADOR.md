@@ -33,6 +33,20 @@
 > misses. Valor para D-J8: 0,25 se mantiene — cobertura 52/55 ≈ 94,5 % ≥ 80 %,
 > cláusula no ejercida.»). §4 no cambia.
 >
+> **Enmienda 2026-09-20 (F5, honestidad del pre-registro sobre la regla del
+> tope `df`): la regla se fijó con el dry-run in-sample ya visible; el T0
+> solo añadió la captura de hoy.** Verificado: `DF_RARO = 0,25` es una
+> constante del código (`diagnostico.py`), sin barrido — el T0 no la afinó
+> buscando pasar el umbral, y ⌈0,25·174⌉ = 44 con 52/55 coincide con el
+> fichero de la captura de hoy, así que el efecto numérico de esto es nulo.
+> Pero la secuencia temporal importa para la honestidad del proceso: el §2.6
+> (hecho de partida 6) ya citaba el dry-run del 2026-09-19 con «52/55 queries
+> tienen ≥1 token "raro"» **antes** de que la regla del «< 80 % ⇒ sube al
+> menor de {0,30; 0,35}» se redactara el 2026-09-20 — la cláusula se escribió
+> ya sabiendo el número que iba a evaluar. La anotación «cláusula no
+> ejercida» de arriba estaba, en ese sentido, pre-decidida; el T0 no la
+> decidió, la confirmó. Se declara aquí para que quede escrito.
+>
 > **Qué se ha observado al redactarlo, y qué no.** Visto: el verdict público
 > de C (`evals/retrieval-heldout/verdict/c-verdict.md`, `agregados*.md`), las
 > capturas privadas de C **solo en agregado** (distribución de scores, plazas
@@ -196,7 +210,31 @@
   `negativo` = corpus negativo **verdadero**: ids `jNNN` pares → calibración
   de G1, ids `jNNN` impares → evaluación de G1 (§4) — `jNNN` es el id que
   `acuerdo.py` renumera al escribir el gold (§10), no `qNNN` (corrección del
-  review, M-3).
+  review, M-3). **Orden = ids `qNNN` ascendentes (F6, review de rama
+  2026-09-20):** el split pares/impares es sobre `jNNN`, y `jNNN` lo asigna
+  `acuerdo.py` numerando secuencialmente las filas de `cands` en el orden en
+  que aparecen en `candidatos.jsonl` (§7 de este documento, `construye`) —
+  ese orden no está fijado por ningún criterio salvo el del fichero de
+  entrada. Se fija aquí: dentro del estrato `negativo`, `queries.jsonl` (y
+  por tanto `candidatos.jsonl` y `paquetes.jsonl`) mantiene el orden de
+  `qNNN` ascendente sin barajar (a diferencia de `prompt`, que sí se baraja
+  con semilla propia, arriba) — así el split pares/impares de calibración/
+  evaluación de G1 es reproducible y no depende de un accidente de
+  generación.
+- **`prompt` incluye consultas del propio día de diseño (F6, declarado):**
+  del pool de 139 prompts reales en este kit, **35 son del 2026-09-19**, el
+  mismo día en que se diseñó este experimento (`pool.jsonl`, campo `ts`). No
+  es fuga del gold (son prompts de producción anteriores a la redacción de
+  este borrador, no queries fabricadas para el diseño), pero se declara
+  porque el generador de `hard`/`archive`/`negativo` y parte del propio
+  pre-registro se escribieron el mismo día.
+- **`hard` es "sin palabras literales" solo a medias (F6, declarado):** la
+  mediana de `solape_lexico` (§3, auditoría del sesgo léxico) del estrato
+  `hard` en el kit es **p50 = 0,50** — la mitad de las paráfrasis conserva
+  al menos la mitad de los tokens ≥4 letras de la nota original, pese a la
+  instrucción «sin palabras literales» al generador. Descriptivo: no cambia
+  el diseño ni el guard léxico de D-A (§3, §6), que ya usa `solape_lexico`
+  medido, no la instrucción al generador, como criterio.
 - **Candidatos.** Un agente filesystem-only (sin `exo`, sin `kbx`, sin ver
   `author_expected` ni `topic_terms`) propone ≤ 5 notas por query, con al
   menos 2 por navegación temática (core-index, títulos) y no por grep, y con
@@ -606,10 +644,31 @@ objeta con cita y Paul responde `CAMBIA A`.
 - Binario de medición: `<commit de main post-G/L; se anota en verdict/j-condiciones.md en la fase 2, no aquí>`, `cargo build --release --locked`
 - Modelo de Kimi: `<id elegido por la regla de la Task 7 Step 1>` de entre `<lista de /v1/models en kimi-modelos.json>`; llamadas `<n>`, tokens `<prompt> / <completion>`, coste `<$>`
 - Acuerdo: filas juzgadas por ambos `<n>` · `p_o <x>` · `κ <x>` · descartes `<n>` (desacuerdo `<n>`, negativo con nota `<n>`, archive fuera de archive/ `<n>`) · estratos flojos (`p_o < 0,60`): `<ninguno | lista>` · auditoría léxica: mediana de solape acordadas `<x>` / descartadas `<x>`
-- κ / p_o sin `negativo`: `<x> / <x>` (descriptivo, I-3 del review; no cambia el exit ni el suelo firmado 0,60 ∧ 0,70)
+- κ / p_o sin `negativo` ni candidatos vacíos: `<x> / <x>` (descriptivo, I-3 del review + F3 del review de rama 2026-09-20; no cambia el exit ni el suelo firmado 0,60 ∧ 0,70)
 - `sha256(gold-j.jsonl)`: `<salida de valida_gold.py>`
 - Filas: `<total>` · `<no nulas>` · por estrato `prompt <n> · agent-search <n> · hard <n> · archive <n>` · nulas `<prompt n · negativo n>` · negativos de evaluación (impares) `<n>` · con acceptable `<n>` · no nulas «léxicamente difíciles» (solape < 0,5) `<n>`
 - Aprobación del gold: `acuerdo.py exit 0 el <fecha>` (suelo superado; no hay línea de Paul) · gate del pre-registro: línea `GATE: PRE-REGISTRO J CONGELADO <fecha>` del consultor fable en `.superpowers/fabrica/verdicts/j-consultor-gate.md`
+- **Precondición dura antes de la primera captura de la fase 2 (F4, review de
+  rama 2026-09-20 — cierra el séptimo grado de libertad):** este §10 dice que
+  «manda `metricas.decide` congelado» (§6), pero F1/S1/P1/G1 (§4) **no
+  existen en código todavía** — son prosa de este borrador (nota M-9 del
+  review original, §4), y `brazos.py` es explícitamente de la fase 2. Si
+  `brazos.py` y la extensión de `metricas.decide` para el camino secuencial
+  de §6 se escribieran **después** de ver los datos, las decisiones que ese
+  código tiene que tomar (el `f_max` exacto de F1; si la admisión "unión" de
+  S1 cuenta una nota que solo tiene score FTS con `v_adm = 0` o la descarta;
+  si P1 multiplica el factor 0,90 antes o después de tomar el `max` de la
+  fusión; el criterio de empate cuando dos brazos ordenan listas distintas
+  con el mismo score) dejarían de ser reglas pre-registradas y pasarían a
+  ser código escrito con los números delante. Por eso: `brazos.py` +
+  `metricas.decide` (extendido) + **tests-oráculo por brazo** (filas fixture
+  sintéticas con la salida exacta esperada, uno por cada decisión de arriba)
+  deben existir **committeados** antes de la primera captura sobre el gold
+  congelado. Cambiar cualquiera de los dos DESPUÉS de esa primera captura
+  invalida la medición hecha con la versión anterior (no se recomputa con el
+  código nuevo sobre los mismos resultados: se declara qué versión aplicó y,
+  si hace falta el cambio, se repite la captura y la medición desde cero).
+  Ver kill-criterion correspondiente en §11.
 - Commit de congelación: el que introduce este bloque relleno y cambia la cabecera a `CONGELADO`.
 
 ## 11. Circuit breakers y kill-criteria
@@ -630,14 +689,43 @@ objeta con cita y Paul responde `CAMBIA A`.
 - **Guard léxico de D-A** (§3, §6): F1 no GANA si `NETO < 0` en el subconjunto
   «léxicamente difícil» (`solape_lexico < 0,5`); si ese subconjunto tiene
   < 20 filas, el guard se reporta pero no veta (se declara).
+- **`brazos.py`/`metricas.decide` sin commitear y sin tests-oráculo por brazo
+  antes de la primera captura sobre el gold** (F4, review de rama
+  2026-09-20, §10): STOP, la fase 2 no captura nada. F1/S1/P1/G1 son prosa
+  de §4 hasta que ese commit exista; congelar la medición con esas
+  definiciones sin fijar en código sería congelar prosa, no una regla de
+  decisión verificable. Si `brazos.py` o `metricas.decide` cambian
+  **después** de la primera captura, esa medición queda invalidada (no se
+  recomputa con el código nuevo): se declara qué versión produjo qué
+  resultado y, si el cambio es necesario, se repite la captura entera.
 - **Kimi:** si el humo de 3 paquetes falla por `response_format` o el modelo
   elegido por la regla no existe, STOP y PENDIENTE-PAUL (no se improvisa
   modo de salida ni modelo). Coste acumulado > $10: STOP. Cualquier fila sin
   juicio válido de **ambos** jueces tras 3 reintentos queda fuera del gold y
-  se cuenta como descarte «sin juicio de ambos».
-- **Fuga de la key o de datos:** si `git grep 'sk-' -- evals` o `grep -c
-  wisdom-paul` sobre un fichero público no dan 0, el commit no se hace; si
-  ya se hizo, se reescribe la rama antes de cualquier push.
+  se cuenta como descarte «sin juicio de ambos». **El tope de 3 reintentos es
+  por corrida, no por fila a lo largo de toda la campaña** (F6, review de
+  rama 2026-09-20): `procesa_lote` es reanudable por id (`juez.py`), y una
+  reanudación vuelve a intentar los ids sin juicio válido con otros 3
+  reintentos propios, sin memoria de los intentos de corridas anteriores —
+  así que cuántas veces se reintentó de verdad una fila antes de que se
+  cuente como descarte depende de cuántas veces el operador reanudó el
+  pipeline, una decisión que hoy no queda registrada. Antes de la Task 7 (si
+  se ejecuta): fijar un máximo de reanudaciones por el pipeline completo (no
+  solo por llamada), o registrar explícitamente en el ledger cuántas
+  reanudaciones tuvo cada corrida de Kimi.
+- **Fuga de la key o de datos (F6, sincronizado con Global Constraints el
+  2026-09-20 — el gate viejo de esta línea nacía en rojo):** si
+  `LC_ALL=C git grep --untracked -cE 'sk-[A-Za-z0-9]{20,}' -- evals` da algo
+  distinto de "sin salida" (exit 1), o si `grep -c wisdom-paul <fichero>` da
+  distinto de 0 sobre cada `.md` que se vaya a commitear bajo `evals/`
+  (`verdict/`, `gold-j/`) — **no** sobre este pre-registro ni sobre otros
+  ficheros de `docs/superpowers/plans/`, que sí citan `wisdom-paul` por
+  nombre y no son el fichero público cuya fuga se vigila —, el commit no se
+  hace; si ya se hizo, se reescribe la rama antes de cualquier push. El
+  patrón `'sk-'` a secas nacía en rojo el mismo día que se escribió (3 falsos
+  positivos preexistentes en `evals/prep-m3/`, p.ej. «task-specific»
+  contiene el substring `sk-`): un gate que nace en rojo se normaliza y deja
+  de proteger, por eso el patrón exige forma de key de Moonshot.
 - **Fidelidad ≠ 100 %** en cualquiera de los dos oráculos (§4): STOP, se
   diagnostica el harness o el binario; tope 2 reintentos; al tercero,
   PENDIENTE-PAUL. No se mide ni se decide.

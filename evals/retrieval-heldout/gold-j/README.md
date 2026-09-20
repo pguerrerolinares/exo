@@ -112,6 +112,35 @@ es una apuesta real, no una formalidad.
    Precondición de `--tope-usd 10`: el presupuesto autorizado (plan, Global
    Constraints) es tope $10, gasto esperado ≈ $6 con kimi-k3.
 
+## Recall del kit (generador de candidatos) — F7, review de rama 2026-09-20
+
+Métrica del kit: fracción de queries cuyo `author_expected` (la nota que el
+generador de queries de `hard`/`archive` tenía en mente al escribirla, no
+visto por el agente de candidatos) aparece entre las ≤5 candidatas que ese
+agente propuso. Es el techo de no-nulas que el paso de juicio puede alcanzar
+para esos dos estratos: si `author_expected` no está en `candidatos`, ningún
+juez -por bueno que sea- puede recuperarlo como `expected`.
+
+- **`hard`: 29/30.** Sano: muy por encima del rango 20–25 no nulas esperado
+  tras acuerdo (§3 del pre-registro).
+- **`archive`: 14/20** (bloque `q170`–`q189` completo). Bajo el rango 12–16
+  esperado en el mejor caso, y a un solo miss adicional del suelo de 8 filas
+  archive del §11 (`no_nulas_por_estrato.archive`) por debajo del cual D-C no
+  se decide. Con acuerdo lenient imperfecto (< 100 %) sobre esas 14, el
+  estrato `archive` real del gold puede terminar más cerca de 10–11 filas
+  útiles que de las 12–16 que el §3 espera.
+
+**Antes de juzgar** (no ejecutado aquí, documentado como paso previo): repetir
+el Step 7 del plan (generación de candidatos) **solo para el bloque
+`q170`-`q189`** con un agente de candidatos fresco, verificando mecánicamente
+que aplicó la regla de §3 «la rotación archivada **y** la bitácora viva
+cuando la query menciona un hecho fechado» (el motivo más probable del
+recall bajo en `archive` es no incluir ambas). **Lo que NO vale**: inyectar
+`author_expected` en la lista de candidatos para forzar el recall a 20/20 —
+eso rompería la ceguera del generador de candidatos (§3: «sin ver
+`author_expected` ni `topic_terms`») y invalidaría el estrato entero, no lo
+arreglaría.
+
 ## Recuentos (kit sin `agent-search`; sin texto de queries)
 
 - snapshot `S_J`: `6bf57d513dc2ad53e815a4debafe6982f6998151` (detached en
