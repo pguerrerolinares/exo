@@ -2,6 +2,7 @@
 """Tests del harness de la campaña C. Uso:
 python3 -m unittest -v evals/retrieval-heldout/harness/test_harness.py"""
 import json
+import sqlite3
 import sys
 import tempfile
 import unittest
@@ -210,6 +211,7 @@ class TestPool(unittest.TestCase):
 
 
 import valida_gold as vg  # noqa: E402
+import diagnostico as dg  # noqa: E402
 
 
 class TestValidaGold(unittest.TestCase):
@@ -240,6 +242,70 @@ class TestValidaGold(unittest.TestCase):
 
     def test_ids_duplicados(self):
         self.assertTrue(vg.valida([self.fila(), self.fila(query="otra")], self.PERMS, []))
+
+
+class TestDiagnostico(unittest.TestCase):
+    def filas(self):
+        return [{"id": "m01", "query": "cge bitácora", "source": "log", "expected_permalink": "kb/log/cge-bitacora", "acceptable_permalinks": []},
+                {"id": "m02", "query": "cge bitácora evaluación larga", "source": "log", "expected_permalink": "kb/x", "acceptable_permalinks": []},
+                {"id": "m03", "query": "fabrica campaña", "source": "hard", "expected_permalink": "kb/y", "acceptable_permalinks": []}]
+
+    def test_misses_historicos_y_prefijos(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "m.md"
+            p.write_text("# x\n- MISS `cge bitácora` → text=miss vector=miss [both-miss]\n- MISS `fabrica camp` → text=miss vector=miss [both-miss]\n- otra línea\n", encoding="utf-8")
+            pre = dg.misses_historicos(str(p))
+        self.assertEqual(pre, ["cge bitácora", "fabrica camp"])
+        self.assertEqual(dg.empareja_prefijos(pre, self.filas()), {"cge bitácora": "m01", "fabrica camp": "m03"})
+        with self.assertRaises(ValueError):
+            dg.empareja_prefijos(["cge"], self.filas())
+
+    def test_es_rotacion(self):
+        self.assertTrue(dg.es_rotacion("kb/log/exo-bitacora", "kb/archive/log/exo-bitacora-2026-07-17_2026-09-04"))
+        self.assertFalse(dg.es_rotacion("kb/log/exo-bitacora", "kb/archive/log/otra-bitacora-2026-07-17_2026-09-04"))
+        self.assertFalse(dg.es_rotacion("kb/core/doctrina", "kb/archive/log/exo-bitacora-2026-07-17_2026-09-04"))
+        self.assertFalse(dg.es_rotacion("kb/archive/log/exo-bitacora-2026-07-17_2026-09-04", "kb/archive/log/exo-bitacora-2026-07-17_2026-09-04"))
+
+    def test_df_tokens(self):
+        c = sqlite3.connect(":memory:")
+        c.execute("CREATE VIRTUAL TABLE notas_fts USING fts5(titulo, cuerpo, permalink UNINDEXED, tokenize='unicode61 tokenchars 0x2F')")
+        c.execute("INSERT INTO notas_fts VALUES ('t', 'la fábrica de campañas', 'kb/a')")
+        c.execute("INSERT INTO notas_fts VALUES ('t', 'campaña sola', 'kb/b')")
+        self.assertEqual(dg.df_tokens(c, 'fabrica campaña "x"'), [("fabrica", 1), ("campaña", 1), ('"x"', 0)])
+
+    def test_causas(self):
+        f = self.filas()[0]
+        dfs = [("cge", 3), ("bitácora", 0)]
+        bajo = {"fts": [], "vector": [("kb/log/cge-bitacora", 0.30), ("kb/z", 0.5)], "hybrid": [("kb/z", 0.5)]}
+        self.assertEqual(dg.diagnostica_fila(f, bajo, dfs)["causas"], ["vector-bajo-umbral", "fts-and-vacio"])
+        lejos = {"fts": [("kb/q", 9.0)], "vector": [(f"kb/v{i}", 0.6 - i / 100) for i in range(6)] + [("kb/log/cge-bitacora", 0.45)],
+                 "hybrid": [(f"kb/v{i}", 0.6 - i / 100) for i in range(6)]}
+        self.assertEqual(dg.diagnostica_fila(f, lejos, dfs)["causas"], ["vector-lejos", "fts-sin-relevante"])
+        desplaza = {"fts": [(f"kb/f{i}", 9.0 - i) for i in range(5)], "vector": [("kb/log/cge-bitacora", 0.45)],
+                    "hybrid": [(f"kb/f{i}", 0.6 - i / 100) for i in range(5)] + [("kb/log/cge-bitacora", 0.45)]}
+        d = dg.diagnostica_fila(f, desplaza, dfs)
+        self.assertEqual(d["causas"], ["fusion-desplaza", "fts-sin-relevante"])
+        self.assertEqual((d["rango_vector_adm"], d["rango_hybrid"]), (1, 6))
+        rot = {"fts": [], "vector": [("kb/archive/log/cge-bitacora-2026-01-01_2026-02-02", 0.5), ("kb/log/cge-bitacora", 0.41)],
+               "hybrid": [("kb/archive/log/cge-bitacora-2026-01-01_2026-02-02", 0.5), ("kb/log/cge-bitacora", 0.41)]}
+        d = dg.diagnostica_fila(f, rot, dfs)
+        self.assertTrue(d["hit5"] and d["rotacion_top5"] and d["archive_top5"] == 1 and d["causas"] == [])
+        self.assertEqual(dg.diagnostica_fila(f, None, dfs)["causas"], ["captura-error"])
+
+    def test_informe_publico_no_filtra_texto(self):
+        filas = self.filas()
+        cap = {"fts": [], "vector": [("kb/log/cge-bitacora", 0.3)], "hybrid": [("kb/n", 0.5)]}
+        ds = {f["id"]: dg.diagnostica_fila(f, cap, [("cge", 2)]) for f in filas}
+        pub = dg.informe(filas, {"m01"}, ds, ds, [], True)
+        priv = dg.informe(filas, {"m01"}, ds, ds, [], False)
+        for texto in ("cge bitácora", "kb/log/cge-bitacora", "kb/n"):
+            self.assertNotIn(texto, pub)
+            self.assertIn(texto, priv)
+        self.assertIn("hit→miss 2 · miss→hit 0 · miss→miss 1", pub)
+        self.assertIn("| m01 | log | miss | miss | miss |", pub)
+        con = dg.informe(filas, {"m01"}, ds, ds, [], True, {f["id"]: [("cge", 2), ("bitácora", 90)] for f in filas}, 100)
+        self.assertIn("(1 ≤ df ≤ ⌈0.25·100⌉ = 25): 3/3", con)
+        self.assertEqual(dg.tokens_raros([("a", 0), ("b", 1), ("c", 25), ("d", 26)], 100), ["b", "c"])
 
 
 if __name__ == "__main__":
