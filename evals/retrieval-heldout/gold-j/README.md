@@ -118,7 +118,19 @@ más, cota del plan). **Riesgo real sobre el suelo de no nulas (60, §11)**
    regenerar los candidatos/paquetes ya hechos — desviación deliberada del
    orden `prompt → agent-search → hard → archive → negativo` de §3, anotada
    aquí), generar sus candidatos (Step 7) y añadirlos a `candidatos.jsonl`, y
-   regenerar `paquetes.jsonl` completo con `juez.py paquetes`.
+   regenerar `paquetes.jsonl` completo con `juez.py paquetes`. **Matiz
+   (review final de rama, 2026-09-20): esto solo es sano si las 229 filas
+   actuales NO se han juzgado todavía.** Si el paso 4 (juicio) ya corrió
+   sobre las 229 antes de decidir añadir `agent-search`, añadir filas y
+   volver a correr el juicio no es una ampliación limpia: es o bien "gold
+   modificado tras congelar" (§11, si ya se congeló) o, si aún no se
+   congeló pero ya se juzgó, exige volver a juzgar las 229 originales junto
+   con las nuevas para que el acuerdo se calcule sobre el conjunto
+   completo de una sola vez — nunca parchear un `acuerdo.py` ya corrido con
+   las filas nuevas por separado (eso sería, de facto, "repetir los jueces
+   hasta que pasen" sobre un subconjunto, prohibido en §11). Orden correcto:
+   pasos 1-2 (resolver `agent-search` y añadirlo a `queries.jsonl`) **antes**
+   del paso 4 (juicio), no después.
 3. Que el arreglo del breaker de `juez.py` esté cerrado y mergeado (otro
    frente de la fábrica).
 4. Correr el juicio (Task 7 del plan), con `$PRIV_J = ~/.local/share/exo-evals/j-heldout`:
