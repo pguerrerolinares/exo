@@ -322,3 +322,63 @@ Aceptadas, sobre las recomendaciones de la tabla de §5:
 El resto de la tabla de §5 (decisiones #2, #3, #4, #6, #7, #12, #13, #15,
 #16, #17) **sigue sin decidir** a fecha de este commit — no se asume
 ninguna recomendación de esas filas por el hecho de estar escritas aquí.
+
+## 7. Decisiones de Paul (2026-09-19)
+
+Tomadas en sesión, una a una, sobre la tabla de §5. Con esto el paquete queda
+**vacío**: ninguna fila de §5 sigue sin decidir.
+
+- **#2 (D-4, prefijo del permalink de `rotate`)**: **b** — `nombre_kb()`, lo
+  que ya hay en código. Se cierra el item con cita a este párrafo.
+- **#3 (`budget` vs `cost`)**: **c** — nada hasta que exista un `cost`. Con
+  #17 = a no hay nada que nombrar; `budget` = bytes queda sellado.
+- **#4 (downrank de `archive/`)**: **c** — penalizar, no excluir, como brazo
+  medido de J. El gold de J incluye queries cuya respuesta vive en
+  `archive/log/`. Sin gold no se toca.
+- **#6 (M5b, desinstalar basic-memory)**: **sí, tras el checklist C10**. La
+  fábrica prepara y corre en seco las comprobaciones automatizables (runbook,
+  campaña L); la desinstalación la ejecuta Paul (línea roja).
+- **#7 (M5a-01, MCP propio)**: **c** — no se construye. Se reabre solo si
+  alguien lo echa de menos con un caso concreto.
+- **#8 (branch protection)**: **ejecutada el 2026-09-19** por el orquestador
+  con autorización explícita de Paul en sesión: 12 required checks (los de
+  F Task 7, verificados contra los check-runs de `5efe812`), `strict: false`,
+  sin review obligatoria (autor único), `enforce_admins: false`,
+  force-push y borrado de `main` prohibidos.
+- **#12 (métrica de reapertura del daemon)**: **b** — `hook_ms` de reloj,
+  umbral 1.500 ms p95 por SO. Enmienda el pre-registro de A por decisión
+  escrita, **antes** de mirar ninguna ventana con `hook_ms`. Entra en I Task 1.
+- **#13 (gold nuevo para J)**: **esta semana, en paralelo** a la fábrica. La
+  fase 1 de J entrega a Paul un kit de etiquetado.
+- **#15 (slug)**: **a** — el slug de exo es canónico; la divergencia 19/127
+  con basic-memory queda aceptada por escrito antes de M5b.
+- **#16 (cap de 6.144 B del bloque de arranque)**: **b** — se mantiene;
+  evicción editorial de entradas muertas de `core-index` (es índice: no se
+  comprime) hasta ≥15% de aire. Trabajo de Paul en la KB, no de la fábrica.
+- **#17 (medir si la inyección paga su prefijo)**: **a** — no, por ahora.
+- **`v0.2.0`**: se tagea **después de mergear la campaña L**, que arregla la
+  regresión de `exo search` (default `hybrid`, de G) contra una DB sin tabla
+  `vectores`. I no bloquea la release (puede ir en 0.2.1).
+- **Campañas**: la siguiente fábrica ejecuta **I ∥ L** en dos lanes y **J
+  fase 1** (T0 diagnóstico + pre-registro borrador + kit de gold) at-risk.
+  K (daemon) sigue fuera: pide brainstorm antes de plan.
+- **Campaña J, decisiones del plan de fase 1**
+  (`docs/superpowers/plans/2026-09-19-campana-j-fase1-diagnostico-y-preregistro.md`),
+  firmadas el mismo día, todas con la recomendación del plan: D-J1 = (b)
+  agente pre-etiqueta `prompt`/`hard`, Paul escribe `keyword`/`archive`/
+  `negativo` y revisa (≈3,5–4 h, no las 2–3 h de §J, que eran optimistas) ·
+  D-J2 = 113 · D-J3 = sí, verificación adversarial del gold · **D-J4 =
+  NETO ≥ 4** · D-J5 = (a) H28 solo nombre y doc · D-J6 = int8 fuera · D-J7 =
+  0,90 · D-J8 = 0,25 · D-J9 = tal cual · D-J10 = lenient decide.
+- **D-J1/D-J2 REVOCADAS el mismo día** por Paul: «ya ni leo la kb, todo se
+  maneja a través de los agentes; ya no me importa que sea legible para mí,
+  sino para los propios agentes». El gold de J pasa a ser **100 % agéntico,
+  0 h de Paul**: queries reales de agentes minadas de los transcripts
+  (estrato `agent-search`, sustituye a `keyword`; minado autorizado por
+  Paul), jueces a ciegas **fable + Kimi (Moonshot)** —otra familia de modelo,
+  para romper la correlación de errores Claude–Claude— y un suelo de acuerdo
+  pre-registrado por debajo del cual J para. **Paul autoriza explícitamente
+  enviar trozos de la KB `wisdom-paul` y queries de agentes a la API de
+  Moonshot** («no me importa mandar a kimi, continua por ahí»). Por la misma
+  tesis, la evicción editorial de `core-index` (#16) la hace un agente, no
+  Paul.

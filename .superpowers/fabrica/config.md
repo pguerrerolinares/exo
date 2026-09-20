@@ -133,7 +133,42 @@ de esta ola).
 
 ---
 
-## ACTUALIZACIÓN 2026-09-14 — campañas D+E en la misma fábrica (manda sobre todo lo de abajo)
+## ACTUALIZACIÓN 2026-09-19 — campañas I ∥ L + J fase 1 (manda sobre todo lo de abajo)
+
+D, E, F, G, H mergeadas (PR #19, #20, #24, #25, #26; fix #23 en #27). F/G/H
+se ejecutaron fuera de esta fábrica: no tienen filas en el ledger y no se
+reconstruyen (git es la verdad). Paquete de decisiones de
+`docs/superpowers/consultas/2026-09-15-campanas/propuesta.md` §5 **vacío**:
+todas firmadas en §6 (09-15) y §7 (09-19). Branch protection de `main`
+**activa** desde 2026-09-19 (12 required checks) — un merge ya no pasa con CI
+rojo.
+
+| Lane | Campaña | Plan | Tipo |
+|---|---|---|---|
+| mecánica A | **L — sueltos pre-v0.2.0 + prep M5b** | `docs/superpowers/plans/2026-09-19-campana-l-sueltos-pre-v020.md` | engine + CI + docs; se mergea PRIMERO |
+| mecánica B | **I — latencia del hook en W11** | `docs/superpowers/plans/2026-09-19-campana-i-latencia-hook-w11.md` | hooks bash; la medición en W11 es PAUL-STEP |
+| diseño (secuencial, at-risk) | **J fase 1 — T0 diagnóstico + pre-registro borrador + kit de gold** | `docs/superpowers/plans/2026-09-19-campana-j-fase1-diagnostico-y-preregistro.md` + `…-campana-j-preregistro-BORRADOR.md` | evals; **no toca `engine/src`** |
+
+- **Orden de merge**: L → (tag `v0.2.0`, acción de Paul) → I → J fase 1.
+  I y L comparten solo `docs/backlog.md` (re-anclado por texto).
+- **Decisiones que el plan hereda (citar §7 de la propuesta)**: #12 = b
+  (`hook_ms` decide la reapertura del daemon, 1.500 ms p95 por SO) · #4 = c
+  (`archive/` como brazo penalizado en J) · #13 (gold de Paul esta semana) ·
+  #15 = a (slug de exo canónico) · #6 (M5b tras C10: la fábrica prepara el
+  runbook en seco, **nunca desinstala**).
+- **J no congela su pre-registro** hasta que exista el gold de Paul con su
+  sha256; sin gold, J fase 1 termina en borrador + kit y para. Ningún brazo
+  de J toca `engine/src` en esta fábrica.
+- **Presupuesto de fable** (reserva 8): 1 review final de rama por campaña
+  (I, L, J) + 1 review adversarial del pre-registro de J; el resto queda de
+  margen para adjudicaciones. Gate de merge = Paul vía PR (patrón D+E).
+- Se mantienen: ninguna task escribe en `~/.local/bin`, veto AGPL,
+  permalinks jamás regenerados, línea roja de acciones destructivas o
+  externas a Paul, y la regla PENDIENTE-PAUL del bloque 2026-09-13.
+
+---
+
+## ACTUALIZACIÓN 2026-09-14 — campañas D+E en la misma fábrica (histórico: la sustituye el bloque 2026-09-19)
 
 A, B y C mergeadas (PR #13, #14, #16). La siguiente fábrica ejecuta **dos
 campañas independientes**, elegidas por Paul el 2026-09-14 a partir de un

@@ -531,6 +531,62 @@ fn search_no_avisa_ni_falla_si_la_db_no_tiene_tabla_meta() {
     );
 }
 
+/// Campaña L Task 1: el default `hybrid` (D6) contra la fixture de arriba
+/// (`vectores` AUSENTE, ni siquiera vacía) degrada con aviso en vez de
+/// tumbar el comando — la regresión que documentaba el test de arriba antes
+/// de este fix. `avisos_cobertura_vector`/`tabla_existe`
+/// (`engine/src/buscador.rs`) tratan "tabla ausente" como su propio caso,
+/// comprobado ANTES que "0 filas": siempre avisa "arm vector INERTE",
+/// nunca un `Err` duro.
+#[test]
+fn search_default_hybrid_degrada_con_aviso_si_falta_tabla_vectores() {
+    let kb_pedida = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let db = db_sin_tabla_meta(dir.path());
+    let cfg = config_con_kb(dir.path(), kb_pedida.path());
+
+    let out = Command::new(bin())
+        .args(["search", "--db"])
+        .arg(&db)
+        .arg("--json")
+        .arg("buscable")
+        .env("EXO_CONFIG", &cfg)
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "DB sin tabla vectores no debía tumbar el default hybrid: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        tiene_aviso(&err),
+        "el default hybrid degradado debía avisar por stderr: {err}"
+    );
+
+    let salida: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(salida["data"]["search_type"], "hybrid");
+    let warnings = salida["data"]["warnings"]
+        .as_array()
+        .expect("data.warnings debe existir en el envelope degradado");
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.as_str().unwrap_or("").contains("INERTE")),
+        "el envelope debía llevar el aviso de arm INERTE en data.warnings: {salida}"
+    );
+    let permalinks: Vec<&str> = salida["data"]["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["permalink"].as_str().unwrap())
+        .collect();
+    assert!(
+        permalinks.contains(&"kb/a"),
+        "el canal FTS debía seguir encontrando la nota: {salida}"
+    );
+}
+
 /// La KB de la CONFIG (la que `search` resolvería sin `$EXO_KB`) no existe
 /// en disco: mismo criterio que el análogo de `recall` — `canonicalize`
 /// falla dentro de `aviso_kb_root_lectura`, `None`, sin aviso.

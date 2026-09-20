@@ -7,7 +7,40 @@
 > duplicar. Cada item cita su evidencia; un item sin evidencia verificable no
 > entra.
 >
-> Última revisión: **2026-09-16** (campaña G — deuda diferida del engine
+> Última revisión: **2026-09-19** (campaña L — sueltos mecánicos
+> pre-`v0.2.0` y preparación de M5b,
+> `docs/superpowers/plans/2026-09-19-campana-l-sueltos-pre-v020.md`,
+> ejecutada en la rama `l-sueltos-pre-v020`, **sin PR todavía**. Cierra con
+> evidencia: barrido de bookkeeping de 5 ítems del backlog — «exo genérico»
+> cerrado por completo (mitad `kb-demo`→`kb-test`, ver Alta), el bash
+> inline de `run:` en `.github/workflows/*.yml` ya gateado por
+> `test-shellcheck.sh` (ver Alta), el job `lint` renombrado a
+> `static-checks` con branch protection ACTIVADA hoy verificada por API (ver
+> Alta), idioma mezclado en identificadores resuelto en
+> `arquitectura.md:345-350` (ver Alta), y «nombres y ubicaciones» con
+> `reports/` ya inexistente y `docs/superpowers/` resuelto (ver Alta) — y
+> las seis decisiones de Paul del 2026-09-19
+> (`docs/superpowers/consultas/2026-09-15-campanas/propuesta.md` §7): #2
+> D-4 `nombre_kb()` (opción b, formaliza lo ya hecho en código, ver
+> Campaña D), #3 `budget`/`cost` sellado hasta que exista `cost` (ver
+> Media), #7 M5a (MCP propio) no se construye (ver Media), #8 branch
+> protection ACTIVADA (ver Alta), #16 cap de 6.144 B se mantiene, presión
+> se resuelve por evicción editorial en la KB (ver Media), y #17 coste de
+> la inyección no se mide por ahora (ver Media). Además, cuatro tasks
+> mecánicas de esta misma campaña: `exo search` (default `hybrid`) degrada
+> con aviso si falta la tabla `vectores` en vez de reventar (Task 1, commit
+> `03bef82`), `permalinks_de_rowids` trocea el `IN (...)` bajo el límite de
+> placeholders de SQLite (Task 2, commit `0caa202`), el check (e) de
+> `test-docs-vivos.sh` gatea también la tabla de hooks de
+> `plugins/exo/README.md` (Task 3, commit `ba28e71`), y tres gates de CI
+> más blindados contra un `cd ""` silencioso (Task 4, commit `889e8d9`).
+> **Corrige con evidencia, sin cerrar por completo**: la Task 5 (runbook de
+> desinstalación de basic-memory, checklist C10 de M5b, commit `27f62da`,
+> anterior a este mismo commit de sync) ya terminó y la Task 7
+> (verificación final de la rama entera) sigue pendiente — ninguna de las
+> dos toca `docs/backlog.md`.)
+>
+> Anterior: **2026-09-16** (campaña G — deuda diferida del engine
 > sin cambio de ranking,
 > `docs/superpowers/plans/2026-09-15-campana-g-engine-deuda-diferida.md`,
 > ejecutada en la rama `campana-g`, **sin PR todavía**. Cierra con
@@ -61,7 +94,7 @@
 > directorio que empiece por `.`» vs. cualquier ENTRADA) se cerró en la
 > review final de G (M4, 2026-09-16), ver Media.)
 >
-> Anterior: **2026-09-16** (sync de `docs/backlog.md`, Task 9 de la
+> Antes: **2026-09-16** (sync de `docs/backlog.md`, Task 9 de la
 > campaña F —
 > `docs/superpowers/plans/2026-09-15-campana-f-superficie-publicable.md`,
 > ejecutada el 2026-09-15 en la rama `campana-f`, **sin PR todavía**. Cierra
@@ -289,7 +322,11 @@
 | **Campaña B** | ejecutada el **2026-09-13**, las 13 tasks (H6, H8, H9, H11, H12, H13, H15, H16, H18, H20, H21, H22, H26) — mergeada a `main` el **2026-09-13** vía PR #14 (`219506b`); plan en `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md`; H25 queda como checklist externo de Paul |
 | **Campaña C** | held-out pre-registrado, **sin cambio de producción** — mergeada a `main` el **2026-09-14** vía PR #16 (`cb25541`); veredicto en `evals/retrieval-heldout/verdict/c-verdict.md`. El held-out queda consumido; D6 (default de `exo search --type`) **CERRADO por la campaña G**, ver Alta |
 | **Campaña E** | 9 tasks (hooks honestos: `inject-empty`, suite de `exo-recall.sh`, `no results` en `search`; engine: mensaje de guarda parametrizado, `rust-toolchain.toml`; CI: `--locked`+log+artifact en el gate hermético, orden de `release.yml`, gate de rutas personales) — ejecutada el **2026-09-14** en la rama `e-hooks-honestos-y-ci`; mergeada a `main` el **2026-09-15** vía PR #19 (`36ef9aa`); plan en `docs/superpowers/plans/2026-09-14-campana-e-hooks-honestos-y-ci.md` |
-| **Campaña D** | cutover kbx→exo: `rotate` y `stale` portados a Rust (`engine/src/rotacion.rs`, `engine/src/obsolescencia.rs`), pre-registro de paridad congelado antes de Rust (Task 1, `7edb5d0`), cuatro gates de paridad — targets (`4d047f4`), ratchet (`ab5d59b`), rotate (`cd196ff`), stale (`f059eb1`) — los cuatro PASA, consumidores reapuntados (Task 9, `0051638`+`aa82f95`: `distill`/`kb-precommit.sh`/`arquitectura.md` ya no invocan `kbx`) — ejecutada el **2026-09-14/15** en la rama `d-cutover-kbx`, apila la campaña E (`f46cbe3`); mergeada a `main` el **2026-09-15** vía PR #20 (`0494e3d`); plan en `docs/superpowers/plans/2026-09-14-campana-d-cutover-kbx.md`. Abierto: D-4 (permalink `nombre_kb()` vs literal fijo, recomendación ya aplicada en el código, formalmente pendiente de que Paul la zanje) y la acción (a) de «exo genérico» (`Paul`/`kb-demo` por nombres resueltos), fuera de alcance de D |
+| **Campaña D** | cutover kbx→exo: `rotate` y `stale` portados a Rust (`engine/src/rotacion.rs`, `engine/src/obsolescencia.rs`), pre-registro de paridad congelado antes de Rust (Task 1, `7edb5d0`), cuatro gates de paridad — targets (`4d047f4`), ratchet (`ab5d59b`), rotate (`cd196ff`), stale (`f059eb1`) — los cuatro PASA, consumidores reapuntados (Task 9, `0051638`+`aa82f95`: `distill`/`kb-precommit.sh`/`arquitectura.md` ya no invocan `kbx`) — ejecutada el **2026-09-14/15** en la rama `d-cutover-kbx`, apila la campaña E (`f46cbe3`); mergeada a `main` el **2026-09-15** vía PR #20 (`0494e3d`); plan en `docs/superpowers/plans/2026-09-14-campana-d-cutover-kbx.md`. D-4 (permalink `nombre_kb()` vs literal fijo) **cerrado por decisión de
+Paul, 2026-09-19 (#2, `propuesta.md` §7): opción b, `nombre_kb()`** — lo que
+ya había en código queda formalizado; y la acción (a) de «exo genérico»
+(`Paul`/`kb-demo` por nombres resueltos) cerrada por G (ver Alta, ítem
+«exo genérico») |
 | **Ruta portable** | grafía única de ruta (`/`) en el binario y ruta visible en la salida humana de `exo search` — apila sobre la campaña D, mergeada a `main` el **2026-09-15** vía PR #21 (`ba4b75f`); plan en `docs/superpowers/plans/2026-09-11-ruta-portable-y-columna-humana.md`, spec en `docs/superpowers/specs/2026-09-11-ruta-portable-y-columna-humana-design.md` |
 | **Campaña H** | 8 tasks (contrato `ENGINE_MIN`, `exo-recall.sh` detecta engine viejo, `exo doctor` check `plugin_compat`, `check_git_bash` sin falso `ok` de WSL, `script_del_plugin` por semver real, `kb-precommit.sh` fail-closed, retiro de los 10 alias españoles — engine 0.2.0/plugin 1.2.0, cap de 6.144 medido y PENDIENTE-PAUL) — ejecutada el **2026-09-15** en la rama `campana-h`; mergeada a `main` el **2026-09-16** vía PR #24 (`3fcd8bf`); plan en `docs/superpowers/plans/2026-09-15-campana-h-fail-closed.md` |
 | **Campaña F** | 9 tasks (superficie publicable: held-out en `arquitectura.md`, gates `test-docs-vivos.sh`/`test-hooks-json.sh`, `test-shellcheck.sh` sobre `run: |` de los workflows, `test-hermetico.sh` distingue error de compilación, job `lint`→`static-checks`, `Paul`→«el dueño de la KB» + idioma de identificadores, sync de este backlog) — ejecutada el **2026-09-15** en la rama `campana-f`, **PR #25 abierto** (merge tras H); `HF_HOME` (Task 6, `4cec5b7`) se revirtió en `6e4477a` el 2026-09-16 — el engine no lo lee, arreglo diferido a la Task 13 de la campaña G; plan en `docs/superpowers/plans/2026-09-15-campana-f-superficie-publicable.md` |
@@ -452,8 +489,12 @@
   sin gate. Puede desfasarse igual que el README
   raíz antes de este mismo item. **Acción:** extender el check (e) para
   recorrer los dos ficheros, o justificar por qué solo uno lo necesita.
+  **CERRADO (campaña L, Task 3, commit `ba28e71`):** el check (e) de
+  `test-docs-vivos.sh` ahora recorre `README.md` Y `plugins/exo/README.md`;
+  el patrón de cabecera dejó de anclar con `$` porque la tabla del segundo
+  fichero lleva dos columnas extra (`Qué hace`, `Abstención`).
 
-- [ ] **(revisión 2026-09-04) «exo genérico» sigue siendo el plugin de Paul
+- [x] **(revisión 2026-09-04) «exo genérico» sigue siendo el plugin de Paul
   para Paul.** Medido el 2026-09-04 sobre `plugins/exo/`: la cadena `Paul`
   aparece en 4 ficheros vivos del plugin (`skills/distill/SKILL.md` ×7,
   `scripts/recall-inject.sh` ×2, `scripts/git-add-all-guard.sh`,
@@ -535,8 +576,18 @@
   ninguno guarda un owner). **Sigue abierta** la mitad `kb-demo` en
   `engine/tests/` (11 ficheros, no 8 — el conteo del backlog está caducado,
   ver más abajo) — es alcance de G, no de F.
+  **(campaña G, 2026-09-16, Task 10, commit `5a71911`): cerrada la mitad que
+  quedaba.** `kb-demo` → `kb-test` en los 11 ficheros de test del engine (y
+  comentarios de `src`). Re-verificado hoy (campaña L, barrido de
+  bookkeeping): `git grep -l kb-demo -- engine/` da solo 4 ficheros
+  (`lib.rs:103`, `tests/escritor.rs:29`, `tests/help_producto.rs:154`,
+  `tests/recall_contenido.rs:108`), todos comentarios históricos o el propio
+  guard de `help_producto.rs` que EXIGE que "kb-demo" no aparezca en
+  `--help` — ninguno es un fixture hardcodeado. **Ítem cerrado por
+  completo**: las cuatro acciones (a-Paul, a-kb-demo, b-kbx, c-release)
+  están hechas.
 
-- [ ] **El bloque de arranque va al 96% de su cap, y desborda en silencio.**
+- [x] **El bloque de arranque va al 96% de su cap, y desborda en silencio.**
   Medido el 2026-08-27 al validar la Task 6 de la ola 1B: el bloque que
   `exo-recall.sh` inyecta en cada `SessionStart` ocupa **5.921 B sobre un cap de
   6.144** (`EXO_CAP="${EXO_RECALL_CAP:-6144}"`, `:36`) — **223 B de aire, un
@@ -615,8 +666,13 @@
   comenta, `hooks/ponytail-subagent.js:31-38`— pero en el bloque de arranque lo
   barato es gritar. No es item nuevo: es el criterio que le falta a la acción
   (a).
+  **Decisión de Paul, 2026-09-19 (#16, `propuesta.md` §7): se mantiene.**
+  El cap de 6.144 B no sube; la presión se resuelve con evicción editorial
+  de entradas muertas de `core-index` (es índice: no se comprime) hasta
+  ≥15% de aire. Trabajo de Paul en la KB `wisdom-paul`, explícitamente NO de
+  la fábrica. Cierra las acciones (b) y (c) por decisión, no por código.
 
-- [ ] **(pasada de coste 2026-09-09) El bucle de coste de la inyección está
+- [x] **(pasada de coste 2026-09-09) El bucle de coste de la inyección está
   a un `join` de distancia: el emisor ya loguea los bytes que emite y nadie los
   ha cruzado con lo que cuestan.**
   Evidencia: `recall-inject.sh:335` loguea por prompt
@@ -655,6 +711,9 @@
   Y ojo con el diseño best-effort del sink (`|| true`, `2>/dev/null`,
   `_reflex-log.sh:4`): un log ausente es indistinguible de cero disparos, así
   que el harness debe **exigir** el fichero, no tolerar su falta.
+  **Decisión de Paul, 2026-09-19 (#17, `propuesta.md` §7): no, por ahora.**
+  El harness de cruce (a/b/c de la acción original) no se construye hasta
+  que haga falta. Ítem cerrado por decisión explícita, no por trabajo hecho.
 
 ## Media
 
@@ -723,9 +782,12 @@
   --limit 5000` sobre la KB sintética — `--limit 1000` no lo dispara.
   Encontrado durante la Task 1 (bench sintético) al calibrar el brazo
   vector, no arreglado en esta campaña (fuera del alcance de las Tasks
-  2-3). **Acción:** trocear el `IN (...)` en lotes bajo el límite de
-  SQLite, o cambiar a un join contra una tabla temporal, cuando alguien
-  necesite `--limit` de ese orden de verdad. Y, precisión pendiente en el
+  2-3). **CERRADO (campaña L, Task 2, commit `0caa202`):**
+  `permalinks_de_rowids` trocea `rowids` en lotes de `LOTE_PERMALINKS =
+  500` (margen amplio bajo el límite real medido de 32.766 placeholders en
+  rusqlite 0.40.1/libsqlite3-sys 0.38.1), delegando cada lote a
+  `permalinks_de_rowids_lote`; test TDD rojo→verde reproduce el reventón
+  con 40.000 placeholders antes del fix. Y, precisión pendiente en el
   diseño de `c0ec949`: la regla de merges contaminados descarta por
   "bloques omitidos" en vez de comparar `%T` (el árbol resultante) del
   merge contra el de cada padre — sería más preciso y metería menos rutas
@@ -865,16 +927,20 @@
   `## Cerrado con evidencia`): el **disenso del consultor** — el prefijo de
   proyecto sale de `[kb] name` en la config propia, no de `kb.file_name()`.
   **Vivos 4 en origen; #5 y #6 cerrados por G (arriba), #9 caducado por F
-  (abajo) — vivo 1 (#8):**
+  (abajo), #8 cerrado por decisión de Paul del 2026-09-19 (abajo) — 0 vivos:**
   - [x] **#5 [media] CERRADO el 2026-09-16 (campaña G, Task 7, commit
     `f5c5956`):** `busca_permalink_en_dir` hace el walk de confirmación
     antes de crear con `--create`; test
     `write_append_create_no_duplica_si_el_indice_esta_rancio` en
     `engine/tests/write_create_permalink.rs`.
-  - **#8 [baja]** divergencia de slug medida **19/127** frente a basic-memory
-    (`_` conservado en 10 bitácoras rotadas, CamelCase separado, `§`→`ss`).
-    Autoconsistente, pero conviene decidirlo **por escrito antes de M5b**,
-    porque las bitácoras rotadas de `/consolida` usan `_` en el título.
+  - [x] **#8 [baja] CERRADO el 2026-09-19 (decisión de Paul #15,
+    `docs/superpowers/consultas/2026-09-15-campanas/propuesta.md` §7):**
+    divergencia de slug medida **19/127** frente a basic-memory (`_`
+    conservado en 10 bitácoras rotadas, CamelCase separado, `§`→`ss`).
+    Decisión escrita: el slug de exo es canónico, la divergencia 19/127
+    queda aceptada por escrito, no se persigue paridad. Documentado también
+    en `docs/superpowers/runbooks/2026-09-19-m5b-desinstalar-basic-memory.md`
+    §Decisión #15.
   - [x] **#6 [baja] CERRADO el 2026-09-16 (campaña G, Task 7, commit
     `f5c5956`):** un permalink de <3 segmentos ahora es error accionable
     ("tiene menos de 3 segmentos"), no crea directorio. Test
@@ -931,7 +997,7 @@
   muestras sintéticas de cada caso (el árbol real compila hoy, así que el
   bloque nuevo no se ejercita en el camino feliz).
 
-- [ ] **Hoy el CI no bloquea nada.** Paul decidió explícitamente no proteger
+- [x] **Hoy el CI no bloquea nada.** Paul decidió explícitamente no proteger
   `main` por ahora — no hay branch protection ni required status checks.
   Consecuencia: un PR rojo se puede mergear igualmente, así que el CI hoy es
   una notificación, no un gate de merge. Ver la matización añadida al item
@@ -957,6 +1023,14 @@
   `git rev-parse origin/main` y sale con `exit 1` si difieren, en el job
   `verify`, antes de cualquier paso de empaquetado.
   **Lo subsume G5 si adopta esa cadena.** **(2026-09-11: G5b cerró sin adoptarlo — release `v0.1.0` publicada, ver `## Cerrado con evidencia`. La marca queda huérfana: necesita dueño o campaña propia.)**
+  **Decisión de Paul, 2026-09-19 (#8, `propuesta.md` §7): ACTIVADA.**
+  Ejecutada el mismo día por el orquestador con autorización explícita de
+  Paul en sesión — verificado hoy con
+  `gh api repos/pguerrerolinares/exo/branches/main/protection`: los 12
+  required checks de F Task 7 (verificados contra los check-runs de
+  `5efe812`), `strict: false`, sin revisión obligatoria (autor único),
+  `enforce_admins: false`, force-push y borrado de `main` prohibidos. Ítem
+  cerrado.
 
 - [x] **Dos endurecimientos del CI que se decidieron NO aplicar en G5a, y por
       qué. Las dos patas cerradas (`--locked` en campaña E, `HF_HOME` en
@@ -1184,7 +1258,7 @@
   commit `efd9abc` — **de la KB `wisdom-paul`, no de este repo** (`exo` no
   tiene ese SHA).
 
-- [ ] **(pasada de coste 2026-09-09) `exo budget` va a colisionar de nombre:
+- [x] **(pasada de coste 2026-09-09) `exo budget` va a colisionar de nombre:
   el planeado mide tamaño de KB y el que hace falta mide coste de tokens.**
   Evidencia: `docs/arquitectura.md:486` y `docs/instalacion.md:119-120` listan
   `exo budget` como planeado y remiten su diseño a la sección G5 de
@@ -1208,8 +1282,12 @@
   nombre de un verbo de coste de tokens hipotético, decisión #3 del paquete
   de Paul del 2026-09-15 (b/c: vive en `evals/` o no se construye hasta que
   haga falta) — fuera de alcance de F.
+  **Decisión de Paul, 2026-09-19 (#3, `propuesta.md` §7): nada hasta que
+  exista `cost`.** Con la decisión #17 (no medir el coste de la inyección
+  por ahora), no hay nada que nombrar todavía — `budget` = bytes de KB queda
+  sellado. Ítem cerrado.
 
-- [ ] **(pasada de coste 2026-09-09) M5a (MCP propio) se diseñó contra un MCP
+- [x] **(pasada de coste 2026-09-09) M5a (MCP propio) se diseñó contra un MCP
   con estado; la revisión 2026-07-28 del spec lo abarató y dejó el diseño sin
   releer.**
   Evidencia: `docs/arquitectura.md` §7 lista «MCP propio (M5a) y
@@ -1233,6 +1311,10 @@
   misma palanca medida allí; (c) evaluar `defer_loading` para los tools poco
   usados, que los mantiene fuera del prefijo cacheado y solo entran cuando el
   modelo los busca.
+  **Decisión de Paul, 2026-09-19 (#7, `propuesta.md` §7): no se construye.**
+  Se reabre solo si alguien lo echa de menos con un caso concreto. Cierra el
+  ítem: la pregunta que planteaba (releer M5a contra el spec sin estado y
+  decidir si vale la pena) queda respondida — no.
 
 - [ ] **(NUEVO, 2026-09-13) Proceso residente para el coste fijo del recall
   por prompt — decisión de Paul: al backlog, no se hace ahora.** Medido por
@@ -1435,7 +1517,7 @@
 
 ## Baja
 
-- [ ] **(NUEVO, revisión final campaña B, 2026-09-13) El bash inline de
+- [x] **(NUEVO, revisión final campaña B, 2026-09-13) El bash inline de
   `run:` en `.github/workflows/*.yml` no pasa por ningún gate.**
   `scripts/test-shellcheck.sh` solo analiza ficheros `.sh` versionados (y
   ejecutables sin extensión con shebang sh/bash bajo `plugins/`) — su propio
@@ -1473,7 +1555,7 @@
   — nadie lo había visto porque nadie había corrido ShellCheck de verdad
   contra este árbol; justificado in situ con `# shellcheck disable=SC2016`.
 
-- [ ] **(NUEVO, revisión final campaña B, 2026-09-13) El job `lint` de
+- [x] **(NUEVO, revisión final campaña B, 2026-09-13) El job `lint` de
   `ci.yml` se llama «fmt + clippy» pero ya corre shellcheck y el gate de
   versiones.** `.github/workflows/ci.yml:24-61`: el job `lint` (`name: fmt +
   clippy`) tiene cuatro steps — `cargo fmt --check`, `cargo clippy`,
@@ -1487,6 +1569,17 @@
   o renombrar `lint` a algo que cubra las cuatro cosas («checks estáticos»,
   «lint + gates estáticos») coordinando el cambio de required checks, o
   separar shellcheck y versiones a su propio job con nombre propio.
+  **(campaña F, 2026-09-15, Task 7, commit `8942969`): cerrado.** El job se
+  renombró a `static-checks` / "checks estáticos"
+  (`.github/workflows/ci.yml:34-35`, verificado en HEAD), con los 12
+  required checks documentados para cuando Paul activara branch protection.
+  **Branch protection ACTIVADA el 2026-09-19** (decisión #8,
+  `docs/superpowers/consultas/2026-09-15-campanas/propuesta.md` §7):
+  verificado hoy con
+  `gh api repos/pguerrerolinares/exo/branches/main/protection` — los 12
+  checks exactos de este item en `required_status_checks.contexts`,
+  `strict: false`, sin revisión obligatoria (autor único), `enforce_admins:
+  false`, force-push y borrado de `main` prohibidos.
 
 - [ ] **(revisión 2026-09-04 · cifras RE-MEDIDAS el 2026-09-09) Decisión
   abierta: proceso frente a producto.**
@@ -1533,7 +1626,7 @@
   fondo** que el propio título nombra (proceso frente a producto): escribir
   la respuesta no es tomarla.
 
-- [ ] **(revisión 2026-09-04) Idioma mezclado sin criterio único.** Medido
+- [x] **(revisión 2026-09-04) Idioma mezclado sin criterio único.** Medido
   sobre `engine/src/`: identificadores y módulos en español (`buscador`,
   `trozos`, `aristas`, `escritor`, `objetivos`, `inicia`), claves JSON y
   flags largos en inglés desde D8 (`SCHEMA_VERSION` 2), aliases ocultos en
@@ -1597,7 +1690,7 @@
   no sale a `--help`) y todo `buscador.rs`, que sigue con sus 30 líneas de
   relato medidas arriba.
 
-- [ ] **Nombres y ubicaciones.** `docs/superpowers/` como carpeta de docs del
+- [x] **Nombres y ubicaciones.** `docs/superpowers/` como carpeta de docs del
   proyecto cuyo objetivo declarado es jubilar superpowers, y `reports/` colgando
   de la raíz fuera de toda convención (los verdicts sí viven ordenados en
   `evals/*/verdict/`). **Acción:** decidir de una vez — renombrar o escribir por
@@ -1688,8 +1781,12 @@
   catálogo de skills a evaluar también. Si se decide que exo asume delegación,
   esto sube a item propio con su gate; si no, se cierra como «no es de exo».
 
-- [ ] **(NUEVO, campaña G, 2026-09-16) El `cd "$(git rev-parse --show-toplevel)"`
+- [x] **(NUEVO, campaña G, 2026-09-16) El `cd "$(git rev-parse --show-toplevel)"`
   sin guarda contra una sustitución vacía sigue en tres gates de CI.**
+  **CERRADO (campaña L, Task 4, commit `889e8d9`):** los tres gates
+  (`test-rutas-personales.sh`, `test-exec-bit.sh`, `test-versiones.sh`)
+  ahora capturan la raíz en variable, comprueban que no esté vacía y solo
+  entonces hacen `cd`, mismo patrón que F aplicó a los otros dos gates.
   La review final de `test-docs-vivos.sh` (campaña F, 2026-09-16) encontró y
   arregló el fallo silencioso: `cd "$(git rev-parse --show-toplevel)"`
   directo no protege nada si la sustitución sale vacía — `cd ""` devuelve
@@ -1709,9 +1806,16 @@
   cd "$RAIZ"`) cuando se toquen por otra razón, o en un barrido dedicado
   de los `test-*.sh` del plugin.
 
-- [ ] **(NUEVO, review final campaña G, 2026-09-16, M5) `exo search` sin
+- [x] **(NUEVO, review final campaña G, 2026-09-16, M5) `exo search` sin
   `--type` contra una DB sin tabla `vectores` falla duro donde antes daba
-  FTS.** Regresión de superficie del default `hybrid` (D6, Task 11):
+  FTS.** **CERRADO (campaña L, Task 1, commit `03bef82`):**
+  `avisos_cobertura_vector` comprueba la existencia de la tabla `vectores`
+  (vía `sqlite_master`) ANTES del early-return de `trozos == 0`, y si falta
+  degrada con aviso ("arm vector INERTE...") en vez de reventar; test
+  dedicado en `engine/tests/kb_root_lectura_cli.rs`. **Ojo:** este cierre
+  cubre solo `exo search` — `exo recall` tiene una variante del mismo
+  problema sin cerrar, ver ítem nuevo más abajo. Regresión de superficie del
+  default `hybrid` (D6, Task 11):
   documentada hoy solo en un comentario de test
   (`engine/tests/kb_root_lectura_cli.rs:497-500`,
   `search_no_avisa_ni_falla_si_la_db_no_tiene_tabla_meta`, que por eso pasa
@@ -1726,6 +1830,27 @@
   creado a mano. **Acción:** si se toca `busca_hybrid`/`busca_vector_con`
   por otra razón, degradar "tabla `vectores` ausente" igual que "0 filas en
   `vectores`" (mismo aviso de cobertura, no un error duro).
+
+- [ ] **(NUEVO, review final de campaña L, 2026-09-20) `exo recall --json
+  --query <q>` contra una DB sin `vectores`/`trozos` sigue saliendo `exit
+  1`, ahora reventando en otro sitio.** Misma clase de fallo que el ítem de
+  arriba (`exo search` sin `--type`), distinto síntoma: la Task 1 de esta
+  campaña (commit `03bef82`) cerró el caso para `exo search`, degradando
+  con aviso cuando falta la tabla `vectores` — pero la campaña L solo
+  cubría `search`, no `recall`. `recall_consulta` (`engine/src/recall.rs`)
+  llama a `busca_hybrid` (ya degrada bien) y luego, por cada resultado, a
+  `primer_trozo` (`recall.rs:592-600`) para el snippet: esa función hace
+  `SELECT texto FROM trozos WHERE permalink = ?1 ORDER BY orden LIMIT 1`
+  sin comprobar antes si la tabla `trozos` existe, a diferencia de
+  `avisos_cobertura_vector` en `buscador.rs`. Contra una DB sin `vectores`
+  NI `trozos` (nunca pasó por `exo index`/`rebuild`), el error pasó de
+  reventar en un `count(*)` antiguo a reventar en este `SELECT`: `Error:
+  leer primer trozo de kb/a: no such table: trozos`. **Acción:** aplicar a
+  `primer_trozo` (y de paso `fila_notas`, que asume `notas` existe) el
+  mismo patrón de `tabla_existe` + degradación con aviso que
+  `avisos_cobertura_vector` ya usa para `vectores`, cuando alguien toque
+  `recall.rs` por otra razón o priorice cerrar esta clase de fallo en
+  `recall` también.
 
 - [x] **(revisión 2026-09-04) `tier` no se persiste en el índice y cada
   arranque relee el frontmatter de TODAS las notas desde disco: cerrado —

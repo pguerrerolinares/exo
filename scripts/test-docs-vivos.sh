@@ -30,9 +30,13 @@
 #       tarea (rutas de hooks rotas) quedaba sin gate en cuanto empezaban
 #       por `plugins/`. `engine/` se añade por la misma razón: es el otro
 #       directorio de primer nivel citado por ruta en estos docs.
-#   (e) la tabla de hooks de README.md (`| Reflejo | Evento | Fichero |`)
-#       tiene tantas filas como `hooks/hooks.json` cablea de verdad (I1,
-#       review final 2026-09-16: «nueve» en el README, diez en el JSON).
+#   (e) la tabla de hooks (`| Reflejo | Evento | Fichero |...`) tiene tantas
+#       filas como `hooks/hooks.json` cablea de verdad — en LOS DOS
+#       ficheros que la llevan, `README.md` y `plugins/exo/README.md` (I1,
+#       review final 2026-09-16: «nueve» en el README, diez en el JSON;
+#       campaña L Task 3: `plugins/exo/README.md` tenía la misma tabla sin
+#       gate — su cabecera lleva dos columnas más, `Qué hace` y
+#       `Abstención`, así que el patrón ya no puede anclar con `$`).
 set -uo pipefail
 # Fix de la review final (2026-09-16): `cd "$(git rev-parse --show-toplevel)"`
 # directo tenía un fallo silencioso — si la sustitución sale vacía, `cd ""`
@@ -147,26 +151,31 @@ for doc in "${DOCS[@]}"; do
   done < <(grep -oE '`(docs|evals|scripts|plugins|engine)/[A-Za-z0-9_./-]*`' "$doc" | tr -d '`' | sort -u)
 done
 
-# --- (e) La tabla de hooks del README tiene tantas filas como hooks reales -
+# --- (e) Las tablas de hooks (README.md Y plugins/exo/README.md) tienen ---
+#         tantas filas como hooks reales ---------------------------------
 # I1 (review final, 2026-09-16): el README llegó a decir «nueve hooks» con
-# `hooks.json` cableando diez — nadie lo comprobó hasta la review. Cuenta
-# filas de la tabla `| Reflejo | Evento | Fichero |` de README.md (hasta la
-# primera línea que ya no empieza por `|`) y la compara contra el cableado
-# vivo.
+# `hooks.json` cableando diez — nadie lo comprobó hasta la review. Campaña L
+# Task 3: `plugins/exo/README.md` lleva la MISMA tabla (con dos columnas
+# extra, `Qué hace` y `Abstención`) y no tenía gate — el patrón ya no ancla
+# con `$` al final de la cabecera a propósito, para que haga match con las
+# dos formas. Cuenta filas (hasta la primera línea que ya no empieza por
+# `|`) en cada fichero y la compara contra el cableado vivo.
 HOOKS_REAL="$(jq -r '[.hooks[]?[]?.hooks[]?] | length' plugins/exo/hooks/hooks.json | tr -d '\r')"
-FILAS_TABLA="$(awk '
-  /^\| Reflejo \| Evento \| Fichero \|$/ { en_tabla = 1; next }
-  en_tabla && /^\|---/ { next }
-  en_tabla && /^\|/ { n++; next }
-  en_tabla { exit }
-  END { print n + 0 }
-' README.md)"
-if [ "$FILAS_TABLA" -ne "$HOOKS_REAL" ]; then
-  echo "[FAIL] README.md: la tabla de hooks tiene $FILAS_TABLA fila(s) pero plugins/exo/hooks/hooks.json cablea $HOOKS_REAL" >&2
-  FALLOS=1
-fi
+for TABLA_DOC in README.md plugins/exo/README.md; do
+  FILAS_TABLA="$(awk '
+    /^\| Reflejo \| Evento \| Fichero \|/ { en_tabla = 1; next }
+    en_tabla && /^\|---/ { next }
+    en_tabla && /^\|/ { n++; next }
+    en_tabla { exit }
+    END { print n + 0 }
+  ' "$TABLA_DOC")"
+  if [ "$FILAS_TABLA" -ne "$HOOKS_REAL" ]; then
+    echo "[FAIL] $TABLA_DOC: la tabla de hooks tiene $FILAS_TABLA fila(s) pero plugins/exo/hooks/hooks.json cablea $HOOKS_REAL" >&2
+    FALLOS=1
+  fi
+done
 
 if [ "$FALLOS" -eq 0 ]; then
-  echo "[OK] test-docs-vivos: README.md/docs/{arquitectura,instalacion}.md sin frases muertas, subcomandos inventados, versiones huérfanas, enlaces rotos ni tabla de hooks desfasada"
+  echo "[OK] test-docs-vivos: README.md/docs/{arquitectura,instalacion}.md sin frases muertas, subcomandos inventados, versiones huérfanas, enlaces rotos ni tablas de hooks desfasadas"
 fi
 exit "$FALLOS"
