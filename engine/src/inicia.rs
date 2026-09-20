@@ -173,6 +173,9 @@ db = {}
 [embeddings]
 model = {}
 dims = {}
+# Umbral del canal semántico: escala propia (monótona en el coseno, NO un
+# coseno exacto — ver docs/arquitectura.md §3.4). El 0.40 de fábrica
+# equivale a un coseno real ≈0.28.
 min_similarity = {}
 "#,
         cadena_toml(&kb.display().to_string().replace('\\', "/")),

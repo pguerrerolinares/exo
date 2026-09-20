@@ -71,10 +71,17 @@ pub fn borra(conn: &Connection, rowid: i64) -> Result<()> {
     Ok(())
 }
 
-/// Un vecino del KNN: `rowid` (= `trozos.id`) + distancia nativa de vec0
-/// (L2² por ser el `distance_metric` por defecto de la DDL sellada — sin
-/// `distance_metric=cosine` explícito en `schema.rs`; conversión a
-/// similitud coseno vive en `buscador::busca_vector`, no aquí).
+/// Un vecino del KNN: `rowid` (= `trozos.id`) + distancia nativa de vec0.
+/// `distance_metric` por defecto de la DDL sellada (sin `distance_metric=
+/// cosine` explícito en `schema.rs`) es `VEC0_DISTANCE_METRIC_L2`, que en
+/// sqlite-vec 0.1.9 despacha a `distance_l2_sqr_float` → `l2_sqr_float` /
+/// `_avx` / `_neon` — las tres terminan en `return sqrt(res)`, así que esto
+/// es L2 **llana** (`||a-b||`), NO L2 al cuadrado pese al nombre de la
+/// función C (confirmado empíricamente en
+/// `tests::vec0_metric_l2_default_es_distancia_llana_no_al_cuadrado` más
+/// abajo). Conversión a una similitud monótona (no un coseno exacto — ver
+/// doc de `buscador::similitud_desde_l2`) vive en `buscador::busca_vector`,
+/// no aquí.
 pub struct VecinoKnn {
     pub rowid: i64,
     pub distancia: f64,
@@ -252,5 +259,38 @@ mod tests {
                 v.distancia
             );
         }
+    }
+
+    /// Test falsable de H28: fija empíricamente qué convención de distancia
+    /// usa la vec0 0.1.9 vendorizada, en vez de dejarlo en un doc-comment
+    /// que nadie ejecuta (justo lo que pasó antes de H28: el comentario
+    /// decía "L2 al cuadrado" durante meses y nada lo desmentía). Para dos
+    /// vectores UNITARIOS ORTOGONALES la respuesta analítica se bifurca
+    /// lejos de cualquier epsilon de float: `||a-b||₂ = √2 ≈ 1.41421`
+    /// (L2 llana) contra `||a-b||₂² = 2.0` (L2 al cuadrado). Este test
+    /// DEBE fallar el día que sqlite-vec cambie de convención — hoy nada lo
+    /// detectaría salvo este assert.
+    #[test]
+    fn vec0_metric_l2_default_es_distancia_llana_no_al_cuadrado() {
+        let conn = db_con_schema();
+        let mut a = vec![0.0f32; 768];
+        a[0] = 1.0; // unitario: (1, 0, 0, ...)
+        let mut b = vec![0.0f32; 768];
+        b[1] = 1.0; // unitario y ortogonal a `a`: (0, 1, 0, ...)
+        inserta(&conn, 1, &a).expect("insertar a");
+
+        let vecinos = knn(&conn, &b, 1).expect("knn");
+        assert_eq!(vecinos.len(), 1);
+
+        let l2_llana = std::f64::consts::SQRT_2; // ≈ 1.41421356
+        let l2_al_cuadrado = 2.0f64;
+        assert!(
+            (vecinos[0].distancia - l2_llana).abs() < 1e-4,
+            "vec0 debería devolver L2 llana (√2≈{l2_llana:.5}), no L2² \
+             ({l2_al_cuadrado}) — obtenido={}. Si esto falla, sqlite-vec \
+             cambió de convención y hay que revisar \
+             `buscador::similitud_desde_l2` y `VecinoKnn::distancia`.",
+            vecinos[0].distancia
+        );
     }
 }

@@ -276,20 +276,40 @@ fn busca_con(
 /// Conversión distancia→similitud (blindspot nota 1 del brief M2-06): la
 /// DDL sellada de `vectores` (`schema.rs` §2, `CREATE VIRTUAL TABLE
 /// vectores USING vec0(embedding float[768])`) NO declara
-/// `distance_metric=cosine`, así que vec0 usa su métrica por defecto: L2 al
-/// cuadrado (verificado contra el C vendorizado de sqlite-vec 0.1.9 —
-/// `VEC0_DISTANCE_METRIC_L2` es el default en `vec0_column_config`, y el
-/// motor de KNN usa `distance_l2_sqr_float`, NO la raíz cuadrada). fastembed
+/// `distance_metric=cosine`, así que vec0 usa su métrica por defecto:
+/// `VEC0_DISTANCE_METRIC_L2` (default en `vec0_column_config`,
+/// sqlite-vec.c ~L2279/2348/2443 de sqlite-vec 0.1.9 vendorizado). El KNN
+/// despacha esa métrica a `distance_l2_sqr_float` (~L392-403), pero pese al
+/// nombre esa función (y sus tres variantes — escalar `l2_sqr_float`
+/// ~L361-374, AVX `l2_sqr_float_avx` ~L128-159, NEON `l2_sqr_float_neon`
+/// ~L169-225) termina en `return sqrt(res)`: vec0 devuelve L2 **llana**
+/// (`||a-b||`), NO L2 al cuadrado — confirmado empíricamente en
+/// `vectores::tests::vec0_metric_l2_default_es_distancia_llana_no_al_cuadrado`
+/// (dos unitarios ortogonales, √2 ≈ 1.41421 vs. 2.0 de L2²). fastembed
 /// normaliza sus embeddings a norma unidad SIEMPRE (verificado:
 /// `transformer_with_precedence` de fastembed 5.17.3 aplica
 /// `common::normalize` sin condición al output de `TextEmbedding`). Para
 /// dos vectores unitarios, `||a-b||² = 2 - 2·cos(a,b)`, luego
-/// `cos(a,b) = 1 - ||a-b||²/2` — la conversión que usa esta función para
-/// comparar contra `[embeddings] min_similarity` (threshold pensado en escala
-/// coseno, config propia de `~/.exo/config.toml`, hoy 0.40 por defecto desde
-/// D6 — `MIN_SIMILARITY_SELLADO` en `main.rs`, Ola 1 G Task 11).
-fn similitud_desde_l2_cuadrado(distancia_l2_cuadrado: f64) -> f64 {
-    1.0 - distancia_l2_cuadrado / 2.0
+/// `cos(a,b) = 1 - ||a-b||²/2` — pero lo que recibe esta función es
+/// `||a-b||` (ya con la raíz aplicada por vec0), no `||a-b||²`. Por tanto
+/// esta función NO calcula coseno: calcula
+/// `1 - ||a-b||/2 = 1 - sqrt(2 - 2·cos(a,b))/2`, que sigue siendo monótona
+/// decreciente en la distancia (el RANKING coincide con el que daría el
+/// coseno real — ver argumento de monotonía en `busca_vector_con_embedding`
+/// más abajo), pero cuya MAGNITUD no es un coseno: comparado contra
+/// `[embeddings] min_similarity` (config propia de `~/.exo/config.toml`,
+/// hoy 0.40 por defecto desde D6 — `MIN_SIMILARITY_SELLADO` en `main.rs`,
+/// Ola 1 G Task 11) el 0.40 sellado equivale a un coseno real ≈0.28
+/// (despejando la fórmula de arriba). H28 (`docs/backlog.md`): esto es un
+/// hallazgo de documentación, no de comportamiento — no se toca ni la
+/// fórmula ni el umbral aquí, eso exige antes un held-out nuevo. El nombre
+/// del parámetro se corrige (era `distancia_l2_cuadrado`, mentía sobre lo
+/// que recibe); el nombre de la función se mantiene sin el sufijo
+/// `_cuadrado` engañoso pero conserva "similitud" porque eso es, en la
+/// práctica, lo que consume el resto del módulo (un score monótono, no un
+/// coseno certificado).
+fn similitud_desde_l2(distancia_l2: f64) -> f64 {
+    1.0 - distancia_l2 / 2.0
 }
 
 /// Precedencia flags > config (D6): `min_similitud` es el valor de
@@ -451,7 +471,7 @@ fn agrega_maxp(
 ) -> HashMap<String, f64> {
     let mut mejor_por_entidad: HashMap<String, f64> = HashMap::new();
     for vecino in vecinos {
-        let sim = similitud_desde_l2_cuadrado(vecino.distancia);
+        let sim = similitud_desde_l2(vecino.distancia);
         if sim < umbral {
             continue;
         }
@@ -499,8 +519,9 @@ const K_FACTOR_CRECIMIENTO: usize = 4;
 /// que se cumple alguna de:
 ///   - ya hay `limite` permalinks distintos con similitud ≥ `umbral` en la
 ///     ventana actual: como el KNN de vec0 devuelve en orden de distancia
-///     creciente (= similitud coseno decreciente, `similitud_desde_l2_cuadrado`
-///     es monótona decreciente en la distancia), cualquier permalink que
+///     creciente (`similitud_desde_l2` es monótona decreciente en la
+///     distancia — no es coseno exacto, ver su doc, pero el orden que
+///     produce sí coincide con el del coseno real), cualquier permalink que
 ///     todavía no apareció tiene, como mejor trozo, uno con similitud ≤ la
 ///     del último vecino de la ventana — que ya es ≤ la de cualquiera de
 ///     los `limite` ya vistos. No puede desplazar a ninguno de los `limite`
@@ -534,7 +555,7 @@ pub fn busca_vector_con_embedding(
 
         let ultimo_pasa_umbral = vecinos
             .last()
-            .map(|u| similitud_desde_l2_cuadrado(u.distancia) >= umbral)
+            .map(|u| similitud_desde_l2(u.distancia) >= umbral)
             .unwrap_or(false);
 
         if mejor_por_entidad.len() >= limite || !ultimo_pasa_umbral || k >= total_vectores {
@@ -880,8 +901,9 @@ mod tests_knn_por_consulta {
 
     /// Vector unitario aleatorio de `dims` componentes — los embeddings
     /// reales (fastembed) siempre tienen norma 1 (ver doc de
-    /// `similitud_desde_l2_cuadrado`), y la conversión L2²→coseno solo vale
-    /// bajo esa premisa.
+    /// `similitud_desde_l2`), y la relación `||a-b||² = 2 - 2·cos(a,b)`
+    /// (de la que sale la monotonía que `similitud_desde_l2` explota) solo
+    /// vale bajo esa premisa.
     fn vector_unitario(rng: &mut Rng, dims: usize) -> Vec<f32> {
         let mut v: Vec<f32> = (0..dims).map(|_| rng.f32_signado()).collect();
         let norma = v

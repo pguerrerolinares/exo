@@ -35,7 +35,11 @@ const ESCALA_FTS_SELLADA: f64 = 0.6;
 /// `--type vector` explícito sigue cayendo a `[embeddings] min_similarity`
 /// de la config (comportamiento sin cambios, `min_similitud_efectivo` en
 /// `buscador.rs`). Valor validado por el held-out de la campaña C
-/// (`evals/retrieval-heldout/verdict/c-verdict.md`).
+/// (`evals/retrieval-heldout/verdict/c-verdict.md`). **No es un coseno
+/// exacto** (H28): la conversión distancia→similitud de
+/// `buscador::similitud_desde_l2` es monótona en el coseno pero no
+/// coincide con él en magnitud — este 0.40 sellado equivale a un coseno
+/// real ≈0.28 (ver doc de esa función para la derivación).
 const MIN_SIMILARITY_SELLADO: f64 = 0.40;
 
 #[derive(Parser)]
@@ -250,9 +254,11 @@ struct ArgsSearch {
     /// Tipo de búsqueda.
     #[arg(long, value_enum, default_value_t = TipoBusqueda::Hybrid)]
     r#type: TipoBusqueda,
-    /// Umbral de similitud coseno del canal semántico. Precedencia por modo:
-    /// en `--type hybrid` (default), este flag o si no el umbral sellado
-    /// 0.40, sin mirar la config; en `--type vector`, este flag o si no
+    /// Umbral del canal semántico, en la escala propia de `similitud_desde_l2`
+    /// (monótona en el coseno, NO un coseno exacto — el 0.40 sellado
+    /// equivale a un coseno real ≈0.28, H28). Precedencia por modo: en
+    /// `--type hybrid` (default), este flag o si no el umbral sellado 0.40,
+    /// sin mirar la config; en `--type vector`, este flag o si no
     /// `[embeddings] min_similarity` de la config; en `--type fts`, sin
     /// efecto.
     #[arg(long = "min-similarity", value_name = "MIN_SIMILARITY")]
@@ -294,8 +300,10 @@ struct ArgsRecall {
     /// por líneas enteras.
     #[arg(long, default_value_t = 2048)]
     cap_bytes: usize,
-    /// Umbral de similitud coseno en modo consulta: este flag o si no el
-    /// umbral sellado 0.40, sin mirar la config — misma precedencia que
+    /// Umbral en modo consulta, en la escala propia de `similitud_desde_l2`
+    /// (monótona en el coseno, NO un coseno exacto — el 0.40 sellado
+    /// equivale a un coseno real ≈0.28, H28): este flag o si no el umbral
+    /// sellado 0.40, sin mirar la config — misma precedencia que
     /// `search --type hybrid` (I2, decisión 2 de Paul, review final de la
     /// campaña G, 2026-09-16). Sin efecto en modo arranque.
     #[arg(long = "min-similarity", value_name = "MIN_SIMILARITY")]
