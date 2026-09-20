@@ -822,6 +822,64 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   el ≈1,2 s restante son ≈20 spawns de Git Bash a 25-60 ms cada uno (`jq -n
   1` ≈55 ms, `exo --version` ≈60 ms). Queda sin medir el `PreToolUse:Bash`
   triple. Evidencia: `evals/recall-coste/results/w11-2026-09-15.txt`.
+  **(campaña I, 2026-09-19, EN CURSO — cierre pendiente de Task 7):**
+  `recall-inject.sh` pasó de 7 `jq` + 2 `sed` + 5 `tr` (más 2 `sed` + 1 `tr`
+  POR TOKEN dentro del gate léxico) a 6 `jq` + 0 `sed` + 0 `tr` dentro del
+  bucle léxico (`norm_token`/`gate_skip` reescritos con expansión de
+  parámetros bash pura; quedan 3 `tr` fuera del bucle, en ramas de log de
+  error no ejercidas por el trace de referencia). Medido con
+  `strace -f -c -e trace=execve` sobre el prompt de referencia:
+  **invocaciones de `jq`/`sed`/`tr` por prompt: 14-15 → 7** (corrección
+  review final de rama, 2026-09-20: la redacción anterior, «14 → 7 `execve`
+  reales por invocación», se leía como *execve totales* y no lo era —
+  **`execve` totales del hook: 32 → 24, −25%**; con prompts que empiezan
+  por stopwords el ahorro crece, 47 → 24, porque `norm_token`/`gate_skip`
+  dejaron de gastar `sed`+`tr` por token). Stub y prompt de esta medición no
+  están commiteados — se reproducen con el mismo prompt del pre-registro de
+  A, `"como funciona el trinquete de techos"`, y cualquier binario `exo` de
+  stub que responda a `config`/`recall` (mismo procedimiento que
+  `docs/superpowers/plans/2026-09-19-campana-i-latencia-hook-w11.md`, Step 4
+  de la Task 4). Los tres `PreToolUse:Bash`
+  (`git-c-bash.sh`, `git-add-all-guard.sh`, `verify-before-commit.sh`)
+  ganaron un pre-filtro bash que evita el spawn de `jq` cuando el comando no
+  contiene "git": 4 → 2 `execve` por invocación sin "git". Bloque inyectado
+  verificado byte-idéntico antes/después (goldens en
+  `plugins/exo/scripts/testdata/golden-{recall-inject,exo-recall}/`). Task 5
+  (fundir los tres guards en uno) se descartó por criterio numérico: el
+  pre-filtro de la Task 4 ya bajó los guards de 4 a 2 `execve`; fundir tres
+  guards de seguridad en uno no compensaba el ahorro adicional.
+  **Task 6 (Linux, commit `3b19519`):** `hook_ms` p95 = **1035 ms** (N=174),
+  **1069 ms** (N=1000), **1173 ms** (N=5000); p50 respectivamente 1016, 1039
+  y 1151 ms. Umbral decisión #12 (Paul, 1.500 ms p95 por SO): Linux se
+  cumple con margen (peor caso 1173 ms). Triple `PreToolUse:Bash`: **41 ms**
+  (cota inferior; no decide). `C-noregresión` **FALLA** por
+  `s5-search-fts-n174` (3→6 ms) — ruido de 3 ms en FTS, ajeno al hook y al
+  proceso residente, no cambia ninguna decisión de la Task 6 (detalle en
+  `evals/recall-coste/results/campana-i-2026-09-20/comparacion-vs-despues.md`).
+  **Windows sigue en blanco** — lo mide Paul en Task 7. Ítem **sigue EN
+  CURSO, pendiente solo de W11**.
+  Commits: `c462506`, `17afb9b` (Task 1); `d2b069d`, `c00e55e` (Task 2);
+  `ee44a5a`, `2588384` (Task 3, el segundo es el fix del review adversarial
+  que sustituye la reproducción standalone de SOURCE/SID por extracción del
+  código real); `bc4896a` (Task 4).
+
+- [ ] **(campaña I, Task 6, detectados al correr el bench — preexistentes de
+  campaña G, deliberadamente no arreglados fuera del alcance de I) Dos bugs en
+  `evals/recall-coste/harness/bench.sh`.** (a) `EXO_CONFIG` queda apuntando
+  al `config.toml` de la N anterior, que el propio `bench.sh` ya ha borrado.
+  El generador `kb_sintetica` (desde commit `58656f2`) necesita esa config para
+  su pool de embeddings ⇒ **falla dura al pasar de N=174 a N=1000**,
+  reproducible de forma determinista. Rodeo conocido: `BENCH_KEEP=1`, flag que
+  el propio script ya soporta. (b) El glob del resumen (`"$OUT"/s*.json`) barre
+  también `saturacion-vector-n*.json` y lanza **3 errores cosméticos de `jq` a
+  stderr**; no corrompe `resumen.tsv` (verificado fila a fila).
+  **Nota sobre el baseline:** el baseline `despues` (commit `41e01bf`, campaña A,
+  2026-09-13) ya no aísla la ganancia de la campaña I — entre medias aterrizaron
+  commits de campaña G en `engine/src` (`58656f2`, `a71e7c5`, `e2e53e0`,
+  `003f93a`) que cambiaron rendimiento del binario. Por eso `s1`, `s1b` y `s2`,
+  que no pasan por `recall-inject.sh`, también mejoraron mucho (p.ej.
+  `s2-query-n5000` p50 de 10828 a 1067 ms). **Conclusión: el número válido es
+  el `hook_ms` absoluto, no el delta contra `despues`.**
 
 - [ ] **(revisión 2026-09-11) Los documentos del repo no llevan `tier`, así
   que nada distingue lo que debe ser verdad hoy de lo que solo fue verdad un
@@ -1349,6 +1407,14 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   criterio la use. Cambiar el umbral o la métrica es tocar el pre-registro de
   A: hay que decidirlo antes de mirar los datos de la ventana. Evidencia:
   `evals/recall-coste/results/w11-2026-09-15.txt`.
+  **(campaña I, 2026-09-19, CERRADO):** decisión de Paul #12 —
+  `recall-latencia.sh` decide por `hook_ms` (reloj de pared, medido en
+  `recall-inject.sh` sin spawn, `NA` en bash <5). Enmienda fechada en
+  `docs/superpowers/plans/2026-09-13-campana-a-preregistro-bench.md`
+  §«Criterio de reapertura». Umbral, porcentaje de timeouts y mínimo de
+  disparos sin cambios (1.500 ms / 2% / 200). El instrumento ya ve el coste
+  real en W11 desde el commit `c462506` (fix del guard falsable en
+  `17afb9b`).
 
 - [ ] **(H28) La `distance` de vec0 es L2, no L2²; el
   umbral 0,40 del hook equivale a coseno 0,28.** Medido por el consultor

@@ -123,6 +123,24 @@ if ! grep -q 'no-engine' "$REFLEX_LOG_FILE" 2>/dev/null; then
   pass "F2: 'SÍ, DALE' calla también bajo LC_ALL=C"
 else fail "F2: 'SÍ, DALE' calla también bajo LC_ALL=C" "la normalización depende del locale"; fi
 
+# F2b (campaña I): el gate se comporta IGUAL bajo un locale con coma decimal
+# y colación no-C (es_ES.utf8) que bajo C -- declarado normativo en Step 2
+# (ver el comentario de norm_token en recall-inject.sh: el sed viejo SÍ
+# divergía aquí, esta reescritura no). Se salta si la máquina no tiene el
+# locale instalado, en vez de fallar por un motivo ajeno al gate.
+if locale -a 2>/dev/null | grep -qi '^es_ES\.utf8$'; then
+  : > "$REFLEX_LOG_FILE"
+  printf '%s' "SÍ, DALE" | jq -Rs '{prompt:., session_id:"test-sess"}' \
+    | LC_ALL=es_ES.utf8 EXO_BIN="$NO_BIN" "$HOOK" >/dev/null 2>&1
+  if ! grep -q 'no-engine' "$REFLEX_LOG_FILE" 2>/dev/null; then
+    pass "F2b: 'SÍ, DALE' calla también bajo LC_ALL=es_ES.utf8"
+  else
+    fail "F2b: 'SÍ, DALE' calla también bajo LC_ALL=es_ES.utf8" "la normalización depende del locale"
+  fi
+else
+  pass "F2b: SKIP (es_ES.utf8 no instalado en esta máquina)"
+fi
+
 # --------------------------------------------------- T1: P1 (nunca rompe) ---
 # Binario que sale con 2, que revienta, que escupe basura: exit 0 y sin bloque.
 for modo in "exit 2" "kill -TERM \$\$" "printf 'basura no-json'"; do
@@ -554,13 +572,60 @@ if grep 'recall-inject-degraded' "$REFLEX_LOG_FILE" 2>/dev/null | grep -q 'reaso
   pass "H2: el aviso del engine deja rastro engine-warning"
 else fail "H2: el aviso del engine deja rastro engine-warning" "$(cat "$REFLEX_LOG_FILE" 2>/dev/null)"; fi
 PL_AV="$(jq -r 'select(.reflex=="recall-inject-emitted") | .payload' "$REFLEX_LOG_FILE" 2>/dev/null | tail -1)"
-if contains "$PL_AV" "elapsed_ms=987 refresh_ms=12 permalinks="; then pass "H3: emitted lleva elapsed_ms y refresh_ms antes de permalinks"
-else fail "H3: emitted lleva elapsed_ms y refresh_ms antes de permalinks" "payload='$PL_AV'"; fi
+# El instrumento no se puede apagar en silencio (review final de rama,
+# 2026-09-20): en bash >= 5, `hook_ms_soportado` es verdadero, así que
+# `hook_ms` TIENE que ser un entero positivo medido -- "NA" en esa versión
+# es el propio instrumento fallando calladito (p. ej. `hook_ms_de` mutado
+# para no devolver nada, o `HOOK_START` sin capturar). Solo se acepta "NA"
+# en bash < 5, donde `hook_ms_soportado` es falso por diseño y no hay reloj
+# que medir. Esta suite corre con el mismo bash que ejecuta el hook (mismo
+# shebang `#!/usr/bin/env bash`), así que `${BASH_VERSINFO[0]}` aquí es el
+# de verdad.
+if [ "${BASH_VERSINFO[0]:-0}" -ge 5 ]; then
+  HOOK_MS_RE='hook_ms=([1-9][0-9]*) permalinks='
+else
+  HOOK_MS_RE='hook_ms=(NA|[0-9]+) permalinks='
+fi
+if contains "$PL_AV" "elapsed_ms=987 refresh_ms=12 hook_ms=" \
+   && printf '%s' "$PL_AV" | grep -qE "$HOOK_MS_RE"; then
+  pass "H3/I1: emitted lleva elapsed_ms, refresh_ms y hook_ms (bash>=5: entero >0; bash<5: NA) antes de permalinks"
+else
+  fail "H3/I1: emitted lleva elapsed_ms, refresh_ms y hook_ms antes de permalinks" \
+    "payload='$PL_AV' bash=${BASH_VERSINFO[0]:-desconocido}"
+fi
 
 : > "$REFLEX_LOG_FILE"
 run_hook "kbx trinquete" "$CUATRO"
 if grep -q 'engine-warning' "$REFLEX_LOG_FILE" 2>/dev/null; then fail "H2: sin avisos no hay engine-warning" "$(cat "$REFLEX_LOG_FILE")"
 else pass "H2: sin avisos no hay engine-warning"; fi
+
+# ------------------------------ F7: metadato con tipo raro no apaga el bloque ---
+# `warnings` como STRING (en vez de array) y `elapsed_s` como STRING (en vez
+# de número): el envelope SÍ tiene `data.notes` legible -- lo raro es un
+# metadato, no el envelope -- así que el bloque tiene que inyectarse igual
+# (review final de rama, 2026-09-20: antes de blindar los cuatro campos por
+# tipo, esto caía en la misma rama que un envelope roto de verdad y el
+# bloque se quedaba en blanco con un motivo de log que mentía).
+TIPO_RARO="$TMP/exo-tipo-raro"
+cat > "$TIPO_RARO" <<'JSON'
+#!/usr/bin/env bash
+cat <<'PAYLOAD'
+{"command":"recall","data":{"cap_bytes":4000,"mode":"consulta","elapsed_s":"no-soy-numero","refresh_s":0.0123,"warnings":"no soy un array","notes":[
+{"permalink":"kb-demo/log/kbx-bitacora","path":"/kb/log/kbx-bitacora.md","score":0.5,"snippet":"bitacora de kbx","tier":null,"title":"kbx-bitacora"}
+],"query":"kbx","truncated":false},"schema_version":2}
+PAYLOAD
+JSON
+chmod +x "$TIPO_RARO"
+: > "$REFLEX_LOG_FILE"
+run_hook "kbx trinquete" "$TIPO_RARO"
+BL_RARO="$(printf '%s' "$HOOK_OUT" | jq -r '.hookSpecificOutput.additionalContext' 2>/dev/null)"
+if [ "$HOOK_RC" -eq 0 ] && contains "$BL_RARO" "kbx-bitacora" \
+   && ! grep -q 'envelope-ilegible' "$REFLEX_LOG_FILE" 2>/dev/null; then
+  pass "F7: metadato con tipo raro (warnings/elapsed_s) degrada, no apaga el bloque"
+else
+  fail "F7: metadato con tipo raro (warnings/elapsed_s) degrada, no apaga el bloque" \
+    "rc=$HOOK_RC out='$HOOK_OUT' log='$(cat "$REFLEX_LOG_FILE" 2>/dev/null)'"
+fi
 
 # rc=1 con un aviso de más de 300 B delante de «recall vacío»: antes el
 # `head -c 300` del stderr se quedaba solo con el aviso y lo logueaba como error.
@@ -577,6 +642,109 @@ run_hook "M6-06" "$VACIO_AVISA"
 if grep -q 'reason=empty warn=aviso: arm vector INERTE' "$REFLEX_LOG_FILE" 2>/dev/null; then
   pass "H2: vacío con aviso largo sigue siendo empty y lleva el aviso"
 else fail "H2: vacío con aviso largo sigue siendo empty y lleva el aviso" "$(cat "$REFLEX_LOG_FILE" 2>/dev/null)"; fi
+
+# --------------------------------------- T-norm: norm_token, par a par ---
+# `norm_token` (recall-inject.sh) hace la normalización LETRA A LETRA con 40
+# sustituciones literales (14 de pliegue de acento incluyendo Ñ/ñ, 26 de
+# mayúscula->minúscula): ninguna suite hasta ahora ejercía una sustitución
+# aislada, solo el efecto agregado sobre palabras completas vía el gate. Un
+# review adversarial (2026-09-19) demostró que borrar la línea de `Ú` pasa
+# esta misma suite y el golden en verde -- una regresión de una línea
+# invisible. Este bloque la cierra: recorre las 40 parejas una por una y
+# falla nombrando la que no folda.
+#
+# La función se EXTRAE del script real (no se copia a mano): si se borra o
+# cambia una línea de la definición, la extracción la pierde también, así
+# que el test nunca compara contra una copia obsoleta.
+NORM_TOKEN_SRC="$(sed -n '/^norm_token() {/,/^}/p' "$HOOK")"
+if [ -z "$NORM_TOKEN_SRC" ]; then
+  fail "norm_token: extracción" "no encontré la función en $HOOK"
+fi
+
+# Data-driven: "entrada esperado" por línea, bash 3.2 safe (sin arrays
+# asociativos, sin ${var,,}). `esperado` es la salida FINAL de `norm_token`
+# (acento Y mayúscula plegados: las dos tandas corren dentro de la misma
+# llamada, así que "Á" folda a "a", no a "A" -- un valor intermedio que
+# `norm_token` nunca devuelve). El ORDEN de las parejas sigue exactamente al
+# de las líneas 116-125 del hook para que un `diff` visual entre esta lista y
+# esa función sea directo.
+NORM_PARES='Á a
+É e
+Í i
+Ó o
+Ú u
+Ü u
+Ñ n
+á a
+é e
+í i
+ó o
+ú u
+ü u
+ñ n
+A a
+B b
+C c
+D d
+E e
+F f
+G g
+H h
+I i
+J j
+K k
+L l
+M m
+N n
+O o
+P p
+Q q
+R r
+S s
+T t
+U u
+V v
+W w
+X x
+Y y
+Z z'
+
+# $1 = etiqueta del locale  $2 = valor de LC_ALL a forzar (nunca vacío: el
+# propio bash -c de abajo necesita un valor concreto que probar, no "lo que
+# haya heredado el runner").
+verifica_norm_pares() {
+  local etiqueta="$1" loc="$2" entrada esperado obtenido
+  while IFS=' ' read -r entrada esperado; do
+    [ -n "$entrada" ] || continue
+    # bash -c en un proceso aparte (no un subshell `()`) para que LC_ALL se
+    # pueda forzar SOLO en esta llamada, sin filtrar al resto de la suite
+    # (F2b ya usa el mismo patrón de proceso aparte para el mismo motivo).
+    # NORM_TOKEN_SRC viaja por entorno, no interpolado en el programa de
+    # `bash -c`, para no pelear con el quoting de las comillas simples de la
+    # propia función.
+    obtenido="$(NORM_TOKEN_SRC="$NORM_TOKEN_SRC" LC_ALL="$loc" bash -c '
+      eval "$NORM_TOKEN_SRC"
+      norm_token "$1"
+      printf "%s" "$TOKEN_NORM"
+    ' _ "$entrada" 2>/dev/null)"
+    if [ "$obtenido" = "$esperado" ]; then
+      pass "norm_token[$etiqueta]: '$entrada' -> '$esperado'"
+    else
+      fail "norm_token[$etiqueta]: '$entrada' -> '$esperado'" "obtuvo '$obtenido'"
+    fi
+  done <<EOF
+$NORM_PARES
+EOF
+}
+
+if [ -n "$NORM_TOKEN_SRC" ]; then
+  verifica_norm_pares "LC_ALL=C" "C"
+  if locale -a 2>/dev/null | grep -qi '^es_ES\.utf8$'; then
+    verifica_norm_pares "LC_ALL=es_ES.utf8" "es_ES.utf8"
+  else
+    pass "norm_token: SKIP LC_ALL=es_ES.utf8 (no instalado en esta máquina)"
+  fi
+fi
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

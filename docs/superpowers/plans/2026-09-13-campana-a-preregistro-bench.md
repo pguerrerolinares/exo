@@ -149,6 +149,62 @@ Paul (D4 del plan). Si los cambia al gatear, se sustituyen aquí y en las tres
 constantes de la Task 13 antes de ejecutarla. La ventana se evalúa **por
 máquina**: el log vive en el `$HOME` de cada una, y W11 no se mezcla con Linux.
 
+**Enmienda (2026-09-19, decisión de Paul #12, campaña I):** el criterio de
+p95 pasa de `elapsed_ms + refresh_ms` (tiempo interno del engine, el que
+reporta el propio `exo recall`) a **`hook_ms`** (reloj de pared del hook
+`recall-inject.sh` entero, medido con `$EPOCHREALTIME`, sin spawn). Motivo:
+en W11 el shell alrededor del binario cuesta tanto como el binario mismo
+(`evals/recall-coste/results/w11-2026-09-15.txt`: hook p50 2.312 ms frente a
+`elapsed_ms+refresh_ms` ~993-1.003 ms en las tres muestras registradas) —
+con la métrica vieja, el criterio de 1.500 ms nunca se dispara en W11 aunque
+cada prompt cueste el doble. El umbral (1.500 ms), el porcentaje de
+timeouts (2%) y el mínimo de disparos (200) **no cambian**: la enmienda es
+solo de qué mide el reloj, no de dónde está la barrera. Implementado en
+`docs/superpowers/plans/2026-09-19-campana-i-latencia-hook-w11.md` (Task 1).
+No se reescribe el texto de arriba: esto es un anexo fechado, como pide el
+propio contrato de pre-registro de la cabecera de este fichero.
+
+**Anexo (2026-09-20, review final de rama, campaña I): en bash < 5, `hook_ms`
+es siempre `NA` y el criterio nunca puede REABRIR ni NO-REABRIR, solo
+INSUFICIENTE.** `hook_ms_soportado` (`_hook-ms.sh`) es `[ "${BASH_VERSINFO[0]}" -ge 5 ]`
+— macOS trae `/bin/bash` 3.2 de fábrica (Apple dejó de actualizarlo por la
+licencia GPLv3) y no hay reloj de pared que medir ahí sin un spawn, que es
+justo lo que esta campaña existe para evitar. Con `hook_ms` siempre vacío,
+`recall-latencia.sh` cuenta `disparos_medidos = 0` para siempre en esa
+máquina, y el veredicto queda fijo en `INSUFICIENTE (menos de 200
+disparos)` sin importar cuánto se use el hook. **Esto es by design, no un
+hueco**: el umbral «1.500 ms p95 por SO» (decisión #12) se pensó para W11 y
+Linux — las dos plataformas de Paul con bash ≥5 real (Git Bash en W11,
+bash del sistema en Linux) — y nunca tuvo pensado macOS. Si alguna vez
+Paul usa macOS con el `/bin/bash` de fábrica, el criterio de reapertura de
+este hook simplemente no aplica ahí; haría falta un bash ≥5 instalado
+aparte (Homebrew) para que `hook_ms` mida algo.
+
+**Anexo (2026-09-20, review final de rama, campaña I): `hook_ms` infraestima
+el coste, con sesgo sistemático hacia NO-REABRIR.** `hook_ms_de` se llama
+ANTES de loguear el propio evento `emitted` (`recall-inject.sh:435-436`), así
+que el `date` + `jq` de `_reflex-log.sh` que escriben ESE evento quedan fuera
+del reloj — no se puede medir el propio log sin otro spawn, así que no es un
+bug corregible, pero sesga la métrica que decide REABRIR/NO-REABRIR y tiene
+que quedar escrito donde se lee esa decisión. Medido en Linux: el coste
+externo (reloj de pared del proceso completo) es 70-76 ms mientras `hook_ms`
+reporta 57-64 ms para la misma invocación ⇒ **12-13 ms sistemáticamente
+fuera del reloj**. Consistente con la Task 6: hyperfine de `s6-hook-entero`
+(coste externo) da p95 1045/1082/1183 ms (N=174/1000/5000) frente al p95 de
+`hook_ms` de 1035/1069/1173 ms que reporta `docs/backlog.md` para las mismas
+corridas — la misma brecha de ~10-14 ms. Ese tramo son 4 spawns que el
+reloj no ve: arranque de bash, el `dirname`/`pwd` que localiza el propio
+script (antes de `HOOK_START`), y el `date` + `jq` del `reflex_log` del
+evento `emitted` (después de que `hook_ms_de` ya cerró la medición). **En
+W11, a 25-60 ms por spawn** (medición de Paul,
+`evals/recall-coste/results/w11-2026-09-15.txt`), **esos mismos 4 spawns son
+100-250 ms que el instrumento nunca ve**, y el umbral de 1.500 ms p95 se
+compara contra una cifra que ya venía por debajo del coste real. No cambia
+el umbral (sigue siendo pre-registro, no se ajusta a la vista del sesgo):
+cambia lo que hay que saber al leer un veredicto NO-REABRIR cerca del
+límite. Comentario correspondiente en `plugins/exo/scripts/recall-inject.sh`
+(líneas junto a `HOOK_START`).
+
 ## W11 (manual, sujeto a D5)
 
 El bench de arriba es solo de Linux. En la W11 de Paul, desde Git Bash, con

@@ -372,6 +372,121 @@ echo ""
 # ---------------------------------------------------------------------------
 rm -rf "$TMPDIR_BASE" 2>/dev/null || true
 
+# --- Campaña I: sin "git" en el JSON crudo, el pre-filtro evita el spawn de jq ---
+{
+  POISON_DIR="$(mktemp -d)"
+  JQ_MARK="$(mktemp -u)"
+  cat > "$POISON_DIR/jq" <<EOF
+#!/usr/bin/env bash
+touch "$JQ_MARK"
+exit 1
+EOF
+  chmod +x "$POISON_DIR/jq"
+  rm -f "$JQ_MARK"
+  PAYLOAD_SIN_GIT='{"session_id":"test-sid","tool_name":"Bash","tool_input":{"command":"ls -la /tmp"},"hook_event_name":"PreToolUse"}'
+  OUTPUT="$(printf '%s' "$PAYLOAD_SIN_GIT" | PATH="$POISON_DIR:$PATH" bash "$HOOK" 2>/dev/null)"
+  EC=$?
+  if [ -z "$OUTPUT" ] && [ "$EC" -eq 0 ] && [ ! -f "$JQ_MARK" ]; then
+    printf '[PASS] campaña I: comando sin "git" no invoca jq (marca ausente)\n'; PASS=$((PASS+1))
+  else
+    MARCA="ausente"; [ -f "$JQ_MARK" ] && MARCA="presente"
+    printf '[FAIL] campaña I: comando sin "git" no invoca jq — ec=%d out=%s marca=%s\n' "$EC" "$OUTPUT" "$MARCA"
+    FAIL=$((FAIL+1))
+  fi
+  rm -rf "$POISON_DIR"
+}
+
+# --- Campaña I (caso límite): "GIT COMMIT" en mayúsculas no coincide con el
+# pre-filtro (case "*git*" literal, sensible a mayúsculas) -- se ahorra el
+# jq, y el resultado es el MISMO que con jq: el PATRON también exige "git
+# commit" en minúsculas, así que un CMD en mayúsculas ya era silencio en el
+# código original. Sin regresión.
+{
+  POISON_DIR="$(mktemp -d)"
+  JQ_MARK="$(mktemp -u)"
+  cat > "$POISON_DIR/jq" <<EOF
+#!/usr/bin/env bash
+touch "$JQ_MARK"
+exit 1
+EOF
+  chmod +x "$POISON_DIR/jq"
+  rm -f "$JQ_MARK"
+  PAYLOAD_MAYUS='{"session_id":"test-sid","tool_name":"Bash","tool_input":{"command":"GIT COMMIT -m x"},"hook_event_name":"PreToolUse"}'
+  OUTPUT="$(printf '%s' "$PAYLOAD_MAYUS" | PATH="$POISON_DIR:$PATH" bash "$HOOK" 2>/dev/null)"
+  EC=$?
+  if [ -z "$OUTPUT" ] && [ "$EC" -eq 0 ] && [ ! -f "$JQ_MARK" ]; then
+    printf '[PASS] campaña I (límite): "GIT COMMIT" mayúsculas → pre-filtro también ahorra jq, sin regresión\n'; PASS=$((PASS+1))
+  else
+    MARCA="ausente"; [ -f "$JQ_MARK" ] && MARCA="presente"
+    printf '[FAIL] campaña I (límite): "GIT COMMIT" mayúsculas — ec=%d out=%s marca=%s\n' "$EC" "$OUTPUT" "$MARCA"
+    FAIL=$((FAIL+1))
+  fi
+  rm -rf "$POISON_DIR"
+}
+
+# --- Campaña I (caso límite): "git" solo en OTRO campo del JSON (cwd, no en
+# tool_input.command) -- el pre-filtro escanea el INPUT crudo entero, no
+# solo el campo command, así que NO descarta (cae al camino lento con jq).
+# Nunca pierde un disparo real por mirar el campo equivocado; en el peor
+# caso gasta un jq de más en un comando que no lo necesitaba.
+{
+  POISON_DIR="$(mktemp -d)"
+  JQ_MARK="$(mktemp -u)"
+  cat > "$POISON_DIR/jq" <<EOF
+#!/usr/bin/env bash
+touch "$JQ_MARK"
+exit 1
+EOF
+  chmod +x "$POISON_DIR/jq"
+  rm -f "$JQ_MARK"
+  PAYLOAD_GIT_OTRO_CAMPO='{"session_id":"test-sid","cwd":"/tmp/somegit-dir","tool_name":"Bash","tool_input":{"command":"npm test"},"hook_event_name":"PreToolUse"}'
+  OUTPUT="$(printf '%s' "$PAYLOAD_GIT_OTRO_CAMPO" | PATH="$POISON_DIR:$PATH" bash "$HOOK" 2>/dev/null)"
+  EC=$?
+  if [ -f "$JQ_MARK" ]; then
+    printf '[PASS] campaña I (límite): "git" en cwd (no en command) → pre-filtro NO descarta, sigue a jq\n'; PASS=$((PASS+1))
+  else
+    printf '[FAIL] campaña I (límite): "git" en cwd no forzó el camino lento — ec=%d out=%s\n' "$EC" "$OUTPUT"
+    FAIL=$((FAIL+1))
+  fi
+  rm -rf "$POISON_DIR"
+}
+
+# --- Campaña I (caso límite): "git" como subcadena de otra palabra DENTRO
+# del comando ("legitimate" contiene "git") -- el pre-filtro no distingue
+# palabra completa de subcadena (case "*git*" literal), así que cae al
+# camino lento con jq como cualquier comando con "git" real. El resultado
+# final sigue siendo silencio porque el PATRON exige "git commit" exacto,
+# no solo la subcadena -- ningún falso disparo nuevo.
+{
+  POISON_DIR="$(mktemp -d)"
+  JQ_MARK="$(mktemp -u)"
+  cat > "$POISON_DIR/jq" <<EOF
+#!/usr/bin/env bash
+touch "$JQ_MARK"
+exit 1
+EOF
+  chmod +x "$POISON_DIR/jq"
+  rm -f "$JQ_MARK"
+  PAYLOAD_SUBCADENA='{"session_id":"test-sid","tool_name":"Bash","tool_input":{"command":"echo legitimate change"},"hook_event_name":"PreToolUse"}'
+  OUTPUT="$(printf '%s' "$PAYLOAD_SUBCADENA" | PATH="$POISON_DIR:$PATH" bash "$HOOK" 2>/dev/null)"
+  EC=$?
+  if [ -f "$JQ_MARK" ]; then
+    printf '[PASS] campaña I (límite): "legitimate" (subcadena "git") → pre-filtro NO descarta, cae a jq\n'; PASS=$((PASS+1))
+  else
+    printf '[FAIL] campaña I (límite): "legitimate" no forzó el camino lento — ec=%d out=%s\n' "$EC" "$OUTPUT"
+    FAIL=$((FAIL+1))
+  fi
+  OUTPUT_REAL="$(printf '%s' "$PAYLOAD_SUBCADENA" | bash "$HOOK" 2>/dev/null)"
+  EC_REAL=$?
+  if [ -z "$OUTPUT_REAL" ] && [ "$EC_REAL" -eq 0 ]; then
+    printf '[PASS] campaña I (límite): "legitimate" → silencio real (sin falso disparo)\n'; PASS=$((PASS+1))
+  else
+    printf '[FAIL] campaña I (límite): "legitimate" → esperaba silencio, ec=%d out=%s\n' "$EC_REAL" "$OUTPUT_REAL"
+    FAIL=$((FAIL+1))
+  fi
+  rm -rf "$POISON_DIR"
+}
+
 echo ""
 TOTAL=$((PASS+FAIL))
 echo "=== Resultado: ${PASS}/${TOTAL} pasaron ==="

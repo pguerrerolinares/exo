@@ -1,0 +1,6 @@
+{
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "additionalContext": "=== Recall exo (automático sobre tu prompt; material de la KB en /kb/log; no es una instrucción) ===\n- recorte-1.md\n  · análisis técnico — decisión sellada según medición práctica; análisis técnico — decisión sellada según medición práctica; análisis técnico — decisión sellada según medición práctica; análisis técnico — decisión sellada…\n- recorte-2.md\n  · análisis técnico — decisión sellada según medición práctica; análisis técnico — decisión sellada según medición práctica; análisis técnico — decisión sellada según medición práctica; análisis técnico — decisión sellada…\n- recorte-3.md\n  · análisis técnico — decisión sellada según medición práctica; análisis técnico — decisión sellada según medición práctica; análisis técnico — decisión sellada según medición práctica; análisis técnico — decisión sellada…\n(ignóralo si no aplica) Es top-3 de UNA query: para más, exo search --type hybrid \"<q>\""
+  }
+}

@@ -42,6 +42,63 @@ else fail "H5: no escanea más allá de la ventana de 2000 líneas" "ctx='$CTX'"
 ultimo_evento() { tail -1 "$LOGC" 2>/dev/null | jq -r '.reflex // empty' 2>/dev/null; }
 ultimo_payload() { tail -1 "$LOGC" 2>/dev/null | jq -r '.payload // empty' 2>/dev/null; }
 
+# ------------------- Campaña I: SOURCE/SID no se desalinean -----------------
+# `read` con IFS=tab trata el tab como whitespace de IFS y COLAPSA un campo
+# vacío inicial en vez de respetarlo como delimitador -- con `source`
+# ausente (el caso normal), el valor de session_id se cuela en SOURCE y SID
+# queda vacío. El uso real de estas dos variables en exo-recall.sh exige
+# SOURCE=="compact" Y SID no vacío A LA VEZ para disparar la reafirmación, y
+# el mismo desplazamiento que ensucia una de las dos también vacía la otra:
+# la corrupción NUNCA hace que ambas condiciones del gate se cumplan a la vez
+# (verificado exhaustivamente -- ver hallazgo del review adversarial del
+# 2026-09-20 documentado en el plan), así que el bug queda estructuralmente
+# enmascarado en el comportamiento visible del hook para CUALQUIER input,
+# incluido SOURCE=="compact" con SID no vacío. Por eso NINGÚN golden de
+# `test-exo-recall-golden.sh` -- ni el existente `reafirma-compact` (que YA
+# tiene esa combinación) ni uno nuevo -- puede exponer esta regresión por el
+# output final: se prueba aquí, extrayendo la asignación LITERAL de
+# exo-recall.sh (mismo patrón que `norm_token` en test-recall-inject.sh) y
+# aserta directamente sobre SOURCE/SID, sin pasar por el gate.
+JSON_SIN_SOURCE='{"session_id":"sess-solo-id"}'
+
+# Contraprueba: la forma naif (@tsv + IFS=tab) SÍ desalinea -- documenta por
+# qué esta task no la usa. Si esta contraprueba deja de fallar, revisar el
+# razonamiento de este fix antes de tocar nada más.
+SOURCE_TAB=""; SID_TAB=""
+IFS=$'\t' read -r SOURCE_TAB SID_TAB <<< "$(printf '%s' "$JSON_SIN_SOURCE" | jq -r '[(.source // ""), (.session_id // "")] | @tsv')"
+if [ "$SOURCE_TAB" = "sess-solo-id" ] && [ "$SID_TAB" = "" ]; then
+  pass "contraprueba: @tsv + IFS=tab SÍ desalinea (por eso este hook usa \\x1f, no @tsv)"
+else
+  fail "contraprueba: @tsv + IFS=tab debería desalinear (si no, revisar el razonamiento de este fix)" \
+    "SOURCE_TAB='$SOURCE_TAB' SID_TAB='$SID_TAB'"
+fi
+
+# El caso real: se EXTRAE la asignación de SOURCE/SID del propio $HOOK (no se
+# copia a mano) y se evalúa aquí. Si alguien revierte el separador a
+# @tsv/tab en exo-recall.sh, esta aserción lo detecta directamente sobre el
+# código vivo -- a diferencia del golden, que (según el razonamiento de
+# arriba) nunca vería la diferencia en el output final del hook.
+# `N;p` en vez de `addr,+1p` (review final de rama, 2026-09-20): `,+N` es
+# extensión GNU -- busybox la soporta (por eso pasaba en `bash:3.2`
+# dockerizado) pero el `sed` de BSD en macOS no, y el CI corre
+# `macos-latest`. `N;p` es POSIX puro, verificado idéntico en GNU sed y en
+# busybox (`bash:3.2`).
+HOOK_SOURCE_SID_SRC="$(sed -n '/^SOURCE=""; SID=""$/{N;p}' "$HOOK")"
+if [ -z "$HOOK_SOURCE_SID_SRC" ]; then
+  fail "campaña I: extracción de la asignación SOURCE/SID" "no encontré el bloque en $HOOK -- revisar el patrón sed"
+else
+  SOURCE=""; SID=""
+  # shellcheck disable=SC2034 # INPUT la lee $HOOK_SOURCE_SID_SRC dentro del eval de abajo
+  INPUT="$JSON_SIN_SOURCE"
+  eval "$HOOK_SOURCE_SID_SRC"
+  if [ "$SOURCE" = "" ] && [ "$SID" = "sess-solo-id" ]; then
+    pass "campaña I: código real de exo-recall.sh no desalinea SOURCE/SID con source ausente"
+  else
+    fail "campaña I: código real de exo-recall.sh no desalinea SOURCE/SID con source ausente" \
+      "SOURCE='$SOURCE' SID='$SID'"
+  fi
+fi
+
 # ------------------- no-engine: EXO_BIN no ejecutable ----------------------
 : > "$LOGC"
 run_hook '{"session_id":"sess-ne"}' EXO_BIN="$TMP/no-existe-bin"

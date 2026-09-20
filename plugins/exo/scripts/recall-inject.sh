@@ -13,7 +13,32 @@
 # entra en el turno como si fuera material de la KB. Todo lo que no sea el
 # JSON final va a stderr o a /dev/null.
 set -uo pipefail
+# $EPOCHREALTIME (usado más abajo) imprime con COMA decimal bajo un locale
+# cuyo LC_NUMERIC la use (es_ES.utf8, verificado real en la máquina de
+# Paul; Git Bash en Windows hereda el locale regional de Windows) --
+# forzarlo a C es el mismo patrón que ya usa `recall-latencia.sh:13`.
+# `_hook-ms.sh` normaliza coma->punto también por su cuenta (cinturón y
+# tirantes), pero fijar el locale aquí es más barato que confiar solo en esa
+# normalización defensiva.
+export LC_NUMERIC=C
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# hook_ms (campaña I, decisión #12): reloj de pared del hook entero, medido
+# desde AQUÍ (antes de leer stdin, para que ese spawn de `cat` también
+# cuente) hasta justo antes de loguear el evento `emitted` (`hook_ms_de` se
+# llama primero, así que su propio cálculo tampoco cuenta). Lo que no se
+# puede medir: el `dirname`/`cd`/`pwd` de la línea de arriba (antes de
+# HOOK_START) y, DESPUÉS del corte, el `date`+`jq` de `_reflex-log.sh` que
+# escriben ESE MISMO evento `emitted` -- no se puede medir el propio log sin
+# otro spawn. Review final de rama (2026-09-20): en Linux son ~12-13 ms
+# fuera del reloj (coste externo 70-76 ms vs. `hook_ms` 57-64 ms,
+# consistente con el hyperfine de la Task 6 en `docs/backlog.md`); en W11,
+# a 25-60 ms/spawn (`evals/recall-coste/results/w11-2026-09-15.txt`), son
+# 100-250 ms que el instrumento nunca ve -- el umbral de 1.500 ms se compara
+# contra una cifra ya subestimada. Detalle en el anexo fechado 2026-09-20 de
+# `docs/superpowers/plans/2026-09-13-campana-a-preregistro-bench.md`.
+. "$SCRIPT_DIR/_hook-ms.sh" 2>/dev/null
+HOOK_START=""
+hook_ms_soportado 2>/dev/null && HOOK_START="$EPOCHREALTIME"
 
 if [ -t 0 ]; then INPUT=""; else INPUT="$(cat)"; fi
 [ -n "$INPUT" ] || exit 0
@@ -54,7 +79,10 @@ uno dos tres cuatro cinco 1 2 3 4 5'
 # comprueba con `case " $STOP " in *" $tok "*`: sin colapsar los saltos de línea
 # a espacios, todo token a final de línea fallaría el match y el gate no callaría
 # casi nunca.
-STOP=" $(printf '%s' "$STOP" | tr '\n' ' ') "
+# Sustituye `tr '\n' ' '` por expansión de parámetros bash pura (campaña I):
+# CERO spawns, funciona en cualquier bash >=3.2 (ANSI-C quoting `$'\n'` es
+# anterior a esa versión).
+STOP=" ${STOP//$'\n'/ } "
 
 # NFD + minúsculas + strip de acentos, conservando `/`, `.` y `-`. Que conserve
 # esos tres NO es descuido: es lo que hace la normalización medida, y quitar toda
@@ -64,16 +92,46 @@ STOP=" $(printf '%s' "$STOP" | tr '\n' ' ') "
 # "SÍ" → "s" y "Ñu" → "u", con lo que un ack acentuado dispararía). `sed` trabaja
 # sobre bytes y `tr 'A-Z' 'a-z'` es ASCII puro, así que esta versión da el mismo
 # resultado bajo cualquier locale.
+# Sustituye 2 `sed` + 1 `tr` POR TOKEN por expansión de parámetros bash pura
+# (campaña I): CERO spawns, sin subshell (setea la global TOKEN_NORM en vez
+# de imprimir — `n="$(norm_token "$tok")"` habría forkeado igual que un
+# spawn externo en Git Bash/MSYS2, donde fork() está emulado y no es barato).
+# Verificado equivalente byte a byte contra la versión sed/tr sobre 24 tokens
+# del alfabeto ESPAÑOL (acentos, mayúsculas, glob, LC_ALL=C incluido) — que
+# es el alfabeto que un gate en castellano necesita cubrir.
+#
+# NO es equivalente byte a byte para caracteres FUERA de ese alfabeto bajo un
+# locale no-C (medido: `ç`/`ß`/`ï`/`ö` sobreviven al `sed` final original
+# bajo `LC_ALL=es_ES.utf8` -- el propio filtro de caracteres de sed se vuelve
+# locale-aware ahí -- y esta reescritura los filtra SIEMPRE, igual que el
+# `sed` original bajo `LC_ALL=C`). Es una divergencia deliberada, no un bug
+# sin ver: el comportamiento nuevo (equivalente a C en cualquier locale,
+# porque son sustituciones LITERALES de bytes) es el que se declara
+# NORMATIVO a partir de esta campaña — un gate cuyo criterio de disparo
+# cambiara según el locale regional de la máquina de Paul sería peor que uno
+# determinista que no cubre acentos franceses/alemanes. Ver Step 2 bis.
+#
+# El ORDEN importa: primero se pliegan los acentos (deja solo ASCII), LUEGO
+# se pasa a minúsculas con sustituciones LITERALES letra a letra — nunca
+# `${t,,}` (ese operador es bash >=4, inexistente en el /bin/bash 3.2 de
+# macOS; y aunque existiera, bajo locale C/POSIX foldea mal el multibyte,
+# que es justo el bug medido que obligó al `sed` original: "SÍ" -> "s").
+# Con el acento ya plegado a ASCII antes de este punto, la sustitución
+# LITERAL A->a es un match de bytes, no una operación de locale: funciona
+# igual bajo cualquier locale y cualquier versión de bash.
 norm_token() {
-  local t
-  # shellcheck disable=SC2018,SC2019 # los acentos ya los pliega el sed de arriba; tr solo ve ASCII
-  t="$(printf '%s' "$1" | sed \
-        -e 's/Á/A/g' -e 's/É/E/g' -e 's/Í/I/g' -e 's/Ó/O/g' -e 's/Ú/U/g' \
-        -e 's/Ü/U/g' -e 's/Ñ/N/g' \
-        -e 's/á/a/g' -e 's/é/e/g' -e 's/í/i/g' -e 's/ó/o/g' -e 's/ú/u/g' \
-        -e 's/ü/u/g' -e 's/ñ/n/g' \
-        | tr 'A-Z' 'a-z' 2>/dev/null)" || t="$1"
-  printf '%s' "$t" | sed 's/[^a-z0-9/.-]//g' 2>/dev/null || true
+  local t="$1"
+  t="${t//Á/A}"; t="${t//É/E}"; t="${t//Í/I}"; t="${t//Ó/O}"; t="${t//Ú/U}"
+  t="${t//Ü/U}"; t="${t//Ñ/N}"
+  t="${t//á/a}"; t="${t//é/e}"; t="${t//í/i}"; t="${t//ó/o}"; t="${t//ú/u}"
+  t="${t//ü/u}"; t="${t//ñ/n}"
+  t="${t//A/a}"; t="${t//B/b}"; t="${t//C/c}"; t="${t//D/d}"; t="${t//E/e}"
+  t="${t//F/f}"; t="${t//G/g}"; t="${t//H/h}"; t="${t//I/i}"; t="${t//J/j}"
+  t="${t//K/k}"; t="${t//L/l}"; t="${t//M/m}"; t="${t//N/n}"; t="${t//O/o}"
+  t="${t//P/p}"; t="${t//Q/q}"; t="${t//R/r}"; t="${t//S/s}"; t="${t//T/t}"
+  t="${t//U/u}"; t="${t//V/v}"; t="${t//W/w}"; t="${t//X/x}"; t="${t//Y/y}"
+  t="${t//Z/z}"
+  TOKEN_NORM="${t//[^a-z0-9\/.-]/}"
 }
 
 gate_skip() {  # 0 = saltar, 1 = disparar
@@ -90,7 +148,8 @@ gate_skip() {  # 0 = saltar, 1 = disparar
   set -f
   local tok n hay=0
   for tok in $p; do
-    n="$(norm_token "$tok")"
+    norm_token "$tok"
+    n="$TOKEN_NORM"
     [ -n "$n" ] || continue
     case "$STOP" in
       *" $n "*) continue ;;
@@ -189,22 +248,48 @@ fi
 # engine hablando otro idioma (cambio de schema, salida corrupta). Etiquetarlo
 # `empty` lo haría invisible, porque `empty` es el caso normal — exactamente el
 # disfraz que P2 impide en la rama de exit 1.
-if ! printf '%s' "$SALIDA" | jq -e 'has("data") and (.data | has("notes"))' >/dev/null 2>&1; then
-  log_ri "degraded" "reason=error err=envelope-ilegible"
-  exit 0
-fi
+# Envelope + metadatos en UNA SOLA pasada de jq (campaña I; antes eran dos:
+# un `jq -e` solo para validar la forma y un `jq -r` separado para extraer
+# los campos). Si el envelope no tiene `data.notes`, jq emite el centinela
+# "envelope-ilegible" en vez de un `@tsv` — pero el TEXTO del centinela no es
+# observable ni importa: el `case` de abajo solo mira si `$META` lleva un tab
+# o no (un fallo de jq que deje `$META` vacío cae en la misma rama). El
+# mensaje `err=envelope-ilegible` que loguea esa rama (más abajo) es un
+# literal hardcodeado APARTE, no una lectura de este centinela; que compartan
+# el mismo texto es legibilidad, no acoplamiento. `@tsv` con los avisos AL
+# FINAL, porque `read` colapsa un campo vacío en medio (el tab es whitespace
+# de IFS).
+#
+# Los CUATRO campos van blindados por tipo (review final de rama,
+# 2026-09-20): antes, un tipo inesperado en uno solo (p. ej. `warnings` como
+# string en vez de array, o `elapsed_s` como string) hacía que jq entero
+# fallara -- `* 1000` sobre un string no es un tipo válido -- y eso volvía
+# indistinguible de un envelope roto: caía en la MISMA rama
+# `envelope-ilegible` y el bloque, que SÍ tenía `data.notes` legible, se
+# quedaba sin inyectar. La fusión con la pasada anterior (dos jq separados,
+# uno solo para la forma) sí toleraba esto: un fallo en los metadatos no
+# tocaba la extracción de `notes`. serde fija los tipos en el engine, así
+# que es improbable, pero si pasa, los metadatos son telemetría
+# (elapsed/refresh/avisos) y el bloque es el producto -- un metadato raro
+# degrada, no apaga el bloque.
+META="$(printf '%s' "$SALIDA" | jq -r '
+  if (has("data") and (.data | has("notes"))) then
+    [ (.data.truncated // false | if type == "boolean" then tostring else "false" end),
+      ((.data.elapsed_s // 0) | if type == "number" then (. * 1000 | floor) else 0 end | tostring),
+      ((.data.refresh_s // 0) | if type == "number" then (. * 1000 | floor) else 0 end | tostring),
+      ((.data.warnings // []) | if type == "array" then join(" | ")
+                                 elif type == "string" then .
+                                 else "" end) ] | @tsv
+  else
+    "envelope-ilegible"
+  end' 2>/dev/null)" || META=""
 
-# Metadatos del envelope en UNA pasada de jq (H2/H3): cada spawn cuesta decenas
-# de ms en Git Bash. Si el engine recortó su propia respuesta (cap de fetch), el
-# hit de repuesto puede haber desaparecido: no degrada nada, pero deja rastro.
-# `@tsv` con los avisos AL FINAL, porque `read` colapsa un campo vacío en medio
-# (el tab es whitespace de IFS).
-META="$(printf '%s' "$SALIDA" | jq -r '[ (.data.truncated // false | tostring),
-    ((.data.elapsed_s // 0) * 1000 | floor | tostring),
-    ((.data.refresh_s // 0) * 1000 | floor | tostring),
-    ((.data.warnings // []) | join(" | ")) ] | @tsv' 2>/dev/null)" || META=""
+case "$META" in
+  *$'\t'*) ;;
+  *) log_ri "degraded" "reason=error err=envelope-ilegible"; exit 0 ;;
+esac
 TRUNCADO=""; ELAPSED_MS=""; REFRESH_MS=""; AVISOS=""
-[ -n "$META" ] && IFS=$'\t' read -r TRUNCADO ELAPSED_MS REFRESH_MS AVISOS <<< "$META"
+IFS=$'\t' read -r TRUNCADO ELAPSED_MS REFRESH_MS AVISOS <<< "$META"
 if [ "$TRUNCADO" = "true" ]; then
   log_ri "degraded" "reason=fetch-truncado"
 fi
@@ -370,7 +455,13 @@ fi
 
 # Los tiempos van ANTES de permalinks: `_reflex-log.sh` corta el payload a
 # 2000 chars y la lista de permalinks es lo único que puede crecer.
-log_ri "emitted" "n_hits=$N bytes=$BYTES elapsed_ms=${ELAPSED_MS:-?} refresh_ms=${REFRESH_MS:-?} permalinks=$PERMALINKS"
+# `2>/dev/null` (review final de rama, 2026-09-20): igual que el `source` de
+# la línea 33 -- si `_hook-ms.sh` no cargó, `hook_ms_de` no existe y sin este
+# guard el error "orden no encontrada" sale por stderr EN CADA PROMPT del
+# usuario (`hook_ms=NA` en el payload ya queda correcto vía `${HOOK_MS:-NA}`
+# de la línea de abajo; esto solo calla el ruido).
+hook_ms_de "$HOOK_START" 2>/dev/null
+log_ri "emitted" "n_hits=$N bytes=$BYTES elapsed_ms=${ELAPSED_MS:-?} refresh_ms=${REFRESH_MS:-?} hook_ms=${HOOK_MS:-NA} permalinks=$PERMALINKS"
 
 # ÚNICA escritura a stdout del script entero (P6).
 printf '%s' "$JSON_OUT"

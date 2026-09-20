@@ -120,8 +120,20 @@ fi
 TEXTO="$BASE"
 
 # --- Reafirmación de reflejos disparados si SessionStart(source=compact) ---
-SOURCE="$(printf '%s' "$INPUT" | jq -r '.source // empty' 2>/dev/null)" || SOURCE=""
-SID="$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)" || SID=""
+# SOURCE y SID en una sola pasada de jq (campaña I; antes eran dos jq sobre
+# el mismo $INPUT). Separador `\x1f` (unit separator), NO `@tsv`/tab: `read`
+# trata el tab como whitespace de IFS y colapsa un campo vacío inicial (el
+# caso normal de `source`, ausente en casi todo prompt) -- verificado que
+# `@tsv` + `IFS=tab` desalinea SOURCE/SID en ese caso, `\x1f` no.
+#
+# Caveat conocido (review adversarial 2026-09-20, construido y comprobado):
+# un byte `\x1f` LITERAL dentro de `source` sí desalinearía (ese campo no
+# pasa por el mismo escapado de jq que evita el problema con tabs/newlines
+# embebidos). Riesgo práctico bajo y se acepta: `source` es un enum que fija
+# el harness de Claude Code ("startup"/"resume"/"clear"/"compact"/"vscode"),
+# no texto libre que un agente o un tercero pueda inyectar.
+SOURCE=""; SID=""
+IFS=$'\x1f' read -r SOURCE SID <<< "$(printf '%s' "$INPUT" | jq -r '[(.source // ""), (.session_id // "")] | join("\u001f")' 2>/dev/null)"
 
 if [ "$SOURCE" = "compact" ] && [ -n "$SID" ] && [ -f "$HOME/.claude/reflex-log.jsonl" ]; then
   . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && reflex_log "compact" "$INPUT" "compact" || true

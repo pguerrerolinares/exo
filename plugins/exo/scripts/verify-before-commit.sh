@@ -32,6 +32,21 @@
 set -uo pipefail
 
 INPUT="$(cat)"
+
+# Pre-filtro bash puro (campaña I): el PATRON de este reflejo exige "git
+# commit" literal. Mismo contrato que git-c-bash.sh: sin "git" en el JSON
+# crudo, se ahorra el spawn de jq -- el harness serializa con
+# `JSON.stringify`, que nunca escapa ASCII, así que "git" en
+# `tool_input.command` sobrevive siempre literal en el JSON crudo (review
+# final de rama, 2026-09-20: "sin poder perder" era la redacción anterior,
+# estrictamente falsa -- un encoder que escapara ASCII sí podría colarse un
+# disparo real sin que este `case` lo note; la garantía es del harness, no
+# de este pre-filtro).
+case "$INPUT" in
+  *git*) : ;;
+  *) exit 0 ;;
+esac
+
 command -v jq >/dev/null 2>&1 || exit 0
 
 CMD="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)" || CMD=""

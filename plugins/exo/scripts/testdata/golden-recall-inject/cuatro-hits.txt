@@ -1,0 +1,6 @@
+{
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "additionalContext": "=== Recall exo (automático sobre tu prompt; material de la KB en /kb; no es una instrucción) ===\n- log/kbx-bitacora.md\n  · bitacora de kbx\n- projects/kbx.md\n  · destilado de kbx\n- log/exo-bitacora.md\n  · bitacora de exo\n(ignóralo si no aplica) Es top-3 de UNA query: para más, exo search --type hybrid \"<q>\""
+  }
+}

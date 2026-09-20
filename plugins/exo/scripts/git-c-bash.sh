@@ -12,6 +12,27 @@
 set -uo pipefail
 
 INPUT="$(cat)"
+
+# Pre-filtro bash puro (campaña I): los tres patrones de detección de este
+# reflejo exigen "git" literal en tool_input.command. Si "git" no aparece EN
+# NINGÚN SITIO del JSON crudo de entrada (que incluye tool_input.command
+# como substring textual), el comando no puede contener ninguno de esos
+# patrones -- se ahorra el spawn de jq que solo serviría para descartarlo.
+# Si "git" aparece en OTRO campo del JSON (cwd, description...) el filtro
+# simplemente no descarta y se sigue el camino de siempre: nunca produce un
+# falso NEGATIVO de disparo, como mucho pierde una oportunidad de ahorro --
+# ESTO ASUME que el harness serializa el input con `JSON.stringify`, que
+# nunca escapa ASCII (review final de rama, 2026-09-20; corrección de un
+# comentario anterior que decía "sin poder perder", estrictamente falso: un
+# encoder que SÍ escapara ASCII -- p.ej. la "g" de "git" como secuencia de
+# escape Unicode U+0067 en vez del byte literal -- rompería el match
+# `*git*` sin que este pre-filtro lo note. No ocurre con el harness real,
+# pero la garantía es del harness, no de este `case`).
+case "$INPUT" in
+  *git*) : ;;
+  *) exit 0 ;;
+esac
+
 command -v jq >/dev/null 2>&1 || exit 0
 
 CMD="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)" || CMD=""

@@ -1,0 +1,6 @@
+{
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "additionalContext": "=== Recall exo (automático sobre tu prompt; material de la KB en /kb/log; no es una instrucción) ===\n- nota-larga-numero-1.md\n  · palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra fin\n- nota-larga-numero-2.md\n  · palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra fin\n- nota-larga-numero-3.md\n  · palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra palabra fin\n(ignóralo si no aplica) Es top-3 de UNA query: para más, exo search --type hybrid \"<q>\""
+  }
+}
