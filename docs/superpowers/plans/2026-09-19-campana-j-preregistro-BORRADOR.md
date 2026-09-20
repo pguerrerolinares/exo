@@ -25,6 +25,14 @@
 > que la alcance; en cualquier otro caso se anota «cláusula no ejercida». La
 > enmienda se commitea antes de generar `paquetes.jsonl`.
 >
+> **Enmienda 2026-09-20 (T0, cláusula D-J8): cláusula no ejercida.** Cobertura
+> de no nulas con ≥ 1 token raro a df ≤ ⌈0,25·174⌉ = 44 es 52/55 ≈ 94,5 %
+> ≥ 80 %; por la regla anterior el tope de F1 se queda en 0,25 (evidencia:
+> `evals/retrieval-heldout/verdict/diagnostico-55.md` línea «F1 (FTS OR sobre
+> tokens raros, tope df 25 %): 52/55 queries tendrían canal léxico, 11 de los
+> misses. Valor para D-J8: 0,25 se mantiene — cobertura 52/55 ≈ 94,5 % ≥ 80 %,
+> cláusula no ejercida.»). §4 no cambia.
+>
 > **Qué se ha observado al redactarlo, y qué no.** Visto: el verdict público
 > de C (`evals/retrieval-heldout/verdict/c-verdict.md`, `agregados*.md`), las
 > capturas privadas de C **solo en agregado** (distribución de scores, plazas
