@@ -13,7 +13,16 @@
 # Uso: scripts/test-versiones.sh            # coherencia del árbol
 #      scripts/test-versiones.sh v0.2.0     # además, el tag casa con Cargo.toml
 set -euo pipefail
-cd "$(git rev-parse --show-toplevel)"
+# Campaña L Task 4 (backlog:1691, mismo fix que 960a319): `cd
+# "$(git rev-parse --show-toplevel)"` directo tiene un fallo silencioso — si
+# la sustitución sale vacía, `cd ""` devuelve 0 sin moverse y bajo
+# `set -e` eso NO aborta. Captura la raíz, la comprueba y entonces se mueve.
+RAIZ="$(git rev-parse --show-toplevel)" || exit 1
+if [ -z "$RAIZ" ]; then
+  echo "test-versiones: git rev-parse --show-toplevel no devolvió nada" >&2
+  exit 1
+fi
+cd "$RAIZ" || exit 1
 
 fallos=0
 plugin="$(jq -r '.version // empty' plugins/exo/.claude-plugin/plugin.json)"

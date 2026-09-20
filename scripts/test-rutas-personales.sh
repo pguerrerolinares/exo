@@ -17,7 +17,17 @@
 # (backlog.md documenta estas mismas rutas como HALLAZGOS, con cita; no son
 # las que produce el hook).
 set -uo pipefail
-cd "$(git rev-parse --show-toplevel)" || exit 1
+# Campaña L Task 4 (backlog:1691, mismo fix que 960a319 en test-hooks-json.sh
+# y test-shellcheck.sh): `cd "$(git rev-parse --show-toplevel)" || exit 1`
+# directo tiene un fallo silencioso — si la sustitución sale vacía, `cd ""`
+# devuelve 0 sin moverse y el `|| exit 1` nunca dispara. Captura la raíz, la
+# comprueba y entonces se mueve.
+RAIZ="$(git rev-parse --show-toplevel)" || exit 1
+if [ -z "$RAIZ" ]; then
+  echo "test-rutas-personales: git rev-parse --show-toplevel no devolvió nada" >&2
+  exit 1
+fi
+cd "$RAIZ" || exit 1
 
 PATRON='(/home/[A-Za-z0-9_.-]+|/Users/[A-Za-z0-9_.-]+|C:[\\/]Users[\\/][A-Za-z0-9_.-]+)'
 

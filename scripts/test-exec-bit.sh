@@ -18,7 +18,17 @@
 # también sale del índice (`git cat-file`), por la misma razón.
 set -euo pipefail
 
-cd "$(git rev-parse --show-toplevel)"
+# Campaña L Task 4 (backlog:1691, mismo fix que 960a319): `cd
+# "$(git rev-parse --show-toplevel)"` directo tiene un fallo silencioso — si
+# la sustitución sale vacía, `cd ""` devuelve 0 sin moverse, y bajo
+# `set -e` eso NO aborta (el exit code de `cd ""` es 0). Captura la raíz, la
+# comprueba y entonces se mueve.
+RAIZ="$(git rev-parse --show-toplevel)" || exit 1
+if [ -z "$RAIZ" ]; then
+  echo "test-exec-bit: git rev-parse --show-toplevel no devolvió nada" >&2
+  exit 1
+fi
+cd "$RAIZ" || exit 1
 
 malos=""
 total=0
