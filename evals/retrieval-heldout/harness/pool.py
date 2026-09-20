@@ -151,13 +151,14 @@ def pool_prompts():
         yield {"query": mejor["query"], "source": "prompt", "session_id": e["session_id"], "ts": mejor["ts_str"]}
 
 
-def filtra(candidatas, in55):
+def filtra(candidatas, in55, ventanas=None):
+    ventanas = VENTANAS if ventanas is None else ventanas
     desc = {"vacia": 0, "guion": 0, "larga": 0, "fuera-de-ventana": 0, "dup-55": 0, "dup-pool": 0}
     vistos, pool = set(), []
     for c in candidatas:
         q = c["query"].strip()
         n = normaliza(q)
-        ini, fin = VENTANAS.get(c["source"], (None, VENTANA_FIN))
+        ini, fin = ventanas.get(c["source"], (None, VENTANA_FIN))
         if not n:
             desc["vacia"] += 1
         elif q.startswith("-"):
@@ -205,12 +206,17 @@ def muestrea(pool, cuotas):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--in-sample", required=True)
+    ap.add_argument("--in-sample", action="append", required=True, help="repetible: JSONL de exclusión (55, gold de C)")
     ap.add_argument("--out-dir", required=True)
-    ap.add_argument("--cuota", action="append", required=True, help="source=n (prompt|agent-search)")
+    ap.add_argument("--cuota", action="append", required=True, help="source=n (prompt|agent-search); n=0 = estrato entero barajado")
+    ap.add_argument("--desde", help="inicio exclusivo de ventana para TODAS las fuentes (ISO Z); default: ventanas de C")
+    ap.add_argument("--hasta", help="fin exclusivo de ventana para TODAS las fuentes (ISO Z); default: 2026-09-13")
     a = ap.parse_args()
-    in55 = [normaliza(json.loads(l)["query"]) for l in open(a.in_sample, encoding="utf-8") if l.strip()]
-    pool, desc = filtra([*pool_search_notes(), *pool_comandos(), *pool_prompts()], in55)
+    in55 = [normaliza(json.loads(l)["query"]) for ruta in a.in_sample for l in open(ruta, encoding="utf-8") if l.strip()]
+    ventanas = None
+    if a.desde or a.hasta:
+        ventanas = {s: (a.desde or ini, a.hasta or fin) for s, (ini, fin) in VENTANAS.items()}
+    pool, desc = filtra([*pool_search_notes(), *pool_comandos(), *pool_prompts()], in55, ventanas)
     cuotas = [(c.split("=")[0], int(c.split("=")[1])) for c in a.cuota]
     try:
         muestra = muestrea(pool, cuotas)

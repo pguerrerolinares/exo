@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""Valida el gold del held-out C (pre-registro §3) contra el snapshot de la KB.
-Exit 1 con la lista de errores; exit 0 imprime recuentos y sha256.
-Uso: valida_gold.py --gold G --kb KB --in-sample IN55
+"""Valida un gold de held-out (C: pre-registro §3; J: borrador §3) contra el
+snapshot de la KB. Exit 1 con la lista de errores; exit 0 imprime recuentos
+y sha256. `--in-sample` es repetible: cada fichero JSONL con campo `query`
+es una lista de exclusión (anti-fuga; para J: las 55 y el gold de C).
+Uso: valida_gold.py --gold G --kb KB --in-sample IN55 [--in-sample GOLD_C]
 """
 import argparse
 import hashlib
@@ -13,7 +15,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pool import jaccard, normaliza  # noqa: E402
 
-FUENTES = {"prompt", "agent-search", "hard"}
+# C: prompt | agent-search | hard. J añade keyword (palabras clave escritas
+# por Paul), archive (la respuesta vive en archive/) y negativo (tema ausente
+# de la KB: corpus negativo verdadero, expected null por definición).
+FUENTES = {"prompt", "agent-search", "hard", "keyword", "archive", "negativo"}
 
 
 def permalinks_snapshot(kb):
@@ -49,6 +54,10 @@ def valida(filas, permalinks, in55):
         if any(n == m or jaccard(n, m) >= 0.8 for m in in55):
             errores.append(f"{i}: query duplica una de las 55")
         exp, acc = f["expected_permalink"], f["acceptable_permalinks"]
+        if f["source"] == "negativo" and exp is not None:
+            errores.append(f"{i}: source negativo con expected_permalink (debe ser null)")
+        if f["source"] == "archive" and (exp is None or "/archive/" not in exp):
+            errores.append(f"{i}: source archive exige expected_permalink bajo archive/")
         if exp is None:
             if acc:
                 errores.append(f"{i}: fila null con acceptable_permalinks")
@@ -70,10 +79,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--gold", required=True)
     ap.add_argument("--kb", required=True)
-    ap.add_argument("--in-sample", required=True)
+    ap.add_argument("--in-sample", action="append", required=True, help="repetible: JSONL de exclusión")
     a = ap.parse_args()
     filas = [json.loads(l) for l in open(a.gold, encoding="utf-8") if l.strip()]
-    in55 = [normaliza(json.loads(l)["query"]) for l in open(a.in_sample, encoding="utf-8") if l.strip()]
+    in55 = [normaliza(json.loads(l)["query"]) for ruta in a.in_sample for l in open(ruta, encoding="utf-8") if l.strip()]
     errores = valida(filas, permalinks_snapshot(a.kb), in55)
     for e in errores:
         print(e, file=sys.stderr)
@@ -81,6 +90,7 @@ def main():
     print(json.dumps({
         "filas": len(filas), "no_nulas": len(no_nulas), "nulas": len(filas) - len(no_nulas),
         "no_nulas_por_estrato": dict(Counter(f.get("source") for f in no_nulas)),
+        "nulas_por_estrato": dict(Counter(f.get("source") for f in filas if not f.get("expected_permalink"))),
         "con_acceptable": sum(1 for f in filas if f.get("acceptable_permalinks")),
         "sha256": hashlib.sha256(Path(a.gold).read_bytes()).hexdigest(),
         "errores": len(errores)}, ensure_ascii=False))

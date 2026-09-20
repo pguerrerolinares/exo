@@ -173,6 +173,16 @@ class TestPool(unittest.TestCase):
         self.assertEqual([c["query"] for c in pool_], ["memoria v2 contrato"])
         self.assertEqual(desc, {"vacia": 0, "guion": 1, "larga": 1, "fuera-de-ventana": 3, "dup-55": 1, "dup-pool": 1})
 
+    def test_filtra_con_ventanas_propias(self):
+        c = {"query": "una query de J", "source": "prompt", "session_id": "s", "ts": "2026-09-15T00:00:00Z"}
+        self.assertEqual(pl.filtra([c], [])[0], [])
+        v = {"prompt": ("2026-09-13T00:00:00Z", "2026-09-20T00:00:00Z"), "agent-search": ("2026-09-13T00:00:00Z", "2026-09-20T00:00:00Z")}
+        self.assertEqual(len(pl.filtra([c], [], v)[0]), 1)
+
+    def test_muestrea_cuota_cero_devuelve_estrato_entero(self):
+        pool = [{"query": f"q{i}", "source": "prompt", "ts": f"2026-09-1{i}T00:00:00Z"} for i in range(4)]
+        self.assertEqual(len(pl.muestrea(pool, [("prompt", 0)])), 4)
+
     def test_muestrea_es_independiente_del_orden_de_las_cuotas(self):
         pool_ = (
             [{"source": "prompt", "query": f"p{i}", "ts": f"2026-08-{22 + i % 8:02d}T00:00:00Z"} for i in range(12)]
@@ -242,6 +252,18 @@ class TestValidaGold(unittest.TestCase):
 
     def test_ids_duplicados(self):
         self.assertTrue(vg.valida([self.fila(), self.fila(query="otra")], self.PERMS, []))
+
+    def test_estratos_j(self):
+        perms = self.PERMS | {"kb/archive/log/x-2026-01-01_2026-02-02"}
+        self.assertEqual(vg.valida([self.fila(id="j1", source="keyword")], perms, []), [])
+        self.assertEqual(vg.valida([self.fila(id="j2", source="negativo", expected_permalink=None)], perms, []), [])
+        self.assertEqual(vg.valida([self.fila(id="j3", source="archive", expected_permalink="kb/archive/log/x-2026-01-01_2026-02-02")], perms, []), [])
+        self.assertTrue(vg.valida([self.fila(id="j4", source="negativo")], perms, []))
+        self.assertTrue(vg.valida([self.fila(id="j5", source="archive")], perms, []))
+        self.assertTrue(vg.valida([self.fila(id="j6", source="archive", expected_permalink=None)], perms, []))
+
+    def test_exclusion_multiple(self):
+        self.assertTrue(vg.valida([self.fila(query="Gold de C tal cual")], self.PERMS, [pl.normaliza("fabrica campaña"), pl.normaliza("gold de C tal cual")]))
 
 
 class TestDiagnostico(unittest.TestCase):
