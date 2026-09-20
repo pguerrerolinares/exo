@@ -78,12 +78,13 @@ fi
 # @tsv/tab en exo-recall.sh, esta aserción lo detecta directamente sobre el
 # código vivo -- a diferencia del golden, que (según el razonamiento de
 # arriba) nunca vería la diferencia en el output final del hook.
-# `N;p` en vez de `addr,+1p` (review final de rama, 2026-09-20): `,+N` es
-# extensión GNU -- busybox la soporta (por eso pasaba en `bash:3.2`
-# dockerizado) pero el `sed` de BSD en macOS no, y el CI corre
-# `macos-latest`. `N;p` es POSIX puro, verificado idéntico en GNU sed y en
-# busybox (`bash:3.2`).
-HOOK_SOURCE_SID_SRC="$(sed -n '/^SOURCE=""; SID=""$/{N;p}' "$HOOK")"
+# `awk` en vez de `sed` (CI de macOS en rojo, 2026-09-20): se probaron dos
+# formas de sed y las dos fallan fuera de GNU. `addr,+1p` es extensión GNU
+# (busybox la acepta, BSD no). `{N;p}` tampoco vale: el sed de BSD corta el
+# bloque y da `extra characters at the end of p command` -- dentro de `{}`
+# exige separar los comandos en argumentos `-e` distintos. `awk` imprime la
+# línea que casa y la siguiente sin ambigüedad y está en los tres SO.
+HOOK_SOURCE_SID_SRC="$(awk '/^SOURCE=""; SID=""$/{print; if (getline > 0) print}' "$HOOK")"
 if [ -z "$HOOK_SOURCE_SID_SRC" ]; then
   fail "campaña I: extracción de la asignación SOURCE/SID" "no encontré el bloque en $HOOK -- revisar el patrón sed"
 else
