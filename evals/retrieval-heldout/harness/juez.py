@@ -75,6 +75,86 @@ escrita ANTES de validar la respuesta (`{id, intento, prompt_tokens,
 completion_tokens, usd, ts, precio_entrada, precio_salida,
 motivo_desconocida}`). El gasto acumulado se reconstruye SIEMPRE del
 diario (`reconstruye_gasto()`), nunca de `--out`.
+
+Enmienda 2026-09-20 (d), tercera ronda de review adversarial — (c) resolvió
+que el diario fuera la fuente de verdad, pero dejó dos huecos igual de
+graves: nada obligaba a que el diario y `--out` fueran EL MISMO trabajo
+(C1), y el diario seguía escribiéndose DESPUÉS de que la llamada volviera,
+no antes de lanzarla (C2, el hueco real de (c) no era el mismo que el de
+(b): (b) cubría excepciones capturadas dentro del proceso vivo, no la
+muerte del proceso a medio HTTP).
+- **C1 — diario y `--out` deben ser VERIFICABLEMENTE coherentes o el
+  pipeline no arranca:** antes, `gasto` se reconstruía del diario y `hechos`
+  (ids a saltar) de `--out` por caminos totalmente independientes — sin
+  checksum, sin job-id, sin recuento cruzado, solo el nombre de fichero
+  posicional `<out>.gasto.jsonl`. Un `--out` con filas válidas sin su
+  diario (borrado, vacío, `--out` reanudado con typo/timestamp regenerado,
+  o un diario de OTRO trabajo pegado en esa ruta) arrancaba en `$0.0000`
+  sin un solo aviso: el tope dejaba de ser un tope acumulado y pasaba a ser
+  "$10 por cada vez que se pierde la traza", sin techo garantizado. Ahora
+  `procesa_lote` verifica ANTES de tocar la red:
+    1. cada id con fila válida en `--out` tiene una entrada `"tipo": "ok"`
+       correspondiente en el diario (`_lee_diario_meta`) — si falta alguna,
+       aborta con `SystemExit` listando exactamente qué ids faltan;
+    2. el diario tiene contenido pero `--out` no existe — aborta (el `--out`
+       se borró, o el diario no es de este `--out`);
+    3. la cabecera del diario (`"tipo": "header"`, escrita una sola vez al
+       crear el diario, con un `job_id` y la identidad de fichero
+       `(st_dev, st_ino)` de `--out` en ese momento) no coincide con la
+       identidad actual de `--out` — aborta (diario de otro trabajo pegado
+       en esta ruta, aunque los ids coincidan por casualidad).
+  Si alguna verificación falla, el pipeline NO arranca salvo que el
+  operador pase `--acepto-riesgo-gasto-no-verificable` (nombre largo y
+  explícito a propósito: no se activa sin querer) — y en ese caso queda un
+  rastro `"tipo": "override_trazabilidad"` en el propio diario con el
+  detalle de qué se aceptó y el gasto heredado en ese momento, además de un
+  aviso por stderr. Límite conocido: sin cabecera (diario legado de antes
+  de (d)) la verificación 3 no puede aplicarse — solo protege diarios
+  creados desde esta enmienda en adelante.
+- **C2 — hueco entre "la llamada sale" y "se escribe el diario":** antes,
+  la línea se escribía DESPUÉS de que `urlopen()` retornara; un `kill -9`
+  real entre el envío y esa escritura dejaba el diario sin ninguna traza de
+  una llamada ya facturada (~$0,02-0,03 por evento con los precios de
+  kimi-k3, verificado matando un proceso de verdad). Ahora cada intento
+  escribe una marca `"tipo": "en_vuelo"` en el diario ANTES de llamar a la
+  API, con `flush()` + `os.fsync()` para sobrevivir a un `kill -9`; al
+  resolverse (con coste real, como desconocida, o como usage inválido) se
+  escribe una segunda línea que la resuelve por `(id, intento)`. Al
+  reconstruir, una marca en vuelo que quedó sin resolver (proceso muerto
+  entre el fsync de la marca y la resolución) cuenta como DESCONOCIDA —
+  nunca como cero. Residuo conocido, documentado aquí porque cerrarlo del
+  todo es imposible: `fsync()` es una garantía del sistema operativo, no
+  del hardware — en un disco con caché de escritura sin protección de
+  batería, o ciertos discos virtualizados sin passthrough correcto de
+  flush, un `fsync()` que retorna éxito puede no sobrevivir a un corte de
+  corriente real (no a un `kill -9`, que SÍ está cubierto y verificado). Es
+  un riesgo de la capa de almacenamiento, no de este código, y es
+  estrictamente mejor que el estado anterior (sin marca alguna). Además,
+  si el proceso muere en la ventana microscópica entre "se escribe y
+  fsyncea la marca en vuelo" y "se dispara la llamada real", la marca queda
+  sin resolver y se cuenta como desconocida aunque no se facturara nada:
+  un falso positivo (el breaker se para de más), nunca un falso negativo
+  (nunca deja de contar un gasto real) — la asimetría es intencional.
+- **Important — el diario distingue el MOTIVO del `usd: null`:** antes,
+  `USAGE_INVALIDO` (bug de schema: la API respondió pero `usage` no es
+  utilizable, C3) y una desconocida real (F1: la respuesta se perdió por
+  timeout/URLError, nunca llegó) quedaban indistinguibles (`usd: null` en
+  ambos casos). Consecuencia: tras una parada por `USAGE_INVALIDO` ya
+  resuelta por el operador, reanudar consumía para siempre 1 unidad de
+  `--tolerancia-desconocidas` por esa línea vieja, aunque no tuviera nada
+  que ver con una llamada perdida. Ahora cada línea del diario lleva
+  `"tipo"` (`ok` | `desconocida` | `usage_invalido` | `en_vuelo` | `header`
+  | `override_trazabilidad`) y solo `"tipo": "desconocida"` consume la
+  tolerancia al reconstruir; `usage_invalido` heredado se cuenta aparte
+  (informativo) y nunca dispara `parada_por_gasto_desconocido` por sí solo.
+- **Minor — `flock` y NFS:** el código ya degrada explícitamente si
+  `fcntl` no existe (F2), pero eso no cubre el caso donde `fcntl` SÍ existe
+  y el lock se toma "con éxito" sobre un filesystem donde `flock()` no es
+  fiable (NFS, sobre todo NFSv3 o exports mal configurados: el lock puede
+  no ser visible entre distintos clientes). Esto es una propiedad del
+  filesystem, no detectable desde Python sin dependencias extra — se deja
+  documentado aquí y en el `--help ` en vez de fingir una garantía que el
+  código no puede verificar.
 - **F1 — timeout/URLError con la API ya facturada:** un intento que SALE
   hacia la API pero cuya respuesta se pierde (`URLError`, `TimeoutError`,
   JSON de la API no parseable) es una llamada de facturación DESCONOCIDA:
@@ -117,16 +197,18 @@ Uso: juez.py paquetes --candidatos C --snap KB --out P.jsonl
      juez.py modelos --env-keys F
      juez.py kimi --paquetes P.jsonl --env-keys F --model M --out R.jsonl
          --precio-entrada 3.00 --precio-salida 15.00 [--tope-usd 10] [--max N]
-         [--tolerancia-desconocidas 0]
+         [--tolerancia-desconocidas 0] [--acepto-riesgo-gasto-no-verificable]
      juez.py valida --respuestas R.jsonl --candidatos C
 """
 import argparse
 import json
 import math
+import os
 import sys
 import time
 import urllib.error
 import urllib.request
+import uuid
 from pathlib import Path
 
 try:
@@ -304,32 +386,52 @@ def ids_ya_escritos(ruta_out):
 
 
 def reconstruye_gasto(ruta_diario, precio_entrada, precio_salida):
-    """Reanudación (C1), reescrita para la enmienda (c): recorre el diario
-    append-only `ruta_diario` (`<out>.gasto.jsonl`, una línea por llamada
-    FACTURADA escrita por `procesa_lote`/`kimi` ANTES de validar la
-    respuesta) y devuelve (gasto_heredado, [prompt_tok, completion_tok],
-    desconocidas_heredadas). El diario es la fuente de verdad del gasto, NO
-    `--out`: `--out` solo contiene las filas que pasaron `parsea()`, y eso
-    dejaba invisible todo lo facturado que no llegó a fila -reintentos
-    fallidos (C2), timeouts (F1), crashes a medio flush (F4)-.
-    Cada línea es o bien una llamada de coste CONOCIDO (`usd` finito, no
-    negativo) o de facturación DESCONOCIDA (`usd: null` -F1, o C3: `usage`
-    inutilizable en el momento de la llamada); nunca se inventa ni se asume
-    cero para esas -se devuelven aparte en `desconocidas_heredadas`, y es
-    `procesa_lote` quien aplica la política de tolerancia (F1) antes de
-    lanzar la siguiente llamada. Avisa por stderr si los precios del run
-    actual difieren de los últimos registrados en el diario (F5) -el `usd`
-    ya persistido por llamada no se recalcula con los precios de hoy."""
-    gasto, tok, desconocidas = 0.0, [0, 0], 0
+    """Reanudación (C1/(c)), reescrita para la enmienda (d): recorre el
+    diario append-only `ruta_diario` (`<out>.gasto.jsonl`) y devuelve
+    (gasto_heredado, [prompt_tok, completion_tok], desconocidas_heredadas,
+    usage_invalidas_heredadas). El diario es la fuente de verdad del gasto,
+    NO `--out` -ver `_lee_diario_meta()` para la verificación de coherencia
+    entre ambos, que corre ANTES de esto en `procesa_lote`-.
+    Cada línea lleva `"tipo"` desde (d): `header` y `override_trazabilidad`
+    se ignoran para el cómputo; `en_vuelo` (marca escrita ANTES de lanzar la
+    llamada, C2) se guarda como pendiente hasta encontrar su línea de
+    resolución por `(id, intento)` -si el diario se acaba con marcas sin
+    resolver (proceso muerto entre facturar y resolver), cada una cuenta
+    como DESCONOCIDA, nunca como cero-. `ok` y `usage_invalido` resuelven
+    la marca en vuelo correspondiente; solo `desconocida` (F1: respuesta
+    perdida, nunca llegó) consume la tolerancia -`usage_invalido` (C3: la
+    respuesta llegó pero el `usage` no es utilizable, un bug de schema) se
+    cuenta aparte en `usage_invalidas_heredadas`, informativo, para no
+    consumir para siempre `--tolerancia-desconocidas` por un motivo que no
+    tiene nada que ver con una llamada perdida (hallazgo Important de (d)).
+    Diarios legados de antes de (d) no tienen `"tipo"`: por compatibilidad
+    conservadora, una línea sin `"tipo"` y `usd: null` cuenta como
+    `desconocida` (el comportamiento de antes de (d), que ya era seguro).
+    Avisa por stderr si los precios del run actual difieren de los últimos
+    registrados en el diario (F5) -el `usd` ya persistido por llamada no se
+    recalcula con los precios de hoy."""
+    gasto, tok, desconocidas, usage_invalidas = 0.0, [0, 0], 0, 0
     if not Path(ruta_diario).exists():
-        return gasto, tok, desconocidas
+        return gasto, tok, desconocidas, usage_invalidas
     precios_vistos = None
+    en_vuelo_pendientes = {}
     for n, fila in _lee_jsonl_robusto(ruta_diario, "diario de gasto"):
+        tipo = fila.get("tipo")
+        if tipo in ("header", "override_trazabilidad"):
+            continue
+        clave = (fila.get("id"), fila.get("intento"))
+        if tipo == "en_vuelo":
+            en_vuelo_pendientes[clave] = n
+            continue
+        en_vuelo_pendientes.pop(clave, None)  # esta línea resuelve la marca en vuelo, si había
         if "precio_entrada" in fila and "precio_salida" in fila:
             precios_vistos = (fila["precio_entrada"], fila["precio_salida"])
         usd = fila.get("usd")
         if usd is None:
-            desconocidas += 1
+            if tipo == "usage_invalido":
+                usage_invalidas += 1
+            else:  # tipo == "desconocida", o diario legado sin "tipo" (compat conservadora)
+                desconocidas += 1
             continue
         if not _numerico(usd) or usd < 0:
             raise SystemExit(
@@ -341,6 +443,9 @@ def reconstruye_gasto(ruta_diario, precio_entrada, precio_salida):
         gasto += usd
         tok[0] += fila.get("prompt_tokens") or 0
         tok[1] += fila.get("completion_tokens") or 0
+    # marca(s) en vuelo sin resolver: el proceso murió entre facturar y escribir la resolución
+    # (C2) -- se cuentan como DESCONOCIDAS, nunca como cero.
+    desconocidas += len(en_vuelo_pendientes)
     if precios_vistos is not None and precios_vistos != (precio_entrada, precio_salida):
         print(
             f"AVISO: los precios del run actual (entrada=${precio_entrada}/salida=${precio_salida}) "
@@ -350,11 +455,34 @@ def reconstruye_gasto(ruta_diario, precio_entrada, precio_salida):
             "equivocó de tarifa (el proyecto usa tarifas reales distintas de Moonshot, k3 y k2.6).",
             file=sys.stderr,
         )
-    return gasto, tok, desconocidas
+    return gasto, tok, desconocidas, usage_invalidas
+
+
+def _lee_diario_meta(ruta_diario):
+    """Metadatos del diario para la verificación de coherencia diario/`--out`
+    (C1, enmienda (d)): la cabecera (`"tipo": "header"`, `{job_id, out_dev,
+    out_ino, out_path, ts}`, escrita una sola vez al crear el diario -- o
+    `None` si el diario no existe o es legado sin cabecera) y el conjunto de
+    ids con al menos una llamada resuelta con éxito (`"tipo": "ok"`) -- las
+    únicas que pueden corresponder a una fila válida en `--out`, porque
+    `parsea()` solo se intenta después de que `contabiliza()` confirme un
+    coste conocido en ese mismo intento."""
+    header = None
+    ids_ok = set()
+    if not Path(ruta_diario).exists():
+        return header, ids_ok
+    for _, fila in _lee_jsonl_robusto(ruta_diario, "diario de gasto (metadatos)"):
+        if fila.get("tipo") == "header":
+            if header is None:
+                header = fila
+            continue
+        if fila.get("tipo") == "ok":
+            ids_ok.add(fila.get("id"))
+    return header, ids_ok
 
 
 def kimi(paq, key, model, reintentos=3, http=_http, contabiliza=None,
-         contabiliza_desconocida=None, tope_alcanzado=None):
+         contabiliza_desconocida=None, tope_alcanzado=None, marca_en_vuelo=None):
     """Intenta hasta `reintentos` veces. Cada intento que SÍ recibe
     respuesta de la API es una llamada FACTURADA y se pasa a
     `contabiliza(usage, intento)` -- se valide o no después con `parsea()`
@@ -368,11 +496,17 @@ def kimi(paq, key, model, reintentos=3, http=_http, contabiliza=None,
     Si esa devuelve error (tolerancia de desconocidas agotada, ver
     `procesa_lote`), `kimi()` para en seco igual que con `USAGE_INVALIDO`.
     Antes de cada intento -incluidos los reintentos- se consulta
-    `tope_alcanzado()`; si ya se rebasó, NO se lanza el intento (C2)."""
+    `tope_alcanzado()`; si ya se rebasó, NO se lanza el intento (C2).
+    `marca_en_vuelo(intento)` (enmienda (d), C2) se llama JUSTO ANTES de
+    `http()`, para que un `kill -9` real entre el envío y el retorno deje
+    una marca ya fsyncada en el diario -sin ella, ese hueco no dejaba
+    ninguna traza-."""
     ultimo = None
     for i in range(reintentos):
         if tope_alcanzado is not None and tope_alcanzado():
             return None, "tope superado: reintento no lanzado"
+        if marca_en_vuelo is not None:
+            marca_en_vuelo(i + 1)
         try:
             r = http(f"{BASE}/chat/completions", key, cuerpo_peticion(paq, model))
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
@@ -405,24 +539,36 @@ def kimi(paq, key, model, reintentos=3, http=_http, contabiliza=None,
 
 def procesa_lote(ruta_paquetes, out, key, model, precio_entrada, precio_salida,
                   tope_usd=TOPE_USD_DEFAULT, maximo=0, http=_http, reintentos=3,
-                  tolerancia_desconocidas=0):
+                  tolerancia_desconocidas=0, acepto_riesgo_gasto=False):
     """Corre `kimi()` sobre cada paquete de `ruta_paquetes`, escribiendo en
     `out` (reanudable: salta los ids ya presentes en `out`, `ids_ya_escritos`
     -F4-). Mantiene un diario append-only `<out>.gasto.jsonl` (enmienda (c)):
-    una línea por llamada FACTURADA -coste conocido o DESCONOCIDA (F1)-
-    escrita ANTES de validar la respuesta. El gasto acumulado se reconstruye
-    SIEMPRE de ese diario (`reconstruye_gasto`), nunca de `--out` -que solo
-    tiene las filas que pasaron `parsea()`, y por eso era ciego a reintentos
-    fallidos, timeouts y crashes a medio flush-.
+    una línea por llamada FACTURADA -coste conocido o DESCONOCIDA (F1)-, con
+    una marca `en_vuelo` fsyncada ANTES de lanzar la llamada y resuelta
+    después (enmienda (d), C2). El gasto acumulado se reconstruye SIEMPRE de
+    ese diario (`reconstruye_gasto`), nunca de `--out` -que solo tiene las
+    filas que pasaron `parsea()`, y por eso era ciego a reintentos fallidos,
+    timeouts y crashes a medio flush-.
+    Antes de tocar la red, verifica que el diario y `--out` sean
+    VERIFICABLEMENTE coherentes (C1, enmienda (d)): cada id con fila válida
+    en `--out` debe tener una entrada `"tipo": "ok"` en el diario, el diario
+    no puede tener contenido si `--out` no existe, y si el diario tiene
+    cabecera (`job_id` + identidad de fichero de `--out`) esa identidad debe
+    coincidir con la de `--out` actual. Si algo no cuadra, aborta con
+    `SystemExit` -salvo que `acepto_riesgo_gasto` sea `True` (bandera
+    explícita, deja rastro `"tipo": "override_trazabilidad"` en el diario).
     Toma un lock exclusivo (F2) sobre `<out>.gasto.jsonl.lock` durante toda
     la corrida: un segundo proceso con el mismo `--out` falla rápido con
-    `SystemExit` en vez de doblar el gasto corriendo en paralelo.
+    `SystemExit` en vez de doblar el gasto corriendo en paralelo (nota: esto
+    depende de que `flock()` sea fiable en el filesystem -no lo es siempre
+    sobre NFS-, no solo de que `fcntl` exista).
     Para en seco -sin lanzar la siguiente llamada, ni dentro de los
     reintentos de un mismo paquete (C2)- en cuanto el acumulado SUPERA
     `tope_usd` (`parada_por_tope`). Un `usage` inutilizable en una respuesta
     nueva para en seco de inmediato (`parada_por_usage_invalido`, C3, código
     4). Más de `tolerancia_desconocidas` llamadas de facturación desconocida
-    -heredadas del diario o nuevas de esta corrida- para en seco de inmediato
+    -heredadas del diario o nuevas de esta corrida; `usage_invalido` NO
+    cuenta para esto, ver `reconstruye_gasto`- para en seco de inmediato
     (`parada_por_gasto_desconocido`, F1, código 5); default 0: la primera ya
     para. Devuelve un resumen con `desconocidas` (recuento total, heredadas
     + nuevas) siempre presente."""
@@ -445,12 +591,64 @@ def procesa_lote(ruta_paquetes, out, key, model, precio_entrada, precio_salida,
               "NO está activo; no lances dos procesos con el mismo --out a la vez.", file=sys.stderr)
 
     try:
+        # --- C1 (enmienda (d)): diario y --out deben ser verificablemente coherentes. ---
         hechos = ids_ya_escritos(out)
-        gasto, tok, desconocidas = reconstruye_gasto(ruta_gasto, precio_entrada, precio_salida)
-        if gasto or desconocidas:
+        header, ids_ok_diario = _lee_diario_meta(ruta_gasto)
+        faltan = hechos - ids_ok_diario
+
+        existe_out = Path(out).exists()
+        identidad_out = None
+        if existe_out:
+            st_out_previo = Path(out).stat()
+            identidad_out = (st_out_previo.st_dev, st_out_previo.st_ino)
+
+        diario_path = Path(ruta_gasto)
+        diario_no_vacio = diario_path.exists() and diario_path.stat().st_size > 0
+        necesita_header = not diario_no_vacio
+
+        incoherencias = []
+        if faltan:
+            incoherencias.append(
+                f"{len(faltan)} id(s) con fila válida en {out} sin entrada 'tipo':'ok' "
+                f"correspondiente en el diario {ruta_gasto}: {sorted(faltan)}. Ese gasto quedaría "
+                "invisible para el breaker (nunca $0 en silencio)."
+            )
+        if diario_no_vacio and not existe_out:
+            incoherencias.append(
+                f"el diario {ruta_gasto} ya tiene contenido pero {out} no existe: o se borró el "
+                "--out original, o este diario no corresponde a este --out."
+            )
+        if header is not None and identidad_out is not None:
+            header_id = (header.get("out_dev"), header.get("out_ino"))
+            if header_id != identidad_out:
+                incoherencias.append(
+                    f"la cabecera del diario {ruta_gasto} (job_id={header.get('job_id')!r}) está "
+                    f"ligada a un --out con identidad de fichero {header_id}, distinta de la de "
+                    f"{out} actual ({identidad_out}): probable diario de otro trabajo en esta ruta "
+                    "(aunque los ids coincidan)."
+                )
+
+        if incoherencias and not acepto_riesgo_gasto:
+            raise SystemExit(
+                "diario de gasto incoherente con --out; el breaker no puede reconstruir el gasto "
+                "de forma fiable y NO arranca (si arrancara igual, el tope '$X' pasaría a ser "
+                "'$X por cada vez que se pierde la traza', sin techo garantizado):\n- "
+                + "\n- ".join(incoherencias)
+                + "\nOpciones: (1) reconstruye el diario a mano añadiendo, por cada id listado "
+                'arriba, una línea {"tipo": "ok", "id": "<id>", "usd": <coste real>} con su coste '
+                "real; o (2) si aceptas explícitamente arrancar sin poder verificar esa traza (el "
+                "gasto heredado será el que el diario permita reconstruir, potencialmente $0), "
+                "vuelve a correr con --acepto-riesgo-gasto-no-verificable -queda registrado en el "
+                "propio diario, con el detalle de qué se aceptó-."
+            )
+
+        gasto, tok, desconocidas, usage_invalidas_heredadas = reconstruye_gasto(
+            ruta_gasto, precio_entrada, precio_salida)
+        if gasto or desconocidas or usage_invalidas_heredadas:
             print(f"gasto heredado del diario {ruta_gasto} (reanudación): ${gasto:.4f} "
                   f"({desconocidas} llamadas de facturación desconocida heredadas, "
-                  f"{len(hechos)} filas ya escritas en {out})", file=sys.stderr)
+                  f"{usage_invalidas_heredadas} de usage inválido heredadas -no consumen "
+                  f"tolerancia-, {len(hechos)} filas ya escritas en {out})", file=sys.stderr)
 
         errores, n = [], 0
         parado_en = parado_por_usage = parado_por_desconocidas = None
@@ -463,13 +661,20 @@ def procesa_lote(ruta_paquetes, out, key, model, precio_entrada, precio_salida,
             return desconocidas > tolerancia_desconocidas
 
         def _diario(entrada):
+            # flush + fsync en cada línea (C2, enmienda (d)): una marca en_vuelo -o cualquier
+            # otra línea- debe sobrevivir a un kill -9 real, no solo a una excepción capturada.
             fh_diario.write(json.dumps(entrada, ensure_ascii=False) + "\n")
             fh_diario.flush()
+            os.fsync(fh_diario.fileno())
+
+        def marca_en_vuelo(intento):
+            _diario({"tipo": "en_vuelo", "id": paq_actual["id"], "intento": intento, "ts": time.time()})
 
         def contabiliza(usage, intento):
             nonlocal gasto
             c, err = costo(usage, precio_entrada, precio_salida)
             _diario({
+                "tipo": "usage_invalido" if err is not None else "ok",
                 "id": paq_actual["id"], "intento": intento, "ts": time.time(),
                 "prompt_tokens": usage.get("prompt_tokens") if isinstance(usage, dict) else None,
                 "completion_tokens": usage.get("completion_tokens") if isinstance(usage, dict) else None,
@@ -487,6 +692,7 @@ def procesa_lote(ruta_paquetes, out, key, model, precio_entrada, precio_salida,
         def contabiliza_desconocida(intento, motivo):
             nonlocal desconocidas
             _diario({
+                "tipo": "desconocida",
                 "id": paq_actual["id"], "intento": intento, "ts": time.time(),
                 "prompt_tokens": None, "completion_tokens": None, "usd": None,
                 "precio_entrada": precio_entrada, "precio_salida": precio_salida,
@@ -505,6 +711,24 @@ def procesa_lote(ruta_paquetes, out, key, model, precio_entrada, precio_salida,
         with open(out, "a", encoding="utf-8") as fh, \
              open(ruta_gasto, "a", encoding="utf-8") as fh_diario, \
              open(ruta_paquetes, encoding="utf-8") as fpaq:
+            if necesita_header:
+                st_out = os.fstat(fh.fileno())
+                _diario({
+                    "tipo": "header", "job_id": uuid.uuid4().hex,
+                    "out_dev": st_out.st_dev, "out_ino": st_out.st_ino,
+                    "out_path": str(Path(out).resolve()), "ts": time.time(),
+                })
+            if incoherencias and acepto_riesgo_gasto:
+                print(
+                    "AVISO: --acepto-riesgo-gasto-no-verificable activo; se arranca pese a "
+                    "incoherencia(s) diario/--out: " + " | ".join(incoherencias)
+                    + f" -- gasto heredado reconstruido del diario: ${gasto:.4f}.",
+                    file=sys.stderr,
+                )
+                _diario({
+                    "tipo": "override_trazabilidad", "ts": time.time(),
+                    "detalle": incoherencias, "gasto_heredado_tras_override": round(gasto, 4),
+                })
             for l in fpaq:
                 if not l.strip():
                     continue
@@ -525,7 +749,8 @@ def procesa_lote(ruta_paquetes, out, key, model, precio_entrada, precio_salida,
                           f"{parado_por_desconocidas}; parada en seco. Reanudable por id.", file=sys.stderr)
                     break
                 d, err = kimi(paq, key, model, reintentos=reintentos, http=http, contabiliza=contabiliza,
-                              contabiliza_desconocida=contabiliza_desconocida, tope_alcanzado=tope_alcanzado)
+                              contabiliza_desconocida=contabiliza_desconocida, tope_alcanzado=tope_alcanzado,
+                              marca_en_vuelo=marca_en_vuelo)
                 n += 1
                 if d is None:
                     if err is not None and err.startswith("USAGE_INVALIDO"):
@@ -611,7 +836,24 @@ def main():
                            "gastado no puede seguir gastando-. Sube este número solo si asumes "
                            "explícitamente el riesgo de gasto no contabilizado hasta ese número de "
                            "llamadas perdidas. Se acumula entre reanudaciones: lo heredado del diario "
-                           "cuenta antes de lanzar la siguiente llamada, igual que el tope de gasto.")
+                           "cuenta antes de lanzar la siguiente llamada, igual que el tope de gasto. "
+                           "Una llamada 'usage_invalido' (C3: la API respondió pero el usage no es "
+                           "utilizable) NO consume esta tolerancia -es un motivo distinto, ver "
+                           "--acepto-riesgo-gasto-no-verificable para el otro tipo de incoherencia-.")
+    a_k.add_argument("--acepto-riesgo-gasto-no-verificable", action="store_true",
+                      dest="acepto_riesgo_gasto",
+                      help="BANDERA DE ALTO RIESGO, nombre largo a propósito para que no se active "
+                           "sin querer. El pipeline verifica que el diario <out>.gasto.jsonl y --out "
+                           "sean coherentes antes de arrancar (cada id con fila válida en --out tiene "
+                           "su entrada 'ok' en el diario, y la identidad de --out coincide con la que "
+                           "el diario tiene registrada en su cabecera); si no lo son, aborta en vez de "
+                           "arrancar el gasto heredado en $0 en silencio. Esta bandera salta esa "
+                           "verificación y arranca igual -el gasto heredado será el que el diario "
+                           "permita reconstruir, potencialmente $0 aunque --out ya tenga filas con "
+                           "coste real-. Queda registrado en el propio diario ('tipo': "
+                           "'override_trazabilidad', con el detalle de qué se aceptó) y se avisa por "
+                           "stderr. Úsala solo si entiendes y aceptas que el tope deja de ser una cota "
+                           "fiable de lo gastado en total.")
     a_v = sub.add_parser("valida")
     a_v.add_argument("--respuestas", required=True)
     a_v.add_argument("--candidatos", required=True)
@@ -631,7 +873,8 @@ def main():
         key = _key(a.env_keys)
         resultado = procesa_lote(a.paquetes, a.out, key, a.model, a.precio_entrada, a.precio_salida,
                                   tope_usd=a.tope_usd, maximo=a.max,
-                                  tolerancia_desconocidas=a.tolerancia_desconocidas)
+                                  tolerancia_desconocidas=a.tolerancia_desconocidas,
+                                  acepto_riesgo_gasto=a.acepto_riesgo_gasto)
         print(json.dumps(resultado, ensure_ascii=False))
         if "parada_por_usage_invalido" in resultado:
             sys.exit(4)

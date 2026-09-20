@@ -1,8 +1,10 @@
 import contextlib
 import io
 import json
+import subprocess
 import sys
 import tempfile
+import time
 import unittest
 import urllib.error
 from pathlib import Path
@@ -262,10 +264,15 @@ class TestJuezDiarioGasto(unittest.TestCase):
             self.assertAlmostEqual(resultado["gasto_usd"], 0.0)  # nunca se inventa coste
             with open(f"{out}.gasto.jsonl", encoding="utf-8") as fh:
                 diario = [json.loads(l) for l in fh]
-            self.assertEqual(len(diario), 1)
-            self.assertEqual(diario[0]["id"], "c1")
-            self.assertIsNone(diario[0]["usd"])
-            self.assertIn("URLError", diario[0]["motivo_desconocida"])
+            # (d): cabecera + marca en_vuelo (ANTES de llamar) + resolución "desconocida".
+            self.assertEqual(len(diario), 3)
+            self.assertEqual(diario[0]["tipo"], "header")
+            self.assertEqual((diario[1]["tipo"], diario[1]["id"], diario[1]["intento"]), ("en_vuelo", "c1", 1))
+            resolucion = diario[2]
+            self.assertEqual(resolucion["tipo"], "desconocida")
+            self.assertEqual(resolucion["id"], "c1")
+            self.assertIsNone(resolucion["usd"])
+            self.assertIn("URLError", resolucion["motivo_desconocida"])
 
     def test_F2_lock_exclusivo_falla_rapido_con_mismo_out(self):
         """F2: con el lock de `<out>.gasto.jsonl.lock` ya tomado (simula un
@@ -385,9 +392,200 @@ class TestJuezDiarioGasto(unittest.TestCase):
             # bajo el diseño VIEJO (gasto reconstruido de --out): --out está vacío -> $0 tras el
             # "crash", aunque ya se facturaron 3 llamadas ($0.90 c/u = $2.70).
             self.assertEqual(out.read_text(encoding="utf-8"), "")
-            gasto, tok, desconocidas = jz.reconstruye_gasto(f"{out}.gasto.jsonl", 3.0, 15.0)
+            gasto, tok, desconocidas, usage_invalidas = jz.reconstruye_gasto(f"{out}.gasto.jsonl", 3.0, 15.0)
             self.assertAlmostEqual(gasto, 2.70)
-            self.assertEqual(desconocidas, 0)
+            # (d): la 4ª llamada murió DENTRO de http() -tras la marca en_vuelo fsyncada, sin
+            # resolución posterior-; reconstruye_gasto la cuenta como desconocida, no como cero
+            # (antes de (d) esto era exactamente el hueco C2: 0, invisible).
+            self.assertEqual(desconocidas, 1)
+            self.assertEqual(usage_invalidas, 0)
+
+
+class TestJuezCoherenciaDiario(unittest.TestCase):
+    """Enmienda 2026-09-20 (d), tercera ronda de review adversarial sobre el
+    breaker: C1 (diario y --out deben ser verificablemente coherentes o el
+    pipeline no arranca), C2 (marca 'en_vuelo' fsyncada ANTES de llamar,
+    sobrevive a un kill -9 real) y el hallazgo Important (usage_invalido no
+    consume --tolerancia-desconocidas). Sin red salvo el test de kill -9,
+    que lanza un subproceso real pero con un http() inyectado que nunca
+    toca la red."""
+
+    def _paquetes(self, d, ids, nombre="paquetes.jsonl"):
+        p = Path(d) / nombre
+        with open(p, "w", encoding="utf-8") as fh:
+            for i in ids:
+                fh.write(json.dumps({"id": i, "candidatos": ["kb/a"], "texto": f"CONSULTA: {i}"}, ensure_ascii=False) + "\n")
+        return p
+
+    def _http_ok(self, url, key, cuerpo=None, timeout=120):
+        return {"choices": [{"message": {"content": '{"expected": "kb/a", "acceptable": [], "razon": "ok"}'}}],
+                "usage": {"prompt_tokens": 1000, "completion_tokens": 100}}
+
+    def test_C1_out_con_filas_validas_sin_diario_aborta(self):
+        """C1: --out con filas válidas, diario perdido (borrado, vacío, u
+        otro --out con typo) -> SystemExit, nunca gasto heredado en $0 en
+        silencio."""
+        with tempfile.TemporaryDirectory() as d:
+            ruta = self._paquetes(d, ["c1", "c2"])
+            out = Path(d) / "out.jsonl"
+            r1 = jz.procesa_lote(str(ruta), str(out), "k", "kimi-k3",
+                                  precio_entrada=3.0, precio_salida=15.0,
+                                  maximo=1, http=self._http_ok)
+            self.assertEqual(r1["ok"], 1)
+            Path(f"{out}.gasto.jsonl").unlink()  # el diario se pierde; --out queda con la fila
+
+            with self.assertRaises(SystemExit) as cm:
+                jz.procesa_lote(str(ruta), str(out), "k", "kimi-k3",
+                                 precio_entrada=3.0, precio_salida=15.0, http=self._http_ok)
+            msg = str(cm.exception)
+            self.assertIn("c1", msg)
+            self.assertIn("--acepto-riesgo-gasto-no-verificable", msg)
+
+    def test_C1_out_con_id_sin_entrada_ok_correspondiente_aborta(self):
+        """C1: diario presente pero sin la entrada 'ok' de uno de los ids ya
+        escritos en --out (diario incompleto/desincronizado) -> SystemExit
+        listando exactamente el id que falta."""
+        with tempfile.TemporaryDirectory() as d:
+            ruta = self._paquetes(d, ["c1", "c2"])
+            out = Path(d) / "out.jsonl"
+            jz.procesa_lote(str(ruta), str(out), "k", "kimi-k3",
+                             precio_entrada=3.0, precio_salida=15.0, http=self._http_ok)
+
+            ruta_diario = f"{out}.gasto.jsonl"
+            lineas = [json.loads(l) for l in Path(ruta_diario).read_text(encoding="utf-8").splitlines() if l.strip()]
+            lineas_sin_c2_ok = [l for l in lineas if not (l.get("tipo") == "ok" and l.get("id") == "c2")]
+            self.assertLess(len(lineas_sin_c2_ok), len(lineas))
+            with open(ruta_diario, "w", encoding="utf-8") as fh:
+                for l in lineas_sin_c2_ok:
+                    fh.write(json.dumps(l, ensure_ascii=False) + "\n")
+
+            with self.assertRaises(SystemExit) as cm:
+                jz.procesa_lote(str(ruta), str(out), "k", "kimi-k3",
+                                 precio_entrada=3.0, precio_salida=15.0, http=self._http_ok)
+            msg = str(cm.exception)
+            self.assertIn("c2", msg)
+            self.assertNotIn("'c1'", msg)
+
+    def test_C1_diario_ajeno_detectado_por_identidad_de_out(self):
+        """C1: un diario de OTRO trabajo pegado en la ruta de --out (mismo
+        nombre de fichero, --out distinto) se detecta por la identidad de
+        fichero registrada en la cabecera, aunque los ids coincidan."""
+        with tempfile.TemporaryDirectory() as d:
+            rutaA = self._paquetes(d, ["c1"], "paqA.jsonl")
+            outA = Path(d) / "outA.jsonl"
+            jz.procesa_lote(str(rutaA), str(outA), "k", "kimi-k3",
+                             precio_entrada=3.0, precio_salida=15.0, http=self._http_ok)
+
+            rutaB = self._paquetes(d, ["c1"], "paqB.jsonl")
+            outB = Path(d) / "outB.jsonl"
+            outB.touch()  # outB existe con identidad de fichero propia, distinta de outA
+            Path(f"{outB}.gasto.jsonl").write_text(
+                Path(f"{outA}.gasto.jsonl").read_text(encoding="utf-8"), encoding="utf-8")
+
+            with self.assertRaises(SystemExit) as cm:
+                jz.procesa_lote(str(rutaB), str(outB), "k", "kimi-k3",
+                                 precio_entrada=3.0, precio_salida=15.0, http=self._http_ok)
+            self.assertIn("otro trabajo", str(cm.exception))
+
+    def test_C1_override_explicito_permite_arrancar_y_deja_rastro(self):
+        """C1: --acepto-riesgo-gasto-no-verificable evita el SystemExit,
+        pero deja un rastro 'override_trazabilidad' en el propio diario y
+        avisa por stderr -no es un bypass silencioso-."""
+        with tempfile.TemporaryDirectory() as d:
+            ruta = self._paquetes(d, ["c1", "c2"])
+            out = Path(d) / "out.jsonl"
+            jz.procesa_lote(str(ruta), str(out), "k", "kimi-k3",
+                             precio_entrada=3.0, precio_salida=15.0,
+                             maximo=1, http=self._http_ok)
+            Path(f"{out}.gasto.jsonl").unlink()
+
+            buf = io.StringIO()
+            with contextlib.redirect_stderr(buf):
+                resultado = jz.procesa_lote(str(ruta), str(out), "k", "kimi-k3",
+                                             precio_entrada=3.0, precio_salida=15.0,
+                                             http=self._http_ok, acepto_riesgo_gasto=True)
+            self.assertIn("AVISO", buf.getvalue())
+            self.assertIn("--acepto-riesgo-gasto-no-verificable", buf.getvalue())
+            self.assertEqual(resultado["ok"], 1)  # c1 ya estaba en --out (se salta), procesa c2
+
+            lineas = [json.loads(l) for l in Path(f"{out}.gasto.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+            self.assertTrue(any(l.get("tipo") == "override_trazabilidad" for l in lineas))
+
+    def test_Important_usage_invalido_heredado_no_consume_tolerancia_desconocidas(self):
+        """Important: USAGE_INVALIDO (C3, bug de schema) y desconocida real
+        (F1, llamada perdida) son motivos distintos; solo la segunda debe
+        consumir --tolerancia-desconocidas al reanudar. Con la tolerancia
+        por defecto (0), si se conflacionaran, reanudar tras un
+        USAGE_INVALIDO ya resuelto pararía en seco de inmediato -un
+        breaker distinto disparado por error-."""
+        with tempfile.TemporaryDirectory() as d:
+            ruta = self._paquetes(d, ["c1"])
+            out = Path(d) / "out.jsonl"
+
+            def http_sin_usage(url, key, cuerpo=None, timeout=120):
+                return {"choices": [{"message": {"content": '{"expected": "kb/a", "acceptable": [], "razon": "ok"}'}}]}
+
+            r1 = jz.procesa_lote(str(ruta), str(out), "k", "kimi-k3",
+                                  precio_entrada=3.0, precio_salida=15.0, http=http_sin_usage)
+            self.assertEqual(r1.get("parada_por_usage_invalido"), "c1")
+
+            r2 = jz.procesa_lote(str(ruta), str(out), "k", "kimi-k3",
+                                  precio_entrada=3.0, precio_salida=15.0, http=self._http_ok)
+            self.assertNotIn("parada_por_gasto_desconocido", r2)
+            self.assertEqual(r2["ok"], 1)
+            with open(out, encoding="utf-8") as fh:
+                self.assertEqual([json.loads(l)["id"] for l in fh], ["c1"])
+
+    def test_C2_kill_9_real_marca_en_vuelo_sobrevive_al_crash(self):
+        """C2: un `kill -9` REAL entre 'se factura' (marca en_vuelo
+        fsyncada) y 'vuelve la respuesta' no debe dejar el diario sin
+        rastro de esa llamada. Lanza un subproceso real y lo mata de
+        verdad -un test que solo simule la excepción no prueba el
+        fsync()-; luego lee el diario en disco desde este proceso."""
+        with tempfile.TemporaryDirectory() as d:
+            ruta = self._paquetes(d, ["c1"])
+            out = Path(d) / "out.jsonl"
+            ruta_diario = f"{out}.gasto.jsonl"
+            harness_dir = str(Path(__file__).resolve().parent)
+            script = Path(d) / "runner.py"
+            script.write_text(
+                "import sys, time\n"
+                f"sys.path.insert(0, {harness_dir!r})\n"
+                "import juez as jz\n"
+                "def http(url, key, cuerpo=None, timeout=120):\n"
+                "    time.sleep(60)\n"
+                "    raise AssertionError('no debería llegar aqui: se mata antes')\n"
+                f"jz.procesa_lote({str(ruta)!r}, {str(out)!r}, 'k', 'kimi-k3', "
+                "precio_entrada=3.0, precio_salida=15.0, reintentos=1, http=http)\n",
+                encoding="utf-8",
+            )
+            proc = subprocess.Popen([sys.executable, str(script)])
+            try:
+                limite = time.time() + 10
+                marcado = False
+                while time.time() < limite:
+                    if Path(ruta_diario).exists():
+                        lineas = [json.loads(l) for l in Path(ruta_diario).read_text(encoding="utf-8").splitlines() if l.strip()]
+                        if any(l.get("tipo") == "en_vuelo" and l.get("id") == "c1" for l in lineas):
+                            marcado = True
+                            break
+                    time.sleep(0.02)
+                self.assertTrue(marcado, "la marca en_vuelo no apareció en el diario a tiempo")
+                proc.kill()  # SIGKILL real -no una excepción simulada dentro del proceso vivo-
+                proc.wait(timeout=5)
+            finally:
+                if proc.poll() is None:
+                    proc.kill()
+                    proc.wait(timeout=5)
+
+            lineas = [json.loads(l) for l in Path(ruta_diario).read_text(encoding="utf-8").splitlines() if l.strip()]
+            self.assertTrue(any(l.get("tipo") == "en_vuelo" and l.get("id") == "c1" for l in lineas))
+            self.assertFalse(any(l.get("tipo") in ("ok", "desconocida", "usage_invalido") for l in lineas))
+
+            gasto, tok, desconocidas, usage_invalidas = jz.reconstruye_gasto(ruta_diario, 3.0, 15.0)
+            self.assertAlmostEqual(gasto, 0.0)
+            self.assertEqual(desconocidas, 1)  # marca sin resolver -> desconocida, nunca cero
+            self.assertEqual(usage_invalidas, 0)
 
 
 class TestAcuerdo(unittest.TestCase):
