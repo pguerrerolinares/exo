@@ -13,7 +13,8 @@
 # Uso: scripts/test-versiones.sh            # coherencia del árbol
 #      scripts/test-versiones.sh v0.2.0     # además, el tag casa con Cargo.toml
 set -euo pipefail
-# Campaña L Task 4 (backlog:1691, mismo fix que 960a319): `cd
+# Campaña L Task 4 (docs/backlog.md, ítem "El cd sin guarda contra una
+# sustitución vacía sigue en tres gates de CI", mismo fix que 960a319): `cd
 # "$(git rev-parse --show-toplevel)"` directo tiene un fallo silencioso — si
 # la sustitución sale vacía, `cd ""` devuelve 0 sin moverse y bajo
 # `set -e` eso NO aborta. Captura la raíz, la comprueba y entonces se mueve.

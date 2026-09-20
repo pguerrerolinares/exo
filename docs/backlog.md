@@ -35,8 +35,8 @@
 > `plugins/exo/README.md` (Task 3, commit `ba28e71`), y tres gates de CI
 > más blindados contra un `cd ""` silencioso (Task 4, commit `889e8d9`).
 > **Corrige con evidencia, sin cerrar por completo**: la Task 5 (runbook de
-> desinstalación de basic-memory, checklist C10 de M5b) se está ejecutando
-> en paralelo por otro executor de esta misma campaña y la Task 7
+> desinstalación de basic-memory, checklist C10 de M5b, commit `27f62da`,
+> anterior a este mismo commit de sync) ya terminó y la Task 7
 > (verificación final de la rama entera) sigue pendiente — ninguna de las
 > dos toca `docs/backlog.md`.)
 >
@@ -489,6 +489,10 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   sin gate. Puede desfasarse igual que el README
   raíz antes de este mismo item. **Acción:** extender el check (e) para
   recorrer los dos ficheros, o justificar por qué solo uno lo necesita.
+  **CERRADO (campaña L, Task 3, commit `ba28e71`):** el check (e) de
+  `test-docs-vivos.sh` ahora recorre `README.md` Y `plugins/exo/README.md`;
+  el patrón de cabecera dejó de anclar con `$` porque la tabla del segundo
+  fichero lleva dos columnas extra (`Qué hace`, `Abstención`).
 
 - [x] **(revisión 2026-09-04) «exo genérico» sigue siendo el plugin de Paul
   para Paul.** Medido el 2026-09-04 sobre `plugins/exo/`: la cadena `Paul`
@@ -778,9 +782,12 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   --limit 5000` sobre la KB sintética — `--limit 1000` no lo dispara.
   Encontrado durante la Task 1 (bench sintético) al calibrar el brazo
   vector, no arreglado en esta campaña (fuera del alcance de las Tasks
-  2-3). **Acción:** trocear el `IN (...)` en lotes bajo el límite de
-  SQLite, o cambiar a un join contra una tabla temporal, cuando alguien
-  necesite `--limit` de ese orden de verdad. Y, precisión pendiente en el
+  2-3). **CERRADO (campaña L, Task 2, commit `0caa202`):**
+  `permalinks_de_rowids` trocea `rowids` en lotes de `LOTE_PERMALINKS =
+  500` (margen amplio bajo el límite real medido de 32.766 placeholders en
+  rusqlite 0.40.1/libsqlite3-sys 0.38.1), delegando cada lote a
+  `permalinks_de_rowids_lote`; test TDD rojo→verde reproduce el reventón
+  con 40.000 placeholders antes del fix. Y, precisión pendiente en el
   diseño de `c0ec949`: la regla de merges contaminados descarta por
   "bloques omitidos" en vez de comparar `%T` (el árbol resultante) del
   merge contra el de cada padre — sería más preciso y metería menos rutas
@@ -920,16 +927,20 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   `## Cerrado con evidencia`): el **disenso del consultor** — el prefijo de
   proyecto sale de `[kb] name` en la config propia, no de `kb.file_name()`.
   **Vivos 4 en origen; #5 y #6 cerrados por G (arriba), #9 caducado por F
-  (abajo) — vivo 1 (#8):**
+  (abajo), #8 cerrado por decisión de Paul del 2026-09-19 (abajo) — 0 vivos:**
   - [x] **#5 [media] CERRADO el 2026-09-16 (campaña G, Task 7, commit
     `f5c5956`):** `busca_permalink_en_dir` hace el walk de confirmación
     antes de crear con `--create`; test
     `write_append_create_no_duplica_si_el_indice_esta_rancio` en
     `engine/tests/write_create_permalink.rs`.
-  - **#8 [baja]** divergencia de slug medida **19/127** frente a basic-memory
-    (`_` conservado en 10 bitácoras rotadas, CamelCase separado, `§`→`ss`).
-    Autoconsistente, pero conviene decidirlo **por escrito antes de M5b**,
-    porque las bitácoras rotadas de `/consolida` usan `_` en el título.
+  - [x] **#8 [baja] CERRADO el 2026-09-19 (decisión de Paul #15,
+    `docs/superpowers/consultas/2026-09-15-campanas/propuesta.md` §7):**
+    divergencia de slug medida **19/127** frente a basic-memory (`_`
+    conservado en 10 bitácoras rotadas, CamelCase separado, `§`→`ss`).
+    Decisión escrita: el slug de exo es canónico, la divergencia 19/127
+    queda aceptada por escrito, no se persigue paridad. Documentado también
+    en `docs/superpowers/runbooks/2026-09-19-m5b-desinstalar-basic-memory.md`
+    §Decisión #15.
   - [x] **#6 [baja] CERRADO el 2026-09-16 (campaña G, Task 7, commit
     `f5c5956`):** un permalink de <3 segmentos ahora es error accionable
     ("tiene menos de 3 segmentos"), no crea directorio. Test
@@ -1770,8 +1781,12 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   catálogo de skills a evaluar también. Si se decide que exo asume delegación,
   esto sube a item propio con su gate; si no, se cierra como «no es de exo».
 
-- [ ] **(NUEVO, campaña G, 2026-09-16) El `cd "$(git rev-parse --show-toplevel)"`
+- [x] **(NUEVO, campaña G, 2026-09-16) El `cd "$(git rev-parse --show-toplevel)"`
   sin guarda contra una sustitución vacía sigue en tres gates de CI.**
+  **CERRADO (campaña L, Task 4, commit `889e8d9`):** los tres gates
+  (`test-rutas-personales.sh`, `test-exec-bit.sh`, `test-versiones.sh`)
+  ahora capturan la raíz en variable, comprueban que no esté vacía y solo
+  entonces hacen `cd`, mismo patrón que F aplicó a los otros dos gates.
   La review final de `test-docs-vivos.sh` (campaña F, 2026-09-16) encontró y
   arregló el fallo silencioso: `cd "$(git rev-parse --show-toplevel)"`
   directo no protege nada si la sustitución sale vacía — `cd ""` devuelve
@@ -1791,9 +1806,16 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   cd "$RAIZ"`) cuando se toquen por otra razón, o en un barrido dedicado
   de los `test-*.sh` del plugin.
 
-- [ ] **(NUEVO, review final campaña G, 2026-09-16, M5) `exo search` sin
+- [x] **(NUEVO, review final campaña G, 2026-09-16, M5) `exo search` sin
   `--type` contra una DB sin tabla `vectores` falla duro donde antes daba
-  FTS.** Regresión de superficie del default `hybrid` (D6, Task 11):
+  FTS.** **CERRADO (campaña L, Task 1, commit `03bef82`):**
+  `avisos_cobertura_vector` comprueba la existencia de la tabla `vectores`
+  (vía `sqlite_master`) ANTES del early-return de `trozos == 0`, y si falta
+  degrada con aviso ("arm vector INERTE...") en vez de reventar; test
+  dedicado en `engine/tests/kb_root_lectura_cli.rs`. **Ojo:** este cierre
+  cubre solo `exo search` — `exo recall` tiene una variante del mismo
+  problema sin cerrar, ver ítem nuevo más abajo. Regresión de superficie del
+  default `hybrid` (D6, Task 11):
   documentada hoy solo en un comentario de test
   (`engine/tests/kb_root_lectura_cli.rs:497-500`,
   `search_no_avisa_ni_falla_si_la_db_no_tiene_tabla_meta`, que por eso pasa
@@ -1808,6 +1830,27 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   creado a mano. **Acción:** si se toca `busca_hybrid`/`busca_vector_con`
   por otra razón, degradar "tabla `vectores` ausente" igual que "0 filas en
   `vectores`" (mismo aviso de cobertura, no un error duro).
+
+- [ ] **(NUEVO, review final de campaña L, 2026-09-20) `exo recall --json
+  --query <q>` contra una DB sin `vectores`/`trozos` sigue saliendo `exit
+  1`, ahora reventando en otro sitio.** Misma clase de fallo que el ítem de
+  arriba (`exo search` sin `--type`), distinto síntoma: la Task 1 de esta
+  campaña (commit `03bef82`) cerró el caso para `exo search`, degradando
+  con aviso cuando falta la tabla `vectores` — pero la campaña L solo
+  cubría `search`, no `recall`. `recall_consulta` (`engine/src/recall.rs`)
+  llama a `busca_hybrid` (ya degrada bien) y luego, por cada resultado, a
+  `primer_trozo` (`recall.rs:592-600`) para el snippet: esa función hace
+  `SELECT texto FROM trozos WHERE permalink = ?1 ORDER BY orden LIMIT 1`
+  sin comprobar antes si la tabla `trozos` existe, a diferencia de
+  `avisos_cobertura_vector` en `buscador.rs`. Contra una DB sin `vectores`
+  NI `trozos` (nunca pasó por `exo index`/`rebuild`), el error pasó de
+  reventar en un `count(*)` antiguo a reventar en este `SELECT`: `Error:
+  leer primer trozo de kb/a: no such table: trozos`. **Acción:** aplicar a
+  `primer_trozo` (y de paso `fila_notas`, que asume `notas` existe) el
+  mismo patrón de `tabla_existe` + degradación con aviso que
+  `avisos_cobertura_vector` ya usa para `vectores`, cuando alguien toque
+  `recall.rs` por otra razón o priorice cerrar esta clase de fallo en
+  `recall` también.
 
 - [x] **(revisión 2026-09-04) `tier` no se persiste en el índice y cada
   arranque relee el frontmatter de TODAS las notas desde disco: cerrado —

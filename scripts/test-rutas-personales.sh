@@ -17,8 +17,10 @@
 # (backlog.md documenta estas mismas rutas como HALLAZGOS, con cita; no son
 # las que produce el hook).
 set -uo pipefail
-# Campaña L Task 4 (backlog:1691, mismo fix que 960a319 en test-hooks-json.sh
-# y test-shellcheck.sh): `cd "$(git rev-parse --show-toplevel)" || exit 1`
+# Campaña L Task 4 (docs/backlog.md, ítem "El cd sin guarda contra una
+# sustitución vacía sigue en tres gates de CI", mismo fix que 960a319 en
+# test-hooks-json.sh y test-shellcheck.sh): `cd "$(git rev-parse
+# --show-toplevel)" || exit 1`
 # directo tiene un fallo silencioso — si la sustitución sale vacía, `cd ""`
 # devuelve 0 sin moverse y el `|| exit 1` nunca dispara. Captura la raíz, la
 # comprueba y entonces se mueve.

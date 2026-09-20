@@ -127,8 +127,10 @@ generador de permalinks de `exo` y el de basic-memory (`_` conservado en
 bitácoras rotadas, CamelCase separado, `§`→`ss`). Decisión de Paul,
 2026-09-19 (#15, `propuesta.md` §7): **el slug de exo es canónico** — la
 divergencia 19/127 con basic-memory queda **aceptada por escrito**, no se
-persigue paridad. Con esto el #8 del gate M4 queda cerrado (ver Task 6,
-que marca el ítem correspondiente en `docs/backlog.md`).
+persigue paridad. Con esto el #8 del gate M4 queda cerrado por esta misma
+decisión — marcado en `docs/backlog.md`, sub-ítem **#8 [baja]** del ítem
+«Barrer los hallazgos vivos del gate M4» (la Task 6 de campaña L barrió
+otros cinco ítems de bookkeeping, no este).
 
 ## Pasos manuales de Paul — desinstalación
 
@@ -138,10 +140,15 @@ runbook si pasó tiempo — hoy mismo, 2026-09-20, la Comprobación E ya dio
 distinto que el 2026-09-19):
 
 1. **Quitar el servidor MCP** de la config de Claude Code:
-   `claude mcp remove basic-memory` (o edición manual de
-   `~/.claude.json`, clave `mcpServers.basic-memory` — hoy ya está
-   `"disabled": true` para el proyecto `exo`, pero sigue registrado
-   globalmente).
+   `claude mcp remove basic-memory` (o edición manual de `~/.claude.json`).
+   Medido hoy (2026-09-20, solo lectura): `mcpServers.basic-memory` no
+   lleva ninguna clave `disabled` (es la config de conexión `stdio` sin
+   más) — lo que existe de verdad es
+   `projects["/home/paul/Documentos/proyectos/exo"].disabledMcpServers`,
+   un array que incluye `"basic-memory"` (junto con otros servidores
+   desactivados para ese proyecto). O sea: desactivado para el proyecto
+   `exo` vía esa lista, pero sigue registrado globalmente en
+   `mcpServers`.
 2. **Confirmar que nada más lo referencia**: `claude mcp list` no debe
    listar `basic-memory` tras el paso 1.
 3. **Liberar el caché/índice de basic-memory** (~1 GB medido hoy en
@@ -176,6 +183,9 @@ guardaba algo que el markdown no):
    entrada en `~/.claude.json`) y dejar que regenere su índice desde
    `wisdom-paul/` (`basic-memory sync` o equivalente, fuera de alcance de
    `exo`).
-3. Si se borró `~/.basic-memory/config.json` por error: recrearlo con el
-   `default_project`/`path` de hoy (documentado arriba, en "Contexto
-   verificado") es suficiente para que vuelva a apuntar a `wisdom-paul/`.
+3. Si se borró `~/.basic-memory/config.json` por error: recrearlo con
+   `default_project: "wisdom-paul"` y el proyecto `wisdom-paul` apuntando a
+   `path: "/home/paul/Documentos/proyectos/wisdom-paul"` (verificado hoy,
+   2026-09-20, leyendo `~/.basic-memory/config.json` en vivo — claves
+   `default_project` y `projects.wisdom-paul.path`) es suficiente para que
+   vuelva a apuntar a `wisdom-paul/`.

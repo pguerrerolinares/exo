@@ -18,7 +18,8 @@
 # también sale del índice (`git cat-file`), por la misma razón.
 set -euo pipefail
 
-# Campaña L Task 4 (backlog:1691, mismo fix que 960a319): `cd
+# Campaña L Task 4 (docs/backlog.md, ítem "El cd sin guarda contra una
+# sustitución vacía sigue en tres gates de CI", mismo fix que 960a319): `cd
 # "$(git rev-parse --show-toplevel)"` directo tiene un fallo silencioso — si
 # la sustitución sale vacía, `cd ""` devuelve 0 sin moverse, y bajo
 # `set -e` eso NO aborta (el exit code de `cd ""` es 0). Captura la raíz, la
