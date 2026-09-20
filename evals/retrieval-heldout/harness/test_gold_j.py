@@ -733,9 +733,70 @@ class TestAcuerdo(unittest.TestCase):
         self.assertIn("solape_lexico=1.00", gold[0]["notes"])
         self.assertNotIn("solape_lexico=0.00", gold[0]["notes"])
 
+    def test_construye_auditoria_lexica_por_estrato(self):
+        """F8 del review de rama (2026-09-20): la auditoría pooled ("filas
+        acordadas frente a descartadas") no distingue (a) sesgo léxico del
+        juez de (b) un estrato con candidatas pobres que se descarta más por
+        motivos ajenos al solape. Dos estratos con perfiles opuestos:
+        `prompt` tiene una fila acordada de solape alto (1.0) y una
+        descartada de solape bajo (0.0) -perfil "sesgo léxico"-; `hard`
+        tiene una única fila acordada, de solape BAJO (0.33 < 0.5, cae en el
+        subconjunto «léxicamente difícil» del guard de D-A) y CERO
+        descartes -perfil "candidatas pobres en otro estrato", no aplica
+        aquí, pero separa la tabla por estrato en vez de mezclarla en el
+        pool-. La tabla por estrato debe reportar cada mediana por separado
+        y la composición por estrato del subconjunto léxicamente difícil."""
+        cands = [{"id": "c1", "query": "palabra clave", "source": "prompt", "candidatos": ["kb/a"]},
+                 {"id": "c2", "query": "palabra clave dos", "source": "prompt", "candidatos": ["kb/x"]},
+                 {"id": "c3", "query": "otra palabra clave", "source": "hard", "candidatos": ["kb/b"]}]
+        fab = {"c1": self.j("kb/a"), "c2": self.j("kb/x"), "c3": self.j("kb/b")}
+        kim = {"c1": self.j("kb/a"), "c2": self.j("kb/y"), "c3": self.j("kb/b")}
+        textos = {"kb/a": "aqui la palabra clave aparece", "kb/x": "nada que ver", "kb/b": "la palabra esta aqui"}
+        gold, desc, inf, k, po = ac.construye(cands, fab, kim, textos, 0.0, 0.0)
+        self.assertIn("auditoría léxica por estrato", inf)
+        # hard: 1 fila total, 0 descartes (tasa 0.000), mediana acordadas
+        # 0.33 (solape bajo pese a no tener descartes), sin descartadas (—).
+        self.assertIn("| hard | 1 | 0.000 | 0.33 | None |", inf)
+        # prompt: 2 filas totales, 1 descarte de 2 (tasa 0.500), mediana
+        # acordadas 1.0 (c1), mediana descartadas 0.0 (c2, desacuerdo).
+        self.assertIn("| prompt | 2 | 0.500 | 1.0 | 0.0 |", inf)
+        # composición por estrato del subconjunto léxicamente difícil
+        # (solape < 0,5): solo `hard` (c3, solape 0.33); `prompt` no aporta
+        # ninguna fila de gold con solape < 0,5 (c1 tiene solape 1.0).
+        self.assertIn("composición del subconjunto «léxicamente difícil» (solape < 0,5, guard de D-A §6) por estrato: hard=1", inf)
+
     def test_solape_lexico(self):
         self.assertEqual(ac.solape_lexico("fusión rrf combsum", "la fusion por rrf"), 0.5)
         self.assertEqual(ac.solape_lexico("a b", "nada"), 0.0)
+
+    def test_kappa_po_min_son_obligatorios_sin_default(self):
+        """F9 del review de rama (2026-09-20): un suelo firmado (D-J11:
+        κ ≥ 0,60 ∧ p_o ≥ 0,70) no debe poder olvidarse por omitirlo en el
+        CLI -un `default` deja que el código, no la firma de Paul, decida
+        qué suelo aplica si el operador olvida pasarlo. `--kappa-min` y
+        `--po-min` son ahora obligatorios (`required=True`, sin `default`),
+        igual que `--precio-entrada`/`--precio-salida` en `juez.py kimi`
+        por la misma razón (Global Constraints, precios sin default)."""
+        with tempfile.TemporaryDirectory() as d:
+            cands = Path(d) / "c.jsonl"
+            cands.write_text(json.dumps({"id": "c1", "query": "q", "source": "prompt", "candidatos": []}) + "\n", encoding="utf-8")
+            fab = Path(d) / "f.jsonl"
+            fab.write_text(json.dumps({"id": "c1", "expected": None, "acceptable": [], "razon": "r"}) + "\n", encoding="utf-8")
+            kim = Path(d) / "k.jsonl"
+            kim.write_text(json.dumps({"id": "c1", "expected": None, "acceptable": [], "razon": "r"}) + "\n", encoding="utf-8")
+            base = ["acuerdo.py", "--candidatos", str(cands), "--fable", str(fab), "--kimi", str(kim),
+                    "--gold-out", str(Path(d) / "g.jsonl"), "--descartes-out", str(Path(d) / "d.jsonl"),
+                    "--informe-out", str(Path(d) / "i.md")]
+            for argv in (base + ["--po-min", "0.70"],  # falta --kappa-min
+                         base + ["--kappa-min", "0.60"]):  # falta --po-min
+                viejo = sys.argv
+                sys.argv = argv
+                try:
+                    with self.assertRaises(SystemExit) as ctx, contextlib.redirect_stderr(io.StringIO()):
+                        ac.main()
+                    self.assertEqual(ctx.exception.code, 2)
+                finally:
+                    sys.argv = viejo
 
 
 if __name__ == "__main__":

@@ -168,6 +168,30 @@ def construye(cands, fab, kim, textos, kappa_min, po_min):
               f"- filas acordadas no nulas: n={len(s_ok)} · mediana {med(s_ok)} · con solape ≥ 0,5: {sum(1 for x in s_ok if x >= 0.5)}",
               f"- desacuerdos con alguna nota propuesta: n={len(s_no)} · mediana {med(s_no)} · con solape ≥ 0,5: {sum(1 for x in s_no if x >= 0.5)}",
               "- lectura: si los desacuerdos se concentran en solape bajo, los jueces acuerdan sobre todo donde la query repite la nota (sesgo léxico); el subconjunto «léxicamente difícil» (solape < 0,5) de las no nulas es el guard de D-A (borrador §6)."]
+        # F8 del review de rama (2026-09-20): la lectura pooled de arriba no
+        # distingue dos causas con la misma huella -- (a) los jueces premian
+        # lo léxicamente cercano (el sesgo que §3 quiere medir), (b) un
+        # estrato con candidatas pobres (p.ej. `prompt`: candidatas elegidas
+        # por inferencia de contexto, no por coincidencia literal) se
+        # descarta más por desacuerdo con independencia de cualquier sesgo
+        # del juez. Misma tabla, ahora por estrato: filas totales, tasa de
+        # descarte y mediana de solape acordadas/descartadas, más la
+        # composición por estrato del subconjunto «léxicamente difícil»
+        # (solape < 0,5) que usa el guard de D-A. Descriptivo: no toca
+        # `pasa`, el exit ni ningún umbral firmado.
+        total_por_src = Counter(c["source"] for c in cands)
+        desc_por_src = Counter(por_id[d["id"]]["source"] for d in desc if d["id"] in por_id)
+        L += ["", "## auditoría léxica por estrato (F8: separa sesgo léxico del juez de candidatos pobres en un estrato)", "",
+              "| estrato | filas | tasa descarte | mediana solape acordadas | mediana solape descartadas |", "|---|---|---|---|---|"]
+        for s in sorted(total_por_src):
+            tot = total_por_src[s]
+            ok_s = [x for x in (sol_gold(g) for g in gold if g["source"] == s and g["expected_permalink"]) if x is not None]
+            no_s = [x for x in (sol(d["id"]) for d in desc
+                                 if d["motivo"] == "desacuerdo" and por_id.get(d["id"], {}).get("source") == s) if x is not None]
+            L.append(f"| {s} | {tot} | {desc_por_src.get(s, 0) / tot:.3f} | {med(ok_s)} | {med(no_s)} |")
+        dificiles = Counter(g["source"] for g in gold if g["expected_permalink"] and sol_gold(g) < 0.5)
+        L.append("- composición del subconjunto «léxicamente difícil» (solape < 0,5, guard de D-A §6) por estrato: "
+                  + (", ".join(f"{s}={n}" for s, n in sorted(dificiles.items())) or "(vacío)"))
         for g in gold:
             if g["expected_permalink"]:
                 g["notes"] += f" | solape_lexico={sol_gold(g):.2f}"
@@ -184,8 +208,18 @@ def main():
     for k in ("candidatos", "fable", "kimi", "gold-out", "descartes-out", "informe-out"):
         ap.add_argument(f"--{k}", required=True)
     ap.add_argument("--snap")
-    ap.add_argument("--kappa-min", type=float, default=0.60)
-    ap.add_argument("--po-min", type=float, default=0.70)
+    # F9 del review de rama (2026-09-20): un suelo firmado (D-J11:
+    # κ ≥ 0,60 ∧ p_o ≥ 0,70) no debe poder olvidarse -un default deja que
+    # el código, no la firma de Paul, decida qué suelo aplica si el
+    # operador omite el flag. Sin default, obligatorios: la misma razón
+    # por la que `juez.py kimi --precio-entrada/--precio-salida` no tienen
+    # default (Global Constraints).
+    ap.add_argument("--kappa-min", type=float, required=True,
+                     help="suelo de κ de Cohen, sin default (D-J11 lo firma en 0.60). "
+                          "Obligatorio para que un olvido del operador no decida el suelo por él.")
+    ap.add_argument("--po-min", type=float, required=True,
+                     help="suelo de acuerdo bruto (p_o), sin default (D-J11 lo firma en 0.70). "
+                          "Obligatorio por la misma razón que --kappa-min.")
     a = ap.parse_args()
     cands = [json.loads(l) for l in open(a.candidatos, encoding="utf-8") if l.strip()]
     textos = None
