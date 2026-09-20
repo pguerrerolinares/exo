@@ -122,6 +122,110 @@ class TestJuezPresupuesto(unittest.TestCase):
             self.assertNotIn("parada_por_tope", resultado)
             self.assertAlmostEqual(resultado["gasto_usd"], 10.5)
 
+    def test_reanuda_hereda_gasto_de_filas_previas(self):
+        """C1: `--out` ya escrito no debe hacer que el breaker "olvide" lo
+        gastado en una corrida previa. Repro (escalado) del review
+        adversarial: 6 llamadas de $0,90 con tope $5; RUN1 procesa 5
+        ($4,50, no dispara), RUN2 reanuda con el mismo --out y debe heredar
+        los $4,50 -no arrancar en $0- al procesar la 6ª."""
+        with tempfile.TemporaryDirectory() as d:
+            ruta = self._paquetes(d, ["c1", "c2", "c3", "c4", "c5", "c6"])
+            out = Path(d) / "out.jsonl"
+
+            def http(url, key, cuerpo=None, timeout=120):
+                return {"choices": [{"message": {"content": '{"expected": "kb/a", "acceptable": [], "razon": "ok"}'}}],
+                        "usage": {"prompt_tokens": 200000, "completion_tokens": 20000}}  # $0.90/llamada
+
+            r1 = jz.procesa_lote(str(ruta), str(out), "k", "kimi-k3",
+                                  precio_entrada=3.0, precio_salida=15.0,
+                                  tope_usd=5.0, maximo=5, http=http)
+            self.assertNotIn("parada_por_tope", r1)
+            self.assertAlmostEqual(r1["gasto_usd"], 4.5)
+
+            r2 = jz.procesa_lote(str(ruta), str(out), "k", "kimi-k3",
+                                  precio_entrada=3.0, precio_salida=15.0,
+                                  tope_usd=5.0, http=http)
+            # RUN2 hereda los $4.50 de RUN1: procesar c6 (+$0.90) da $5.40, no $0.90.
+            self.assertAlmostEqual(r2["gasto_usd"], 5.4)
+            self.assertEqual(r2.get("parada_por_tope"), "c6")
+
+    def test_reintentos_fallidos_de_parsea_cuentan_coste(self):
+        """C2: una respuesta que pasa el json_schema strict pero falla
+        parsea() (permalink alucinado, fuera de candidatos) es una llamada
+        FACTURADA igual; su coste debe contar, y el tope debe pararse
+        también entre reintentos (no solo entre paquetes)."""
+        with tempfile.TemporaryDirectory() as d:
+            ruta = self._paquetes(d, ["c1"])
+            out = Path(d) / "out.jsonl"
+            llamadas = []
+
+            def http(url, key, cuerpo=None, timeout=120):
+                llamadas.append(cuerpo)
+                # pasa el schema, pero "kb/alucinado" no está en candidatos -> parsea() la rechaza.
+                return {"choices": [{"message": {"content": '{"expected": "kb/alucinado", "acceptable": [], "razon": "x"}'}}],
+                        "usage": {"prompt_tokens": 200000, "completion_tokens": 20000}}  # $0.90/llamada
+
+            resultado = jz.procesa_lote(str(ruta), str(out), "k", "kimi-k3",
+                                         precio_entrada=3.0, precio_salida=15.0,
+                                         tope_usd=1.0, http=http)
+            # reintentos=3 por defecto: intento1 (gasto 0->0.9, no supera 1.0, se lanza intento2),
+            # intento2 (0.9->1.8, ya facturado), intento3 NO se lanza (1.8 > 1.0 antes de lanzarlo).
+            self.assertEqual(len(llamadas), 2)
+            self.assertAlmostEqual(resultado["gasto_usd"], 1.8)
+            self.assertEqual(resultado.get("parada_por_tope"), "c1")
+            self.assertEqual(resultado["errores"], [{"id": "c1", "error": "tope superado: reintento no lanzado"}])
+            with open(out, encoding="utf-8") as fh:
+                self.assertEqual(fh.read(), "")
+
+    def test_usage_ausente_o_con_campos_none_para_en_seco(self):
+        """C3: usage ausente o con campos no numéricos (None) es error
+        explícito -> parada en seco, nunca gasto cero silencioso ni
+        estimado."""
+        for descripcion, extra in [
+            ("sin clave usage", {}),
+            ("usage con campos None", {"usage": {"prompt_tokens": None, "completion_tokens": None}}),
+        ]:
+            with self.subTest(descripcion):
+                with tempfile.TemporaryDirectory() as d:
+                    ruta = self._paquetes(d, ["c1"])
+                    out = Path(d) / "out.jsonl"
+
+                    def http(url, key, cuerpo=None, timeout=120, _extra=extra):
+                        r = {"choices": [{"message": {"content": '{"expected": "kb/a", "acceptable": [], "razon": "ok"}'}}]}
+                        r.update(_extra)
+                        return r
+
+                    resultado = jz.procesa_lote(str(ruta), str(out), "k", "kimi-k3",
+                                                 precio_entrada=3.0, precio_salida=15.0,
+                                                 tope_usd=0.5, http=http)
+                    self.assertEqual(resultado.get("parada_por_usage_invalido"), "c1", descripcion)
+                    self.assertAlmostEqual(resultado["gasto_usd"], 0.0, msg=descripcion)
+                    with open(out, encoding="utf-8") as fh:
+                        self.assertEqual(fh.read(), "", descripcion)
+
+    def test_tope_borde_exacto_no_para_al_igualar_solo_al_superar(self):
+        """C4: el criterio es SUPERAR (>), no ALCANZAR (>=): un gasto que
+        iguala el tope exactamente no dispara el breaker; superarlo sí."""
+        with tempfile.TemporaryDirectory() as d:
+            ruta = self._paquetes(d, ["c1", "c2"])
+            out = Path(d) / "out.jsonl"
+            llamadas = []
+
+            def http(url, key, cuerpo=None, timeout=120):
+                llamadas.append(cuerpo)
+                # precio_entrada=1.0, prompt_tokens=1_000_000 -> coste exacto $1.00/llamada.
+                return {"choices": [{"message": {"content": '{"expected": "kb/a", "acceptable": [], "razon": "ok"}'}}],
+                        "usage": {"prompt_tokens": 1_000_000, "completion_tokens": 0}}
+
+            resultado = jz.procesa_lote(str(ruta), str(out), "k", "kimi-k3",
+                                         precio_entrada=1.0, precio_salida=15.0,
+                                         tope_usd=1.0, http=http)
+            # c1 cuesta exactamente $1.00 == tope: NO para (iguala, no supera) -> sigue con c2.
+            # c2 lleva el acumulado a $2.00 > $1.00: PARA.
+            self.assertEqual(len(llamadas), 2)
+            self.assertEqual(resultado.get("parada_por_tope"), "c2")
+            self.assertAlmostEqual(resultado["gasto_usd"], 2.0)
+
 
 class TestAcuerdo(unittest.TestCase):
     def j(self, e, a=(), r="r"):

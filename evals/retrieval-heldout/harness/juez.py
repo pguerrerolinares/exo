@@ -13,6 +13,10 @@ familia de modelo). Tres funciones puras y dos con red:
   procesa_lote(...)     -> corre kimi() sobre un fichero de paquetes,
                            reanudable por id, con circuit breaker de gasto
                            real (enmienda 2026-09-20, ver más abajo).
+  costo(usage, pe, ps)  -> USD de una respuesta, o error explícito si el
+                           usage no es utilizable (nunca coste cero mudo).
+  reconstruye_gasto(...) -> gasto/tokens heredados de un --out ya escrito,
+                           para que una reanudación no "olvide" lo gastado.
 La key se lee en runtime de --env-keys (variable kimi_api_key, fichero
 gitignored de otro repo) y NUNCA se imprime ni se escribe. Envío de datos a
 Moonshot autorizado por Paul el 2026-09-19 (propuesta.md §7).
@@ -33,11 +37,32 @@ de la primera llamada. Precios de kimi-k3 verificados contra
 platform.kimi.ai/docs/pricing/chat el 2026-09-20: $3,00 / millón de tokens
 de entrada, $15,00 / millón de salida (kimi-k2.6: $0,95 / $4,00 — Paul
 eligió k3 el 2026-09-19 por calidad de juez, ver plan §Global Constraints).
-En cuanto el gasto acumulado supera `--tope-usd` (default 10, el tope
-autorizado por el plan), `procesa_lote` para en seco: NO lanza la siguiente
-llamada, y el CLI sale con código 3 (distinto de 0) informando el gasto
-acumulado y el id en el que se paró; el pipeline es reanudable por id
-(vuelve a correrse con el mismo --out y salta los ids ya escritos).
+En cuanto el gasto acumulado SUPERA (estrictamente mayor que, nunca ≥)
+`--tope-usd` (default 10, el tope autorizado por el plan), `procesa_lote`
+para en seco: NO lanza la siguiente llamada, y el CLI sale con código 3
+(distinto de 0) informando el gasto acumulado y el id en el que se paró; el
+pipeline es reanudable por id (vuelve a correrse con el mismo --out y salta
+los ids ya escritos). Un gasto que iguala el tope exactamente NO dispara el
+breaker (se gasta hasta el tope, inclusive); superarlo sí.
+
+Enmienda 2026-09-20 (b), review adversarial — el breaker era ciego en tres
+caminos por los que un job real lo recorre:
+- **Reanudación (C1):** `--out` solo persiste las filas con juicio válido;
+  al reanudar, el gasto acumulado se RECONSTRUYE sumando el `usage` de esas
+  filas (nunca arranca en 0 si ya hay filas escritas) — ver
+  `reconstruye_gasto()`. Se imprime el gasto heredado al arrancar.
+- **Reintentos que fallan `parsea()` (C2):** el `json_schema strict` de la
+  API garantiza la FORMA del JSON, no que `expected`/`acceptable` sean
+  permalinks reales de `candidatos` — eso lo valida `parsea()` después. Una
+  respuesta que pasa el schema pero alucina un permalink sigue siendo una
+  llamada FACTURADA: su coste se contabiliza vía el callback `contabiliza`
+  de `kimi()`, se haya validado o no el JSON después. El tope se comprueba
+  también ANTES de cada reintento (callback `tope_alcanzado`): si ya se
+  rebasó, no se lanza el siguiente intento.
+- **`usage` ausente o con campos no numéricos (C3):** nunca cuenta como
+  gasto $0 en silencio ni se estima — es un error explícito que para el
+  pipeline en seco (`parada_por_usage_invalido` en el resultado, código de
+  salida 4). Un breaker que no sabe lo que gastó no puede seguir gastando.
 
 Uso: juez.py paquetes --candidatos C --snap KB --out P.jsonl
      juez.py modelos --env-keys F
@@ -169,18 +194,85 @@ def cuerpo_peticion(paq, model):
     }
 
 
-def kimi(paq, key, model, reintentos=3, http=_http):
+def _numerico(x):
+    return isinstance(x, (int, float)) and not isinstance(x, bool)
+
+
+def costo(usage, precio_entrada, precio_salida):
+    """(usd, None) si `usage` es utilizable, o (None, error) si no. Un
+    `usage` ausente, incompleto o con campos no numéricos es SIEMPRE un
+    error explícito (C3) — nunca se estima ni se trata como coste cero."""
+    if not isinstance(usage, dict):
+        return None, f"usage ausente o no es un objeto: {usage!r}"
+    pt, ct = usage.get("prompt_tokens"), usage.get("completion_tokens")
+    if not _numerico(pt) or not _numerico(ct):
+        return None, f"usage incompleto o no numérico: prompt_tokens={pt!r} completion_tokens={ct!r}"
+    return pt / 1_000_000 * precio_entrada + ct / 1_000_000 * precio_salida, None
+
+
+def reconstruye_gasto(ruta_out, precio_entrada, precio_salida):
+    """Reanudación (C1): recorre las filas ya escritas en `ruta_out` y
+    devuelve (ids_hechos, gasto_heredado, [prompt_tok, completion_tok]). Si
+    alguna fila no tiene un `usage` utilizable, aborta con SystemExit (C3):
+    un breaker que no puede reconstruir lo que ya gastó no puede seguir
+    gastando; no hay ficción de coste cero para filas viejas."""
+    ids, gasto, tok = set(), 0.0, [0, 0]
+    if not Path(ruta_out).exists():
+        return ids, gasto, tok
+    with open(ruta_out, encoding="utf-8") as fh:
+        for n, l in enumerate(fh, start=1):
+            if not l.strip():
+                continue
+            fila = json.loads(l)
+            ids.add(fila["id"])
+            c, err = costo(fila.get("usage"), precio_entrada, precio_salida)
+            if err is not None:
+                raise SystemExit(
+                    f"gasto no reconstruible al reanudar: fila {n} (id={fila.get('id')}) de "
+                    f"{ruta_out} tiene usage inutilizable ({err}). El breaker no puede heredar "
+                    "un gasto que no sabe calcular; corrige o descarta esa fila antes de "
+                    "reanudar (no se estima ni se asume cero)."
+                )
+            gasto += c
+            tok[0] += fila["usage"]["prompt_tokens"]
+            tok[1] += fila["usage"]["completion_tokens"]
+    return ids, gasto, tok
+
+
+def kimi(paq, key, model, reintentos=3, http=_http, contabiliza=None, tope_alcanzado=None):
+    """Intenta hasta `reintentos` veces. Cada intento que SÍ recibe
+    respuesta de la API es una llamada FACTURADA y se pasa a
+    `contabiliza(usage)` -- se valide o no después con `parsea()` (C2): un
+    permalink alucinado que pasa el json_schema pero falla la validación de
+    negocio se pagó igual. Si `contabiliza` devuelve error (usage
+    inutilizable, C3), `kimi()` para en seco de inmediato. Antes de cada
+    intento -incluidos los reintentos- se consulta `tope_alcanzado()`; si ya
+    se rebasó, NO se lanza el intento (C2)."""
     ultimo = None
     for i in range(reintentos):
+        if tope_alcanzado is not None and tope_alcanzado():
+            return None, "tope superado: reintento no lanzado"
         try:
             r = http(f"{BASE}/chat/completions", key, cuerpo_peticion(paq, model))
-            d, err = parsea(r["choices"][0]["message"]["content"], paq["candidatos"])
-            if d is not None:
-                uso = r.get("usage", {})
-                return {"id": paq["id"], **d, "usage": {k: uso.get(k) for k in ("prompt_tokens", "completion_tokens")}}, None
-            ultimo = err
-        except (urllib.error.URLError, KeyError, TimeoutError, json.JSONDecodeError) as e:
+        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
             ultimo = f"{type(e).__name__}: {str(e)[:120]}"
+            time.sleep(2 ** i)
+            continue
+        uso = r.get("usage")
+        if contabiliza is not None:
+            _, err_costo = contabiliza(uso)
+            if err_costo is not None:
+                return None, f"USAGE_INVALIDO: {err_costo}"
+        try:
+            contenido = r["choices"][0]["message"]["content"]
+        except (KeyError, IndexError) as e:
+            ultimo = f"{type(e).__name__}: {str(e)[:120]}"
+            time.sleep(2 ** i)
+            continue
+        d, err = parsea(contenido, paq["candidatos"])
+        if d is not None:
+            return {"id": paq["id"], **d, "usage": {k: uso.get(k) for k in ("prompt_tokens", "completion_tokens")}}, None
+        ultimo = err
         time.sleep(2 ** i)
     return None, ultimo
 
@@ -188,17 +280,37 @@ def kimi(paq, key, model, reintentos=3, http=_http):
 def procesa_lote(ruta_paquetes, out, key, model, precio_entrada, precio_salida,
                   tope_usd=TOPE_USD_DEFAULT, maximo=0, http=_http):
     """Corre `kimi()` sobre cada paquete de `ruta_paquetes`, escribiendo en
-    `out` (reanudable: salta los ids ya presentes en `out`). Acumula el
-    gasto real en USD (tokens de la respuesta × precio por parámetro) y para
-    en seco -sin lanzar la siguiente llamada- en cuanto el acumulado supera
-    `tope_usd`. Devuelve un resumen; la clave `parada_por_tope` (id en el
-    que se paró) solo aparece si el breaker disparó."""
-    if Path(out).exists():
-        with open(out, encoding="utf-8") as fh0:
-            hechos = {json.loads(l)["id"] for l in fh0 if l.strip()}
-    else:
-        hechos = set()
-    errores, n, tok, gasto, parado_en = [], 0, [0, 0], 0.0, None
+    `out` (reanudable: salta los ids ya presentes en `out`). Al reanudar,
+    hereda el gasto ya persistido en `out` (`reconstruye_gasto`, C1); nunca
+    arranca en $0 si ya hay filas escritas. Acumula el coste real de CADA
+    llamada facturada -pase o no `parsea()` después- y para en seco -sin
+    lanzar la siguiente llamada, ni dentro de los reintentos de un mismo
+    paquete (C2)- en cuanto el acumulado SUPERA `tope_usd`. Un `usage`
+    inutilizable en una respuesta nueva para el pipeline en seco de
+    inmediato (`parada_por_usage_invalido`, C3), sin estimar nada. Devuelve
+    un resumen; `parada_por_tope` (id en el que se paró) solo aparece si el
+    breaker disparó por tope, y `parada_por_usage_invalido` solo si paró por
+    usage inutilizable."""
+    hechos, gasto, tok = reconstruye_gasto(out, precio_entrada, precio_salida)
+    if gasto:
+        print(f"gasto heredado de {out} (reanudación): ${gasto:.4f} "
+              f"({len(hechos)} filas ya escritas)", file=sys.stderr)
+
+    errores, n, parado_en, parado_por_usage = [], 0, None, None
+
+    def tope_alcanzado():
+        return gasto > tope_usd
+
+    def contabiliza(usage):
+        nonlocal gasto
+        c, err = costo(usage, precio_entrada, precio_salida)
+        if err is not None:
+            return None, err
+        gasto += c
+        tok[0] += usage["prompt_tokens"]
+        tok[1] += usage["completion_tokens"]
+        return c, None
+
     with open(out, "a", encoding="utf-8") as fh, open(ruta_paquetes, encoding="utf-8") as fpaq:
         for l in fpaq:
             if not l.strip():
@@ -206,20 +318,32 @@ def procesa_lote(ruta_paquetes, out, key, model, precio_entrada, precio_salida,
             paq = json.loads(l)
             if paq["id"] in hechos or (maximo and n >= maximo):
                 continue
-            d, err = kimi(paq, key, model, http=http)
+            if tope_alcanzado():
+                parado_en = paq["id"]
+                print(f"TOPE SUPERADO: ${gasto:.4f} > ${tope_usd} antes de procesar id={parado_en}; "
+                      "parada en seco. Reanudable por id (vuelve a correr con el mismo --out).",
+                      file=sys.stderr)
+                break
+            d, err = kimi(paq, key, model, http=http, contabiliza=contabiliza, tope_alcanzado=tope_alcanzado)
             n += 1
             if d is None:
+                if err is not None and err.startswith("USAGE_INVALIDO"):
+                    parado_por_usage = paq["id"]
+                    print(f"USAGE INUTILIZABLE: {err} en id={parado_por_usage}; parada en seco "
+                          "-un breaker que no sabe lo que gastó no puede seguir gastando-. "
+                          "Reanudable por id (vuelve a correr con el mismo --out).", file=sys.stderr)
+                    break
                 errores.append({"id": paq["id"], "error": err})
+                if tope_alcanzado():
+                    parado_en = paq["id"]
+                    print(f"TOPE SUPERADO: ${gasto:.4f} > ${tope_usd} en id={parado_en} "
+                          "(alcanzado durante los reintentos); parada en seco.", file=sys.stderr)
+                    break
                 continue
-            pt = d["usage"]["prompt_tokens"] or 0
-            ct = d["usage"]["completion_tokens"] or 0
-            tok[0] += pt
-            tok[1] += ct
-            gasto += pt / 1_000_000 * precio_entrada + ct / 1_000_000 * precio_salida
             fh.write(json.dumps(d, ensure_ascii=False) + "\n")
             fh.flush()
             print(f"[{n}] {paq['id']} · gasto acumulado: ${gasto:.4f}", file=sys.stderr)
-            if gasto > tope_usd:
+            if tope_alcanzado():
                 parado_en = paq["id"]
                 print(f"TOPE SUPERADO: ${gasto:.4f} > ${tope_usd} en id={parado_en}; "
                       "parada en seco, no se lanza la siguiente llamada. Reanudable por id "
@@ -230,6 +354,8 @@ def procesa_lote(ruta_paquetes, out, key, model, precio_entrada, precio_salida,
                  "gasto_usd": round(gasto, 4), "tope_usd": tope_usd}
     if parado_en is not None:
         resultado["parada_por_tope"] = parado_en
+    if parado_por_usage is not None:
+        resultado["parada_por_usage_invalido"] = parado_por_usage
     return resultado
 
 
@@ -255,8 +381,12 @@ def main():
                       help="USD por millón de tokens de SALIDA. Obligatorio, sin default: "
                            "kimi-k3 = 15.00 (verificado platform.kimi.ai/docs/pricing/chat, 2026-09-20).")
     a_k.add_argument("--tope-usd", type=float, default=TOPE_USD_DEFAULT,
-                      help=f"tope de gasto acumulado en USD; al superarlo, para en seco antes de la "
-                           f"siguiente llamada (default {TOPE_USD_DEFAULT}, plan §Global Constraints).")
+                      help=f"tope de gasto acumulado en USD. Criterio: SUPERAR (>), nunca alcanzar "
+                           f"(>=) -un gasto que iguala el tope exactamente no para, se gasta hasta el "
+                           f"tope inclusive-. Al superarlo para en seco antes de la siguiente llamada, "
+                           f"incluso entre reintentos de un mismo paquete (default {TOPE_USD_DEFAULT}, "
+                           f"plan §Global Constraints). Reanudable: si --out ya tiene filas, el gasto "
+                           f"heredado se suma antes de seguir.")
     a_v = sub.add_parser("valida")
     a_v.add_argument("--respuestas", required=True)
     a_v.add_argument("--candidatos", required=True)
@@ -277,6 +407,8 @@ def main():
         resultado = procesa_lote(a.paquetes, a.out, key, a.model, a.precio_entrada, a.precio_salida,
                                   tope_usd=a.tope_usd, maximo=a.max)
         print(json.dumps(resultado, ensure_ascii=False))
+        if "parada_por_usage_invalido" in resultado:
+            sys.exit(4)
         sys.exit(3 if "parada_por_tope" in resultado else (1 if resultado["errores"] else 0))
     else:
         cands = {json.loads(l)["id"]: json.loads(l)["candidatos"] for l in open(a.candidatos, encoding="utf-8") if l.strip()}
