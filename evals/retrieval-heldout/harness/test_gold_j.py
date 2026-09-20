@@ -45,6 +45,14 @@ class TestJuez(unittest.TestCase):
         self.assertIn("título: Nota A", paq["texto"])
         self.assertIn("(nota no encontrada en el snapshot)", paq["texto"])
         self.assertLess(len(paq["texto"]), 2 * jz.MAX_CHARS)
+        # F1 del review de rama (2026-09-20): la ceguera de los jueces era
+        # asimétrica -- `source` es la etiqueta de estrato que §3 del
+        # borrador prohíbe ("los dos ven exactamente el mismo paquete...
+        # sin etiquetas") y que Global Constraints prohíbe también ("ningún
+        # juez ve la etiqueta del otro"). El campo NO debe estar en lo que
+        # un juez ve: el paquete es exactamente {id, candidatos, texto}.
+        self.assertEqual(set(paq), {"id", "candidatos", "texto"})
+        self.assertNotIn("source", paq)
         cands = paq["candidatos"]
         ok, err = jz.parsea('{"expected": "kb/core/n", "acceptable": ["kb/zz"], "razon": "r"}', cands)
         self.assertIsNone(err)
@@ -661,7 +669,7 @@ class TestAcuerdo(unittest.TestCase):
         # es descriptivo (no decide `pasa`) y aparece como línea propia del
         # informe. Cálculo a mano de las 3 filas juzgadas sin `negativo`
         # (c1 estricto, c3 estricto, c4 desacuerdo): p_o = 2/3, κ = 0.5.
-        self.assertIn("κ / p_o sin `negativo`: 0.500 / 0.667 (sobre 3 filas; descriptivo, no decide)", inf)
+        self.assertIn("κ / p_o sin `negativo` ni candidatos vacíos: 0.500 / 0.667 (sobre 3 filas; descriptivo, no decide)", inf)
 
     def test_construye_kappa_po_sin_negativo_no_cambia_exit(self):
         """La línea descriptiva κ/p_o sin `negativo` no debe alterar `pasa`
@@ -675,7 +683,55 @@ class TestAcuerdo(unittest.TestCase):
         gold, desc, inf, k, po = ac.construye(cands, fab, kim, None, 0.60, 0.70)
         # con negativo incluido: 2 pares perfectamente de acuerdo -> κ=1.0, po=1.0.
         self.assertEqual((k, po), (1.0, 1.0))
-        self.assertIn("κ / p_o sin `negativo`: 1.000 / 1.000 (sobre 1 filas; descriptivo, no decide)", inf)
+        self.assertIn("κ / p_o sin `negativo` ni candidatos vacíos: 1.000 / 1.000 (sobre 1 filas; descriptivo, no decide)", inf)
+
+    def test_construye_kappa_po_sin_negativo_excluye_tambien_candidatos_vacios(self):
+        """F3 del review de rama (2026-09-20): el acuerdo forzado null-null
+        por construcción no son solo las filas `source == "negativo"` -- las
+        filas con `candidatos` vacío (p.ej. 26 del estrato `prompt` sin
+        candidata plausible) llevan en el paquete "(sin candidatas: expected
+        debe ser null)" y son null-null por el mismo motivo estructural.
+        Antes solo se excluía `negativo`; ahora también se excluyen las de
+        candidatos vacíos, sin tocar `pasa` ni el suelo firmado (0,60 ∧ 0,70)
+        -sigue siendo descriptivo (I-3 del review original)."""
+        cands = [{"id": "c1", "query": "q1", "source": "prompt", "candidatos": ["kb/a"]},
+                 {"id": "c2", "query": "q2", "source": "negativo", "candidatos": ["kb/a"]},
+                 {"id": "c3", "query": "q3", "source": "prompt", "candidatos": []}]
+        fab = {"c1": self.j("kb/a"), "c2": self.j(None), "c3": self.j(None)}
+        kim = {"c1": self.j("kb/b"), "c2": self.j(None), "c3": self.j(None)}
+        gold, desc, inf, k, po = ac.construye(cands, fab, kim, None, 0.0, 0.0)
+        # `pasa`/`k`/`po` globales no cambian: siguen sobre las 3 filas
+        # (c1 desacuerdo, c2 y c3 acuerdo estricto null-null).
+        self.assertAlmostEqual(po, 2 / 3)
+        # sin `negativo` NI candidatos vacíos solo queda c1 (desacuerdo total):
+        # κ=0.0, p_o=0.0, sobre 1 fila -- no las 2 que darían si c3 (candidatos
+        # vacíos) se colara como si fuera una fila juzgada de verdad.
+        self.assertIn("κ / p_o sin `negativo` ni candidatos vacíos: 0.000 / 0.000 (sobre 1 filas; descriptivo, no decide)", inf)
+
+    def test_construye_audita_solape_contra_el_expected_del_gold_no_del_primer_juez(self):
+        """F2 del review de rama (2026-09-20): en un acuerdo lenient decidido
+        por el SEGUNDO juez (aquí kimi), `expected_permalink` del gold es el
+        de kimi ("kb/y"), pero la auditoría de sesgo léxico usaba
+        `fab.expected or kim.expected` -que toma el de fable ("kb/x") por ser
+        el primero no-nulo- TAMBIÉN para las filas del gold, no solo para los
+        descartes (donde esa asimetría SÍ está declarada, Minor M-4). Repro
+        exacto del reviewer: expected del gold en "kb/y", pero el
+        `solape_lexico` anotado se calculaba contra "kb/x"."""
+        cands = [{"id": "c1", "query": "alfa beta gamma", "source": "prompt", "candidatos": ["kb/x", "kb/y"]}]
+        # fable propone expected="kb/x" (con "kb/y" en su acceptable);
+        # kimi propone expected="kb/y" sin acceptable. acuerdo_fila: no
+        # estricto (difieren); b.expected="kb/y" está en a.acceptable=["kb/y"]
+        # -> lenient, y en fusiona() gana kimi (el `if` de "a" no aplica
+        # porque a.expected="kb/x" NO está en b.acceptable=[]): exp="kb/y".
+        fab = {"c1": self.j("kb/x", ["kb/y"])}
+        kim = {"c1": self.j("kb/y", [])}
+        textos = {"kb/x": "esto no comparte ningun token con la consulta",
+                  "kb/y": "aqui si: alfa beta gamma aparecen en el cuerpo"}
+        gold, desc, inf, k, po = ac.construye(cands, fab, kim, textos, 0.0, 0.0)
+        self.assertEqual(gold[0]["expected_permalink"], "kb/y")
+        # el solape correcto es contra "kb/y" (1.0), no contra "kb/x" (0.0).
+        self.assertIn("solape_lexico=1.00", gold[0]["notes"])
+        self.assertNotIn("solape_lexico=0.00", gold[0]["notes"])
 
     def test_solape_lexico(self):
         self.assertEqual(ac.solape_lexico("fusión rrf combsum", "la fusion por rrf"), 0.5)

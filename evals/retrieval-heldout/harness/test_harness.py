@@ -389,6 +389,19 @@ class TestDiagnostico(unittest.TestCase):
         c.execute("INSERT INTO notas_fts VALUES ('t', 'campaña sola', 'kb/b')")
         self.assertEqual(dg.df_tokens(c, 'fabrica campaña "x"'), [("fabrica", 1), ("campaña", 1), ('"x"', 0)])
 
+    def test_conn_ro_uri_es_readonly_e_immutable(self):
+        # F6 del review de rama (2026-09-20): `diagnostico.py` abría el
+        # índice de C (`$PRIV_C`, contrato de solo lectura) con `mode=ro`
+        # pero SIN `immutable=1` -- sqlite puede seguir intentando tomar un
+        # lock o comprobar el WAL de un fichero "solo lectura" y tocar sus
+        # sidecars (`-shm`/`-wal`) igualmente; verificado: mtime de
+        # `idx-base.db-shm` cambió un día que $PRIV_C no debía tocarse (el
+        # contenido y el sha del gold quedaron intactos, pero el contrato de
+        # "solo lectura" se rompió). `immutable=1` le dice a sqlite que el
+        # fichero no cambiará durante la conexión: sin locks, sin comprobar
+        # ni crear WAL/SHM.
+        self.assertEqual(dg.conn_ro_uri("/a/b/idx.db"), "file:/a/b/idx.db?mode=ro&immutable=1")
+
     def test_causas(self):
         f = self.filas()[0]
         dfs = [("cge", 3), ("bitácora", 0)]

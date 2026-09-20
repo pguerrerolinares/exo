@@ -171,6 +171,19 @@ def informe(filas, hist_ids, diag_s, diag_hoy, muertas_hoy, publico, dfs=None, n
     return "\n".join(L) + "\n"
 
 
+def conn_ro_uri(db):
+    """URI sqlite de solo lectura E inmutable (fix F6, review de rama
+    2026-09-20). `$PRIV_C` es de solo lectura por contrato -T0 solo lee el
+    índice de C-, pero `mode=ro` a secas no basta: sqlite puede seguir
+    intentando tomar un lock o comprobar/crear el WAL de un fichero "solo
+    lectura" y tocar sus sidecars (`-shm`/`-wal`) en el propio directorio de
+    $PRIV_C (verificado: le tocó el mtime a `idx-base.db-shm` un día que no
+    debía tocarse; el contenido y el sha del gold quedaron intactos, pero el
+    contrato se rompió igual). `immutable=1` declara que el fichero no
+    cambiará durante la conexión: sin locks, sin comprobar ni crear WAL/SHM."""
+    return f"file:{db}?mode=ro&immutable=1"
+
+
 def main():
     ap = argparse.ArgumentParser()
     for k in ("gold", "hist", "cap-s", "cap-hoy", "db", "kb-hoy", "publico", "privado"):
@@ -178,7 +191,7 @@ def main():
     a = ap.parse_args()
     filas = carga_gold(a.gold)
     hist_ids = set(empareja_prefijos(misses_historicos(a.hist), filas).values())
-    conn = sqlite3.connect(f"file:{a.db}?mode=ro", uri=True)
+    conn = sqlite3.connect(conn_ro_uri(a.db), uri=True)
     dfs = {f["id"]: df_tokens(conn, f["query"]) for f in filas}
     cap_s, cap_hoy = carga_captura(a.cap_s), carga_captura(a.cap_hoy)
     no_nulas = [f for f in filas if f.get("expected_permalink")]

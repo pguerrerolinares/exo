@@ -277,13 +277,27 @@ def nota(permalink, rutas):
 
 
 def paquete(fila, rutas):
+    """Lo que ve UN juez: fix F1 del review de rama (2026-09-20). Antes esta
+    función devolvía también `source` -la etiqueta de estrato
+    (hard/negativo/archive/prompt)-, y el brief del primer juez (plan, Task 7
+    Step 4) le manda leer `paquetes.jsonl` línea a línea: ese juez SÍ veía la
+    etiqueta, mientras que Kimi (`kimi()`/`cuerpo_peticion`) solo recibe
+    `paq["texto"]` y nunca vio `source`. Ceguera asimétrica: contradice §3 del
+    borrador ("los dos ven exactamente el mismo paquete... sin etiquetas") y
+    las Global Constraints ("ningún juez ve la etiqueta del otro") -- D-J11.
+    El paquete que sale a disco (lo que CUALQUIER juez puede llegar a leer,
+    directamente o vía API) es ahora exactamente {id, candidatos, texto}: la
+    etiqueta de estrato vive solo en `candidatos.jsonl` (uso interno de
+    `acuerdo.py`, que lee ESE fichero, no `paquetes.jsonl`, para las reglas
+    de estrato de §3 -negativo exige null, archive exige expected en
+    archive/-)."""
     cands = [nota(p, rutas) for p in fila["candidatos"][:5]]
     texto = [f"CONSULTA: {fila['query']}", "", f"CANDIDATAS ({len(cands)}):"]
     for i, c in enumerate(cands, start=1):
         texto += ["", f"[{i}] permalink: {c['permalink']}", f"título: {c['titulo']}", "cuerpo:", c["cuerpo"]]
     if not cands:
         texto.append("(sin candidatas: expected debe ser null)")
-    return {"id": fila["id"], "source": fila["source"], "candidatos": [c["permalink"] for c in cands], "texto": "\n".join(texto)}
+    return {"id": fila["id"], "candidatos": [c["permalink"] for c in cands], "texto": "\n".join(texto)}
 
 
 def parsea(respuesta, candidatos):

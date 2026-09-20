@@ -84,13 +84,23 @@ def solape_lexico(query, texto):
 
 def construye(cands, fab, kim, textos, kappa_min, po_min):
     por_src, gold, desc = {}, [], []
+    # F3 del review de rama (2026-09-20): "acuerdo forzado, null-null por
+    # construcción" no es solo `source == "negativo"` -- una fila con
+    # `candidatos` vacío (el paquete lleva literalmente "(sin candidatas:
+    # expected debe ser null)", `juez.paquete`) es null-null por el mismo
+    # motivo estructural, sea cual sea su `source` (p.ej. 26 de `prompt` sin
+    # candidata plausible). `vacios` marca esos ids para excluirlos, junto a
+    # `negativo`, de la línea descriptiva κ/p_o "sin acuerdo forzado" más
+    # abajo -- no cambia `pasa` ni el suelo firmado (0,60 ∧ 0,70), que siguen
+    # sobre TODAS las filas juzgadas.
+    vacios = {c["id"] for c in cands if not c["candidatos"]}
     for c in cands:
         i = c["id"]
         if i not in fab or i not in kim:
             desc.append({"id": i, "motivo": "sin juicio de ambos"})
             continue
         tipo = acuerdo_fila(fab[i], kim[i])
-        por_src.setdefault(c["source"], []).append((fab[i]["expected"], kim[i]["expected"], tipo))
+        por_src.setdefault(c["source"], []).append((i, fab[i]["expected"], kim[i]["expected"], tipo))
         if tipo is None:
             desc.append({"id": i, "motivo": "desacuerdo", "fable": fab[i]["expected"], "kimi": kim[i]["expected"]})
             continue
@@ -106,34 +116,52 @@ def construye(cands, fab, kim, textos, kappa_min, po_min):
             notes += " | aceptable: admitido por ambos jueces"
         gold.append({"id": i, "query": c["query"], "source": c["source"], "expected_permalink": exp,
                      "acceptable_permalinks": acc, "notes": notes})
-    todos = [p for v in por_src.values() for p in v]
+    todos = [(a, b, t) for v in por_src.values() for _, a, b, t in v]
     k_total = kappa([(a, b) for a, b, _ in todos])
     po_total = sum(1 for _, _, t in todos if t) / max(1, len(todos))
     pasa = k_total >= kappa_min and po_total >= po_min
     # I-3 del review (2026-09-20): `negativo` es null-null por construcción y
     # infla κ/p_o pooled (Feinstein & Cicchetti 1990). Descriptivo: no toca
-    # `pasa` ni el suelo firmado (D-J11).
-    todos_sin_neg = [p for s, v in por_src.items() for p in v if s != "negativo"]
+    # `pasa` ni el suelo firmado (D-J11). F3 del review de rama (2026-09-20):
+    # el mismo argumento aplica a CUALQUIER fila con candidatos vacío (no
+    # solo `negativo`, ver `vacios` arriba) -- también null-null forzado.
+    todos_sin_neg = [(a, b, t) for s, v in por_src.items() for i, a, b, t in v if s != "negativo" and i not in vacios]
     k_sin_neg = kappa([(a, b) for a, b, _ in todos_sin_neg])
     po_sin_neg = sum(1 for _, _, t in todos_sin_neg if t) / max(1, len(todos_sin_neg))
     L = ["# Acuerdo entre jueces — gold J (fable × Kimi, ciegos)", ""]
     L.append(f"- filas juzgadas por ambos: {len(todos)} · acuerdo (estricto+lenient): {sum(1 for _, _, t in todos if t)} ({po_total:.3f}) · estricto: {sum(1 for _, _, t in todos if t == 'estricto')} · κ estricto: {k_total:.3f}")
-    L.append(f"- κ / p_o sin `negativo`: {k_sin_neg:.3f} / {po_sin_neg:.3f} (sobre {len(todos_sin_neg)} filas; descriptivo, no decide)")
+    L.append(f"- κ / p_o sin `negativo` ni candidatos vacíos: {k_sin_neg:.3f} / {po_sin_neg:.3f} (sobre {len(todos_sin_neg)} filas; descriptivo, no decide)")
     L.append(f"- suelo pre-registrado: κ ≥ {kappa_min} y acuerdo ≥ {po_min} → {'PASA' if pasa else 'NO PASA: J PARA'}")
     L += ["", "| estrato | juzgadas | acuerdo | p_o | κ | entran al gold | no nulas |", "|---|---|---|---|---|---|---|"]
     entradas = Counter(g["source"] for g in gold)
     nonulas = Counter(g["source"] for g in gold if g["expected_permalink"])
     for s, v in sorted(por_src.items()):
-        ac = sum(1 for _, _, t in v if t)
-        L.append(f"| {s} | {len(v)} | {ac} | {ac / len(v):.3f} | {kappa([(a, b) for a, b, _ in v]):.3f} | {entradas[s]} | {nonulas[s]} |")
+        ac = sum(1 for _, a, b, t in v if t)
+        L.append(f"| {s} | {len(v)} | {ac} | {ac / len(v):.3f} | {kappa([(a, b) for _, a, b, _ in v]):.3f} | {entradas[s]} | {nonulas[s]} |")
     if textos is not None:
         por_id = {c["id"]: c for c in cands}
 
         def sol(i):
+            # Asimetría declarada (Minor M-4 del pre-registro, §3): para las
+            # filas DESCARTADAS (sin fila de gold, `expected_permalink`
+            # propio) se audita contra el `expected` del primer juez que lo
+            # tenga -no hay un "expected del gold" que auditar, porque la
+            # fila nunca entró al gold-.
             exp = fab[i]["expected"] or kim[i]["expected"]
             return solape_lexico(por_id[i]["query"], textos.get(exp, "")) if exp else None
 
-        s_ok = [x for x in (sol(g["id"]) for g in gold if g["expected_permalink"]) if x is not None]
+        def sol_gold(g):
+            # F2 del review de rama (2026-09-20): para las filas DEL GOLD la
+            # auditoría es contra `g["expected_permalink"]` -el expected que
+            # de verdad ganó la fusión (§3, D-J11)-, nunca contra
+            # `fab.expected or kim.expected`: en un acuerdo lenient decidido
+            # por el segundo juez, esa fórmula "or" seguía devolviendo el
+            # `expected` del PRIMER juez (fable) aunque no fuera el que
+            # ganó, auditando la fila contra la nota equivocada.
+            exp = g["expected_permalink"]
+            return solape_lexico(g["query"], textos.get(exp, "")) if exp else None
+
+        s_ok = [x for x in (sol_gold(g) for g in gold if g["expected_permalink"]) if x is not None]
         s_no = [x for x in (sol(d["id"]) for d in desc if d["motivo"] == "desacuerdo") if x is not None]
         med = lambda v: round(sorted(v)[len(v) // 2], 2) if v else None  # noqa: E731
         L += ["", "## auditoría del sesgo léxico (fracción de tokens de la query ≥4 letras presentes en la nota esperada)", "",
@@ -142,7 +170,7 @@ def construye(cands, fab, kim, textos, kappa_min, po_min):
               "- lectura: si los desacuerdos se concentran en solape bajo, los jueces acuerdan sobre todo donde la query repite la nota (sesgo léxico); el subconjunto «léxicamente difícil» (solape < 0,5) de las no nulas es el guard de D-A (borrador §6)."]
         for g in gold:
             if g["expected_permalink"]:
-                g["notes"] += f" | solape_lexico={sol(g['id']):.2f}"
+                g["notes"] += f" | solape_lexico={sol_gold(g):.2f}"
     L += ["", f"- descartes: {len(desc)} (" + ", ".join(f"{k}={v}" for k, v in sorted(Counter(d['motivo'] for d in desc).items())) + ")"]
     return gold, desc, "\n".join(L) + "\n", k_total, po_total
 
