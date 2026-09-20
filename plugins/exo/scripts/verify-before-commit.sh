@@ -32,6 +32,15 @@
 set -uo pipefail
 
 INPUT="$(cat)"
+
+# Pre-filtro bash puro (campaña I): el PATRON de este reflejo exige "git
+# commit" literal. Mismo contrato que git-c-bash.sh: sin "git" en el JSON
+# crudo, se ahorra el spawn de jq sin poder perder ningún disparo real.
+case "$INPUT" in
+  *git*) : ;;
+  *) exit 0 ;;
+esac
+
 command -v jq >/dev/null 2>&1 || exit 0
 
 CMD="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)" || CMD=""
