@@ -123,6 +123,24 @@ if ! grep -q 'no-engine' "$REFLEX_LOG_FILE" 2>/dev/null; then
   pass "F2: 'SÍ, DALE' calla también bajo LC_ALL=C"
 else fail "F2: 'SÍ, DALE' calla también bajo LC_ALL=C" "la normalización depende del locale"; fi
 
+# F2b (campaña I): el gate se comporta IGUAL bajo un locale con coma decimal
+# y colación no-C (es_ES.utf8) que bajo C -- declarado normativo en Step 2
+# (ver el comentario de norm_token en recall-inject.sh: el sed viejo SÍ
+# divergía aquí, esta reescritura no). Se salta si la máquina no tiene el
+# locale instalado, en vez de fallar por un motivo ajeno al gate.
+if locale -a 2>/dev/null | grep -qi '^es_ES\.utf8$'; then
+  : > "$REFLEX_LOG_FILE"
+  printf '%s' "SÍ, DALE" | jq -Rs '{prompt:., session_id:"test-sess"}' \
+    | LC_ALL=es_ES.utf8 EXO_BIN="$NO_BIN" "$HOOK" >/dev/null 2>&1
+  if ! grep -q 'no-engine' "$REFLEX_LOG_FILE" 2>/dev/null; then
+    pass "F2b: 'SÍ, DALE' calla también bajo LC_ALL=es_ES.utf8"
+  else
+    fail "F2b: 'SÍ, DALE' calla también bajo LC_ALL=es_ES.utf8" "la normalización depende del locale"
+  fi
+else
+  pass "F2b: SKIP (es_ES.utf8 no instalado en esta máquina)"
+fi
+
 # --------------------------------------------------- T1: P1 (nunca rompe) ---
 # Binario que sale con 2, que revienta, que escupe basura: exit 0 y sin bloque.
 for modo in "exit 2" "kill -TERM \$\$" "printf 'basura no-json'"; do

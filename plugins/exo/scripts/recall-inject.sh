@@ -71,7 +71,10 @@ uno dos tres cuatro cinco 1 2 3 4 5'
 # comprueba con `case " $STOP " in *" $tok "*`: sin colapsar los saltos de línea
 # a espacios, todo token a final de línea fallaría el match y el gate no callaría
 # casi nunca.
-STOP=" $(printf '%s' "$STOP" | tr '\n' ' ') "
+# Sustituye `tr '\n' ' '` por expansión de parámetros bash pura (campaña I):
+# CERO spawns, funciona en cualquier bash >=3.2 (ANSI-C quoting `$'\n'` es
+# anterior a esa versión).
+STOP=" ${STOP//$'\n'/ } "
 
 # NFD + minúsculas + strip de acentos, conservando `/`, `.` y `-`. Que conserve
 # esos tres NO es descuido: es lo que hace la normalización medida, y quitar toda
@@ -81,16 +84,46 @@ STOP=" $(printf '%s' "$STOP" | tr '\n' ' ') "
 # "SÍ" → "s" y "Ñu" → "u", con lo que un ack acentuado dispararía). `sed` trabaja
 # sobre bytes y `tr 'A-Z' 'a-z'` es ASCII puro, así que esta versión da el mismo
 # resultado bajo cualquier locale.
+# Sustituye 2 `sed` + 1 `tr` POR TOKEN por expansión de parámetros bash pura
+# (campaña I): CERO spawns, sin subshell (setea la global TOKEN_NORM en vez
+# de imprimir — `n="$(norm_token "$tok")"` habría forkeado igual que un
+# spawn externo en Git Bash/MSYS2, donde fork() está emulado y no es barato).
+# Verificado equivalente byte a byte contra la versión sed/tr sobre 24 tokens
+# del alfabeto ESPAÑOL (acentos, mayúsculas, glob, LC_ALL=C incluido) — que
+# es el alfabeto que un gate en castellano necesita cubrir.
+#
+# NO es equivalente byte a byte para caracteres FUERA de ese alfabeto bajo un
+# locale no-C (medido: `ç`/`ß`/`ï`/`ö` sobreviven al `sed` final original
+# bajo `LC_ALL=es_ES.utf8` -- el propio filtro de caracteres de sed se vuelve
+# locale-aware ahí -- y esta reescritura los filtra SIEMPRE, igual que el
+# `sed` original bajo `LC_ALL=C`). Es una divergencia deliberada, no un bug
+# sin ver: el comportamiento nuevo (equivalente a C en cualquier locale,
+# porque son sustituciones LITERALES de bytes) es el que se declara
+# NORMATIVO a partir de esta campaña — un gate cuyo criterio de disparo
+# cambiara según el locale regional de la máquina de Paul sería peor que uno
+# determinista que no cubre acentos franceses/alemanes. Ver Step 2 bis.
+#
+# El ORDEN importa: primero se pliegan los acentos (deja solo ASCII), LUEGO
+# se pasa a minúsculas con sustituciones LITERALES letra a letra — nunca
+# `${t,,}` (ese operador es bash >=4, inexistente en el /bin/bash 3.2 de
+# macOS; y aunque existiera, bajo locale C/POSIX foldea mal el multibyte,
+# que es justo el bug medido que obligó al `sed` original: "SÍ" -> "s").
+# Con el acento ya plegado a ASCII antes de este punto, la sustitución
+# LITERAL A->a es un match de bytes, no una operación de locale: funciona
+# igual bajo cualquier locale y cualquier versión de bash.
 norm_token() {
-  local t
-  # shellcheck disable=SC2018,SC2019 # los acentos ya los pliega el sed de arriba; tr solo ve ASCII
-  t="$(printf '%s' "$1" | sed \
-        -e 's/Á/A/g' -e 's/É/E/g' -e 's/Í/I/g' -e 's/Ó/O/g' -e 's/Ú/U/g' \
-        -e 's/Ü/U/g' -e 's/Ñ/N/g' \
-        -e 's/á/a/g' -e 's/é/e/g' -e 's/í/i/g' -e 's/ó/o/g' -e 's/ú/u/g' \
-        -e 's/ü/u/g' -e 's/ñ/n/g' \
-        | tr 'A-Z' 'a-z' 2>/dev/null)" || t="$1"
-  printf '%s' "$t" | sed 's/[^a-z0-9/.-]//g' 2>/dev/null || true
+  local t="$1"
+  t="${t//Á/A}"; t="${t//É/E}"; t="${t//Í/I}"; t="${t//Ó/O}"; t="${t//Ú/U}"
+  t="${t//Ü/U}"; t="${t//Ñ/N}"
+  t="${t//á/a}"; t="${t//é/e}"; t="${t//í/i}"; t="${t//ó/o}"; t="${t//ú/u}"
+  t="${t//ü/u}"; t="${t//ñ/n}"
+  t="${t//A/a}"; t="${t//B/b}"; t="${t//C/c}"; t="${t//D/d}"; t="${t//E/e}"
+  t="${t//F/f}"; t="${t//G/g}"; t="${t//H/h}"; t="${t//I/i}"; t="${t//J/j}"
+  t="${t//K/k}"; t="${t//L/l}"; t="${t//M/m}"; t="${t//N/n}"; t="${t//O/o}"
+  t="${t//P/p}"; t="${t//Q/q}"; t="${t//R/r}"; t="${t//S/s}"; t="${t//T/t}"
+  t="${t//U/u}"; t="${t//V/v}"; t="${t//W/w}"; t="${t//X/x}"; t="${t//Y/y}"
+  t="${t//Z/z}"
+  TOKEN_NORM="${t//[^a-z0-9\/.-]/}"
 }
 
 gate_skip() {  # 0 = saltar, 1 = disparar
@@ -107,7 +140,8 @@ gate_skip() {  # 0 = saltar, 1 = disparar
   set -f
   local tok n hay=0
   for tok in $p; do
-    n="$(norm_token "$tok")"
+    norm_token "$tok"
+    n="$TOKEN_NORM"
     [ -n "$n" ] || continue
     case "$STOP" in
       *" $n "*) continue ;;
@@ -206,22 +240,28 @@ fi
 # engine hablando otro idioma (cambio de schema, salida corrupta). Etiquetarlo
 # `empty` lo haría invisible, porque `empty` es el caso normal — exactamente el
 # disfraz que P2 impide en la rama de exit 1.
-if ! printf '%s' "$SALIDA" | jq -e 'has("data") and (.data | has("notes"))' >/dev/null 2>&1; then
-  log_ri "degraded" "reason=error err=envelope-ilegible"
-  exit 0
-fi
+# Envelope + metadatos en UNA SOLA pasada de jq (campaña I; antes eran dos:
+# un `jq -e` solo para validar la forma y un `jq -r` separado para extraer
+# los campos). Si el envelope no tiene `data.notes`, jq emite el centinela
+# "envelope-ilegible" (sin tabs, indistinguible de un fallo de jq — ambos
+# caen al mismo `case` de abajo). `@tsv` con los avisos AL FINAL, porque
+# `read` colapsa un campo vacío en medio (el tab es whitespace de IFS).
+META="$(printf '%s' "$SALIDA" | jq -r '
+  if (has("data") and (.data | has("notes"))) then
+    [ (.data.truncated // false | tostring),
+      ((.data.elapsed_s // 0) * 1000 | floor | tostring),
+      ((.data.refresh_s // 0) * 1000 | floor | tostring),
+      ((.data.warnings // []) | join(" | ")) ] | @tsv
+  else
+    "envelope-ilegible"
+  end' 2>/dev/null)" || META=""
 
-# Metadatos del envelope en UNA pasada de jq (H2/H3): cada spawn cuesta decenas
-# de ms en Git Bash. Si el engine recortó su propia respuesta (cap de fetch), el
-# hit de repuesto puede haber desaparecido: no degrada nada, pero deja rastro.
-# `@tsv` con los avisos AL FINAL, porque `read` colapsa un campo vacío en medio
-# (el tab es whitespace de IFS).
-META="$(printf '%s' "$SALIDA" | jq -r '[ (.data.truncated // false | tostring),
-    ((.data.elapsed_s // 0) * 1000 | floor | tostring),
-    ((.data.refresh_s // 0) * 1000 | floor | tostring),
-    ((.data.warnings // []) | join(" | ")) ] | @tsv' 2>/dev/null)" || META=""
+case "$META" in
+  *$'\t'*) ;;
+  *) log_ri "degraded" "reason=error err=envelope-ilegible"; exit 0 ;;
+esac
 TRUNCADO=""; ELAPSED_MS=""; REFRESH_MS=""; AVISOS=""
-[ -n "$META" ] && IFS=$'\t' read -r TRUNCADO ELAPSED_MS REFRESH_MS AVISOS <<< "$META"
+IFS=$'\t' read -r TRUNCADO ELAPSED_MS REFRESH_MS AVISOS <<< "$META"
 if [ "$TRUNCADO" = "true" ]; then
   log_ri "degraded" "reason=fetch-truncado"
 fi
