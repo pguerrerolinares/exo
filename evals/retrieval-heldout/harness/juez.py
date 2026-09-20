@@ -264,7 +264,15 @@ except ImportError:  # no-POSIX (p.ej. Windows): degrada con aviso, sin fingir l
     fcntl = None
 
 BASE = "https://api.moonshot.ai/v1"
-MAX_CHARS = 4000
+# Rehecho del kit J (2026-09-20): con MAX_CHARS=4000, medido sobre el kit
+# real, el 93% de los cuerpos servidos (573/619) llegaban truncados al tope
+# y en la nota mediana (p50=10.093 car.) el juez veía solo el 40% del texto
+# -un gold etiquetado sobre media nota sesga hacia null-. 12.000 no es
+# arbitrario: coincide con el techo que el contrato de memoria (KB
+# wisdom-paul) fija para una nota `stable` (12.500 B), así que la nota
+# mediana entra entera. No bajar sin volver a medir qué fracción del kit
+# queda truncada.
+MAX_CHARS = 12000
 TOPE_USD_DEFAULT = 10.0
 SISTEMA = (
     "Eres un juez de relevancia para un buscador de notas personales en castellano. "

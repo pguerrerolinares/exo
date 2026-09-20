@@ -241,7 +241,7 @@
   la rotación archivada **y** la bitácora viva cuando la query menciona un
   hecho fechado. Es el cuello léxico del diseño y se declara como tal.
 - **Jueces (los dos ven exactamente el mismo paquete: query + candidatas con
-  permalink, título y los primeros 4.000 caracteres; sin etiquetas, sin
+  permalink, título y los primeros 12.000 caracteres; sin etiquetas, sin
   rankings de ningún brazo, sin el otro juez, sin acceso al snapshot ni a
   `evals/`):**
   - **fable** (Claude): subagente fresco por lote de 25 paquetes, instrucción
@@ -263,6 +263,26 @@
   queda en pie la defensa del diseño: dos jueces independientes (fable y
   Kimi) y su acuerdo medido contra el suelo pre-registrado (κ ≥ 0,60 ∧
   p_o ≥ 0,70, arriba), no la determinación de una sola llamada.
+- **`MAX_CHARS` 4.000 → 12.000, parada y rehecho del kit (F7, declarado,
+  2026-09-20):** el kit se juzgó primero con `MAX_CHARS = 4.000`
+  (`juez.py:paquete`/`nota`). Medido sobre ese kit: **573 de 619 cuerpos
+  servidos (93%) llegaban truncados al tope**, y **216 de 217 filas con
+  candidatas (100%) tenían al menos una candidata truncada** — con
+  p50 = 10.093 y p90 = 20.464 caracteres de las notas servidas, en la nota
+  mediana el juez veía solo el **40%** del texto. Varios jueces lo
+  detectaron solos e independientemente ("ningún extracto lo muestra", "el
+  paquete corta justo antes") y etiquetaron por inferencia de tema en vez de
+  por haber leído el hecho: un gold etiquetado sobre media nota sesga hacia
+  `null`. Se paró la corrida y se rehizo el kit con `MAX_CHARS = 12.000`,
+  elegido porque coincide con el techo que el contrato de memoria de la KB
+  `wisdom-paul` fija para una nota `stable` (12.500 B) — deja de ser un
+  número arbitrario y hace que la nota mediana entre entera. Con el tope
+  nuevo: 175/619 cuerpos (28%) y 118/217 filas (54%) siguen con truncamiento
+  — de una nota grande de verdad, no ya de la mayoría del kit por defecto.
+  **Se conserva** la corrida truncada como brazo de comparación, intacta, en
+  `~/.local/share/exo-evals/j-heldout/trunc4000/` (no se toca, no se usa
+  como gold). El gold final sale del kit rehecho a 12.000; los `candidatos`
+  de cada fila (permalinks y orden) no cambiaron, solo el texto servido.
 - **Entrada al gold y desempate (D-J11):** una fila entra si el acuerdo es
   *estricto* (mismo `expected`, null incluido) o *lenient* (el `expected` de
   un juez está en los `acceptable` del otro; entonces `expected` = el que
@@ -608,7 +628,8 @@ que C §7).
   §7; frase literal: «no me importa mandar a kimi, continua por ahí»). Por
   fila juzgada salen hacia `https://api.moonshot.ai/v1`: la query (un prompt
   de Paul o un comando de agente) y hasta 5 notas candidatas de la KB
-  `wisdom-paul`, cada una recortada a 4.000 caracteres. No salen etiquetas,
+  `wisdom-paul`, cada una recortada a 12.000 caracteres (F7, declarado
+  arriba: era 4.000, rehecho el 2026-09-20). No salen etiquetas,
   rankings, nada de `evals/` ni del gold de C. La key vive en
   `wisdom-ai-news/.env-keys` (gitignored), se lee en runtime y nunca se
   imprime ni entra en este repo.
