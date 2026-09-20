@@ -760,6 +760,27 @@
   el ≈1,2 s restante son ≈20 spawns de Git Bash a 25-60 ms cada uno (`jq -n
   1` ≈55 ms, `exo --version` ≈60 ms). Queda sin medir el `PreToolUse:Bash`
   triple. Evidencia: `evals/recall-coste/results/w11-2026-09-15.txt`.
+  **(campaña I, 2026-09-19, EN CURSO — cierre pendiente de Tasks 6/7):**
+  `recall-inject.sh` pasó de 7 `jq` + 2 `sed` + 5 `tr` (más 2 `sed` + 1 `tr`
+  POR TOKEN dentro del gate léxico) a 6 `jq` + 0 `sed` + 0 `tr` dentro del
+  bucle léxico (`norm_token`/`gate_skip` reescritos con expansión de
+  parámetros bash pura; quedan 3 `tr` fuera del bucle, en ramas de log de
+  error no ejercidas por el trace de referencia). Medido con
+  `strace -f -c -e trace=execve` sobre el prompt de referencia: 14 → 7
+  `execve` reales por invocación. Los tres `PreToolUse:Bash`
+  (`git-c-bash.sh`, `git-add-all-guard.sh`, `verify-before-commit.sh`)
+  ganaron un pre-filtro bash que evita el spawn de `jq` cuando el comando no
+  contiene "git": 4 → 2 `execve` por invocación sin "git". Bloque inyectado
+  verificado byte-idéntico antes/después (goldens en
+  `plugins/exo/scripts/testdata/golden-{recall-inject,exo-recall}/`). Task 5
+  (fundir los tres guards en uno) se descartó por criterio numérico: el
+  pre-filtro de la Task 4 ya bajó los guards de 4 a 2 `execve`; fundir tres
+  guards de seguridad en uno no compensaba el ahorro adicional. **Pendiente
+  para cerrar el ítem:** el p95 de reloj en W11 (Task 7, PAUL-STEP, aún no
+  entregada por Paul) y la comparación Linux vía
+  `evals/recall-coste/harness/compara.sh despues campana-i-<fecha>` (Task 6,
+  encolada, aún no ejecutada). Commits: `c462506`, `17afb9b` (Task 1);
+  `d2b069d`, `c00e55e` (Task 2); `ee44a5a` (Task 3); `bc4896a` (Task 4).
 
 - [ ] **(revisión 2026-09-11) Los documentos del repo no llevan `tier`, así
   que nada distingue lo que debe ser verdad hoy de lo que solo fue verdad un
@@ -1267,6 +1288,14 @@
   criterio la use. Cambiar el umbral o la métrica es tocar el pre-registro de
   A: hay que decidirlo antes de mirar los datos de la ventana. Evidencia:
   `evals/recall-coste/results/w11-2026-09-15.txt`.
+  **(campaña I, 2026-09-19, CERRADO):** decisión de Paul #12 —
+  `recall-latencia.sh` decide por `hook_ms` (reloj de pared, medido en
+  `recall-inject.sh` sin spawn, `NA` en bash <5). Enmienda fechada en
+  `docs/superpowers/plans/2026-09-13-campana-a-preregistro-bench.md`
+  §«Criterio de reapertura». Umbral, porcentaje de timeouts y mínimo de
+  disparos sin cambios (1.500 ms / 2% / 200). El instrumento ya ve el coste
+  real en W11 desde el commit `c462506` (fix del guard falsable en
+  `17afb9b`).
 
 - [ ] **(H28) La `distance` de vec0 es L2, no L2²; el
   umbral 0,40 del hook equivale a coseno 0,28.** Medido por el consultor
