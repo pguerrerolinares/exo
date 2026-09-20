@@ -1,7 +1,10 @@
+import contextlib
+import io
 import json
 import sys
 import tempfile
 import unittest
+import urllib.error
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -225,6 +228,166 @@ class TestJuezPresupuesto(unittest.TestCase):
             self.assertEqual(len(llamadas), 2)
             self.assertEqual(resultado.get("parada_por_tope"), "c2")
             self.assertAlmostEqual(resultado["gasto_usd"], 2.0)
+
+
+class TestJuezDiarioGasto(unittest.TestCase):
+    """Enmienda 2026-09-20 (c), segunda ronda de review adversarial sobre el
+    breaker: cinco hallazgos más, cerrados con el diario append-only
+    `<out>.gasto.jsonl`. Sin red: el HTTP se inyecta."""
+
+    def _paquetes(self, d, ids):
+        p = Path(d) / "paquetes.jsonl"
+        with open(p, "w", encoding="utf-8") as fh:
+            for i in ids:
+                fh.write(json.dumps({"id": i, "candidatos": ["kb/a"], "texto": f"CONSULTA: {i}"}, ensure_ascii=False) + "\n")
+        return p
+
+    def test_F1_urlerror_registra_desconocida_y_para_por_tolerancia_default(self):
+        """F1: una respuesta perdida (URLError) tras salir hacia la API es
+        una llamada de facturación DESCONOCIDA -no gasto $0 invisible-, y
+        con la tolerancia por defecto (0) la primera ya para el pipeline en
+        seco."""
+        with tempfile.TemporaryDirectory() as d:
+            ruta = self._paquetes(d, ["c1", "c2", "c3"])
+            out = Path(d) / "out.jsonl"
+
+            def http(url, key, cuerpo=None, timeout=120):
+                raise urllib.error.URLError("conexión perdida (la API pudo haber facturado igual)")
+
+            resultado = jz.procesa_lote(str(ruta), str(out), "k", "kimi-k3",
+                                         precio_entrada=3.0, precio_salida=15.0,
+                                         reintentos=1, http=http)
+            self.assertEqual(resultado.get("parada_por_gasto_desconocido"), "c1")
+            self.assertEqual(resultado["desconocidas"], 1)
+            self.assertAlmostEqual(resultado["gasto_usd"], 0.0)  # nunca se inventa coste
+            with open(f"{out}.gasto.jsonl", encoding="utf-8") as fh:
+                diario = [json.loads(l) for l in fh]
+            self.assertEqual(len(diario), 1)
+            self.assertEqual(diario[0]["id"], "c1")
+            self.assertIsNone(diario[0]["usd"])
+            self.assertIn("URLError", diario[0]["motivo_desconocida"])
+
+    def test_F2_lock_exclusivo_falla_rapido_con_mismo_out(self):
+        """F2: con el lock de `<out>.gasto.jsonl.lock` ya tomado (simula un
+        segundo proceso concurrente con el mismo --out), procesa_lote falla
+        rápido con SystemExit y NUNCA llama a la API."""
+        with tempfile.TemporaryDirectory() as d:
+            ruta = self._paquetes(d, ["c1"])
+            out = Path(d) / "out.jsonl"
+            ruta_lock = f"{out}.gasto.jsonl.lock"
+            lf = open(ruta_lock, "w")
+            jz.fcntl.flock(lf, jz.fcntl.LOCK_EX | jz.fcntl.LOCK_NB)
+
+            def http(url, key, cuerpo=None, timeout=120):
+                raise AssertionError("no debería llamarse a la API con el lock tomado por otro proceso")
+
+            try:
+                with self.assertRaises(SystemExit):
+                    jz.procesa_lote(str(ruta), str(out), "k", "kimi-k3",
+                                     precio_entrada=3.0, precio_salida=15.0, http=http)
+            finally:
+                jz.fcntl.flock(lf, jz.fcntl.LOCK_UN)
+                lf.close()
+
+    def test_F3_usage_nan_no_apaga_el_freno_permanentemente(self):
+        """F3: NaN es `float` pero json.loads lo acepta como literal; sin
+        `math.isfinite()` el gasto queda en NaN y `gasto > tope` es SIEMPRE
+        False. Cubre también tokens negativos (mismo `_numerico`)."""
+        for descripcion, usage in [
+            ("prompt_tokens NaN", {"prompt_tokens": float("nan"), "completion_tokens": 5}),
+            ("completion_tokens -Infinity", {"prompt_tokens": 5, "completion_tokens": float("-inf")}),
+            ("prompt_tokens negativo", {"prompt_tokens": -100, "completion_tokens": 5}),
+        ]:
+            with self.subTest(descripcion):
+                with tempfile.TemporaryDirectory() as d:
+                    ruta = self._paquetes(d, ["c1"])
+                    out = Path(d) / "out.jsonl"
+
+                    def http(url, key, cuerpo=None, timeout=120, _usage=usage):
+                        return {"choices": [{"message": {"content": '{"expected": "kb/a", "acceptable": [], "razon": "ok"}'}}],
+                                "usage": _usage}
+
+                    resultado = jz.procesa_lote(str(ruta), str(out), "k", "kimi-k3",
+                                                 precio_entrada=3.0, precio_salida=15.0,
+                                                 reintentos=1, http=http)
+                    self.assertEqual(resultado.get("parada_por_usage_invalido"), "c1", descripcion)
+
+    def test_F4_diario_truncado_da_systemexit_explicito(self):
+        """F4: una última línea truncada (crash a medio flush) del diario da
+        un SystemExit con mensaje explícito, no un json.JSONDecodeError
+        crudo."""
+        with tempfile.TemporaryDirectory() as d:
+            ruta_gasto = Path(d) / "out.jsonl.gasto.jsonl"
+            ruta_gasto.write_text(
+                '{"id": "c1", "intento": 1, "ts": 1.0, "prompt_tokens": 10, "completion_tokens": 5, '
+                '"usd": 0.001, "precio_entrada": 3.0, "precio_salida": 15.0}\n'
+                '{"id": "c2", "intento": 1, "ts": 2.0, "prompt_tok',  # truncada a medio flush
+                encoding="utf-8",
+            )
+            with self.assertRaises(SystemExit) as cm:
+                jz.reconstruye_gasto(str(ruta_gasto), 3.0, 15.0)
+            self.assertIn("no parsea como JSON", str(cm.exception))
+            self.assertIn("línea 2", str(cm.exception))
+
+    def test_F5_aviso_si_los_precios_difieren_entre_run_y_resume(self):
+        """F5: el `usd` se persiste YA CALCULADO por llamada; reanudar con
+        precios distintos (dos tarifas reales de Moonshot, k3 y k2.6) no
+        recalcula el gasto heredado, pero SÍ avisa por stderr."""
+        with tempfile.TemporaryDirectory() as d:
+            ruta = self._paquetes(d, ["c1", "c2"])
+            out = Path(d) / "out.jsonl"
+
+            def http(url, key, cuerpo=None, timeout=120):
+                return {"choices": [{"message": {"content": '{"expected": "kb/a", "acceptable": [], "razon": "ok"}'}}],
+                        "usage": {"prompt_tokens": 1_000_000, "completion_tokens": 0}}
+
+            # RUN1 a precios k3 ($3/$15): coste de c1 = $3.00.
+            r1 = jz.procesa_lote(str(ruta), str(out), "k", "kimi-k3",
+                                  precio_entrada=3.0, precio_salida=15.0, maximo=1, http=http)
+            self.assertAlmostEqual(r1["gasto_usd"], 3.0)
+
+            # RUN2 reanudado por error con precios k2.6 ($0.95/$4): si se recalculara el
+            # heredado a precio de hoy, el total sería 0.95+0.95=1.90; con usd persistido es 3.95.
+            buf = io.StringIO()
+            with contextlib.redirect_stderr(buf):
+                r2 = jz.procesa_lote(str(ruta), str(out), "k", "kimi-k3",
+                                      precio_entrada=0.95, precio_salida=4.0,
+                                      tope_usd=100.0, http=http)
+            self.assertAlmostEqual(r2["gasto_usd"], 3.0 + 0.95)
+            self.assertIn("AVISO", buf.getvalue())
+            self.assertIn("difieren", buf.getvalue())
+
+    def test_cota_gasto_recuperable_desde_el_diario_tras_racha_fallida_y_crash(self):
+        """La cota real de fuga que motivó el diario: una racha larga de
+        paquetes que fallan parsea() (permalink alucinado -> nunca escriben
+        fila en --out) y un crash simulado a mitad deben dejar el gasto
+        recuperable desde el diario -no un residual de céntimos, sino todo
+        lo facturado antes del crash, que puede llegar hasta el tope
+        entero-."""
+        with tempfile.TemporaryDirectory() as d:
+            ids = [f"c{i}" for i in range(1, 6)]
+            ruta = self._paquetes(d, ids)
+            out = Path(d) / "out.jsonl"
+            llamadas = {"n": 0}
+
+            def http(url, key, cuerpo=None, timeout=120):
+                llamadas["n"] += 1
+                if llamadas["n"] == 4:
+                    raise RuntimeError("crash simulado a mitad (no es un fallo de red)")
+                return {"choices": [{"message": {"content": '{"expected": "kb/alucinado", "acceptable": [], "razon": "x"}'}}],
+                        "usage": {"prompt_tokens": 200000, "completion_tokens": 20000}}  # $0.90/llamada
+
+            with self.assertRaises(RuntimeError):
+                jz.procesa_lote(str(ruta), str(out), "k", "kimi-k3",
+                                 precio_entrada=3.0, precio_salida=15.0,
+                                 tope_usd=100.0, reintentos=1, http=http)
+
+            # bajo el diseño VIEJO (gasto reconstruido de --out): --out está vacío -> $0 tras el
+            # "crash", aunque ya se facturaron 3 llamadas ($0.90 c/u = $2.70).
+            self.assertEqual(out.read_text(encoding="utf-8"), "")
+            gasto, tok, desconocidas = jz.reconstruye_gasto(f"{out}.gasto.jsonl", 3.0, 15.0)
+            self.assertAlmostEqual(gasto, 2.70)
+            self.assertEqual(desconocidas, 0)
 
 
 class TestAcuerdo(unittest.TestCase):

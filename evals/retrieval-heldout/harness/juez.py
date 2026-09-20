@@ -64,19 +64,75 @@ caminos por los que un job real lo recorre:
   pipeline en seco (`parada_por_usage_invalido` en el resultado, código de
   salida 4). Un breaker que no sabe lo que gastó no puede seguir gastando.
 
+Enmienda 2026-09-20 (c), segunda ronda de review adversarial — (b) seguía
+ciego en cinco caminos más, y la cota real de fuga no eran céntimos sino EL
+TOPE ENTERO: `--out` solo contiene las filas que pasaron `parsea()`, así que
+todo lo facturado que no llegó a fila (reintentos fallidos, timeouts,
+crashes a medio flush) era invisible para `reconstruye_gasto()`. Cambio de
+diseño que cierra los cinco hallazgos a la vez: un **diario de gasto
+append-only**, `<out>.gasto.jsonl`, con una línea por llamada FACTURADA,
+escrita ANTES de validar la respuesta (`{id, intento, prompt_tokens,
+completion_tokens, usd, ts, precio_entrada, precio_salida,
+motivo_desconocida}`). El gasto acumulado se reconstruye SIEMPRE del
+diario (`reconstruye_gasto()`), nunca de `--out`.
+- **F1 — timeout/URLError con la API ya facturada:** un intento que SALE
+  hacia la API pero cuya respuesta se pierde (`URLError`, `TimeoutError`,
+  JSON de la API no parseable) es una llamada de facturación DESCONOCIDA:
+  se registra en el diario con `usd: null` (nunca se inventan tokens ni se
+  asume coste cero) vía el callback `contabiliza_desconocida` de `kimi()`.
+  Política (criterio de Paul, documentada también en `--help` de
+  `--tolerancia-desconocidas`): por defecto (tolerancia 0) la PRIMERA
+  llamada perdida para el pipeline en seco (`parada_por_gasto_desconocido`,
+  código de salida 5) — un breaker que no sabe cuánto lleva gastado no
+  puede seguir gastando. El operador puede subir `--tolerancia-desconocidas`
+  para asumir el riesgo explícitamente; se acumula entre reanudaciones (lo
+  heredado del diario cuenta antes de lanzar la siguiente llamada, igual
+  que el tope de gasto).
+- **F2 — sin lock, dos procesos con el mismo `--out` casi doblan el
+  gasto:** `procesa_lote` toma un lock exclusivo (`fcntl.flock`, stdlib)
+  sobre `<out>.gasto.jsonl.lock` durante toda la corrida; un segundo
+  proceso con el mismo `--out` falla rápido con `SystemExit` en vez de
+  correr en paralelo. Solo POSIX (Linux/macOS): sin `fcntl` disponible se
+  avisa explícitamente por stderr de que el lock NO está activo, en vez de
+  fingir que lo está.
+- **F3 — `NaN` apaga el freno de forma permanente:** `_numerico()` exige
+  `math.isfinite()` además de ser `int`/`float` — `NaN`/`Infinity` son
+  `float` mas no finitos, y `json.loads` acepta esos literales. Antes,
+  `gasto` podía quedar en `NaN` y `gasto > tope` pasaba a ser SIEMPRE
+  `False` (también tras reanudar). `costo()` también rechaza tokens
+  negativos.
+- **F4 — `--out`/diario con la última línea truncada** (crash a medio
+  flush) da un `SystemExit` explícito (`_lee_jsonl_robusto`), no un
+  `json.JSONDecodeError` crudo.
+- **F5 — precios distintos entre run y resume no se detectan:** cada línea
+  del diario persiste el `usd` YA CALCULADO con el precio vigente en ese
+  momento (no solo los tokens), así que un resume con precios distintos
+  (el proyecto tiene dos tarifas reales de Moonshot, k3 y k2.6) nunca
+  recalcula gasto viejo con precio de hoy. `reconstruye_gasto()` además
+  avisa por stderr si los precios del run actual difieren de los últimos
+  registrados en el diario (aviso informativo; el gasto heredado no se
+  toca).
+
 Uso: juez.py paquetes --candidatos C --snap KB --out P.jsonl
      juez.py modelos --env-keys F
      juez.py kimi --paquetes P.jsonl --env-keys F --model M --out R.jsonl
          --precio-entrada 3.00 --precio-salida 15.00 [--tope-usd 10] [--max N]
+         [--tolerancia-desconocidas 0]
      juez.py valida --respuestas R.jsonl --candidatos C
 """
 import argparse
 import json
+import math
 import sys
 import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+
+try:
+    import fcntl
+except ImportError:  # no-POSIX (p.ej. Windows): degrada con aviso, sin fingir lock (F2).
+    fcntl = None
 
 BASE = "https://api.moonshot.ai/v1"
 MAX_CHARS = 4000
@@ -195,59 +251,124 @@ def cuerpo_peticion(paq, model):
 
 
 def _numerico(x):
-    return isinstance(x, (int, float)) and not isinstance(x, bool)
+    """int/float finito -- NaN e Infinity son `float` pero no pasan (F3)."""
+    return isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x)
 
 
 def costo(usage, precio_entrada, precio_salida):
     """(usd, None) si `usage` es utilizable, o (None, error) si no. Un
-    `usage` ausente, incompleto o con campos no numéricos es SIEMPRE un
-    error explícito (C3) — nunca se estima ni se trata como coste cero."""
+    `usage` ausente, incompleto, no numérico/finito (NaN, Infinity -- F3) o
+    con tokens negativos es SIEMPRE un error explícito (C3) — nunca se
+    estima ni se trata como coste cero."""
     if not isinstance(usage, dict):
         return None, f"usage ausente o no es un objeto: {usage!r}"
     pt, ct = usage.get("prompt_tokens"), usage.get("completion_tokens")
     if not _numerico(pt) or not _numerico(ct):
-        return None, f"usage incompleto o no numérico: prompt_tokens={pt!r} completion_tokens={ct!r}"
+        return None, f"usage incompleto o no numérico/finito: prompt_tokens={pt!r} completion_tokens={ct!r}"
+    if pt < 0 or ct < 0:
+        return None, f"usage con tokens negativos: prompt_tokens={pt!r} completion_tokens={ct!r}"
     return pt / 1_000_000 * precio_entrada + ct / 1_000_000 * precio_salida, None
 
 
-def reconstruye_gasto(ruta_out, precio_entrada, precio_salida):
-    """Reanudación (C1): recorre las filas ya escritas en `ruta_out` y
-    devuelve (ids_hechos, gasto_heredado, [prompt_tok, completion_tok]). Si
-    alguna fila no tiene un `usage` utilizable, aborta con SystemExit (C3):
-    un breaker que no puede reconstruir lo que ya gastó no puede seguir
-    gastando; no hay ficción de coste cero para filas viejas."""
-    ids, gasto, tok = set(), 0.0, [0, 0]
-    if not Path(ruta_out).exists():
-        return ids, gasto, tok
-    with open(ruta_out, encoding="utf-8") as fh:
+def _lee_jsonl_robusto(ruta, contexto):
+    """Generador (n, dict) por línea no vacía de `ruta`. Una línea que no
+    parsea como JSON -p.ej. la última, truncada por un crash a medio flush-
+    aborta con SystemExit explícito en vez de dejar pasar un
+    json.JSONDecodeError crudo (F4)."""
+    with open(ruta, encoding="utf-8") as fh:
         for n, l in enumerate(fh, start=1):
             if not l.strip():
                 continue
-            fila = json.loads(l)
-            ids.add(fila["id"])
-            c, err = costo(fila.get("usage"), precio_entrada, precio_salida)
-            if err is not None:
+            try:
+                yield n, json.loads(l)
+            except json.JSONDecodeError as e:
                 raise SystemExit(
-                    f"gasto no reconstruible al reanudar: fila {n} (id={fila.get('id')}) de "
-                    f"{ruta_out} tiene usage inutilizable ({err}). El breaker no puede heredar "
-                    "un gasto que no sabe calcular; corrige o descarta esa fila antes de "
-                    "reanudar (no se estima ni se asume cero)."
+                    f"{contexto}: línea {n} de {ruta} no parsea como JSON ({e}) -probable crash "
+                    "a medio flush-. Corrige o trunca el fichero a la última línea completa antes "
+                    "de continuar (no se ignora en silencio)."
                 )
-            gasto += c
-            tok[0] += fila["usage"]["prompt_tokens"]
-            tok[1] += fila["usage"]["completion_tokens"]
-    return ids, gasto, tok
 
 
-def kimi(paq, key, model, reintentos=3, http=_http, contabiliza=None, tope_alcanzado=None):
+def ids_ya_escritos(ruta_out):
+    """ids con juicio ya válido en `ruta_out` (para saltarlos al reanudar).
+    Robusto a una última línea truncada (F4). Ya NO es la fuente del gasto
+    heredado -eso es `reconstruye_gasto()` sobre el diario-: `ruta_out` solo
+    tiene las filas que pasaron `parsea()`, y por eso era ciego a lo
+    facturado que no llegó a fila (enmienda (c))."""
+    ids = set()
+    if not Path(ruta_out).exists():
+        return ids
+    for _, fila in _lee_jsonl_robusto(ruta_out, "resume --out"):
+        ids.add(fila["id"])
+    return ids
+
+
+def reconstruye_gasto(ruta_diario, precio_entrada, precio_salida):
+    """Reanudación (C1), reescrita para la enmienda (c): recorre el diario
+    append-only `ruta_diario` (`<out>.gasto.jsonl`, una línea por llamada
+    FACTURADA escrita por `procesa_lote`/`kimi` ANTES de validar la
+    respuesta) y devuelve (gasto_heredado, [prompt_tok, completion_tok],
+    desconocidas_heredadas). El diario es la fuente de verdad del gasto, NO
+    `--out`: `--out` solo contiene las filas que pasaron `parsea()`, y eso
+    dejaba invisible todo lo facturado que no llegó a fila -reintentos
+    fallidos (C2), timeouts (F1), crashes a medio flush (F4)-.
+    Cada línea es o bien una llamada de coste CONOCIDO (`usd` finito, no
+    negativo) o de facturación DESCONOCIDA (`usd: null` -F1, o C3: `usage`
+    inutilizable en el momento de la llamada); nunca se inventa ni se asume
+    cero para esas -se devuelven aparte en `desconocidas_heredadas`, y es
+    `procesa_lote` quien aplica la política de tolerancia (F1) antes de
+    lanzar la siguiente llamada. Avisa por stderr si los precios del run
+    actual difieren de los últimos registrados en el diario (F5) -el `usd`
+    ya persistido por llamada no se recalcula con los precios de hoy."""
+    gasto, tok, desconocidas = 0.0, [0, 0], 0
+    if not Path(ruta_diario).exists():
+        return gasto, tok, desconocidas
+    precios_vistos = None
+    for n, fila in _lee_jsonl_robusto(ruta_diario, "diario de gasto"):
+        if "precio_entrada" in fila and "precio_salida" in fila:
+            precios_vistos = (fila["precio_entrada"], fila["precio_salida"])
+        usd = fila.get("usd")
+        if usd is None:
+            desconocidas += 1
+            continue
+        if not _numerico(usd) or usd < 0:
+            raise SystemExit(
+                f"diario de gasto corrupto: línea {n} (id={fila.get('id')}) de {ruta_diario} "
+                f"tiene usd={usd!r} (no numérico/finito o negativo). El breaker no puede heredar "
+                "un gasto que no sabe leer; corrige o descarta esa línea antes de reanudar (no "
+                "se estima ni se asume cero)."
+            )
+        gasto += usd
+        tok[0] += fila.get("prompt_tokens") or 0
+        tok[1] += fila.get("completion_tokens") or 0
+    if precios_vistos is not None and precios_vistos != (precio_entrada, precio_salida):
+        print(
+            f"AVISO: los precios del run actual (entrada=${precio_entrada}/salida=${precio_salida}) "
+            f"difieren de los últimos registrados en {ruta_diario} (entrada=${precios_vistos[0]}/"
+            f"salida=${precios_vistos[1]}). El gasto heredado usa el usd YA PERSISTIDO por llamada "
+            "-no se recalcula con el precio de hoy-; esto es solo un aviso por si el operador se "
+            "equivocó de tarifa (el proyecto usa tarifas reales distintas de Moonshot, k3 y k2.6).",
+            file=sys.stderr,
+        )
+    return gasto, tok, desconocidas
+
+
+def kimi(paq, key, model, reintentos=3, http=_http, contabiliza=None,
+         contabiliza_desconocida=None, tope_alcanzado=None):
     """Intenta hasta `reintentos` veces. Cada intento que SÍ recibe
     respuesta de la API es una llamada FACTURADA y se pasa a
-    `contabiliza(usage)` -- se valide o no después con `parsea()` (C2): un
-    permalink alucinado que pasa el json_schema pero falla la validación de
-    negocio se pagó igual. Si `contabiliza` devuelve error (usage
-    inutilizable, C3), `kimi()` para en seco de inmediato. Antes de cada
-    intento -incluidos los reintentos- se consulta `tope_alcanzado()`; si ya
-    se rebasó, NO se lanza el intento (C2)."""
+    `contabiliza(usage, intento)` -- se valide o no después con `parsea()`
+    (C2): un permalink alucinado que pasa el json_schema pero falla la
+    validación de negocio se pagó igual. Si `contabiliza` devuelve error
+    (usage inutilizable, C3), `kimi()` para en seco de inmediato.
+    Un intento que SALE hacia la API pero cuya respuesta se pierde
+    (`URLError`, `TimeoutError`, JSON de la API no parseable) es una llamada
+    de facturación DESCONOCIDA (F1): nunca se inventan tokens ni se asume
+    coste cero, se reporta vía `contabiliza_desconocida(intento, motivo)`.
+    Si esa devuelve error (tolerancia de desconocidas agotada, ver
+    `procesa_lote`), `kimi()` para en seco igual que con `USAGE_INVALIDO`.
+    Antes de cada intento -incluidos los reintentos- se consulta
+    `tope_alcanzado()`; si ya se rebasó, NO se lanza el intento (C2)."""
     ultimo = None
     for i in range(reintentos):
         if tope_alcanzado is not None and tope_alcanzado():
@@ -255,12 +376,17 @@ def kimi(paq, key, model, reintentos=3, http=_http, contabiliza=None, tope_alcan
         try:
             r = http(f"{BASE}/chat/completions", key, cuerpo_peticion(paq, model))
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
-            ultimo = f"{type(e).__name__}: {str(e)[:120]}"
+            motivo = f"{type(e).__name__}: {str(e)[:120]}"
+            ultimo = motivo
+            if contabiliza_desconocida is not None:
+                _, err_desc = contabiliza_desconocida(i + 1, motivo)
+                if err_desc is not None:
+                    return None, f"GASTO_DESCONOCIDO: {err_desc}"
             time.sleep(2 ** i)
             continue
         uso = r.get("usage")
         if contabiliza is not None:
-            _, err_costo = contabiliza(uso)
+            _, err_costo = contabiliza(uso, i + 1)
             if err_costo is not None:
                 return None, f"USAGE_INVALIDO: {err_costo}"
         try:
@@ -278,85 +404,174 @@ def kimi(paq, key, model, reintentos=3, http=_http, contabiliza=None, tope_alcan
 
 
 def procesa_lote(ruta_paquetes, out, key, model, precio_entrada, precio_salida,
-                  tope_usd=TOPE_USD_DEFAULT, maximo=0, http=_http):
+                  tope_usd=TOPE_USD_DEFAULT, maximo=0, http=_http, reintentos=3,
+                  tolerancia_desconocidas=0):
     """Corre `kimi()` sobre cada paquete de `ruta_paquetes`, escribiendo en
-    `out` (reanudable: salta los ids ya presentes en `out`). Al reanudar,
-    hereda el gasto ya persistido en `out` (`reconstruye_gasto`, C1); nunca
-    arranca en $0 si ya hay filas escritas. Acumula el coste real de CADA
-    llamada facturada -pase o no `parsea()` después- y para en seco -sin
-    lanzar la siguiente llamada, ni dentro de los reintentos de un mismo
-    paquete (C2)- en cuanto el acumulado SUPERA `tope_usd`. Un `usage`
-    inutilizable en una respuesta nueva para el pipeline en seco de
-    inmediato (`parada_por_usage_invalido`, C3), sin estimar nada. Devuelve
-    un resumen; `parada_por_tope` (id en el que se paró) solo aparece si el
-    breaker disparó por tope, y `parada_por_usage_invalido` solo si paró por
-    usage inutilizable."""
-    hechos, gasto, tok = reconstruye_gasto(out, precio_entrada, precio_salida)
-    if gasto:
-        print(f"gasto heredado de {out} (reanudación): ${gasto:.4f} "
-              f"({len(hechos)} filas ya escritas)", file=sys.stderr)
+    `out` (reanudable: salta los ids ya presentes en `out`, `ids_ya_escritos`
+    -F4-). Mantiene un diario append-only `<out>.gasto.jsonl` (enmienda (c)):
+    una línea por llamada FACTURADA -coste conocido o DESCONOCIDA (F1)-
+    escrita ANTES de validar la respuesta. El gasto acumulado se reconstruye
+    SIEMPRE de ese diario (`reconstruye_gasto`), nunca de `--out` -que solo
+    tiene las filas que pasaron `parsea()`, y por eso era ciego a reintentos
+    fallidos, timeouts y crashes a medio flush-.
+    Toma un lock exclusivo (F2) sobre `<out>.gasto.jsonl.lock` durante toda
+    la corrida: un segundo proceso con el mismo `--out` falla rápido con
+    `SystemExit` en vez de doblar el gasto corriendo en paralelo.
+    Para en seco -sin lanzar la siguiente llamada, ni dentro de los
+    reintentos de un mismo paquete (C2)- en cuanto el acumulado SUPERA
+    `tope_usd` (`parada_por_tope`). Un `usage` inutilizable en una respuesta
+    nueva para en seco de inmediato (`parada_por_usage_invalido`, C3, código
+    4). Más de `tolerancia_desconocidas` llamadas de facturación desconocida
+    -heredadas del diario o nuevas de esta corrida- para en seco de inmediato
+    (`parada_por_gasto_desconocido`, F1, código 5); default 0: la primera ya
+    para. Devuelve un resumen con `desconocidas` (recuento total, heredadas
+    + nuevas) siempre presente."""
+    ruta_gasto = f"{out}.gasto.jsonl"
+    ruta_lock = f"{ruta_gasto}.lock"
 
-    errores, n, parado_en, parado_por_usage = [], 0, None, None
+    lock_fh = open(ruta_lock, "w")
+    if fcntl is not None:
+        try:
+            fcntl.flock(lock_fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            lock_fh.close()
+            raise SystemExit(
+                f"otro proceso ya tiene el lock de {ruta_gasto} (mismo --out): dos procesos "
+                "concurrentes sobre el mismo --out casi doblan el gasto (F2). Espera a que "
+                "termine el otro proceso, o usa un --out distinto."
+            )
+    else:
+        print("AVISO: plataforma sin fcntl (no-POSIX, p.ej. Windows): el lock de concurrencia "
+              "NO está activo; no lances dos procesos con el mismo --out a la vez.", file=sys.stderr)
 
-    def tope_alcanzado():
-        return gasto > tope_usd
+    try:
+        hechos = ids_ya_escritos(out)
+        gasto, tok, desconocidas = reconstruye_gasto(ruta_gasto, precio_entrada, precio_salida)
+        if gasto or desconocidas:
+            print(f"gasto heredado del diario {ruta_gasto} (reanudación): ${gasto:.4f} "
+                  f"({desconocidas} llamadas de facturación desconocida heredadas, "
+                  f"{len(hechos)} filas ya escritas en {out})", file=sys.stderr)
 
-    def contabiliza(usage):
-        nonlocal gasto
-        c, err = costo(usage, precio_entrada, precio_salida)
-        if err is not None:
-            return None, err
-        gasto += c
-        tok[0] += usage["prompt_tokens"]
-        tok[1] += usage["completion_tokens"]
-        return c, None
+        errores, n = [], 0
+        parado_en = parado_por_usage = parado_por_desconocidas = None
+        paq_actual = None
 
-    with open(out, "a", encoding="utf-8") as fh, open(ruta_paquetes, encoding="utf-8") as fpaq:
-        for l in fpaq:
-            if not l.strip():
-                continue
-            paq = json.loads(l)
-            if paq["id"] in hechos or (maximo and n >= maximo):
-                continue
-            if tope_alcanzado():
-                parado_en = paq["id"]
-                print(f"TOPE SUPERADO: ${gasto:.4f} > ${tope_usd} antes de procesar id={parado_en}; "
-                      "parada en seco. Reanudable por id (vuelve a correr con el mismo --out).",
-                      file=sys.stderr)
-                break
-            d, err = kimi(paq, key, model, http=http, contabiliza=contabiliza, tope_alcanzado=tope_alcanzado)
-            n += 1
-            if d is None:
-                if err is not None and err.startswith("USAGE_INVALIDO"):
-                    parado_por_usage = paq["id"]
-                    print(f"USAGE INUTILIZABLE: {err} en id={parado_por_usage}; parada en seco "
-                          "-un breaker que no sabe lo que gastó no puede seguir gastando-. "
-                          "Reanudable por id (vuelve a correr con el mismo --out).", file=sys.stderr)
-                    break
-                errores.append({"id": paq["id"], "error": err})
+        def tope_alcanzado():
+            return gasto > tope_usd
+
+        def desconocidas_superadas():
+            return desconocidas > tolerancia_desconocidas
+
+        def _diario(entrada):
+            fh_diario.write(json.dumps(entrada, ensure_ascii=False) + "\n")
+            fh_diario.flush()
+
+        def contabiliza(usage, intento):
+            nonlocal gasto
+            c, err = costo(usage, precio_entrada, precio_salida)
+            _diario({
+                "id": paq_actual["id"], "intento": intento, "ts": time.time(),
+                "prompt_tokens": usage.get("prompt_tokens") if isinstance(usage, dict) else None,
+                "completion_tokens": usage.get("completion_tokens") if isinstance(usage, dict) else None,
+                "usd": None if err is not None else c,
+                "precio_entrada": precio_entrada, "precio_salida": precio_salida,
+                "motivo_desconocida": err,
+            })
+            if err is not None:
+                return None, err
+            gasto += c
+            tok[0] += usage["prompt_tokens"]
+            tok[1] += usage["completion_tokens"]
+            return c, None
+
+        def contabiliza_desconocida(intento, motivo):
+            nonlocal desconocidas
+            _diario({
+                "id": paq_actual["id"], "intento": intento, "ts": time.time(),
+                "prompt_tokens": None, "completion_tokens": None, "usd": None,
+                "precio_entrada": precio_entrada, "precio_salida": precio_salida,
+                "motivo_desconocida": motivo,
+            })
+            desconocidas += 1
+            if desconocidas_superadas():
+                return None, (
+                    f"{desconocidas} llamadas de facturación desconocida (tolerancia="
+                    f"{tolerancia_desconocidas}); el breaker no sabe cuánto lleva gastado y no "
+                    "puede seguir (usa --tolerancia-desconocidas para asumir el riesgo "
+                    "explícitamente)."
+                )
+            return True, None
+
+        with open(out, "a", encoding="utf-8") as fh, \
+             open(ruta_gasto, "a", encoding="utf-8") as fh_diario, \
+             open(ruta_paquetes, encoding="utf-8") as fpaq:
+            for l in fpaq:
+                if not l.strip():
+                    continue
+                paq = json.loads(l)
+                if paq["id"] in hechos or (maximo and n >= maximo):
+                    continue
+                paq_actual = paq
                 if tope_alcanzado():
                     parado_en = paq["id"]
-                    print(f"TOPE SUPERADO: ${gasto:.4f} > ${tope_usd} en id={parado_en} "
-                          "(alcanzado durante los reintentos); parada en seco.", file=sys.stderr)
+                    print(f"TOPE SUPERADO: ${gasto:.4f} > ${tope_usd} antes de procesar id={parado_en}; "
+                          "parada en seco. Reanudable por id (vuelve a correr con el mismo --out).",
+                          file=sys.stderr)
                     break
-                continue
-            fh.write(json.dumps(d, ensure_ascii=False) + "\n")
-            fh.flush()
-            print(f"[{n}] {paq['id']} · gasto acumulado: ${gasto:.4f}", file=sys.stderr)
-            if tope_alcanzado():
-                parado_en = paq["id"]
-                print(f"TOPE SUPERADO: ${gasto:.4f} > ${tope_usd} en id={parado_en}; "
-                      "parada en seco, no se lanza la siguiente llamada. Reanudable por id "
-                      "(vuelve a correr con el mismo --out).", file=sys.stderr)
-                break
-    resultado = {"llamadas": n, "ok": n - len(errores), "errores": errores,
-                 "prompt_tokens": tok[0], "completion_tokens": tok[1], "model": model,
-                 "gasto_usd": round(gasto, 4), "tope_usd": tope_usd}
-    if parado_en is not None:
-        resultado["parada_por_tope"] = parado_en
-    if parado_por_usage is not None:
-        resultado["parada_por_usage_invalido"] = parado_por_usage
-    return resultado
+                if desconocidas_superadas():
+                    parado_por_desconocidas = paq["id"]
+                    print(f"GASTO DESCONOCIDO: {desconocidas} llamadas de facturación desconocida "
+                          f"(tolerancia={tolerancia_desconocidas}) antes de procesar id="
+                          f"{parado_por_desconocidas}; parada en seco. Reanudable por id.", file=sys.stderr)
+                    break
+                d, err = kimi(paq, key, model, reintentos=reintentos, http=http, contabiliza=contabiliza,
+                              contabiliza_desconocida=contabiliza_desconocida, tope_alcanzado=tope_alcanzado)
+                n += 1
+                if d is None:
+                    if err is not None and err.startswith("USAGE_INVALIDO"):
+                        parado_por_usage = paq["id"]
+                        print(f"USAGE INUTILIZABLE: {err} en id={parado_por_usage}; parada en seco "
+                              "-un breaker que no sabe lo que gastó no puede seguir gastando-. "
+                              "Reanudable por id (vuelve a correr con el mismo --out).", file=sys.stderr)
+                        break
+                    if err is not None and err.startswith("GASTO_DESCONOCIDO"):
+                        parado_por_desconocidas = paq["id"]
+                        print(f"GASTO DESCONOCIDO: {err} en id={parado_por_desconocidas}; parada en "
+                              "seco. Reanudable por id.", file=sys.stderr)
+                        break
+                    errores.append({"id": paq["id"], "error": err})
+                    if tope_alcanzado():
+                        parado_en = paq["id"]
+                        print(f"TOPE SUPERADO: ${gasto:.4f} > ${tope_usd} en id={parado_en} "
+                              "(alcanzado durante los reintentos); parada en seco.", file=sys.stderr)
+                        break
+                    continue
+                fh.write(json.dumps(d, ensure_ascii=False) + "\n")
+                fh.flush()
+                print(f"[{n}] {paq['id']} · gasto acumulado: ${gasto:.4f}", file=sys.stderr)
+                if tope_alcanzado():
+                    parado_en = paq["id"]
+                    print(f"TOPE SUPERADO: ${gasto:.4f} > ${tope_usd} en id={parado_en}; "
+                          "parada en seco, no se lanza la siguiente llamada. Reanudable por id "
+                          "(vuelve a correr con el mismo --out).", file=sys.stderr)
+                    break
+        resultado = {"llamadas": n, "ok": n - len(errores), "errores": errores,
+                     "prompt_tokens": tok[0], "completion_tokens": tok[1], "model": model,
+                     "gasto_usd": round(gasto, 4), "tope_usd": tope_usd, "desconocidas": desconocidas}
+        if parado_en is not None:
+            resultado["parada_por_tope"] = parado_en
+        if parado_por_usage is not None:
+            resultado["parada_por_usage_invalido"] = parado_por_usage
+        if parado_por_desconocidas is not None:
+            resultado["parada_por_gasto_desconocido"] = parado_por_desconocidas
+        return resultado
+    finally:
+        if fcntl is not None:
+            try:
+                fcntl.flock(lock_fh, fcntl.LOCK_UN)
+            except OSError:
+                pass
+        lock_fh.close()
 
 
 def main():
@@ -385,8 +600,18 @@ def main():
                            f"(>=) -un gasto que iguala el tope exactamente no para, se gasta hasta el "
                            f"tope inclusive-. Al superarlo para en seco antes de la siguiente llamada, "
                            f"incluso entre reintentos de un mismo paquete (default {TOPE_USD_DEFAULT}, "
-                           f"plan §Global Constraints). Reanudable: si --out ya tiene filas, el gasto "
-                           f"heredado se suma antes de seguir.")
+                           f"plan §Global Constraints). Reanudable: el gasto heredado se reconstruye "
+                           f"del diario append-only <out>.gasto.jsonl -no de --out- antes de seguir.")
+    a_k.add_argument("--tolerancia-desconocidas", type=int, default=0, dest="tolerancia_desconocidas",
+                      help="cuántas llamadas de facturación DESCONOCIDA tolerar antes de parar en seco "
+                           "-la API se llamó y pudo facturar, pero la respuesta se perdió por timeout/"
+                           "URLError/JSON inválido, así que no hay usage que contar; nunca se inventan "
+                           "tokens ni se asume coste cero-. Default 0: la PRIMERA llamada perdida para "
+                           "el pipeline (código de salida 5) -un breaker que no sabe cuánto lleva "
+                           "gastado no puede seguir gastando-. Sube este número solo si asumes "
+                           "explícitamente el riesgo de gasto no contabilizado hasta ese número de "
+                           "llamadas perdidas. Se acumula entre reanudaciones: lo heredado del diario "
+                           "cuenta antes de lanzar la siguiente llamada, igual que el tope de gasto.")
     a_v = sub.add_parser("valida")
     a_v.add_argument("--respuestas", required=True)
     a_v.add_argument("--candidatos", required=True)
@@ -405,10 +630,13 @@ def main():
     elif a.cmd == "kimi":
         key = _key(a.env_keys)
         resultado = procesa_lote(a.paquetes, a.out, key, a.model, a.precio_entrada, a.precio_salida,
-                                  tope_usd=a.tope_usd, maximo=a.max)
+                                  tope_usd=a.tope_usd, maximo=a.max,
+                                  tolerancia_desconocidas=a.tolerancia_desconocidas)
         print(json.dumps(resultado, ensure_ascii=False))
         if "parada_por_usage_invalido" in resultado:
             sys.exit(4)
+        if "parada_por_gasto_desconocido" in resultado:
+            sys.exit(5)
         sys.exit(3 if "parada_por_tope" in resultado else (1 if resultado["errores"] else 0))
     else:
         cands = {json.loads(l)["id"]: json.loads(l)["candidatos"] for l in open(a.candidatos, encoding="utf-8") if l.strip()}
