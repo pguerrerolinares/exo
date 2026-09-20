@@ -42,6 +42,40 @@ else fail "H5: no escanea más allá de la ventana de 2000 líneas" "ctx='$CTX'"
 ultimo_evento() { tail -1 "$LOGC" 2>/dev/null | jq -r '.reflex // empty' 2>/dev/null; }
 ultimo_payload() { tail -1 "$LOGC" 2>/dev/null | jq -r '.payload // empty' 2>/dev/null; }
 
+# ------------------- Campaña I: SOURCE/SID no se desalinean -----------------
+# `read` con IFS=tab trata el tab como whitespace de IFS y COLAPSA un campo
+# vacío inicial en vez de respetarlo como delimitador -- con `source`
+# ausente (el caso normal), el valor de session_id se cuela en SOURCE y SID
+# queda vacío. Se prueba en AISLADO (no a través del hook completo): el uso
+# real de estas dos variables en exo-recall.sh exige SOURCE=="compact" Y SID
+# no vacío A LA VEZ, y el mismo desplazamiento que ensucia una las dos
+# también vacía la otra -- el bug queda enmascarado en el comportamiento
+# visible del hook para CUALQUIER prompt real, así que probarlo a través del
+# hook nunca lo detectaría. Esto prueba la TÉCNICA (jq + read), no el hook.
+JSON_SIN_SOURCE='{"session_id":"sess-solo-id"}'
+
+# Contraprueba: la forma naif (@tsv + IFS=tab) SÍ desalinea -- documenta por
+# qué esta task no la usa. Si esta contraprueba deja de fallar, revisar el
+# razonamiento de este fix antes de tocar nada más.
+SOURCE_TAB=""; SID_TAB=""
+IFS=$'\t' read -r SOURCE_TAB SID_TAB <<< "$(printf '%s' "$JSON_SIN_SOURCE" | jq -r '[(.source // ""), (.session_id // "")] | @tsv')"
+if [ "$SOURCE_TAB" = "sess-solo-id" ] && [ "$SID_TAB" = "" ]; then
+  pass "contraprueba: @tsv + IFS=tab SÍ desalinea (por eso este hook usa \\x1f, no @tsv)"
+else
+  fail "contraprueba: @tsv + IFS=tab debería desalinear (si no, revisar el razonamiento de este fix)" \
+    "SOURCE_TAB='$SOURCE_TAB' SID_TAB='$SID_TAB'"
+fi
+
+# El caso real: con \x1f (unit separator, no es whitespace de IFS) no desalinea.
+SOURCE_X1F=""; SID_X1F=""
+IFS=$'\x1f' read -r SOURCE_X1F SID_X1F <<< "$(printf '%s' "$JSON_SIN_SOURCE" | jq -r '[(.source // ""), (.session_id // "")] | join("\u001f")')"
+if [ "$SOURCE_X1F" = "" ] && [ "$SID_X1F" = "sess-solo-id" ]; then
+  pass "campaña I: separador \\x1f no desalinea SOURCE/SID con source ausente"
+else
+  fail "campaña I: separador \\x1f no desalinea SOURCE/SID con source ausente" \
+    "SOURCE_X1F='$SOURCE_X1F' SID_X1F='$SID_X1F'"
+fi
+
 # ------------------- no-engine: EXO_BIN no ejecutable ----------------------
 : > "$LOGC"
 run_hook '{"session_id":"sess-ne"}' EXO_BIN="$TMP/no-existe-bin"

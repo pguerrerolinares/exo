@@ -1,0 +1,6 @@
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SessionStart",
+    "additionalContext": "Tu memoria persistente es una KB de notas markdown servida por el engine `exo` (`exo recall`, `exo search --type hybrid`). Antes de empezar trabajo sustantivo, busca ahi contexto relevante. Al cerrar una sesion con decisiones/aprendizajes, documentalos con /document (busca antes de escribir; edita la nota canonica en vez de duplicar).\n\nMODO ORQUESTADOR LIMPIO (por defecto): delega investigacion, ejecucion multi-paso y lecturas voluminosas a subagentes. Quedate con la CONCLUSION, no con el material crudo. Context-rot validado: mas contexto en el padre = peor rendimiento. Tu contexto es para sintetizar y decidir, no para acumular fuentes.\n\nRECON-FIRST (look before you leap) en tareas DURAS/desconocidas/time-boxed: antes de grindear en solitario, recoge informacion (busca el error/los docs, verifica supuestos). Retrieve > compute para lo que no esta en tus pesos; reintentar lo mismo a ciegas no es progreso. (skill: recon-first.)\n\n--- Reglas reforzadas tras compactacion (dispararon esta sesion) ---\n- verifica (corre el cambio) antes de afirmar exito."
+  }
+}
