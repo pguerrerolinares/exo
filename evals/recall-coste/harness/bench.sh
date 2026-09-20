@@ -58,8 +58,18 @@ mide() {  # $1=id  $2=comando para sh -c
 
 for N in "${TAMANOS[@]}"; do
   D="$WORK/n$N"
-  "$GEN" "$N" "$D" 42 > "$OUT/generador-n$N.txt" || { echo "bench: el generador falló para N=$N" >&2; exit 1; }
+  # El export va ANTES de invocar $GEN, no después: `kb_sintetica` escribe
+  # su propio config.toml y LUEGO, en el mismo proceso, embebe el pool de
+  # vocabulario vía `Embedder::desde_config()`, que lee `$EXO_CONFIG` del
+  # entorno (config.rs:50). Si el export queda después de la invocación,
+  # bash conserva el valor de la iteración anterior durante TODA la llamada
+  # a $GEN de la iteración actual: en la primera N el generador se embebe
+  # con la config por defecto (`~/.exo/config.toml`) en vez de la suya, y
+  # de la segunda N en adelante con el config.toml del `$D` anterior — que
+  # la línea de `rm -rf "$D"` de cierre de iteración ya borró, así que el
+  # generador aborta con "no encuentro la config de exo en…".
   export EXO_CONFIG="$D/config.toml"
+  "$GEN" "$N" "$D" 42 > "$OUT/generador-n$N.txt" || { echo "bench: el generador falló para N=$N" >&2; exit 1; }
   KB="$D/kb"
   DB="$D/index.db"
 
