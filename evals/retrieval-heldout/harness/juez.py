@@ -380,7 +380,12 @@ def _key(env_keys):
     raise SystemExit("kimi_api_key no encontrada en --env-keys")
 
 
-def _http(url, key, cuerpo=None, timeout=120):
+# timeout 600s, no 120: con MAX_CHARS=12000 los paquetes llegan a 55.983 chars
+# (~16k tokens) y k3 razona antes de responder. Con 120s, q004 (31.375 chars)
+# dio TimeoutError en la primera corrida real -y un timeout con tolerancia 0
+# no solo pierde la llamada: deja el diario con una desconocida que bloquea
+# la reanudacion. Esperar de mas cuesta segundos; esperar de menos, la corrida.
+def _http(url, key, cuerpo=None, timeout=600):
     data = None if cuerpo is None else json.dumps(cuerpo).encode("utf-8")
     req = urllib.request.Request(url, data=data, method="POST" if data else "GET",
                                  headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"})
