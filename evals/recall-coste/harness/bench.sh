@@ -58,8 +58,18 @@ mide() {  # $1=id  $2=comando para sh -c
 
 for N in "${TAMANOS[@]}"; do
   D="$WORK/n$N"
-  "$GEN" "$N" "$D" 42 > "$OUT/generador-n$N.txt" || { echo "bench: el generador falló para N=$N" >&2; exit 1; }
+  # El export va ANTES de invocar $GEN, no después: `kb_sintetica` escribe
+  # su propio config.toml y LUEGO, en el mismo proceso, embebe el pool de
+  # vocabulario vía `Embedder::desde_config()`, que lee `$EXO_CONFIG` del
+  # entorno (config.rs:50). Si el export queda después de la invocación,
+  # bash conserva el valor de la iteración anterior durante TODA la llamada
+  # a $GEN de la iteración actual: en la primera N el generador se embebe
+  # con la config por defecto (`~/.exo/config.toml`) en vez de la suya, y
+  # de la segunda N en adelante con el config.toml del `$D` anterior — que
+  # la línea de `rm -rf "$D"` de cierre de iteración ya borró, así que el
+  # generador aborta con "no encuentro la config de exo en…".
   export EXO_CONFIG="$D/config.toml"
+  "$GEN" "$N" "$D" 42 > "$OUT/generador-n$N.txt" || { echo "bench: el generador falló para N=$N" >&2; exit 1; }
   KB="$D/kb"
   DB="$D/index.db"
 
@@ -133,7 +143,15 @@ done
 
 {
   printf 'id\tp50_ms\tp95_ms\tmean_ms\tcorridas_fallidas\tcorridas\trc_directa\n'
-  for f in "$OUT"/s*.json; do
+  # `s[0-9]*.json`, no `s*.json`: los ficheros de saturación se llaman
+  # `saturacion-vector-n$N.json` — también empiezan por "s" — pero son un
+  # envelope de `exo search` (`{"data":{"results":[...]}}`), no un export
+  # de hyperfine (`{"results":[{"times":[...]}]}`). Con el glob amplio caían
+  # en este bucle y el jq de abajo fallaba contra ellos escribiendo a
+  # stderr sin tocar `resumen.tsv` — silencioso en la práctica en un bench
+  # largo. Todo id real de `mide()` empieza por "s<dígito>" (s1, s1b, s2...
+  # s10), así que el glob estrecho basta y no excluye ningún caso legítimo.
+  for f in "$OUT"/s[0-9]*.json; do
     id="$(basename "$f" .json)"
     rc="$(cat "$OUT/$id.rc" 2>/dev/null)"
     jq -r --arg id "$id" --arg rc "$rc" '
@@ -143,8 +161,9 @@ done
           ($t[(($n - 1) * 0.95 | floor)] * 1000 | floor),
           ($r.mean * 1000 | floor),
           ([ ($r.exit_codes // [])[] | select(. != 0) ] | length),
-          $n, $rc ] | map(tostring) | @tsv' "$f"
+          $n, $rc ] | map(tostring) | @tsv' "$f" \
+      || { echo "bench: resumen: $f no tiene forma de export de hyperfine" >&2; exit 1; }
   done | sort
-} > "$OUT/resumen.tsv"
+} > "$OUT/resumen.tsv" || exit 1
 
 column -t -s "$(printf '\t')" "$OUT/resumen.tsv"
