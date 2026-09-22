@@ -19,8 +19,8 @@
 > repo» (Alta, cerrado por completo); «los documentos del repo no llevan
 > `tier`» (Media, re-medido: 97 `.md`, 70.346 líneas, 92/97 bajo
 > `docs/superpowers/`); y «rutas personales y `hooks.json` sin validar en
-> CI» (Media) — los dos gates verificados verdes hoy. **Sub-ítems cerrados,
-> padre sin cerrar por decisión pendiente del dueño**: las cuatro patas +
+> CI» (Media) — los dos gates verificados verdes hoy. **Sub-ítems cerrados; los
+> dos padres, cerrados después por decisión de Paul el mismo día**: las cuatro patas +
 > la deuda nueva de «Techos de escala declarados, sin camino ni medición»
 > (Media) y los cuatro sub-hallazgos vivos del gate M4 en «Barrer los
 > hallazgos vivos del gate M4» (Media). **Lo que trajo la ola 2** (tres
@@ -759,7 +759,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
 
 ## Media
 
-- [ ] **(revisión 2026-09-04) Techos de escala declarados, sin camino ni
+- [x] **(revisión 2026-09-04) Techos de escala declarados, sin camino ni
   medición.** Cuatro decisiones del engine son O(N) por operación y están
   documentadas como deliberadas, pero ninguna tiene medida más allá de la KB
   del autor (138 notas): ~~KNN exhaustivo con `k = COUNT(*)`
@@ -836,8 +836,8 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   al fallback per-nota; hoy es conservador a propósito (nunca da un epoch
   incorrecto), así que no es un bug, es una oportunidad de precisión sin
   medir su beneficio real.
-  **(sync 2026-09-22, ola 2): todos los sub-ítems resueltos — cierre del
-  padre pendiente de decisión del dueño.** Las cuatro patas originales y la
+  **CERRADO el 2026-09-22 por decisión de Paul** (tras la sync de la ola 2,
+  que dejó todos los sub-ítems resueltos). Las cuatro patas originales y la
   deuda nueva que destapó su propia medición están cerradas, re-verificado
   hoy contra el código: KNN adaptativo (`k` de la consulta, no
   `k = COUNT(*)`, `engine/src/buscador.rs:519` y siguientes); `permalinks_de_rowids`
@@ -848,7 +848,12 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   única pieza que queda sin tocar es la precisión de la regla de merges
   contaminados (comparar `%T` en vez de descartar por bloques omitidos) —
   declarada arriba como oportunidad sin medir, no bug, y por tanto no
-  bloquea el cierre.
+  bloquea el cierre. De la **Acción** original se cumplió la segunda rama
+  («o se abre la campaña»: A, G y L), no la primera: el techo soportado no
+  está escrito en `docs/arquitectura.md` y la escala 5.000 solo se midió en
+  Linux. El residuo de Windows no queda huérfano: lo sigue el ítem Media
+  «El coste del hook completo en Windows no está…» (con el `hook_ms` de W11
+  pendiente de Paul).
 
 - [ ] **(revisión 2026-09-04) El coste del hook completo en Windows no está
   medido; solo el del binario.** `plugins/exo/hooks/hooks.json` cablea
@@ -1058,7 +1063,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   (`/home/runner`, `/Users/Shared`, `C:/Users/Public`) es aceptado por
   diseño, documentado en el propio párrafo de cierre de la sub-propuesta 1.
 
-- [ ] **Barrer los hallazgos vivos del gate M4** (`evals/e1-read/verdict/gate-m4.md`).
+- [x] **Barrer los hallazgos vivos del gate M4** (`evals/e1-read/verdict/gate-m4.md`).
   Cerrados en `2f5f545`: traversal por `..` en `--dir`/`--titulo`, `--force` sin
   rastro en el envelope, flag muerto `--min-similitud` en `write new`. Cerrado
   en la Task 9 de ola 1A (2026-08-26): **#3** — el rechazo exit 3 ahora emite
@@ -1093,11 +1098,11 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
     existe (`engine/src/main.rs:172-176`); `document/SKILL.md:55` no menciona
     `--db` porque se resuelve por config (M5a-02) — es correcto tal cual, no
     un olvido.
-  **(sync 2026-09-22, ola 2): todos los sub-ítems resueltos — cierre del
-  padre pendiente de decisión del dueño.** #5, #6 y #8 cerrados con
-  commit/decisión citados arriba; #9 caducado (nunca fue un bug real). No
-  queda ningún hallazgo vivo del gate M4 sin cerrar, pero cerrar el propio
-  ítem padre es decisión explícita de Paul, no de esta sync.
+  **CERRADO el 2026-09-22 por decisión de Paul** (tras la sync de la ola 2):
+  #5, #6 y #8 cerrados con commit/decisión citados arriba (`f5c5956` y los
+  dos tests de `engine/tests/write_create_permalink.rs` re-verificados hoy);
+  #9 caducado (nunca fue un bug real). No queda ningún hallazgo vivo del
+  gate M4.
 
 - [x] **Un rojo del job `test` no se puede diagnosticar desde el CI.**
   `engine/scripts/test-hermetico.sh:19` manda toda la salida de `cargo test`
@@ -2162,6 +2167,16 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   `avisos_cobertura_vector` ya usa para `vectores`, cuando alguien toque
   `recall.rs` por otra razón o priorice cerrar esta clase de fallo en
   `recall` también.
+
+---
+
+## Cerrado con evidencia (para no re-proponer)
+
+> Cabecera restaurada el 2026-09-22: `aaa5786` (2026-09-16) la borró por
+> accidente al insertar un ítem nuevo justo encima, y los ítems de abajo
+> quedaron seis días huérfanos al final de `## Baja` mientras 16 referencias
+> seguían apuntando aquí. No es exhaustiva: desde la campaña F muchos
+> cierres se marcan `[x]` en sitio, dentro de Alta/Media/Baja.
 
 - [x] **(revisión 2026-09-04) `tier` no se persiste en el índice y cada
   arranque relee el frontmatter de TODAS las notas desde disco: cerrado —
