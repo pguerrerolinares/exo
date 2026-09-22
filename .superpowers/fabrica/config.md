@@ -45,7 +45,73 @@ M0 Fase 0 ──→ M1a repo ──→ M2 E1-read ──→ M4 E2-write ──�
                       M7 templates (diferible)
 ```
 
-## ACTUALIZACIÓN 2026-09-15 — ola 1: campañas H, F y G (manda sobre todo lo de abajo)
+## ACTUALIZACIÓN 2026-09-20 — ola 2: J (juicio del gold) + dos bugs vivos (manda sobre todo lo de abajo)
+
+Ola 1 cerrada y publicada: `v0.2.0` → `6aa5257`, release en GitHub, CI 12/12.
+L, I y J fase 1 mergeadas (`7e29f42`, `18ba004`, `aaf66c0`) y `main` = `origin/main`
+= `b8e3117` tras el PR #28.
+
+**El recon pre-flight de esta ola encontró que el roadmap estaba inflado**: de los
+12 candidatos que `docs/backlog.md` presentaba como abiertos, **9 están cerrados**
+en el código de hoy, con commit o test que lo demuestra, y el issue **#23 está
+CLOSED** con su fix en `main` (`876264a`, PR #27). La ola 2 es por tanto mucho
+más corta de lo que el backlog sugería, y eso es un resultado, no un problema.
+
+| Lane | Campaña | Tipo | Estado |
+|---|---|---|---|
+| diseño (secuencial) | **A — juicio del gold de J, acuerdo y congelación del pre-registro** | evals + dispatches de juez; **no toca `engine/src`** | critical path: desbloquea la fase 2 entera |
+| mecánica A | **B1 — los dos bugs de `evals/recall-coste/harness/bench.sh`** | bash | independiente |
+| mecánica B | **B2 — H28: el doc-comment de `buscador.rs` es falso** | Rust, doc + test, **sin cambio de ranking** | independiente |
+| mecánica C (última) | **C1 — sincronizar `docs/backlog.md` con lo que ya está cerrado** | docs | va al final, absorbe lo que cierren A/B1/B2 |
+| PAUL-STEP | **`hook_ms` en W11** (Task 7 de I) | medición manual | no ejecutable por la fábrica: requiere la máquina de Paul |
+
+**Decisiones de Paul, tomadas en sesión el 2026-09-20 (citas literales)**
+- **Juzgar el gold de J: sí, ya** — "Sí, juzgar ya". 285 filas, $2,7-4,5, tope
+  estructural $10,02, irreversible (consume las queries).
+- **`temperature` del juez: 0 → 1, DECLARADO en el pre-registro** — "temperature 1
+  declarado en el pre-registro". No omitido: el cuerpo de la petición sigue
+  declarando qué temperatura se usó.
+- **`--tolerancia-desconocidas 0`**, con la fábrica reanudando por id cada parada —
+  "Tolerancia 0 y reanudo yo cada parada". El techo de gasto sigue siendo
+  estructural.
+- **Gate de merge asíncrono** (ramas + `GATE-EXEC` con su "ok, mergea") — "Asíncrono,
+  como en la ola I∥L+J".
+- **Tamaño: ~57 dispatches** — "Como la ola anterior". El recon lo dejó en mucho
+  menos: el grueso serán los dispatches del segundo juez de J.
+
+**Zonas de colisión**
+- `docs/backlog.md`: **solo lo toca C1**, y va la última. A, B1 y B2 tienen prohibido
+  editarlo — es el fichero que más conflictos dio en las olas anteriores.
+- `engine/src/buscador.rs`: solo B2, y solo doc-comments y un test nuevo. Ninguna
+  otra task de la ola toca `engine/src`.
+- `evals/retrieval-heldout/`: solo A. `evals/recall-coste/`: solo B1. Disjuntas.
+
+**Lecciones que esta ola incorpora al régimen, las tres con su caso**
+1. **Un fix de portabilidad a un SO que no se puede probar en local se mergea por
+   PR, nunca por push directo.** Caso: el CI rojo de `aaf66c0` (2026-09-20) salió
+   de un `sed` "sin extensiones GNU" que el sed de BSD rechaza igual; las dos
+   verificaciones disponibles en esta máquina (GNU sed y busybox) aceptan ambas
+   formas, así que ninguna podía detectarlo. **El CI del SO que no se puede probar
+   es parte del fix, no una comprobación posterior.**
+2. **Un harness que llama a una API externa y nunca ha hecho una llamada real no
+   está verificado**, por muchos tests y rondas adversariales que acumule. Caso: el
+   breaker de gasto de `juez.py` pasó 3 rondas de fixes y 4 de review adversarial
+   —todas sobre la contabilidad— y la primera llamada real murió con
+   `HTTP 400: invalid temperature: only 1 is allowed for this model`. El oráculo
+   barato existía y costaba una llamada: `--max 1`.
+3. **Antes de planificar una ola, recon de vigencia contra el código, no contra el
+   backlog.** Caso: 9 de 12 candidatos de esta ola ya estaban cerrados y el issue
+   #23 llevaba un día cerrado con su fix mergeado. Un `docs/backlog.md` de 2.702
+   líneas acumula, no caduca.
+
+**Se mantienen**: la línea roja (`git push`, tag y release = SIEMPRE Paul), el
+régimen de gates por consultor fable fresco con sus 4 condiciones, la regla
+PENDIENTE-PAUL, que ninguna task escribe en `~/.local/bin`, y que la fábrica **no
+pushea la KB**.
+
+---
+
+## ACTUALIZACIÓN 2026-09-15 — ola 1: campañas H, F y G (histórico: ola cerrada y mergeada; la sustituye el bloque 2026-09-20)
 
 Tras el cierre de D+E (PR #19-#22, todos mergeados el 2026-09-15), un
 consultor Fable propuso F→K en
@@ -133,7 +199,7 @@ de esta ola).
 
 ---
 
-## ACTUALIZACIÓN 2026-09-19 — campañas I ∥ L + J fase 1 (manda sobre todo lo de abajo)
+## ACTUALIZACIÓN 2026-09-19 — campañas I ∥ L + J fase 1 (histórico: las tres mergeadas el 2026-09-20; la sustituye el bloque 2026-09-20)
 
 D, E, F, G, H mergeadas (PR #19, #20, #24, #25, #26; fix #23 en #27). F/G/H
 se ejecutaron fuera de esta fábrica: no tienen filas en el ledger y no se
