@@ -841,7 +841,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   deuda nueva que destapó su propia medición están cerradas, re-verificado
   hoy contra el código: KNN adaptativo (`k` de la consulta, no
   `k = COUNT(*)`, `engine/src/buscador.rs:519` y siguientes); `permalinks_de_rowids`
-  troceado en lotes de `LOTE_PERMALINKS = 500` (`buscador.rs:393-422`,
+  troceado en lotes de `LOTE_PERMALINKS = 500` (`buscador.rs:407-439`,
   commit `0caa202`); `busca_hybrid` abre la DB una sola vez
   (`buscador.rs:676-692`); `indexer::git_epoch_de` en lote, un solo
   `git log` por `indexa` en vez de uno por nota (`indexer.rs:221`). La
