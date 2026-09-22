@@ -325,8 +325,9 @@ fn min_similitud_efectivo(min_similitud: Option<f64>) -> Result<f64> {
 /// Búsqueda vectorial (`exo search --type vector`, M2-06): embed de la
 /// query con el mismo modelo del indexer (jina-es/768, `Embedder` de
 /// proceso), KNN cuyo `k` lo fija la propia consulta (H29, ver
-/// `busca_vector_con_embedding`), conversión a similitud coseno, filtro por
-/// `semantic_min_similarity` y agregación **chunk→entidad por máxima
+/// `busca_vector_con_embedding`), conversión de la distancia L2 a una
+/// similitud monótona en el coseno (no un coseno: ver `similitud_desde_l2`,
+/// H28), filtro por `semantic_min_similarity` y agregación **chunk→entidad por máxima
 /// similitud por permalink** (decisión declarada del Task 3 del brief: el
 /// ground truth del eval es a nivel de nota — spec M2 §4 — así que "la nota
 /// entra si su MEJOR trozo entra" es la agregación obvia; promediar o sumar

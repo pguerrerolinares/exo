@@ -25,8 +25,9 @@ use std::path::{Path, PathBuf};
 /// 2026-08-26"). Ver `MIN_SIMILARITY_SELLADO` más abajo.
 const BONUS_SELLADO: f64 = 0.0;
 const ESCALA_FTS_SELLADA: f64 = 0.6;
-/// D6 (decisión 1 de Paul, 2026-09-15): umbral de similitud coseno para el
-/// default nuevo de `exo search --type` (hybrid) — y, desde el mismo día,
+/// D6 (decisión 1 de Paul, 2026-09-15): umbral de similitud —monótona en el
+/// coseno, no un coseno: 0.40 equivale a coseno ≈0.28, ver el final de este
+/// comentario (H28)— para el default nuevo de `exo search --type` (hybrid) — y, desde el mismo día,
 /// el default que `exo init` escribe en `[embeddings] min_similarity` de
 /// una config nueva (`init_cmd`, rama de creación, más abajo): una sola
 /// constante para los dos usos en vez de dos literales que antes solo
