@@ -451,8 +451,13 @@ arreglaría.
   el agente de candidatos; 2 del estrato `agent-search` nuevo — `hard` y
   `archive` no tuvieron ninguna vacía, esperable porque su
   `author_expected` viene de una nota real del snapshot)
-- `paquetes.jsonl`: 285 paquetes (1:1 con `candidatos.jsonl`) · chars por
-  paquete: p50 9.465 · p90 16.488 · máx 21.287 · total 2.480.983
+- `paquetes.jsonl`: 285 paquetes (1:1 con `candidatos.jsonl`) · **regenerado
+  el 2026-09-20 con `MAX_CHARS = 12.000`** (desviación F7 del pre-registro):
+  texto total **5.409.490 caracteres** (antes 2.480.983 con el tope de
+  4.000). Cuerpos de candidata truncados: **175/619 (28 %)**, frente a
+  573/619 (93 %) con el tope viejo; filas con alguna candidata truncada:
+  118/217 (54 %), frente a 216/217 (100 %). Candidatos idénticos en
+  permalink y orden a la versión de 4.000 (diff programático, 0 diferencias).
 - **tokens/coste estimados para Kimi** (sobre los 2.480.983 caracteres
   reales de `paquetes.jsonl` + `SISTEMA` de `juez.py`, 894 caracteres × 285
   llamadas = 254.790 chars más; conversión chars→tokens en el rango 3-4
@@ -464,6 +469,33 @@ arreglaría.
   Task 7 Step 3 del plan para un job de tamaño similar (esa cifra llevaba
   más margen para reintentos/notas largas); tope autorizado $10 en
   cualquiera de los dos casos.
-- acuerdo / gold: no calculado — Task 7 no se ejecutó (ver «Estado del kit»)
-- coste Kimi: $0 — ninguna llamada a la API en este kit (ni en este ni en
-  ningún intento anterior de `agent-search`)
+- **coste Kimi REAL**: `kimi-k3`, `temperature 1` (F6), 285 llamadas (ok
+  285, errores 0, desconocidas 0), **1.863.353 / 167.629 tokens**, **$8,1045**
+  (tope $20). La estimación de arriba ($2,7-4,5) se hizo con el kit de 4.000
+  caracteres y no aplica al kit regenerado (×2,18 de texto); se deja por
+  trazabilidad. Antes de la corrida válida hubo tres parciales, todas fuera
+  del gold y preservadas: el humo con `temperature 0` (HTTP 400, 1 llamada
+  desconocida y no facturada), la corrida sobre el kit de 4.000 detenida en
+  17 filas por decisión de Paul, y una con timeout de 120 s detenida en 3
+  filas.
+- **acuerdo** (`acuerdo.py` exit 0, 2026-09-22): 285 filas juzgadas por
+  ambos · p_o **0,874** · κ **0,810** (suelo 0,60 ∧ 0,70: **PASA**) · sin
+  `negativo` ni candidatos vacíos: 0,780 / 0,834 (descriptivo) · descartes
+  **45** (36 por desacuerdo, 9 de `archive` sin `expected` en `archive/`).
+  Detalle por estrato en `evals/retrieval-heldout/verdict/gold-j-acuerdo.md`.
+- **gold** (`valida_gold.py` exit 0, `errores: 0`, con exclusión de las 55
+  in-sample y del gold de C): **240 filas · 145 no nulas** · no nulas por
+  estrato `prompt 54 · agent-search 53 · hard 30 · archive 8` · nulas `prompt
+  53 · negativo 40 · agent-search 2` · con acceptable 87 · sha256
+  `5902ebc44b22447f609ce12ac0e3f015175e0786c8836ab48c54a9af3a6cf86a` ·
+  `chmod 444`.
+- **suelos del pre-registro con el N real**: no nulas 145 ≥ 60 ✓ · nulas de
+  `negativo` 40 ≥ 24 ✓ · no nulas de `archive` **8 ≥ 8 ✓, a ras** — el
+  único sin margen, en el estrato peor servido por el recorte (65 % de sus
+  cuerpos siguen truncados a 12.000) y con la tasa de descarte más alta
+  (60 %). Resultado frágil: se declara, no se celebra.
+- **efecto medido del recorte** (mismo juez fable, mismo prompt, única
+  variable `MAX_CHARS` 4.000 → 12.000, 285 pares): cambia el **11 %** de
+  las etiquetas (31/285) — 13 `null`→nota, 4 nota→`null`, 14 nota→otra —,
+  con **25 % en `archive`** y 0 % en `hard` y `negativo`. El recorte fabrica
+  negativos falsos unas tres veces más de lo que fabrica positivos falsos.

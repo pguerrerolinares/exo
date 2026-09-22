@@ -1,23 +1,10 @@
 # Pre-registro — Campaña J: retrieval con held-out nuevo (N1, fusión, `archive/`, abstención)
 
-> **Estado: BORRADOR (2026-09-19).** No es contrato hasta el commit de
-> congelación (plan fase 1, Task 8), que solo existe cuando el gold agéntico
-> existe, `acuerdo.py` ha superado el suelo (§3, §11), `valida_gold.py` pasa y
-> su sha256 está en §10. Hasta entonces:
-> nadie toca `engine/src` por J, nadie computa hit@k de ningún brazo sobre
-> ninguna query del gold nuevo, y este fichero puede cambiar **solo** en tres
-> sitios: (1) el tope df de F1 en §4, marcado «T0 puede sustituirlo una vez,
-> con evidencia in-sample anotada» (cláusula que Paul dejó intacta al firmar
-> D-J8); (2) una línea de §9 **solo** si el review adversarial (plan, Task 5)
-> objeta una firma con cita y Paul responde `CAMBIA A`; (3) los campos de
-> §10. Las decisiones de §9 **ya están firmadas por Paul el 2026-09-19**
-> (`docs/superpowers/consultas/2026-09-15-campanas/propuesta.md` §7),
-> incluida la revocación de D-J1/D-J2 por D-J11: **el gold es 100 %
-> agéntico** (dos jueces ciegos de dos familias, fable y Kimi/Moonshot, con
-> suelo de acuerdo medido; 0 h de Paul; envío de trozos de la KB a Moonshot
-> autorizado explícitamente, §8). La congelación la dispara el pipeline cuando
-> el acuerdo supera el suelo (§11), no una firma humana. Cualquier otro cambio
-> exige reabrir el borrador por escrito antes de que exista el gold.
+> **Estado: CONGELADO el 2026-09-22T07:04:54+02:00.** Inmutable desde este commit; erratas → verdict.
+> Dos desviaciones de diseño entraron **por escrito antes de que existiera el gold**
+> (`gold-j.jsonl` nace con `acuerdo.py`), como exigía la regla de reapertura de esta
+> misma cabecera: **F6** (`temperature` 0 → 1) y **F7** (`MAX_CHARS` 4.000 → 12.000),
+> ambas en §3 y ambas por decisión de Paul en sesión el 2026-09-20.
 >
 > **Punto abierto (review, I-4):** el T0 está pendiente. La cláusula de D-J8
 > se ejerce así: el tope solo cambia si la cobertura (no nulas de las 55 con
@@ -241,7 +228,7 @@
   la rotación archivada **y** la bitácora viva cuando la query menciona un
   hecho fechado. Es el cuello léxico del diseño y se declara como tal.
 - **Jueces (los dos ven exactamente el mismo paquete: query + candidatas con
-  permalink, título y los primeros 4.000 caracteres; sin etiquetas, sin
+  permalink, título y los primeros 12.000 caracteres; sin etiquetas, sin
   rankings de ningún brazo, sin el otro juez, sin acceso al snapshot ni a
   `evals/`):**
   - **fable** (Claude): subagente fresco por lote de 25 paquetes, instrucción
@@ -249,11 +236,40 @@
   - **Kimi** (Moonshot, otra familia de modelo, para romper la correlación de
     errores Claude–Claude): `juez.py kimi`, API OpenAI-compatible en
     `https://api.moonshot.ai/v1`, `response_format: json_schema` estricto,
-    `temperature 0`, misma instrucción `juez.SISTEMA`, 3 reintentos con
+    `temperature 1`, misma instrucción `juez.SISTEMA`, 3 reintentos con
     backoff. Modelo: `kimi-k3` (elegido por Paul 2026-09-19 tras ver la lista real de `/v1/models`: k2.6, k2.7-code, k2.7-code-highspeed, k3); si no lo lista, el `kimi-k*`
     de mayor versión; fijado en §10 en runtime.
   - **sonnet** solo genera (queries `hard`/`archive`/`negativo`, candidatos);
     nunca juzga.
+- **`temperature 1` del juez Kimi, no 0 (F6, declarado, 2026-09-20):** se
+  pidió `temperature 0` por determinismo; la API de Moonshot lo rechaza con
+  400 en los dos modelos probados (`kimi-k3` y `kimi-k2.6`): `{"error":
+  {"message":"invalid temperature: only 1 is allowed for this model",
+  "type":"invalid_request_error"}}`. Se usa `1`, el único valor que la API
+  acepta. Se pierde la reproducibilidad bit a bit de una corrida del juez;
+  queda en pie la defensa del diseño: dos jueces independientes (fable y
+  Kimi) y su acuerdo medido contra el suelo pre-registrado (κ ≥ 0,60 ∧
+  p_o ≥ 0,70, arriba), no la determinación de una sola llamada.
+- **`MAX_CHARS` 4.000 → 12.000, parada y rehecho del kit (F7, declarado,
+  2026-09-20):** el kit se juzgó primero con `MAX_CHARS = 4.000`
+  (`juez.py:paquete`/`nota`). Medido sobre ese kit: **573 de 619 cuerpos
+  servidos (93%) llegaban truncados al tope**, y **216 de 217 filas con
+  candidatas (100%) tenían al menos una candidata truncada** — con
+  p50 = 10.093 y p90 = 20.464 caracteres de las notas servidas, en la nota
+  mediana el juez veía solo el **40%** del texto. Varios jueces lo
+  detectaron solos e independientemente ("ningún extracto lo muestra", "el
+  paquete corta justo antes") y etiquetaron por inferencia de tema en vez de
+  por haber leído el hecho: un gold etiquetado sobre media nota sesga hacia
+  `null`. Se paró la corrida y se rehizo el kit con `MAX_CHARS = 12.000`,
+  elegido porque coincide con el techo que el contrato de memoria de la KB
+  `wisdom-paul` fija para una nota `stable` (12.500 B) — deja de ser un
+  número arbitrario y hace que la nota mediana entre entera. Con el tope
+  nuevo: 175/619 cuerpos (28%) y 118/217 filas (54%) siguen con truncamiento
+  — de una nota grande de verdad, no ya de la mayoría del kit por defecto.
+  **Se conserva** la corrida truncada como brazo de comparación, intacta, en
+  `~/.local/share/exo-evals/j-heldout/trunc4000/` (no se toca, no se usa
+  como gold). El gold final sale del kit rehecho a 12.000; los `candidatos`
+  de cada fila (permalinks y orden) no cambiaron, solo el texto servido.
 - **Entrada al gold y desempate (D-J11):** una fila entra si el acuerdo es
   *estricto* (mismo `expected`, null incluido) o *lenient* (el `expected` de
   un juez está en los `acceptable` del otro; entonces `expected` = el que
@@ -599,7 +615,8 @@ que C §7).
   §7; frase literal: «no me importa mandar a kimi, continua por ahí»). Por
   fila juzgada salen hacia `https://api.moonshot.ai/v1`: la query (un prompt
   de Paul o un comando de agente) y hasta 5 notas candidatas de la KB
-  `wisdom-paul`, cada una recortada a 4.000 caracteres. No salen etiquetas,
+  `wisdom-paul`, cada una recortada a 12.000 caracteres (F7, declarado
+  arriba: era 4.000, rehecho el 2026-09-20). No salen etiquetas,
   rankings, nada de `evals/` ni del gold de C. La key vive en
   `wisdom-ai-news/.env-keys` (gitignored), se lee en runtime y nunca se
   imprime ni entra en este repo.
@@ -640,14 +657,14 @@ objeta con cita y Paul responde `CAMBIA A`.
 
 ## 10. Congelación
 
-- Commit de la KB para el snapshot `S_J`: `<sha de $PRIV_J/kb-snap.commit>`
+- Commit de la KB para el snapshot `S_J`: `6bf57d513dc2ad53e815a4debafe6982f6998151`
 - Binario de medición: `<commit de main post-G/L; se anota en verdict/j-condiciones.md en la fase 2, no aquí>`, `cargo build --release --locked`
-- Modelo de Kimi: `<id elegido por la regla de la Task 7 Step 1>` de entre `<lista de /v1/models en kimi-modelos.json>`; llamadas `<n>`, tokens `<prompt> / <completion>`, coste `<$>`
-- Acuerdo: filas juzgadas por ambos `<n>` · `p_o <x>` · `κ <x>` · descartes `<n>` (desacuerdo `<n>`, negativo con nota `<n>`, archive fuera de archive/ `<n>`) · estratos flojos (`p_o < 0,60`): `<ninguno | lista>` · auditoría léxica: mediana de solape acordadas `<x>` / descartadas `<x>`
-- κ / p_o sin `negativo` ni candidatos vacíos: `<x> / <x>` (descriptivo, I-3 del review + F3 del review de rama 2026-09-20; no cambia el exit ni el suelo firmado 0,60 ∧ 0,70)
-- `sha256(gold-j.jsonl)`: `<salida de valida_gold.py>`
-- Filas: `<total>` · `<no nulas>` · por estrato `prompt <n> · agent-search <n> · hard <n> · archive <n>` · nulas `<prompt n · negativo n>` · negativos de evaluación (impares) `<n>` · con acceptable `<n>` · no nulas «léxicamente difíciles» (solape < 0,5) `<n>`
-- Aprobación del gold: `acuerdo.py exit 0 el <fecha>` (suelo superado; no hay línea de Paul) · gate del pre-registro: línea `GATE: PRE-REGISTRO J CONGELADO <fecha>` del consultor fable en `.superpowers/fabrica/verdicts/j-consultor-gate.md`
+- Modelo de Kimi: `kimi-k3` (la regla "kimi-k3 si existe") de entre `[kimi-k2.6, kimi-k2.7-code, kimi-k2.7-code-highspeed, kimi-k3]`; `temperature 1` (F6); llamadas `285` (ok 285, errores 0, desconocidas 0), tokens `1.863.353 / 167.629`, coste `$8,1045` (tope $20)
+- Acuerdo: filas juzgadas por ambos `285` · `p_o 0,874` · `κ 0,810` · descartes `45` (desacuerdo `36`, negativo con nota `0`, archive fuera de archive/ `9`) · estratos flojos (`p_o < 0,60`): `ninguno` (mínimo: prompt 0,770) · auditoría léxica: mediana de solape acordadas `0,5` / descartadas `0,33`
+- κ / p_o sin `negativo` ni candidatos vacíos: `0,780 / 0,834` (descriptivo, I-3 del review + F3 del review de rama 2026-09-20; no cambia el exit ni el suelo firmado 0,60 ∧ 0,70)
+- `sha256(gold-j.jsonl)`: `5902ebc44b22447f609ce12ac0e3f015175e0786c8836ab48c54a9af3a6cf86a` (`valida_gold.py` exit 0, `errores: 0`, con exclusión de `in-sample-55.jsonl` y del gold de C)
+- Filas: `240` · `145` · por estrato `prompt 54 · agent-search 53 · hard 30 · archive 8` · nulas `prompt 53 · negativo 40 · agent-search 2` · negativos de evaluación (impares) `20` (calibración, pares: `20`) · con acceptable `87` · no nulas «léxicamente difíciles» (solape < 0,5) `71` (agent-search 5 · archive 7 · hard 16 · prompt 43). **Suelo de `archive` ≥ 8: se cumple a ras (8), sin margen**, en el estrato peor servido por el recorte (65 % de cuerpos aún truncados a 12.000) — resultado frágil, declarado
+- Aprobación del gold: `acuerdo.py exit 0 el 2026-09-22` (suelo superado; no hay línea de Paul) · gate del pre-registro: línea `GATE: PRE-REGISTRO J CONGELADO <fecha>` del consultor fable en `.superpowers/fabrica/verdicts/j-consultor-gate.md`
 - **Precondición dura antes de la primera captura de la fase 2 (F4, review de
   rama 2026-09-20 — cierra el séptimo grado de libertad):** este §10 dice que
   «manda `metricas.decide` congelado» (§6), pero F1/S1/P1/G1 (§4) **no

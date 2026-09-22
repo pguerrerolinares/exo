@@ -37,14 +37,27 @@ class TestJuez(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             p = Path(d) / "core" / "n.md"
             p.parent.mkdir()
-            p.write_text("---\ntitle: Nota A\npermalink: kb/core/n\n---\ncuerpo de la nota " + "x" * 5000, encoding="utf-8")
+            # El cuerpo se genera relativo a MAX_CHARS (nunca un tamaño fijo)
+            # para que el test siga forzando truncamiento pase lo que pase
+            # con el valor del tope en el futuro.
+            cuerpo_largo = "x" * (jz.MAX_CHARS + 5000)
+            p.write_text("---\ntitle: Nota A\npermalink: kb/core/n\n---\ncuerpo de la nota " + cuerpo_largo, encoding="utf-8")
             rutas = jz.rutas_por_permalink(d)
             self.assertEqual(rutas, {"kb/core/n": str(p)})
             paq = jz.paquete({"id": "c1", "query": "q", "source": "prompt", "candidatos": ["kb/core/n", "kb/zz"]}, rutas)
+            # Invariante real de la truncación (no "len(texto) < 2*MAX_CHARS":
+            # con hasta 5 candidatas ese múltiplo es arbitrario y se puede
+            # rebasar legítimamente -- lo único que `nota()` garantiza es que
+            # NINGÚN cuerpo individual exceda MAX_CHARS). Antes de reescribir
+            # este test (rehecho del kit J, 2026-09-20) medido sobre el kit
+            # real: con MAX_CHARS=4000 el 93% de los cuerpos servidos llegaban
+            # truncados y la nota mediana se veía al 40%; ver comentario junto
+            # a MAX_CHARS.
+            candidata_grande = jz.nota("kb/core/n", rutas)
+        self.assertEqual(len(candidata_grande["cuerpo"]), jz.MAX_CHARS)
         self.assertEqual(paq["candidatos"], ["kb/core/n", "kb/zz"])
         self.assertIn("título: Nota A", paq["texto"])
         self.assertIn("(nota no encontrada en el snapshot)", paq["texto"])
-        self.assertLess(len(paq["texto"]), 2 * jz.MAX_CHARS)
         # F1 del review de rama (2026-09-20): la ceguera de los jueces era
         # asimétrica -- `source` es la etiqueta de estrato que §3 del
         # borrador prohíbe ("los dos ven exactamente el mismo paquete...
@@ -78,7 +91,15 @@ class TestJuez(unittest.TestCase):
         self.assertIsNone(err)
         self.assertEqual((d["expected"], d["usage"]["prompt_tokens"]), ("kb/a", 10))
         self.assertEqual(llamadas, [(jz.BASE + "/chat/completions", "kimi-k3", "json_schema")])
-        self.assertEqual(jz.cuerpo_peticion(paq, "m")["temperature"], 0)
+        # temperature 1, no 0: la API de Moonshot rechaza 0 con 400 ("invalid
+        # temperature: only 1 is allowed for this model") en kimi-k3 y
+        # kimi-k2.6 (probado con llamadas reales); no es preferencia de
+        # estilo, es el único valor que la API acepta.
+        self.assertEqual(
+            jz.cuerpo_peticion(paq, "m")["temperature"], 1,
+            "temperature debe ser 1: la API de Moonshot da 400 con 0 (única "
+            "opción que acepta, no una elección de determinismo)",
+        )
 
 
 class TestJuezPresupuesto(unittest.TestCase):

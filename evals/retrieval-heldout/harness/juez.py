@@ -264,7 +264,15 @@ except ImportError:  # no-POSIX (p.ej. Windows): degrada con aviso, sin fingir l
     fcntl = None
 
 BASE = "https://api.moonshot.ai/v1"
-MAX_CHARS = 4000
+# Rehecho del kit J (2026-09-20): con MAX_CHARS=4000, medido sobre el kit
+# real, el 93% de los cuerpos servidos (573/619) llegaban truncados al tope
+# y en la nota mediana (p50=10.093 car.) el juez veía solo el 40% del texto
+# -un gold etiquetado sobre media nota sesga hacia null-. 12.000 no es
+# arbitrario: coincide con el techo que el contrato de memoria (KB
+# wisdom-paul) fija para una nota `stable` (12.500 B), así que la nota
+# mediana entra entera. No bajar sin volver a medir qué fracción del kit
+# queda truncada.
+MAX_CHARS = 12000
 TOPE_USD_DEFAULT = 10.0
 SISTEMA = (
     "Eres un juez de relevancia para un buscador de notas personales en castellano. "
@@ -372,7 +380,12 @@ def _key(env_keys):
     raise SystemExit("kimi_api_key no encontrada en --env-keys")
 
 
-def _http(url, key, cuerpo=None, timeout=120):
+# timeout 600s, no 120: con MAX_CHARS=12000 los paquetes llegan a 55.983 chars
+# (~16k tokens) y k3 razona antes de responder. Con 120s, q004 (31.375 chars)
+# dio TimeoutError en la primera corrida real -y un timeout con tolerancia 0
+# no solo pierde la llamada: deja el diario con una desconocida que bloquea
+# la reanudacion. Esperar de mas cuesta segundos; esperar de menos, la corrida.
+def _http(url, key, cuerpo=None, timeout=600):
     data = None if cuerpo is None else json.dumps(cuerpo).encode("utf-8")
     req = urllib.request.Request(url, data=data, method="POST" if data else "GET",
                                  headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"})
@@ -387,7 +400,11 @@ def modelos(env_keys):
 def cuerpo_peticion(paq, model):
     return {
         "model": model,
-        "temperature": 0,
+        # temperature 1, no 0: la API de Moonshot devuelve 400 "invalid
+        # temperature: only 1 is allowed for this model" con 0 (probado en
+        # kimi-k3 y kimi-k2.6). Declarado en el pre-registro; no "arreglar"
+        # de vuelta a 0.
+        "temperature": 1,
         "messages": [{"role": "system", "content": SISTEMA}, {"role": "user", "content": paq["texto"]}],
         "response_format": {"type": "json_schema", "json_schema": {"name": "juicio", "schema": SCHEMA, "strict": True}},
     }
