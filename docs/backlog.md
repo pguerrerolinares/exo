@@ -7,7 +7,39 @@
 > duplicar. Cada item cita su evidencia; un item sin evidencia verificable no
 > entra.
 >
-> Última revisión: **2026-09-19** (campaña L — sueltos mecánicos
+> Última revisión: **2026-09-22** (sync de `docs/backlog.md` tras la ola 2
+> — recon verificó contra el código de hoy qué ítems abiertos ya estaban
+> cerrados. Cierra con evidencia: «un rojo del job `test` no se puede
+> diagnosticar desde el CI» (Alta); «el bench sintético de la campaña A es
+> ciego al umbral» y «`budget_prose_drift` tiene dos límites conocidos»
+> (Media, ambos por commits de la campaña G); «la campaña de evicción de la
+> KB está descalibrada» (Media, con evidencia propia del repo,
+> `presupuesto.rs`); «README y `docs/arquitectura.md` §6 citan el 48/55 sin
+> la cifra held-out» (Media); «la documentación de referencia contradice el
+> repo» (Alta, cerrado por completo); «los documentos del repo no llevan
+> `tier`» (Media, re-medido: 97 `.md`, 70.346 líneas, 92/97 bajo
+> `docs/superpowers/`); y «rutas personales y `hooks.json` sin validar en
+> CI» (Media) — los dos gates verificados verdes hoy. **Sub-ítems cerrados,
+> padre sin cerrar por decisión pendiente del dueño**: las cuatro patas +
+> la deuda nueva de «Techos de escala declarados, sin camino ni medición»
+> (Media) y los cuatro sub-hallazgos vivos del gate M4 en «Barrer los
+> hallazgos vivos del gate M4» (Media). **Lo que trajo la ola 2** (tres
+> ramas mergeadas a `main` — `01be694` gold de J, `ca40d04` los dos bugs de
+> `bench.sh`, `063d07c` la parte documental de H28 —, sin PR, merge local
+> tras el gate del dueño, push a `origin` pendiente): cierra «los dos bugs
+> de `evals/recall-coste/harness/bench.sh`» (Media, campaña I Task 6, con
+> nota de que el bug (a) también afectaba a la primera N y de que no
+> contamina ninguna latencia publicada); cierra la mitad documental de H28
+> sin cerrar el hallazgo en sí (Media — la conversión real sigue abierta,
+> ahora con un held-out nuevo disponible, el gold de J); y deja **seis
+> ítems nuevos** de deuda que la propia ola destapó: dos colas de H28
+> (Media y Baja), dos del harness de J (ambos Media: el test de `MAX_CHARS`
+> no cubre `paquete()→texto`, y la suite Python de 82 tests no corre en
+> CI), y dos de baja prioridad (comentario de timeout de `juez.py` +
+> `kimi()` sin capturar `OSError`; `mide()` de `bench.sh` sin comprobar el
+> exit code de hyperfine). Ver también la fila **ola 2** en `## Estado`.)
+>
+> Anterior: **2026-09-19** (campaña L — sueltos mecánicos
 > pre-`v0.2.0` y preparación de M5b,
 > `docs/superpowers/plans/2026-09-19-campana-l-sueltos-pre-v020.md`,
 > ejecutada en la rama `l-sueltos-pre-v020`, **sin PR todavía**. Cierra con
@@ -331,6 +363,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
 | **Campaña H** | 8 tasks (contrato `ENGINE_MIN`, `exo-recall.sh` detecta engine viejo, `exo doctor` check `plugin_compat`, `check_git_bash` sin falso `ok` de WSL, `script_del_plugin` por semver real, `kb-precommit.sh` fail-closed, retiro de los 10 alias españoles — engine 0.2.0/plugin 1.2.0, cap de 6.144 medido y PENDIENTE-PAUL) — ejecutada el **2026-09-15** en la rama `campana-h`; mergeada a `main` el **2026-09-16** vía PR #24 (`3fcd8bf`); plan en `docs/superpowers/plans/2026-09-15-campana-h-fail-closed.md` |
 | **Campaña F** | 9 tasks (superficie publicable: held-out en `arquitectura.md`, gates `test-docs-vivos.sh`/`test-hooks-json.sh`, `test-shellcheck.sh` sobre `run: |` de los workflows, `test-hermetico.sh` distingue error de compilación, job `lint`→`static-checks`, `Paul`→«el dueño de la KB» + idioma de identificadores, sync de este backlog) — ejecutada el **2026-09-15** en la rama `campana-f`, **PR #25 abierto** (merge tras H); `HF_HOME` (Task 6, `4cec5b7`) se revirtió en `6e4477a` el 2026-09-16 — el engine no lo lee, arreglo diferido a la Task 13 de la campaña G; plan en `docs/superpowers/plans/2026-09-15-campana-f-superficie-publicable.md` |
 | **Campaña G** | 11 tasks del engine (bench sintético con vectores reales, `busca_hybrid` a una sola conexión, `git_epoch_de` en batch, `walk_kb` unificada, `budget_prose_drift` sin truncar, `escribe_nueva` con struct de parámetros, M4 #5/#6, assert de embeddings, `trinquete --staged` sobre el índice de git, `kb-demo`→`kb-test`, D6 default hybrid+0.40 con `exo init` alineado a la misma constante, y `HF_HOME` respetada por el engine) — sin cambio de ranking (β/bonus/umbral/fusión intactos) — ejecutada en la rama `campana-g`, **sin PR todavía**; plan en `docs/superpowers/plans/2026-09-15-campana-g-engine-deuda-diferida.md` |
+| **Ola 2** | tres frentes en paralelo, cada uno mergeado a `main` por su cuenta tras el gate del dueño — **sin PR, merge local**, push a `origin` pendiente: **A** — gold de J congelado, held-out nuevo de 240 filas / 145 no nulas, κ 0,810, p_o 0,874, pre-registro congelado en `a936770` (merge `01be694`); **B1** — los dos bugs de `evals/recall-coste/harness/bench.sh` (commits `70274a8`/`1901407`, merge `ca40d04`); **B2** — H28: vec0 devuelve L2 llana, no L2² — parte documental cerrada (commits `28dbb2f`/`d027d23`, merge `063d07c`), la conversión real queda abierta para fase 2. Deuda nueva que dejó la ola, registrada en su sitio: dos colas de H28 (Media y Baja), dos del harness de J (Media) y dos de bajo impacto (`juez.py`, `bench.sh`) — ver Media y Baja. |
 
 ---
 
@@ -404,7 +437,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
     relación con el sweep) — el motivo por el que no se compartía ("config
     es RO hasta M5a") caducó al cerrar M5a-02 el 2026-08-26.
 
-- [ ] **(revisión 2026-09-04) La documentación de referencia contradice el
+- [x] **(revisión 2026-09-04) La documentación de referencia contradice el
   repo el mismo día en que se escribió.** Medido el 2026-09-04:
   `docs/arquitectura.md:489` afirma «**Sin CI**: no hay `.github/`» y la
   sección 7 sigue listando la suite como no hermética fuera de la máquina de
@@ -493,6 +526,15 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   `test-docs-vivos.sh` ahora recorre `README.md` Y `plugins/exo/README.md`;
   el patrón de cabecera dejó de anclar con `$` porque la tabla del segundo
   fichero lleva dos columnas extra (`Qué hace`, `Abstención`).
+  **CERRADO por completo (sync 2026-09-22, ola 2).** Las tres acciones
+  originales y la deuda nueva que destapó la (c) quedan resueltas: (a)
+  desde `3673059` (2026-09-11, verificado hoy: `grep "Sin CI"
+  docs/arquitectura.md` vacío); (b) por D3=a y `scripts/test-versiones.sh`
+  (campaña B, `3bc05aa`) — corrido hoy: `bash scripts/test-versiones.sh
+  v0.2.0` da `[OK] engine 0.2.0 · plugin 1.3.0 · ENGINE_MIN 0.1.0`; (c) por
+  `test-docs-vivos.sh` (campaña F, `849886c`+siguientes), corrido hoy en
+  verde (ver «Verificación» al cierre de este sync); y el check (e) sobre
+  la tabla de hooks del segundo README, por la campaña L.
 
 - [x] **(revisión 2026-09-04) «exo genérico» sigue siendo el plugin de Paul
   para Paul.** Medido el 2026-09-04 sobre `plugins/exo/`: la cadena `Paul`
@@ -794,6 +836,19 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   al fallback per-nota; hoy es conservador a propósito (nunca da un epoch
   incorrecto), así que no es un bug, es una oportunidad de precisión sin
   medir su beneficio real.
+  **(sync 2026-09-22, ola 2): todos los sub-ítems resueltos — cierre del
+  padre pendiente de decisión del dueño.** Las cuatro patas originales y la
+  deuda nueva que destapó su propia medición están cerradas, re-verificado
+  hoy contra el código: KNN adaptativo (`k` de la consulta, no
+  `k = COUNT(*)`, `engine/src/buscador.rs:519` y siguientes); `permalinks_de_rowids`
+  troceado en lotes de `LOTE_PERMALINKS = 500` (`buscador.rs:393-422`,
+  commit `0caa202`); `busca_hybrid` abre la DB una sola vez
+  (`buscador.rs:676-692`); `indexer::git_epoch_de` en lote, un solo
+  `git log` por `indexa` en vez de uno por nota (`indexer.rs:221`). La
+  única pieza que queda sin tocar es la precisión de la regla de merges
+  contaminados (comparar `%T` en vez de descartar por bloques omitidos) —
+  declarada arriba como oportunidad sin medir, no bug, y por tanto no
+  bloquea el cierre.
 
 - [ ] **(revisión 2026-09-04) El coste del hook completo en Windows no está
   medido; solo el del binario.** `plugins/exo/hooks/hooks.json` cablea
@@ -863,7 +918,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   que sustituye la reproducción standalone de SOURCE/SID por extracción del
   código real); `bc4896a` (Task 4).
 
-- [ ] **(campaña I, Task 6, detectados al correr el bench — preexistentes de
+- [x] **(campaña I, Task 6, detectados al correr el bench — preexistentes de
   campaña G, deliberadamente no arreglados fuera del alcance de I) Dos bugs en
   `evals/recall-coste/harness/bench.sh`.** (a) `EXO_CONFIG` queda apuntando
   al `config.toml` de la N anterior, que el propio `bench.sh` ya ha borrado.
@@ -880,8 +935,22 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   que no pasan por `recall-inject.sh`, también mejoraron mucho (p.ej.
   `s2-query-n5000` p50 de 10828 a 1067 ms). **Conclusión: el número válido es
   el `hook_ms` absoluto, no el delta contra `despues`.**
+  **CERRADO (sync 2026-09-22, ola 2, commits `70274a8` y `1901407`).** (a)
+  el `export EXO_CONFIG="$D/config.toml"` se movió a ANTES de invocar
+  `$GEN`: bash conservaba el export de la N anterior durante toda la
+  llamada al generador de la N actual — y esto también afectaba a la
+  **primera** N, no solo a la transición 174→1000: se embebía con la
+  config por defecto (`~/.exo/config.toml`) en vez de la propia. (b) el
+  glob del resumen dejó de barrer `saturacion-vector-n*.json`. **Verificado
+  que no contamina ninguna latencia publicada:** las corridas `baseline` y
+  `despues` (commit `41e01bf`, campaña A, 2026-09-13) son anteriores a la
+  ruta de código que introdujo el bug (`58656f2`, campaña G, 2026-09-16), y
+  en `campana-i-2026-09-20` el único campo del config que el bug podía
+  corromper, `embeddings.model`, es idéntico en las tres configs posibles
+  que el bug pudo mezclar — no hay latencia publicada corrupta que
+  reinterpretar.
 
-- [ ] **(revisión 2026-09-11) Los documentos del repo no llevan `tier`, así
+- [x] **(revisión 2026-09-11) Los documentos del repo no llevan `tier`, así
   que nada distingue lo que debe ser verdad hoy de lo que solo fue verdad un
   día.** Medido el 2026-09-11: `docs/` tiene **35.892** líneas de markdown en
   74 ficheros, de las que **33.469 (el 93 %) viven en `docs/superpowers/`** y
@@ -924,6 +993,13 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   **(campaña F, 2026-09-15): acción (c) cerrada — ver el ítem de Alta
   arriba («La documentación de referencia contradice el repo»), misma
   acción, mismo commit.**
+  **CERRADO (sync 2026-09-22, ola 2).** Las tres acciones están hechas: (a)
+  y (b) por D5=b (convención por ruta, `2294349`), (c) por la campaña F
+  (`849886c` y siguientes). Re-medido hoy: **97** ficheros `.md` bajo
+  `docs/`, **70.346** líneas (`find docs -name "*.md" -print0 | xargs -0
+  wc -l`), **92 de los 97** bajo `docs/superpowers/` — la convención
+  «cuatro vivos, el resto instantáneas por ruta» sigue describiendo el
+  árbol real.
 
 - [x] **`#[allow(clippy::too_many_arguments)]` en `escritor.rs` — la struct de
   parámetros que no se hizo aquí. CERRADO el 2026-09-16 (campaña G, Task 6,
@@ -935,7 +1011,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   — da un hit en `engine/src/escritor.rs:244`, el doc-comment que documenta
   la deuda cerrada (menciona el nombre del lint en prosa, no el atributo).
 
-- [ ] **Rutas personales y `hooks.json` sin validar en CI — las dos
+- [x] **Rutas personales y `hooks.json` sin validar en CI — las dos
   sub-propuestas vivas del item de los `test-*.sh` del plugin (cerrado el
   2026-09-12, `d8aa3b6`, ver `## Cerrado con evidencia`).**
   **Un validador**, no una fixture por script: `affaan-m/ECC` encadena en su
@@ -973,6 +1049,14 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   referenciado existente y en 100755. Corre en `ci.yml` job `static-checks`.
   Ciclo rojo-verde demostrado renombrando un script citado.
   **Lo cierra G5 si lo adopta.** **(2026-09-11: G5b cerró sin adoptarlo — release `v0.1.0` publicada, ver `## Cerrado con evidencia`. La marca queda huérfana: necesita dueño o campaña propia.)**
+  **CERRADO (sync 2026-09-22, ola 2).** Las dos sub-propuestas están en CI y
+  verdes hoy: `scripts/test-rutas-personales.sh` (`ci.yml:82`, job `lint`) y
+  `scripts/test-hooks-json.sh` (`ci.yml:88`, job `static-checks`) —
+  corridas ambas en este sync: `test-rutas-personales: OK — 60 scripts sin
+  rutas personales` y `[OK] test-hooks-json: eventos, type=command y
+  scripts referenciados, todos 100755`. El falso positivo por forma
+  (`/home/runner`, `/Users/Shared`, `C:/Users/Public`) es aceptado por
+  diseño, documentado en el propio párrafo de cierre de la sub-propuesta 1.
 
 - [ ] **Barrer los hallazgos vivos del gate M4** (`evals/e1-read/verdict/gate-m4.md`).
   Cerrados en `2f5f545`: traversal por `..` en `--dir`/`--titulo`, `--force` sin
@@ -1009,8 +1093,13 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
     existe (`engine/src/main.rs:172-176`); `document/SKILL.md:55` no menciona
     `--db` porque se resuelve por config (M5a-02) — es correcto tal cual, no
     un olvido.
+  **(sync 2026-09-22, ola 2): todos los sub-ítems resueltos — cierre del
+  padre pendiente de decisión del dueño.** #5, #6 y #8 cerrados con
+  commit/decisión citados arriba; #9 caducado (nunca fue un bug real). No
+  queda ningún hallazgo vivo del gate M4 sin cerrar, pero cerrar el propio
+  ítem padre es decisión explícita de Paul, no de esta sync.
 
-- [ ] **Un rojo del job `test` no se puede diagnosticar desde el CI.**
+- [x] **Un rojo del job `test` no se puede diagnosticar desde el CI.**
   `engine/scripts/test-hermetico.sh:19` manda toda la salida de `cargo test`
   a `$TMP/out.txt` y el `trap ... EXIT` de la línea 16 la borra al salir. En
   fallo (líneas 23-26) solo se emiten las líneas que casan `^test result:
@@ -1054,6 +1143,14 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   etiquetar un test fallido como error de compilación. Verificado con
   muestras sintéticas de cada caso (el árbol real compila hoy, así que el
   bloque nuevo no se ejercita en el camino feliz).
+  **CERRADO (sync 2026-09-22, ola 2).** Las tres piezas que el item pedía
+  están verdes en el árbol de hoy: `test-hermetico.sh` emite nombre de cada
+  test caído, bloque `failures:` y distingue un error de compilación de un
+  fallo de test normal; `.github/workflows/ci.yml:202` fija
+  `EXO_HERMETICO_LOG` para el paso del gate y `:213-219` sube el log
+  completo como artifact solo `if: always() && steps.gate.outcome ==
+  'failure'`; `:21` fija `RUST_BACKTRACE: 1` a nivel de workflow. Ítem
+  cerrado por completo.
 
 - [x] **Hoy el CI no bloquea nada.** Paul decidió explícitamente no proteger
   `main` por ahora — no hay branch protection ni required status checks.
@@ -1238,7 +1335,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   `docs/superpowers/specs/2026-09-11-ruta-portable-y-columna-humana-design.md`
   y `docs/superpowers/plans/2026-09-11-ruta-portable-y-columna-humana.md`.
 
-- [ ] **`budget_prose_drift` tiene dos límites conocidos, ninguno arreglado
+- [x] **`budget_prose_drift` tiene dos límites conocidos, ninguno arreglado
   aquí.** Los dos viven en la misma pareja regex+parse de
   `engine/src/lint.rs` (`TIER_Y_CIFRA`, `:271-274`, y el parse de
   `deriva_de_prosa`, `:310`).
@@ -1297,8 +1394,17 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   sigue abierta también, pero ya no por el bloqueador de paridad: es el
   precio deliberado de no tener falsos positivos, declarado en el propio
   ítem — decisión de diseño, no trabajo pendiente de G ni de F.
+  **CERRADO (sync 2026-09-22, ola 2).** Los dos límites que el título del
+  item nombraba quedan resueltos, cada uno por su vía: la agrupación de
+  miles mal formada (`TIER_Y_CIFRA`, `engine/src/lint.rs:281-284`) se
+  arregló con `agrupacion_correcta` (`:291-300`), commit `2764bfe`; la
+  adyacencia tier+cifra sigue sin cazar una mención vaga a propósito — es
+  decisión de diseño declarada en el propio ítem, no deuda. La coma como
+  separador de miles (deuda preexistente destapada al cerrar la Task 5, no
+  una de las dos patas originales del título) queda documentada y sin
+  ampliar, también por decisión escrita en su propio test.
 
-- [ ] **La campaña de evicción de la KB está descalibrada (A3, G4b).** El
+- [x] **La campaña de evicción de la KB está descalibrada (A3, G4b).** El
   censo "19 de 58 notas stable" y el objetivo de poda de 10.625 (medidos el
   2026-09-02) salen de la fórmula huérfana del commit local `f0d0564` de kbx
   (`objetivo_poda = tier - tier*15/100`). G4b adjudicó A3: la fórmula
@@ -1315,6 +1421,14 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   v2:18` («La lista de partida la midió `exo budget` … eran 20, no 19»),
   commit `efd9abc` — **de la KB `wisdom-paul`, no de este repo** (`exo` no
   tiene ese SHA).
+  **Re-verificado (sync 2026-09-22, ola 2), con evidencia de este repo:**
+  la fórmula canónica que G4b adjudicó vive hoy en
+  `engine/src/presupuesto.rs:23` (`FACTOR_AIRE_PCT: i64 = 115`), `:62-71`
+  (`tiene_aire`) y `:87-89` (`objetivo_poda`), con test dirigido en
+  `:320-331` que fija los dos umbrales citados por el ítem —
+  `el_aire_es_el_115_por_ciento_en_aritmetica_entera` prueba 10.869 (stable)
+  y 7.391 (core) byte a byte. La descalibración original ya no puede
+  reproducirse: no hay otra fórmula viva en el código.
 
 - [x] **(pasada de coste 2026-09-09) `exo budget` va a colisionar de nombre:
   el planeado mide tamaño de KB y el que hace falta mide coste de tokens.**
@@ -1419,7 +1533,8 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
 - [ ] **(H28) La `distance` de vec0 es L2, no L2²; el
   umbral 0,40 del hook equivale a coseno 0,28.** Medido por el consultor
   sobre la KB real: los embeddings están normalizados (norma 1,000000) y
-  `similitud_desde_l2_cuadrado` (`engine/src/buscador.rs` ~:226) calcula
+  `similitud_desde_l2` (`engine/src/buscador.rs:311`, antes
+  `similitud_desde_l2_cuadrado` — nombre corregido, ver más abajo) calcula
   `1 − sqrt(2−2cos)/2` — monótona en coseno, así que el ranking no cambia —
   pero interpreta la `distance` de vec0 como L2² cuando en realidad es L2
   (`sqlite-vec.c:224/263`). El umbral 0,40 del hook equivale a coseno 0,28, y
@@ -1427,8 +1542,29 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   **Campaña C (2026-09-14):** no se midió. El pre-registro cubrió H7, H7b,
   H14 y H24 — H28 no entró (`c-verdict.md`, título y §1). Sigue sin decidir.
   **Acción:** arreglarlo cambia qué trozos entran o no en el umbral — pasa
-  por un held-out nuevo antes de tocarlo (el de la campaña C está
-  consumido, §11 del verdict, y no lo midió), no se corrige suelto.
+  por un held-out nuevo antes de tocarlo, no se corrige suelto.
+  **Parte documental CERRADA (sync 2026-09-22, ola 2, commits `28dbb2f` +
+  `d027d23`, merge `063d07c`).** El hallazgo en sí queda solo documentado,
+  NO corregido — sigue abierto lo que importa: la conversión real
+  (fórmula/umbral/β calibrados sobre L2 en vez de L2²) exige el held-out de
+  J y es trabajo de fase 2. Lo que sí se cerró: el parámetro y la función se
+  renombraron (`similitud_desde_l2`, sin el sufijo `_cuadrado` que mentía),
+  el doc-comment de `buscador.rs:280-309` explica el hallazgo entero con
+  cita a sqlite-vec y al test que lo prueba; `--help` (`main.rs`) y la
+  config que escribe `exo init` (`inicia.rs`) dejaron de llamar «coseno» al
+  umbral; `docs/arquitectura.md` corregido; y el test
+  `vectores::tests::vec0_metric_l2_default_es_distancia_llana_no_al_cuadrado`
+  (`engine/src/vectores.rs:274`) prueba el hecho empíricamente (dos
+  unitarios ortogonales, √2 ≈ 1,41421 vs. 2,0 de L2²). La review adversarial
+  encontró dos «similitud coseno» vivos que el primer commit había dejado
+  sin tocar (`buscador.rs`, doc de `busca_vector`; `main.rs`, doc de
+  `MIN_SIMILARITY_SELLADO`) — corregidos en `d027d23`.
+  **Ya existe un held-out nuevo para cuando se aborde la conversión real:**
+  el gold de J (240 filas, 145 no nulas, κ 0,810, p_o 0,874), pre-registro
+  **congelado en `a936770`** (merge `01be694`) — distinto del held-out de la
+  campaña C, que sigue consumido. Ver
+  `evals/retrieval-heldout/verdict/gold-j-acuerdo.md` y
+  `gold-j-erratas.md`.
 
 - [ ] **(N1) Con un prompt natural, FTS5 hace AND de
   todos los tokens y da 0 candidatos: `exo recall --query` es en la práctica
@@ -1460,7 +1596,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   (§11 del verdict): cualquier cambio de retrieval exige uno nuevo antes de
   adoptarse.
 
-- [ ] **(NUEVO, 2026-09-13) El bench sintético de la campaña A es ciego al
+- [x] **(NUEVO, 2026-09-13) El bench sintético de la campaña A es ciego al
   umbral de similitud.** Vectores aleatorios en 768 dimensiones dan coseno
   ≈ ±0,04 entre sí; ninguno pasa el umbral 0,40 del hook, así que el arm
   vector nunca aporta resultados en el bench sintético
@@ -1472,6 +1608,64 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   por eso no vio la subida real de `s2` (KNN) tras cerrar H27 — se detectó a
   mano en el veredicto, no por el criterio. Ver
   `evals/recall-coste/verdict/2026-09-campana-a.md`.
+  **CERRADO (campaña G, 2026-09-16, commit `58656f2`).**
+  `engine/examples/kb_sintetica.rs:288-299`, `vector_desde_pool`: embedding
+  real de la palabra dominante del trozo (`pool_de_vocabulario`, embed real
+  de las 24 palabras del vocabulario) más ruido gaussiano N(0, σ²) por
+  componente, renormalizado a norma unidad — ya no `vector_unitario()`
+  puramente aleatorio. El generador deja de ser ciego al umbral. La cola
+  documental que esta task dejó (la prosa de calibración del bench razona
+  con la escala equivocada) queda registrada como deuda nueva de la ola 2,
+  ver más abajo en esta misma sección, «Cola de H28».
+
+- [ ] **(NUEVO, 2026-09-22, cola de H28, media) `kb_sintetica.rs` calibra su
+  bench razonando en la escala equivocada.** El doc-comment de
+  `engine/examples/kb_sintetica.rs:16-33` llama «coseno» al 0,4747 «techo
+  sin ruido» que en realidad mide sobre la escala propia de
+  `similitud_desde_l2` (no cosine real — H28), y luego lo multiplica
+  directamente por el factor de shrinkage 0,585 que sí se midió en cosine
+  real (`pool_de_vocabulario()`, coseno sobre pares limpio/ruidoso). Mezclar
+  las dos escalas da `0,4747 × 0,585 ≈ 0,28`, muy por debajo del máximo
+  medido end-to-end (0,4230, N=174) — el comentario atribuye toda esa
+  brecha a que «la fórmula no predice el techo real». Recalculado
+  aplicando el shrinkage a la cosine real antes de convertir a la escala
+  propia (despejando `sim = 1 − sqrt(2−2cos)/2` para el 0,4747 medido →
+  cos₀ ≈ 0,4481; shrink → cos ≈ 0,2622; reconvertido → sim ≈ **0,393**): la
+  predicción correcta queda a 0,030 del 0,4230 medido, no a 0,143. El σ
+  elegido (0,05) no cambia — se fijó por el barrido empírico de la tabla,
+  no por esta fórmula — pero la justificación de por qué la fórmula
+  cerrada "no predice" está inflada por un error de escala, no por que la
+  fórmula sea mala.
+  **Acción:** corregir el doc-comment para que declare qué escala mide cada
+  número (propia vs. cosine real) y recalcular el ≈0,28 como ≈0,393 antes
+  de comparar contra el 0,4230 medido.
+
+- [ ] **(NUEVO, 2026-09-22, harness de J, media) El test de `MAX_CHARS` no
+  cubre el camino real que llega al juez.** `evals/retrieval-heldout/harness/test_gold_j.py::test_paquete_y_parsea`
+  llama a `jz.paquete(...)` y comprueba que `paq["texto"]` contiene ciertas
+  subcadenas, pero la aserción de longitud (`len(candidata_grande["cuerpo"])
+  == jz.MAX_CHARS`) se hace sobre una llamada aparte a `jz.nota(...)`, no
+  sobre el texto que de verdad viaja a Kimi. Demostrado por mutación: con
+  `paquete()` (`juez.py:334-355`) leyendo el fichero crudo en vez de pasar
+  por `nota()` (que trunca en `:331`), la suite sigue en verde — la
+  aserción de truncado no ejerce el camino `paquete()→texto` que consume el
+  juez.
+  **Acción:** añadir una aserción sobre `paq["texto"]` (p.ej. que ningún
+  bloque de cuerpo entre candidatas supere `MAX_CHARS` caracteres) para que
+  una regresión en `paquete()` la cace.
+
+- [ ] **(NUEVO, 2026-09-22, harness de J, media) La suite Python del harness
+  no corre en CI.** `evals/retrieval-heldout/harness/test_*.py` — 82 tests,
+  verificado hoy (`python3 -m unittest discover -s
+  evals/retrieval-heldout/harness -p "test_*.py"` → `Ran 82 tests … OK`) —
+  no aparece en `.github/workflows/ci.yml` (`grep -n
+  "retrieval-heldout\|pytest\|unittest" .github/workflows/ci.yml` vacío).
+  Su verde depende de que alguien la corra a mano; agrava el ítem anterior
+  (el gap de `paquete()→texto` no lo va a cazar nadie que no sepa que hay
+  que correr esta suite).
+  **Acción:** un job de CI que instale Python y corra
+  `python3 -m unittest discover` sobre el harness — no depende de red ni de
+  claves de API, los tests de red están mockeados.
 
 - [x] **(revisión 2026-09-13 · plegado el 2026-09-13, campaña B) Hallazgos
   de hoy — cada uno cerrado con su commit; este bloque no queda «planificado»
@@ -1566,7 +1760,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   exige held-out por sí solo —es sobre datos in-sample ya capturados— pero
   cualquier cambio de retrieval que salga de ese diagnóstico sí lo exige.
 
-- [ ] **(campaña C, verdict §9) README y `docs/arquitectura.md` §6 citan el
+- [x] **(campaña C, verdict §9) README y `docs/arquitectura.md` §6 citan el
   48/55 sin la cifra held-out.** El held-out de la campaña C (64/92,
   `evals/retrieval-heldout/verdict/c-verdict.md`) no está reflejado en el
   texto público, que sigue presentando el 48/55 in-sample como si fuera la
@@ -1582,6 +1776,57 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   (verificado, `grep -c "48/55" README.md` → vacío).
 
 ## Baja
+
+- [ ] **(NUEVO, 2026-09-22, cola de H28, baja) Prosa desfasada que sigue
+  llamando «coseno» a la escala propia de `similitud_desde_l2`.** Restos
+  documentales que el fix de H28 (`28dbb2f`+`d027d23`) no tocó: comentarios
+  de `engine/tests/buscador.rs:216-217` («por encima del máximo teórico de
+  similitud coseno»), `:347` («garantiza empate EXACTO de similitud
+  coseno») y `:382` («mínimo teórico de coseno, -1.0») — los tests en sí
+  siguen siendo correctos, es solo la prosa; `engine/src/main.rs:1023` cita
+  «0.35 por defecto», el default viejo de antes de D6 (hoy 0.40,
+  `MIN_SIMILARITY_SELLADO`); el `--help` de `search`/`recall`
+  (`main.rs:258,304`, vía doc-comment de clap) nombra `similitud_desde_l2`,
+  una función privada que el usuario del binario no puede consultar; y el
+  `config.toml` que escribe `exo init` (`engine/src/inicia.rs:177`) remite
+  a `docs/arquitectura.md` §3.4, que con solo el binario instalado (sin
+  clonar el repo) no está a mano.
+  **Acción:** limpiar los tres comentarios de test, actualizar el «0.35»
+  caducado de `main.rs:1023`, y decidir si el `--help` debe citar un
+  concepto público (p.ej. «similitud interna, ver `--min-similarity`») en
+  vez del nombre de una función privada.
+
+- [ ] **(NUEVO, 2026-09-22, harness de J, baja) El comentario del timeout
+  de `juez.py` exagera el coste, y `kimi()` no captura todos los cortes de
+  conexión.** `juez.py:383-388` justifica `timeout=600` con «esperar de más
+  cuesta segundos» — engañoso: una conexión colgada cuesta hasta 600 s por
+  INTENTO (el `timeout` de `urllib.request.urlopen` es por operación de
+  socket, no un tope total de la llamada), y `kimi()` reintenta. Preexistente,
+  no introducido por esta ola: el `except (urllib.error.URLError,
+  TimeoutError, json.JSONDecodeError)` de `kimi()` (`juez.py:616`) no
+  incluye `OSError` en general, así que un corte a media respuesta
+  (`http.client.RemoteDisconnected`, `ConnectionResetError` — subclases de
+  `OSError` que `urlopen` puede propagar sin envolver en `URLError`) no
+  entra en el retry y tira la corrida.
+  **Acción:** corregir el comentario del timeout (coste real: minutos por
+  intento colgado, no segundos) y añadir `OSError` (o las subclases
+  concretas) al `except` de `kimi()`.
+
+- [ ] **(NUEVO, 2026-09-22, bench.sh, baja) `mide()` no comprueba el
+  código de salida de hyperfine, y un fallo a medias deja `resumen.tsv` a
+  medio escribir.**
+  `evals/recall-coste/harness/bench.sh:51-56`, `mide()`: corre hyperfine sin
+  capturar ni comprobar su código de salida — si un escenario no llega a
+  escribir su `.json` (crash de hyperfine, disco lleno, etc.), la función no
+  falla, y ese escenario **desaparece de `resumen.tsv` sin ningún aviso**
+  (preexistente, no introducido por esta ola). Además, si el bloque que arma
+  el resumen aborta a medias (`set -uo pipefail`, sin `set -e`, pero un
+  fallo real dentro de ese bloque puede salir con `exit 1`), `$OUT` queda a
+  medio escribir y la guarda de la línea 29 (`[ ! -e "$OUT" ]`) impide
+  reusar la misma etiqueta hasta borrarlo a mano.
+  **Acción:** comprobar el `$?` de hyperfine en `mide()` y registrar el
+  fallo en vez de callarlo; documentar (o automatizar) el borrado de `$OUT`
+  a medias tras un aborto del resumen.
 
 - [x] **(NUEVO, revisión final campaña B, 2026-09-13) El bash inline de
   `run:` en `.github/workflows/*.yml` no pasa por ningún gate.**
