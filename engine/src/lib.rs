@@ -234,7 +234,9 @@ impl Embedder {
     /// aplica `normalize()` en el transformer por defecto de
     /// `TextEmbedding` — verificado en `common.rs`/`text_embedding/output.rs`
     /// de la crate 5.17.3): propiedad que `buscador::busca_vector` explota
-    /// para convertir distancia L2² de vec0 en similitud coseno.
+    /// para convertir la distancia L2 de vec0 en una similitud monótona en
+    /// el coseno (no un coseno exacto — ver doc de
+    /// `buscador::similitud_desde_l2`).
     pub fn desde_config() -> Result<Self> {
         let cfg = config_embeddings()?;
         Self::con_modelo(&cfg.modelo)

@@ -187,10 +187,17 @@ motivos, tal como los declara el código:
   variante para el jina-es), descargando de HF el ONNX (~0,6 GB) más los
   ficheros de tokenizer, con pooling `Mean` explícito. fastembed normaliza los
   embeddings a norma unidad, propiedad que el buscador explota: la DDL de
-  `vectores` usa la métrica por defecto de vec0 (L2 al cuadrado), y para
-  vectores unitarios `cos = 1 − L2²/2` — así el umbral `min_similarity` de la
-  config (0.40 por defecto desde el 2026-09-15, D6 — antes 0.35, ver §3.5) se
-  compara en escala coseno.
+  `vectores` usa la métrica por defecto de vec0, `VEC0_DISTANCE_METRIC_L2`,
+  que en el C vendorizado de sqlite-vec 0.1.9 devuelve L2 **llana**
+  (`||a-b||`, no al cuadrado — las tres variantes de `l2_sqr_float`
+  terminan en `return sqrt(res)` pese al nombre; ver doc de
+  `buscador::similitud_desde_l2`, H28). Para vectores unitarios,
+  `cos = 1 − ||a-b||²/2`, así que la función que usa el buscador
+  (`1 − ||a-b||/2`, sin elevar al cuadrado) es monótona en el coseno pero
+  **no es el coseno**: el umbral `min_similarity` de la config (0.40 por
+  defecto desde el 2026-09-15, D6 — antes 0.35, ver §3.5) se compara en esa
+  escala propia, no en escala coseno — 0.40 ahí equivale a un coseno real
+  ≈0.28.
 - El modelo se carga **una vez por proceso**, perezosamente
   (`con_embedder_de_proceso`): un `exo index` sin cambios no lo paga.
 
@@ -229,7 +236,7 @@ flowchart TD
     FTSQ --> FTS["busca — canal FTS<br/>MATCH sobre notas_fts,<br/>score = −bm25, hasta K_c = 50 candidatos"]
     Q --> EMBQ["Embedder: embed de la query<br/>(mismo modelo que el índice)"]
     EMBQ --> KNN["vectores::knn — KNN EXHAUSTIVO<br/>k = COUNT(*) sobre vec0"]
-    KNN --> SIM["similitud = 1 − L2²/2<br/>filtro min_similarity (flag > config)"]
+    KNN --> SIM["similitud = 1 − L2/2 (monótona en coseno,<br/>NO coseno exacto — H28)<br/>filtro min_similarity (flag > config)"]
     SIM --> AGG["agregación trozo→nota:<br/>la nota puntúa como su MEJOR trozo"]
     FTS --> NORM["normaliza_fts (por query)<br/>f = β · f_raw / f_max — el top-1<br/>FTS vale exactamente β"]
     AGG --> FUS["fusiona (por UNIÓN de permalinks)<br/>score = max(v,f) + bonus·min(v,f)"]
@@ -242,7 +249,8 @@ flowchart TD
   con lista vacía, no error.
 - **vector**: embed de la query + KNN exhaustivo (pedir menos vecinos no
   ahorra trabajo en vec0 sin partición y arriesga perder el mejor trozo de una
-  nota), umbral de similitud coseno, agregación trozo→nota por máximo.
+  nota), umbral de similitud monótona en el coseno (no coseno exacto — H28,
+  ver §3.4), agregación trozo→nota por máximo.
 - **hybrid**: los dos canales fusionados por unión. Los parámetros de fusión
   van **sellados** en `main.rs` tras el sweep de calibración de M2-07:
   `bonus = 0.0` y `β = 0.6` (`BONUS_SELLADO`, `ESCALA_FTS_SELLADA`),
