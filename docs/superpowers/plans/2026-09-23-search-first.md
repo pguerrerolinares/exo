@@ -800,7 +800,7 @@ más abajo.
 ```bash
 TMP="$(mktemp -d)"
 mkdir -p "$TMP/sentinels"
-TRANSCRIPT="$(ls -t ~/.claude/projects/*/*.jsonl 2>/dev/null | head -1)"
+TRANSCRIPT="$(ls -S ~/.claude/projects/*/*.jsonl 2>/dev/null | head -1)"
 if [ -z "$TRANSCRIPT" ]; then
   echo "sin transcripciones reales en ~/.claude/projects/*/*.jsonl — anota 'sin dato real disponible' en el Step 3" >&2
 else
