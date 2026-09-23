@@ -1,7 +1,7 @@
 # Arquitectura de exo
 
 > Este documento describe el sistema **tal como está implementado**, a fecha
-> 2026-09-13, derivado de la lectura de `engine/src/`, `plugins/exo/`,
+> 2026-09-20, derivado de la lectura de `engine/src/`, `plugins/exo/`,
 > `engine/kb-template/` y `evals/`. Las specs y planes de `docs/superpowers/`
 > son el registro histórico de diseño; la deuda abierta vive en
 > `docs/backlog.md`.
@@ -553,10 +553,23 @@ corrida, y los números no se renegocian.
   con rotaciones a `archive/`) y el binario — mezclaría sobreajuste con
   cambio de distribución. El held-out queda **consumido**: cualquier cambio
   de fusión, umbral o troceado exige un gold nuevo (`c-verdict.md` §11).
+  Ese gold nuevo es el de la **campaña J** (2026-09-22), en la misma carpeta:
+  `gold-j/` (método y plantilla; el gold en sí vive fuera del repo),
+  `harness/` (`pool.py`, `juez.py`, `acuerdo.py`, `valida_gold.py`,
+  `diagnostico.py`) y `verdict/gold-j-*.md`. El gold lo etiquetan dos jueces
+  LLM ciegos de familias distintas, con suelo de fiabilidad pre-registrado
+  (κ ≥ 0,6 y acuerdo ≥ 0,7): salió **κ 0,810** sobre 285 filas
+  (`verdict/gold-j-acuerdo.md`). Con eso cierra la fase 1 (gold y
+  pre-registro congelados); la corrida que mide al engine contra él es la
+  fase 2.
 - **`evals/prep-m3/`**: eval de otra naturaleza — paridad de **movimientos**
   de las skills destiladas frente a sus fuentes de superpowers. El oráculo no
   es mecánico: checklists gold por skill (`gold/*.md`, con sección DESCARTES
   de lo que se tira a propósito) verificadas por un revisor fresco.
+- **`evals/recall-coste/`**: no mide calidad sino **coste** del recall por
+  prompt — latencia del hook (`hook_ms`, p95) antes/después de cada cambio,
+  con `harness/bench.sh` y `harness/compara.sh` (campañas A e I,
+  `verdict/2026-09-campana-a.md`).
 
 Un límite declarado: el fichero de queries (`eval.jsonl`, referenciado por el
 harness) y la KB contra la que se midió **no están en el repo** — son

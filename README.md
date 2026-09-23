@@ -71,7 +71,7 @@ flowchart TB
         direction TB
         c1["init · config · doctor"]
         c2["index · rebuild · search · recall · write"]
-        c3["targets · budget · lint · ratchet"]
+        c3["targets · budget · lint · ratchet · rotate · stale"]
     end
 
     cfg[("~/.exo/config.toml")]

@@ -61,7 +61,7 @@ Tabla exacta al cableado vivo de `hooks/hooks.json` (diez comandos):
 | git-c | `PreToolUse:Bash` | `scripts/git-c-bash.sh` | reescribe `cd <path> && git <read-only>` → `git -C <path> …` | rewrite solo si patrón estricto (ver comentarios del script) |
 | zero-residuo | `PreToolUse:Bash` | `scripts/git-add-all-guard.sh` | avisa ante `git add -A`/`--all`/`.` | calla en `git add <ficheros>` explícito |
 | verify-before-done | `PreToolUse:Bash` | `scripts/verify-before-commit.sh` | avisa antes de `git commit` si no hay test verde reciente | escape hatch `--no-verify`; calla en commits solo-docs |
-| exo-recall | `SessionStart` | `scripts/exo-recall.sh` | inyecta instrucción de memoria + digest 7d, servido por el engine `exo` (SQLite) | — (PUSH) |
+| exo-recall | `SessionStart` | `scripts/exo-recall.sh` | inyecta instrucción de memoria + digest 7d, servido por el engine `exo` (SQLite) | — (PUSH); degrada al fallback embebido si el engine instalado es < `ENGINE_MIN` |
 | estilo-directo | `SessionStart` | `scripts/estilo-directo.sh` | inyecta una directiva de estilo de respuesta estática (`estilo-directo.md`) | sin fichero `.md` legible, o si `jq` falla al construir el JSON |
 | document-remind | `Stop` | `scripts/document-remind.sh` | recuerda `/document` al cerrar | 1×/sesión + umbral de transcript |
 | exo-index | `Stop` | `scripts/exo-index.sh` | reindexa la KB al cierre de sesión | best-effort, fallback logueado |
