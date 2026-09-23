@@ -960,7 +960,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   search`/`exo targets`. Camino rápido (sentinel ya creado, 20
   repeticiones, W11): p50 = **102** ms, p95 = **130** ms — comando exacto en
   el Step 1 de la Task 3 del plan. Primera llamada de la sesión con una
-  transcripción real de `~/.claude/projects/*/*.jsonl` (20 repeticiones,
+  transcripción real de `~/.claude/projects/*/*.jsonl` (la mayor, 6,3 MB; 20 repeticiones,
   cada una con `session_id` distinto para forzar el camino frío): p50 =
   **354** ms, p95 = **378** ms — comando exacto en el Step 2 de la
   Task 3 del plan. Criterio (spec §7, umbral 150 ms p50 del camino rápido):
