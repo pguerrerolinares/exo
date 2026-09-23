@@ -53,6 +53,7 @@ corre() {
 avisa() { printf '%s' "$1" | jq -e '.hookSpecificOutput.additionalContext | length > 0' >/dev/null 2>&1; }
 lineas_log() { wc -l < "$LOG" 2>/dev/null || echo 0; }
 ultima_reflex() { tail -1 "$LOG" 2>/dev/null | jq -r '.reflex // empty' 2>/dev/null; }
+ultima_payload() { tail -1 "$LOG" 2>/dev/null | jq -r '.payload // empty' 2>/dev/null; }
 
 linea_tool_use_bash() {  # <command>
   jq -nc --arg cmd "$1" '{type:"assistant", message:{content:[{type:"tool_use", id:"t1", name:"Bash", input:{command:$cmd}}]}}'
@@ -139,18 +140,23 @@ fi
 rm -rf "$POISON_DIR"
 
 # --- Caso 7: sin transcript_path, o apuntando a un fichero que no existe -> skip, sin aviso
+# (review final: no basta con el reflex == skip, hay que distinguir el MOTIVO
+# via el payload exacto de la ultima linea del log -- si no, un skip por la
+# rama equivocada pasaria igual el test).
 OUT7A="$(corre c7a "")"
-if [ -z "$OUT7A" ] && [ "$(ultima_reflex)" = "search-first-skip" ]; then
-  pass "caso7a: sin transcript_path -> search-first-skip, sin aviso"
+if [ -z "$OUT7A" ] && [ "$(ultima_reflex)" = "search-first-skip" ] && [ "$(ultima_payload)" = "motivo=sin-transcript_path" ]; then
+  pass "caso7a: sin transcript_path -> search-first-skip, sin aviso, payload motivo=sin-transcript_path"
 else
-  fail "caso7a: sin transcript_path -> search-first-skip, sin aviso" "out=$OUT7A reflex=$(ultima_reflex)"
+  fail "caso7a: sin transcript_path -> search-first-skip, sin aviso, payload motivo=sin-transcript_path" \
+    "out=$OUT7A reflex=$(ultima_reflex) payload=$(ultima_payload)"
 fi
 
 OUT7B="$(corre c7b "$TMP/no-existe-$$.jsonl")"
-if [ -z "$OUT7B" ] && [ "$(ultima_reflex)" = "search-first-skip" ]; then
-  pass "caso7b: transcript_path a fichero inexistente -> search-first-skip, sin aviso"
+if [ -z "$OUT7B" ] && [ "$(ultima_reflex)" = "search-first-skip" ] && [ "$(ultima_payload)" = "motivo=transcript-ilegible" ]; then
+  pass "caso7b: transcript_path a fichero inexistente -> search-first-skip, sin aviso, payload motivo=transcript-ilegible"
 else
-  fail "caso7b: transcript_path a fichero inexistente -> search-first-skip, sin aviso" "out=$OUT7B reflex=$(ultima_reflex)"
+  fail "caso7b: transcript_path a fichero inexistente -> search-first-skip, sin aviso, payload motivo=transcript-ilegible" \
+    "out=$OUT7B reflex=$(ultima_reflex) payload=$(ultima_payload)"
 fi
 
 # --- Caso 8: sin jq en el PATH -> exit 0, search-first-skip -----------------
@@ -178,10 +184,11 @@ PATH_SIN_JQ="$(path_sin_jq)"
 PAYLOAD_C8="$(jq -nc --arg s "sid-c8" '{session_id:$s, tool_name:"Edit", tool_input:{}, hook_event_name:"PreToolUse"}')"
 OUT8="$(printf '%s' "$PAYLOAD_C8" | REFLEX_LOG_FILE="$LOG" SEARCH_FIRST_SENTINEL_DIR="$TMP/sentinels" PATH="$PATH_SIN_JQ" bash "$HOOK" 2>/dev/null)"
 EC8=$?
-if [ -z "$OUT8" ] && [ "$EC8" -eq 0 ] && [ "$(ultima_reflex)" = "search-first-skip" ]; then
-  pass "caso8: sin jq en el PATH -> exit 0, search-first-skip"
+if [ -z "$OUT8" ] && [ "$EC8" -eq 0 ] && [ "$(ultima_reflex)" = "search-first-skip" ] && [ "$(ultima_payload)" = "motivo=sin-jq" ]; then
+  pass "caso8: sin jq en el PATH -> exit 0, search-first-skip, payload motivo=sin-jq"
 else
-  fail "caso8: sin jq en el PATH -> exit 0, search-first-skip" "out=$OUT8 ec=$EC8 reflex=$(ultima_reflex)"
+  fail "caso8: sin jq en el PATH -> exit 0, search-first-skip, payload motivo=sin-jq" \
+    "out=$OUT8 ec=$EC8 reflex=$(ultima_reflex) payload=$(ultima_payload)"
 fi
 
 # --- Caso 9: la salida del caso negativo es JSON válido ---------------------
@@ -202,6 +209,71 @@ if avisa "$OUT10" && [ "$(ultima_reflex)" = "search-first" ]; then
   pass "caso10: exo search en mensaje de usuario (no tool_use) -> aviso"
 else
   fail "caso10: exo search en mensaje de usuario (no tool_use) -> aviso" "out=$OUT10 reflex=$(ultima_reflex)"
+fi
+
+# --- Casos 11+: añadidos en el review final (2026-09-23), fuera de la
+# numeracion 1-10 de la spec Seccion 6 (esa sigue intacta arriba) --------
+
+# --- Caso 11: `exo` invocado por ruta relativa (`./engine/target/release/exo.exe search ...`) -> ok
+T11="$TMP/t11.jsonl"
+linea_tool_use_bash './engine/target/release/exo.exe search "x"' > "$T11"
+OUT11="$(corre c11 "$T11")"
+if [ -z "$OUT11" ] && [ "$(ultima_reflex)" = "search-first-ok" ]; then
+  pass "caso11: exo invocado por ruta relativa (./engine/.../exo.exe search) -> ok"
+else
+  fail "caso11: exo invocado por ruta relativa (./engine/.../exo.exe search) -> ok" "out=$OUT11 reflex=$(ultima_reflex)"
+fi
+
+# --- Caso 12: `exo` invocado por ruta con `~` (`~/.local/bin/exo search`) -> ok
+T12="$TMP/t12.jsonl"
+# shellcheck disable=SC2088 # literal deliberado: es el comando tal cual queda
+# en el JSON de la transcripcion (input.command), no se ejecuta ni se espera
+# que la tilde expanda aqui -- solo se casa contra la regex del hook.
+linea_tool_use_bash '~/.local/bin/exo search "x"' > "$T12"
+OUT12="$(corre c12 "$T12")"
+if [ -z "$OUT12" ] && [ "$(ultima_reflex)" = "search-first-ok" ]; then
+  pass "caso12: exo invocado por ruta con ~ (~/.local/bin/exo search) -> ok"
+else
+  fail "caso12: exo invocado por ruta con ~ (~/.local/bin/exo search) -> ok" "out=$OUT12 reflex=$(ultima_reflex)"
+fi
+
+# --- Caso 13: `notexo search` NO debe casar (el prefijo "exo" no está tras
+# uno de los separadores de la clase) -> aviso, igual que sin búsqueda
+T13="$TMP/t13.jsonl"
+linea_tool_use_bash 'notexo search "x"' > "$T13"
+OUT13="$(corre c13 "$T13")"
+if avisa "$OUT13" && [ "$(ultima_reflex)" = "search-first" ]; then
+  pass "caso13: notexo search (no debe casar) -> aviso"
+else
+  fail "caso13: notexo search (no debe casar) -> aviso" "out=$OUT13 reflex=$(ultima_reflex)"
+fi
+
+# --- Caso 14: JSON con espacios alrededor de ":" y "agent_id": "" (vacío,
+# valor de tipo string pero SIN caracteres) -> se trata como PADRE: crea
+# sentinel y evalúa la transcripción (no es "presente y no vacío")
+T14="$TMP/t14.jsonl"
+linea_tool_use_bash 'exo search --type hybrid "x"' > "$T14"
+PAYLOAD14=$(printf '{"session_id" : "sid-c14", "agent_id" : "", "transcript_path" : "%s", "tool_name" : "Edit", "tool_input" : {}, "hook_event_name" : "PreToolUse"}' "$T14")
+SENTINEL14="$TMP/sentinels/claude-search-first-sid-c14"
+OUT14="$(printf '%s' "$PAYLOAD14" | REFLEX_LOG_FILE="$LOG" SEARCH_FIRST_SENTINEL_DIR="$TMP/sentinels" "$HOOK")"
+if [ -z "$OUT14" ] && [ -f "$SENTINEL14" ] && [ "$(ultima_reflex)" = "search-first-ok" ]; then
+  pass "caso14: JSON con espacios en \":\" y agent_id vacío -> tratado como padre (sentinel creado, evalúa)"
+else
+  fail "caso14: JSON con espacios en \":\" y agent_id vacío -> tratado como padre (sentinel creado, evalúa)" \
+    "out=$OUT14 sentinel_existe=$([ -f "$SENTINEL14" ] && echo si || echo no) reflex=$(ultima_reflex)"
+fi
+
+# --- Caso 15: transcripción con una línea JSON truncada/corrupta seguida de
+# un tool_use Bash positivo -> search-first-ok (el `fromjson?` descarta la
+# línea rota sin abortar el resto del fichero)
+T15="$TMP/t15.jsonl"
+printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"trunc' > "$T15"
+linea_tool_use_bash 'exo search --type hybrid "y"' >> "$T15"
+OUT15="$(corre c15 "$T15")"
+if [ -z "$OUT15" ] && [ "$(ultima_reflex)" = "search-first-ok" ]; then
+  pass "caso15: línea JSON truncada + tool_use Bash positivo -> search-first-ok"
+else
+  fail "caso15: línea JSON truncada + tool_use Bash positivo -> search-first-ok" "out=$OUT15 reflex=$(ultima_reflex)"
 fi
 
 echo ""

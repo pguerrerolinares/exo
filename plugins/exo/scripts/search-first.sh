@@ -75,14 +75,22 @@ fi
 # skip -> el sentinel se crea YA, antes de saber el veredicto.
 touch "$SENTINEL" 2>/dev/null
 
+# Sourcing unico de _reflex-log.sh (antes se repetia en cada rama de
+# skip/ok/aviso mas abajo): LOG_OK guarda si cargo bien, y cada llamada a
+# reflex_log queda condicionada a eso -- el `|| true` se mantiene para que
+# un fallo de logging nunca rompa el warn-only.
+LOG_OK=0
+# shellcheck source=_reflex-log.sh
+. "$(dirname "$0")/_reflex-log.sh" 2>/dev/null && LOG_OK=1
+
 TRANSCRIPT="$(printf '%s' "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/null)"
 
 if [ -z "$TRANSCRIPT" ]; then
-  . "$(dirname "$0")/_reflex-log.sh" 2>/dev/null && reflex_log "search-first-skip" "$INPUT" "motivo=sin-transcript_path" || true
+  [ "$LOG_OK" = 1 ] && { reflex_log "search-first-skip" "$INPUT" "motivo=sin-transcript_path" || true; }
   exit 0
 fi
 if [ ! -f "$TRANSCRIPT" ] || [ ! -r "$TRANSCRIPT" ]; then
-  . "$(dirname "$0")/_reflex-log.sh" 2>/dev/null && reflex_log "search-first-skip" "$INPUT" "motivo=transcript-ilegible" || true
+  [ "$LOG_OK" = 1 ] && { reflex_log "search-first-skip" "$INPUT" "motivo=transcript-ilegible" || true; }
   exit 0
 fi
 
@@ -104,7 +112,7 @@ fi
 # hybrid" como TEXTO en cada prompt (`FOOTER=`, recall-inject.sh:313) -- un
 # grep a pelo sobre la transcripcion daria siempre positivo; mirar solo
 # `tool_use` de tipo Bash lo evita.
-RE='(^|[;&|[:space:]])exo(\.exe)?[[:space:]]+(search|targets)([[:space:]]|$)'
+RE='(^|[;&|/[:space:]])exo(\.exe)?[[:space:]]+(search|targets)([[:space:]]|$)'
 jq -R -n -e --arg re "$RE" '
   [inputs
    | fromjson?
@@ -119,16 +127,16 @@ EC=$?
 
 case "$EC" in
   0)
-    . "$(dirname "$0")/_reflex-log.sh" 2>/dev/null && reflex_log "search-first-ok" "$INPUT" "" || true
+    [ "$LOG_OK" = 1 ] && { reflex_log "search-first-ok" "$INPUT" "" || true; }
     ;;
   1)
-    . "$(dirname "$0")/_reflex-log.sh" 2>/dev/null && reflex_log "search-first" "$INPUT" "" || true
+    [ "$LOG_OK" = 1 ] && { reflex_log "search-first" "$INPUT" "" || true; }
     # shellcheck disable=SC2016 # backticks literales del aviso en markdown, no sustitución de comandos
     MSG='Reflejo search-first: primer trabajo sustantivo de la sesión sin `exo search`/`exo targets` previo. Si el tema puede tener historia en la KB, busca antes (`exo search --type hybrid "<tema>"`); si no, dilo en una línea y sigue.'
     printf '%s' "$MSG" | jq -Rs '{hookSpecificOutput:{hookEventName:"PreToolUse",additionalContext:.}}'
     ;;
   *)
-    . "$(dirname "$0")/_reflex-log.sh" 2>/dev/null && reflex_log "search-first-skip" "$INPUT" "motivo=jq-deteccion-fallo-ec${EC}" || true
+    [ "$LOG_OK" = 1 ] && { reflex_log "search-first-skip" "$INPUT" "motivo=jq-deteccion-fallo-ec${EC}" || true; }
     ;;
 esac
 
