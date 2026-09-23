@@ -445,13 +445,15 @@ Detalles que el diagrama no cuenta:
   clone fresco puede tardar minutos — eso no puede vivir en SessionStart. Se
   lanza detached (con `setsid` en POSIX o `cmd start` en Windows/Git Bash)
   para sobrevivir al kill del process group del hook.
-- Los otros cuatro hooks son guardrails de disciplina, no de memoria:
+- Los otros dos hooks son guardrails de disciplina, no de memoria:
   `clean-orchestrator-research.sh` (recuerda delegar la investigación web a
-  subagentes; solo en el padre, 1 vez por sesión), `git-c-bash.sh` (reescribe
-  `cd X && git <read-only>` a `git -C X …`, warn en el resto),
-  `git-add-all-guard.sh` (avisa ante `git add -A|--all|.`) y
-  `verify-before-commit.sh` (avisa ante `git commit` de código sin un test
-  verde reciente en el transcript).
+  subagentes; solo en el padre, 1 vez por sesión) y `bash-guards.sh` (Task 5,
+  campaña I: funde los tres guards de `PreToolUse:Bash` en un solo script —
+  reescribe `cd X && git <read-only>` a `git -C X …`, warn en el resto;
+  avisa ante `git add -A|--all|.`; avisa ante `git commit` de código sin un
+  test verde reciente en el transcript. `git-c-bash.sh`,
+  `git-add-all-guard.sh` y `verify-before-commit.sh` se preservan como red
+  de regresión, huérfanos de `hooks.json`).
 
 ## 5. El contrato de la KB
 

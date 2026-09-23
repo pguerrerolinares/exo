@@ -53,14 +53,12 @@ verificar ni cómo commitear.
 
 ## Hooks
 
-Tabla exacta al cableado vivo de `hooks/hooks.json` (diez comandos):
+Tabla exacta al cableado vivo de `hooks/hooks.json` (ocho comandos):
 
 | Reflejo | Evento | Fichero | Qué hace | Abstención |
 |---|---|---|---|---|
 | clean-orchestrator | `PreToolUse:WebSearch\|WebFetch\|navegación MCP` | `scripts/clean-orchestrator-research.sh` | recuerda delegar research a subagentes | parent-only + 1×/sesión + app local (`localhost`/`127.0.0.1`/`[::1]`/`0.0.0.0`, con o sin esquema, `file:` y `back`/`forward`) |
-| git-c | `PreToolUse:Bash` | `scripts/git-c-bash.sh` | reescribe `cd <path> && git <read-only>` → `git -C <path> …` | rewrite solo si patrón estricto (ver comentarios del script) |
-| zero-residuo | `PreToolUse:Bash` | `scripts/git-add-all-guard.sh` | avisa ante `git add -A`/`--all`/`.` | calla en `git add <ficheros>` explícito |
-| verify-before-done | `PreToolUse:Bash` | `scripts/verify-before-commit.sh` | avisa antes de `git commit` si no hay test verde reciente | escape hatch `--no-verify`; calla en commits solo-docs |
+| git-c + zero-residuo + verify-before-done | `PreToolUse:Bash` | `scripts/bash-guards.sh` | fusiona los tres guards de Bash (Task 5, campaña I): reescribe `cd <path> && git <read-only>` → `git -C <path> …`; avisa ante `git add -A`/`--all`/`.`; avisa antes de `git commit` si no hay test verde reciente | rewrite solo si patrón estricto; calla en `git add <ficheros>` explícito; escape hatch `--no-verify` y commits solo-docs (ver comentarios del script) |
 | exo-recall | `SessionStart` | `scripts/exo-recall.sh` | inyecta instrucción de memoria + digest 7d, servido por el engine `exo` (SQLite) | — (PUSH); degrada al fallback embebido si el engine instalado es < `ENGINE_MIN` |
 | estilo-directo | `SessionStart` | `scripts/estilo-directo.sh` | inyecta una directiva de estilo de respuesta estática (`estilo-directo.md`) | sin fichero `.md` legible, o si `jq` falla al construir el JSON |
 | document-remind | `Stop` | `scripts/document-remind.sh` | recuerda `/document` al cerrar | 1×/sesión + umbral de transcript |
