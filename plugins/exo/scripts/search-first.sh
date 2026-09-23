@@ -123,6 +123,7 @@ case "$EC" in
     ;;
   1)
     . "$(dirname "$0")/_reflex-log.sh" 2>/dev/null && reflex_log "search-first" "$INPUT" "" || true
+    # shellcheck disable=SC2016 # backticks literales del aviso en markdown, no sustitución de comandos
     MSG='Reflejo search-first: primer trabajo sustantivo de la sesión sin `exo search`/`exo targets` previo. Si el tema puede tener historia en la KB, busca antes (`exo search --type hybrid "<tema>"`); si no, dilo en una línea y sigue.'
     printf '%s' "$MSG" | jq -Rs '{hookSpecificOutput:{hookEventName:"PreToolUse",additionalContext:.}}'
     ;;
