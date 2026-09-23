@@ -1,0 +1,23 @@
+# Campaña I, Task 7: bloque §Task 7 del plan, corrido en la W11 de Paul
+# Plan: docs/superpowers/plans/2026-09-19-campana-i-latencia-hook-w11.md §Task 7
+# Git Bash (MSYS), índice real copiado a mktemp, config real de la máquina.
+# Plugin: exo@exo 1.3.0 (caché instalada), EXO_PLUGIN_SCRIPTS=<installPath>/scripts.
+# Bloque literal del plan, sin desviaciones. Salida literal:
+
+exo_version: exo 0.2.0
+fecha: 2026-09-23T16:15:35+02:00
+uname: MINGW64_NT-10.0-26200 <host-corporativo-omitido> 3.6.6-1cdd4371.x86_64 2026-01-15 22:20 UTC x86_64 Msys
+hook_wall_p50_ms 1778 hook_wall_p95_ms 1835
+--- payloads emitidos (con hook_ms, campaña I) ---
+n_hits=3 bytes=779 elapsed_ms=942 refresh_ms=17 hook_ms=1592 permalinks=wisdom-paul/log/kbx-bitacora,wisdom-paul/core/doctrina-agentes,wisdom-paul/projects/lighthouses-bot
+n_hits=3 bytes=779 elapsed_ms=945 refresh_ms=17 hook_ms=1577 permalinks=wisdom-paul/log/kbx-bitacora,wisdom-paul/core/doctrina-agentes,wisdom-paul/projects/lighthouses-bot
+n_hits=3 bytes=779 elapsed_ms=942 refresh_ms=18 hook_ms=1597 permalinks=wisdom-paul/log/kbx-bitacora,wisdom-paul/core/doctrina-agentes,wisdom-paul/projects/lighthouses-bot
+--- veredicto de recall-latencia.sh sobre ESTA ventana (decide por hook_ms, decisión #12) ---
+disparos_medidos	20
+timeouts	0
+p50_ms	1617
+p95_ms	1671
+timeout_pct	0
+veredicto	INSUFICIENTE (menos de 200 disparos)
+--- PreToolUse:Bash triple (git status), W11 ---
+PreToolUse_Bash_triple_ms 587
