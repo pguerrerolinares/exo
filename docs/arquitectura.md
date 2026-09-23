@@ -378,7 +378,7 @@ tareas acotadas con la doctrina en su system prompt. El catálogo destila
 [`obra/superpowers`](https://github.com/obra/superpowers) (MIT) más doctrina
 propia; el reparto exacto está en `plugins/exo/README.md`.
 
-**Hooks** (10 comandos cableados en `plugins/exo/hooks/hooks.json`). Son los
+**Hooks** (9 comandos cableados en `plugins/exo/hooks/hooks.json`). Son los
 "reflejos": guardrails deterministas que activan el conocimiento en el punto
 de acción. Invariantes de todos ellos: **never-block** (exit 0 siempre; como
 mucho `additionalContext` o un rewrite silencioso de alta confianza),
@@ -445,15 +445,19 @@ Detalles que el diagrama no cuenta:
   clone fresco puede tardar minutos — eso no puede vivir en SessionStart. Se
   lanza detached (con `setsid` en POSIX o `cmd start` en Windows/Git Bash)
   para sobrevivir al kill del process group del hook.
-- Los otros dos hooks son guardrails de disciplina, no de memoria:
+- Los otros tres hooks son guardrails de disciplina, no de memoria:
   `clean-orchestrator-research.sh` (recuerda delegar la investigación web a
-  subagentes; solo en el padre, 1 vez por sesión) y `bash-guards.sh` (Task 5,
+  subagentes; solo en el padre, 1 vez por sesión), `bash-guards.sh` (Task 5,
   campaña I: funde los tres guards de `PreToolUse:Bash` en un solo script —
   reescribe `cd X && git <read-only>` a `git -C X …`, warn en el resto;
   avisa ante `git add -A|--all|.`; avisa ante `git commit` de código sin un
   test verde reciente en el transcript. `git-c-bash.sh`,
   `git-add-all-guard.sh` y `verify-before-commit.sh` se preservan como red
-  de regresión, huérfanos de `hooks.json`).
+  de regresión, huérfanos de `hooks.json`) y `search-first.sh` (recuerda
+  `exo search`/`exo targets` en el primer `Agent`/`Task`/`Edit`/`Write`/
+  `NotebookEdit` de la sesión si la transcripción no muestra ya una llamada
+  — 1 vez por sesión, exento en subagentes; incidente de origen y diseño en
+  `docs/superpowers/specs/2026-09-23-search-first-design.md`).
 
 ## 5. El contrato de la KB
 
