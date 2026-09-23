@@ -853,7 +853,8 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   está escrito en `docs/arquitectura.md` y la escala 5.000 solo se midió en
   Linux. El residuo de Windows no queda huérfano: lo sigue el ítem Media
   «El coste del hook completo en Windows no está…» (W11 medido el
-  2026-09-23; queda abierto por la Task 5 de la campaña I).
+  2026-09-23; Task 5 de la campaña I ejecutada el mismo día; queda abierto
+  por publicar la cifra en `plugins/exo/README.md` y por el umbral de W11).
 
 - [ ] **(revisión 2026-09-04) El coste del hook completo en Windows no está
   medido; solo el del binario.** `plugins/exo/hooks/hooks.json` cablea
@@ -882,8 +883,9 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   el ≈1,2 s restante son ≈20 spawns de Git Bash a 25-60 ms cada uno (`jq -n
   1` ≈55 ms, `exo --version` ≈60 ms). Queda sin medir el `PreToolUse:Bash`
   triple. Evidencia: `evals/recall-coste/results/w11-2026-09-15.txt`.
-  **(campaña I, 2026-09-19 — W11 medido el 2026-09-23, sigue ABIERTO por
-  la Task 5):**
+  **(campaña I, 2026-09-19 — W11 medido y Task 5 ejecutada el 2026-09-23;
+  sigue ABIERTO por la **Acción** de publicar la cifra y por el umbral de
+  W11):**
   `recall-inject.sh` pasó de 7 `jq` + 2 `sed` + 5 `tr` (más 2 `sed` + 1 `tr`
   POR TOKEN dentro del gate léxico) a 6 `jq` + 0 `sed` + 0 `tr` dentro del
   bucle léxico (`norm_token`/`gate_skip` reescritos con expansión de
@@ -928,13 +930,24 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   sobrecoste baja de ≈1,3 s a ≈0,65 s. Umbral decisión #12 (1.500 ms p95):
   **W11 no lo cumple** (1671 ms), Linux sí. Triple `PreToolUse:Bash` en W11
   (`git status`): **587 ms**, casi 3× el umbral de fusión de 200 ms → **la
-  Task 5 se ejecuta** (pendiente; toca `hooks.json` y sube versión del
-  plugin). El bloque inyectado pasa de 738 a 779 B por el pie de #23
+  Task 5 se ejecuta**. El bloque inyectado pasa de 738 a 779 B por el pie de #23
   (`876264a`, 2026-09-19, previo a la campaña), no por la campaña; los tres
   permalinks devueltos son idénticos. Evidencia:
-  `evals/recall-coste/results/w11-2026-09-23-campana-i.txt`. Ítem **sigue
-  ABIERTO, pendiente de la Task 5** (y de publicar la cifra en
-  `plugins/exo/README.md`, como pide la **Acción**).
+  `evals/recall-coste/results/w11-2026-09-23-campana-i.txt`.
+  **Task 5 (2026-09-23, commits `d0fec2c`, `4004f3f`, plugin 1.3.2):** los
+  tres guards se funden en `plugins/exo/scripts/bash-guards.sh` (un `cat`,
+  un pre-filtro y un `jq` compartidos; cada rama conserva patrón y evento de
+  log) y `hooks.json` pasa de tres comandos a uno en el matcher `Bash`. Solo
+  la rama de rewrite de git-c emite JSON; las demás son log-only, y el
+  rewrite es excluyente con `zero-residuo`/`verify-before-done` por
+  construcción (su allowlist no admite `add` ni `commit`), así que no hay
+  salidas que combinar. W11, `git status`, 20 repeticiones: triple p50
+  534 / p95 578 ms → fundido p50 **291** / p95 **311 ms** (−45 %). Sigue por
+  encima de los 200 ms: es el coste base de un proceso de Git Bash más un
+  `jq`, que la fusión ya no puede bajar. Los tres scripts viejos y sus tests
+  se quedan como red de regresión, fuera de `hooks.json`. Ítem **sigue
+  ABIERTO**: falta publicar la cifra en `plugins/exo/README.md`, como pide
+  la **Acción**, y `hook_ms` de W11 (1671 ms) no cumple el umbral de 1.500 ms.
   Commits: `c462506`, `17afb9b` (Task 1); `d2b069d`, `c00e55e` (Task 2);
   `ee44a5a`, `2588384` (Task 3, el segundo es el fix del review adversarial
   que sustituye la reproducción standalone de SOURCE/SID por extracción del
