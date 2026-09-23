@@ -952,6 +952,19 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   `ee44a5a`, `2588384` (Task 3, el segundo es el fix del review adversarial
   que sustituye la reproducción standalone de SOURCE/SID por extracción del
   código real); `bc4896a` (Task 4).
+  **search-first (2026-09-23, plan
+  `docs/superpowers/plans/2026-09-23-search-first.md`, Task 3):** nuevo
+  reflejo `PreToolUse:Agent|Task|Edit|Write|NotebookEdit`
+  (`plugins/exo/scripts/search-first.sh`, plugin 1.3.3) que avisa si el
+  primer trabajo sustantivo de la sesión no fue precedido de `exo
+  search`/`exo targets`. Camino rápido (sentinel ya creado, 20
+  repeticiones, W11): p50 = **102** ms, p95 = **130** ms — comando exacto en
+  el Step 1 de la Task 3 del plan. Primera llamada de la sesión con una
+  transcripción real de `~/.claude/projects/*/*.jsonl` (20 repeticiones,
+  cada una con `session_id` distinto para forzar el camino frío): p50 =
+  **354** ms, p95 = **378** ms — comando exacto en el Step 2 de la
+  Task 3 del plan. Criterio (spec §7, umbral 150 ms p50 del camino rápido):
+  **cumplido, matcher sin cambios**.
 
 - [x] **(campaña I, Task 6, detectados al correr el bench — preexistentes de
   campaña G, deliberadamente no arreglados fuera del alcance de I) Dos bugs en
