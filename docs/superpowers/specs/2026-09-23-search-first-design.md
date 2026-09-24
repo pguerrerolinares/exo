@@ -73,7 +73,9 @@ siempre exit 0. Se cablea en `plugins/exo/hooks/hooks.json`:
      (`select(.type=="assistant") | .message.content[]? | select(.type=="tool_use")`;
      forma comprobada contra una transcripción real el 2026-09-23) y da
      positivo si `name=="Bash"` y `input.command` casa con
-     `(^|[;&|[:space:]])exo(\.exe)?[[:space:]]+(search|targets)([[:space:]]|$)`.
+     `(^|[;&|/[:space:]])exo(\.exe)?[[:space:]]+(search|targets)([[:space:]]|$)`
+     (la clase incluye `/` para reconocer `exo` invocado por ruta, p.ej.
+     `./engine/target/release/exo.exe search "x"` o `~/.local/bin/exo search`).
    - **No vale un `grep` a pelo sobre la transcripción.** El pie de
      `recall-inject.sh` escribe «exo search --type hybrid» en cada prompt y
      llega a la transcripción como texto inyectado: el `grep` daría siempre

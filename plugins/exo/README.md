@@ -53,12 +53,13 @@ verificar ni cómo commitear.
 
 ## Hooks
 
-Tabla exacta al cableado vivo de `hooks/hooks.json` (ocho comandos):
+Tabla exacta al cableado vivo de `hooks/hooks.json` (nueve comandos):
 
 | Reflejo | Evento | Fichero | Qué hace | Abstención |
 |---|---|---|---|---|
 | clean-orchestrator | `PreToolUse:WebSearch\|WebFetch\|navegación MCP` | `scripts/clean-orchestrator-research.sh` | recuerda delegar research a subagentes | parent-only + 1×/sesión + app local (`localhost`/`127.0.0.1`/`[::1]`/`0.0.0.0`, con o sin esquema, `file:` y `back`/`forward`) |
 | git-c + zero-residuo + verify-before-done | `PreToolUse:Bash` | `scripts/bash-guards.sh` | fusiona los tres guards de Bash (Task 5, campaña I): reescribe `cd <path> && git <read-only>` → `git -C <path> …`; avisa ante `git add -A`/`--all`/`.`; avisa antes de `git commit` si no hay test verde reciente | rewrite solo si patrón estricto; calla en `git add <ficheros>` explícito; escape hatch `--no-verify` y commits solo-docs (ver comentarios del script) |
+| search-first | `PreToolUse:Agent\|Task\|Edit\|Write\|NotebookEdit` | `scripts/search-first.sh` | avisa si el primer `Agent`/`Task`/`Edit`/`Write`/`NotebookEdit` de la sesión no fue precedido de `exo search`/`exo targets` en la transcripción | 1×/sesión (sentinel); exenta en subagentes (`agent_id`); sin `jq`, sin `transcript_path`/ilegible, o si el `jq` de detección falla → skip silencioso (igual crea el sentinel) |
 | exo-recall | `SessionStart` | `scripts/exo-recall.sh` | inyecta instrucción de memoria + digest 7d, servido por el engine `exo` (SQLite) | — (PUSH); degrada al fallback embebido si el engine instalado es < `ENGINE_MIN` |
 | estilo-directo | `SessionStart` | `scripts/estilo-directo.sh` | inyecta una directiva de estilo de respuesta estática (`estilo-directo.md`) | sin fichero `.md` legible, o si `jq` falla al construir el JSON |
 | document-remind | `Stop` | `scripts/document-remind.sh` | recuerda `/document` al cerrar | 1×/sesión + umbral de transcript |
