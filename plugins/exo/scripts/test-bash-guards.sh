@@ -81,7 +81,15 @@ assert_log_only() {
   before="$(wc -l < "$REFLEX_LOG_FILE" 2>/dev/null || echo 0)"
   output="$(make_payload "$cmd" | bash "$HOOK" 2>/dev/null)"
   after="$(wc -l < "$REFLEX_LOG_FILE" 2>/dev/null || echo 0)"
-  nuevas="$(sed -n "$((before+1)),\${p}" "$REFLEX_LOG_FILE" 2>/dev/null)"
+  # "N,$p" con la direccion final como bloque `{p}` -- en vez del `N,$p`
+  # sin llaves -- solo por casualidad imprime lo mismo en GNU sed (trata
+  # `{p}` como un grupo de un solo comando tras la direccion `N,$`); no es
+  # el idioma portable estandar y en macOS (bash-guards, CI 35977909222)
+  # dejaba `nuevas` vacio en las 18 aserciones que pasan por aqui, sin
+  # tocar sed en absoluto: `tail -n +N` es POSIX, identico en GNU
+  # coreutils y en el tail de macOS, y no depende de como cada sed
+  # interprete una direccion de rango seguida de un bloque.
+  nuevas="$(tail -n "+$((before+1))" "$REFLEX_LOG_FILE" 2>/dev/null)"
   if [ -z "$output" ] && [ "$after" -gt "$before" ] \
      && printf '%s\n' "$nuevas" | jq -e --arg r "$reflex" 'select(.reflex==$r)' >/dev/null 2>&1; then
     printf '[PASS] %s\n' "$name"; PASS=$((PASS+1))

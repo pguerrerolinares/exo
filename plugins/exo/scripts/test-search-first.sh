@@ -161,29 +161,37 @@ fi
 
 # --- Caso 8: sin jq en el PATH -> exit 0, search-first-skip -----------------
 # No basta con un jq falso que falle (eso simula "jq roto", no "jq ausente"
-# -- command -v lo seguiría encontrando). Se construye un PATH que excluye
-# SOLO el directorio que contiene el jq real -- cat/date/touch/dirname/bash
-# siguen resolviendo desde el resto del PATH, sin copiar binarios (evita
-# problemas de DLLs en Git Bash/Windows).
-path_sin_jq() {
-  local jq_real jq_dir resultado="" d
-  jq_real="$(command -v jq 2>/dev/null)" || { printf '%s' "$PATH"; return; }
-  jq_dir="$(dirname "$jq_real")"
-  local viejo_ifs="$IFS"
-  IFS=':'
-  for d in $PATH; do
-    [ "$d" = "$jq_dir" ] && continue
-    [ -e "$d/jq" ] && continue
-    [ -e "$d/jq.exe" ] && continue
-    resultado="${resultado:+$resultado:}$d"
-  done
-  IFS="$viejo_ifs"
-  printf '%s' "$resultado"
-}
-PATH_SIN_JQ="$(path_sin_jq)"
+# -- command -v lo seguiría encontrando). Tampoco basta con filtrar del PATH
+# el directorio que contiene jq: en Ubuntu 24.04 (usr-merge) ese directorio
+# es /usr/bin, donde TAMBIEN viven bash/cat/date/touch/dirname -- excluirlo
+# deja sin encontrar al propio `bash` del "PATH=... bash $HOOK" (una
+# asignacion de variable delante de un comando simple usa el PATH YA
+# modificado para buscar ese comando, no el PATH del shell que lo lanza:
+# `PATH=/vacio ls` falla igual que fallaria aqui). Eso se vio en CI como
+# ec=127 y el log mostrando el motivo del caso ANTERIOR (la invocacion ni
+# llego a arrancar, no escribio nada).
+#
+# En vez de filtrar el PATH heredado, se construye un PATH minimo desde
+# cero: un directorio en mktemp con wrappers SOLO para las herramientas que
+# usa esta rama del hook (cat/dirname/date/touch -- ver search-first.sh:
+# INPUT="$(cat)", log_skip_sin_jq() usa date+touch; dirname no se llega a
+# invocar en esta rama pero se incluye igual por si el hook cambia). Cada
+# wrapper tiene shebang a la ruta ABSOLUTA de bash y hace exec a la ruta
+# ABSOLUTA de la herramienta real -- nada se copia (evita el problema de
+# DLLs de copiar binarios en Git Bash/Windows). El hook se invoca con la
+# ruta absoluta de bash (no "bash" a secas), asi que su propio arranque no
+# depende en absoluto del PATH minimo.
+BASH_ABS="$(command -v bash)"
+SHIM="$(mktemp -d)"
+for herramienta in cat dirname date touch; do
+  real="$(command -v "$herramienta" 2>/dev/null)" || continue
+  printf '#!%s\nexec %s "$@"\n' "$BASH_ABS" "$real" > "$SHIM/$herramienta"
+  chmod +x "$SHIM/$herramienta"
+done
 PAYLOAD_C8="$(jq -nc --arg s "sid-c8" '{session_id:$s, tool_name:"Edit", tool_input:{}, hook_event_name:"PreToolUse"}')"
-OUT8="$(printf '%s' "$PAYLOAD_C8" | REFLEX_LOG_FILE="$LOG" SEARCH_FIRST_SENTINEL_DIR="$TMP/sentinels" PATH="$PATH_SIN_JQ" bash "$HOOK" 2>/dev/null)"
+OUT8="$(printf '%s' "$PAYLOAD_C8" | REFLEX_LOG_FILE="$LOG" SEARCH_FIRST_SENTINEL_DIR="$TMP/sentinels" PATH="$SHIM" "$BASH_ABS" "$HOOK" 2>/dev/null)"
 EC8=$?
+rm -rf "$SHIM"
 if [ -z "$OUT8" ] && [ "$EC8" -eq 0 ] && [ "$(ultima_reflex)" = "search-first-skip" ] && [ "$(ultima_payload)" = "motivo=sin-jq" ]; then
   pass "caso8: sin jq en el PATH -> exit 0, search-first-skip, payload motivo=sin-jq"
 else
