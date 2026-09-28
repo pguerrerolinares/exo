@@ -15,22 +15,33 @@ consume, directa o transitivamente, algo que produce la otra (`Interfaces`).
 - Ola de 1 tarea: flujo normal.
 - Ola de ≥2: un worktree por tarea (rama propia desde el HEAD de la ola) y
   todos los dispatches en UN mensaje. Cada executor commitea en su worktree.
+  Pasa siempre rutas ABSOLUTAS del worktree principal para el ledger, el brief
+  y el report (el `Ruling:` va también en el report).
 - **Sin poder crear worktrees** (p.ej. sesión ya aislada en uno): paralelo en
   el MISMO worktree, `Files` disjuntos, y los executors **no commitean**
-  (dilo en el brief). El orquestador commitea por tarea con rutas explícitas
-  (`git add <rutas de Files>`, nunca `-A`/`.`).
+  (`[COMMIT_POLICY]` = no commitees). El orquestador:
+  - commitea en serie con rutas explícitas (`git add <rutas de Files>`, nunca
+    `-A`/`.`), registrando BASE_i = HEAD antes de cada commit, y hace el
+    package por tarea con BASE_i..HEAD_i;
+  - sin commit, cada executor corre solo los tests de su tarea; la suite
+    completa la corre el orquestador tras commitear todas;
+  - compara `git status --porcelain` con la unión de `Files`: cualquier
+    fichero de más es BLOCKED o Ruling.
 - Pipeline de reviews: la tarea N+1 no espera a que se revise la N; package +
   reviewer en cuanto cada una da DONE.
 
 ## Cerrar una ola
 
+0. Merge solo de tareas con ambos verdictos ✅ (Critical/Important arreglados
+   en su worktree, con re-review). Si una tarea sigue en review, la ola no
+   cierra.
 1. Merge de las ramas de la ola (en el mismo worktree no hay merge).
 2. Suite completa. Roja ⇒ NO se abre la siguiente ola; fix dispatch con el
    output completo.
 3. Conflicto de merge ⇒ executor de integración con los dos diffs. Si no
    resuelve, BLOCKED y pregunta al humano. Nunca `-X ours/theirs` a ciegas.
-4. Findings Critical/Important de una tarea ya mergeada ⇒ fix dispatch antes
-   de abrir la siguiente ola.
+4. Solo hallazgos tardíos: Critical/Important de una tarea ya mergeada ⇒
+   fix dispatch antes de abrir la siguiente ola.
 5. Ola nueva solo con la anterior mergeada y en verde.
 
 ## Ruling

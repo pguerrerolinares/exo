@@ -49,8 +49,11 @@ Subagent (exo:executor):
 
     Trabaja desde: [directorio]
 
-    Mientras iteras, corre el test de lo que estás cambiando; la suite
-    completa una vez antes de commitear, no tras cada edición.
+    Mientras iteras, corre el test de lo que estás cambiando. Si
+    [COMMIT_POLICY] es `commitea`: la suite completa una vez antes de
+    commitear, no tras cada edición. Si es `no commitees`: solo los tests de
+    tu tarea; la suite completa la corre el orquestador tras commitear todas
+    las tareas de la ola. Toca solo los `Files` de tu tarea.
 
     ## Cuando estás en apuros
 
@@ -124,4 +127,7 @@ Subagent (exo:executor):
   o `no commitees` (ola en el mismo worktree; ver `olas.md`).
 - `[Encaje]` — una línea de dónde vive esta tarea + interfaces y
   decisiones de tareas anteriores que el brief no puede conocer + tu
-  resolución de cualquier ambigüedad que notaste en el brief.
+  resolución de cualquier ambigüedad que notaste en el brief. Si un
+  `Ruling:` cambió una interfaz que esta tarea consume, el orquestador lo
+  pasa aquí. En modo worktree por tarea, pasa también rutas ABSOLUTAS del
+  worktree principal para ledger, brief y report.

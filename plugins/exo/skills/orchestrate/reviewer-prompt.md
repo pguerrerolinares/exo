@@ -146,6 +146,13 @@ Subagent (general-purpose):
     supera la del fichero que toca, y cada comentario contiene un porqué
     (no repite el código). Si no, finding Minor.
 
+    **Estructura:** ¿cada fichero tiene una responsabilidad clara con
+    interfaz bien definida? ¿las unidades están descompuestas para
+    entenderse y testearse por separado? ¿sigue la file structure del
+    plan? ¿este cambio creó ficheros ya grandes, o hizo crecer
+    significativamente uno existente? (no flaguees tamaños preexistentes —
+    solo lo que este cambio aportó).
+
     ## Parte 3: Over-engineering (pase aparte)
 
     Segundo pase, separado del de corrección: aquí no juzgas si funciona,
@@ -158,12 +165,8 @@ Subagent (general-purpose):
     lines possible`. Un hallazgo de este pase es Minor salvo que dañe la
     mantenibilidad como define la Calibración.
 
-    **Estructura:** ¿cada fichero tiene una responsabilidad clara con
-    interfaz bien definida? ¿las unidades están descompuestas para
-    entenderse y testearse por separado? ¿sigue la file structure del
-    plan? ¿este cambio creó ficheros ya grandes, o hizo crecer
-    significativamente uno existente? (no flaguees tamaños preexistentes —
-    solo lo que este cambio aportó).
+    **Review final:** clasifica una muestra de ~10 tests nuevos como
+    valor/basura y reporta el %.
 
     Tu report debe apuntar a evidencia: referencia file:line para cada
     finding y para cualquier check que de otro modo responderías con un
