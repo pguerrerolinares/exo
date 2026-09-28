@@ -92,3 +92,36 @@ patrones (5 de ellas «otra vez») y 0 citas de un learning por título. Y
 **Complemento (opción b):** `cleanupPeriodDays: 365` en
 `~/.claude/settings.json` desde el 2026-09-29, para que una réplica futura
 pueda usar la fuente 1 real.
+
+## E5 — §5: fuente y filtro de S2 (neutral)
+
+Aprobada por Paul el 2026-09-29 (opción a), antes de muestrear S2.
+
+**Problema.** Los repos propios sin notas en la KB solo dan unos 4 commits
+útiles; casi todos los repos de Paul aparecen en la KB.
+
+**Errata.**
+
+1. **Fuente:** los repos de `eval-repos/` que la KB solo nombra como corpus
+   de cge, sin nada sobre su código, y que son ligeros de ejecutar (Python,
+   tests con sqlite): **django-oscar** y **wagtail**. Se clonan con historial
+   aparte, en `~/.cache/exo-ablacion-k/s2/`, sin tocar `eval-repos/`. Los de
+   JS y Java quedan fuera por el coste de setup.
+2. **Filtro mecánico:**
+   - commits no-merge desde el 2025-09-29;
+   - asunto que casa con `fix|bug|add|support|allow|handle|prevent|feat|correct`
+     y no con `docs|chore|release|bump|revert|translation|version`;
+   - toca ≥ 1 fichero de test;
+   - toca 1–3 ficheros `.py` de código (sin migraciones), con ≤ 60 líneas
+     cambiadas;
+   - no toca ningún otro fichero.
+
+   Resultado: 111 candidatas (wagtail 98, django-oscar 13). Script:
+   `evals/ablacion-k/pool/s2_candidatas.py`.
+3. **Muestreo:** orden con la semilla `20260923`. Se toman en ese orden hasta
+   20, saltando las que fallen la validación de la Task 4: el test del commit
+   debe fallar en el padre y pasar en el commit, en el entorno fijado. No se
+   equilibra por repo.
+4. **Tarea y check:** el prompt sale del asunto y del cuerpo del commit
+   (redactado por un agente fresco sin ver el diff). El check es el test que
+   añadió el commit.
