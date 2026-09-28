@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Stub de `cargo locate-project --workspace --message-format plain` (verificado
+# contra cargo real): imprime la ruta del Cargo.toml de la raíz del workspace, es
+# decir el primer Cargo.toml con [workspace] subiendo desde $PWD; si no hay
+# workspace, el Cargo.toml más cercano. No registra en $STUB_LOG.
+[ "${1:-}" = locate-project ] || exit 0
+d=$PWD; near=""
+while :; do
+  if [ -f "$d/Cargo.toml" ]; then
+    [ -n "$near" ] || near="$d/Cargo.toml"
+    grep -q '^\[workspace\]' "$d/Cargo.toml" && { echo "$d/Cargo.toml"; exit 0; }
+  fi
+  [ "$d" = / ] && break
+  d=$(dirname "$d")
+done
+[ -n "$near" ] && { echo "$near"; exit 0; }
+exit 1

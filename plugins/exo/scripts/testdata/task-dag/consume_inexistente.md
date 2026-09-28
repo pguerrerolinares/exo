@@ -1,0 +1,26 @@
+# Plan
+### Task 1: T1
+
+**Files:**
+- Create: `a.txt`
+
+**Interfaces:**
+- Produces: `g()`
+
+### Task 2: T2
+
+**Files:**
+- Create: `b.txt`
+
+**Interfaces:**
+- Consumes: `f()` @Task 9
+- Produces: `g()`
+
+### Task 3: T3
+
+**Files:**
+- Create: `c.txt`
+
+**Interfaces:**
+- Produces: `g()`
+

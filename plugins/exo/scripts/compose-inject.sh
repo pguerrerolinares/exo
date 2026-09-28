@@ -43,7 +43,7 @@ cap_lines() {  # cap_lines <presupuesto_bytes> — trunca por LINEAS ENTERAS: im
     }'
 }
 
-doctrina() {  # fuente unica: cuerpo de executor.md (sin frontmatter), cap 800B por linea
+doctrina() {  # fuente unica: cuerpo de executor.md (sin frontmatter), presupuesto TOTAL de 800B (por lineas enteras)
   awk 'BEGIN{fm=0} /^---$/{fm++; next} fm>=2{print}' "$EXECUTOR_MD" 2>/dev/null | cap_lines 800
 }
 rutas() {     # rutas reales de la KB con linea de indice (titulo)
@@ -56,7 +56,7 @@ rutas() {     # rutas reales de la KB con linea de indice (titulo)
         printf -- '- %s %s\n' "$f" "${t:+— $t}"
       done
 }
-doctrina_compacta() {  # seccion "## Doctrina compacta" del core-index, cap 550B por linea
+doctrina_compacta() {  # seccion "## Doctrina compacta" del core-index, presupuesto TOTAL de 550B (por lineas enteras)
   local ci="$KB/core/core-index.md"
   [ -n "$KB" ] && [ -f "$ci" ] || return 0
   awk '/^## Doctrina compacta/{p=1} /^## Cores/{p=0} p' "$ci" | cap_lines 550

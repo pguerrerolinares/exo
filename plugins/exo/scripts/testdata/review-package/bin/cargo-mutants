@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Stub de cargo-mutants 27.1.0 (verificado contra el binario real).
+# Invocación real: `cargo-mutants mutants --in-diff PATCH -o DIR`, en el dir del proyecto.
+# Registra cwd, argv y las líneas `+++` del patch en $STUB_LOG y escribe
+# DIR/mutants.out/{outcomes.json,missed.txt}.
+# Env: STUB_SLEEP=<s> duerme; STUB_MODE=garbage escribe un outcomes.json ilegible.
+{ printf 'cwd=%s\n' "$PWD"; printf 'argv=%s\n' "$*"; } >> "${STUB_LOG:?}"
+[ -n "${STUB_SLEEP:-}" ] && sleep "$STUB_SLEEP"
+out=""
+prev=""
+for a in "$@"; do
+  case "$prev" in
+    -o|--output) out=$a ;;
+    --in-diff) grep '^+++ ' "$a" >> "$STUB_LOG" ;;
+  esac
+  prev=$a
+done
+mkdir -p "$out/mutants.out"
+if [ "${STUB_MODE:-}" = garbage ]; then
+  echo "esto no es json" > "$out/mutants.out/outcomes.json"
+  exit 0
+fi
+if [ "${STUB_MODE:-}" = baselinefail ]; then
+  # Como el real (verificado): baseline rojo => 0 mutantes, outcomes[0] = Failure.
+  cat > "$out/mutants.out/outcomes.json" <<'J'
+{"outcomes":[{"scenario":"Baseline","summary":"Failure"}],"total_mutants":0,"caught":0,"missed":0,"timeout":0,"unviable":0,"success":0}
+J
+  exit 4
+fi
+cat > "$out/mutants.out/outcomes.json" <<'J'
+{"total_mutants":10,"caught":8,"missed":2,"timeout":0,"unviable":0,"success":0}
+J
+printf '%s\n' 'src/lib.rs:3:5: replace add -> i32 with 0' 'src/lib.rs:9:8: replace == with != in cmp' > "$out/mutants.out/missed.txt"
+exit 2

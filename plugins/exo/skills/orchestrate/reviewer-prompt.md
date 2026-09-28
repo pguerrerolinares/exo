@@ -36,8 +36,7 @@ Antes de llenar los placeholders de abajo:
   `scripts/review-package BASE HEAD` y pasa el path que imprime como
   `[DIFF_FILE]`. El package trae la sección `MUTACIÓN:` (valores
   `<score> + supervivientes` | `no disponible (<motivo>)` | `parcial
-  (<motivo>)`); mientras `review-package` no la genere, el reviewer la
-  trata como "cannot verify".
+  (<motivo>)`).
 - **Review final whole-branch:** mismo template, pero `[BASE_SHA]` =
   `MERGE_BASE` (`git merge-base main HEAD`) para que el reviewer final lea
   un fichero en vez de re-derivar el diff de la rama con git, y `model` =
@@ -138,12 +137,12 @@ Subagent (general-purpose):
     **Tests:** ¿los tests nuevos y cambiados verifican comportamiento
     real, no mocks? ¿cubren los edge cases de la tarea?
 
-    **Mutación:** lee la sección `MUTACIÓN:` del diff file. Si trae
-    `<score> + supervivientes`, cada superviviente en código de la tarea es
-    un test débil: finding (Important si el mutante cambia comportamiento
-    de la spec). Si dice `no disponible (<motivo>)` o `parcial (<motivo>)`,
-    o la sección no existe, repórtalo como ⚠️ "cannot verify: mutación" —
-    nunca como ✅.
+    **Mutación:** lee la sección `MUTACIÓN:` del diff file (y, en
+    monorepo, sus líneas `MUTACIÓN [<dir>]:`). Con `<score> + supervivientes`,
+    cada superviviente es un finding: Important si el mutante cambia lógica
+    de la tarea, Minor si es un borde. Con `parcial (<motivo>)`, lo que no
+    cubrió es ⚠️ "cannot verify: mutación". Con `no disponible (<motivo>)` o
+    sin sección: ⚠️ "cannot verify: mutación", nunca ✅.
 
     **Comentarios:** la proporción de líneas de comentario del diff no
     supera la del fichero que toca, y cada comentario contiene un porqué

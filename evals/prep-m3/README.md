@@ -41,7 +41,7 @@ Una skill implementada se acepta cuando:
 
 - **Paridad 100%**: todos los ítems de su gold marcados presentes (incluido,
   en `orchestrate`, el ítem PARIDAD CRÍTICA: dispatch
-  `subagent_type: reflex:executor` SIN `model` — framework §5.3.2).
+  `subagent_type: exo:executor` SIN `model` — framework §5.3.2).
 - **0 movimientos nuevos sin cita**: el barrido inverso no encuentra nada.
 - **0 descartes resucitados**.
 
