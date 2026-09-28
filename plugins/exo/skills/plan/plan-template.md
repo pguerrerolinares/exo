@@ -25,6 +25,9 @@ cada tarea. Destilado de `writing-plans/SKILL.md` (superpowers 6.4.2, MIT ©
 
 ## Olas
 
+[Orientativa: las olas reales las calcula `orchestrate/scripts/task-dag` desde
+`Files` e `Interfaces`; si difieren, manda `task-dag`.]
+
 - Ola 1, en paralelo: T1, T2. [por qué son independientes]
 - Ola 2: T3 (wiring), consume T1-T2.
 ```

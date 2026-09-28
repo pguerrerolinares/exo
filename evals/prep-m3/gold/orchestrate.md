@@ -10,7 +10,7 @@ Uso: ver `evals/prep-m3/README.md`.
 
 ## PARIDAD CRÍTICA (framework §5.3.2 — si falta, la implementación es inválida)
 
-- [ ] El dispatch de ejecutores usa `subagent_type: reflex:executor` SIN parámetro `model` — OP líneas 50-51 ("Despacha los ejecutores como `subagent_type: reflex:executor`, nunca `general-purpose`") + OP líneas 27-28 ("Salvo roles con `model` fijo en su definición — p.ej. `reflex:executor` — donde NO debes pasar `model` en el dispatch (lo pisarías)") + framework §5.3.2 ("si se pierde, reflex v2 se desenchufa sin síntoma")
+- [ ] El dispatch de ejecutores usa `subagent_type: exo:executor` SIN parámetro `model` — OP líneas 50-51 ("Despacha los ejecutores como `subagent_type: exo:executor`, nunca `general-purpose`") + OP líneas 27-28 ("Salvo roles con `model` fijo en su definición — p.ej. `exo:executor` — donde NO debes pasar `model` en el dispatch (lo pisarías)") + framework §5.3.2 ("si se pierde, reflex v2 se desenchufa sin síntoma")
 
 ## Movimientos — núcleo SDD
 
@@ -36,7 +36,7 @@ Uso: ver `evals/prep-m3/README.md`.
 - [ ] Ledger durable en fichero (no solo todos en memoria): al cerrar cada tarea, línea `Task N: complete (commits …)`; tras compaction/resume, el ledger y `git log` mandan sobre el recuerdo; jamás re-despachar una tarea que el ledger marca completa — SDD líneas 246-264 + 388-389
 - [ ] Nunca empezar implementación en main/master sin consentimiento explícito del usuario — SDD línea 370
 - [ ] Nunca despachar múltiples implementers en paralelo sobre el mismo estado (conflictos) — SDD línea 373
-- [ ] Selección de modelo explícita en cada dispatch de subagente genérico (un `model` omitido hereda el de la sesión, el más caro) — SDD líneas 115-117; matiz de paridad crítica: NO aplica al rol `reflex:executor`, que lleva modelo fijo (arriba)
+- [ ] Selección de modelo explícita en cada dispatch de subagente genérico (un `model` omitido hereda el de la sesión, el más caro) — SDD líneas 115-117; matiz de paridad crítica: NO aplica al rol `exo:executor`, que lleva modelo fijo (arriba)
 - [ ] Turn-count beats token-price: modelo barato solo cuando el texto del plan ES el código (transcripción); tier medio como suelo para reviewers y trabajo desde prosa — SDD líneas 119-125 + OP líneas 41-44
 
 ## Movimientos — executing-plans
@@ -72,6 +72,6 @@ Uso: ver `evals/prep-m3/README.md`.
 - Secciones Advantages/Efficiency/Quality/Cost (SDD líneas 335-365): prosa justificativa.
 - executing-plans como skill/modo separado con su announce (EP líneas 12-14) y su nota "Superpowers works much better with subagents": la bifurcación muere con la fusión — tabla framework §5.2.
 - Referencias a `superpowers:using-git-worktrees`, `superpowers:finishing-a-development-branch`, `superpowers:requesting-code-review` como skills (SDD líneas 406-418; EP líneas 65-70): no migradas — framework §5.2 "0 referencias vivas"; el template del review final se absorbe como `orchestrate/reviewer-prompt.md` (spec prep-M3 §5.3).
-- Dispatch default `general-purpose` con `model` obligatorio del implementer-prompt de SDD (implementer-prompt.md líneas 6-9) para el rol ejecutor: sustituido por `reflex:executor` sin model — PARIDAD CRÍTICA arriba.
+- Dispatch default `general-purpose` con `model` obligatorio del implementer-prompt de SDD (implementer-prompt.md líneas 6-9) para el rol ejecutor: sustituido por `exo:executor` sin model — PARIDAD CRÍTICA arriba.
 - "Do NOT reinvent orchestration… The engine is superpowers:subagent-driven-development" (OP líneas 8-11): el layering sobre superpowers muere; process:orchestrate ES la fusión.
 - Nota "Fuente canónica … si esta skill y la nota divergen, manda la nota" (OP línea 13): la doctrina genérica vive ahora en la skill/reference files, no en la KB — framework §5.1 ("la carne va ahí, NO en la KB"); los deltas personales siguen en la KB vía overlay (spec prep-M3 §3.4).

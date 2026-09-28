@@ -6,8 +6,15 @@ consume, directa o transitivamente, algo que produce la otra (`Interfaces`).
 ## Calcular
 
 - `scripts/task-dag PLAN` imprime `{"olas": [[ids]…], "avisos": [...]}`. Cada
-  aviso (`DAG: secuencial (<motivo>)`: formato antiguo, Files ilegibles,
-  consumo hacia delante o autoconsumo) se copia tal cual al ledger.
+  aviso se copia tal cual al ledger:
+  - `DAG: secuencial (<motivo>)`: formato antiguo, Files ilegibles, `Consumes`
+    sin `@Task M` o con `@Task` inexistente. Una tarea por ola.
+  - `DAG: reordenado (Task i consume Task j posterior)`: consumo hacia delante
+    sin ciclo; las olas ya vienen en orden topológico (desempata la numeración).
+  - `DAG: error (<ciclo>)` (olas `[]`, exit 0): ciclo o autoconsumo. Es una
+    decisión del humano: entra en la pregunta batcheada del pre-flight, antes de
+    empezar (corregir el plan o fijar el orden). Nunca se ejecuta con error.
+- La sección `## Olas` del plan es orientativa; manda `task-dag`.
 - Solo si el script falla: a mano con la misma regla, leyendo `Files` e
   `Interfaces`. Ambiguo o no parseable ⇒ una tarea por ola, en orden, y
   `DAG: secuencial (<motivo>)` en el ledger.
@@ -51,9 +58,17 @@ consume, directa o transitivamente, algo que produce la otra (`Interfaces`).
 ## Mutación (review-package)
 
 `EXO_MUTATION=0` la desactiva; `EXO_MUTATION_TIMEOUT` fija el timeout en
-segundos (por defecto 600). En monorepo hay además una línea
-`MUTACIÓN [<dir>]: …` por proyecto. Cargo muta solo las líneas del diff;
-`mutmut` 3.x siempre da `no disponible` (no acota por CLI).
+segundos (por defecto 600; uno inválido avisa en la sección y usa 600). Muta en
+un worktree temporal de `HEAD`: el árbol del usuario no se toca y vale
+cualquier `BASE..HEAD`. En monorepo hay además una línea `MUTACIÓN [<dir>]: …`
+por proyecto. Cargo muta solo las líneas del diff; `mutmut` 3.x siempre da
+`no disponible` (no acota por CLI).
+
+- Sin sección `MUTACIÓN:`, o `no disponible (<motivo>)`/`parcial (<motivo>)` ⇒
+  esa línea al ledger; no bloquees ni corras mutación a mano.
+- Coste: techo 600 s × N proyectos por package. `EXO_MUTATION=0` en re-reviews
+  de fixes sin lógica nueva. En la review final, según si las tareas ya pasaron
+  mutación: si todas la pasaron, `0`; si no, se deja activa.
 
 ## Ruling
 
@@ -64,6 +79,6 @@ tareas de olas posteriores que la consumen lo reciben en su brief.
 
 ## Métricas de la serie (al cerrar la rama)
 
-Una línea en el ledger: wall-clock y turnos de la fase plan (los lee del header del plan); KB del plan y
+Las escribe el orquestador, una línea en el ledger: wall-clock y turnos de la fase plan (los lee del header del plan); KB del plan y
 fracción de código; mutation score por herramienta; % de tests basura
 (muestra clasificada por el reviewer final); nº y ancho de las olas.
