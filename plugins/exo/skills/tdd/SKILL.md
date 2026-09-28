@@ -10,13 +10,13 @@ el test fallar, no sabes si testea lo correcto — ese es el principio.
 
 ## Regla central
 
-No hay código de producción sin un test que falló primero. Código escrito
+No hay **conducta** de producción sin un test que falló primero (lo trivial de «Qué no testear» no es conducta y queda fuera sin pedir permiso). Código escrito
 antes del test se BORRA y se reimplementa desde los tests — no se guarda
 "como referencia", no se "adapta" mientras escribes el test. Borrar
 significa borrar.
 
 Excepciones legítimas SOLO con permiso explícito del humano: prototipos
-desechables, código generado, ficheros de configuración.
+desechables, código generado.
 
 ## Ciclo Red-Green-Refactor
 
@@ -38,9 +38,11 @@ desechables, código generado, ficheros de configuración.
 
 ## Qué no testear
 
-One-liners, glue, constantes y texto (prosa, mensajes, config) no llevan test:
-solo ganan uno si validan, normalizan, derivan, imponen o causan side
-effects. Un test debe nombrar el fallo que caza (`anti-patterns.md`).
+One-liners, glue, constantes y prosa para humanos no llevan test: solo
+ganan uno si validan, normalizan, derivan, imponen o causan side effects.
+Los documentos que instruyen a agentes (skills, prompts) se prueban por la
+conducta del agente que los consume, nunca con grep del texto. Los tests
+de la conducta viajan en el mismo commit que la implementación.
 
 ## Bug fix
 
@@ -49,7 +51,7 @@ arregles un bug sin test.
 
 ## Antes de declarar completo
 
-Checklist: un test por función nueva, cada test visto fallar por la razón
+Checklist: un test por cada conducta nueva, cada test visto fallar por la razón
 esperada, todo verde, output pristine, edge cases cubiertos. Si no puedes
 marcar todo, no fue TDD — empieza de nuevo.
 
@@ -61,11 +63,5 @@ acoplamiento, inyecta dependencias.
 
 ## Escribir buenos tests
 
-Antes de escribir un test, añadir mocks o utilidades de test, lee
-`anti-patterns.md` (port de writing-good-tests): el test nombra el fallo que
-caza, expectativas derivadas de forma independiente, sin change-detectors ni
-string-presence, mutation check al terminar; nunca testear comportamiento de
-mocks, métodos test-only en producción ni mockear sin entender la dependencia.
-
-Atribución: `anti-patterns.md` destila `writing-good-tests.md` de superpowers
-6.4.2 (MIT © 2025 Jesse Vincent).
+Antes de escribir un test, añadir mocks o helpers de test, lee
+`anti-patterns.md`: cada test nombra el fallo que caza.
