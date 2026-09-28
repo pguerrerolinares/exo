@@ -7,9 +7,6 @@
 **Interfaces:**
 - Produces: `g()`
 
-**Tests:**
-- `x`: `a` da `b`. Falla si Consumes: @Task 9.
-
 ```markdown
 ### Task 2: ejemplo
 
@@ -24,7 +21,4 @@
 
 **Interfaces:**
 - Produces: `g()`
-
-**Tests:**
-- `x`: `a` da `b`. Falla si Consumes: @Task 9.
 

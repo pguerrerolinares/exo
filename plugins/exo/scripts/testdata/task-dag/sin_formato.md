@@ -7,9 +7,6 @@
 **Interfaces:**
 - Produces: `g()`
 
-**Tests:**
-- `x`: `a` da `b`. Falla si Consumes: @Task 9.
-
 ### Task 2: sin files
 
 texto
@@ -21,7 +18,4 @@ texto
 
 **Interfaces:**
 - Produces: `g()`
-
-**Tests:**
-- `x`: `a` da `b`. Falla si Consumes: @Task 9.
 

@@ -7,9 +7,6 @@
 **Interfaces:**
 - Produces: `g()`
 
-**Tests:**
-- `x`: `a` da `b`. Falla si Consumes: @Task 9.
-
 ### Task 2: T2
 
 **Files:**
@@ -17,7 +14,4 @@
 
 **Interfaces:**
 - Produces: `g()`
-
-**Tests:**
-- `x`: `a` da `b`. Falla si Consumes: @Task 9.
 

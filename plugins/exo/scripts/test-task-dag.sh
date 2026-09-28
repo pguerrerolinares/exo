@@ -41,6 +41,19 @@ if [ "$(jq -c .olas <<<"$out")" = "[[1],[2],[3]]" ] && jq -e '.avisos | any(star
   pass consume_inexistente
 else fail consume_inexistente "salida: $out"; fi
 
+check_seq() { # nombre fixture fragmento_aviso
+  local out
+  out=$("$DAG" "$FX/$2.md" 2>/dev/null)
+  if jq -e --arg f "$3" '.avisos | any(startswith("DAG: secuencial (") and contains($f))' <<<"$out" >/dev/null 2>&1 \
+     && [ "$(jq -c '.olas | map(length) | all(. == 1)' <<<"$out")" = true ]; then
+    pass "$1"
+  else fail "$1" "salida: $out"; fi
+}
+check_seq files_sin_backticks files_sin_backticks "Files sin paths legibles"
+check_olas multi_path_bullet multi_path_bullet '[[1],[2]]'
+check_seq ids_duplicados ids_duplicados "duplicad"
+check_olas ruta_punto_barra ruta_punto_barra '[[1],[2]]'
+
 # json_valido en todas las fixtures + plan sin tareas
 ok=1
 printf '# nada\n' > "$TMP/vacio.md"

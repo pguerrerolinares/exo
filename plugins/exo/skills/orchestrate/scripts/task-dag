@@ -28,6 +28,7 @@ awk '
     sub(/^#+[ \t]+Task[ \t]+/, "", s)
     match(s, /^[0-9]+/)
     id = substr(s, 1, RLENGTH) + 0
+    if (id in idx) dupid = id
     n++; ids[n] = id; idx[id] = n; hasfiles[n] = 0; nf[n] = 0
     cur = n; sec = ""
     next
@@ -39,10 +40,15 @@ awk '
     if (sec == "Files") hasfiles[cur] = 1
     next
   }
-  sec == "Files" && /^[ \t]*[-*][ \t]+[^`]*`[^`]+`/ {
-    p = $0
-    sub(/^[^`]*`/, "", p); sub(/`.*/, "", p)
-    if (p != "") { nf[cur]++; files[cur, nf[cur]] = p }
+  sec == "Files" && /^[ \t]*[-*]/ {
+    l = $0; got = 0
+    while (match(l, /`[^`]+`/)) {
+      p = substr(l, RSTART + 1, RLENGTH - 2)
+      l = substr(l, RSTART + RLENGTH)
+      while (p ~ /^\.\//) p = substr(p, 3)
+      if (p != "") { nf[cur]++; files[cur, nf[cur]] = p; got = 1 }
+    }
+    if (!got) badfiles[cur] = 1
     next
   }
   sec == "Interfaces" && /^[ \t]*[-*][ \t]+Consumes:/ {
@@ -56,8 +62,10 @@ awk '
   END {
     seq = 0; motivo = ""
     if (n == 0) { seq = 1; motivo = "sin tareas reconocibles" }
+    if (dupid != "") { seq = 1; motivo = "Task " dupid " duplicada" }
     for (i = 1; i <= n && !seq; i++) {
       if (!hasfiles[i]) { seq = 1; motivo = "Task " ids[i] " sin **Files:**" }
+      else if (nf[i] == 0 || badfiles[i]) { seq = 1; motivo = "Task " ids[i] ": Files sin paths legibles" }
       for (d = 1; d <= nd[i] && !seq; d++) {
         m = dep[i, d]
         if (!(m in idx)) { seq = 1; motivo = "Task " ids[i] " consume @Task " m " inexistente" }
