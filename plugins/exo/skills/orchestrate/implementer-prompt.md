@@ -32,9 +32,10 @@ Subagent (exo:executor):
 
     Una vez claro:
     1. Implementa lo que pide la tarea. El brief es un contrato (Files,
-       Interfaces, Tests, Review Focus, Notas): **tú escribes el cuerpo**
+       Interfaces, Tests, Verificación, Review Focus, Notas): **tú escribes el cuerpo**
        de los tests y del código, con las firmas y aserciones del brief.
-    2. Escribe tests (TDD si el brief lo pide).
+    2. Escribe primero los tests del brief y velos fallar (`exo:tdd`); solo te
+       los saltas si el brief dice `Tests: n/a`.
     3. Verifica que funciona.
     4. Commitea — salvo que [COMMIT_POLICY] diga que no (ola en el mismo
        worktree: no commitees, el orquestador commitea por tarea).
@@ -42,10 +43,10 @@ Subagent (exo:executor):
     6. Reporta.
 
     Si te desvías del contrato (una firma, una aserción, incluso un test
-    del plan) porque es lo correcto, no lo hagas en silencio: escribe en
-    el ledger `.superpowers/sdd/progress.md` una línea
-    `Ruling: T<n> — <qué cambia> — <por qué>` y repítela en tu report. El
-    reviewer la trata como finding obligatorio.
+    del plan) porque es lo correcto, no lo hagas en silencio: escribe
+    en tu report una línea `Ruling: T<n> — <qué cambia> — <por qué>` (no
+    toques el ledger: el orquestador la copia). El reviewer la trata como
+    finding obligatorio.
 
     Trabaja desde: [directorio]
 
@@ -53,7 +54,8 @@ Subagent (exo:executor):
     [COMMIT_POLICY] es `commitea`: la suite completa una vez antes de
     commitear, no tras cada edición. Si es `no commitees`: solo los tests de
     tu tarea; la suite completa la corre el orquestador tras commitear todas
-    las tareas de la ola. Toca solo los `Files` de tu tarea.
+    las tareas de la ola; aquí el verde de suite lo declara el orquestador, no
+    tú. Toca solo los `Files` de tu tarea.
 
     ## Cuando estás en apuros
 
@@ -81,7 +83,7 @@ Subagent (exo:executor):
     Completeness (¿implementaste todo el spec? ¿faltó algo? ¿edge cases?),
     quality (¿es tu mejor trabajo? ¿nombres claros?), discipline (YAGNI,
     solo lo pedido, patrones existentes del codebase), testing (tests
-    verifican comportamiento real, no mocks; TDD si aplica; output
+    verifican comportamiento real, no mocks; TDD; output
     pristine). Si encuentras issues, arréglalos ahora, antes de reportar.
 
     ## Tras findings del reviewer

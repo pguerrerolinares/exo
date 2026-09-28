@@ -7,8 +7,8 @@ MIT © 2025 Jesse Vincent) + la guía de escalado de modelo de
 `orchestrate-personal` (paul-profile 0.5.0, propio).
 
 **Selección de modelo — escalado al riesgo del DIFF, nunca heredado del
-padre:** diff literal contenido → barato (haiku); wiring de integración →
-medio (sonnet); concurrencia/seguridad sutil → top. El review final
+padre:** sonnet de suelo (nunca haiku); top si el diff tiene concurrencia o
+seguridad sutil. El review final
 whole-branch es SIEMPRE el modelo top, una vez por rama.
 
 **Dispatch:** subagente genérico con `model` explícito (elegido arriba).
@@ -115,6 +115,9 @@ Subagent (general-purpose):
     - **Misunderstood:** la feature correcta construida de la forma
       equivocada, o el problema equivocado resuelto
 
+    Cada ítem de `Review Focus` del brief tiene un test que lo ejercita; si
+    falta, Missing (Important).
+
     Si un requirement no se puede verificar solo con este diff (vive en
     código sin cambios o cruza tareas), repórtalo como ⚠️ en vez de
     ampliar tu búsqueda.
@@ -144,7 +147,8 @@ Subagent (general-purpose):
 
     **Comentarios:** la proporción de líneas de comentario del diff no
     supera la del fichero que toca, y cada comentario contiene un porqué
-    (no repite el código). Si no, finding Minor.
+    (no repite el código); en fichero nuevo, solo la regla del porqué. Si
+    no, finding Minor.
 
     **Estructura:** ¿cada fichero tiene una responsabilidad clara con
     interfaz bien definida? ¿las unidades están descompuestas para
@@ -243,11 +247,6 @@ Subagent (general-purpose):
 - `[BASE_SHA]` / `[HEAD_SHA]` — commit antes/después de esta tarea.
 - `[DIFF_FILE]` — REQUIRED: el path que imprime `scripts/review-package
   BASE HEAD` (el package nunca entra en el contexto del controller).
-
-**Review final whole-branch:** mismo template. `[BASE_SHA]` = `MERGE_BASE`
-(`git merge-base main HEAD`) para que el reviewer final lea un fichero en
-vez de re-derivar el diff de la rama con git. `model` = el tier top, una
-vez por rama.
 
 Un fix dispatch puede atacar gaps de spec y findings de calidad juntos; el
 re-review tras fixes cubre ambos veredictos.
