@@ -256,8 +256,18 @@ inventan tareas para rellenar.
   en la Task 0; si no existe, se para y se consulta, no se sustituye en
   silencio). Juez: **Opus 5.5** (propuesto el 2026-09-28 sin objeción de
   Paul); distinto del modelo de los brazos, como exige §5.
-- **D2. FIJADA (2026-09-28): k = 2.** Tope de coste en USD o en tokens:
-  _pendiente_, se fija con el coste por corrida medido en la Task 0.
+- **D2. FIJADA (2026-09-28): k = 2.** Tope fijado el 2026-09-28 con la
+  Task 0 (`evals/ablacion-k/task0-recon.md`), en **consumo de cuota** y no
+  en USD: las corridas van con la suscripción (OAuth), así que el
+  `total_cost_usd` es precio de lista y no facturación.
+  - Etapa 1: tope de **240M tokens de entrada** (240 corridas × ~1M, cota
+    alta estimada).
+  - Se corre en **tandas de 40 corridas**. Tras la primera, Paul revisa
+    `/usage` y se decide si el ritmo es sostenible.
+  - Si una tanda consume bastante más de lo estimado, se para y se
+    recalcula antes de seguir.
+  - Freno por corrida: `--max-budget-usd 3` (unidad de lista, usado solo
+    como límite de consumo).
 - **D3. FIJADA (2026-09-28): el CLAUDE.md global está presente en A0.** La
   pregunta es «¿aporta exo sobre la memoria nativa de Claude Code?»; quitarlo
   atribuiría a exo lo que da el CLAUDE.md.
@@ -297,4 +307,4 @@ Congelación en dos pasos. Ningún brazo se corre antes del paso 2.
    primera corrida de la etapa 1.
    - Commit: _pendiente_
    - sha256 de `gold.jsonl`: _pendiente_
-   - id del modelo de brazos: _pendiente_ · tope de coste: _pendiente_
+   - id del modelo de brazos: `claude-sonnet-5-5` (Task 0) · tope: D2 (§10)
