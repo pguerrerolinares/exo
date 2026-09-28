@@ -32,25 +32,31 @@ tarea los hereda. Sección "Olas" (abajo). Pointer "For agentic workers": la
 skill de ejecución es `exo:orchestrate`.
 
 Cada tarea, con encabezado literal `### Task N: <nombre>` (lo parsea
-`orchestrate/scripts/task-brief`): `Files`, `Interfaces`, `Tests` y `Notas`.
-`Review Focus` va una vez, a nivel de plan. Formato parseable de
-`Files`/`Interfaces` y plantilla en `plan-template.md`.
+`orchestrate/scripts/task-brief`): `Files`, `Interfaces`, `Tests`,
+`Verificación`, `Review Focus` y `Notas`. Formato parseable y plantilla en
+`plan-template.md`.
 
 ## Qué contiene una tarea
 
 Una tarea está hecha cuando el executor puede escribir una sola cosa
 razonable a partir de ella. Inequívoca, no completa.
 
-- **Test:** nombre + aserción con los valores exactos de la spec. La
-  aserción declara el fallo que caza ("falla si el descuento se aplica dos
-  veces"). Sin ese fallo nombrado, es un ritual, no un test.
-- **Código:** firma, fichero y valores que fija la spec. El executor escribe
-  el cuerpo. `Notas` lleva un algoritmo solo si firma y tests no lo
-  determinan, o copy exacto que fija la spec.
-- **Verificación:** el comando y el output que significa "pasó".
-- **Otra tarea:** se referencia por su `Interfaces`; no se repite su código.
-- **Review Focus:** ≤5 inputs o condiciones que la spec implica y nadie
-  nombra, más probable primero. Cada uno lleva su test en la tarea dueña.
+- **Tests:** nombre + aserción con los "valores" de la spec: constantes,
+  literales, mensajes de error, nombres de campo/columna y códigos que fija.
+  La aserción declara el fallo que caza ("falla si el descuento se aplica
+  dos veces"); sin él es un ritual. Cada test se escribe y se ve fallar
+  antes del código (`exo:tdd`). Sin tests: `Tests: n/a — <motivo>`.
+- **Código:** firma, fichero y valores. El executor escribe el cuerpo. El
+  plan no lleva cuerpos de función ni snippets de implementación: solo
+  firmas, valores y comandos. Un bloque de código en `Notas` solo vale si es
+  texto literal que fija la spec. `Notas` lleva un algoritmo solo si firma y
+  tests no lo determinan.
+- **Verificación:** comando → output esperado. Verde es la suite entera del
+  proyecto, no el fichero del test.
+- **Otra tarea:** se referencia por su `Interfaces` (`@Task M`); no se repite
+  su código.
+- **Review Focus (por tarea):** ≤5 inputs o condiciones que la spec implica
+  y nadie nombra, más probable primero, cada uno con su test en esa tarea.
 
 Nunca: "TBD/TODO", "add error handling" o "handle edge cases" sin decir cuál,
 "write tests for the above" sin nombre ni aserción, tipos o funciones que
