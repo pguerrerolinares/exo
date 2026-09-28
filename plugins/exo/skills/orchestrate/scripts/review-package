@@ -9,6 +9,11 @@
 # Usage: review-package BASE HEAD [OUTFILE]
 # Default OUTFILE: <repo-root>/.superpowers/sdd/review-<base7>..<head7>.diff
 # (named per range, so a re-review after fixes gets a distinct fresh file).
+#
+# Al final del package va la sección "## MUTACIÓN": mutation testing solo sobre
+# los ficheros de producción del diff (cargo-mutants / mutmut 2.x / stryker).
+# Degrada siempre de forma visible y nunca bloquea (exit != 0 solo por uso).
+# Env: EXO_MUTATION=0 la desactiva; EXO_MUTATION_TIMEOUT=<s> (600 por defecto).
 set -euo pipefail
 
 if [ $# -lt 2 ] || [ $# -gt 3 ]; then
@@ -29,6 +34,153 @@ else
   out="$dir/review-$(git rev-parse --short "$base")..$(git rev-parse --short "$head").diff"
 fi
 
+# ---------------------------------------------------------------------------
+# Mutación. Imprime las líneas de la sección (la primera es `MUTACIÓN: ...`).
+# Invocaciones contrastadas con la documentación (2026-09-29):
+#   cargo-mutants 27.1.0: cargo-mutants mutants -f FICHERO ... -o DIR
+#     (-f GLOB repetible; resultados en DIR/mutants.out/{outcomes.json,missed.txt})
+#   mutmut 2.x: mutmut run --paths-to-mutate F1,F2 (mutmut 3.x quitó el flag:
+#     se acota solo por `only_mutate` en la config, no por CLI -> no disponible)
+#   stryker 9/10: npx --no-install stryker run --mutate F ... (repetible)
+#     --reporters json --jsonReporter.fileName PATH
+# ---------------------------------------------------------------------------
+mut_tail() { # crudo: últimas ~20 líneas de los ficheros dados que existan
+  echo '```'
+  local f
+  for f in "$@"; do [ -f "$f" ] && tail -n 20 "$f"; done
+  echo '```'
+}
+
+mutacion() {
+  local head=$1 tmp segs root eco tool exts f files="" n
+  if [ "${EXO_MUTATION:-1}" = "0" ]; then
+    echo "MUTACIÓN: no disponible (desactivada)"; return 0
+  fi
+  segs=${EXO_MUTATION_TIMEOUT:-600}
+  case "$segs" in ''|*[!0-9]*|0) segs=600 ;; esac
+  root=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "MUTACIÓN: no disponible (fuera de un repo)"; return 0; }
+
+  if [ -f "$root/Cargo.toml" ]; then eco=rust
+  elif [ -f "$root/pyproject.toml" ] || [ -f "$root/setup.py" ]; then eco=python
+  elif [ -f "$root/package.json" ]; then eco=js
+  else echo "MUTACIÓN: no disponible (sin herramienta para este repo)"; return 0
+  fi
+  case "$eco" in
+    rust)   command -v cargo-mutants >/dev/null 2>&1 || { echo "MUTACIÓN: no disponible (cargo-mutants no instalado)"; return 0; } ;;
+    python) command -v mutmut >/dev/null 2>&1 || { echo "MUTACIÓN: no disponible (mutmut no instalado)"; return 0; } ;;
+    js)     { command -v npx >/dev/null 2>&1 && grep -q stryker "$root/package.json"; } || { echo "MUTACIÓN: no disponible (stryker no instalado)"; return 0; } ;;
+  esac
+  command -v jq >/dev/null 2>&1 || [ "$eco" = python ] || { echo "MUTACIÓN: no disponible (jq no instalado)"; return 0; }
+  type con_timeout >/dev/null 2>&1 || { echo "MUTACIÓN: no disponible (sin _timeout.sh)"; return 0; }
+
+  # Ficheros de producción del diff (añadidos/modificados/renombrados), sin tests.
+  case "$eco" in
+    rust) exts='rs' ;; python) exts='py' ;; js) exts='js|jsx|mjs|cjs|ts|tsx' ;;
+  esac
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    printf '%s\n' "$f" | grep -Eq "\.(${exts})$" || continue
+    printf '%s\n' "$f" | grep -Eq '(^|/)(tests?|__tests__|testdata|fixtures)/|(^|/)test_[^/]*$|_tests?\.[^/]*$|\.(test|spec)\.[^/]*$|(^|/)(conftest\.py|tests\.rs)$' && continue
+    [ -f "$root/$f" ] || continue
+    files="$files$f"$'\n'
+  done < <(git diff --name-only --diff-filter=ACMR "${base}..${head}")
+  if [ -z "$files" ]; then
+    echo "MUTACIÓN: no disponible (diff sin código de producción)"; return 0
+  fi
+
+  # Se muta el worktree, que tiene que ser exactamente el HEAD y estar limpio.
+  if [ "$(git rev-parse "$head")" != "$(git rev-parse HEAD)" ]; then
+    echo "MUTACIÓN: no disponible (HEAD no es el worktree)"; return 0
+  fi
+  if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+    echo "MUTACIÓN: no disponible (árbol sucio)"; return 0
+  fi
+
+  tmp=$(mktemp -d) || { echo "MUTACIÓN: no disponible (sin directorio temporal)"; return 0; }
+  local raw="$tmp/raw.txt" rc=0 res=""
+  local -a fargs=()
+  while IFS= read -r f; do [ -n "$f" ] && fargs+=("$f"); done <<< "$files"
+
+  case "$eco" in
+    rust)
+      local a=(); for f in "${fargs[@]}"; do a+=(-f "$f"); done
+      ( cd "$root" && con_timeout "$segs" cargo-mutants mutants "${a[@]}" -o "$tmp" ) > "$raw" 2>&1 || rc=$?
+      res="$tmp/mutants.out/outcomes.json"
+      ;;
+    python)
+      # mutmut 3.x no admite acotar por CLI; 2.x sí (--paths-to-mutate).
+      # Detección por capacidad, no por número de versión.
+      if ! ( cd "$root" && con_timeout 30 mutmut run --help ) 2>&1 | grep -q -- '--paths-to-mutate'; then
+        rm -rf "$tmp"; echo "MUTACIÓN: no disponible (mutmut 3.x no admite acotar por CLI)"; return 0
+      fi
+      local lista; lista=$(printf '%s,' "${fargs[@]}"); lista=${lista%,}
+      ( cd "$root" && con_timeout "$segs" mutmut run --paths-to-mutate "$lista" ) > "$raw" 2>&1 || rc=$?
+      ;;
+    js)
+      local a=(); for f in "${fargs[@]}"; do a+=(--mutate "$f"); done
+      res="$tmp/mutation.json"
+      ( cd "$root" && con_timeout "$segs" npx --no-install stryker run "${a[@]}" --reporters json --jsonReporter.fileName "$res" ) > "$raw" 2>&1 || rc=$?
+      ;;
+  esac
+
+  if [ "$rc" = 124 ]; then
+    rm -rf "$tmp"; echo "MUTACIÓN: parcial (timeout ${segs}s)"; return 0
+  fi
+
+  local det="" tot="" sup=""
+  case "$eco" in
+    rust)
+      if [ -f "$res" ] && jq -e '[.caught,.missed] | all(type == "number")' "$res" >/dev/null 2>&1; then
+        det=$(jq -r '(.caught) + (.timeout // 0)' "$res")
+        tot=$(jq -r '(.caught) + (.timeout // 0) + (.missed)' "$res")
+        sup=$(cat "$tmp/mutants.out/missed.txt" 2>/dev/null)
+      fi ;;
+    python)
+      local l; l=$(tr '\r' '\n' < "$raw" | grep -E '[0-9]+/[0-9]+.*🙁' | tail -n 1)
+      if [ -n "$l" ]; then
+        tot=$(printf '%s' "$l" | sed -nE 's|^[^0-9]*[0-9]+/([0-9]+).*|\1|p')
+        local k t s
+        k=$(printf '%s' "$l" | sed -nE 's|.*🎉 *([0-9]+).*|\1|p')
+        t=$(printf '%s' "$l" | sed -nE 's|.*⏰ *([0-9]+).*|\1|p')
+        s=$(printf '%s' "$l" | sed -nE 's|.*🙁 *([0-9]+).*|\1|p')
+        if [ -n "$tot" ] && [ -n "$k" ] && [ -n "$t" ] && [ -n "$s" ]; then
+          det=$((k + t))
+          [ "$s" -gt 0 ] && sup="$s superviviente(s): ver \`mutmut results\`"
+        else tot=""; fi
+      fi ;;
+    js)
+      if [ -f "$res" ] && jq -e '.files | type == "object"' "$res" >/dev/null 2>&1; then
+        det=$(jq -r '[.files[].mutants[] | select(.status=="Killed" or .status=="Timeout")] | length' "$res")
+        tot=$(jq -r '[.files[].mutants[] | select(.status=="Killed" or .status=="Timeout" or .status=="Survived" or .status=="NoCoverage")] | length' "$res")
+        sup=$(jq -r '.files | to_entries[] | .key as $f | .value.mutants[] | select(.status=="Survived" or .status=="NoCoverage") | "\($f):\(.location.start.line) \(.mutatorName) (\(.status))"' "$res")
+      fi ;;
+  esac
+
+  if [ -z "$tot" ] || [ -z "$det" ]; then
+    echo "MUTACIÓN: parcial (salida no reconocida)"
+    mut_tail "$res" "$raw"
+    rm -rf "$tmp"; return 0
+  fi
+
+  n=$(printf '%s' "$sup" | grep -c . || true)
+  if [ "$tot" -eq 0 ]; then
+    echo "MUTACIÓN: no disponible (0 mutantes generados)"
+  else
+    echo "MUTACIÓN: ${det}/${tot} ($((det * 100 / tot))%) — ${n} superviviente(s)"
+    if [ -n "$sup" ]; then
+      echo "Supervivientes:"
+      printf '%s\n' "$sup" | head -n 30 | sed 's/^/- /'
+    fi
+  fi
+  rm -rf "$tmp"
+  return 0
+}
+
+# _timeout.sh vive en plugins/exo/scripts (tres niveles por encima de este script).
+_ts="$(cd "$(dirname "$0")" && pwd)/../../../scripts/_timeout.sh"
+# shellcheck source=/dev/null
+[ -f "$_ts" ] && . "$_ts"
+
 {
   echo "# Review package: ${base}..${head}"
   echo
@@ -40,6 +192,9 @@ fi
   echo
   echo "## Diff"
   git diff -U10 "${base}..${head}"
+  echo
+  echo "## MUTACIÓN"
+  mutacion "$head" || echo "MUTACIÓN: no disponible (error interno)"
 } > "$out"
 
 commits=$(git rev-list --count "${base}..${head}")

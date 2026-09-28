@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Stub de mutmut. STUB_MUTMUT=2 simula 2.x (`run --help` anuncia --paths-to-mutate); otro valor, 3.x.
+printf '%s\n' "$*" >> "${STUB_LOG:?}"
+if [ "$1" = run ] && [ "${2:-}" = --help ]; then
+  [ "${STUB_MUTMUT:-3}" = 2 ] && echo "  --paths-to-mutate TEXT"
+  exit 0
+fi
+[ -n "${STUB_SLEEP:-}" ] && sleep "$STUB_SLEEP"
+echo "10/10  🎉 8  ⏰ 0  🤔 0  🙁 2  🔇 0"
+exit 0

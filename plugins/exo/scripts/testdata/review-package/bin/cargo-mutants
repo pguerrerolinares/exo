@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Stub de cargo-mutants 27.1.0 (invocación real: `cargo-mutants mutants -f GLOB ... -o DIR`).
+# Registra argv en $STUB_LOG y escribe DIR/mutants.out/{outcomes.json,missed.txt}.
+# Env: STUB_SLEEP=<s> duerme; STUB_MODE=garbage escribe un outcomes.json ilegible.
+printf '%s\n' "$*" >> "${STUB_LOG:?}"
+[ -n "${STUB_SLEEP:-}" ] && sleep "$STUB_SLEEP"
+out=""
+while [ $# -gt 0 ]; do case "$1" in -o|--output) out=$2; shift ;; esac; shift; done
+mkdir -p "$out/mutants.out"
+if [ "${STUB_MODE:-}" = garbage ]; then
+  echo "esto no es json" > "$out/mutants.out/outcomes.json"
+  exit 0
+fi
+cat > "$out/mutants.out/outcomes.json" <<'J'
+{"total_mutants":10,"caught":8,"missed":2,"timeout":0,"unviable":0,"success":0}
+J
+printf '%s\n' 'src/lib.rs:3:5: replace add -> i32 with 0' 'src/lib.rs:9:8: replace == with != in cmp' > "$out/mutants.out/missed.txt"
+exit 2

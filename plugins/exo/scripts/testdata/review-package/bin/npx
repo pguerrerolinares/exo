@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Stub de npx (invocación real: `npx --no-install stryker run --mutate F ... --reporters json --jsonReporter.fileName PATH`).
+printf '%s\n' "$*" >> "${STUB_LOG:?}"
+f=""
+while [ $# -gt 0 ]; do case "$1" in --jsonReporter.fileName) f=$2; shift ;; esac; shift; done
+cat > "$f" <<'J'
+{"files":{"src/a.js":{"mutants":[
+{"id":"1","mutatorName":"EqualityOperator","status":"Killed","location":{"start":{"line":1}}},
+{"id":"2","mutatorName":"BlockStatement","status":"Killed","location":{"start":{"line":2}}},
+{"id":"3","mutatorName":"ConditionalExpression","status":"Survived","location":{"start":{"line":7}}},
+{"id":"4","mutatorName":"StringLiteral","status":"Timeout","location":{"start":{"line":8}}}]}}}
+J
+exit 0
