@@ -30,10 +30,10 @@
 - Ola 1, en paralelo: T1, T2, T3, T4. Sus `Files` son disjuntos y todas consumen solo el vocabulario de arriba.
 - Ola 2: T5 (wiring: README, LICENSES, plugin.json), que consume T1-T4.
 
-## T1 — skill plan como contrato
+## Task 1 — skill plan como contrato
 
 - **Files:** Modify `plugins/exo/skills/plan/SKILL.md` y `plugins/exo/skills/plan/plan-template.md`.
-- **Interfaces:** Produces el formato de tarea, con los campos del vocabulario, en formato parseable. Cada campo es una línea `**Files:**` / `**Interfaces:**` con sub-bullets `Create|Modify|Test: <path>` y `Consumes|Produces: <firma>`, para que `task-dag` (plan 2) los lea.
+- **Interfaces:** Mantén el encabezado de tarea `### Task N: <nombre>` (lo parsea `orchestrate/scripts/task-brief`: `^#+ Task N`). Produces el formato de tarea, con los campos del vocabulario, en formato parseable. Cada campo es una línea `**Files:**` / `**Interfaces:**` con sub-bullets `Create|Modify|Test: <path>` y `Consumes|Produces: <firma>`, para que `task-dag` (plan 2) los lea.
 - **Contenido exigido** (spec §4, fila plan): "No-placeholders" pasa a "Qué contiene una tarea".
   - Test = nombre + aserción con los valores de la spec. La aserción declara el fallo que caza.
   - Código = firma, fichero y valores. El executor escribe el cuerpo. `Notas` solo lleva un algoritmo que la firma y los tests no determinan.
@@ -46,7 +46,7 @@
 - **Referencia:** `$SP/skills/writing-plans/SKILL.md` (What a Step Contains, Review Focus, Self-Review/Proportion).
 - **Aceptación:** la plantilla no obliga a ningún bloque de código. Este mismo fichero de plan cumple el formato nuevo, y sirve de ejemplo vivo.
 
-## T2 — orchestrate: olas, Ruling, mutación en review, pase de over-engineering
+## Task 2 — orchestrate: olas, Ruling, mutación en review, pase de over-engineering
 
 - **Files:** Modify `plugins/exo/skills/orchestrate/SKILL.md`, `.../implementer-prompt.md` y `.../reviewer-prompt.md`.
 - **Interfaces:** Consumes el vocabulario (Ruling, MUTACIÓN, tags) y el formato de tarea de T1 (solo por nombres de campo).
@@ -69,7 +69,7 @@
 - **Referencia:** `$SP/skills/executing-plans/SKILL.md` (Rulings), `$SP/skills/requesting-code-review/code-reviewer.md` y `$PT/skills/ponytail-review/SKILL.md`.
 - **Review Focus:** que no se pierda la línea de PARIDAD CRÍTICA (`subagent_type: exo:executor`, sin `model`). Hay un gold que la exige: `evals/prep-m3/gold/orchestrate.md`.
 
-## T3 — executor: escalera, comentarios, qué no testear
+## Task 3 — executor: escalera, comentarios, qué no testear
 
 - **Files:** Modify `plugins/exo/agents/executor.md`.
 - **Interfaces:** ninguna.
@@ -84,7 +84,7 @@
 - **Referencia:** `$PT/skills/ponytail/SKILL.md`, reescrito como reglas operativas y sin la persona "lazy".
 - **Aceptación:** `bash plugins/exo/scripts/test-compose-inject.sh` sigue verde. Enseña el output.
 
-## T4 — tdd: writing-good-tests y suite = verde
+## Task 4 — tdd: writing-good-tests y suite = verde
 
 - **Files:** Modify `plugins/exo/skills/tdd/anti-patterns.md` y `plugins/exo/skills/tdd/SKILL.md`.
 - **Interfaces:** ninguna.
@@ -93,7 +93,7 @@
   - `SKILL.md`: la suite del proyecto define qué es "verde" (no el fichero del test), y se añade un puntero a qué no testear.
   - Se mantiene la atribución MIT existente, con la versión actualizada a 6.4.2.
 
-## T5 — wiring: README, licencias, versión (ola 2)
+## Task 5 — wiring: README, licencias, versión (ola 2)
 
 - **Files:** Modify `plugins/exo/README.md`, `plugins/exo/.claude-plugin/plugin.json` y, si procede, `plugins/exo/LICENSES/`. Create `plugins/exo/LICENSES/ponytail.LICENSE`.
 - **Interfaces:** Consumes los cambios de T1-T4 (solo para describirlos).
