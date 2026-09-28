@@ -63,9 +63,9 @@ done
 [ "$ok" = 1 ] && pass json_valido
 
 "$DAG" >/dev/null 2>&1; rc=$?
-[ "$rc" = 2 ] && pass uso_sin_argumento || fail uso_sin_argumento "rc=$rc"
+if [ "$rc" = 2 ]; then pass uso_sin_argumento; else fail uso_sin_argumento "rc=$rc"; fi
 "$DAG" "$FX/no-existe.md" >/dev/null 2>&1; rc=$?
-[ "$rc" = 2 ] && pass fichero_inexistente || fail fichero_inexistente "rc=$rc"
+if [ "$rc" = 2 ]; then pass fichero_inexistente; else fail fichero_inexistente "rc=$rc"; fi
 
 printf '\n%s pass, %s fail\n' "$PASS" "$FAIL"
 [ "$FAIL" = 0 ]

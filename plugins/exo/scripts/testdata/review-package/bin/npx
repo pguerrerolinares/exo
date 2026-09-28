@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
-# Stub de npx (invocación real: `npx --no-install stryker run --mutate F ... --reporters json --jsonReporter.fileName PATH`).
-printf '%s\n' "$*" >> "${STUB_LOG:?}"
-f=""
-while [ $# -gt 0 ]; do case "$1" in --jsonReporter.fileName) f=$2; shift ;; esac; shift; done
-cat > "$f" <<'J'
+# Stub de npx + stryker 9.6.1 (verificado contra el binario real).
+# Invocación real: `npx --no-install stryker run --mutate "a,b" --reporters json`
+# en el dir del proyecto; el informe sale en reports/mutation/mutation.json.
+# Como el real, rechaza opciones desconocidas (p. ej. --jsonReporter.fileName, exit 2).
+{ printf 'cwd=%s\n' "$PWD"; printf 'argv=%s\n' "$*"; } >> "${STUB_LOG:?}"
+for a in "$@"; do
+  case "$a" in
+    --jsonReporter*) echo "Unknown option: $a" >&2; exit 2 ;;
+  esac
+done
+mkdir -p reports/mutation
+cat > reports/mutation/mutation.json <<'J'
 {"files":{"src/a.js":{"mutants":[
 {"id":"1","mutatorName":"EqualityOperator","status":"Killed","location":{"start":{"line":1}}},
 {"id":"2","mutatorName":"BlockStatement","status":"Killed","location":{"start":{"line":2}}},

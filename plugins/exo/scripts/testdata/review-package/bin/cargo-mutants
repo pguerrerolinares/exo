@@ -1,11 +1,20 @@
 #!/usr/bin/env bash
-# Stub de cargo-mutants 27.1.0 (invocación real: `cargo-mutants mutants -f GLOB ... -o DIR`).
-# Registra argv en $STUB_LOG y escribe DIR/mutants.out/{outcomes.json,missed.txt}.
+# Stub de cargo-mutants 27.1.0 (verificado contra el binario real).
+# Invocación real: `cargo-mutants mutants --in-diff PATCH -o DIR`, en el dir del proyecto.
+# Registra cwd, argv y las líneas `+++` del patch en $STUB_LOG y escribe
+# DIR/mutants.out/{outcomes.json,missed.txt}.
 # Env: STUB_SLEEP=<s> duerme; STUB_MODE=garbage escribe un outcomes.json ilegible.
-printf '%s\n' "$*" >> "${STUB_LOG:?}"
+{ printf 'cwd=%s\n' "$PWD"; printf 'argv=%s\n' "$*"; } >> "${STUB_LOG:?}"
 [ -n "${STUB_SLEEP:-}" ] && sleep "$STUB_SLEEP"
 out=""
-while [ $# -gt 0 ]; do case "$1" in -o|--output) out=$2; shift ;; esac; shift; done
+prev=""
+for a in "$@"; do
+  case "$prev" in
+    -o|--output) out=$a ;;
+    --in-diff) grep '^+++ ' "$a" >> "$STUB_LOG" ;;
+  esac
+  prev=$a
+done
 mkdir -p "$out/mutants.out"
 if [ "${STUB_MODE:-}" = garbage ]; then
   echo "esto no es json" > "$out/mutants.out/outcomes.json"

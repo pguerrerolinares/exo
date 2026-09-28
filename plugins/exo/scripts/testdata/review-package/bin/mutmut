@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
-# Stub de mutmut. STUB_MUTMUT=2 simula 2.x (`run --help` anuncia --paths-to-mutate); otro valor, 3.x.
-printf '%s\n' "$*" >> "${STUB_LOG:?}"
-if [ "$1" = run ] && [ "${2:-}" = --help ]; then
+# Stub de mutmut. STUB_MUTMUT=2 simula 2.x (sin --version; `run --help` anuncia
+# --paths-to-mutate); otro valor simula 3.x (`--version` -> "mutmut, version 3.8.0").
+{ printf 'cwd=%s\n' "$PWD"; printf 'argv=%s\n' "$*"; } >> "${STUB_LOG:?}"
+if [ "${1:-}" = --version ]; then
+  if [ "${STUB_MUTMUT:-3}" = 2 ]; then
+    echo "Error: No such option '--version'." >&2; exit 2
+  fi
+  echo "mutmut, version 3.8.0"; exit 0
+fi
+if [ "${1:-}" = run ] && [ "${2:-}" = --help ]; then
   [ "${STUB_MUTMUT:-3}" = 2 ] && echo "  --paths-to-mutate TEXT"
   exit 0
 fi

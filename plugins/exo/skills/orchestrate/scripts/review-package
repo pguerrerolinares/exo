@@ -36,13 +36,18 @@ fi
 
 # ---------------------------------------------------------------------------
 # Mutación. Imprime las líneas de la sección (la primera es `MUTACIÓN: ...`).
-# Invocaciones contrastadas con la documentación (2026-09-29):
-#   cargo-mutants 27.1.0: cargo-mutants mutants -f FICHERO ... -o DIR
-#     (-f GLOB repetible; resultados en DIR/mutants.out/{outcomes.json,missed.txt})
-#   mutmut 2.x: mutmut run --paths-to-mutate F1,F2 (mutmut 3.x quitó el flag:
-#     se acota solo por `only_mutate` en la config, no por CLI -> no disponible)
-#   stryker 9/10: npx --no-install stryker run --mutate F ... (repetible)
-#     --reporters json --jsonReporter.fileName PATH
+# Invocaciones verificadas contra los binarios reales (2026-09-29):
+#   cargo-mutants 27.1.0: cargo-mutants mutants --in-diff PATCH -o DIR
+#     (PATCH = git diff -U0 --relative del rango, solo ficheros de producción;
+#      DIR/mutants.out/{outcomes.json,missed.txt})
+#   mutmut 2.5.1: mutmut run --paths-to-mutate F1,F2 (no tiene --version).
+#     mutmut 3.8.0: `--version` -> "mutmut, version 3.x"; no acota por CLI
+#     (solo `only_mutate` en la config) -> no disponible, nunca mutar todo.
+#   stryker 9.6.1: npx --no-install stryker run --mutate "a,b" --reporters json
+#     (lista con comas: repetir --mutate se queda con el último; NO existe
+#      --jsonReporter.fileName). Informe: reports/mutation/mutation.json.
+# Monorepo: cada fichero se agrupa con su manifest más cercano (Cargo.toml,
+# pyproject.toml/setup.py, package.json) y la herramienta corre en ese dir.
 # ---------------------------------------------------------------------------
 mut_tail() { # crudo: últimas ~20 líneas de los ficheros dados que existan
   echo '```'
@@ -51,83 +56,97 @@ mut_tail() { # crudo: últimas ~20 líneas de los ficheros dados que existan
   echo '```'
 }
 
-mutacion() {
-  local head=$1 tmp segs root eco tool exts f files="" n
-  if [ "${EXO_MUTATION:-1}" = "0" ]; then
-    echo "MUTACIÓN: no disponible (desactivada)"; return 0
-  fi
-  segs=${EXO_MUTATION_TIMEOUT:-600}
-  case "$segs" in ''|*[!0-9]*|0) segs=600 ;; esac
-  root=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "MUTACIÓN: no disponible (fuera de un repo)"; return 0; }
-
-  if [ -f "$root/Cargo.toml" ]; then eco=rust
-  elif [ -f "$root/pyproject.toml" ] || [ -f "$root/setup.py" ]; then eco=python
-  elif [ -f "$root/package.json" ]; then eco=js
-  else echo "MUTACIÓN: no disponible (sin herramienta para este repo)"; return 0
-  fi
-  case "$eco" in
-    rust)   command -v cargo-mutants >/dev/null 2>&1 || { echo "MUTACIÓN: no disponible (cargo-mutants no instalado)"; return 0; } ;;
-    python) command -v mutmut >/dev/null 2>&1 || { echo "MUTACIÓN: no disponible (mutmut no instalado)"; return 0; } ;;
-    js)     { command -v npx >/dev/null 2>&1 && grep -q stryker "$root/package.json"; } || { echo "MUTACIÓN: no disponible (stryker no instalado)"; return 0; } ;;
+# Manifest más cercano de FICHERO para el ecosistema de su extensión.
+# Imprime "<dir-relativo>|<eco>" ("." = raíz) o nada. Sube hasta la raíz del repo.
+mut_proyecto_de() {
+  local f=$1 root=$2 eco d
+  case "$f" in
+    *.rs) eco=rust ;;
+    *.py) eco=python ;;
+    *.js|*.jsx|*.mjs|*.cjs|*.ts|*.tsx) eco=js ;;
+    *) return 0 ;;
   esac
-  command -v jq >/dev/null 2>&1 || [ "$eco" = python ] || { echo "MUTACIÓN: no disponible (jq no instalado)"; return 0; }
-  type con_timeout >/dev/null 2>&1 || { echo "MUTACIÓN: no disponible (sin _timeout.sh)"; return 0; }
+  d=$(dirname "$f")
+  while :; do
+    case "$eco" in
+      rust)   [ -f "$root/$d/Cargo.toml" ] && { echo "$d|$eco"; return 0; } ;;
+      python) { [ -f "$root/$d/pyproject.toml" ] || [ -f "$root/$d/setup.py" ]; } && { echo "$d|$eco"; return 0; } ;;
+      js)     [ -f "$root/$d/package.json" ] && { echo "$d|$eco"; return 0; } ;;
+    esac
+    [ "$d" = "." ] && return 0
+    d=$(dirname "$d")
+  done
+}
 
-  # Ficheros de producción del diff (añadidos/modificados/renombrados), sin tests.
+# Muta UN proyecto. Entradas: raíz, dir relativo, eco, segs, ficheros relativos a la raíz (1 por línea).
+# Salidas (globales): R_TEXT (texto tras `MUTACIÓN: `), R_DET/R_TOT (numéricos si hay score),
+# R_N (nº supervivientes), R_DETALLE (líneas extra: supervivientes o crudo).
+mut_uno() {
+  local root=$1 dir=$2 eco=$3 segs=$4 files=$5 pd tmp raw res="" rc=0 f det="" tot="" sup=""
+  R_TEXT=""; R_DET=""; R_TOT=""; R_N=0; R_DETALLE=""
+  pd="$root"; [ "$dir" != "." ] && pd="$root/$dir"
+
   case "$eco" in
-    rust) exts='rs' ;; python) exts='py' ;; js) exts='js|jsx|mjs|cjs|ts|tsx' ;;
+    rust)   command -v cargo-mutants >/dev/null 2>&1 || { R_TEXT="no disponible (cargo-mutants no instalado)"; return 0; } ;;
+    python) command -v mutmut >/dev/null 2>&1 || { R_TEXT="no disponible (mutmut no instalado)"; return 0; } ;;
+    js)     { command -v npx >/dev/null 2>&1 && grep -q stryker "$pd/package.json"; } || { R_TEXT="no disponible (stryker no instalado)"; return 0; } ;;
   esac
-  while IFS= read -r f; do
-    [ -n "$f" ] || continue
-    printf '%s\n' "$f" | grep -Eq "\.(${exts})$" || continue
-    printf '%s\n' "$f" | grep -Eq '(^|/)(tests?|__tests__|testdata|fixtures)/|(^|/)test_[^/]*$|_tests?\.[^/]*$|\.(test|spec)\.[^/]*$|(^|/)(conftest\.py|tests\.rs)$' && continue
-    [ -f "$root/$f" ] || continue
-    files="$files$f"$'\n'
-  done < <(git diff --name-only --diff-filter=ACMR "${base}..${head}")
-  if [ -z "$files" ]; then
-    echo "MUTACIÓN: no disponible (diff sin código de producción)"; return 0
+  if [ "$eco" != python ]; then
+    command -v jq >/dev/null 2>&1 || { R_TEXT="no disponible (jq no instalado)"; return 0; }
   fi
 
   # Se muta el worktree, que tiene que ser exactamente el HEAD y estar limpio.
   if [ "$(git rev-parse "$head")" != "$(git rev-parse HEAD)" ]; then
-    echo "MUTACIÓN: no disponible (HEAD no es el worktree)"; return 0
+    R_TEXT="no disponible (HEAD no es el worktree)"; return 0
   fi
   if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
-    echo "MUTACIÓN: no disponible (árbol sucio)"; return 0
+    R_TEXT="no disponible (árbol sucio)"; return 0
   fi
 
-  tmp=$(mktemp -d) || { echo "MUTACIÓN: no disponible (sin directorio temporal)"; return 0; }
-  local raw="$tmp/raw.txt" rc=0 res=""
-  local -a fargs=()
-  while IFS= read -r f; do [ -n "$f" ] && fargs+=("$f"); done <<< "$files"
+  tmp=$(mktemp -d) || { R_TEXT="no disponible (sin directorio temporal)"; return 0; }
+  raw="$tmp/raw.txt"
+  local -a rel=()
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    if [ "$dir" = "." ]; then rel+=("$f"); else rel+=("${f#"$dir"/}"); fi
+  done <<< "$files"
 
   case "$eco" in
     rust)
-      local a=(); for f in "${fargs[@]}"; do a+=(-f "$f"); done
-      ( cd "$root" && con_timeout "$segs" cargo-mutants mutants "${a[@]}" -o "$tmp" ) > "$raw" 2>&1 || rc=$?
+      # --in-diff acota a las líneas cambiadas (el score no se diluye con código intacto).
+      git -C "$pd" diff -U0 --relative "${base}..${head}" -- "${rel[@]}" > "$tmp/patch.diff" 2>/dev/null
+      ( cd "$pd" && con_timeout "$segs" cargo-mutants mutants --in-diff "$tmp/patch.diff" -o "$tmp" ) > "$raw" 2>&1 || rc=$?
       res="$tmp/mutants.out/outcomes.json"
       ;;
     python)
-      # mutmut 3.x no admite acotar por CLI; 2.x sí (--paths-to-mutate).
-      # Detección por capacidad, no por número de versión.
-      if ! ( cd "$root" && con_timeout 30 mutmut run --help ) 2>&1 | grep -q -- '--paths-to-mutate'; then
-        rm -rf "$tmp"; echo "MUTACIÓN: no disponible (mutmut 3.x no admite acotar por CLI)"; return 0
+      # mutmut 3.x no admite acotar por CLI; 2.x sí. `--version` primero (3.x lo
+      # tiene, 2.x no); si no concluye, capacidad de `run --help`.
+      local ver lista
+      ver=$( ( cd "$pd" && con_timeout 30 mutmut --version ) 2>&1 | head -n 5 )
+      case "$ver" in
+        *"version 3."*) rm -rf "$tmp"; R_TEXT="no disponible (mutmut 3.x no admite acotar por CLI)"; return 0 ;;
+      esac
+      if ! ( cd "$pd" && con_timeout 30 mutmut run --help ) 2>&1 | grep -q -- '--paths-to-mutate'; then
+        rm -rf "$tmp"; R_TEXT="no disponible (mutmut 3.x no admite acotar por CLI)"; return 0
       fi
-      local lista; lista=$(printf '%s,' "${fargs[@]}"); lista=${lista%,}
-      ( cd "$root" && con_timeout "$segs" mutmut run --paths-to-mutate "$lista" ) > "$raw" 2>&1 || rc=$?
+      lista=$(printf '%s,' "${rel[@]}"); lista=${lista%,}
+      ( cd "$pd" && con_timeout "$segs" mutmut run --paths-to-mutate "$lista" ) > "$raw" 2>&1 || rc=$?
       ;;
     js)
-      local a=(); for f in "${fargs[@]}"; do a+=(--mutate "$f"); done
-      res="$tmp/mutation.json"
-      ( cd "$root" && con_timeout "$segs" npx --no-install stryker run "${a[@]}" --reporters json --jsonReporter.fileName "$res" ) > "$raw" 2>&1 || rc=$?
+      # Una sola lista con comas: repetir --mutate se queda con el último.
+      local lista
+      lista=$(printf '%s,' "${rel[@]}"); lista=${lista%,}
+      res="$pd/reports/mutation/mutation.json"
+      rm -f "$res"
+      ( cd "$pd" && con_timeout "$segs" npx --no-install stryker run --mutate "$lista" --reporters json ) > "$raw" 2>&1 || rc=$?
       ;;
   esac
 
   if [ "$rc" = 124 ]; then
-    rm -rf "$tmp"; echo "MUTACIÓN: parcial (timeout ${segs}s)"; return 0
+    [ "$eco" = js ] && rm -f "$res"
+    rm -rf "$tmp"; R_TEXT="parcial (timeout ${segs}s)"; return 0
   fi
 
-  local det="" tot="" sup=""
   case "$eco" in
     rust)
       if [ -f "$res" ] && jq -e '[.caught,.missed] | all(type == "number")' "$res" >/dev/null 2>&1; then
@@ -136,10 +155,10 @@ mutacion() {
         sup=$(cat "$tmp/mutants.out/missed.txt" 2>/dev/null)
       fi ;;
     python)
-      local l; l=$(tr '\r' '\n' < "$raw" | grep -E '[0-9]+/[0-9]+.*🙁' | tail -n 1)
+      local l k t s
+      l=$(tr '\r' '\n' < "$raw" | grep -E '[0-9]+/[0-9]+.*🙁' | tail -n 1)
       if [ -n "$l" ]; then
         tot=$(printf '%s' "$l" | sed -nE 's|^[^0-9]*[0-9]+/([0-9]+).*|\1|p')
-        local k t s
         k=$(printf '%s' "$l" | sed -nE 's|.*🎉 *([0-9]+).*|\1|p')
         t=$(printf '%s' "$l" | sed -nE 's|.*⏰ *([0-9]+).*|\1|p')
         s=$(printf '%s' "$l" | sed -nE 's|.*🙁 *([0-9]+).*|\1|p')
@@ -157,22 +176,116 @@ mutacion() {
   esac
 
   if [ -z "$tot" ] || [ -z "$det" ]; then
-    echo "MUTACIÓN: parcial (salida no reconocida)"
-    mut_tail "$res" "$raw"
+    R_TEXT="parcial (salida no reconocida)"
+    R_DETALLE=$(mut_tail "$res" "$raw")
+    [ "$eco" = js ] && rm -f "$res"
     rm -rf "$tmp"; return 0
   fi
 
-  n=$(printf '%s' "$sup" | grep -c . || true)
-  if [ "$tot" -eq 0 ]; then
-    echo "MUTACIÓN: no disponible (0 mutantes generados)"
+  if [ "$eco" = python ]; then
+    R_N=$(printf '%s' "$sup" | sed -nE 's/^([0-9]+) superviviente.*/\1/p'); R_N=${R_N:-0}
   else
-    echo "MUTACIÓN: ${det}/${tot} ($((det * 100 / tot))%) — ${n} superviviente(s)"
+    R_N=$(printf '%s' "$sup" | grep -c . || true)
+  fi
+  if [ "$tot" -eq 0 ]; then
+    R_TEXT="no disponible (0 mutantes generados)"
+  else
+    R_DET=$det; R_TOT=$tot
+    R_TEXT="${det}/${tot} ($((det * 100 / tot))%) — ${R_N} superviviente(s)"
     if [ -n "$sup" ]; then
-      echo "Supervivientes:"
-      printf '%s\n' "$sup" | head -n 30 | sed 's/^/- /'
+      R_DETALLE="Supervivientes:"$'\n'"$(printf '%s\n' "$sup" | head -n 30 | sed 's/^/- /')"
     fi
   fi
+  [ "$eco" = js ] && rm -f "$res"
   rm -rf "$tmp"
+  return 0
+}
+
+mutacion() {
+  local head=$1 segs root f pr keys="" files_of="" any_manifest cand=0
+  if [ "${EXO_MUTATION:-1}" = "0" ]; then
+    echo "MUTACIÓN: no disponible (desactivada)"; return 0
+  fi
+  segs=${EXO_MUTATION_TIMEOUT:-600}
+  case "$segs" in ''|*[!0-9]*|0) segs=600 ;; esac
+  root=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "MUTACIÓN: no disponible (fuera de un repo)"; return 0; }
+  type con_timeout >/dev/null 2>&1 || { echo "MUTACIÓN: no disponible (sin _timeout.sh)"; return 0; }
+
+  # Ficheros de producción del diff (añadidos/modificados/renombrados), sin tests,
+  # agrupados por proyecto (manifest más cercano) y ecosistema.
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    case "$f" in
+      *.rs|*.py|*.js|*.jsx|*.mjs|*.cjs|*.ts|*.tsx) ;;
+      *) continue ;;
+    esac
+    printf '%s\n' "$f" | grep -Eq '(^|/)(tests?|__tests__|testdata|fixtures)/|(^|/)test_[^/]*$|_tests?\.[^/]*$|\.(test|spec)\.[^/]*$|(^|/)(conftest\.py|tests\.rs)$' && continue
+    [ -f "$root/$f" ] || continue
+    cand=$((cand + 1))
+    pr=$(mut_proyecto_de "$f" "$root")
+    [ -n "$pr" ] || continue
+    case "
+$keys
+" in
+      *"
+$pr
+"*) ;;
+      *) keys="$keys
+$pr" ;;
+    esac
+    files_of="$files_of$pr	$f
+"
+  done < <(git diff --name-only --diff-filter=ACMR "${base}..${head}")
+  keys=${keys#$'\n'}
+
+  if [ "$cand" -eq 0 ]; then
+    any_manifest=$(git ls-files -- '*Cargo.toml' '*pyproject.toml' '*setup.py' '*package.json' | head -n 1)
+    if [ -z "$any_manifest" ]; then
+      echo "MUTACIÓN: no disponible (sin herramienta para este repo)"
+    else
+      echo "MUTACIÓN: no disponible (diff sin código de producción)"
+    fi
+    return 0
+  fi
+  if [ -z "$keys" ]; then
+    echo "MUTACIÓN: no disponible (sin herramienta para este repo)"; return 0
+  fi
+
+  local -a lineas=() detalles=()
+  local sdet=0 stot=0 sn=0 nscored=0 nparcial=0 nnodisp=0 k dir eco fl nombre multi=0 nproy
+  nproy=$(printf '%s\n' "$keys" | grep -c .)
+  if [ "$nproy" -gt 1 ] || [ "${keys%%|*}" != "." ]; then multi=1; fi
+  while IFS= read -r k; do
+    [ -n "$k" ] || continue
+    dir=${k%|*}; eco=${k#*|}
+    fl=$(printf '%s' "$files_of" | awk -F'\t' -v k="$k" '$1 == k { print $2 }')
+    mut_uno "$root" "$dir" "$eco" "$segs" "$fl"
+    nombre=$dir; [ "$dir" = "." ] && nombre="raíz"
+    lineas+=("MUTACIÓN [${nombre}]: ${R_TEXT}")
+    if [ -n "$R_DETALLE" ]; then
+      if [ "$multi" = 1 ]; then detalles+=("[${nombre}] ${R_DETALLE}"); else detalles+=("$R_DETALLE"); fi
+    fi
+    case "$R_TEXT" in
+      parcial*) nparcial=$((nparcial + 1)) ;;
+      "no disponible"*) nnodisp=$((nnodisp + 1)) ;;
+      *) sdet=$((sdet + R_DET)); stot=$((stot + R_TOT)); sn=$((sn + R_N)); nscored=$((nscored + 1)) ;;
+    esac
+  done <<< "$keys"
+
+  # Primera línea: el único resultado, o el agregado.
+  if [ "$multi" = 0 ]; then
+    echo "MUTACIÓN: ${lineas[0]#*: }"
+  elif [ "$nscored" -gt 0 ]; then
+    local extra=""
+    [ $((nparcial + nnodisp)) -gt 0 ] && extra="; $((nparcial + nnodisp)) proyecto(s) sin score"
+    echo "MUTACIÓN: ${sdet}/${stot} ($((sdet * 100 / stot))%) — ${sn} superviviente(s)${extra}"
+  elif [ "$nparcial" -gt 0 ]; then
+    echo "MUTACIÓN: parcial (ver proyectos)"
+  else
+    echo "MUTACIÓN: no disponible (ver proyectos)"
+  fi
+  [ "$multi" = 1 ] && printf '%s\n' "${lineas[@]}"
+  [ "${#detalles[@]}" -gt 0 ] && printf '%s\n' "${detalles[@]}"
   return 0
 }
 
