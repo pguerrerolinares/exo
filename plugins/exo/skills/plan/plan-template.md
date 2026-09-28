@@ -1,95 +1,79 @@
 # Plantilla de plan
 
-**Cuándo usar:** al escribir el plan completo, para el header obligatorio y
-la estructura de cada tarea. Destilado de `writing-plans/SKILL.md`
-(superpowers 6.1.1, MIT © 2025 Jesse Vincent).
+**Cuándo usar:** al escribir el plan completo, para el header y el formato de
+cada tarea. Destilado de `writing-plans/SKILL.md` (superpowers 6.4.2, MIT ©
+2025 Jesse Vincent). Ningún bloque de código es obligatorio.
 
-## Header obligatorio
-
-Todo plan empieza así:
+## Header
 
 ```markdown
-# [Nombre de la feature] Implementation Plan
+# Plan: [feature]
 
-> **For agentic workers:** REQUIRED SUB-SKILL: usa `exo:orchestrate`
-> para ejecutar este plan tarea a tarea. Los pasos usan checkbox (`- [ ]`)
-> para tracking.
+> For agentic workers: ejecución con `exo:orchestrate`.
 
-**Goal:** [una frase describiendo qué construye este plan]
+**Goal:** [una frase]
 
-**Architecture:** [2-3 frases sobre el enfoque]
+**Architecture:** [2-3 frases]
 
 **Tech Stack:** [tecnologías/librerías clave]
 
-## Global Constraints
+**Spec:** `docs/superpowers/specs/<fichero>.md`
 
-[Los requisitos project-wide de la spec — version floors, límites de
-dependencias, reglas de naming y copy, requisitos de plataforma — una línea
-cada uno, con valores exactos copiados verbatim de la spec. Los requisitos
-de toda tarea incluyen implícitamente esta sección.]
+**Global Constraints:**
+- [requisito project-wide, valores exactos verbatim de la spec, una línea
+  cada uno; toda tarea los hereda]
 
----
+## Olas
+
+- Ola 1, en paralelo: T1, T2. [por qué son independientes]
+- Ola 2: T3 (wiring), consume T1-T2.
+
+## Review Focus
+
+- [≤5 inputs o fallos que la spec implica y nadie nombra: condición y
+  comportamiento esperado, más probable primero. Cada uno lleva su test en
+  la tarea dueña.]
 ```
 
-## Estructura de tarea
+Regla de olas: dos tareas comparten ola si sus `Files` son disjuntos y
+ninguna consume, directa o transitivamente, algo que produce la otra.
 
-````markdown
+## Tarea
+
+```markdown
 ### Task N: [Nombre del componente]
 
 **Files:**
-- Create: `path/exacto/al/fichero.py`
-- Modify: `path/exacto/al/existente.py:123-145`
-- Test: `tests/path/exacto/al/test.py`
+- Create: `path/exacto/nuevo.ext`
+- Modify: `path/exacto/existente.ext`
+- Test: `path/exacto/al/test.ext`
 
 **Interfaces:**
-- Consumes: [qué usa esta tarea de tareas anteriores — firmas exactas]
-- Produces: [qué usan tareas posteriores — nombres de función, tipos de
-  parámetro y retorno exactos. El implementer de una tarea solo ve su
-  tarea; este bloque es cómo aprende los nombres y tipos vecinos]
+- Consumes: `firma exacta` (de Task M)
+- Produces: `nombre(param: Tipo) -> Retorno`
 
-- [ ] **Step 1: Escribir el test que falla**
+**Tests:**
+- `nombre_del_test`: `entrada` da `salida exacta de la spec`. Falla si
+  [el fallo concreto que caza].
 
-```python
-def test_specific_behavior():
-    result = function(input)
-    assert result == expected
+**Notas:** [solo un algoritmo que firma y tests no determinan, o copy exacto
+que fija la spec. Si no hay, omite el campo.]
 ```
 
-- [ ] **Step 2: Correr el test y verificar que falla**
+## Formato parseable (lo lee `task-dag`)
 
-Run: `pytest tests/path/test.py::test_name -v`
-Expected: FAIL con "function not defined"
+- `**Files:**` e `**Interfaces:**` son líneas propias, con sub-bullets `- `.
+- Files: `Create|Modify|Test: <path>`, un path por bullet, entre backticks.
+- Interfaces: `Consumes|Produces: <firma>`, un bullet por firma.
+- El encabezado es `### Task N: <nombre>` con N entero; `task-brief` extrae
+  por él.
+- Un plan que no cumple esto no rompe nada: `orchestrate` cae a secuencial y
+  lo deja visible.
 
-- [ ] **Step 3: Implementación mínima**
+## Qué contiene una tarea (recordatorio)
 
-```python
-def function(input):
-    return expected
-```
-
-- [ ] **Step 4: Correr el test y verificar que pasa**
-
-Run: `pytest tests/path/test.py::test_name -v`
-Expected: PASS
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add tests/path/test.py src/path/file.py
-git commit -m "feat: add specific feature"
-```
-````
-
-## No-placeholders (lista literal)
-
-Cada paso debe contener el contenido real que el ingeniero necesita. Esto son
-**fallos de plan** — nunca los escribas:
-
-- "TBD", "TODO", "implement later", "fill in details"
-- "Add appropriate error handling" / "add validation" / "handle edge cases"
-- "Write tests for the above" (sin el código del test)
-- "Similar to Task N" (repite el código — el ingeniero puede leer las tareas
-  fuera de orden)
-- Pasos que describen qué hacer sin mostrar cómo (bloques de código
-  obligatorios en pasos de código)
-- Referencias a tipos, funciones o métodos no definidos en ninguna tarea
+- Test: nombre + aserción con valores de la spec; la aserción nombra el fallo
+  que caza.
+- Código: firma, fichero, valores. El executor escribe el cuerpo.
+- Tarea trivial: se pliega en la que la necesita. Diff esperado ≲ 400
+  líneas. Wiring: una tarea por ola.
