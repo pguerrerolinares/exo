@@ -30,9 +30,17 @@ desechables, código generado, ficheros de configuración.
   refactor ajeno, sin "mejoras" más allá del test — YAGNI.
 - **Verify GREEN (obligatorio)**: el test pasa, el resto sigue verde, output
   pristine (sin errores ni warnings). Si falla, se arregla el código, no el
-  test.
+  test. **Verde = la suite del proyecto entera** (el comando completo que
+  define el proyecto), no solo el fichero del test que acabas de escribir.
+  Un test nuevo verde con otra parte de la suite roja no es verde.
 - **REFACTOR**: solo en verde — quita duplicación, mejora nombres, extrae
   helpers. Sin añadir comportamiento.
+
+## Qué no testear
+
+One-liners, glue, constantes y texto (prosa, mensajes, config) no llevan test:
+solo ganan uno si validan, normalizan, derivan, imponen o causan side
+effects. Un test debe nombrar el fallo que caza (`anti-patterns.md`).
 
 ## Bug fix
 
@@ -51,8 +59,13 @@ No sabes testear ⇒ escribe la API deseada o pregunta. Test complicado ⇒
 diseño complicado, simplifica la interfaz. Todo requiere mock ⇒
 acoplamiento, inyecta dependencias.
 
-## Anti-patrones de testing
+## Escribir buenos tests
 
-Antes de añadir mocks o utilidades de test, lee `anti-patterns.md`: nunca
-testear comportamiento de mocks, nunca añadir métodos test-only a clases de
-producción, nunca mockear sin entender la dependencia.
+Antes de escribir un test, añadir mocks o utilidades de test, lee
+`anti-patterns.md` (port de writing-good-tests): el test nombra el fallo que
+caza, expectativas derivadas de forma independiente, sin change-detectors ni
+string-presence, mutation check al terminar; nunca testear comportamiento de
+mocks, métodos test-only en producción ni mockear sin entender la dependencia.
+
+Atribución: `anti-patterns.md` destila `writing-good-tests.md` de superpowers
+6.4.2 (MIT © 2025 Jesse Vincent).
