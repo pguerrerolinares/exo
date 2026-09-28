@@ -4,6 +4,9 @@
 > dos huecos de la Task 0 se congelan en el paso 2, antes de correr ningún
 > brazo. Las erratas van al verdict.
 >
+> **Erratas aprobadas (2026-09-29):** E1 (D3), E2 (§9) y E3 (D2) en
+> `evals/ablacion-k/erratas.md`. Mandan sobre el texto de abajo donde choquen.
+>
 > **Qué se ha observado al redactarlo (2026-09-23), y qué no.** Solo
 > recuentos: `~/.claude/reflex-log.jsonl` tiene 314 eventos
 > `recall-inject-emitted` repartidos en 80 `session_id` distintos, y hay 566
