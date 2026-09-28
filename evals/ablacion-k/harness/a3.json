@@ -1,0 +1,5 @@
+{"autoMemoryEnabled": false,
+ "hooks": {
+  "SessionStart": [{"hooks":[{"type":"command","command":"/home/paul/Documentos/proyectos/exo/plugins/exo/scripts/exo-recall.sh"}]}],
+  "UserPromptSubmit": [{"hooks":[{"type":"command","command":"/home/paul/Documentos/proyectos/exo/plugins/exo/scripts/recall-inject.sh"}]}]
+ }}

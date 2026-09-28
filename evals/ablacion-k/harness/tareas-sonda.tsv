@@ -1,0 +1,3 @@
+p1	¿Qué valor por defecto usa `exo search` para `--type` y dónde se fija en el código? Responde con la ruta y la línea.
+p2	En `engine/`, añade un test unitario que cubra el caso de una query vacía en la función que normaliza queries de búsqueda (si existe). No compiles todo el workspace; basta con que el test compile y pase con `cargo test` filtrado a ese test. Commitea el cambio en una rama nueva.
+p3	Actualiza el README para que la sección «Idioma» mencione en una frase que el eval de retrieval held-out es de la campaña C. Commitea en una rama nueva.
