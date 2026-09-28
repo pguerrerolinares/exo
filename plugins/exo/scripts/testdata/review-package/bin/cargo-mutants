@@ -20,6 +20,13 @@ if [ "${STUB_MODE:-}" = garbage ]; then
   echo "esto no es json" > "$out/mutants.out/outcomes.json"
   exit 0
 fi
+if [ "${STUB_MODE:-}" = baselinefail ]; then
+  # Como el real (verificado): baseline rojo => 0 mutantes, outcomes[0] = Failure.
+  cat > "$out/mutants.out/outcomes.json" <<'J'
+{"outcomes":[{"scenario":"Baseline","summary":"Failure"}],"total_mutants":0,"caught":0,"missed":0,"timeout":0,"unviable":0,"success":0}
+J
+  exit 4
+fi
 cat > "$out/mutants.out/outcomes.json" <<'J'
 {"total_mutants":10,"caught":8,"missed":2,"timeout":0,"unviable":0,"success":0}
 J

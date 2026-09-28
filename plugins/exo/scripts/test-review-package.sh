@@ -129,11 +129,58 @@ esperado=$(
 previo=$(sed '/^## MUTACIÓN$/,$d' "$TMP/out.diff")
 if [ "$(printf '%s' "$previo")" = "$(printf '%s' "$esperado")" ]; then pass regresion_package; else fail regresion_package "las secciones previas cambiaron"; fi
 
-# ---- arbol_sucio
+# ---- arbol_sucio_no_bloquea: se muta un worktree temporal; el árbol del usuario ni se mira ni se toca
 mkrepo sucio Cargo.toml src/lib.rs; r=$REPO
 echo sucio >> "$r/src/lib.rs"
 corre "$r" "$(stubs_para sucio cargo-mutants)"
-if contains "$OUT" "MUTACIÓN: no disponible (árbol sucio)" && [ ! -s "$LOG" ]; then pass arbol_sucio; else fail arbol_sucio "$(seccion)"; fi
+if contains "$OUT" "MUTACIÓN: 8/10" && not_contains "$OUT" "árbol sucio" \
+   && [ "$(tail -n 1 "$r/src/lib.rs")" = sucio ] && [ "$(git -C "$r" status --porcelain)" = " M src/lib.rs" ] \
+   && [ "$(grep -c '^+++ b/src/lib.rs' "$LOG")" = 1 ] && not_contains "$(cat "$LOG")" "cwd=$r"; then pass arbol_sucio_no_bloquea; else fail arbol_sucio_no_bloquea "$(seccion) log=$(cat "$LOG")"; fi
+
+# ---- mutacion_no_ensucia_arbol (C1): mutmut 2.x muta en sitio y se cuelga hasta el timeout
+mkrepo nodirty setup.py src/m.py; r=$REPO
+corre "$r" "$(stubs_para nodirty mutmut)" STUB_MUTMUT=2 STUB_MODE=dirty EXO_MUTATION_TIMEOUT=1
+if pgrep -f "sleep 31338" >/dev/null 2>&1; then pkill -f "sleep 31338" 2>/dev/null; fi
+if contains "$OUT" "MUTACIÓN: parcial (timeout 1s)" && [ -z "$(git -C "$r" status --porcelain)" ] \
+   && [ "$(git -C "$r" worktree list | wc -l | tr -d ' ')" = 1 ] && [ -z "$(ls "$r/.git/worktrees" 2>/dev/null)" ]; then
+  pass mutacion_no_ensucia_arbol
+else fail mutacion_no_ensucia_arbol "status=[$(git -C "$r" status --porcelain)] wt=$(git -C "$r" worktree list) $(seccion)"; fi
+
+# ---- head_no_actual (I3): BASE..HEAD~1 sí muta, parcheando lo de HEAD~1
+mkrepo headprev Cargo.toml src/lib.rs; r=$REPO
+echo "otro cambio" > "$r/src/otro.rs"; git -C "$r" add src/otro.rs; git -C "$r" commit -qm extra
+HEAD=$(git -C "$r" rev-parse HEAD~1)
+corre "$r" "$(stubs_para headprev cargo-mutants)"
+if contains "$OUT" "MUTACIÓN: 8/10" && not_contains "$OUT" "HEAD no es el worktree" \
+   && contains "$(cat "$LOG")" "+++ b/src/lib.rs" && not_contains "$(cat "$LOG")" "otro.rs"; then pass head_no_actual; else fail head_no_actual "$(seccion) log=$(cat "$LOG")"; fi
+
+# ---- worktree_falla: si `git worktree add` falla => no disponible (<motivo>), sin mutar
+mkrepo wtfalla Cargo.toml src/lib.rs; r=$REPO
+p=$(stubs_para wtfalla cargo-mutants); real_git=$(command -v git)
+rm -f "$p/git"
+printf '#!/bin/sh\ncase " $* " in *" worktree add "*) echo "fatal: simulado" >&2; exit 128 ;; esac\nexec %s "$@"\n' "$real_git" > "$p/git"; chmod +x "$p/git"
+corre "$r" "$p"
+if contains "$OUT" "MUTACIÓN: no disponible (worktree:" && contains "$OUT" "simulado" && [ ! -s "$LOG" ]; then pass worktree_falla; else fail worktree_falla "$(seccion) log=$(cat "$LOG")"; fi
+
+# ---- workspace_cargo (I1): el patch va relativo a la RAÍZ del workspace, no al crate miembro
+mkrepo ws "" crates/a/Cargo.toml crates/a/src/lib.rs; r=$REPO
+printf '[workspace]\nmembers = ["crates/a"]\n' > "$r/Cargo.toml"
+git -C "$r" add Cargo.toml; git -C "$r" commit -qm ws
+HEAD=$(git -C "$r" rev-parse HEAD)
+corre "$r" "$(stubs_para ws cargo-mutants cargo)"
+a=$(cat "$LOG")
+if contains "$OUT" "MUTACIÓN [crates/a]: 8/10" && contains "$a" "+++ b/crates/a/src/lib.rs" \
+   && grep -q '^cwd=.*/crates/a$' <<<"$a" && not_contains "$a" "+++ b/src/lib.rs"; then pass workspace_cargo; else fail workspace_cargo "$(seccion) log=$a"; fi
+
+# ---- baseline_falla (M4): baseline rojo => parcial (baseline falló), no "0 mutantes"
+mkrepo bl Cargo.toml src/lib.rs; r=$REPO
+corre "$r" "$(stubs_para bl cargo-mutants)" STUB_MODE=baselinefail
+if contains "$OUT" "MUTACIÓN: parcial (baseline falló)" && not_contains "$OUT" "0 mutantes"; then pass baseline_falla; else fail baseline_falla "$(seccion)"; fi
+
+# ---- timeout_invalido (M5): aviso visible en la sección y se usa 600
+mkrepo tinv Cargo.toml src/lib.rs; r=$REPO
+corre "$r" "$(stubs_para tinv cargo-mutants)" EXO_MUTATION_TIMEOUT=abc
+if contains "$OUT" "MUTACIÓN: 8/10" && contains "$(seccion)" "EXO_MUTATION_TIMEOUT inválido" && contains "$(seccion)" "600"; then pass timeout_invalido; else fail timeout_invalido "$(seccion)"; fi
 
 # ---- salida_no_reconocida
 mkrepo garb Cargo.toml src/lib.rs; r=$REPO
@@ -168,7 +215,7 @@ mkrepo mono1 engine/Cargo.toml engine/src/lib.rs; r=$REPO
 corre "$r" "$(stubs_para mono1 cargo-mutants)"
 a=$(cat "$LOG")
 if contains "$OUT" "MUTACIÓN [engine]: 8/10" && contains "$(seccion)" "MUTACIÓN: 8/10" \
-   && contains "$a" "cwd=$r/engine" && contains "$a" "+++ b/src/lib.rs" && not_contains "$a" "engine/src"; then pass monorepo_subdir; else fail monorepo_subdir "$(seccion) log=$a"; fi
+   && grep -q '^cwd=.*/engine$' <<<"$a" && not_contains "$a" "cwd=$r" && contains "$a" "+++ b/src/lib.rs" && not_contains "$a" "engine/src"; then pass monorepo_subdir; else fail monorepo_subdir "$(seccion) log=$a"; fi
 
 # ---- monorepo_dos_proyectos: rust en engine/ + js en web/, una línea por proyecto y agregado
 mkrepo mono2 engine/Cargo.toml engine/src/lib.rs web/src/a.js web/src/a.test.js; r=$REPO
@@ -179,7 +226,7 @@ corre "$r" "$(stubs_para mono2 cargo-mutants npx)"
 a=$(cat "$LOG"); s=$(seccion)
 primera=$(sed -n '2p' <<<"$s")
 if contains "$primera" "MUTACIÓN: 11/14" && contains "$s" "MUTACIÓN [engine]: 8/10" && contains "$s" "MUTACIÓN [web]: 3/4" \
-   && contains "$a" "cwd=$r/engine" && contains "$a" "cwd=$r/web" && contains "$a" "--mutate src/a.js"; then pass monorepo_dos_proyectos; else fail monorepo_dos_proyectos "$s log=$a"; fi
+   && grep -q '^cwd=.*/engine$' <<<"$a" && grep -q '^cwd=.*/web$' <<<"$a" && not_contains "$a" "cwd=$r" && contains "$a" "--mutate src/a.js"; then pass monorepo_dos_proyectos; else fail monorepo_dos_proyectos "$s log=$a"; fi
 
 printf '\n%d pass, %d fail\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

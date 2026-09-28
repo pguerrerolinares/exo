@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Stub de mutmut. STUB_MUTMUT=2 simula 2.x (sin --version; `run --help` anuncia
 # --paths-to-mutate); otro valor simula 3.x (`--version` -> "mutmut, version 3.8.0").
+# STUB_MODE=dirty: como mutmut 2.x, muta EN SITIO (añade una línea a cada fichero
+# de --paths-to-mutate y deja un .bak) y luego se cuelga hasta que lo maten.
 { printf 'cwd=%s\n' "$PWD"; printf 'argv=%s\n' "$*"; } >> "${STUB_LOG:?}"
 if [ "${1:-}" = --version ]; then
   if [ "${STUB_MUTMUT:-3}" = 2 ]; then
@@ -11,6 +13,17 @@ fi
 if [ "${1:-}" = run ] && [ "${2:-}" = --help ]; then
   [ "${STUB_MUTMUT:-3}" = 2 ] && echo "  --paths-to-mutate TEXT"
   exit 0
+fi
+if [ "${STUB_MODE:-}" = dirty ]; then
+  prev=""
+  for a in "$@"; do
+    if [ "$prev" = --paths-to-mutate ]; then
+      IFS=, read -ra fs <<< "$a"
+      for f in "${fs[@]}"; do cp "$f" "$f.bak"; echo "MUTADO" >> "$f"; done
+    fi
+    prev=$a
+  done
+  sleep 31338
 fi
 [ -n "${STUB_SLEEP:-}" ] && sleep "$STUB_SLEEP"
 echo "10/10  🎉 8  ⏰ 0  🤔 0  🙁 2  🔇 0"

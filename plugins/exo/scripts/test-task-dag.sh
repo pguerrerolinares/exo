@@ -53,6 +53,24 @@ check_seq files_sin_backticks files_sin_backticks "Files sin paths legibles"
 check_olas multi_path_bullet multi_path_bullet '[[1],[2]]'
 check_seq ids_duplicados ids_duplicados "duplicad"
 check_olas ruta_punto_barra ruta_punto_barra '[[1],[2]]'
+check_seq consumes_sin_task consumes_sin_task "Consumes"
+check_olas consumes_negrita consumes_negrita '[[1],[2]]'
+check_olas sufijo_linea sufijo_linea '[[1],[2]]'
+check_olas dir_prefijo dir_prefijo '[[1],[2]]'
+
+# I4: consumo hacia delante => orden topológico estable + aviso; ciclo/autoconsumo => error, olas vacías
+out=$("$DAG" "$FX/reordena_sin_ciclo.md" 2>/dev/null); rc=$?
+if [ "$rc" = 0 ] && [ "$(jq -c .olas <<<"$out")" = "[[2,3],[1]]" ] \
+   && jq -e '.avisos | any(. == "DAG: reordenado (Task 1 consume Task 2 posterior)")' <<<"$out" >/dev/null; then
+  pass reordena_sin_ciclo
+else fail reordena_sin_ciclo "rc=$rc salida: $out"; fi
+for c in ciclo_error autoconsumo_error; do
+  out=$("$DAG" "$FX/$c.md" 2>/dev/null); rc=$?
+  if [ "$rc" = 0 ] && [ "$(jq -c .olas <<<"$out")" = "[]" ] \
+     && jq -e '.avisos | any(startswith("DAG: error ("))' <<<"$out" >/dev/null; then
+    pass "$c"
+  else fail "$c" "rc=$rc salida: $out"; fi
+done
 
 # json_valido en todas las fixtures + plan sin tareas
 ok=1

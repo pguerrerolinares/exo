@@ -12,8 +12,11 @@
 #
 # Al final del package va la sección "## MUTACIÓN": mutation testing solo sobre
 # los ficheros de producción del diff (cargo-mutants / mutmut 2.x / stryker).
+# Se muta en un `git worktree add --detach` temporal de HEAD (nunca el árbol del
+# usuario: mutmut 2.x muta en sitio y con un timeout dejaría el código mutado).
 # Degrada siempre de forma visible y nunca bloquea (exit != 0 solo por uso).
-# Env: EXO_MUTATION=0 la desactiva; EXO_MUTATION_TIMEOUT=<s> (600 por defecto).
+# Env: EXO_MUTATION=0 la desactiva; EXO_MUTATION_TIMEOUT=<s> (600 por defecto;
+# un valor inválido avisa en la sección y usa 600).
 set -euo pipefail
 
 if [ $# -lt 2 ] || [ $# -gt 3 ]; then
@@ -38,8 +41,10 @@ fi
 # Mutación. Imprime las líneas de la sección (la primera es `MUTACIÓN: ...`).
 # Invocaciones verificadas contra los binarios reales (2026-09-29):
 #   cargo-mutants 27.1.0: cargo-mutants mutants --in-diff PATCH -o DIR
-#     (PATCH = git diff -U0 --relative del rango, solo ficheros de producción;
-#      DIR/mutants.out/{outcomes.json,missed.txt})
+#     (PATCH = git diff -U0 del rango, solo ficheros de producción, con paths
+#      relativos a la RAÍZ DEL WORKSPACE (cargo locate-project --workspace), no
+#      al crate miembro; DIR/mutants.out/{outcomes.json,missed.txt}. Baseline
+#      rojo: total_mutants 0 y outcomes[0] = {Baseline, Failure})
 #   mutmut 2.5.1: mutmut run --paths-to-mutate F1,F2 (no tiene --version).
 #     mutmut 3.8.0: `--version` -> "mutmut, version 3.x"; no acota por CLI
 #     (solo `only_mutate` en la config) -> no disponible, nunca mutar todo.
@@ -56,10 +61,28 @@ mut_tail() { # crudo: últimas ~20 líneas de los ficheros dados que existan
   echo '```'
 }
 
+# ¿existe DIR/NOMBRE en el commit HD? (se mira el commit, no el árbol del usuario)
+mut_existe() {
+  local p=$3; [ "$2" = "." ] || p="$2/$3"
+  git cat-file -e "$1:$p" 2>/dev/null
+}
+
+# Limpieza del worktree temporal (también desde el trap de EXIT/INT/TERM).
+MUT_ROOT=""; MUT_TMP=""; MUT_WT=""
+mut_limpia() {
+  if [ -n "$MUT_WT" ]; then
+    git -C "$MUT_ROOT" worktree remove --force "$MUT_WT" >/dev/null 2>&1 || rm -rf "$MUT_WT"
+    git -C "$MUT_ROOT" worktree prune >/dev/null 2>&1 || true
+  fi
+  [ -n "$MUT_TMP" ] && rm -rf "$MUT_TMP"
+  MUT_WT=""; MUT_TMP=""
+  return 0
+}
+
 # Manifest más cercano de FICHERO para el ecosistema de su extensión.
 # Imprime "<dir-relativo>|<eco>" ("." = raíz) o nada. Sube hasta la raíz del repo.
 mut_proyecto_de() {
-  local f=$1 root=$2 eco d
+  local f=$1 hd=$2 eco d
   case "$f" in
     *.rs) eco=rust ;;
     *.py) eco=python ;;
@@ -69,9 +92,9 @@ mut_proyecto_de() {
   d=$(dirname "$f")
   while :; do
     case "$eco" in
-      rust)   [ -f "$root/$d/Cargo.toml" ] && { echo "$d|$eco"; return 0; } ;;
-      python) { [ -f "$root/$d/pyproject.toml" ] || [ -f "$root/$d/setup.py" ]; } && { echo "$d|$eco"; return 0; } ;;
-      js)     [ -f "$root/$d/package.json" ] && { echo "$d|$eco"; return 0; } ;;
+      rust)   mut_existe "$hd" "$d" Cargo.toml && { echo "$d|$eco"; return 0; } ;;
+      python) { mut_existe "$hd" "$d" pyproject.toml || mut_existe "$hd" "$d" setup.py; } && { echo "$d|$eco"; return 0; } ;;
+      js)     mut_existe "$hd" "$d" package.json && { echo "$d|$eco"; return 0; } ;;
     esac
     [ "$d" = "." ] && return 0
     d=$(dirname "$d")
@@ -82,28 +105,36 @@ mut_proyecto_de() {
 # Salidas (globales): R_TEXT (texto tras `MUTACIÓN: `), R_DET/R_TOT (numéricos si hay score),
 # R_N (nº supervivientes), R_DETALLE (líneas extra: supervivientes o crudo).
 mut_uno() {
-  local root=$1 dir=$2 eco=$3 segs=$4 files=$5 pd tmp raw res="" rc=0 f det="" tot="" sup=""
+  mut_uno_ "$@"
+  mut_limpia
+  return 0
+}
+mut_uno_() {
+  local root=$1 dir=$2 eco=$3 segs=$4 files=$5 pd tmp raw res="" rc=0 f det="" tot="" sup="" ud sha wterr blfail=0
   R_TEXT=""; R_DET=""; R_TOT=""; R_N=0; R_DETALLE=""
-  pd="$root"; [ "$dir" != "." ] && pd="$root/$dir"
+  ud="$root"; [ "$dir" != "." ] && ud="$root/$dir"
 
   case "$eco" in
     rust)   command -v cargo-mutants >/dev/null 2>&1 || { R_TEXT="no disponible (cargo-mutants no instalado)"; return 0; } ;;
     python) command -v mutmut >/dev/null 2>&1 || { R_TEXT="no disponible (mutmut no instalado)"; return 0; } ;;
-    js)     { command -v npx >/dev/null 2>&1 && grep -q stryker "$pd/package.json"; } || { R_TEXT="no disponible (stryker no instalado)"; return 0; } ;;
+    js)     { command -v npx >/dev/null 2>&1 && git show "${head}:$([ "$dir" = . ] || printf '%s/' "$dir")package.json" 2>/dev/null | grep -q stryker; } || { R_TEXT="no disponible (stryker no instalado)"; return 0; } ;;
   esac
   if [ "$eco" != python ]; then
     command -v jq >/dev/null 2>&1 || { R_TEXT="no disponible (jq no instalado)"; return 0; }
   fi
 
-  # Se muta el worktree, que tiene que ser exactamente el HEAD y estar limpio.
-  if [ "$(git rev-parse "$head")" != "$(git rev-parse HEAD)" ]; then
-    R_TEXT="no disponible (HEAD no es el worktree)"; return 0
-  fi
-  if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
-    R_TEXT="no disponible (árbol sucio)"; return 0
-  fi
-
+  # Se muta un worktree temporal de HEAD: el árbol del usuario (sucio o no, en
+  # otro commit o no) ni se mira ni se toca.
   tmp=$(mktemp -d) || { R_TEXT="no disponible (sin directorio temporal)"; return 0; }
+  MUT_TMP=$tmp; MUT_ROOT=$root
+  sha=$(git rev-parse "$head")
+  if ! wterr=$(git -C "$root" worktree add --detach "$tmp/wt" "$sha" 2>&1); then
+    R_TEXT="no disponible (worktree: $(printf '%s' "$wterr" | tail -n 1))"; return 0
+  fi
+  MUT_WT="$tmp/wt"
+  pd="$MUT_WT"; [ "$dir" != "." ] && pd="$MUT_WT/$dir"
+  # stryker necesita las dependencias instaladas: se enlazan las del usuario.
+  [ "$eco" = js ] && [ -d "$ud/node_modules" ] && [ ! -e "$pd/node_modules" ] && ln -s "$ud/node_modules" "$pd/node_modules"
   raw="$tmp/raw.txt"
   local -a rel=()
   while IFS= read -r f; do
@@ -114,7 +145,12 @@ mut_uno() {
   case "$eco" in
     rust)
       # --in-diff acota a las líneas cambiadas (el score no se diluye con código intacto).
-      git -C "$pd" diff -U0 --relative "${base}..${head}" -- "${rel[@]}" > "$tmp/patch.diff" 2>/dev/null
+      # Paths relativos a la RAÍZ DEL WORKSPACE (no al crate): así cargo-mutants los
+      # casa en un workspace con miembros.
+      local wsroot; local -a ps=()
+      wsroot=$( cd "$pd" && cargo locate-project --workspace --message-format plain 2>/dev/null ) && wsroot=$(dirname "$wsroot") || wsroot=$pd
+      while IFS= read -r f; do [ -n "$f" ] && ps+=(":(top)$f"); done <<< "$files"
+      git -C "$wsroot" diff -U0 --relative "${base}..${head}" -- "${ps[@]}" > "$tmp/patch.diff" 2>/dev/null || true
       ( cd "$pd" && con_timeout "$segs" cargo-mutants mutants --in-diff "$tmp/patch.diff" -o "$tmp" ) > "$raw" 2>&1 || rc=$?
       res="$tmp/mutants.out/outcomes.json"
       ;;
@@ -124,10 +160,10 @@ mut_uno() {
       local ver lista
       ver=$( ( cd "$pd" && con_timeout 30 mutmut --version ) 2>&1 | head -n 5 )
       case "$ver" in
-        *"version 3."*) rm -rf "$tmp"; R_TEXT="no disponible (mutmut 3.x no admite acotar por CLI)"; return 0 ;;
+        *"version 3."*) R_TEXT="no disponible (mutmut 3.x no admite acotar por CLI)"; return 0 ;;
       esac
       if ! ( cd "$pd" && con_timeout 30 mutmut run --help ) 2>&1 | grep -q -- '--paths-to-mutate'; then
-        rm -rf "$tmp"; R_TEXT="no disponible (mutmut 3.x no admite acotar por CLI)"; return 0
+        R_TEXT="no disponible (mutmut 3.x no admite acotar por CLI)"; return 0
       fi
       lista=$(printf '%s,' "${rel[@]}"); lista=${lista%,}
       ( cd "$pd" && con_timeout "$segs" mutmut run --paths-to-mutate "$lista" ) > "$raw" 2>&1 || rc=$?
@@ -137,19 +173,19 @@ mut_uno() {
       local lista
       lista=$(printf '%s,' "${rel[@]}"); lista=${lista%,}
       res="$pd/reports/mutation/mutation.json"
-      rm -f "$res"
       ( cd "$pd" && con_timeout "$segs" npx --no-install stryker run --mutate "$lista" --reporters json ) > "$raw" 2>&1 || rc=$?
       ;;
   esac
 
   if [ "$rc" = 124 ]; then
-    [ "$eco" = js ] && rm -f "$res"
-    rm -rf "$tmp"; R_TEXT="parcial (timeout ${segs}s)"; return 0
+    R_TEXT="parcial (timeout ${segs}s)"; return 0
   fi
 
   case "$eco" in
     rust)
-      if [ -f "$res" ] && jq -e '[.caught,.missed] | all(type == "number")' "$res" >/dev/null 2>&1; then
+      if [ -f "$res" ] && jq -e '(.outcomes[0].scenario == "Baseline") and (.outcomes[0].summary == "Failure")' "$res" >/dev/null 2>&1; then
+        blfail=1
+      elif [ -f "$res" ] && jq -e '[.caught,.missed] | all(type == "number")' "$res" >/dev/null 2>&1; then
         det=$(jq -r '(.caught) + (.timeout // 0)' "$res")
         tot=$(jq -r '(.caught) + (.timeout // 0) + (.missed)' "$res")
         sup=$(cat "$tmp/mutants.out/missed.txt" 2>/dev/null)
@@ -164,7 +200,8 @@ mut_uno() {
         s=$(printf '%s' "$l" | sed -nE 's|.*🙁 *([0-9]+).*|\1|p')
         if [ -n "$tot" ] && [ -n "$k" ] && [ -n "$t" ] && [ -n "$s" ]; then
           det=$((k + t))
-          [ "$s" -gt 0 ] && sup="$s superviviente(s): ver \`mutmut results\`"
+          # el worktree se borra al acabar: el detalle hay que leerlo ahora
+          [ "$s" -gt 0 ] && sup="$s superviviente(s) (mutmut results):"$'\n'"$( ( cd "$pd" && con_timeout 30 mutmut results ) 2>&1 | head -n 20 )"
         else tot=""; fi
       fi ;;
     js)
@@ -175,11 +212,15 @@ mut_uno() {
       fi ;;
   esac
 
+  if [ "$blfail" = 1 ]; then
+    R_TEXT="parcial (baseline falló)"
+    R_DETALLE=$(mut_tail "$raw")
+    return 0
+  fi
   if [ -z "$tot" ] || [ -z "$det" ]; then
     R_TEXT="parcial (salida no reconocida)"
     R_DETALLE=$(mut_tail "$res" "$raw")
-    [ "$eco" = js ] && rm -f "$res"
-    rm -rf "$tmp"; return 0
+    return 0
   fi
 
   if [ "$eco" = python ]; then
@@ -196,8 +237,6 @@ mut_uno() {
       R_DETALLE="Supervivientes:"$'\n'"$(printf '%s\n' "$sup" | head -n 30 | sed 's/^/- /')"
     fi
   fi
-  [ "$eco" = js ] && rm -f "$res"
-  rm -rf "$tmp"
   return 0
 }
 
@@ -207,7 +246,8 @@ mutacion() {
     echo "MUTACIÓN: no disponible (desactivada)"; return 0
   fi
   segs=${EXO_MUTATION_TIMEOUT:-600}
-  case "$segs" in ''|*[!0-9]*|0) segs=600 ;; esac
+  MUT_AVISO=""
+  case "$segs" in ''|*[!0-9]*|0) MUT_AVISO="EXO_MUTATION_TIMEOUT inválido ('${EXO_MUTATION_TIMEOUT}'); se usa 600"; segs=600 ;; esac
   root=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "MUTACIÓN: no disponible (fuera de un repo)"; return 0; }
   type con_timeout >/dev/null 2>&1 || { echo "MUTACIÓN: no disponible (sin _timeout.sh)"; return 0; }
 
@@ -220,9 +260,8 @@ mutacion() {
       *) continue ;;
     esac
     printf '%s\n' "$f" | grep -Eq '(^|/)(tests?|__tests__|testdata|fixtures)/|(^|/)test_[^/]*$|_tests?\.[^/]*$|\.(test|spec)\.[^/]*$|(^|/)(conftest\.py|tests\.rs)$' && continue
-    [ -f "$root/$f" ] || continue
     cand=$((cand + 1))
-    pr=$(mut_proyecto_de "$f" "$root")
+    pr=$(mut_proyecto_de "$f" "$head")
     [ -n "$pr" ] || continue
     case "
 $keys
@@ -239,7 +278,7 @@ $pr" ;;
   keys=${keys#$'\n'}
 
   if [ "$cand" -eq 0 ]; then
-    any_manifest=$(git ls-files -- '*Cargo.toml' '*pyproject.toml' '*setup.py' '*package.json' | head -n 1)
+    any_manifest=$(git ls-tree -r --name-only "$head" | grep -E '(^|/)(Cargo\.toml|pyproject\.toml|setup\.py|package\.json)$' | head -n 1 || true)
     if [ -z "$any_manifest" ]; then
       echo "MUTACIÓN: no disponible (sin herramienta para este repo)"
     else
@@ -294,6 +333,10 @@ _ts="$(cd "$(dirname "$0")" && pwd)/../../../scripts/_timeout.sh"
 # shellcheck source=/dev/null
 [ -f "$_ts" ] && . "$_ts"
 
+trap mut_limpia EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
+
 {
   echo "# Review package: ${base}..${head}"
   echo
@@ -308,6 +351,7 @@ _ts="$(cd "$(dirname "$0")" && pwd)/../../../scripts/_timeout.sh"
   echo
   echo "## MUTACIÓN"
   mutacion "$head" || echo "MUTACIÓN: no disponible (error interno)"
+  if [ -n "${MUT_AVISO:-}" ]; then echo "MUTACIÓN aviso: ${MUT_AVISO}"; fi
 } > "$out"
 
 commits=$(git rev-list --count "${base}..${head}")
