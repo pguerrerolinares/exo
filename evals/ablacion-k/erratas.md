@@ -54,3 +54,41 @@ Sustituye las tandas «si el ritmo es sostenible» y el freno de
   límite de consumo). **Una corrida cortada cuenta como fallo, en cualquier
   brazo**, y la tasa de cortes por brazo se reporta.
 - Se mantiene el tope de etapa: 240M tokens de entrada.
+
+## E4 — §5/§7: el pool de S1 sale solo de la fuente 2, ampliada
+
+Aprobada por Paul el 2026-09-29, cuando saltó el circuit breaker de §7 en la
+Task 2 y antes de extraer ninguna regla ni redactar ninguna tarea.
+
+**Problema.** La fuente 1 (correcciones en transcripts) está casi vacía. Los
+transcripts solo se conservan desde el 2026-09-12, por la limpieza por
+defecto de Claude Code: hay 484 prompts reales, 6 coincidencias con los
+patrones (5 de ellas «otra vez») y 0 citas de un learning por título. Y
+`learnings/` solo tiene 14 notas, así que no llega a 40.
+
+**Errata.**
+
+1. **Fuentes de S1:** las notas de `wisdom-paul` con `tier: core` o
+   `tier: stable`, excluyendo `backlog/` (estado, no reglas), `research/`
+   (análisis) y `archive/`. Son 47 notas (449.369 B) en el commit de la KB
+   `389a0da`. Lista en el directorio privado del pool.
+2. **Extracción:** agentes frescos (sonnet) listan las reglas accionables de
+   cada nota con un criterio fijo (brief en `evals/ablacion-k/pool/`). No
+   eligen ni redactan tareas.
+3. **Muestreo:** las reglas se ordenan con la semilla `20260923`. Se toman
+   en ese orden, saltando las vetadas (veto de Paul con motivo registrado),
+   hasta 40. Si no llega, se para y se escala otra vez.
+4. **Redacción:** otro agente fresco convierte cada regla en una tarea
+   natural cuyo camino por defecto la viola, más su check. El prompt de la
+   tarea no puede mencionar la regla.
+5. **Snapshot de KB:** el commit de `wisdom-paul` inmediatamente anterior a
+   la congelación del gold (paso 2 de §12), igual para todas las tareas
+   sintéticas.
+6. **Amenaza que cambia de forma (§8):** el sesgo a favor de exo ya no viene
+   de «correcciones reales», sino de tareas construidas para que la regla
+   importe. S1 mide si el agente sigue una regla que está en la KB en una
+   situación diseñada para ello. El verdict lo reporta así.
+
+**Complemento (opción b):** `cleanupPeriodDays: 365` en
+`~/.claude/settings.json` desde el 2026-09-29, para que una réplica futura
+pueda usar la fuente 1 real.
