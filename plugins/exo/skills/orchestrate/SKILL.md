@@ -29,7 +29,7 @@ instrucción incomprensible ⇒ PARA y pregunta, no adivines.
 Una tarea por dispatch: encaje + brief (fuente de verdad) + interfaces
 previas + tu resolución de ambigüedad. Handoffs como FICHEROS
 (`implementer-prompt.md`, `scripts/{task-brief,review-package,
-sdd-workspace}`), nunca pegados. Memory packet: 3-5 permalinks + "lee solo
+sdd-workspace,task-dag}`), nunca pegados. Memory packet: 3-5 permalinks + "lee solo
 si hace falta"; sin KB ⇒ aviso visible, nunca bloquear. Brief completeness:
 delta de tácitos + blindspot pass barato si no es trivial. Delegate by
 default. `model` explícito SIEMPRE (salvo rol fijo):
@@ -47,7 +47,7 @@ Reviewer (`reviewer-prompt.md`): constraints verbatim, sin directivas
 open-ended, sin re-pedir tests ya corridos, nunca pre-juzgar findings, BASE
 registrado antes del dispatch (nunca `HEAD~1`). Dos verdictos + pase de
 over-engineering por tarea; final con `MERGE_BASE`. Los ⚠️ "cannot verify" los resuelve el orquestador. Sin sección
-`MUTACIÓN:` ⇒ línea `MUTACIÓN: no disponible (review-package sin mutación)`
+`MUTACIÓN:` o `no disponible` ⇒ línea `MUTACIÓN: no disponible (<motivo>)`
 en el ledger; no bloquees ni corras mutación a mano. Fix
 subagents para Critical/Important; Minor al ledger, triaje en el final.
 Plan-mandated o conflicto con el plan ⇒ decide el humano; doc/comment
@@ -56,9 +56,9 @@ UN fix subagent con la lista completa. `Ruling:` = finding obligatorio; el orque
 
 ## Olas
 
-Regla y mecánica: `olas.md`. Ola de ≥2 ⇒ un worktree por tarea, todos los
-dispatches en un mensaje; cierre de ola en `olas.md`.
-Ambiguo ⇒ secuencial, `DAG: secuencial (<motivo>)` en el ledger. No paralelices ante fallos relacionados,
+Calcula con `scripts/task-dag PLAN` (a mano solo si falla); `avisos` ⇒
+ledger. Ola de ≥2 ⇒ un worktree por tarea, todos los dispatches en un
+mensaje; resto en `olas.md`. Ambiguo ⇒ secuencial. No paralelices ante fallos relacionados,
 estado completo necesario, debugging exploratorio ni estado compartido
 (salvo modo mismo-worktree con `Files` disjuntos).
 

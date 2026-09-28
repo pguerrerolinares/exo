@@ -5,10 +5,12 @@ consume, directa o transitivamente, algo que produce la otra (`Interfaces`).
 
 ## Calcular
 
-- Con `scripts/task-dag PLAN` (plan 2), si existe: stdout JSON `olas` + `avisos`.
-- Sin script, lo calculas tú a mano con la misma regla, leyendo `Files` e
-  `Interfaces` de cada tarea. Ambiguo o no parseable ⇒ una tarea por ola, en
-  orden, y una línea `DAG: secuencial (<motivo>)` en el ledger.
+- `scripts/task-dag PLAN` imprime `{"olas": [[ids]…], "avisos": [...]}`. Cada
+  aviso (`DAG: secuencial (<motivo>)`: formato antiguo, Files ilegibles,
+  consumo hacia delante o autoconsumo) se copia tal cual al ledger.
+- Solo si el script falla: a mano con la misma regla, leyendo `Files` e
+  `Interfaces`. Ambiguo o no parseable ⇒ una tarea por ola, en orden, y
+  `DAG: secuencial (<motivo>)` en el ledger.
 
 ## Ejecutar una ola
 
@@ -45,6 +47,13 @@ consume, directa o transitivamente, algo que produce la otra (`Interfaces`).
 4. Solo hallazgos tardíos: Critical/Important de una tarea ya mergeada ⇒
    fix dispatch antes de abrir la siguiente ola.
 5. Ola nueva solo con la anterior mergeada y en verde.
+
+## Mutación (review-package)
+
+`EXO_MUTATION=0` la desactiva; `EXO_MUTATION_TIMEOUT` fija el timeout en
+segundos (por defecto 600). En monorepo hay además una línea
+`MUTACIÓN [<dir>]: …` por proyecto. Cargo muta solo las líneas del diff;
+`mutmut` 3.x siempre da `no disponible` (no acota por CLI).
 
 ## Ruling
 

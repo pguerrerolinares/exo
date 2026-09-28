@@ -24,7 +24,7 @@ y la nota *"Cerebro portable + capa de reflejos — design spec"* (proyecto
 |---|---|
 | brainstorm | Explora intención, requisitos y diseño en diálogo antes de implementar; termina en spec escrita y aprobada. |
 | plan | De spec/requisitos a plan de tareas bite-sized con paths, código y comandos exactos para un ejecutor sin contexto. |
-| orchestrate | Ejecuta planes multi-tarea: despacha un ejecutor fresco por tarea, review en dos etapas por tarea y review final whole-branch. |
+| orchestrate | Ejecuta planes multi-tarea: despacha un ejecutor fresco por tarea, review en dos etapas por tarea y review final whole-branch. | Scripts propios: `task-dag` (olas desde Files/Interfaces) y `review-package` con mutación sobre el diff.
 | tdd | Test primero, verlo fallar por la razón esperada, código mínimo, verde, refactor. |
 | debug | Dos puertas: bug/test que falla, o atasco (mismo error ≥3 veces, terreno desconocido). Root cause y recon antes de computar. |
 | verify | Evidencia fresca del comando antes de cualquier claim de "completo" o "arreglado" — antes de commitear o aceptar el trabajo de un subagente. |
