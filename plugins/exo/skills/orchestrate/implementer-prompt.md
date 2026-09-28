@@ -31,12 +31,21 @@ Subagent (exo:executor):
     ## Tu trabajo
 
     Una vez claro:
-    1. Implementa exactamente lo que pide la tarea.
+    1. Implementa lo que pide la tarea. El brief es un contrato (Files,
+       Interfaces, Tests, Review Focus, Notas): **tú escribes el cuerpo**
+       de los tests y del código, con las firmas y aserciones del brief.
     2. Escribe tests (TDD si el brief lo pide).
     3. Verifica que funciona.
-    4. Commitea.
+    4. Commitea — salvo que [COMMIT_POLICY] diga que no (ola en el mismo
+       worktree: no commitees, el orquestador commitea por tarea).
     5. Self-review (ver abajo).
     6. Reporta.
+
+    Si te desvías del contrato (una firma, una aserción, incluso un test
+    del plan) porque es lo correcto, no lo hagas en silencio: escribe en
+    el ledger `.superpowers/sdd/progress.md` una línea
+    `Ruling: T<n> — <qué cambia> — <por qué>` y repítela en tu report. El
+    reviewer la trata como finding obligatorio.
 
     Trabaja desde: [directorio]
 
@@ -89,7 +98,8 @@ Subagent (exo:executor):
     Reporta luego SOLO (menos de 15 líneas — el detalle vive en el report
     file):
     - **Status:** DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
-    - Commits creados (SHA corto + subject)
+    - Commits creados (SHA corto + subject), o "sin commit (política)"
+    - Rulings, si los hay
     - Resumen de test en una línea (p.ej. "14/14 passing, output pristine")
     - Tus concerns, si los hay
     - El path del report file
@@ -108,7 +118,10 @@ Subagent (exo:executor):
   path (el mismo fichero que luego lee el reviewer).
 - `[REPORT_FILE]` — REQUIRED: nombrado tras el brief (`task-N-brief.md` →
   `task-N-report.md`).
-- `[directorio]` — working directory de la tarea.
+- `[directorio]` — working directory de la tarea (en una ola de ≥2 con
+  worktrees, el worktree de esa tarea).
+- `[COMMIT_POLICY]` — `commitea` (por defecto; también en worktree propio)
+  o `no commitees` (ola en el mismo worktree; ver `olas.md`).
 - `[Encaje]` — una línea de dónde vive esta tarea + interfaces y
   decisiones de tareas anteriores que el brief no puede conocer + tu
   resolución de cualquier ambigüedad que notaste en el brief.

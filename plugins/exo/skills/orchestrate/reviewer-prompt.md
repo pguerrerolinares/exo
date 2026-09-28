@@ -34,7 +34,10 @@ Antes de llenar los placeholders de abajo:
 - **Package con el BASE registrado ANTES del dispatch del implementer —
   nunca `HEAD~1`** (trunca tareas multi-commit). Genera el package con
   `scripts/review-package BASE HEAD` y pasa el path que imprime como
-  `[DIFF_FILE]`.
+  `[DIFF_FILE]`. El package trae la sección `MUTACIÓN:` (valores
+  `<score> + supervivientes` | `no disponible (<motivo>)` | `parcial
+  (<motivo>)`); mientras `review-package` no la genere, el reviewer la
+  trata como "cannot verify".
 - **Review final whole-branch:** mismo template, pero `[BASE_SHA]` =
   `MERGE_BASE` (`git merge-base main HEAD`) para que el reviewer final lea
   un fichero en vez de re-derivar el diff de la rama con git, y `model` =
@@ -116,6 +119,14 @@ Subagent (general-purpose):
     código sin cambios o cruza tareas), repórtalo como ⚠️ en vez de
     ampliar tu búsqueda.
 
+    **Comportamientos que la spec no menciona:** juzga con el "reasonable
+    user" — ¿lo que hace el código es lo que un usuario razonable
+    esperaría? Si no, finding; si sí, no lo marques como Extra.
+
+    **Rulings:** cada línea `Ruling: T<n> — …` del ledger o del report es
+    un finding obligatorio: repórtala, di si el motivo se sostiene y, si
+    cambia una interfaz, qué tareas posteriores la consumen.
+
     ## Parte 2: Code Quality
 
     **Calidad de código:** ¿separación de concerns limpia? ¿error handling
@@ -123,6 +134,29 @@ Subagent (general-purpose):
 
     **Tests:** ¿los tests nuevos y cambiados verifican comportamiento
     real, no mocks? ¿cubren los edge cases de la tarea?
+
+    **Mutación:** lee la sección `MUTACIÓN:` del diff file. Si trae
+    `<score> + supervivientes`, cada superviviente en código de la tarea es
+    un test débil: finding (Important si el mutante cambia comportamiento
+    de la spec). Si dice `no disponible (<motivo>)` o `parcial (<motivo>)`,
+    o la sección no existe, repórtalo como ⚠️ "cannot verify: mutación" —
+    nunca como ✅.
+
+    **Comentarios:** la proporción de líneas de comentario del diff no
+    supera la del fichero que toca, y cada comentario contiene un porqué
+    (no repite el código). Si no, finding Minor.
+
+    ## Parte 3: Over-engineering (pase aparte)
+
+    Segundo pase, separado del de corrección: aquí no juzgas si funciona,
+    sino cuánto sobra. Una línea por hallazgo, con file:line y un tag:
+    `delete` (código o rama muerta/no pedida), `stdlib` (reimplementa lo
+    que ya da la librería estándar), `native` (reimplementa lo que ya da el
+    framework o la plataforma), `yagni` (abstracción, opción o extensión
+    sin uso actual), `shrink` (misma conducta en menos líneas, sin perder
+    claridad). Cierra con `net: -N lines possible`. Sin hallazgos: `net: 0
+    lines possible`. Un hallazgo de este pase es Minor salvo que dañe la
+    mantenibilidad como define la Calibración.
 
     **Estructura:** ¿cada fichero tiene una responsabilidad clara con
     interfaz bien definida? ¿las unidades están descompuestas para
@@ -167,6 +201,11 @@ Subagent (general-purpose):
     - ⚠️ Cannot verify from diff: [requirements que no pudiste verificar
       solo con el diff, y qué debería chequear el controller — repórtalo
       junto al veredicto ✅/❌ de todo lo que sí pudiste verificar]
+
+    ### Over-engineering
+
+    - `<tag>` file:line — qué sobra (una línea por hallazgo)
+    - net: -N lines possible
 
     ### Strengths
     [¿Qué está bien hecho? Sé específico.]

@@ -1,0 +1,47 @@
+# Olas: mecánica
+
+Regla: dos tareas comparten ola si sus `Files` son disjuntos y ninguna
+consume, directa o transitivamente, algo que produce la otra (`Interfaces`).
+
+## Calcular
+
+- Con `scripts/task-dag PLAN` (plan 2), si existe: stdout JSON `olas` + `avisos`.
+- Sin script, lo calculas tú a mano con la misma regla, leyendo `Files` e
+  `Interfaces` de cada tarea. Ambiguo o no parseable ⇒ una tarea por ola, en
+  orden, y una línea `DAG: secuencial (<motivo>)` en el ledger.
+
+## Ejecutar una ola
+
+- Ola de 1 tarea: flujo normal.
+- Ola de ≥2: un worktree por tarea (rama propia desde el HEAD de la ola) y
+  todos los dispatches en UN mensaje. Cada executor commitea en su worktree.
+- **Sin poder crear worktrees** (p.ej. sesión ya aislada en uno): paralelo en
+  el MISMO worktree, `Files` disjuntos, y los executors **no commitean**
+  (dilo en el brief). El orquestador commitea por tarea con rutas explícitas
+  (`git add <rutas de Files>`, nunca `-A`/`.`).
+- Pipeline de reviews: la tarea N+1 no espera a que se revise la N; package +
+  reviewer en cuanto cada una da DONE.
+
+## Cerrar una ola
+
+1. Merge de las ramas de la ola (en el mismo worktree no hay merge).
+2. Suite completa. Roja ⇒ NO se abre la siguiente ola; fix dispatch con el
+   output completo.
+3. Conflicto de merge ⇒ executor de integración con los dos diffs. Si no
+   resuelve, BLOCKED y pregunta al humano. Nunca `-X ours/theirs` a ciegas.
+4. Findings Critical/Important de una tarea ya mergeada ⇒ fix dispatch antes
+   de abrir la siguiente ola.
+5. Ola nueva solo con la anterior mergeada y en verde.
+
+## Ruling
+
+El executor puede desviarse del contrato del plan (incluso de un test) si lo
+deja como `Ruling: T<n> — <qué cambia> — <por qué>` en el ledger. El reviewer
+lo trata como finding obligatorio. Si el Ruling cambia una interfaz, las
+tareas de olas posteriores que la consumen lo reciben en su brief.
+
+## Métricas de la serie (al cerrar la rama)
+
+Una línea en el ledger: wall-clock y turnos de la fase plan; KB del plan y
+fracción de código; mutation score por herramienta; % de tests basura
+(muestra clasificada por el reviewer final); nº y ancho de las olas.
