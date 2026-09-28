@@ -101,15 +101,21 @@ parent-only, subagent-aware o indiferente.
 [`obra/superpowers`](https://github.com/obra/superpowers) (MIT, © 2025 Jesse
 Vincent — copia literal del LICENSE en `LICENSES/superpowers.LICENSE`) más
 doctrina propia. brainstorm, plan, orchestrate, tdd, debug y verify son obras
-derivadas por destilación de sus fuentes superpowers 6.1.1; document,
-distill, recon-first y la capa de reflejos son fuente propia.
+derivadas por destilación de sus fuentes superpowers 6.1.1 + portes de
+6.2.0–6.4.2 (writing-plans, writing-good-tests, Review Focus, Rulings);
+document, distill, recon-first y la capa de reflejos son fuente propia.
 
-| Skill | Absorbe de superpowers 6.1.1 (MIT) | Absorbe propio |
+La escalera anti over-engineering del executor y el pase de over-engineering
+del review (tags `delete|stdlib|native|yagni|shrink`) derivan de
+[`ponytail`](https://github.com/DietrichGebert/ponytail) (MIT, © 2026
+DietrichGebert — copia literal en `LICENSES/ponytail.LICENSE`).
+
+| Skill | Absorbe de superpowers 6.1.1 + portes 6.2–6.4.2 (MIT) | Absorbe propio |
 |---|---|---|
 | brainstorm | brainstorming | — |
 | plan | writing-plans | — |
-| orchestrate | subagent-driven-development, executing-plans, dispatching-parallel-agents | orchestrate-personal (cost pyramid, memory packet, blindspot pass) + reviewer-dispatch escalado al riesgo del diff |
-| tdd | test-driven-development | — |
+| orchestrate | subagent-driven-development, executing-plans, dispatching-parallel-agents | orchestrate-personal (cost pyramid, memory packet, blindspot pass) + reviewer-dispatch escalado al riesgo del diff + ponytail (escalera anti over-engineering, pase de review) |
+| tdd | test-driven-development + writing-good-tests (6.2.0) | — |
 | debug | systematic-debugging | recon-first (dos puertas: bug + stuck/pre-grind) |
 | verify | verification-before-completion | gate de validación del padre de orchestrate-personal |
 | document | — | `~/.claude/commands/documenta.md` |
