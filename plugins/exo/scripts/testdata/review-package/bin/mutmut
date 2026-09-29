@@ -14,6 +14,21 @@ if [ "${1:-}" = run ] && [ "${2:-}" = --help ]; then
   [ "${STUB_MUTMUT:-3}" = 2 ] && echo "  --paths-to-mutate TEXT"
   exit 0
 fi
+# STUB_MODE=nowhatthepatch: como mutmut 2.5.1 sin `mutmut[patch]` instalado.
+if [ "${STUB_MODE:-}" = nowhatthepatch ] && [ "${1:-}" = run ]; then
+  echo 'ImportError: The --use-patch feature requires the whatthepatch library. Run "pip install --force-reinstall mutmut[patch]"' >&2; exit 1
+fi
+# Registra el contenido del --use-patch-file (líneas +++, @@ y +/-) como `patch: ...`.
+prev=""
+for a in "$@"; do
+  [ "$prev" = --use-patch-file ] && grep -E '^(\+|-|@@)' "$a" | sed 's/^/patch: /' >> "$STUB_LOG"
+  prev=$a
+done
+# STUB_MODE=progresshang: imprime progreso (con \r, como el real) y se cuelga.
+if [ "${STUB_MODE:-}" = progresshang ]; then
+  printf '\r3/7  🎉 2  ⏰ 0  🤔 0  🙁 1  🔇 0'
+  sleep 31339
+fi
 if [ "${STUB_MODE:-}" = dirty ]; then
   prev=""
   for a in "$@"; do

@@ -9,6 +9,13 @@ for a in "$@"; do
     --jsonReporter*) echo "Unknown option: $a" >&2; exit 2 ;;
   esac
 done
+# STUB_MODE=progresshang: escribe una línea de progress-append-only (como el real)
+# y se cuelga; STUB_MODE=silenciohang: se cuelga sin escribir progreso.
+if [ "${STUB_MODE:-}" = progresshang ]; then
+  echo "Mutation testing 57% (elapsed: <1m, remaining: <1m) 4/7 tested (1 survived, 0 timed out)"
+  sleep 31340
+fi
+[ "${STUB_MODE:-}" = silenciohang ] && sleep 31341
 mkdir -p reports/mutation
 cat > reports/mutation/mutation.json <<'J'
 {"files":{"src/a.js":{"mutants":[

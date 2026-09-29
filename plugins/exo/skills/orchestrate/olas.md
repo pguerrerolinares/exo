@@ -61,8 +61,19 @@ consume, directa o transitivamente, algo que produce la otra (`Interfaces`).
 segundos (por defecto 600; uno inválido avisa en la sección y usa 600). Muta en
 un worktree temporal de `HEAD`: el árbol del usuario no se toca y vale
 cualquier `BASE..HEAD`. En monorepo hay además una línea `MUTACIÓN [<dir>]: …`
-por proyecto. Cargo muta solo las líneas del diff; `mutmut` 3.x siempre da
-`no disponible` (no acota por CLI).
+por proyecto. Las tres herramientas mutan solo las líneas del diff: cargo con
+`--in-diff`, `mutmut` 2.x con `--use-patch-file` (requiere `whatthepatch`:
+`pip install 'mutmut[patch]'`, si falta da `no disponible`) y stryker con un rango
+`fichero:inicio-fin` por hunk. Un diff que solo borra líneas da `no disponible`
+sin llamar a la herramienta; `mutmut` 3.x siempre da `no disponible` (no acota
+por CLI).
+
+`EXO_MUTATION_MUTANT_TIMEOUT` (30 s por defecto; inválido avisa y usa 30) es el
+timeout por mutante: `--timeoutMS` en stryker y `-b` en mutmut (ahí solo marca
+"sospechoso": el corte duro de un mutante colgado es baseline×10, fijo). En cargo
+no aplica. Con el timeout global, `parcial (timeout Ns) — progreso: k/n evaluados,
+c caught, s supervivientes` conserva el conteo (mutmut y stryker; cargo y una
+salida ilegible dan `progreso: no disponible`).
 
 - Sin sección `MUTACIÓN:`, o `no disponible (<motivo>)`/`parcial (<motivo>)` ⇒
   esa línea al ledger; no bloquees ni corras mutación a mano.

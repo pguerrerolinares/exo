@@ -206,7 +206,7 @@ HEAD=$(git -C "$r" rev-parse HEAD)
 corre "$r" "$(stubs_para js npx)"
 a=$(cat "$LOG")
 if contains "$OUT" "MUTACIÓN: 3/4" && contains "$OUT" "src/a.js:7" \
-   && contains "$a" '--mutate src/a.js,src/b.js' && contains "$a" '--reporters json' \
+   && contains "$a" '--mutate src/a.js:1-1,src/b.js:1-1' && contains "$a" '--reporters json' \
    && not_contains "$a" "jsonReporter" && not_contains "$a" "a.test.js" \
    && [ "$(grep -o -- '--mutate' <<<"$a" | wc -l | tr -d ' ')" = 1 ]; then pass js_stryker; else fail js_stryker "$(seccion) log=$a"; fi
 
@@ -227,6 +227,89 @@ a=$(cat "$LOG"); s=$(seccion)
 primera=$(sed -n '2p' <<<"$s")
 if contains "$primera" "MUTACIÓN: 11/14" && contains "$s" "MUTACIÓN [engine]: 8/10" && contains "$s" "MUTACIÓN [web]: 3/4" \
    && grep -q '^cwd=.*/engine$' <<<"$a" && grep -q '^cwd=.*/web$' <<<"$a" && not_contains "$a" "cwd=$r" && contains "$a" "--mutate src/a.js"; then pass monorepo_dos_proyectos; else fail monorepo_dos_proyectos "$s log=$a"; fi
+
+# ---- helpers para repos con contenido controlado (base con líneas numeradas, head con cambios)
+# mkrepo_cnt NOMBRE MANIFIESTO -> repo con base: MANIFIESTO + README; el test añade ficheros y llama a commitea.
+lineas() { local i n=$1 pre=$2; for i in $(seq 1 "$n"); do echo "${pre}${i}"; done; }
+
+# ---- mutmut_acotado_al_diff: subproyecto py/, 3 funciones, el diff toca 1 (más un test)
+r="$TMP/repo-mmdiff"; mkdir -p "$r/py/src" "$r/py/tests"; git -C "$r" init -q; git -C "$r" config user.email t@t; git -C "$r" config user.name t
+echo x > "$r/py/setup.py"
+printf 'def a(x):\n    return x + 1\n\ndef b(x):\n    return x - 1\n\ndef c(x):\n    return x * 2\n' > "$r/py/src/m.py"
+echo "def test_a(): pass" > "$r/py/tests/test_m.py"
+git -C "$r" add -A >/dev/null; git -C "$r" commit -qm base; BASE=$(git -C "$r" rev-parse HEAD)
+sed -i 's/return x - 1/return x - 2/' "$r/py/src/m.py"; echo "def test_b(): pass" >> "$r/py/tests/test_m.py"
+git -C "$r" commit -qam head; HEAD=$(git -C "$r" rev-parse HEAD)
+corre "$r" "$(stubs_para mmdiff mutmut)" STUB_MUTMUT=2
+a=$(cat "$LOG")
+if contains "$a" "--use-patch-file" && contains "$a" "patch: +++ b/src/m.py" && contains "$a" "patch: +    return x - 2" \
+   && not_contains "$a" "return x + 1" && not_contains "$a" "return x * 2" && not_contains "$a" "test_m" \
+   && not_contains "$a" "py/src" && grep -q '^cwd=.*/py$' <<<"$a" && contains "$a" "--paths-to-mutate src/m.py"; then pass mutmut_acotado_al_diff; else fail mutmut_acotado_al_diff "log=$a"; fi
+
+# ---- stryker_rangos: rangos del lado NUEVO por hunk; varios hunks -> varios rangos en un solo --mutate
+r="$TMP/repo-strange"; mkdir -p "$r/src"; git -C "$r" init -q; git -C "$r" config user.email t@t; git -C "$r" config user.name t
+echo '{"devDependencies":{"@stryker-mutator/core":"9"}}' > "$r/package.json"
+lineas 30 L > "$r/src/a.js"; lineas 8 M > "$r/src/b.js"
+git -C "$r" add -A >/dev/null; git -C "$r" commit -qm base; BASE=$(git -C "$r" rev-parse HEAD)
+# a.js: cambia L3-L4, borra L10 (los siguientes suben 1), cambia L20 (queda en la 19 nueva)
+sed -i -e 's/^L3$/X3/' -e 's/^L4$/X4/' -e '/^L10$/d' -e 's/^L20$/X20/' "$r/src/a.js"
+sed -i 's/^M5$/Y5/' "$r/src/b.js"
+git -C "$r" commit -qam head; HEAD=$(git -C "$r" rev-parse HEAD)
+corre "$r" "$(stubs_para strange npx)"
+a=$(cat "$LOG")
+if contains "$a" '--mutate src/a.js:3-4,src/a.js:19-19,src/b.js:5-5' \
+   && [ "$(grep -o -- '--mutate' <<<"$a" | wc -l | tr -d ' ')" = 1 ]; then pass stryker_rangos; else fail stryker_rangos "log=$a"; fi
+
+# ---- hunk_solo_borrado: un diff que solo borra líneas no genera rango ni llama a la herramienta
+r="$TMP/repo-del"; mkdir -p "$r/src"; git -C "$r" init -q; git -C "$r" config user.email t@t; git -C "$r" config user.name t
+echo '{"devDependencies":{"@stryker-mutator/core":"9"}}' > "$r/package.json"
+lineas 10 L > "$r/src/c.js"; printf 'def a():\n    return 1\n\ndef b():\n    return 2\n' > "$r/src/m.py"; echo x > "$r/setup.py"
+git -C "$r" add -A >/dev/null; git -C "$r" commit -qm base; BASE=$(git -C "$r" rev-parse HEAD)
+sed -i '/^L5$/d;/^L6$/d' "$r/src/c.js"
+git -C "$r" commit -qam head; HEAD=$(git -C "$r" rev-parse HEAD)
+corre "$r" "$(stubs_para del npx mutmut)" STUB_MUTMUT=2
+if contains "$OUT" "MUTACIÓN: no disponible (diff sin líneas añadidas ni modificadas)" && [ ! -s "$LOG" ]; then pass hunk_solo_borrado; else fail hunk_solo_borrado "$(seccion) log=$(cat "$LOG")"; fi
+# ... y lo mismo en python
+r="$TMP/repo-del2"; mkdir -p "$r/src"; git -C "$r" init -q; git -C "$r" config user.email t@t; git -C "$r" config user.name t
+echo x > "$r/setup.py"; printf 'def a():\n    return 1\n\ndef b():\n    return 2\n' > "$r/src/m.py"
+git -C "$r" add -A >/dev/null; git -C "$r" commit -qm base; BASE=$(git -C "$r" rev-parse HEAD)
+sed -i '4,5d' "$r/src/m.py"
+git -C "$r" commit -qam head; HEAD=$(git -C "$r" rev-parse HEAD)
+corre "$r" "$(stubs_para del2 mutmut)" STUB_MUTMUT=2
+if contains "$OUT" "MUTACIÓN: no disponible (diff sin líneas añadidas ni modificadas)" && not_contains "$(cat "$LOG")" "run --paths"; then pass hunk_solo_borrado_python; else fail hunk_solo_borrado_python "$(seccion) log=$(cat "$LOG")"; fi
+
+# ---- parcial_conserva_progreso: el timeout global no descarta el conteo
+mkrepo parpy setup.py src/m.py; r=$REPO
+corre "$r" "$(stubs_para parpy mutmut)" STUB_MUTMUT=2 STUB_MODE=progresshang EXO_MUTATION_TIMEOUT=1
+if pgrep -f "sleep 31339" >/dev/null 2>&1; then pkill -f "sleep 31339" 2>/dev/null; fi
+if contains "$OUT" "MUTACIÓN: parcial (timeout 1s) — progreso: 3/7 evaluados, 2 caught, 1 supervivientes"; then pass parcial_progreso_mutmut; else fail parcial_progreso_mutmut "$(seccion)"; fi
+mkrepo parjs package.json src/a.js; r=$REPO
+echo '{"devDependencies":{"@stryker-mutator/core":"9"}}' > "$r/package.json"; git -C "$r" commit -qam pkg; HEAD=$(git -C "$r" rev-parse HEAD)
+corre "$r" "$(stubs_para parjs npx)" STUB_MODE=progresshang EXO_MUTATION_TIMEOUT=1
+if pgrep -f "sleep 31340" >/dev/null 2>&1; then pkill -f "sleep 31340" 2>/dev/null; fi
+if contains "$OUT" "MUTACIÓN: parcial (timeout 1s) — progreso: 4/7 evaluados, 3 caught, 1 supervivientes"; then pass parcial_progreso_stryker; else fail parcial_progreso_stryker "$(seccion)"; fi
+corre "$r" "$(stubs_para parjs2 npx)" STUB_MODE=silenciohang EXO_MUTATION_TIMEOUT=1
+if pgrep -f "sleep 31341" >/dev/null 2>&1; then pkill -f "sleep 31341" 2>/dev/null; fi
+if contains "$OUT" "MUTACIÓN: parcial (timeout 1s) — progreso: no disponible"; then pass parcial_sin_progreso; else fail parcial_sin_progreso "$(seccion)"; fi
+
+# ---- timeout_por_mutante: EXO_MUTATION_MUTANT_TIMEOUT llega a cada herramienta con su flag
+mkrepo tmpy setup.py src/m.py; r=$REPO
+corre "$r" "$(stubs_para tmpy mutmut)" STUB_MUTMUT=2 EXO_MUTATION_MUTANT_TIMEOUT=45
+a=$(cat "$LOG")
+if contains "$a" " -b 45" && contains "$OUT" "MUTACIÓN: 8/10"; then pass timeout_por_mutante_mutmut; else fail timeout_por_mutante_mutmut "$a"; fi
+mkrepo tmjs package.json src/a.js; r=$REPO
+echo '{"devDependencies":{"@stryker-mutator/core":"9"}}' > "$r/package.json"; git -C "$r" commit -qam pkg; HEAD=$(git -C "$r" rev-parse HEAD)
+corre "$r" "$(stubs_para tmjs npx)" EXO_MUTATION_MUTANT_TIMEOUT=45
+if contains "$(cat "$LOG")" "--timeoutMS 45000"; then pass timeout_por_mutante_stryker; else fail timeout_por_mutante_stryker "$(cat "$LOG")"; fi
+corre "$r" "$(stubs_para tmjs2 npx)"
+if contains "$(cat "$LOG")" "--timeoutMS 30000"; then pass timeout_por_mutante_defecto; else fail timeout_por_mutante_defecto "$(cat "$LOG")"; fi
+corre "$r" "$(stubs_para tmjs3 npx)" EXO_MUTATION_MUTANT_TIMEOUT=xx
+if contains "$(cat "$LOG")" "--timeoutMS 30000" && contains "$(seccion)" "EXO_MUTATION_MUTANT_TIMEOUT inválido"; then pass timeout_por_mutante_invalido; else fail timeout_por_mutante_invalido "$(seccion)"; fi
+
+# ---- mutmut sin whatthepatch: --use-patch-file falla con ImportError -> no disponible visible, no "salida no reconocida"
+mkrepo nowtp setup.py src/m.py; r=$REPO
+corre "$r" "$(stubs_para nowtp mutmut)" STUB_MUTMUT=2 STUB_MODE=nowhatthepatch
+if contains "$OUT" "MUTACIÓN: no disponible (mutmut sin whatthepatch: pip install 'mutmut[patch]')"; then pass mutmut_sin_whatthepatch; else fail mutmut_sin_whatthepatch "$(seccion)"; fi
 
 printf '\n%d pass, %d fail\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

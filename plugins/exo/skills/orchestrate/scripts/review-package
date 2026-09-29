@@ -16,7 +16,9 @@
 # usuario: mutmut 2.x muta en sitio y con un timeout dejaría el código mutado).
 # Degrada siempre de forma visible y nunca bloquea (exit != 0 solo por uso).
 # Env: EXO_MUTATION=0 la desactiva; EXO_MUTATION_TIMEOUT=<s> (600 por defecto;
-# un valor inválido avisa en la sección y usa 600).
+# un valor inválido avisa en la sección y usa 600). EXO_MUTATION_MUTANT_TIMEOUT=<s>
+# (30 por defecto, inválido = aviso + 30): timeout por mutante (mutmut -b, stryker
+# --timeoutMS). mutmut y stryker mutan SOLO las líneas del diff (patch / rangos).
 set -euo pipefail
 
 if [ $# -lt 2 ] || [ $# -gt 3 ]; then
@@ -45,12 +47,18 @@ fi
 #      relativos a la RAÍZ DEL WORKSPACE (cargo locate-project --workspace), no
 #      al crate miembro; DIR/mutants.out/{outcomes.json,missed.txt}. Baseline
 #      rojo: total_mutants 0 y outcomes[0] = {Baseline, Failure})
-#   mutmut 2.5.1: mutmut run --paths-to-mutate F1,F2 (no tiene --version).
+#   mutmut 2.5.1: mutmut run --paths-to-mutate F1,F2 --use-patch-file PATCH -b S
+#     (no tiene --version). PATCH = git diff -U0 --relative del rango, relativo al
+#     proyecto (el cwd de mutmut); requiere whatthepatch (mutmut[patch]) o falla con
+#     ImportError. -b/-m solo afectan a "sospechoso": el corte duro de un mutante
+#     colgado es baseline*10, no configurable. Progreso: línea `k/n 🎉 c ⏰ t 🙁 s`.
 #     mutmut 3.8.0: `--version` -> "mutmut, version 3.x"; no acota por CLI
 #     (solo `only_mutate` en la config) -> no disponible, nunca mutar todo.
-#   stryker 9.6.1: npx --no-install stryker run --mutate "a,b" --reporters json
-#     (lista con comas: repetir --mutate se queda con el último; NO existe
-#      --jsonReporter.fileName). Informe: reports/mutation/mutation.json.
+#   stryker 9.6.1: npx --no-install stryker run --mutate "a:1-3,b:5-5" --timeoutMS MS
+#     --reporters json,progress-append-only (rangos `fichero:inicio-fin` del lado NUEVO
+#     de cada hunk; lista con comas: repetir --mutate se queda con el último; NO existe
+#      --jsonReporter.fileName). Informe: reports/mutation/mutation.json. Progreso
+#     (stdout): `Mutation testing N% ... k/n tested (s survived, t timed out)`.
 # Monorepo: cada fichero se agrupa con su manifest más cercano (Cargo.toml,
 # pyproject.toml/setup.py, package.json) y la herramienta corre en ese dir.
 # ---------------------------------------------------------------------------
@@ -61,6 +69,52 @@ mut_tail() { # crudo: últimas ~20 líneas de los ficheros dados que existan
   echo '```'
 }
 
+# Rangos `fichero:inicio-fin` (lado NUEVO de cada hunk añadido/modificado, un hunk
+# solo borrado no da rango) de BASE..HEAD para los ficheros dados, relativos al dir $1.
+mut_rangos() {
+  local d=$1; shift
+  git -C "$d" -c core.quotepath=off diff -U0 --relative "${base}..${head}" -- "$@" 2>/dev/null | awk '
+    /^diff --git/ { inh = 0; next }
+    !inh && /^\+\+\+ / { f = substr($0, 7); next }
+    /^@@ / {
+      inh = 1
+      if (match($0, /\+[0-9]+(,[0-9]+)?/)) {
+        n = split(substr($0, RSTART + 1, RLENGTH - 1), a, ",")
+        c = (n > 1) ? a[2] : 1
+        if (c > 0) print f ":" a[1] "-" (a[1] + c - 1)
+      }
+    }'
+}
+
+# Progreso parcial ("k/n evaluados, c caught, s supervivientes") de la salida cruda
+# de la herramienta; "no disponible" si no hay forma fiable de leerlo (nunca inventa).
+mut_progreso() {
+  local eco=$1 raw=$2 l n k t s
+  case "$eco" in
+    python)
+      l=$(tr '\r' '\n' < "$raw" | grep -E '[0-9]+/[0-9]+.*🎉 *[0-9]+.*⏰ *[0-9]+.*🙁 *[0-9]+' | tail -n 1)
+      if [ -n "$l" ]; then
+        n=$(printf '%s' "$l" | sed -nE 's|^[^0-9]*([0-9]+)/([0-9]+).*|\1/\2|p')
+        k=$(printf '%s' "$l" | sed -nE 's|.*🎉 *([0-9]+).*|\1|p')
+        t=$(printf '%s' "$l" | sed -nE 's|.*⏰ *([0-9]+).*|\1|p')
+        s=$(printf '%s' "$l" | sed -nE 's|.*🙁 *([0-9]+).*|\1|p')
+        if [ -n "$n" ] && [ -n "$k" ] && [ -n "$t" ] && [ -n "$s" ]; then
+          echo "$n evaluados, $((k + t)) caught, $s supervivientes"; return 0
+        fi
+      fi ;;
+    js)
+      l=$(tr '\r' '\n' < "$raw" | grep -E 'Mutation testing [0-9]+%.* [0-9]+/[0-9]+ tested \([0-9]+ survived' | tail -n 1)
+      if [ -n "$l" ]; then
+        n=$(printf '%s' "$l" | sed -nE 's|.* ([0-9]+)/([0-9]+) tested.*|\1/\2|p')
+        s=$(printf '%s' "$l" | sed -nE 's|.*\(([0-9]+) survived.*|\1|p')
+        if [ -n "$n" ] && [ -n "$s" ]; then
+          echo "$n evaluados, $(( ${n%/*} - s )) caught, $s supervivientes"; return 0
+        fi
+      fi ;;
+  esac
+  echo "no disponible"
+}
+
 # ¿existe DIR/NOMBRE en el commit HD? (se mira el commit, no el árbol del usuario)
 mut_existe() {
   local p=$3; [ "$2" = "." ] || p="$2/$3"
@@ -68,7 +122,7 @@ mut_existe() {
 }
 
 # Limpieza del worktree temporal (también desde el trap de EXIT/INT/TERM).
-MUT_ROOT=""; MUT_TMP=""; MUT_WT=""
+MUT_ROOT=""; MUT_TMP=""; MUT_WT=""; MUT_MSEGS=30
 mut_limpia() {
   if [ -n "$MUT_WT" ]; then
     git -C "$MUT_ROOT" worktree remove --force "$MUT_WT" >/dev/null 2>&1 || rm -rf "$MUT_WT"
@@ -157,7 +211,7 @@ mut_uno_() {
     python)
       # mutmut 3.x no admite acotar por CLI; 2.x sí. `--version` primero (3.x lo
       # tiene, 2.x no); si no concluye, capacidad de `run --help`.
-      local ver lista
+      local ver lista rangos
       ver=$( ( cd "$pd" && con_timeout 30 mutmut --version ) 2>&1 | head -n 5 )
       case "$ver" in
         *"version 3."*) R_TEXT="no disponible (mutmut 3.x no admite acotar por CLI)"; return 0 ;;
@@ -165,20 +219,31 @@ mut_uno_() {
       if ! ( cd "$pd" && con_timeout 30 mutmut run --help ) 2>&1 | grep -q -- '--paths-to-mutate'; then
         R_TEXT="no disponible (mutmut 3.x no admite acotar por CLI)"; return 0
       fi
-      lista=$(printf '%s,' "${rel[@]}"); lista=${lista%,}
-      ( cd "$pd" && con_timeout "$segs" mutmut run --paths-to-mutate "$lista" ) > "$raw" 2>&1 || rc=$?
+      # Solo las líneas del diff: patch relativo al proyecto (el cwd de mutmut), igual
+      # que el fix de workspace de cargo. Sin rangos (solo borrados) no hay nada que mutar.
+      rangos=$(mut_rangos "$pd" "${rel[@]}")
+      if [ -z "$rangos" ]; then R_TEXT="no disponible (diff sin líneas añadidas ni modificadas)"; return 0; fi
+      git -C "$pd" -c core.quotepath=off diff -U0 --relative "${base}..${head}" -- "${rel[@]}" > "$tmp/patch.diff" 2>/dev/null || true
+      lista=$(printf '%s\n' "$rangos" | sed 's/:[0-9]*-[0-9]*$//' | awk '!v[$0]++' | tr '\n' ','); lista=${lista%,}
+      ( cd "$pd" && con_timeout "$segs" mutmut run --paths-to-mutate "$lista" --use-patch-file "$tmp/patch.diff" -b "$MUT_MSEGS" ) > "$raw" 2>&1 || rc=$?
+      if [ "$rc" != 0 ] && [ "$rc" != 124 ] && grep -q whatthepatch "$raw"; then
+        R_TEXT="no disponible (mutmut sin whatthepatch: pip install 'mutmut[patch]')"; return 0
+      fi
       ;;
     js)
-      # Una sola lista con comas: repetir --mutate se queda con el último.
-      local lista
-      lista=$(printf '%s,' "${rel[@]}"); lista=${lista%,}
+      # Una sola lista con comas (repetir --mutate se queda con el último), con un
+      # rango `fichero:inicio-fin` por hunk añadido/modificado (lado nuevo).
+      local lista rangos
+      rangos=$(mut_rangos "$pd" "${rel[@]}")
+      if [ -z "$rangos" ]; then R_TEXT="no disponible (diff sin líneas añadidas ni modificadas)"; return 0; fi
+      lista=$(printf '%s\n' "$rangos" | tr '\n' ','); lista=${lista%,}
       res="$pd/reports/mutation/mutation.json"
-      ( cd "$pd" && con_timeout "$segs" npx --no-install stryker run --mutate "$lista" --reporters json ) > "$raw" 2>&1 || rc=$?
+      ( cd "$pd" && con_timeout "$segs" npx --no-install stryker run --mutate "$lista" --timeoutMS "$((MUT_MSEGS * 1000))" --reporters json,progress-append-only ) > "$raw" 2>&1 || rc=$?
       ;;
   esac
 
   if [ "$rc" = 124 ]; then
-    R_TEXT="parcial (timeout ${segs}s)"; return 0
+    R_TEXT="parcial (timeout ${segs}s) — progreso: $(mut_progreso "$eco" "$raw")"; return 0
   fi
 
   case "$eco" in
@@ -248,6 +313,8 @@ mutacion() {
   segs=${EXO_MUTATION_TIMEOUT:-600}
   MUT_AVISO=""
   case "$segs" in ''|*[!0-9]*|0) MUT_AVISO="EXO_MUTATION_TIMEOUT inválido ('${EXO_MUTATION_TIMEOUT}'); se usa 600"; segs=600 ;; esac
+  MUT_MSEGS=${EXO_MUTATION_MUTANT_TIMEOUT:-30}
+  case "$MUT_MSEGS" in ''|*[!0-9]*|0) MUT_AVISO="${MUT_AVISO:+$MUT_AVISO; }EXO_MUTATION_MUTANT_TIMEOUT inválido ('${EXO_MUTATION_MUTANT_TIMEOUT}'); se usa 30"; MUT_MSEGS=30 ;; esac
   root=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "MUTACIÓN: no disponible (fuera de un repo)"; return 0; }
   type con_timeout >/dev/null 2>&1 || { echo "MUTACIÓN: no disponible (sin _timeout.sh)"; return 0; }
 
