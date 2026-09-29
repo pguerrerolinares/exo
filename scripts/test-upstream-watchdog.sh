@@ -24,6 +24,7 @@ echo '[{"body":"latido\nestado: ok","created_at":"2026-09-09T12:00:00Z"},{"body"
 echo '[{"body":"latido\nestado: ok","created_at":"2026-09-10T12:00:00Z"}]' > "$T/nueve.json"
 echo '[]' > "$T/vacio.json"
 echo '[{"body":"latido\nestado: ok","created_at":"2026-09-20T12:00:00Z"},{"body":"latido\nestado: alerta","created_at":"2026-09-28T12:00:00Z"}]' > "$T/alerta.json"
+echo '[{"body":"latido\nestado: ok\nfallo a mitad\nestado: alerta","created_at":"2026-09-28T12:00:00Z"}]' > "$T/dos_estados.json"
 echo '[{"body":"latido\nestado: ok","created_at":"2026-09-10T12:00:00Z"},{"body":"un comentario humano","created_at":"2026-09-28T12:00:00Z"}]' > "$T/humano.json"
 echo '[{"body":"latido\nestado: alerta","created_at":"2026-09-10T12:00:00Z"},{"body":"latido\nestado: ok","created_at":"2026-09-28T12:00:00Z"}]' > "$T/alerta_vieja.json"
 
@@ -37,6 +38,7 @@ check sin_issue 1 "issue upstream-sync: estado no existe" "-"
 check sin_latidos 1 "sin latidos" "$T/vacio.json"
 
 check ultimo_es_alerta 1 "latido en alerta: 2026-09-28T12:00:00Z" "$T/alerta.json"
+check ultima_linea_estado_manda 1 "latido en alerta" "$T/dos_estados.json"
 check comentario_sin_estado_no_cuenta 1 "latido caducado" "$T/humano.json"
 check ok_reciente 0 "latido OK" "$T/alerta_vieja.json"
 

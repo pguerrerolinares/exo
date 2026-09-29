@@ -19,7 +19,7 @@ command -v jq >/dev/null 2>&1 || { echo "jq no disponible"; exit 1; }
 # Solo cuentan los comentarios con una línea `estado: ok|alerta` (los latidos): un
 # comentario humano no renueva el reloj. max_by sobre ISO-8601 UTC: léxico = cronológico.
 sel='if type=="array" then ([.[] | select((.body // "") | test("(^|\n)estado: (ok|alerta)[ \t\r]*(\n|$)"))
-  | {t: .created_at, e: (.body | capture("(^|\n)estado: (?<e>ok|alerta)") | .e)}] | max_by(.t) // empty
+  | {t: .created_at, e: ([.body | capture("(^|\n)estado: (?<e>ok|alerta)"; "g") | .e] | last)}] | max_by(.t) // empty
   | "\(.t) \(.e)") else empty end'
 lat="$(jq -r "$sel" "$f" 2>/dev/null)" || lat=""
 ultimo="${lat%% *}"; estado="${lat##* }"

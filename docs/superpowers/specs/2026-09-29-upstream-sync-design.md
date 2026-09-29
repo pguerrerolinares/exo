@@ -66,7 +66,7 @@ Workflow `.github/workflows/upstream-watchdog.yml`, diario. Solo cuentan los com
 - **PR sin mergear:** solo latido (paso 0).
 - **Revert dentro del ciclo:** el diff neto entre tags lo anula.
 - **Cambio de licencia:** paso 1.
-- **Degradación del triage:** el bot detecta los PRs `upstream-sync/*` cerrados sin merge y registra sus filas como `rechazado` (paso 0). El latido reporta el ratio rechazados/propuestos acumulado; si supera 1/3, `estado: alerta` con "re-corre el eval" (el eval de la primera pasada).
+- **Degradación del triage:** el bot detecta los PRs `upstream-sync/*` cerrados sin merge y registra sus filas como `rechazado` (paso 0). El latido reporta el ratio de rechazo sobre las últimas 15 filas propuestas/portadas/rechazadas (ventana, para que un rojo no se vuelva permanente); solo las filas `propuesto` de un PR cerrado pasan a `rechazado`; si supera 1/3, `estado: alerta` con "re-corre el eval" (el eval de la primera pasada).
 - **Sin verificar, se comprueba con un "Run now" antes de programar:** coste por pasada, `claude` en el PATH del sandbox, clone del repo adjunto.
 
 ## Primera pasada = eval pre-registrado
