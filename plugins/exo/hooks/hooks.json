@@ -15,15 +15,16 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/git-c-bash.sh"
-          },
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/bash-guards.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "^(Agent|Task|Edit|Write|NotebookEdit)$",
+        "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/git-add-all-guard.sh"
-          },
-          {
-            "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/verify-before-commit.sh"
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/search-first.sh"
           }
         ]
       }

@@ -852,8 +852,9 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   («o se abre la campaña»: A, G y L), no la primera: el techo soportado no
   está escrito en `docs/arquitectura.md` y la escala 5.000 solo se midió en
   Linux. El residuo de Windows no queda huérfano: lo sigue el ítem Media
-  «El coste del hook completo en Windows no está…» (con el `hook_ms` de W11
-  pendiente de Paul).
+  «El coste del hook completo en Windows no está…» (W11 medido el
+  2026-09-23; Task 5 de la campaña I ejecutada el mismo día; queda abierto
+  por publicar la cifra en `plugins/exo/README.md` y por el umbral de W11).
 
 - [ ] **(revisión 2026-09-04) El coste del hook completo en Windows no está
   medido; solo el del binario.** `plugins/exo/hooks/hooks.json` cablea
@@ -882,7 +883,9 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   el ≈1,2 s restante son ≈20 spawns de Git Bash a 25-60 ms cada uno (`jq -n
   1` ≈55 ms, `exo --version` ≈60 ms). Queda sin medir el `PreToolUse:Bash`
   triple. Evidencia: `evals/recall-coste/results/w11-2026-09-15.txt`.
-  **(campaña I, 2026-09-19, EN CURSO — cierre pendiente de Task 7):**
+  **(campaña I, 2026-09-19 — W11 medido y Task 5 ejecutada el 2026-09-23;
+  sigue ABIERTO por la **Acción** de publicar la cifra y por el umbral de
+  W11):**
   `recall-inject.sh` pasó de 7 `jq` + 2 `sed` + 5 `tr` (más 2 `sed` + 1 `tr`
   POR TOKEN dentro del gate léxico) a 6 `jq` + 0 `sed` + 0 `tr` dentro del
   bucle léxico (`norm_token`/`gate_skip` reescritos con expansión de
@@ -905,9 +908,12 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   contiene "git": 4 → 2 `execve` por invocación sin "git". Bloque inyectado
   verificado byte-idéntico antes/después (goldens en
   `plugins/exo/scripts/testdata/golden-{recall-inject,exo-recall}/`). Task 5
-  (fundir los tres guards en uno) se descartó por criterio numérico: el
-  pre-filtro de la Task 4 ya bajó los guards de 4 a 2 `execve`; fundir tres
-  guards de seguridad en uno no compensaba el ahorro adicional.
+  (fundir los tres guards en uno) se dio por descartada el 2026-09-20 con el
+  argumento de los `execve` (el pre-filtro de la Task 4 ya bajó los guards
+  de 4 a 2), **antes de tener el número que el plan exige**: la Task 5 se
+  ejecuta si y solo si el triple sobre un comando con "git" supera 200 ms de
+  reloj **en W11**. Ese número llegó el 2026-09-23 (abajo) y lo supera: el
+  descarte queda revocado.
   **Task 6 (Linux, commit `3b19519`):** `hook_ms` p95 = **1035 ms** (N=174),
   **1069 ms** (N=1000), **1173 ms** (N=5000); p50 respectivamente 1016, 1039
   y 1151 ms. Umbral decisión #12 (Paul, 1.500 ms p95 por SO): Linux se
@@ -916,12 +922,49 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   `s5-search-fts-n174` (3→6 ms) — ruido de 3 ms en FTS, ajeno al hook y al
   proceso residente, no cambia ninguna decisión de la Task 6 (detalle en
   `evals/recall-coste/results/campana-i-2026-09-20/comparacion-vs-despues.md`).
-  **Windows sigue en blanco** — lo mide Paul en Task 7. Ítem **sigue EN
-  CURSO, pendiente solo de W11**.
+  **Task 7 (W11, 2026-09-23, commit `bae1711`):** hook `recall-inject.sh`
+  entero de reloj p50 = **1778 ms**, p95 = **1835 ms** (antes 2312 / 2568 ms:
+  −29 % en p95); `hook_ms` interno p50 = 1617, p95 = **1671 ms** (20
+  disparos sintéticos, `INSUFICIENTE` por debajo de 200, esperado). `exo
+  recall` sigue en ≈0,94 s (`elapsed_ms`): toda la ganancia es shell, cuyo
+  sobrecoste baja de ≈1,3 s a ≈0,65 s. Umbral decisión #12 (1.500 ms p95):
+  **W11 no lo cumple** (1671 ms), Linux sí. Triple `PreToolUse:Bash` en W11
+  (`git status`): **587 ms**, casi 3× el umbral de fusión de 200 ms → **la
+  Task 5 se ejecuta**. El bloque inyectado pasa de 738 a 779 B por el pie de #23
+  (`876264a`, 2026-09-19, previo a la campaña), no por la campaña; los tres
+  permalinks devueltos son idénticos. Evidencia:
+  `evals/recall-coste/results/w11-2026-09-23-campana-i.txt`.
+  **Task 5 (2026-09-23, commits `d0fec2c`, `4004f3f`, plugin 1.3.2):** los
+  tres guards se funden en `plugins/exo/scripts/bash-guards.sh` (un `cat`,
+  un pre-filtro y un `jq` compartidos; cada rama conserva patrón y evento de
+  log) y `hooks.json` pasa de tres comandos a uno en el matcher `Bash`. Solo
+  la rama de rewrite de git-c emite JSON; las demás son log-only, y el
+  rewrite es excluyente con `zero-residuo`/`verify-before-done` por
+  construcción (su allowlist no admite `add` ni `commit`), así que no hay
+  salidas que combinar. W11, `git status`, 20 repeticiones: triple p50
+  534 / p95 578 ms → fundido p50 **291** / p95 **311 ms** (−45 %). Sigue por
+  encima de los 200 ms: es el coste base de un proceso de Git Bash más un
+  `jq`, que la fusión ya no puede bajar. Los tres scripts viejos y sus tests
+  se quedan como red de regresión, fuera de `hooks.json`. Ítem **sigue
+  ABIERTO**: falta publicar la cifra en `plugins/exo/README.md`, como pide
+  la **Acción**, y `hook_ms` de W11 (1671 ms) no cumple el umbral de 1.500 ms.
   Commits: `c462506`, `17afb9b` (Task 1); `d2b069d`, `c00e55e` (Task 2);
   `ee44a5a`, `2588384` (Task 3, el segundo es el fix del review adversarial
   que sustituye la reproducción standalone de SOURCE/SID por extracción del
   código real); `bc4896a` (Task 4).
+  **search-first (2026-09-23, plan
+  `docs/superpowers/plans/2026-09-23-search-first.md`, Task 3):** nuevo
+  reflejo `PreToolUse:Agent|Task|Edit|Write|NotebookEdit`
+  (`plugins/exo/scripts/search-first.sh`, plugin 1.3.3) que avisa si el
+  primer trabajo sustantivo de la sesión no fue precedido de `exo
+  search`/`exo targets`. Camino rápido (sentinel ya creado, 20
+  repeticiones, W11): p50 = **102** ms, p95 = **130** ms — comando exacto en
+  el Step 1 de la Task 3 del plan. Primera llamada de la sesión con una
+  transcripción real de `~/.claude/projects/*/*.jsonl` (la mayor, 6,3 MB; 20 repeticiones,
+  cada una con `session_id` distinto para forzar el camino frío): p50 =
+  **354** ms, p95 = **378** ms — comando exacto en el Step 2 de la
+  Task 3 del plan. Criterio (spec §7, umbral 150 ms p50 del camino rápido):
+  **cumplido, matcher sin cambios**.
 
 - [x] **(campaña I, Task 6, detectados al correr el bench — preexistentes de
   campaña G, deliberadamente no arreglados fuera del alcance de I) Dos bugs en
@@ -1533,7 +1576,11 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   §«Criterio de reapertura». Umbral, porcentaje de timeouts y mínimo de
   disparos sin cambios (1.500 ms / 2% / 200). El instrumento ya ve el coste
   real en W11 desde el commit `c462506` (fix del guard falsable en
-  `17afb9b`).
+  `17afb9b`). **Primera lectura en W11 (Task 7, 2026-09-23, `bae1711`):**
+  `hook_ms` p95 = 1671 ms sobre 20 disparos sintéticos — por encima del
+  umbral de 1.500 ms, pero sin valor de decisión (mínimo 200 disparos). Es
+  indicio de que la ventana real de producción en W11 reabrirá el proceso
+  residente: el veredicto se lee sobre `~/.claude/reflex-log.jsonl` de W11.
 
 - [ ] **(H28) La `distance` de vec0 es L2, no L2²; el
   umbral 0,40 del hook equivale a coseno 0,28.** Medido por el consultor

@@ -53,9 +53,16 @@ correctamente:
 permalink: {{KB_NAME}}/carpeta/nombre-de-la-nota
 title: Título de la nota
 tags: [algún-tag]
-tier: stable   # o "log" para las notas de bitácora
+tier: stable   # "core" solo para core-index.md; "log" para las bitácoras
 ---
 ```
+
+`core-index.md` tiene además un contrato con el plugin `exo`: el hook
+`SubagentStart` (`subagent-inject.sh`) extrae por **nombre exacto** las
+secciones `## Doctrina compacta` y `## Cores` para componer lo que inyecta a
+cada subagente. Puedes cambiar lo que hay dentro, pero no renombres esas dos
+cabeceras: si no las encuentra, esa parte de la inyección sale vacía sin
+avisar.
 
 ## Cómo se busca
 
