@@ -29,25 +29,25 @@ ledger() { # $1 dir, resto: filas
 }
 
 # propuesto_a_portado
-d="$(nuevo_repo)"; commit "$d" "port(upstream#1943): ledger con scope de plan"
-ledger "$d" '| #1943 | orchestrate | aplica | propuesto | m | abc123 |'
+d="$(nuevo_repo)"; commit "$d" "port(upstream#9143): cambio de ejemplo"
+ledger "$d" '| #9143 | orchestrate | aplica | propuesto | m | abc123 |'
 h="$(git -C "$d" rev-parse --short HEAD)"
 "$SCRIPT" "$d/ledger.md" >/dev/null
 if grep -qF "| portado |" "$d/ledger.md" && grep -qF "$h" "$d/ledger.md" && ! grep -q propuesto "$d/ledger.md"; then ok propuesto_a_portado; else bad propuesto_a_portado; fi
 
 # sin_evidencia
 d="$(nuevo_repo)"
-ledger "$d" '| #1943 | orchestrate | aplica | propuesto | m | abc123 |'
+ledger "$d" '| #9143 | orchestrate | aplica | propuesto | m | abc123 |'
 out="$("$SCRIPT" "$d/ledger.md")"
-if grep -qF "| propuesto |" "$d/ledger.md" && [ "$out" = "propuesto-sin-evidencia #1943 orchestrate" ]; then ok sin_evidencia; else bad sin_evidencia; fi
+if grep -qF "| propuesto |" "$d/ledger.md" && [ "$out" = "propuesto-sin-evidencia #9143 orchestrate" ]; then ok sin_evidencia; else bad sin_evidencia; fi
 
 # solo_su_pr
-d="$(nuevo_repo)"; commit "$d" "port(upstream#19): otro"
-ledger "$d" '| #1943 | orchestrate | aplica | propuesto | m | abc123 |'
+d="$(nuevo_repo)"; commit "$d" "port(upstream#91): otro"
+ledger "$d" '| #9143 | orchestrate | aplica | propuesto | m | abc123 |'
 "$SCRIPT" "$d/ledger.md" >/dev/null
 a=0; grep -qF "| propuesto |" "$d/ledger.md" && a=1
-d2="$(nuevo_repo)"; commit "$d2" "port(upstream#1943): otro"
-ledger "$d2" '| #19 | orchestrate | aplica | propuesto | m | abc123 |'
+d2="$(nuevo_repo)"; commit "$d2" "port(upstream#9143): otro"
+ledger "$d2" '| #91 | orchestrate | aplica | propuesto | m | abc123 |'
 "$SCRIPT" "$d2/ledger.md" >/dev/null
 b=0; grep -qF "| propuesto |" "$d2/ledger.md" && b=1
 if [ $a = 1 ] && [ $b = 1 ]; then ok solo_su_pr; else bad solo_su_pr; fi

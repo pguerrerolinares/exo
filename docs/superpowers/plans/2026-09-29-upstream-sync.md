@@ -22,7 +22,7 @@
 
 ## Precondición humana (antes de la Ola 2)
 
-- [ ] **P1 — Paul fija la verdad del eval.** Revisa las 11 filas de confianza media de `upstream-sync-gold.md` (scratchpad de la sesión 2026-09-29; se mueve a una ruta fuera del repo que Paul elija). Cada choque de doctrina (#2077, #2078, #2318 en plan, #2319 en orchestrate…) se resuelve como divergencia deliberada o como `aplica`. Las divergencias resultantes son input de la Task 5.
+- [ ] **P1 — Paul fija la verdad del eval.** Revisa las 11 filas de confianza media de `upstream-sync-gold.md` (scratchpad de la sesión 2026-09-29; se mueve a una ruta fuera del repo que Paul elija). Cada choque de doctrina se resuelve como divergencia deliberada o como `aplica`. Las divergencias resultantes son input de la Task 5.
 
 ## Olas
 
@@ -61,9 +61,9 @@
 - Produces: `scripts/upstream-reconcile.sh <ledger.md> [<rama>]` (rama default `main`). Reescribe in situ cada fila con `estado` = `propuesto` a `portado` si existe, alcanzable desde `<rama>`, un commit cuyo subject empieza por `port(upstream#<PR>):`. Sustituye `hash` por el de ese commit en `<rama>` (tras un squash, el de la rama del PR ya no existe). Imprime por stdout una línea por fila que sigue en `propuesto`: `propuesto-sin-evidencia #<PR> <skill>`. Exit 0 siempre que el ledger sea parseable; exit 2 si no encuentra la línea `upstream_tag:` o la cabecera de la tabla de filas.
 
 **Tests:**
-- `propuesto_a_portado`: repo git temporal con commit `port(upstream#1943): ledger con scope de plan` en `main` y fila `| #1943 | orchestrate | aplica | propuesto | … | abc123 |` → la fila queda `portado` con el hash real del commit. Falla si la fila se queda `propuesto` con evidencia presente.
-- `sin_evidencia`: la misma fila sin ese commit → sigue `propuesto`, y stdout contiene `propuesto-sin-evidencia #1943 orchestrate`. Falla si se declara portado sin commit (claim antes de evidencia).
-- `solo_su_pr`: commit `port(upstream#19):` no promueve la fila `#1943`, ni al revés. Falla si hay match por prefijo numérico.
+- `propuesto_a_portado`: repo git temporal con commit `port(upstream#9143): cambio de ejemplo` en `main` y fila `| #9143 | orchestrate | aplica | propuesto | … | abc123 |` → la fila queda `portado` con el hash real del commit. Falla si la fila se queda `propuesto` con evidencia presente.
+- `sin_evidencia`: la misma fila sin ese commit → sigue `propuesto`, y stdout contiene `propuesto-sin-evidencia #9143 orchestrate`. Falla si se declara portado sin commit (claim antes de evidencia).
+- `solo_su_pr`: commit `port(upstream#91):` no promueve la fila `#9143`, ni al revés. Falla si hay match por prefijo numérico.
 - `otras_filas_intactas`: filas `rechazado`, `pendiente` y `—` salen byte a byte iguales. Falla si reescribe lo que no le toca.
 - `ledger_roto`: fichero sin `upstream_tag:` → exit 2. Falla si un ledger corrupto se procesa en silencio.
 
@@ -116,7 +116,7 @@
 
 **Review Focus:**
 - `#2028` (release dev→main) en el ledger no debe emparejar con los PRs miembros: queda como `extra`, y los miembros ausentes cuentan como fallo. Así lo pide la spec (atribuir a miembros).
-- Normalizar `#1943` vs `1943` y mayúsculas y espacios en la etiqueta.
+- Normalizar `#9143` vs `1943` y mayúsculas y espacios en la etiqueta.
 
 ### Task 5: ledger inicial y prompt del bot
 

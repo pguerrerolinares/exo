@@ -4,7 +4,7 @@
 
 ## Problema
 
-Seis skills de exo (brainstorm, plan, orchestrate, tdd, debug, verify) son destilación de obra/superpowers. Portar a mano no escala: exo se quedó tres releases atrás (6.2 → 6.4.2) y la comparativa del 2026-09-29 encontró huecos reales (ledger sin scope de plan, fix loop sin resume, guardas de rango, rationalizations de tdd medidas como regresión upstream). exo es un pack completo que reemplaza a superpowers, así que tiene que ir a la par.
+Seis skills de exo (brainstorm, plan, orchestrate, tdd, debug, verify) son destilación de obra/superpowers. Portar a mano no escala: exo se quedó tres releases atrás (6.2 → 6.4.2) y la comparativa del 2026-09-29 encontró huecos reales. exo es un pack completo que reemplaza a superpowers, así que tiene que ir a la par.
 
 ## Decisiones
 
@@ -71,7 +71,7 @@ Workflow `.github/workflows/upstream-watchdog.yml`, diario. Falla si el último 
 
 - `upstream_tag: v6.1.1`.
 - La verdad conocida es la lista cerrada v6.1.1 → v6.4.2: 24 PRs, 37 filas (PR, skill). Vive **fuera del repo**, para que el bot no pueda leerla, y Paul fija las 11 filas de confianza media antes de correr.
-- Las filas de confianza media que son choque de doctrina (#2077, #2078, #2318 en plan, #2319 en orchestrate…) se deciden como divergencias del ledger inicial o como `aplica`.
+- Las filas de confianza media que son choque de doctrina se deciden como divergencias del ledger inicial o como `aplica`.
 - **Umbral pre-registrado:** 0 filas `ya cubierto` que en la verdad sean aplica/parcial, y ≥ 90% de acierto en la etiqueta de triage, con `aplica` y `parcial` como una sola clase (llevan a la misma acción: portar; decisión de Paul 2026-09-30). Lo puntúa `scripts/upstream-score.sh`.
 - Si pasa, ese PR es el cierre de huecos del camino A. Si no pasa, no se programa la routine y se revisa el prompt.
 
