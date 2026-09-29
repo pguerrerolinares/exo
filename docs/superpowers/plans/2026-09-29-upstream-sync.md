@@ -139,7 +139,7 @@
 - Cada paso 0-7 de la spec aparece en el prompt con su salida al latido.
 
 **Notas:**
-- `ledger.md`: `upstream_tag: v6.1.1`. Mapeo fichero→fichero de la spec (sección "Estado versionado"), verificado contra los nombres reales de `plugins/exo/skills/`. Divergencias: las que salgan de P1 más las ya documentadas con fuente (p. ej. debug "referenciar OK, depender NO"). Tabla de filas vacía, solo cabecera.
+- `ledger.md`: `upstream_tag: v6.1.1`. Mapeo fichero→fichero de la spec (sección "Estado versionado"), verificado contra los nombres reales de `plugins/exo/skills/`. Divergencias: las que salgan de P1 más las ya documentadas con fuente (p. ej. debug "referenciar OK, depender NO"), y obligatoriamente `orchestrate/scripts/review-package`: la sección MUTACIÓN (acotada al diff, timeout por mutante, `EXO_MUTATION_EXCLUDE`, muestreo; exo 1.5.0–1.5.2, `olas.md` § Mutación) es propia y un porte upstream nunca la pisa; se porta solo lo que toque el resto del script (p. ej. guardas de rango). Tabla de filas vacía, solo cabecera.
 - `sync-prompt.md`: los pasos 0-7 de la spec en orden. Incluye literalmente: el tope de 5; los nombres de rama, PR, issue y commit; que la atribución sale de `gh pr list -R obra/superpowers --state merged --search "merged:<desde>..<hasta>" --json number,title,baseRefName,files` descartando PRs de release dev→main; que la tabla `movimiento upstream → fichero:línea exo` es obligatoria en el cuerpo del PR; y que toda salida termina en latido.
 
 ### Task 6: wiring en CI y workflow watchdog
