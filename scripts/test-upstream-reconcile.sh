@@ -52,6 +52,14 @@ ledger "$d2" '| #91 | orchestrate | aplica | propuesto | m | abc123 |'
 b=0; grep -qF "| propuesto |" "$d2/ledger.md" && b=1
 if [ $a = 1 ] && [ $b = 1 ]; then ok solo_su_pr; else bad solo_su_pr; fi
 
+# squash_multi_commit: el subject es el título del PR; los port() van en el body como `* port(...)`
+d="$(nuevo_repo)"
+git -C "$d" commit -q --allow-empty -m "upstream-sync v9.9.9 (#5)" -m "* port(upstream#9143): x
+* port(upstream#9150): y"
+ledger "$d" '| #9143 | orchestrate | aplica | propuesto | m | abc123 |' '| #914 | orchestrate | aplica | propuesto | m | abc123 |'
+"$SCRIPT" "$d/ledger.md" >/dev/null
+if grep -F '#9143' "$d/ledger.md" | grep -qF "| portado |" && grep -F '| #914 ' "$d/ledger.md" | grep -qF "| propuesto |"; then ok squash_multi_commit; else bad squash_multi_commit; fi
+
 # otras_filas_intactas
 d="$(nuevo_repo)"; commit "$d" "port(upstream#1): x"
 ledger "$d" '| #2 | a | no aplica | rechazado | m | h1 |' '|#3|b|duda|pendiente|m|h2|' '|  #4 |  c | ya cubierto |  —  | m |  |' '| #1 | d | aplica | propuesto | m | zz |'

@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Uso: upstream-reconcile.sh <ledger.md> [<rama>]   (rama default: main)
 # Promueve filas `propuesto` a `portado` si <rama> contiene un commit cuyo
-# subject empieza por `port(upstream#<PR>):`, y fija su hash al de ese commit.
-# El hash de la rama del PR no sirve: tras un squash ya no existe.
+# mensaje tiene una línea que empieza por `port(upstream#<PR>):` (o `* port(...)`),
+# y fija su hash al de ese commit. El hash de la rama del PR no sirve: tras un
+# squash ya no existe. Con squash de >1 commit (COMMIT_OR_PR_TITLE) el subject es
+# el título del PR y los `port(...)` van en el body como viñetas `* port(...)`.
 # stdout: `propuesto-sin-evidencia #<PR> <skill>` por fila que sigue propuesta.
 # exit 2: ledger sin `upstream_tag:` o sin la cabecera de la tabla de filas.
 set -uo pipefail
@@ -40,10 +42,7 @@ while IFS= read -r linea || [ -n "$linea" ]; do
   if [ "$(trim "${c[4]:-}")" = propuesto ] && ! [[ "$pr" =~ ^[0-9]+$ ]]; then
     echo "propuesto-malformado $(trim "${c[1]:-}") $skill"
   elif [ "$(trim "${c[4]:-}")" = propuesto ]; then
-    hash=""
-    while IFS=$'\t' read -r h subj; do
-      case "$subj" in "port(upstream#$pr):"*) hash="$h"; break ;; esac
-    done < <(git -C "$dir" log --format='%H%x09%s' "$rama" --)
+    hash="$(git -C "$dir" log -1 --format=%H -E --grep="^(\* )?port\(upstream#$pr\):" "$rama" --)"
     if [ -n "$hash" ]; then
       c[4]=" portado "
       c[6]=" $(git -C "$dir" rev-parse --short "$hash") "
