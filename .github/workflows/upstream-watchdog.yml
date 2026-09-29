@@ -1,0 +1,37 @@
+name: upstream-sync watchdog
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  watchdog:
+    name: latido del bot upstream-sync
+    # Un fork no tiene el issue de estado y el job quedaría rojo por nada.
+    if: github.repository == 'pguerrerolinares/exo'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      # Rojo si el script sale != 0: sin issue (`-`), sin latidos o latido de
+      # más de 8 días. `--paginate` imprime un array por página; `jq -s` los junta
+      # en un array de arrays y `add` lo aplana en el array que espera el script.
+      - name: Comprobar el último latido
+        run: |
+          set -euo pipefail
+          # Igualdad exacta del título: `--search` casa por substring.
+          n="$(gh issue list --repo "$GITHUB_REPOSITORY" --search '"upstream-sync: estado" in:title' --state all --json number,title \
+            | jq -r '[.[] | select(.title == "upstream-sync: estado")] | first | .number // empty')"
+          if [ -z "$n" ]; then
+            bash scripts/upstream-watchdog.sh -
+          else
+            gh api "repos/$GITHUB_REPOSITORY/issues/$n/comments" --paginate | jq -s 'add // []' > "$RUNNER_TEMP/comentarios.json"
+            bash scripts/upstream-watchdog.sh "$RUNNER_TEMP/comentarios.json"
+          fi
