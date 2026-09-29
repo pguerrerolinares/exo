@@ -11,6 +11,7 @@ Rutas relativas a `skills/` de superpowers y a `plugins/exo/skills/` de exo. Las
 | upstream | exo | nota |
 |---|---|---|
 | brainstorming/SKILL.md | brainstorm/SKILL.md | destilado |
+| brainstorming/spec-document-reviewer-prompt.md | brainstorm/SKILL.md | destilado en el self-review de la spec |
 | writing-plans/SKILL.md | plan/SKILL.md | destilado |
 | writing-plans/SKILL.md | plan/plan-template.md | cabecera de atribución (superpowers 6.4.2) |
 | subagent-driven-development/SKILL.md | orchestrate/SKILL.md | destilado; parte vive en orchestrate/olas.md |
@@ -22,6 +23,8 @@ Rutas relativas a `skills/` de superpowers y a `plugins/exo/skills/` de exo. Las
 | subagent-driven-development/scripts/task-brief | orchestrate/scripts/task-brief | cabecera de atribución |
 | requesting-code-review/code-reviewer.md | orchestrate/reviewer-prompt.md | template único de exo para la review por tarea y la final whole-branch |
 | requesting-code-review/SKILL.md | orchestrate/SKILL.md | cuándo y cómo pedir review vive en orchestrate (review por tarea + final); el prompt, en reviewer-prompt.md |
+| dispatching-parallel-agents/SKILL.md | orchestrate/SKILL.md | destilado (paralelismo por ola); detalle en orchestrate/olas.md |
+| dispatching-parallel-agents/SKILL.md | orchestrate/olas.md | destilado |
 | test-driven-development/SKILL.md | tdd/SKILL.md | destilado |
 | test-driven-development/writing-good-tests.md | tdd/anti-patterns.md | cabecera de atribución (superpowers 6.4.2) |
 | systematic-debugging/SKILL.md | debug/SKILL.md | destilado; referenciar sí, depender no (D10) |
@@ -43,6 +46,7 @@ Ficheros upstream que no se portan nunca, ni se triagean.
 
 Ficheros upstream sin contraparte en exo. Un cambio ahí se triagea como `no aplica`, citando esta sección, salvo las excepciones que se indican en cada línea.
 
+- `brainstorming/visual-companion.md` y `brainstorming/scripts/*`: exo descartó el visual companion (spec prep-M3).
 - `subagent-driven-development/re-review-prompt.md`: exo no tiene prompt de re-review.
 - `using-git-worktrees/SKILL.md`: exo no tiene skill de worktrees (D1).
 - `systematic-debugging/test-academic.md`: escenario de test de la skill upstream, sin contraparte en exo.
@@ -65,7 +69,7 @@ Un cambio upstream que choque con una de estas filas se triagea como `no aplica`
 | D6 | orchestrate | Una tarea por dispatch; el agrupado de trabajo trivial se hace al planificar, no al despachar | plan/SKILL.md pliega lo trivial en la tarea que lo necesita | plugins/exo/skills/plan/SKILL.md § Antes de las tareas |
 | D7 | orchestrate | La prosa invoca los scripts directamente (sin `bash` delante) | exo solo se distribuye por git; git conserva modos; en Git Bash la ejecutabilidad la decide el shebang | scripts/test-exec-bit.sh |
 | D8 | plan, orchestrate | Sin modo de ejecución inline; handoff único a exo:orchestrate | Orquestador limpio: el padre integra, no implementa | plugins/exo/skills/orchestrate/SKILL.md |
-| D9 | orchestrate/scripts/review-package | La sección MUTACIÓN (acotada al diff, timeout por mutante, `EXO_MUTATION_EXCLUDE`, muestreo; exo 1.5.0-1.5.2) es propia; un porte nunca la pisa, solo el resto del script (p. ej. guardas de rango) | Instrumento propio del pipeline A+ | plugins/exo/skills/orchestrate/olas.md § Mutación |
+| D9 | orchestrate/scripts/review-package | La sección MUTACIÓN (acotada al diff, timeout por mutante, `EXO_MUTATION_EXCLUDE`, muestreo; exo 1.5.0-1.5.2) es propia; un porte nunca la pisa, solo el resto del script | Instrumento propio del pipeline A+ | plugins/exo/skills/orchestrate/olas.md § Mutación |
 | D10 | debug | Referenciar systematic-debugging OK, depender NO | Decisión de diseño previa | — |
 
 ## Filas

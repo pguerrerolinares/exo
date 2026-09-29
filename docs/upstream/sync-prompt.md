@@ -11,20 +11,20 @@ Estado: `docs/upstream/ledger.md` (léelo entero antes de empezar: `upstream_tag
 ## Paso 0 · Reconcilia
 
 1. `bash scripts/upstream-reconcile.sh docs/upstream/ledger.md`. Promueve `propuesto` a `portado` (con hash) si `main` contiene un commit `port(upstream#N): …`. Exit 2 = ledger roto: latido con alerta y fin. Cada línea de stdout es una fila que sigue `propuesto` sin evidencia (`propuesto-sin-evidencia #N skill`) o una fila corrupta (`propuesto-malformado …`): anótalas en el informe.
-2. Las filas `propuesto` cuyo PR `upstream-sync` se cerró sin merge pasan a `rechazado`, con la URL de ese PR en `motivo` y `—` en `hash`. Lista los PRs con `gh pr list --search "upstream-sync in:title" --state closed --json number,title,url,mergedAt`.
-3. Si hay un PR `upstream-sync` abierto: latido ("PR abierto, sin trabajo nuevo") y fin.
+2. Las filas `propuesto` cuyo PR `upstream-sync` se cerró sin merge pasan a `rechazado`, con la URL de ese PR en `motivo` y `—` en `hash`. Lista los PRs con `gh pr list -R pguerrerolinares/exo --search "upstream-sync in:title" --state closed --json number,title,url,mergedAt`.
+3. Detecta un PR abierto con `gh pr list -R pguerrerolinares/exo --search "upstream-sync in:title" --state open`. Si hay uno: latido ("PR abierto, sin trabajo nuevo") y fin. Lo que `upstream-reconcile.sh` haya reescrito en el ledger NO se commitea si la pasada sale sin PR (aquí ni en ninguna otra salida temprana): se descarta y se rehace en la pasada siguiente.
 
 ## Paso 1 · Licencia
 
-Compara `LICENSE` de `obra/superpowers` con `plugins/exo/LICENSES/superpowers.LICENSE`. Si difieren: latido con alerta ("licencia cambiada") y fin. No portes nada.
+Compara el `LICENSE` de la raíz del repo adjunto `obra/superpowers`, en el tag a revisar (`<hasta>`, o `upstream_tag` si no hay tags nuevos; `git show <tag>:LICENSE`), con `plugins/exo/LICENSES/superpowers.LICENSE`. Si difieren: latido con alerta ("licencia cambiada") y fin. No portes nada.
 
 ## Paso 2 · Detecta
 
-1. Tags de release posteriores a `upstream_tag`, ordenados por versión. Si no hay: latido y fin. Si hay, revisa hasta el más reciente (`<hasta>`); `<desde>` es `upstream_tag`.
+1. En el clone de `obra/superpowers`: `git tag --sort=version:refname`, ignorando prereleases (`-rc`, `-beta`, `-alpha`…). Tags posteriores a `upstream_tag`, en ese orden. Si no hay: latido y fin. Si hay, revisa hasta el más reciente (`<hasta>`); `<desde>` es `upstream_tag`.
 2. **Contenido:** diff neto `<desde>..<hasta>` solo de los ficheros del mapeo del ledger. Es lo que hay que portar; un revert dentro del ciclo ya viene anulado.
 3. **Atribución:** PRs mergeados entre las fechas de ambos tags que tocan ficheros mapeados:
-   `gh pr list -R obra/superpowers --state merged --search "merged:<desde>..<hasta>" --json number,title,baseRefName,files`
-   con `<desde>` y `<hasta>` como fechas ISO de los tags. Cualquier rama base cuenta. Descarta los PRs de release (dev→main): su contenido se atribuye a los PRs miembros. Cada hunk del diff neto se atribuye a un PR; el que no puedas atribuir va como `duda` con la pregunta en `motivo`.
+   `gh pr list -R obra/superpowers --state merged --search "merged:<desde>..<hasta>" --limit 200 --json number,title,baseRefName,files`
+   (`--limit 200` es obligatorio: sin él `gh` corta a 30 resultados en silencio) con `<desde>` y `<hasta>` como fechas ISO de los tags. Cualquier rama base cuenta. Descarta los PRs de release (dev→main): su contenido se atribuye a los PRs miembros. Cada hunk del diff neto se atribuye a un PR; el que no puedas atribuir va como `duda` con la pregunta en `motivo`.
 
 ## Paso 3 · Triagea
 
@@ -48,7 +48,7 @@ Porta las filas `aplica` y `parcial`. **Máximo 5 portes por PR de exo**: el res
 4. Cada commit actualiza la versión citada en la cabecera de atribución de los ficheros que toca: `# Derived from superpowers X.Y.Z` en scripts, `(superpowers X.Y.Z, MIT ©` en markdown, con la versión de `<hasta>`. Un fichero tocado sin cabecera de atribución, pero con contenido derivado nuevo, la gana.
 5. `duda` → `pendiente`, con la pregunta concreta en `motivo`. No portes nada dudoso.
 
-Ejemplo de commit (número inventado): `port(upstream#9xxx): guarda de rango en review-package`.
+Ejemplo de commit (número inventado): `port(upstream#9xxx): renombra la sección Foo de bar-script`.
 
 ## Paso 5 · Gates
 
@@ -57,9 +57,9 @@ Ejemplo de commit (número inventado): `port(upstream#9xxx): guarda de rango en 
 
    | movimiento upstream | fichero:línea exo |
    |---|---|
-   | #9xxx: qué cambió en upstream, en una frase | plugins/exo/skills/orchestrate/scripts/review-package:120 |
+   | #9xxx: qué cambió en upstream, en una frase | plugins/exo/skills/foo/bar-script:120 |
 
-3. Bytes y tokens (`claude --plugin-dir ./plugins/exo plugin details exo`) van al informe como dato, no como gate.
+3. Bytes y tokens (`claude --plugin-dir ./plugins/exo plugin details exo`) van al informe como dato, no como gate. Si `claude` no está en el PATH del sandbox, anótalo en el informe y sigue.
 
 ## Paso 6 · Abre PR
 
