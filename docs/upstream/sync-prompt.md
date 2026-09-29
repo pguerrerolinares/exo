@@ -31,7 +31,7 @@ Compara `LICENSE` de `obra/superpowers` con `plugins/exo/LICENSES/superpowers.LI
 Una fila por (PR, skill exo). Valores de `triage`: `aplica`, `parcial`, `ya cubierto`, `no aplica`, `duda`. Lee el fichero exo mapeado antes de decidir; cada veredicto cita líneas de exo (`fichero:línea`) y, si aplica, la fila del ledger.
 
 - Choca con una divergencia del ledger → `no aplica`, citando su id (D1…). D3 y D5 son forma de porte, no estado actual: si el cambio upstream toca ese terreno, porta con esa forma.
-- Fichero en `Excluidos` → no genera fila. Fichero en `Sin equivalente` → `no aplica`, citando esa sección.
+- Fichero en `Excluidos` → no genera fila. Fichero en `Sin equivalente` → `no aplica`, citando esa sección, salvo la excepción de su línea: en `executing-plans/` y `receiving-code-review/`, una regla de review o de ledger independiente del modo inline se evalúa contra `orchestrate/` (reviewer-prompt.md, SKILL.md u olas.md); no la descartes por el fichero.
 - Fichero upstream que no está en ninguna sección del ledger → `duda: mapeo`. El PR propone la fila de mapeo en el ledger y no porta nada de ese fichero.
 - `ya cubierto` solo si puedes señalar la línea de exo que ya hace lo mismo. Una cobertura parcial es `parcial`, no `ya cubierto`. Ante la duda entre `ya cubierto` y `aplica`/`parcial`, no elijas `ya cubierto`.
 - `aplica` y `parcial` llevan a la misma acción (portar); distingue igualmente para el informe.

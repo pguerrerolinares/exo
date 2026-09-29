@@ -20,6 +20,8 @@ Rutas relativas a `skills/` de superpowers y a `plugins/exo/skills/` de exo. Las
 | subagent-driven-development/scripts/review-package | orchestrate/scripts/review-package | la sección MUTACIÓN es propia (D9) |
 | subagent-driven-development/scripts/sdd-workspace | orchestrate/scripts/sdd-workspace | cabecera de atribución |
 | subagent-driven-development/scripts/task-brief | orchestrate/scripts/task-brief | cabecera de atribución |
+| requesting-code-review/code-reviewer.md | orchestrate/reviewer-prompt.md | template único de exo para la review por tarea y la final whole-branch |
+| requesting-code-review/SKILL.md | orchestrate/SKILL.md | cuándo y cómo pedir review vive en orchestrate (review por tarea + final); el prompt, en reviewer-prompt.md |
 | test-driven-development/SKILL.md | tdd/SKILL.md | destilado |
 | test-driven-development/writing-good-tests.md | tdd/anti-patterns.md | cabecera de atribución (superpowers 6.4.2) |
 | systematic-debugging/SKILL.md | debug/SKILL.md | destilado; referenciar sí, depender no (D10) |
@@ -39,12 +41,13 @@ Ficheros upstream que no se portan nunca, ni se triagean.
 
 ## Sin equivalente en exo
 
-Ficheros upstream sin contraparte en exo. Un cambio ahí se triagea como `no aplica`, citando esta sección.
+Ficheros upstream sin contraparte en exo. Un cambio ahí se triagea como `no aplica`, citando esta sección, salvo las excepciones que se indican en cada línea.
 
 - `subagent-driven-development/re-review-prompt.md`: exo no tiene prompt de re-review.
 - `using-git-worktrees/SKILL.md`: exo no tiene skill de worktrees (D1).
 - `systematic-debugging/test-academic.md`: escenario de test de la skill upstream, sin contraparte en exo.
-- `executing-plans/SKILL.md` y `executing-plans/scripts/*`: exo no tiene modo de ejecución inline (D8).
+- `receiving-code-review/SKILL.md`: exo no tiene skill de recepción de review. Una regla de ahí sobre cómo el padre trata los hallazgos del reviewer se evalúa contra `orchestrate/SKILL.md` y `orchestrate/olas.md`; el resto, `no aplica`.
+- `executing-plans/SKILL.md` y `executing-plans/scripts/*`: el modo de ejecución inline no se porta (D8). Una regla de review o de ledger que upstream ponga ahí y sea independiente del modo inline se evalúa contra `orchestrate/` (reviewer-prompt.md, SKILL.md u olas.md); no se descarta por el fichero.
 
 Todo fichero upstream que no salga en ninguna de las tres secciones anteriores es `duda: mapeo`.
 
