@@ -125,3 +125,31 @@ Aprobada por Paul el 2026-09-29 (opción a), antes de muestrear S2.
 4. **Tarea y check:** el prompt sale del asunto y del cuerpo del commit
    (redactado por un agente fresco sin ver el diff). El check es el test que
    añadió el commit.
+
+## E6 — §5: el veto de S1 lo hace un agente fresco, no Paul
+
+Aprobada el 2026-09-29, antes de vetar ninguna regla.
+
+**Problema.** §5 asignaba el veto a Paul suponiendo que conoce el contenido
+de la KB. No es así: la KB la escribe el skill `/document`, y la implicación
+de Paul fue la arquitectura. Paul no puede juzgar qué reglas son viables
+mejor que un agente. Además, es la parte con sesgo declarado.
+
+**Errata.**
+
+1. **Quién veta:** un agente fresco (sonnet) que recibe las reglas en el
+   orden de la semilla y un criterio fijo
+   (`evals/ablacion-k/pool/brief-veto.md`). No sabe que el experimento mide
+   memoria ni qué es exo. Puede inspeccionar en modo lectura los repos de
+   `~/Documentos/proyectos` para juzgar la viabilidad.
+2. **Criterio de veto (cerrado):** `externo` (necesita un servicio vivo,
+   una credencial, hardware o datos que no están en disco) · `multisesion`
+   (no se puede observar en una sesión de ≤ 40 turnos) · `no-regla` (es un
+   hecho, una opinión o una descripción) · `duplicada` (repite una regla
+   anterior en el orden).
+3. **Selección:** se toman en orden las 40 primeras no vetadas. Paul no
+   revisa regla a regla. Si no llegan 40 entre las 80 primeras, se amplía
+   la lista en el mismo orden.
+4. **Hallazgo para el verdict:** las reglas de S1 las escribieron agentes
+   (vía `/document`), no Paul. S1 mide si exo transmite a un agente nuevo lo
+   que dejaron escrito agentes anteriores.
