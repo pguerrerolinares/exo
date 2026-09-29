@@ -24,7 +24,7 @@ not_contains() { case "$1" in *"$2"*) return 1 ;; *) return 0 ;; esac; }
 # script necesita (resueltas una vez con `command -v`) más los stubs pedidos, y
 # se usa como PATH a secas. Así un cargo-mutants/mutmut/npx real instalado en la
 # máquina no puede contaminar ningún caso.
-UTILS="bash sh true seq env git jq sed grep awk tr mktemp sleep cat head tail sort dirname basename rm mkdir cp mv wc date id timeout perl uname chmod"
+UTILS="bash sh true seq python3 env git jq sed grep awk tr mktemp sleep cat head tail sort dirname basename rm mkdir cp mv wc date id timeout perl uname chmod"
 stubs_para() {
   local d="$TMP/path-$1" u p; shift
   mkdir -p "$d"
@@ -411,6 +411,37 @@ corre "$r2" "$(stubs_para mues8 cargo-mutants mutmut)" STUB_MUTMUT=2 EXO_MUTATIO
 s=$(seccion); primera=$(sed -n '2p' <<<"$s")
 if contains "$primera" "MUTACIÓN: 8/10 (80%) — 2 superviviente(s); 1 proyecto(s) sin score (1 muestreado(s), aparte)" \
    && contains "$s" "MUTACIÓN [engine]: 8/10" && contains "$s" "MUTACIÓN [py]: " && contains "$s" "IC95 [" && contains "$s" "muestra de 150/400"; then pass muestra_fuera_del_agregado; else fail muestra_fuera_del_agregado "$s"; fi
+# selección EXACTA del protocolo del verdict 2: random.Random(20260929).sample(sorted(ids), 150) sobre 1..285
+# (bizkaia-muestra.txt: un id por línea, en el orden del sample)
+mkrepo prot setup.py src/m.py; r=$REPO
+MUESTRA_V2="${SCRIPT_DIR}/../../../evals/pipeline-a-plus/linea-base-2/bizkaia-muestra.txt"
+if [ -f "$MUESTRA_V2" ]; then
+  corre "$r" "$(stubs_para proto mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=285
+  if [ "$(runids | sort -n)" = "$(sort -n "$MUESTRA_V2")" ] && [ "$(runids | wc -l | tr -d ' ')" = 150 ]; then pass muestra_igual_protocolo; else fail muestra_igual_protocolo "la selección difiere de bizkaia-muestra.txt"; fi
+else
+  printf '[SKIP] muestra_igual_protocolo — no está %s\n' "$MUESTRA_V2"
+fi
+# degradaciones nunca mudas
+corre "$r" "$(stubs_para dg1 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=0
+if contains "$(seccion)" "MUTACIÓN: 8/10 (80%)" && contains "$(seccion)" "(muestreo no disponible: sin ids de mutmut; corrida completa)"; then pass degrada_sin_ids; else fail degrada_sin_ids "$(seccion)"; fi
+corre "$r" "$(stubs_para dg2 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=400 STUB_IDS_RAW="ids: a b c"
+if contains "$(seccion)" "MUTACIÓN: 8/10 (80%)" && contains "$(seccion)" "(muestreo no disponible: sin ids de mutmut; corrida completa)" && [ -z "$(runids)" ]; then pass degrada_formato_distinto; else fail degrada_formato_distinto "$(seccion)"; fi
+pdg=$(stubs_para dg3 mutmut); rm -f "$pdg/python3"
+corre "$r" "$pdg" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=400
+if contains "$(seccion)" "MUTACIÓN: 8/10 (80%)" && contains "$(seccion)" "(muestreo no disponible: sin python de mutmut; corrida completa)" && [ -z "$(runids)" ]; then pass degrada_sin_python; else fail degrada_sin_python "$(seccion)"; fi
+# cargo y stryker: con más de N mutantes, "no aplica"; por debajo de N, nada
+mkrepo dg4 Cargo.toml src/lib.rs; r4=$REPO
+corre "$r4" "$(stubs_para dg4 cargo-mutants)" EXO_MUTATION_SAMPLE=5
+if contains "$(seccion)" "MUTACIÓN: 8/10 (80%) — 2 superviviente(s) (muestreo no aplica: cargo-mutants)"; then pass cargo_no_aplica_sobre_n; else fail cargo_no_aplica_sobre_n "$(seccion)"; fi
+corre "$r4" "$(stubs_para dg5 cargo-mutants)"
+if contains "$(seccion)" "MUTACIÓN: 8/10" && not_contains "$(seccion)" "muestreo"; then pass cargo_sin_nota_bajo_n; else fail cargo_sin_nota_bajo_n "$(seccion)"; fi
+mkrepo dg6 package.json src/a.js; r5=$REPO
+echo '{"devDependencies":{"@stryker-mutator/core":"9"}}' > "$r5/package.json"; git -C "$r5" commit -qam pkg; HEAD=$(git -C "$r5" rev-parse HEAD)
+corre "$r5" "$(stubs_para dg6 npx)" EXO_MUTATION_SAMPLE=2
+if contains "$(seccion)" "MUTACIÓN: 3/4" && contains "$(seccion)" "(muestreo no aplica: stryker)"; then pass stryker_no_aplica_sobre_n; else fail stryker_no_aplica_sobre_n "$(seccion)"; fi
+corre "$r5" "$(stubs_para dg7 npx)"
+if contains "$(seccion)" "MUTACIÓN: 3/4" && not_contains "$(seccion)" "muestreo"; then pass stryker_sin_nota_bajo_n; else fail stryker_sin_nota_bajo_n "$(seccion)"; fi
+
 # cargo no muestrea: sale igual, sin IC
 mkrepo mues9 Cargo.toml src/lib.rs; r3=$REPO
 corre "$r3" "$(stubs_para mues9 cargo-mutants)"

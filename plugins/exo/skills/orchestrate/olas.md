@@ -92,9 +92,11 @@ sale `MUTACIÓN [<dir>]: c/n (p%) IC95 [a%, b%] — muestra de n/total (semilla 
 Wilson) y ese proyecto NO entra en el agregado: se reporta aparte. Con N o menos mutantes
 corre todos, como siempre. Cargo y stryker no muestrean (corren completos). El timeout
 global cubre enumeración y muestra; si salta, `parcial` con el progreso de la muestra.
-La muestra sale de un PRNG en awk (Park-Miller + Fisher-Yates parcial, portable): con la
-misma semilla y los mismos mutantes elige los mismos ids, pero no los mismos que
-`random.Random(s).sample` de python (base de bizkaia, verdict 2).
+La selección es la del protocolo del verdict 2, `random.Random(s).sample(sorted(ids), n)`,
+ejecutada con el python de mutmut (el de su shebang). Ninguna degradación es muda: sin ids
+de `mutmut result-ids` o sin python la línea acaba en `(muestreo no disponible: <motivo>;
+corrida completa)`; cargo y stryker con más de N mutantes acaban en `(muestreo no aplica:
+<herramienta>)`. Con N o menos no se añade nada.
 
 Con el timeout global, `parcial (timeout Ns) — progreso: k/n evaluados, c caught,
 s supervivientes` conserva el conteo (mutmut y stryker; cargo y una salida

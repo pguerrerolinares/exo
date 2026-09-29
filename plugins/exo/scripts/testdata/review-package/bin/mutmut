@@ -21,10 +21,11 @@ fi
 # real: si el baseline cacheado es de esa enumeración y del MISMO hash de tests, responde
 # al instante con un timeout inventado (⏰); si no, tarda STUB_ID_SLEEP s y mata los
 # primeros STUB_KILL_COUNT (999999 por defecto = todos) y sobrevive el resto. STUB_HANG_AFTER=K
-# se cuelga en el id nº K+1. Cada id real se anota en el log como `runid=<id>`.
+# se cuelga en el id nº K+1. STUB_IDS_RAW: `result-ids` imprime eso tal cual (formato roto). Cada id real se anota en el log como `runid=<id>`.
 cache=${STUB_CACHE:-.stubcache}
 if [ "${1:-}" = result-ids ]; then
-  if [ "${2:-}" = survived ] && [ -f "$cache/enum" ]; then seq -s ' ' 1 "$(cat "$cache/enum")"; else echo; fi
+  if [ -n "${STUB_IDS_RAW:-}" ]; then echo "$STUB_IDS_RAW"; exit 0; fi
+  if [ "${2:-}" = survived ] && [ -f "$cache/enum" ] && [ "$(cat "$cache/enum")" -gt 0 ]; then seq -s ' ' 1 "$(cat "$cache/enum")"; else echo; fi
   exit 0
 fi
 if [ "${1:-}" = show ]; then

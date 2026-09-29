@@ -25,7 +25,9 @@
 # EXO_MUTATION_SAMPLE=<N> (150 por defecto; 0 lo desactiva; inválido = aviso + 150) y
 # EXO_MUTATION_SEED=<s> (20260929 por defecto): SOLO mutmut 2.x. Si el diff genera más de
 # N mutantes se mide una muestra aleatoria de N (sin reemplazo, semilla fija) con IC95 de
-# Wilson, y ese proyecto no entra en el agregado. En cargo y stryker no aplica.
+# Wilson, y ese proyecto no entra en el agregado. Si el muestreo no es posible la línea
+# dice `(muestreo no disponible: <motivo>; corrida completa)`; cargo y stryker con más de N
+# mutantes dicen `(muestreo no aplica: <herramienta>)`.
 set -euo pipefail
 
 if [ $# -lt 2 ] || [ $# -gt 3 ]; then
@@ -66,7 +68,8 @@ fi
 #     <dir vacío> (todo "survived" al instante; el dir vacío da otro hash de tests, así ni
 #     los estados ni el tiempo de baseline de esa pasada se reutilizan luego: sin él, el
 #     baseline cacheado ~0 s daba timeouts inventados); 2) mutmut result-ids survived = ids;
-#     3) muestra por awk (Park-Miller + Fisher-Yates parcial, portable); 4) un
+#     3) muestra = random.Random(semilla).sample(sorted(ids), n) con el python de mutmut
+#     (el mismo protocolo del verdict 2); 4) un
 #     `mutmut run <id>` por id con el runner real (con un solo id mutmut 2.5.1 no lee el
 #     estado cacheado del mutante) y se suma la línea de progreso de cada uno.
 #     mutmut 3.8.0: `--version` -> "mutmut, version 3.x"; no acota por CLI
@@ -142,22 +145,25 @@ mut_rangos() {
     }'
 }
 
-# Muestra sin reemplazo: stdin = ids (uno por línea); $1 = n, $2 = semilla. Imprime n ids
-# distintos, ordenados. PRNG Park-Miller (16807, mod 2^31-1: los productos caben en los 53
-# bits de un double) + Fisher-Yates parcial: mismo resultado en gawk, mawk y busybox.
+# Python de mutmut (el de su shebang; si no es python, python3 del PATH). Imprime la ruta.
+mut_python_de() {
+  local m sb c
+  m=$(command -v mutmut 2>/dev/null) || return 1
+  sb=$(head -n 1 "$m" 2>/dev/null); sb=${sb#\#!}
+  # shellcheck disable=SC2086 # el shebang se parte en palabras a propósito
+  set -- $sb
+  c=${1:-}; [ "$(basename "${c:-x}")" = env ] && c=${2:-}
+  case "$(basename "${c:-x}")" in python*) command -v "$c" 2>/dev/null && return 0 ;; esac
+  command -v python3 2>/dev/null
+}
+
+# Muestra del protocolo del verdict 2: random.Random(seed).sample(sorted(ids), n), con el
+# python de mutmut. stdin = ids; $1 python, $2 n, $3 semilla. Imprime los n ids, ordenados.
 mut_muestra() {
-  awk -v n="$1" -v seed="$2" '
-    { a[++t] = $1 }
-    END {
-      m = 2147483647; s = seed % m; if (s == 0) s = 1
-      if (n > t) n = t
-      for (i = 1; i <= n; i++) {
-        s = (s * 16807) % m
-        j = i + int((s - 1) / (m - 1) * (t - i + 1))
-        x = a[i]; a[i] = a[j]; a[j] = x
-      }
-      for (i = 1; i <= n; i++) print a[i]
-    }' | sort -n
+  "$1" -c 'import random, sys
+ids = sorted(int(x) for x in sys.stdin.read().split())
+n, seed = int(sys.argv[1]), int(sys.argv[2])
+print("\n".join(map(str, sorted(random.Random(seed).sample(ids, n)))))' "$2" "$3"
 }
 
 # Intervalo de Wilson al 95% (no el normal: en c=0 y c=n el normal degenera). Args: c n.
@@ -250,7 +256,7 @@ mut_proyecto_de() {
 # Devuelve 0 con R_* rellenos (score muestreado: R_TEXT lleva `IC95 [`).
 mut_py_muestra() {
   local pd=$1 tmp=$2 raw=$3 lista=$4 runner=$5 segs=$6 t0=$7
-  local ids total sample n id rem irc l k t u s p lo hi ev=0 c=0 sv=0 surv="" nsurv=0 tmo=0 blfail=0 erc=0 sh
+  local py ids total sample n id rem irc l k t u s p lo hi ev=0 c=0 sv=0 surv="" nsurv=0 tmo=0 blfail=0 erc=0 sh
   mkdir -p "$tmp/notests"
   # 1) enumerar sin ejecutar tests. Dir de tests vacío = otro hash de tests: los estados
   #    "survived" y el baseline de ~0 s de esta pasada no se reutilizan en la real.
@@ -261,10 +267,17 @@ mut_py_muestra() {
   fi
   ids=$( ( cd "$pd" && con_timeout 30 mutmut result-ids survived ) 2>/dev/null | tr -s ' \t' '\n' | grep -E '^[0-9]+$' || true )
   total=$(printf '%s' "$ids" | grep -c . || true)
-  # no cabe una muestra (o la enumeración falló): corrida completa de siempre
+  # sin ids: la enumeración falló o el formato de result-ids no es el esperado. Se cae
+  # a la corrida completa, y la línea lo dice.
+  if [ "$total" -eq 0 ]; then R_NOTA="muestreo no disponible: sin ids de mutmut"; return 1; fi
+  # no cabe una muestra: corrida completa de siempre (sin nota, es lo esperado)
   [ "$total" -gt "$MUT_SAMPLE" ] || return 1
   n=$MUT_SAMPLE
-  sample=$(printf '%s\n' "$ids" | mut_muestra "$n" "$MUT_SEED")
+  py=$(mut_python_de) || { R_NOTA="muestreo no disponible: sin python de mutmut"; return 1; }
+  sample=$(printf '%s\n' "$ids" | mut_muestra "$py" "$n" "$MUT_SEED" 2>/dev/null || true)
+  if [ "$(printf '%s' "$sample" | grep -c . || true)" -ne "$n" ]; then
+    R_NOTA="muestreo no disponible: el python de mutmut no pudo muestrear"; return 1
+  fi
   sh="muestra de ${n}/${total}, semilla ${MUT_SEED}"
 
   # 2) un `mutmut run <id>` por id con el runner real, dentro del timeout global
@@ -319,7 +332,7 @@ mut_uno() {
 }
 mut_uno_() {
   local root=$1 dir=$2 eco=$3 segs=$4 files=$5 pd tmp raw res="" rc=0 f det="" tot="" sup="" ud sha wterr blfail=0
-  R_TEXT=""; R_DET=""; R_TOT=""; R_N=0; R_DETALLE=""
+  R_TEXT=""; R_DET=""; R_TOT=""; R_N=0; R_DETALLE=""; R_NOTA=""
   ud="$root"; [ "$dir" != "." ] && ud="$root/$dir"
 
   case "$eco" in
@@ -460,6 +473,10 @@ mut_uno_() {
     return 0
   fi
 
+  # cargo y stryker no muestrean: con más de N mutantes lo decimos (por debajo de N, nada)
+  if [ "$eco" != python ] && [ "$MUT_SAMPLE" -gt 0 ] && [ "$tot" -gt "$MUT_SAMPLE" ]; then
+    case "$eco" in rust) R_NOTA="muestreo no aplica: cargo-mutants" ;; *) R_NOTA="muestreo no aplica: stryker" ;; esac
+  fi
   if [ "$eco" = python ]; then
     R_N=$(printf '%s' "$sup" | sed -nE 's/^([0-9]+) superviviente.*/\1/p'); R_N=${R_N:-0}
   else
@@ -552,6 +569,10 @@ $pr" ;;
     fl=$(printf '%s' "$files_of" | awk -F'\t' -v k="$k" '$1 == k { print $2 }')
     mut_uno "$root" "$dir" "$eco" "$segs" "$fl"
     nombre=$dir; [ "$dir" = "." ] && nombre="raíz"
+    [ -n "$R_NOTA" ] && case "$R_NOTA" in
+      "muestreo no disponible"*) R_TEXT="${R_TEXT} (${R_NOTA}; corrida completa)" ;;
+      *) R_TEXT="${R_TEXT} (${R_NOTA})" ;;
+    esac
     lineas+=("MUTACIÓN [${nombre}]: ${R_TEXT}")
     if [ -n "$R_DETALLE" ]; then
       if [ "$multi" = 1 ]; then detalles+=("[${nombre}] ${R_DETALLE}"); else detalles+=("$R_DETALLE"); fi
