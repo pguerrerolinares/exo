@@ -29,6 +29,15 @@ if [ "${STUB_MODE:-}" = progresshang ]; then
   printf '\r3/7  🎉 2  ⏰ 0  🤔 0  🙁 1  🔇 0'
   sleep 31339
 fi
+# STUB_MODE=progresshang2: como progresshang pero con un 🤔 (matado lento).
+if [ "${STUB_MODE:-}" = progresshang2 ]; then
+  printf '\r4/7  🎉 2  ⏰ 0  🤔 1  🙁 1  🔇 0'
+  sleep 31342
+fi
+# STUB_MODE=suspicious: resultado final con 🤔 (2 matados lentos).
+if [ "${STUB_MODE:-}" = suspicious ]; then
+  echo "10/10  🎉 6  ⏰ 0  🤔 2  🙁 2  🔇 0"; exit 0
+fi
 if [ "${STUB_MODE:-}" = dirty ]; then
   prev=""
   for a in "$@"; do

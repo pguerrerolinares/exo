@@ -24,7 +24,7 @@ not_contains() { case "$1" in *"$2"*) return 1 ;; *) return 0 ;; esac; }
 # script necesita (resueltas una vez con `command -v`) más los stubs pedidos, y
 # se usa como PATH a secas. Así un cargo-mutants/mutmut/npx real instalado en la
 # máquina no puede contaminar ningún caso.
-UTILS="bash sh env git jq sed grep awk tr mktemp sleep cat head tail sort dirname basename rm mkdir cp mv wc date id timeout perl uname"
+UTILS="bash sh env git jq sed grep awk tr mktemp sleep cat head tail sort dirname basename rm mkdir cp mv wc date id timeout perl uname chmod"
 stubs_para() {
   local d="$TMP/path-$1" u p; shift
   mkdir -p "$d"
@@ -292,19 +292,111 @@ corre "$r" "$(stubs_para parjs2 npx)" STUB_MODE=silenciohang EXO_MUTATION_TIMEOU
 if pgrep -f "sleep 31341" >/dev/null 2>&1; then pkill -f "sleep 31341" 2>/dev/null; fi
 if contains "$OUT" "MUTACIÓN: parcial (timeout 1s) — progreso: no disponible"; then pass parcial_sin_progreso; else fail parcial_sin_progreso "$(seccion)"; fi
 
-# ---- timeout_por_mutante: EXO_MUTATION_MUTANT_TIMEOUT llega a cada herramienta con su flag
+# ---- timeout_por_mutante: EXO_MUTATION_MUTANT_TIMEOUT aplica SOLO a mutmut (envuelve --runner);
+# stryker conserva su timeout por defecto (no se pasa --timeoutMS) y mutmut ya no recibe -b.
 mkrepo tmpy setup.py src/m.py; r=$REPO
 corre "$r" "$(stubs_para tmpy mutmut)" STUB_MUTMUT=2 EXO_MUTATION_MUTANT_TIMEOUT=45
 a=$(cat "$LOG")
-if contains "$a" " -b 45" && contains "$OUT" "MUTACIÓN: 8/10"; then pass timeout_por_mutante_mutmut; else fail timeout_por_mutante_mutmut "$a"; fi
-mkrepo tmjs package.json src/a.js; r=$REPO
+if contains "$a" "--runner " && grep -Eq -- '--runner [^ ]+ 45 python -m pytest -x --assert=plain' <<<"$a" \
+   && not_contains "$a" " -b " && contains "$OUT" "MUTACIÓN: 8/10"; then pass timeout_por_mutante_mutmut; else fail timeout_por_mutante_mutmut "$a"; fi
+corre "$r" "$(stubs_para tmpy2 mutmut)" STUB_MUTMUT=2
+if grep -Eq -- '--runner [^ ]+ 60 python -m pytest -x --assert=plain' "$LOG"; then pass timeout_por_mutante_defecto_60; else fail timeout_por_mutante_defecto_60 "$(cat "$LOG")"; fi
+corre "$r" "$(stubs_para tmpy3 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_MUTANT_TIMEOUT=xx
+if grep -Eq -- '--runner [^ ]+ 60 python' "$LOG" && contains "$(seccion)" "EXO_MUTATION_MUTANT_TIMEOUT inválido"; then pass timeout_por_mutante_invalido; else fail timeout_por_mutante_invalido "$(seccion) $(cat "$LOG")"; fi
+# runner efectivo = el de la config de mutmut (pyproject [tool.mutmut] antes que setup.cfg [mutmut])
+mkrepo rnpy pyproject.toml src/m.py; r=$REPO
+printf '[tool.mutmut]\nrunner = "python -m pytest -x -q tests/unit"\n' > "$r/pyproject.toml"; git -C "$r" commit -qam cfg; HEAD=$(git -C "$r" rev-parse HEAD)
+corre "$r" "$(stubs_para rnpy mutmut)" STUB_MUTMUT=2
+if grep -Eq -- '--runner [^ ]+ 60 python -m pytest -x -q tests/unit( |$)' "$LOG"; then pass runner_config_pyproject; else fail runner_config_pyproject "$(cat "$LOG")"; fi
+mkrepo rncfg setup.py src/m.py; r=$REPO
+printf '[mutmut]\nrunner=python -m pytest -x tests/rapidos\n' > "$r/setup.cfg"; git -C "$r" add setup.cfg; git -C "$r" commit -qm cfg; HEAD=$(git -C "$r" rev-parse HEAD)
+corre "$r" "$(stubs_para rncfg mutmut)" STUB_MUTMUT=2
+if grep -Eq -- '--runner [^ ]+ 60 python -m pytest -x tests/rapidos( |$)' "$LOG"; then pass runner_config_setup_cfg; else fail runner_config_setup_cfg "$(cat "$LOG")"; fi
+mkrepo js1 package.json src/a.js; r=$REPO
 echo '{"devDependencies":{"@stryker-mutator/core":"9"}}' > "$r/package.json"; git -C "$r" commit -qam pkg; HEAD=$(git -C "$r" rev-parse HEAD)
 corre "$r" "$(stubs_para tmjs npx)" EXO_MUTATION_MUTANT_TIMEOUT=45
-if contains "$(cat "$LOG")" "--timeoutMS 45000"; then pass timeout_por_mutante_stryker; else fail timeout_por_mutante_stryker "$(cat "$LOG")"; fi
-corre "$r" "$(stubs_para tmjs2 npx)"
-if contains "$(cat "$LOG")" "--timeoutMS 30000"; then pass timeout_por_mutante_defecto; else fail timeout_por_mutante_defecto "$(cat "$LOG")"; fi
-corre "$r" "$(stubs_para tmjs3 npx)" EXO_MUTATION_MUTANT_TIMEOUT=xx
-if contains "$(cat "$LOG")" "--timeoutMS 30000" && contains "$(seccion)" "EXO_MUTATION_MUTANT_TIMEOUT inválido"; then pass timeout_por_mutante_invalido; else fail timeout_por_mutante_invalido "$(seccion)"; fi
+if not_contains "$(cat "$LOG")" "timeoutMS" && contains "$(cat "$LOG")" "stryker run"; then pass stryker_sin_timeoutMS; else fail stryker_sin_timeoutMS "$(cat "$LOG")"; fi
+
+# ---- mutmut_sospechoso_cuenta_caught (stub): 🤔 es un mutante MATADO lento -> cuenta en det y en el progreso
+mkrepo susps setup.py src/m.py; r=$REPO
+corre "$r" "$(stubs_para susps mutmut)" STUB_MUTMUT=2 STUB_MODE=suspicious
+if contains "$OUT" "MUTACIÓN: 8/10 (80%) — 2 superviviente(s)"; then pass mutmut_sospechoso_cuenta_stub; else fail mutmut_sospechoso_cuenta_stub "$(seccion)"; fi
+corre "$r" "$(stubs_para susps2 mutmut)" STUB_MUTMUT=2 STUB_MODE=progresshang2 EXO_MUTATION_TIMEOUT=1
+if pgrep -f "sleep 31342" >/dev/null 2>&1; then pkill -f "sleep 31342" 2>/dev/null; fi
+if contains "$OUT" "progreso: 4/7 evaluados, 3 caught, 1 supervivientes"; then pass parcial_progreso_sospechoso; else fail parcial_progreso_sospechoso "$(seccion)"; fi
+
+# ---- gitconfig_hostil: el git del usuario no rompe rangos ni patches
+cat > "$TMP/hostil.gitconfig" <<'CFG'
+[diff]
+	noprefix = true
+	mnemonicPrefix = true
+	renames = copies
+[color]
+	ui = always
+CFG
+r="$TMP/repo-hostil"; mkdir -p "$r/src"; git -C "$r" init -q; git -C "$r" config user.email t@t; git -C "$r" config user.name t
+echo '{"devDependencies":{"@stryker-mutator/core":"9"}}' > "$r/package.json"
+lineas 30 L > "$r/src/a.js"; lineas 8 M > "$r/src/b.js"
+git -C "$r" add -A >/dev/null; git -C "$r" commit -qm base; BASE=$(git -C "$r" rev-parse HEAD)
+sed -i -e 's/^L3$/X3/' -e 's/^L4$/X4/' -e '/^L10$/d' -e 's/^L20$/X20/' "$r/src/a.js"; sed -i 's/^M5$/Y5/' "$r/src/b.js"
+git -C "$r" commit -qam head; HEAD=$(git -C "$r" rev-parse HEAD)
+corre "$r" "$(stubs_para hostil npx)" GIT_CONFIG_GLOBAL="$TMP/hostil.gitconfig"
+if contains "$(cat "$LOG")" '--mutate src/a.js:3-4,src/a.js:19-19,src/b.js:5-5'; then pass gitconfig_hostil_rangos; else fail gitconfig_hostil_rangos "log=$(cat "$LOG")"; fi
+mkrepo hostilc Cargo.toml src/lib.rs; r=$REPO
+corre "$r" "$(stubs_para hostilc cargo-mutants)" GIT_CONFIG_GLOBAL="$TMP/hostil.gitconfig"
+if contains "$(cat "$LOG")" "+++ b/src/lib.rs" && contains "$OUT" "MUTACIÓN: 8/10"; then pass gitconfig_hostil_cargo; else fail gitconfig_hostil_cargo "log=$(cat "$LOG")"; fi
+mkrepo hostilp setup.py src/m.py; r=$REPO
+corre "$r" "$(stubs_para hostilp mutmut)" STUB_MUTMUT=2 GIT_CONFIG_GLOBAL="$TMP/hostil.gitconfig"
+if contains "$(cat "$LOG")" "patch: +++ b/src/m.py" && contains "$(cat "$LOG")" "--paths-to-mutate src/m.py"; then pass gitconfig_hostil_mutmut; else fail gitconfig_hostil_mutmut "log=$(cat "$LOG")"; fi
+
+# ---- exclude_pathspec: EXO_MUTATION_EXCLUDE (pathspecs separados por comas) quita ficheros antes de agrupar
+mkrepo excl setup.py src/m.py alembic/versions/001_x.py src/api_pb2.py src/gen/z.py; r=$REPO
+corre "$r" "$(stubs_para excl mutmut)" STUB_MUTMUT=2 EXO_MUTATION_EXCLUDE='alembic/versions/**,*_pb2.py, src/gen'
+a=$(cat "$LOG")
+if contains "$a" "--paths-to-mutate src/m.py" && not_contains "$a" "001_x" && not_contains "$a" "_pb2" && not_contains "$a" "gen/z"; then pass exclude_pathspec; else fail exclude_pathspec "log=$a"; fi
+corre "$r" "$(stubs_para excl2 mutmut)" STUB_MUTMUT=2
+if contains "$(cat "$LOG")" "001_x.py" && contains "$(cat "$LOG")" "_pb2.py"; then pass exclude_vacio_por_defecto; else fail exclude_vacio_por_defecto "log=$(cat "$LOG")"; fi
+corre "$r" "$(stubs_para excl3 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_EXCLUDE='src,alembic'
+if contains "$OUT" "MUTACIÓN: no disponible (diff sin código de producción)" && [ ! -s "$LOG" ]; then pass exclude_todo; else fail exclude_todo "$(seccion) log=$(cat "$LOG")"; fi
+
+# ---- tests con el mutmut 2.x REAL (se saltan si no hay uno con whatthepatch y pytest en el PATH del llamador)
+REAL_DIR=""
+if _mm=$(command -v mutmut 2>/dev/null) && [ -x "$_mm" ]; then
+  _d=$(dirname "$_mm")
+  if "$_mm" run --help 2>&1 | grep -q -- '--paths-to-mutate' && "$_d/python" -c 'import whatthepatch, pytest' >/dev/null 2>&1; then REAL_DIR=$_d; fi
+fi
+if [ -z "$REAL_DIR" ]; then
+  printf '[SKIP] mutmut_sospechoso_cuenta_caught, mutmut_timeout_real — sin mutmut 2.x real (con whatthepatch+pytest) en PATH\n'
+else
+  mkreal() { # NOMBRE  (el contenido de m.py y del test lo escribe el llamador antes de commitear con `realcommit`)
+    REPO="$TMP/repo-$1"; mkdir -p "$REPO/pkg/tests"; git -C "$REPO" init -q; git -C "$REPO" config user.email t@t; git -C "$REPO" config user.name t
+    printf '[project]\nname="p"\n' > "$REPO/pkg/pyproject.toml"
+  }
+  # sospechoso: el mutante se mata pero tarda > 2x el baseline (🤔). Es un mutante MATADO.
+  mkreal susp
+  printf 'V = 0\n' > "$REPO/pkg/m.py"
+  printf 'import sys, os\nsys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))\nimport m\ndef test_f():\n    assert m.V == 1\n' > "$REPO/pkg/tests/test_m.py"
+  git -C "$REPO" add -A >/dev/null; git -C "$REPO" commit -qm base; BASE=$(git -C "$REPO" rev-parse HEAD)
+  printf 'V = 1\n' > "$REPO/pkg/m.py"
+  printf 'import sys, os, time\nsys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))\nimport m\ndef test_f():\n    time.sleep(0.3)\n    if m.V != 1:\n        time.sleep(4)\n    assert m.V == 1\n' > "$REPO/pkg/tests/test_m.py"
+  git -C "$REPO" add -A >/dev/null; git -C "$REPO" commit -qm head; HEAD=$(git -C "$REPO" rev-parse HEAD)
+  corre "$REPO" "$(stubs_para real1):$REAL_DIR"
+  if contains "$OUT" "MUTACIÓN: 2/2 (100%) — 0 superviviente(s)"; then pass mutmut_sospechoso_cuenta_caught; else fail mutmut_sospechoso_cuenta_caught "$(seccion)"; fi
+
+  # timeout real por mutante: baseline lento (~2.5 s => corte propio de mutmut ~25 s por mutante);
+  # con EXO_MUTATION_MUTANT_TIMEOUT=5 cada mutante colgado se corta en ~5 s y cuenta como caught.
+  mkreal slow
+  printf 'def f(x):\n    return x + 1\n' > "$REPO/pkg/m.py"
+  printf 'import sys, os\nsys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))\nfrom m import f\ndef test_f():\n    assert f(1) == 3\n' > "$REPO/pkg/tests/test_m.py"
+  git -C "$REPO" add -A >/dev/null; git -C "$REPO" commit -qm base; BASE=$(git -C "$REPO" rev-parse HEAD)
+  printf 'def f(x):\n    return x + 2\n' > "$REPO/pkg/m.py"
+  printf 'import sys, os, time\nsys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))\nfrom m import f\ndef test_f():\n    time.sleep(2.5)\n    if f(1) != 3:\n        time.sleep(31343)\n    assert f(1) == 3\n' > "$REPO/pkg/tests/test_m.py"
+  git -C "$REPO" add -A >/dev/null; git -C "$REPO" commit -qm head; HEAD=$(git -C "$REPO" rev-parse HEAD)
+  t0=$SECONDS
+  corre "$REPO" "$(stubs_para real2):$REAL_DIR" EXO_MUTATION_MUTANT_TIMEOUT=5 EXO_MUTATION_TIMEOUT=120
+  dt=$((SECONDS - t0))
+  if contains "$OUT" "(100%) — 0 superviviente(s)" && [ "$dt" -lt 60 ]; then pass mutmut_timeout_real; else fail mutmut_timeout_real "dt=${dt}s $(seccion)"; fi
+fi
 
 # ---- mutmut sin whatthepatch: --use-patch-file falla con ImportError -> no disponible visible, no "salida no reconocida"
 mkrepo nowtp setup.py src/m.py; r=$REPO

@@ -68,12 +68,27 @@ por proyecto. Las tres herramientas mutan solo las líneas del diff: cargo con
 sin llamar a la herramienta; `mutmut` 3.x siempre da `no disponible` (no acota
 por CLI).
 
-`EXO_MUTATION_MUTANT_TIMEOUT` (30 s por defecto; inválido avisa y usa 30) es el
-timeout por mutante: `--timeoutMS` en stryker y `-b` en mutmut (ahí solo marca
-"sospechoso": el corte duro de un mutante colgado es baseline×10, fijo). En cargo
-no aplica. Con el timeout global, `parcial (timeout Ns) — progreso: k/n evaluados,
-c caught, s supervivientes` conserva el conteo (mutmut y stryker; cargo y una
-salida ilegible dan `progreso: no disponible`).
+`EXO_MUTATION_MUTANT_TIMEOUT` (60 s por defecto; inválido avisa y usa 60) es el
+timeout por mutante y aplica SOLO a mutmut: mutmut 2.5.1 no tiene timeout
+configurable (corta a baseline×10, en una suite lenta más de 40 min colgado), así
+que el script envuelve su `--runner` (el de su config, `[tool.mutmut]` en
+`pyproject.toml` o `[mutmut]` en `setup.cfg`; si no, el default `python -m pytest -x
+--assert=plain`) con un corte de N s. Un mutante cortado así cuenta como caught
+(convención estándar: timeout = detectado); un baseline que tarde más de N s da
+`parcial`. Stryker NO recibe `--timeoutMS`: conserva su default (5000 ms +
+netTime×1,5), que ya corta. En cargo no aplica. En mutmut, 🤔 (sospechoso) es un
+mutante matado lento y cuenta como caught.
+
+`EXO_MUTATION_EXCLUDE` (vacío por defecto) son pathspecs de git separados por
+COMAS, relativos a la raíz del repo (`alembic/versions/**,*_pb2.py,src/gen`): esos
+ficheros salen del conjunto a mutar antes de agrupar por proyecto (migraciones,
+código generado). Si excluyen todo, `no disponible (diff sin código de producción)`.
+
+Con el timeout global, `parcial (timeout Ns) — progreso: k/n evaluados, c caught,
+s supervivientes` conserva el conteo (mutmut y stryker; cargo y una salida
+ilegible dan `progreso: no disponible`). En stryker `k/n` excluye NoCoverage,
+`caught` incluye Runtime/CompileError y la línea llega con hasta 10 s de retraso:
+no es comparable con el score final.
 
 - Sin sección `MUTACIÓN:`, o `no disponible (<motivo>)`/`parcial (<motivo>)` ⇒
   esa línea al ledger; no bloquees ni corras mutación a mano.
