@@ -211,3 +211,20 @@ ARREGLAR · 4 DESCARTAR) y antes de correr ninguna tarea.
    (§5). Con κ, pasan a rúbrica con juez LLM; sin κ, se sustituyen.
 5. **Segunda auditoría:** toda tarea tocada en este ciclo vuelve a pasar por
    un auditor fresco antes de congelar.
+
+## E9 — todos los checks de S1 son scripts; sin juez LLM ni κ
+
+Decidida por Paul el 2026-09-29 (opción b), antes de correr ninguna tarea.
+
+- Las tareas cuyo cumplimiento solo se veía en la prosa del agente (`g1-38`,
+  `g1-89`, `g2-102`, `g2-134`, `g2-63`) y las de tipo `rubrica` (`g1-108`,
+  `g1-160`, `g1-27`, `g1-77`) se **sustituyen** por las siguientes `ok` del
+  orden (E7). Las sustitutas solo admiten check `script`.
+- §5 (juez LLM, adjudicación de Paul y κ ≥ 0,60) **queda sin efecto**: no
+  hay tareas juzgadas por LLM. S2 ya era script (el test del commit).
+- **Sesgo declarado:** esto excluye las reglas que solo se observan en lo que
+  el agente escribe (brief, comunicación, decisión). S1 cubre reglas cuyo
+  cumplimiento deja rastro en comandos o en ficheros.
+- El gold activo se fija por lista explícita (`activas-s1.txt`) en la
+  congelación. Los directorios descartados o sustituidos quedan fuera
+  aunque sigan en disco.
