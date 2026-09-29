@@ -9,6 +9,8 @@ repo=$(jq -r .repo "$g/meta.json"); py="$K_ROOT/s2/venv-$repo/bin/python"
 mapfile -t tests < <(jq -r '.tests[]' "$g/meta.json")
 cp -a "$g/tests_ref/." "$w/"
 cd "$w" || exit 1
+# El código bajo prueba es SIEMPRE el del workdir: el venv no trae el paquete instalado.
+export PYTHONPATH="$w/src:$w"
 if [ "$repo" = wagtail ]; then
   labels=(); for t in "${tests[@]}"; do labels+=("$(echo "${t%.py}" | tr / .)"); done
   timeout 900 "$py" runtests.py "${labels[@]}" --parallel 1 > /dev/null 2>&1

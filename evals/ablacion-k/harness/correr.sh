@@ -47,9 +47,17 @@ deny=("Read(//home/paul/Documentos/proyectos/wisdom-paul/**)" "Read(//home/paul/
 [ "$brazo" = a0 ] && deny+=("Read(/$P/kb/**)" "Grep(/$P/kb/**)")
 ruta="$PATH"; [ "$brazo" = a0 ] || [ "$brazo" = a1 ] && ruta="$P/stub:$PATH"
 
+# S2: el agente usa el venv del repo (solo lectura) y el código de su workdir.
+extra_env=()
+if [ -f "$tarea/meta.json" ]; then
+  s2repo=$(jq -r .repo "$tarea/meta.json"); venv="$K_ROOT/s2/venv-$s2repo"
+  ruta="$venv/bin:$ruta"
+  extra_env=(VIRTUAL_ENV="$venv" PYTHONPATH="$O/work/src:$O/work")
+  [ "$s2repo" = django-oscar ] && extra_env+=(DATABASE_ENGINE=django.db.backends.sqlite3 DATABASE_NAME=:memory:)
+fi
 prompt=$(jq -r .prompt "$t_json")
 cd "$O/work" || exit 3; t0=$(date +%s)
-PATH="$ruta" EXO_CONFIG="$P/config.toml" EXO_KB="$P/kb" EXO_DB="$P/index.db" EXO_INDEX="$P/index.db" \
+env "${extra_env[@]}" PATH="$ruta" EXO_CONFIG="$P/config.toml" EXO_KB="$P/kb" EXO_DB="$P/index.db" EXO_INDEX="$P/index.db" \
 EXO_BIN="$(command -v exo)" REFLEX_LOG_FILE="$O/reflex.jsonl" \
 timeout 1800 claude -p --model "$MODELO" --setting-sources "" --strict-mcp-config \
   --settings "$O/settings.json" --append-system-prompt-file "$P/claude-md.md" \
