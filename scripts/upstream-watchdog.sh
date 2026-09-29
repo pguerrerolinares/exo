@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Watchdog del bot upstream-sync: rojo si el último latido (comentario del issue
-# de estado) es más viejo que <max_dias> o si no hay issue/latidos. Toda ausencia es rojo.
+# de estado con línea `estado: ok|alerta`) está en alerta o es más viejo que
+# <max_dias>, o si no hay issue/latidos. Toda ausencia es rojo.
 # Uso: upstream-watchdog.sh <comentarios.json|-> [<ahora_iso>] [<max_dias>]
 set -uo pipefail
 
@@ -13,10 +14,20 @@ if [ "$f" = "-" ]; then
   echo "issue upstream-sync: estado no existe"; exit 1
 fi
 
-# max() sobre strings ISO-8601 en UTC: el orden léxico es el cronológico
-ultimo="$(jq -r 'if type=="array" then ([.[].created_at] | max // "") else "" end' "$f" 2>/dev/null)" || ultimo=""
+command -v jq >/dev/null 2>&1 || { echo "jq no disponible"; exit 1; }
+
+# Solo cuentan los comentarios con una línea `estado: ok|alerta` (los latidos): un
+# comentario humano no renueva el reloj. max_by sobre ISO-8601 UTC: léxico = cronológico.
+sel='if type=="array" then ([.[] | select((.body // "") | test("(^|\n)estado: (ok|alerta)[ \t\r]*(\n|$)"))
+  | {t: .created_at, e: (.body | capture("(^|\n)estado: (?<e>ok|alerta)") | .e)}] | max_by(.t) // empty
+  | "\(.t) \(.e)") else empty end'
+lat="$(jq -r "$sel" "$f" 2>/dev/null)" || lat=""
+ultimo="${lat%% *}"; estado="${lat##* }"
 if [ -z "$ultimo" ] || [ "$ultimo" = "null" ]; then
   echo "sin latidos"; exit 1
+fi
+if [ "$estado" = alerta ]; then
+  echo "latido en alerta: $ultimo"; exit 1
 fi
 
 t_ultimo="$(date -u -d "$ultimo" +%s 2>/dev/null)" && t_ahora="$(date -u -d "$ahora" +%s 2>/dev/null)" || {

@@ -20,8 +20,9 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
-      # Rojo si el script sale != 0: sin issue (`-`), sin latidos o latido de
-      # más de 8 días. `--paginate` imprime un array por página; `jq -s` los junta
+      # Rojo si el script sale != 0: sin issue (`-`), sin latidos, último latido
+      # en alerta o de más de 8 días (el JSON lleva `body`: el script filtra por
+      # la línea `estado:`). `--paginate` imprime un array por página; `jq -s` los junta
       # en un array de arrays y `add` lo aplana en el array que espera el script.
       - name: Comprobar el último latido
         run: |
