@@ -24,12 +24,14 @@ not_contains() { case "$1" in *"$2"*) return 1 ;; *) return 0 ;; esac; }
 # script necesita (resueltas una vez con `command -v`) más los stubs pedidos, y
 # se usa como PATH a secas. Así un cargo-mutants/mutmut/npx real instalado en la
 # máquina no puede contaminar ningún caso.
-UTILS="bash sh env git jq sed grep awk tr mktemp sleep cat head tail sort dirname basename rm mkdir cp mv wc date id timeout perl uname chmod"
+UTILS="bash sh true seq python3 env git jq sed grep awk tr mktemp sleep cat head tail sort dirname basename rm mkdir cp mv wc date id timeout perl uname chmod"
 stubs_para() {
   local d="$TMP/path-$1" u p; shift
   mkdir -p "$d"
   for u in $UTILS; do
     p=$(command -v "$u" 2>/dev/null) || continue
+    # `true` puede resolverse como builtin (sin ruta): mutmut lo lanza como binario (--runner true)
+    case "$p" in /*) ;; *) p=""; for c in "/usr/bin/$u" "/bin/$u"; do [ -x "$c" ] && { p=$c; break; }; done ;; esac
     case "$p" in /*) ln -sf "$p" "$d/$u" ;; esac
   done
   for u in "$@"; do cp "$STUBS/$u" "$d/$u"; done
@@ -359,6 +361,92 @@ if contains "$(cat "$LOG")" "001_x.py" && contains "$(cat "$LOG")" "_pb2.py"; th
 corre "$r" "$(stubs_para excl3 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_EXCLUDE='src,alembic'
 if contains "$OUT" "MUTACIÓN: no disponible (diff sin código de producción)" && [ ! -s "$LOG" ]; then pass exclude_todo; else fail exclude_todo "$(seccion) log=$(cat "$LOG")"; fi
 
+# ---- muestreo por adelantado (mutmut 2.x): enumerar sin tests, elegir n ids, correr solo esos
+runids() { grep '^runid=' "$LOG" | sed 's/^runid=//'; }
+mkrepo mues setup.py src/m.py; r=$REPO
+corre "$r" "$(stubs_para mues1 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=400
+ids1=$(runids); s=$(seccion)
+if [ "$(wc -l <<<"$ids1" | tr -d ' ')" = 150 ] && [ "$(sort -u <<<"$ids1" | wc -l | tr -d ' ')" = 150 ] \
+   && [ "$(sort -n <<<"$ids1" | tail -n 1)" -le 400 ] && [ "$(sort -n <<<"$ids1" | head -n 1)" -ge 1 ] \
+   && contains "$s" "muestra de 150/400 (semilla 20260929)" && contains "$s" "IC95 [" \
+   && contains "$(cat "$LOG")" "--runner true" && contains "$(cat "$LOG")" "--tests-dir"; then pass muestra_por_encima_de_n; else fail muestra_por_encima_de_n "n=$(wc -l <<<"$ids1") $s"; fi
+corre "$r" "$(stubs_para mues2 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=400; ids2=$(runids)
+corre "$r" "$(stubs_para mues3 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=400 EXO_MUTATION_SEED=7; ids3=$(runids)
+if [ -n "$ids1" ] && [ "$ids1" = "$ids2" ] && [ "$ids1" != "$ids3" ] && [ "$(wc -l <<<"$ids3" | tr -d ' ')" = 150 ]; then pass muestra_reproducible; else fail muestra_reproducible "misma semilla iguales=$([ "$ids1" = "$ids2" ] && echo si || echo no) otra semilla iguales=$([ "$ids1" = "$ids3" ] && echo si || echo no)"; fi
+# por debajo de N: corrida completa de siempre (sin IC, sin ids sueltos)
+corre "$r" "$(stubs_para mues4 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=100
+if contains "$OUT" "MUTACIÓN: 8/10 (80%) — 2 superviviente(s)" && not_contains "$OUT" "IC95" && [ -z "$(runids)" ] \
+   && contains "$(cat "$LOG")" "--use-patch-file"; then pass por_debajo_de_n; else fail por_debajo_de_n "$(seccion)"; fi
+# EXO_MUTATION_SAMPLE=0: 1.5.1 tal cual (ni enumeración ni ids)
+corre "$r" "$(stubs_para mues5 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=400 EXO_MUTATION_SAMPLE=0
+if contains "$OUT" "MUTACIÓN: 8/10 (80%) — 2 superviviente(s)" && not_contains "$OUT" "IC95" && [ -z "$(runids)" ] \
+   && not_contains "$(cat "$LOG")" "--runner true"; then pass muestreo_desactivado; else fail muestreo_desactivado "$(seccion) log=$(cat "$LOG")"; fi
+# Wilson: 33/150 = [16,1%, 29,3%] (el intervalo normal daría [15,2%, 28,8%]); bordes c=0 y c=n sin NaN
+corre "$r" "$(stubs_para wil1 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=400 STUB_KILL_COUNT=33
+w1=$(seccion)
+corre "$r" "$(stubs_para wil2 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=400 STUB_KILL_COUNT=0
+w2=$(seccion)
+corre "$r" "$(stubs_para wil3 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=400 STUB_KILL_COUNT=150
+w3=$(seccion)
+if contains "$w1" "33/150 (22,0%) IC95 [16,1%, 29,3%] — muestra de 150/400" \
+   && contains "$w2" "0/150 (0,0%) IC95 [0,0%, 2,5%]" && contains "$w3" "150/150 (100,0%) IC95 [97,5%, 100,0%]" \
+   && not_contains "$w2$w3" "nan" && not_contains "$w2$w3" "inf"; then pass wilson_correcto; else fail wilson_correcto "$w1 | $w2 | $w3"; fi
+# sin caché previa: dos corridas seguidas comparten el estado de mutmut (STUB_CACHE, el equivalente a
+# un .mutmut-cache que sobreviviera); la segunda no puede leer el baseline ~0 s de la enumeración
+# (⏰ inventados) ni acabar en <1 s. 5 ids x 0,3 s = 1,5 s reales cada corrida.
+t0=$SECONDS; corre "$r" "$(stubs_para cache1 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=20 EXO_MUTATION_SAMPLE=5 STUB_ID_SLEEP=0.3 STUB_KILL_COUNT=3 STUB_CACHE="$TMP/cache-compartida"; d1=$((SECONDS - t0)); c1=$(seccion)
+t0=$SECONDS; corre "$r" "$(stubs_para cache2 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=20 EXO_MUTATION_SAMPLE=5 STUB_ID_SLEEP=0.3 STUB_KILL_COUNT=3 STUB_CACHE="$TMP/cache-compartida"; d2=$((SECONDS - t0)); c2=$(seccion)
+if [ "$d1" -ge 1 ] && [ "$d2" -ge 1 ] && contains "$c1" "3/5 (60,0%)" && contains "$c2" "3/5 (60,0%)"; then pass sin_cache_previa; else fail sin_cache_previa "d1=$d1 d2=$d2 $c1 | $c2"; fi
+# timeout global dentro de la muestra: parcial con el progreso de la muestra
+corre "$r" "$(stubs_para mues6 mutmut)" STUB_MUTMUT=2 STUB_MUTANTS=400 EXO_MUTATION_SAMPLE=5 STUB_HANG_AFTER=2 EXO_MUTATION_TIMEOUT=3
+if pgrep -f "sleep 31344" >/dev/null 2>&1; then pkill -f "sleep 31344" 2>/dev/null; fi
+if contains "$OUT" "MUTACIÓN: parcial (timeout 3s) — progreso: 2/5 evaluados, 2 caught, 0 supervivientes (muestra de 5/400, semilla 20260929)"; then pass timeout_en_muestra; else fail timeout_en_muestra "$(seccion)"; fi
+# valores inválidos: aviso visible y se usan los de siempre
+corre "$r" "$(stubs_para mues7 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=400 EXO_MUTATION_SAMPLE=abc EXO_MUTATION_SEED=x1
+if contains "$(seccion)" "EXO_MUTATION_SAMPLE inválido" && contains "$(seccion)" "EXO_MUTATION_SEED inválido" \
+   && contains "$(seccion)" "muestra de 150/400 (semilla 20260929)"; then pass muestreo_env_invalido; else fail muestreo_env_invalido "$(seccion)"; fi
+# monorepo: el proyecto muestreado se reporta aparte y NO entra en el agregado
+mkrepo mues8 "" engine/Cargo.toml engine/src/lib.rs py/setup.py py/src/m.py; r2=$REPO
+corre "$r2" "$(stubs_para mues8 cargo-mutants mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=400
+s=$(seccion); primera=$(sed -n '2p' <<<"$s")
+if contains "$primera" "MUTACIÓN: 8/10 (80%) — 2 superviviente(s); 1 proyecto(s) sin score (1 muestreado(s), aparte)" \
+   && contains "$s" "MUTACIÓN [engine]: 8/10" && contains "$s" "MUTACIÓN [py]: " && contains "$s" "IC95 [" && contains "$s" "muestra de 150/400"; then pass muestra_fuera_del_agregado; else fail muestra_fuera_del_agregado "$s"; fi
+# selección EXACTA del protocolo del verdict 2: random.Random(20260929).sample(sorted(ids), 150) sobre 1..285
+# (bizkaia-muestra.txt: un id por línea, en el orden del sample)
+mkrepo prot setup.py src/m.py; r=$REPO
+MUESTRA_V2="${SCRIPT_DIR}/../../../evals/pipeline-a-plus/linea-base-2/bizkaia-muestra.txt"
+if [ -f "$MUESTRA_V2" ]; then
+  corre "$r" "$(stubs_para proto mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=285
+  if [ "$(runids | sort -n)" = "$(sort -n "$MUESTRA_V2")" ] && [ "$(runids | wc -l | tr -d ' ')" = 150 ]; then pass muestra_igual_protocolo; else fail muestra_igual_protocolo "la selección difiere de bizkaia-muestra.txt"; fi
+else
+  printf '[SKIP] muestra_igual_protocolo — no está %s\n' "$MUESTRA_V2"
+fi
+# degradaciones nunca mudas
+corre "$r" "$(stubs_para dg1 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=0
+if contains "$(seccion)" "MUTACIÓN: 8/10 (80%)" && contains "$(seccion)" "(muestreo no disponible: sin ids de mutmut; corrida completa)"; then pass degrada_sin_ids; else fail degrada_sin_ids "$(seccion)"; fi
+corre "$r" "$(stubs_para dg2 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=400 STUB_IDS_RAW="ids: a b c"
+if contains "$(seccion)" "MUTACIÓN: 8/10 (80%)" && contains "$(seccion)" "(muestreo no disponible: sin ids de mutmut; corrida completa)" && [ -z "$(runids)" ]; then pass degrada_formato_distinto; else fail degrada_formato_distinto "$(seccion)"; fi
+pdg=$(stubs_para dg3 mutmut); rm -f "$pdg/python3"
+corre "$r" "$pdg" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=400
+if contains "$(seccion)" "MUTACIÓN: 8/10 (80%)" && contains "$(seccion)" "(muestreo no disponible: sin python de mutmut; corrida completa)" && [ -z "$(runids)" ]; then pass degrada_sin_python; else fail degrada_sin_python "$(seccion)"; fi
+# cargo y stryker: con más de N mutantes, "no aplica"; por debajo de N, nada
+mkrepo dg4 Cargo.toml src/lib.rs; r4=$REPO
+corre "$r4" "$(stubs_para dg4 cargo-mutants)" EXO_MUTATION_SAMPLE=5
+if contains "$(seccion)" "MUTACIÓN: 8/10 (80%) — 2 superviviente(s) (muestreo no aplica: cargo-mutants)"; then pass cargo_no_aplica_sobre_n; else fail cargo_no_aplica_sobre_n "$(seccion)"; fi
+corre "$r4" "$(stubs_para dg5 cargo-mutants)"
+if contains "$(seccion)" "MUTACIÓN: 8/10" && not_contains "$(seccion)" "muestreo"; then pass cargo_sin_nota_bajo_n; else fail cargo_sin_nota_bajo_n "$(seccion)"; fi
+mkrepo dg6 package.json src/a.js; r5=$REPO
+echo '{"devDependencies":{"@stryker-mutator/core":"9"}}' > "$r5/package.json"; git -C "$r5" commit -qam pkg; HEAD=$(git -C "$r5" rev-parse HEAD)
+corre "$r5" "$(stubs_para dg6 npx)" EXO_MUTATION_SAMPLE=2
+if contains "$(seccion)" "MUTACIÓN: 3/4" && contains "$(seccion)" "(muestreo no aplica: stryker)"; then pass stryker_no_aplica_sobre_n; else fail stryker_no_aplica_sobre_n "$(seccion)"; fi
+corre "$r5" "$(stubs_para dg7 npx)"
+if contains "$(seccion)" "MUTACIÓN: 3/4" && not_contains "$(seccion)" "muestreo"; then pass stryker_sin_nota_bajo_n; else fail stryker_sin_nota_bajo_n "$(seccion)"; fi
+
+# cargo no muestrea: sale igual, sin IC
+mkrepo mues9 Cargo.toml src/lib.rs; r3=$REPO
+corre "$r3" "$(stubs_para mues9 cargo-mutants)"
+if contains "$OUT" "MUTACIÓN: 8/10" && not_contains "$OUT" "IC95"; then pass cargo_no_muestrea; else fail cargo_no_muestrea "$(seccion)"; fi
+
 # ---- tests con el mutmut 2.x REAL (se saltan si no hay uno con whatthepatch y pytest en el PATH del llamador)
 REAL_DIR=""
 if _mm=$(command -v mutmut 2>/dev/null) && [ -x "$_mm" ]; then
@@ -366,7 +454,7 @@ if _mm=$(command -v mutmut 2>/dev/null) && [ -x "$_mm" ]; then
   if "$_mm" run --help 2>&1 | grep -q -- '--paths-to-mutate' && "$_d/python" -c 'import whatthepatch, pytest' >/dev/null 2>&1; then REAL_DIR=$_d; fi
 fi
 if [ -z "$REAL_DIR" ]; then
-  printf '[SKIP] mutmut_sospechoso_cuenta_caught, mutmut_timeout_real — sin mutmut 2.x real (con whatthepatch+pytest) en PATH\n'
+  printf '[SKIP] mutmut_sospechoso_cuenta_caught, mutmut_timeout_real, mutmut_muestreo_real — sin mutmut 2.x real (con whatthepatch+pytest) en PATH\n'
 else
   mkreal() { # NOMBRE  (el contenido de m.py y del test lo escribe el llamador antes de commitear con `realcommit`)
     REPO="$TMP/repo-$1"; mkdir -p "$REPO/pkg/tests"; git -C "$REPO" init -q; git -C "$REPO" config user.email t@t; git -C "$REPO" config user.name t
@@ -396,6 +484,17 @@ else
   corre "$REPO" "$(stubs_para real2):$REAL_DIR" EXO_MUTATION_MUTANT_TIMEOUT=5 EXO_MUTATION_TIMEOUT=120
   dt=$((SECONDS - t0))
   if contains "$OUT" "(100%) — 0 superviviente(s)" && [ "$dt" -lt 60 ]; then pass mutmut_timeout_real; else fail mutmut_timeout_real "dt=${dt}s $(seccion)"; fi
+
+  # muestreo real: enumerar sin tests + un id con el runner real (2+ mutantes, muestra de 1)
+  mkreal samp
+  printf 'def f(x):\n    return x + 1\n' > "$REPO/pkg/m.py"
+  printf 'import sys, os\nsys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))\nfrom m import f\ndef test_f():\n    assert f(1) == 1\n' > "$REPO/pkg/tests/test_m.py"
+  git -C "$REPO" add -A >/dev/null; git -C "$REPO" commit -qm base; BASE=$(git -C "$REPO" rev-parse HEAD)
+  printf 'def f(x):\n    return x + 2\n' > "$REPO/pkg/m.py"
+  printf 'import sys, os\nsys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))\nfrom m import f\ndef test_f():\n    assert f(1) == 3\n' > "$REPO/pkg/tests/test_m.py"
+  git -C "$REPO" add -A >/dev/null; git -C "$REPO" commit -qm head; HEAD=$(git -C "$REPO" rev-parse HEAD)
+  corre "$REPO" "$(stubs_para real3):$REAL_DIR" EXO_MUTATION_SAMPLE=1 EXO_MUTATION_TIMEOUT=120
+  if contains "$OUT" "IC95 [" && contains "$OUT" "muestra de 1/" && contains "$OUT" "(semilla 20260929)"; then pass mutmut_muestreo_real; else fail mutmut_muestreo_real "$(seccion)"; fi
 fi
 
 # ---- mutmut sin whatthepatch: --use-patch-file falla con ImportError -> no disponible visible, no "salida no reconocida"

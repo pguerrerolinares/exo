@@ -84,6 +84,20 @@ COMAS, relativos a la raíz del repo (`alembic/versions/**,*_pb2.py,src/gen`): e
 ficheros salen del conjunto a mutar antes de agrupar por proyecto (migraciones,
 código generado). Si excluyen todo, `no disponible (diff sin código de producción)`.
 
+`EXO_MUTATION_SAMPLE=<N>` (150 por defecto; `0` lo desactiva y deja el comportamiento
+de 1.5.1; inválido avisa y usa 150) y `EXO_MUTATION_SEED=<s>` (20260929) activan el
+muestreo, SOLO en mutmut 2.x: `mutmut` enumera los mutantes del diff sin ejecutar tests
+y, si hay más de N, corre solo N ids elegidos sin reemplazo con la semilla fija. La línea
+sale `MUTACIÓN [<dir>]: c/n (p%) IC95 [a%, b%] — muestra de n/total (semilla s)` (IC95 de
+Wilson) y ese proyecto NO entra en el agregado: se reporta aparte. Con N o menos mutantes
+corre todos, como siempre. Cargo y stryker no muestrean (corren completos). El timeout
+global cubre enumeración y muestra; si salta, `parcial` con el progreso de la muestra.
+La selección es la del protocolo del verdict 2, `random.Random(s).sample(sorted(ids), n)`,
+ejecutada con el python de mutmut (el de su shebang). Ninguna degradación es muda: sin ids
+de `mutmut result-ids` o sin python la línea acaba en `(muestreo no disponible: <motivo>;
+corrida completa)`; cargo y stryker con más de N mutantes acaban en `(muestreo no aplica:
+<herramienta>)`. Con N o menos no se añade nada.
+
 Con el timeout global, `parcial (timeout Ns) — progreso: k/n evaluados, c caught,
 s supervivientes` conserva el conteo (mutmut y stryker; cargo y una salida
 ilegible dan `progreso: no disponible`). En stryker `k/n` excluye NoCoverage,
