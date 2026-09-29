@@ -17,9 +17,12 @@ sed -n "${desde},${hasta}p" "$K_ROOT/orden-etapa1.txt" > "$K_ROOT/tandas/$n.list
 
 corre() {  # $1=tarea $2=brazo $3=rep
   local d="$K_ROOT/gold/s1/$1"; [ -d "$d" ] || d="$K_ROOT/gold/s2/$1"
+  # K_REANUDAR=1: salta las corridas ya completas (con `fin` en meta.json). Solo para cortes
+  # de infraestructura; se repiten todas las incompletas, de cualquier brazo.
+  if [ "${K_REANUDAR:-0}" = 1 ] && jq -e '.fin' "$K_ROOT/corridas/$1/$2-r$3/meta.json" >/dev/null 2>&1; then return 0; fi
   "$H/correr.sh" "$d" "$2" "$3" > /dev/null 2>&1
 }
-export -f corre; export H
+export -f corre; export H K_REANUDAR
 xargs -P "$par" -L 1 bash -c 'corre "$0" "$1" "$2"' < "$K_ROOT/tandas/$n.lista"
 
 python3 - "$K_ROOT" "$n" <<'PY'

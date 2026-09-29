@@ -254,3 +254,13 @@ antes de correr nada:
 
 Junto con `g0-27` (no-convertible), se sustituyen en orden (E7). Las
 sustitutas tampoco pueden ser circulares ni depender de servicios vivos.
+
+## Incidencia I1 — corte de infraestructura en la tanda 3 (2026-09-30)
+
+El proceso que encadenaba las tandas 2–6 lo mató el límite de tiempo de la
+herramienta que lo lanzó, a mitad de la tanda 3. Las tandas 1 y 2 están
+completas (sin breakers). De la tanda 3 se completaron 29 corridas antes del
+corte; las incompletas **se repiten todas, de ambos brazos**, con
+`K_REANUDAR=1` (salta solo las corridas con `fin` en `meta.json`). El corte es
+externo e independiente de cualquier resultado, y no se ha mirado ninguna tasa
+de éxito. Desde aquí, cada tanda se lanza como proceso propio.
