@@ -63,4 +63,13 @@ jq -c --arg id "$id" --arg b "$brazo" --arg r "$rep" --arg rc "$rc" --arg s "$((
    tokens_in:(.usage.input_tokens+.usage.cache_read_input_tokens+.usage.cache_creation_input_tokens),
    tokens_out:.usage.output_tokens}' "$O/transcript.jsonl" | tail -1 > "$O/meta.json"
 [ -s "$O/meta.json" ] || echo "{\"tarea\":\"$id\",\"brazo\":\"$brazo\",\"rep\":$rep,\"rc\":$rc,\"error\":\"sin result\"}" > "$O/meta.json"
+# Check (contrato E8.3: workdir, transcript, commit inicial) y limpieza de disco.
+if [ -x "$tarea/check.sh" ]; then
+  bash "$tarea/check.sh" "$O/work" "$O/transcript.jsonl" "$(cat "$O/inicio.txt" 2>/dev/null)" > "$O/check.log" 2>&1
+  echo $? > "$O/check.rc"
+fi
+python3 "$H/fugas.py" "$O" "$brazo" > "$O/fugas.json" 2>/dev/null
+git -C "$O/work" diff "$(cat "$O/inicio.txt" 2>/dev/null)" > "$O/diff.patch" 2>/dev/null
+git -C "$O/work" status --porcelain > "$O/status.txt" 2>/dev/null
+[ "${K_CONSERVAR_WORK:-0}" = 1 ] || rm -rf "$O/work"
 cat "$O/meta.json"

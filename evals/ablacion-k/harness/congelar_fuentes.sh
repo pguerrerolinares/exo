@@ -12,7 +12,9 @@ for t in "$gold"/*/; do
   [ "$(jq -r '.setup // false' "$tj")" = true ] && continue
   repo=$(jq -r .repo "$tj"); commit=$(jq -r .commit "$tj")
   rm -rf "$F/$id"
-  cp -a --reflink=auto "$repo" "$F/$id" || { echo "$id ERROR copia"; continue; }
+  excl=$(jq -r '(.excluir // [])[] | "--exclude=/" + .' "$tj")
+  # shellcheck disable=SC2086
+  rsync -a $excl "$repo/" "$F/$id/" || { echo "$id ERROR copia"; continue; }
   git -C "$F/$id" remote 2>/dev/null | while read -r r; do git -C "$F/$id" remote remove "$r"; done
   head=$(git -C "$F/$id" rev-parse HEAD 2>/dev/null)
   sucio=$(git -C "$F/$id" status --porcelain 2>/dev/null | wc -l)

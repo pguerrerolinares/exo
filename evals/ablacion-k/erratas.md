@@ -188,3 +188,26 @@ Se registra como aviso por corrida y se reporta la tasa por brazo. Sigue
 siendo fuga una invocación que no bloquea el stub. Motivo: el core-index de
 A1 nombra exo varias veces, así que un intento es plausible, y con la regla
 literal §9 pararía la campaña por algo inocuo.
+
+## E8 — repos excluidos por Paul y ciclo de arreglo tras la auditoría del gold
+
+Registrada el 2026-09-29, después de la auditoría del gold de S1
+(`~/.cache/exo-ablacion-k/gold/auditoria-s1.md`, privada: 15 OK · 21
+ARREGLAR · 4 DESCARTAR) y antes de correr ninguna tarea.
+
+1. **Repos excluidos por Paul:** `pguerrero-music` y `agent-solve-it` no se
+   usan como fuente. Las tareas que los usaban (`g0-149`, `g0-159`, `g1-177`,
+   `g2-97`) se reescriben sobre un repo sintético (`setup.sh`). Si no es
+   viable, se declaran `no-convertible` y se sustituyen en orden (E7).
+2. **Descartadas por la auditoría:** `g1-1`, `g1-128`, `g2-103`, `g2-2`. Se
+   sustituyen por las siguientes `ok` del orden (E7).
+3. **Contrato común de check, corregido:** `check.sh <workdir> <transcript>
+   <commit_inicio>`. Toda comparación del estado final se hace contra
+   `<commit_inicio>`, nunca contra `HEAD` (si el agente commitea, `HEAD` ya
+   no es el punto de partida). Las reglas de proceso no exigen un orden
+   estricto cuando «hacer → verificar → corregir» cumple el espíritu.
+4. **Checks léxicos sobre texto libre** (`g1-38`, `g1-89`, `g2-102`,
+   `g2-134`, `g2-63`): quedan pendientes de la decisión de Paul sobre el κ
+   (§5). Con κ, pasan a rúbrica con juez LLM; sin κ, se sustituyen.
+5. **Segunda auditoría:** toda tarea tocada en este ciclo vuelve a pasar por
+   un auditor fresco antes de congelar.
