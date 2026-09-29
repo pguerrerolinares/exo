@@ -11,11 +11,10 @@ PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); echo "PASS: $1"; }
 bad() { FAIL=$((FAIL+1)); echo "FAIL: $1"; }
 
-# gold_row <pr> <skill> <etiqueta>
 gold_head() { printf '# gold\n\n| PR | título | base | skill exo | etiqueta | evidencia | conf. |\n|---|---|---|---|---|---|---|\n'; }
 gold_row()  { printf '| %s | titulo x | dev | %s | %s | ev | alta |\n' "$1" "$2" "$3"; }
 led_head()  { printf 'upstream_tag: v9.9.9\n\n| PR | skill | triage | estado | motivo | hash |\n|---|---|---|---|---|---|\n'; }
-led_row()   { printf '| %s | %s | %s | hecho | m | abc123 |\n' "$1" "$2" "$3"; }
+led_row()   { printf '| %s | %s | %s | portado | m | abc123 |\n' "$1" "$2" "$3"; }
 
 # Verdad base de 20 filas: 10 aplica, 10 no aplica.
 build20() {
@@ -30,17 +29,16 @@ build20() {
 }
 
 # todo_acierta
-{ gold_head; gold_row '#1943' plan aplica; gold_row '#1998' orchestrate aplica
-  gold_row '#2136' brainstorm parcial; gold_row '#2318' verify "ya cubierto"; gold_row '#1959' debug "no aplica"; } > "$TMP/g.md"
-cp "$TMP/g.md" "$TMP/g_as_l.md"
-{ led_head; led_row 1943 plan aplica; led_row '#1998' orchestrate aplica
-  led_row '#2136' brainstorm parcial; led_row '#2318' verify "ya cubierto"; led_row '#1959' debug "no aplica"; } > "$TMP/l.md"
+{ gold_head; gold_row '#9001' plan aplica; gold_row '#9002' orchestrate aplica
+  gold_row '#9003' brainstorm parcial; gold_row '#9004' verify "ya cubierto"; gold_row '#9005' debug "no aplica"; } > "$TMP/g.md"
+{ led_head; led_row 9001 plan aplica; led_row '#9002' orchestrate aplica
+  led_row '#9003' brainstorm parcial; led_row '#9004' verify "ya cubierto"; led_row '#9005' debug "no aplica"; } > "$TMP/l.md"
 out="$(bash "$SCORE" "$TMP/g.md" "$TMP/l.md" 2>&1)"; rc=$?
 if [ $rc -eq 0 ] && grep -q 'aciertos 5/5 (100%)' <<<"$out"; then ok todo_acierta; else bad "todo_acierta rc=$rc: $out"; fi
 
 # etiqueta con mayúsculas/espacios se normaliza
-{ led_head; led_row '#1943' plan '  APLICA '; led_row '#1998' orchestrate Aplica
-  led_row '#2136' brainstorm 'Parcial'; led_row '#2318' verify 'Ya  Cubierto'; led_row '#1959' debug 'No aplica'; } > "$TMP/l.md"
+{ led_head; led_row '#9001' plan '  APLICA '; led_row '#9002' orchestrate Aplica
+  led_row '#9003' brainstorm 'Parcial'; led_row '#9004' verify 'Ya  Cubierto'; led_row '#9005' debug 'No aplica'; } > "$TMP/l.md"
 out="$(bash "$SCORE" "$TMP/g.md" "$TMP/l.md" 2>&1)"; rc=$?
 if [ $rc -eq 0 ] && grep -q 'aciertos 5/5' <<<"$out"; then ok normaliza_etiqueta; else bad "normaliza_etiqueta rc=$rc: $out"; fi
 
@@ -72,15 +70,15 @@ if grep -q 'ausentes 1' <<<"$out" && grep -q 'aciertos 19/20' <<<"$out"; then ok
 out="$(bash "$SCORE" "$TMP/gr.md" "$TMP/lr.md" 2>&1)"; rc=$?
 if [ $rc -eq 0 ] && grep -q 'aciertos 2/2' <<<"$out"; then ok revertido_ausente_acierta; else bad "revertido_ausente_acierta rc=$rc: $out"; fi
 
-# extra_no_puntua + release #2028 no empareja con miembros
+# extra_no_puntua + release #9006 no empareja con miembros
 build20
-led_row '#2028' plan aplica >> "$TMP/l20.md"
+led_row '#9006' plan aplica >> "$TMP/l20.md"
 out="$(bash "$SCORE" "$TMP/g20.md" "$TMP/l20.md" 2>&1)"; rc=$?
 if [ $rc -eq 0 ] && grep -q 'extra 1' <<<"$out" && grep -q 'aciertos 20/20 (100%)' <<<"$out"; then ok extra_no_puntua; else bad "extra_no_puntua rc=$rc: $out"; fi
 
 # release en el ledger, miembros ausentes: fallo
-{ gold_head; gold_row '#1943' plan aplica; gold_row '#1998' orchestrate aplica; } > "$TMP/gm.md"
-{ led_head; led_row '#2028' plan aplica; } > "$TMP/lm.md"
+{ gold_head; gold_row '#9001' plan aplica; gold_row '#9002' orchestrate aplica; } > "$TMP/gm.md"
+{ led_head; led_row '#9006' plan aplica; } > "$TMP/lm.md"
 out="$(bash "$SCORE" "$TMP/gm.md" "$TMP/lm.md" 2>&1)"; rc=$?
 if [ $rc -eq 1 ] && grep -q 'ausentes 2' <<<"$out" && grep -q 'extra 1' <<<"$out" && grep -q 'aciertos 0/2' <<<"$out"; then ok release_no_empareja_miembros; else bad "release_no_empareja_miembros rc=$rc: $out"; fi
 
@@ -94,6 +92,22 @@ if [ $rc -eq 0 ] && grep -q 'aciertos 1/1' <<<"$out"; then ok solo_tabla_princip
 printf 'nada\n' > "$TMP/vacio.md"
 bash "$SCORE" "$TMP/vacio.md" "$TMP/l.md" >/dev/null 2>&1; rc=$?
 [ $rc -eq 2 ] && ok sin_tabla_falla_ruidoso || bad "sin_tabla_falla_ruidoso rc=$rc"
+
+# umbral inválido: no numérico o fuera de rango -> exit 2
+for u in '90%' abc 101 ''; do
+  bash "$SCORE" "$TMP/g10.md" "$TMP/l10.md" "$u" >"$TMP/o.txt" 2>&1; rc=$?
+  if [ $rc -eq 2 ] && grep -q "umbral inválido: $u" "$TMP/o.txt"; then ok "umbral_invalido[$u]"; else bad "umbral_invalido[$u] rc=$rc: $(cat "$TMP/o.txt")"; fi
+done
+
+# fila malformada (celda vacía o menos columnas) en verdad o ledger -> exit 2
+{ gold_head; gold_row '#1' tdd aplica; printf '| #2 | t | dev | | aplica | ev | alta |\n'; } > "$TMP/gmal.md"
+{ led_head; led_row '#1' tdd aplica; } > "$TMP/lok.md"
+out="$(bash "$SCORE" "$TMP/gmal.md" "$TMP/lok.md" 2>&1)"; rc=$?
+if [ $rc -eq 2 ] && grep -q 'fila malformada en .*gmal.md' <<<"$out"; then ok fila_malformada_verdad; else bad "fila_malformada_verdad rc=$rc: $out"; fi
+{ gold_head; gold_row '#1' tdd aplica; } > "$TMP/gok.md"
+{ led_head; led_row '#1' tdd aplica; printf '| #2 | tdd |\n'; } > "$TMP/lmal.md"
+out="$(bash "$SCORE" "$TMP/gok.md" "$TMP/lmal.md" 2>&1)"; rc=$?
+if [ $rc -eq 2 ] && grep -q 'fila malformada en .*lmal.md' <<<"$out"; then ok fila_malformada_ledger; else bad "fila_malformada_ledger rc=$rc: $out"; fi
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -5,7 +5,8 @@
 set -uo pipefail
 
 [ $# -ge 2 ] || { echo "uso: $0 <verdad.md> <ledger.md> [umbral_pct]" >&2; exit 2; }
-GOLD="$1"; LEDGER="$2"; UMBRAL="${3:-90}"
+GOLD="$1"; LEDGER="$2"; UMBRAL="${3-90}"
+[[ "$UMBRAL" =~ ^[0-9]+$ ]] && [ "$UMBRAL" -le 100 ] || { echo "upstream-score: umbral inválido: $UMBRAL" >&2; exit 2; }
 
 # Emite "pr<TAB>skill<TAB>etiqueta" normalizado de la primera tabla cuya cabecera
 # contiene las tres columnas pedidas. Sin tabla -> exit 3.
@@ -21,17 +22,19 @@ extraer() {
       if (hdr && !fin) {
         if ($0 ~ /^[ \t]*\|[ \t:|-]+\|[ \t]*$/) next
         pr = norm($ip); sub(/^#/, "", pr); gsub(/ /, "", pr)
-        print pr "\t" norm($is) "\t" norm($ie); n++
+        sk = norm($is); et = norm($ie)
+        if (pr == "" || sk == "" || et == "") { print "upstream-score: fila malformada en " FILENAME ": " $0 > "/dev/stderr"; bad = 1; exit 4 }
+        print pr "\t" sk "\t" et
       }
       next
     }
     { if (hdr) fin = 1 }
-    END { exit (hdr ? 0 : 3) }
+    END { exit (bad ? 4 : hdr ? 0 : 3) }
   ' "$1"
 }
 
-G="$(extraer "$GOLD" "skill exo" "etiqueta")" || { echo "upstream-score: no hay tabla (PR | skill exo | etiqueta) en $GOLD" >&2; exit 2; }
-L="$(extraer "$LEDGER" "skill" "triage")" || { echo "upstream-score: no hay tabla (PR | skill | triage) en $LEDGER" >&2; exit 2; }
+G="$(extraer "$GOLD" "skill exo" "etiqueta")" || { [ $? -eq 4 ] && exit 2; echo "upstream-score: no hay tabla (PR | skill exo | etiqueta) en $GOLD" >&2; exit 2; }
+L="$(extraer "$LEDGER" "skill" "triage")" || { [ $? -eq 4 ] && exit 2; echo "upstream-score: no hay tabla (PR | skill | triage) en $LEDGER" >&2; exit 2; }
 
 RES="$(awk -F'\t' -v umbral="$UMBRAL" '
   FNR == NR { if (NF && !(($1 SUBSEP $2) in led)) { led[$1, $2] = $3; lkeys[++nl] = $1 SUBSEP $2 } ; next }
