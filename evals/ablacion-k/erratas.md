@@ -153,3 +153,20 @@ mejor que un agente. Además, es la parte con sesgo declarado.
 4. **Hallazgo para el verdict:** las reglas de S1 las escribieron agentes
    (vía `/document`), no Paul. S1 mide si exo transmite a un agente nuevo lo
    que dejaron escrito agentes anteriores.
+
+## E7 — Task 4: segundo filtro al redactar
+
+Registrada el 2026-09-29, tras el veto de E6 y antes de redactar ninguna
+tarea.
+
+**Resultado del veto (E6):** 78 `ok`, 1 `externo`, 1 `no-regla`, sobre 80.
+El agente aplicó «en duda, `ok`» y decidió solo por el texto, sin abrir
+repos. La selección son las 40 primeras `ok`, con el corte en n = 42
+(`seleccion-s1.txt`, sha256 `79e5d707c8d22f97…`).
+
+**Errata.** Como el veto fue permisivo, el redactor de la Task 4 puede
+declarar una regla `no-convertible` si no consigue una tarea de una sesión
+con un check **objetivo**: un script, o una rúbrica binaria de 1–3 ítems
+observables. Tiene que dar el motivo. Esa regla se sustituye por la
+siguiente `ok` en el orden de la semilla. Las sustituciones y sus motivos se
+reportan en el verdict. El redactor no ve ningún brazo ni ningún resultado.
