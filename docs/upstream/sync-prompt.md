@@ -28,7 +28,7 @@ Compara el `LICENSE` de la raíz del repo adjunto `obra/superpowers`, en el tag 
 
 ## Paso 3 · Triagea
 
-Una fila por (PR, skill exo). Valores de `triage`: `aplica`, `parcial`, `ya cubierto`, `no aplica`, `duda`. Lee el fichero exo mapeado antes de decidir; cada veredicto cita líneas de exo (`fichero:línea`) y, si aplica, la fila del ledger.
+Una fila por (PR, skill exo). Valores de `triage`: `aplica`, `parcial`, `ya cubierto`, `no aplica`, `duda`. Lee el fichero exo mapeado antes de decidir; cada veredicto cita líneas de exo (`fichero:línea`) y, si aplica, la fila del ledger. La evidencia es el contenido actual de ese fichero exo: lo que digan README, specs, planes o changelogs sobre portes previos no es evidencia (un porte declarado puede ser parcial). `ya cubierto` exige citar las líneas exo que cubren el cambio entero.
 
 - Choca con una divergencia del ledger → `no aplica`, citando su id (D1…). D3 y D5 son forma de porte, no estado actual: si el cambio upstream toca ese terreno, porta con esa forma.
 - Fichero en `Excluidos` → no genera fila. Fichero en `Sin equivalente` → `no aplica`, citando esa sección, salvo la excepción de su línea: en `executing-plans/` y `receiving-code-review/`, una regla de review o de ledger independiente del modo inline se evalúa contra `orchestrate/` (reviewer-prompt.md, SKILL.md u olas.md); no la descartes por el fichero.
