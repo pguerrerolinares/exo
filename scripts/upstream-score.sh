@@ -14,11 +14,11 @@ GOLD="$1"; LEDGER="$2"; UMBRAL="${3-90}"
 # contiene las tres columnas pedidas. Sin tabla -> exit 3; fila malformada -> exit 4
 # (ambos internos: el llamador los traduce a exit 2).
 extraer() {
-  awk -F'|' -v cp="pr" -v cs="$2" -v ce="$3" '
+  awk -F'|' -v cs="$2" -v ce="$3" '
     function norm(s) { gsub(/`/, "", s); gsub(/^[ \t]+|[ \t]+$/, "", s); s = tolower(s); gsub(/[ \t]+/, " ", s); return s }
     /^[ \t]*\|/ {
       if (!fin && !hdr) {
-        for (i = 1; i <= NF; i++) { c = norm($i); if (c == cp) ip = i; else if (c == cs) is = i; else if (c == ce) ie = i }
+        for (i = 1; i <= NF; i++) { c = norm($i); if (c == "pr") ip = i; else if (c == cs) is = i; else if (c == ce) ie = i }
         if (ip && is && ie) { hdr = 1; next }
         ip = is = ie = 0; next
       }
