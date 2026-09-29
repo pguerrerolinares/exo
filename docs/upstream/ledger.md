@@ -53,7 +53,7 @@ Ficheros upstream sin contraparte en exo. Un cambio ahí se triagea como `no apl
 - `receiving-code-review/SKILL.md`: exo no tiene skill de recepción de review. Una regla de ahí sobre cómo el padre trata los hallazgos del reviewer se evalúa contra `orchestrate/SKILL.md` y `orchestrate/olas.md`; el resto, `no aplica`.
 - `executing-plans/SKILL.md` y `executing-plans/scripts/*`: el modo de ejecución inline no se porta (D8). Una regla de review o de ledger que upstream ponga ahí y sea independiente del modo inline se evalúa contra `orchestrate/` (reviewer-prompt.md, SKILL.md u olas.md); no se descarta por el fichero.
 
-Todo fichero upstream que no salga en ninguna de las tres secciones anteriores es `duda: mapeo`.
+Todo fichero upstream que no salga en ninguna de las tres secciones anteriores es `triage=duda` con `motivo=mapeo: <fichero upstream>`.
 
 ## Divergencias deliberadas
 
@@ -75,6 +75,8 @@ Un cambio upstream que choque con una de estas filas se triagea como `no aplica`
 ## Filas
 
 `triage` ∈ {aplica, parcial, ya cubierto, no aplica, duda}, siempre no vacío (una fila `pendiente` por tope lleva su triage real). `estado` ∈ {propuesto, portado, rechazado, pendiente, —}; `—` para no aplica y ya cubierto.
+
+`motivo` en `pendiente`: `tope`, `gate: <causa>`, `respondida` (Paul contestó una `duda`) o, en `duda`, la pregunta (para un fichero sin mapeo: `mapeo: <fichero upstream>`). Nunca `|` dentro de `motivo`: usa `/`.
 
 | PR | skill | triage | estado | motivo | hash |
 |---|---|---|---|---|---|

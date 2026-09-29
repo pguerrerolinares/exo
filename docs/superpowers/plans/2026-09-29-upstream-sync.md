@@ -115,8 +115,8 @@
 **Verificación:** `bash scripts/test-upstream-score.sh` → todas PASS.
 
 **Review Focus:**
-- `#2028` (release dev→main) en el ledger no debe emparejar con los PRs miembros: queda como `extra`, y los miembros ausentes cuentan como fallo. Así lo pide la spec (atribuir a miembros).
-- Normalizar `#9143` vs `1943` y mayúsculas y espacios en la etiqueta.
+- un PR de release dev→main (#9xxx) en el ledger no debe emparejar con los PRs miembros: queda como `extra`, y los miembros ausentes cuentan como fallo. Así lo pide la spec (atribuir a miembros).
+- Normalizar `#9143` vs `9143` y mayúsculas y espacios en la etiqueta.
 
 ### Task 5: ledger inicial y prompt del bot
 
@@ -167,5 +167,5 @@
 
 1. Crear el issue `upstream-sync: estado` y fijarlo. El watchdog pasa de rojo a verde con el primer latido.
 2. Crear la routine con `/schedule`: semanal, repos adjuntos `pguerrerolinares/exo` y `obra/superpowers`, prompt "Lee y sigue docs/upstream/sync-prompt.md del repo exo."
-3. "Run now" de humo con el prompt sustituido por algo trivial: comprobar `gh pr list -R obra/superpowers`, `claude --version` en el PATH y el coste. Si algo falla, se corrige la spec antes de seguir.
+3. "Run now" de humo con el prompt sustituido por algo trivial: comprobar `gh pr list -R obra/superpowers`, `claude --version` en el PATH, el coste y que el clone de `obra/superpowers` trae tags (`git tag` no vacío, con `upstream_tag` dentro). Si algo falla, se corrige la spec antes de seguir.
 4. Primera pasada real (eval): `upstream_tag: v6.1.1`. Después, `scripts/upstream-score.sh <verdad fuera del repo> <ledger de la rama del PR>`. Si hay exit 0, Paul revisa y mergea el PR (cierre de huecos del camino A). Si hay exit 1, no se programa y se revisa el prompt.

@@ -35,27 +35,29 @@ El ledger inicial lleva tag + mapeo + divergencias y **cero filas**.
 ## Pasada semanal
 
 0. **Reconcilia** con `scripts/upstream-reconcile.sh`: `propuesto` con commit `port(upstream#N)` alcanzable desde `main` pasa a `portado`. Después:
-   - Si hay un PR `upstream-sync` abierto: latido y fin.
-   - Las filas `propuesto` cuyo PR `upstream-sync` se cerró sin merge pasan a `rechazado`, con la URL del PR como motivo.
-1. **Licencia:** `LICENSE` de upstream contra `plugins/exo/LICENSES/superpowers.LICENSE`. Si difiere: latido con alerta y fin, sin portar.
-2. **Detecta** tags posteriores a `upstream_tag`. Si no hay: latido y fin. Si hay:
+   - Si hay un PR `upstream-sync` abierto (rama `upstream-sync/*`): latido y fin.
+   - Los PRs `upstream-sync/*` cerrados sin merge cuyo rechazo aún no conste: sus filas se registran como `rechazado` (motivo = URL del PR) en el PR siguiente, y `upstream_tag` avanza igualmente para no reproponer la misma ventana.
+1. **Clone y licencia:** si `upstream_tag` no está en `git tag` del clone, `git fetch --tags`; si sigue sin estar, latido con alerta y fin (un clone sin tags no es "sin tags nuevos"). Después, `LICENSE` de upstream contra `plugins/exo/LICENSES/superpowers.LICENSE`. Si difiere: latido con alerta y fin, sin portar.
+2. **Retoma pendientes**, antes de detectar tags: las filas `pendiente` con motivo `tope`, `gate` o `respondida` se portan primero (mismo tope de 5 por PR, contando también lo nuevo), con el diff de `gh pr diff <N> -R obra/superpowers` limitado a los ficheros mapeados. Las `pendiente` por `duda` no se retoman solas: el latido las lista con su pregunta y Paul responde editando la fila en `main` (`triage` a su decisión, `estado` `pendiente`, motivo `respondida`); la pasada siguiente la trata como tope.
+2b. **Detecta** tags posteriores a `upstream_tag`. Si no hay tags nuevos ni pendientes que retomar ni rechazos por registrar: latido y fin. Si hay:
    - Contenido: diff neto entre tags de los ficheros mapeados.
    - Atribución: PRs mergeados en la ventana de fechas de los tags que tocan ficheros mapeados. Se descartan los PRs de release dev→main: se atribuye a los PRs miembros.
-3. **Triagea** por (PR, skill), citando líneas de exo y del ledger. Si choca con una divergencia → `no aplica`, citando su id. Si el fichero upstream no está en el mapeo → `duda: mapeo`, y el PR propone la fila de mapeo sin portar nada.
+3. **Triagea** por (PR, skill), citando líneas de exo y del ledger. Si choca con una divergencia → `no aplica`, citando su id. Si el fichero upstream no está en el mapeo → `triage=duda`, `motivo=mapeo: <fichero>`, y el PR propone la fila de mapeo sin portar nada. Si upstream elimina o recorta algo que exo no tiene → `no aplica`; si elimina algo que exo sí tiene, se evalúa si exo debe eliminarlo también o es divergencia.
 4. **Porta** `aplica` y `parcial`, **máximo 5 portes por PR**; el resto queda `pendiente`, con motivo `tope`.
    - Un commit por PR upstream: `port(upstream#N): <resumen>`.
    - Cada commit actualiza la versión citada en la cabecera de atribución (`superpowers X.Y.Z`: `# Derived from superpowers …` en scripts, `(superpowers X.Y.Z, MIT ©` en markdown) de los ficheros que toca.
    - `duda` → `pendiente`, con la pregunta concreta en `motivo`.
+   - Si el PR toca `plugins/exo/`, el último commit sube el PATCH de exo en `plugin.json` y `marketplace.json` (decisión de Paul: lo hace el bot; `test-versiones.sh` y `plugin-bump-gate.sh` lo exigen). Un PR solo-ledger no sube versión.
 5. **Gates:**
    - `scripts/check-skill-refs.sh` y `scripts/test-plugin.sh` en verde.
    - Tabla obligatoria en el cuerpo del PR, `movimiento upstream → fichero:línea exo`, por porte.
    - Los bytes y tokens (`claude --plugin-dir ./plugins/exo plugin details exo`) son dato del informe, no gate.
 6. **Abre PR** desde la rama `upstream-sync/<tag>` con título `upstream-sync <tag>`. Lleva los commits, el ledger (filas `propuesto` con hash, `upstream_tag` avanzado) y el informe.
-7. **Latido:** comentario en el issue `upstream-sync: estado` (fijado) con fecha ISO, tag revisado y PRs vistos/propuestos/pendientes. Todas las salidas de los pasos 0-6 terminan aquí.
+7. **Latido:** comentario en el issue `upstream-sync: estado` (fijado) con fecha ISO, tag revisado, PRs vistos/propuestos/pendientes, pendientes por motivo (las `duda` con su pregunta), ratio de rechazo y una línea final fija `estado: ok` o `estado: alerta`. Es alerta si: licencia cambiada, ledger roto, clone sin tags, fallo a mitad, ratio de rechazo > 1/3 o cualquier salida anómala. Todas las salidas de los pasos 0-6 terminan aquí.
 
 ## Watchdog
 
-Workflow `.github/workflows/upstream-watchdog.yml`, diario. Falla si el último comentario del issue `upstream-sync: estado` tiene **más de 8 días**, o si el issue no existe. GitHub avisa por email del rojo. Cubre la routine pausada (conexión caducada a 72 h, cap diario) y el "verde = solo arrancó".
+Workflow `.github/workflows/upstream-watchdog.yml`, diario. Solo cuentan los comentarios con una línea `estado: ok|alerta`. Falla si el más reciente de ésos está en `alerta`, si tiene **más de 8 días**, si no hay ninguno o si el issue no existe. Un comentario humano no renueva el reloj. GitHub avisa por email del rojo. Cubre la routine pausada (conexión caducada a 72 h, cap diario) y el "verde = solo arrancó".
 
 ## Errores y límites
 
@@ -64,7 +66,7 @@ Workflow `.github/workflows/upstream-watchdog.yml`, diario. Falla si el último 
 - **PR sin mergear:** solo latido (paso 0).
 - **Revert dentro del ciclo:** el diff neto entre tags lo anula.
 - **Cambio de licencia:** paso 1.
-- **Degradación del triage:** revisión manual. Si en un trimestre Paul rechaza más de 1 de cada 3 portes, re-corre el eval de la primera pasada.
+- **Degradación del triage:** el bot detecta los PRs `upstream-sync/*` cerrados sin merge y registra sus filas como `rechazado` (paso 0). El latido reporta el ratio rechazados/propuestos acumulado; si supera 1/3, `estado: alerta` con "re-corre el eval" (el eval de la primera pasada).
 - **Sin verificar, se comprueba con un "Run now" antes de programar:** coste por pasada, `claude` en el PATH del sandbox, clone del repo adjunto.
 
 ## Primera pasada = eval pre-registrado
@@ -83,6 +85,6 @@ document, distill, recon-first, reflejos y engine (sin original upstream); issue
 
 - `check-skill-refs`: un fixture que referencia una skill inexistente falla.
 - `upstream-reconcile`: en un repo git temporal, la fila `propuesto` más el commit `port(upstream#N)` en `main` pasa a `portado`; sin el commit sigue en `propuesto`.
-- `upstream-watchdog`: un latido de hace 9 días falla; uno de ayer, verde; sin issue, falla.
+- `upstream-watchdog`: un latido de hace 9 días falla; uno de ayer, verde; sin issue, falla; último latido en alerta, falla; un comentario sin línea de estado no cuenta.
 - `upstream-score`: fixtures de verdad y ledger con resultados conocidos.
 - El juicio del triage solo se prueba con el eval de la primera pasada.
