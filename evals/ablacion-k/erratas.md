@@ -228,3 +228,14 @@ Decidida por Paul el 2026-09-29 (opción b), antes de correr ninguna tarea.
 - El gold activo se fija por lista explícita (`activas-s1.txt`) en la
   congelación. Los directorios descartados o sustituidos quedan fuera
   aunque sigan en disco.
+
+### E8 — regla de parada del ciclo de auditoría (2026-09-29)
+
+Segunda auditoría (`auditoria-s1-r2.md`, privada): 23 tareas → 11 OK · 12
+ARREGLAR · 0 DESCARTAR. Los agujeros de la primera ronda quedan cerrados y
+ninguna tarea se ha vaciado. Los 11 arreglos que quedan (`g1-77` sale por
+E9) se aplican **incorporando las sondas del auditor como pruebas de
+regresión** en `pruebas/`. **No hay tercera auditoría completa:** cada ronda
+encuentra fallos de menor orden. El error residual de los checks se declara
+en el verdict como amenaza a la validez (medición con ruido, no sesgo
+dirigido: los checks no ven el brazo).
