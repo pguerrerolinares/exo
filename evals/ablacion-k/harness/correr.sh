@@ -59,12 +59,13 @@ prompt=$(jq -r .prompt "$t_json")
 cd "$O/work" || exit 3; t0=$(date +%s)
 env "${extra_env[@]}" PATH="$ruta" EXO_CONFIG="$P/config.toml" EXO_KB="$P/kb" EXO_DB="$P/index.db" EXO_INDEX="$P/index.db" \
 EXO_BIN="$(command -v exo)" REFLEX_LOG_FILE="$O/reflex.jsonl" \
-timeout 1800 claude -p --model "$MODELO" --setting-sources "" --strict-mcp-config \
+DISABLE_AUTOUPDATER=1 timeout 1800 claude -p --model "$MODELO" --setting-sources "" --strict-mcp-config \
   --settings "$O/settings.json" --append-system-prompt-file "$P/claude-md.md" \
   --disallowedTools "${deny[@]}" \
   --permission-mode bypassPermissions --max-turns 40 --max-budget-usd 10 --no-session-persistence \
   --output-format stream-json --verbose "$prompt" < /dev/null > "$O/transcript.jsonl" 2> "$O/err.log"
 rc=$?; t1=$(date +%s)
+claude --version > "$O/claude-version.txt" 2>/dev/null
 jq -c --arg id "$id" --arg b "$brazo" --arg r "$rep" --arg rc "$rc" --arg s "$((t1-t0))" \
   'select(.type=="result") | {tarea:$id, brazo:$b, rep:($r|tonumber), rc:($rc|tonumber), seg:($s|tonumber),
    fin:.terminal_reason, turnos:.num_turns, usd:.total_cost_usd,

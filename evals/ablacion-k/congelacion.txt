@@ -1,0 +1,22 @@
+fecha 2026-09-29T22:24:50+02:00
+kb_commit 80cba57878d37583be1f2654ecb7d96c51dad8ab
+prep: kb_commit 80cba57878d37583be1f2654ecb7d96c51dad8ab
+prep: exo exo 0.2.0
+prep: claude-md.md 6f3c6f382f90e794
+prep: a1-inicio.json e5787c8fd0f29ccf
+prep: a2-inicio.json 806a24ce62b01db0
+prep: config.toml cbb48f74647b0a23
+prep: notas 200
+gold_activo_sha256 c2d8835b74fdcd8e3ee6f9c3ff32efc3248caca5bc3aa5618d7ff9e3908c244c
+tareas_s1 40 · tareas_s2 20
+orden_etapa1_sha256 afcd41303eb78045 · corridas 240
+modelo claude-sonnet-5-5 · claude 2.1.285 (Claude Code)
+fuentes_s1:
+  g0-115	HEAD=2f10769994a7	coincide	sucio=0	117M
+  g0-12	HEAD=a83fb6b2eee5	coincide	sucio=1	192M
+  g0-122	HEAD=32ee3729eaac	coincide	sucio=35	1,8G
+  g0-95	HEAD=f8caae603e80	coincide	sucio=7	565M
+  g1-144	HEAD=196640ea8931	coincide	sucio=0	1,2G
+  g1-16	HEAD=8062c11ddf60	coincide	sucio=103	114M
+  g2-170	HEAD=e30888f09be2	coincide	sucio=2	30M
+  g2-171	HEAD=e30888f09be2	coincide	sucio=2	590M

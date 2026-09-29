@@ -308,6 +308,10 @@ Congelación en dos pasos. Ningún brazo se corre antes del paso 2.
    (D1) y el tope de coste (D2).
 2. **Gold y huecos de la Task 0:** al terminar la Task 4, antes de la
    primera corrida de la etapa 1.
-   - Commit: _pendiente_
-   - sha256 de `gold.jsonl`: _pendiente_
+   - Congelado el 2026-09-29T22:24:50+02:00; manifiesto en
+     `evals/ablacion-k/congelacion.txt`.
+   - sha256 del gold activo (tar determinista de 40 S1 + 20 S2):
+     `c2d8835b74fdcd8e3ee6f9c3ff32efc3248caca5bc3aa5618d7ff9e3908c244c`.
+   - KB del snapshot: `wisdom-paul@80cba57`. Orden de la etapa 1 (240
+     corridas, semilla `20260923`): sha256 `afcd41303eb78045…`.
    - id del modelo de brazos: `claude-sonnet-5-5` (Task 0) · tope: D2 (§10)
