@@ -170,3 +170,12 @@ con un check **objetivo**: un script, o una rúbrica binaria de 1–3 ítems
 observables. Tiene que dar el motivo. Esa regla se sustituye por la
 siguiente `ok` en el orden de la semilla. Las sustituciones y sus motivos se
 reportan en el verdict. El redactor no ve ningún brazo ni ningún resultado.
+
+### E1 — ampliación (2026-09-29)
+
+Al construir el snapshot se vio que la cabecera del CLAUDE.md global también
+apunta a la KB («Fuente de verdad: nota … en la KB `wisdom-paul` (servida por
+el engine exo). Si necesitas contexto profundo, búscala»). Por el mismo
+motivo que E1, esa línea se quita en los cuatro brazos. `preparar.sh` falla
+si en el CLAUDE.md de los brazos queda cualquier mención a `wisdom-paul`, a
+`exo` o a la sección de memoria.

@@ -37,7 +37,9 @@ exo rebuild > "$P/rebuild.log" 2>&1
 
 # E1: CLAUDE.md sin la sección de memoria (hasta la siguiente cabecera ## o el final).
 awk '/^## Memoria de sesiones/{skip=1; next} /^## /{skip=0} !skip' "$HOME/.claude/CLAUDE.md" > "$P/claude-md.md"
-grep -q 'Memoria de sesiones' "$P/claude-md.md" && { echo "E1: la sección sigue ahí" >&2; exit 1; }
+# E1 (ampliación): la cabecera que apunta a la KB («fuente de verdad… en la KB… búscala»).
+sed -i '/^> .*wisdom-paul.*exo/d' "$P/claude-md.md"
+grep -qiE 'Memoria de sesiones|wisdom-paul|\bexo\b' "$P/claude-md.md" && { echo "E1: quedan referencias a la KB o a exo" >&2; exit 1; }
 
 # A1: el mismo bloque de arranque que A2/A3, con la búsqueda por grep.
 REFLEX_LOG_FILE=/dev/null "$PLUG/exo-recall.sh" < /dev/null > "$P/a2-inicio.json"
