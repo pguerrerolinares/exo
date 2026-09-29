@@ -13,7 +13,7 @@
 **Global Constraints:**
 - Tope: máximo 5 portes por PR.
 - Watchdog: rojo si el último latido tiene más de 8 días o si el issue no existe.
-- Umbral del eval: 0 filas `ya cubierto` cuya verdad sea aplica/parcial, y ≥ 90% de acierto en triage.
+- Umbral del eval: 0 filas `ya cubierto` cuya verdad sea aplica/parcial, y ≥ 90% de acierto en triage, con `aplica` y `parcial` como una sola clase.
 - Nombres literales: rama `upstream-sync/<tag>`; título de PR `upstream-sync <tag>`; issue `upstream-sync: estado`; commit `port(upstream#N): <resumen>`.
 - Ledger: `upstream_tag: <tag>` en línea propia. Filas `| PR | skill | triage | estado | motivo | hash |`. `triage` ∈ {aplica, parcial, ya cubierto, no aplica, duda}; `estado` ∈ {propuesto, portado, rechazado, pendiente, —}.
 - Ninguna ruta de máquina concreta (`/home/<user>`, `/Users/<user>`, `C:\Users\<user>`) en ficheros versionados: lo vigila `scripts/test-rutas-personales.sh`.
