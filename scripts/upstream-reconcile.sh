@@ -13,6 +13,8 @@ dir="$(dirname "$ledger")"
 
 trim() { local s="$1"; s="${s#"${s%%[![:space:]]*}"}"; s="${s%"${s##*[![:space:]]}"}"; printf '%s' "$s"; }
 
+git -C "$dir" rev-parse --verify --quiet "$rama^{commit}" >/dev/null \
+  || { echo "upstream-reconcile: rama $rama no existe o no es un commit" >&2; exit 2; }
 grep -q '^upstream_tag:' "$ledger" || { echo "upstream-reconcile: falta 'upstream_tag:'" >&2; exit 2; }
 
 tmp="$(mktemp)"; trap 'rm -f "$tmp"' EXIT
@@ -35,11 +37,13 @@ while IFS= read -r linea || [ -n "$linea" ]; do
 
   IFS='|' read -ra c <<< "$linea"
   pr="$(trim "${c[1]:-}")"; pr="${pr#\#}"; skill="$(trim "${c[2]:-}")"
-  if [ "$(trim "${c[4]:-}")" = propuesto ] && [[ "$pr" =~ ^[0-9]+$ ]]; then
+  if [ "$(trim "${c[4]:-}")" = propuesto ] && ! [[ "$pr" =~ ^[0-9]+$ ]]; then
+    echo "propuesto-malformado $(trim "${c[1]:-}") $skill"
+  elif [ "$(trim "${c[4]:-}")" = propuesto ]; then
     hash=""
     while IFS=$'\t' read -r h subj; do
       case "$subj" in "port(upstream#$pr):"*) hash="$h"; break ;; esac
-    done < <(git -C "$dir" log "$rama" --format='%H%x09%s' 2>/dev/null)
+    done < <(git -C "$dir" log --format='%H%x09%s' "$rama" --)
     if [ -n "$hash" ]; then
       c[4]=" portado "
       c[6]=" $(git -C "$dir" rev-parse --short "$hash") "

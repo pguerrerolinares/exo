@@ -75,5 +75,25 @@ out="$("$SCRIPT" "$d/ledger.md")"
 n="$(grep -cF portado "$d/ledger.md")"
 if [ "$n" = 2 ] && [ "$out" = "propuesto-sin-evidencia #8 c" ]; then ok multi_fila_y_rama; else bad "multi_fila_y_rama ($n,$out)"; fi
 
+# rama_inexistente
+d="$(nuevo_repo)"
+ledger "$d" '| #1 | a | aplica | propuesto | m | h |'
+cp "$d/ledger.md" "$d/antes.md"
+msg="$("$SCRIPT" "$d/ledger.md" nope 2>&1)"; r=$?
+if [ $r = 2 ] && [[ "$msg" == *"rama nope no existe o no es un commit"* ]] && cmp -s "$d/antes.md" "$d/ledger.md"; then ok rama_inexistente; else bad "rama_inexistente ($r)"; fi
+
+# rama_explicita
+d="$(nuevo_repo)"; git -C "$d" checkout -q -b release; commit "$d" "port(upstream#5): x"; git -C "$d" checkout -q main
+ledger "$d" '| #5 | a | aplica | propuesto | m | h |'
+"$SCRIPT" "$d/ledger.md" release >/dev/null
+if grep -qF "| portado |" "$d/ledger.md"; then ok rama_explicita; else bad rama_explicita; fi
+
+# pr_no_numerico
+d="$(nuevo_repo)"
+ledger "$d" '| #abc | a | aplica | propuesto | m | h |'
+cp "$d/ledger.md" "$d/antes.md"
+out="$("$SCRIPT" "$d/ledger.md")"
+if [[ "$out" == *"propuesto-malformado #abc a"* ]] && cmp -s "$d/antes.md" "$d/ledger.md"; then ok pr_no_numerico; else bad "pr_no_numerico ($out)"; fi
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" = 0 ]
