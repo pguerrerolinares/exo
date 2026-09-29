@@ -70,6 +70,18 @@ if grep -q 'ausentes 1' <<<"$out" && grep -q 'aciertos 19/20' <<<"$out"; then ok
 out="$(bash "$SCORE" "$TMP/gr.md" "$TMP/lr.md" 2>&1)"; rc=$?
 if [ $rc -eq 0 ] && grep -q 'aciertos 2/2' <<<"$out"; then ok revertido_ausente_acierta; else bad "revertido_ausente_acierta rc=$rc: $out"; fi
 
+# aplica y parcial son una sola clase (misma acción: portar)
+{ gold_head; gold_row '#9101' plan aplica; gold_row '#9102' orchestrate parcial; } > "$TMP/ge.md"
+{ led_head; led_row '#9101' plan parcial; led_row '#9102' orchestrate aplica; } > "$TMP/le.md"
+out="$(bash "$SCORE" "$TMP/ge.md" "$TMP/le.md" 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && grep -q 'aciertos 2/2 (100%)' <<<"$out"; then ok aplica_parcial_equivalen; else bad "aplica_parcial_equivalen rc=$rc: $out"; fi
+
+# ya cubierto sigue siendo clase propia: verdad parcial + ledger ya cubierto tumba
+{ gold_head; gold_row '#9103' plan parcial; } > "$TMP/gy.md"
+{ led_head; led_row '#9103' plan "ya cubierto"; } > "$TMP/ly.md"
+out="$(bash "$SCORE" "$TMP/gy.md" "$TMP/ly.md" 2>&1)"; rc=$?
+if [ $rc -eq 1 ] && grep -q 'ya-cubierto-falsos 1' <<<"$out" && grep -q 'aciertos 0/1' <<<"$out"; then ok ya_cubierto_sigue_estricto; else bad "ya_cubierto_sigue_estricto rc=$rc: $out"; fi
+
 # extra_no_puntua + release #9006 no empareja con miembros
 build20
 led_row '#9006' plan aplica >> "$TMP/l20.md"
@@ -94,8 +106,10 @@ bash "$SCORE" "$TMP/vacio.md" "$TMP/l.md" >/dev/null 2>&1; rc=$?
 [ $rc -eq 2 ] && ok sin_tabla_falla_ruidoso || bad "sin_tabla_falla_ruidoso rc=$rc"
 
 # umbral inválido: no numérico o fuera de rango -> exit 2
+{ gold_head; gold_row '#9201' tdd aplica; } > "$TMP/gu.md"
+{ led_head; led_row '#9201' tdd aplica; } > "$TMP/lu.md"
 for u in '90%' abc 101 ''; do
-  bash "$SCORE" "$TMP/g10.md" "$TMP/l10.md" "$u" >"$TMP/o.txt" 2>&1; rc=$?
+  bash "$SCORE" "$TMP/gu.md" "$TMP/lu.md" "$u" >"$TMP/o.txt" 2>&1; rc=$?
   if [ $rc -eq 2 ] && grep -q "umbral inválido: $u" "$TMP/o.txt"; then ok "umbral_invalido[$u]"; else bad "umbral_invalido[$u] rc=$rc: $(cat "$TMP/o.txt")"; fi
 done
 

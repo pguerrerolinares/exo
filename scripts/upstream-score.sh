@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Puntúa el triage del ledger contra la verdad pre-registrada.
 # Uso: upstream-score.sh <verdad.md> <ledger.md> [<umbral_pct>]   (umbral default 90)
-# Empareja por (PR, skill). Exit 0 si ya-cubierto-falsos = 0 y pct >= umbral; 1 si no; 2 si falta tabla.
+# Empareja por (PR, skill). aplica y parcial cuentan como una sola clase (misma acción: portar).
+# Exit 0 si ya-cubierto-falsos = 0 y pct >= umbral; 1 si no;
+# 2 si falta tabla, fila malformada, umbral inválido o uso incorrecto.
 set -uo pipefail
 
 [ $# -ge 2 ] || { echo "uso: $0 <verdad.md> <ledger.md> [umbral_pct]" >&2; exit 2; }
@@ -9,7 +11,8 @@ GOLD="$1"; LEDGER="$2"; UMBRAL="${3-90}"
 [[ "$UMBRAL" =~ ^[0-9]+$ ]] && [ "$UMBRAL" -le 100 ] || { echo "upstream-score: umbral inválido: $UMBRAL" >&2; exit 2; }
 
 # Emite "pr<TAB>skill<TAB>etiqueta" normalizado de la primera tabla cuya cabecera
-# contiene las tres columnas pedidas. Sin tabla -> exit 3.
+# contiene las tres columnas pedidas. Sin tabla -> exit 3; fila malformada -> exit 4
+# (ambos internos: el llamador los traduce a exit 2).
 extraer() {
   awk -F'|' -v cp="pr" -v cs="$2" -v ce="$3" '
     function norm(s) { gsub(/`/, "", s); gsub(/^[ \t]+|[ \t]+$/, "", s); s = tolower(s); gsub(/[ \t]+/, " ", s); return s }
@@ -37,11 +40,12 @@ G="$(extraer "$GOLD" "skill exo" "etiqueta")" || { [ $? -eq 4 ] && exit 2; echo 
 L="$(extraer "$LEDGER" "skill" "triage")" || { [ $? -eq 4 ] && exit 2; echo "upstream-score: no hay tabla (PR | skill | triage) en $LEDGER" >&2; exit 2; }
 
 RES="$(awk -F'\t' -v umbral="$UMBRAL" '
+  function cls(e) { return (e == "aplica" || e == "parcial") ? "portar" : e }
   FNR == NR { if (NF && !(($1 SUBSEP $2) in led)) { led[$1, $2] = $3; lkeys[++nl] = $1 SUBSEP $2 } ; next }
   NF {
     k = $1 SUBSEP $2; total++; seen[k] = 1
     if (k in led) {
-      if (led[k] == $3) ok++
+      if (cls(led[k]) == cls($3)) ok++
       else if (led[k] == "ya cubierto" && ($3 == "aplica" || $3 == "parcial")) falsos[++nf] = $1 " " $2 " (verdad: " $3 ")"
     } else if ($3 == "revertido") ok++
     else aus++
