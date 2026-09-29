@@ -96,6 +96,23 @@ jobs:
       - name: El gate del bump del plugin es falsable
         if: always()
         run: bash scripts/test-plugin-bump.sh
+      # `if: always()`, como los vecinos: un check de referencias roto no debe
+      # esconder un test de upstream-sync roto, ni al revés.
+      - name: Las referencias exo:<nombre> de skills y agents resuelven
+        if: always()
+        run: bash scripts/check-skill-refs.sh
+      - name: El chequeador de referencias es falsable
+        if: always()
+        run: bash scripts/test-check-skill-refs.sh
+      - name: upstream-sync — la reconciliación del ledger es falsable
+        if: always()
+        run: bash scripts/test-upstream-reconcile.sh
+      - name: upstream-sync — el watchdog es falsable
+        if: always()
+        run: bash scripts/test-upstream-watchdog.sh
+      - name: upstream-sync — el eval puntúa aplica y parcial como una clase
+        if: always()
+        run: bash scripts/test-upstream-score.sh
 
   plugin-bump:
     name: el plugin no cambia sin subir de versión
