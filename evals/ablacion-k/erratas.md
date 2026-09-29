@@ -179,3 +179,12 @@ el engine exo). Si necesitas contexto profundo, búscala»). Por el mismo
 motivo que E1, esa línea se quita en los cuatro brazos. `preparar.sh` falla
 si en el CLAUDE.md de los brazos queda cualquier mención a `wisdom-paul`, a
 `exo` o a la sección de memoria.
+
+### E2 — ampliación (2026-09-29, canario de los cuatro brazos)
+
+Un `tool_use` que invoca `exo` en A0/A1 y recibe la salida del stub
+(`exo: orden no encontrada`, rc 127) **no** es fuga: no pasa información.
+Se registra como aviso por corrida y se reporta la tasa por brazo. Sigue
+siendo fuga una invocación que no bloquea el stub. Motivo: el core-index de
+A1 nombra exo varias veces, así que un intento es plausible, y con la regla
+literal §9 pararía la campaña por algo inocuo.
