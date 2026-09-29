@@ -14,6 +14,52 @@ if [ "${1:-}" = run ] && [ "${2:-}" = --help ]; then
   [ "${STUB_MUTMUT:-3}" = 2 ] && echo "  --paths-to-mutate TEXT"
   exit 0
 fi
+# --- muestreo (mutmut 2.x). Estado en STUB_CACHE (dir; por defecto .stubcache en el cwd).
+# `run ... --runner true` = enumeración: STUB_MUTANTS (10 por defecto) mutantes, todos
+# "survived" al instante, y deja un baseline cacheado "bogus" (como el real: ~0 s) para
+# el hash de tests de esa pasada (--tests-dir). `run ... ID` = un mutante con el runner
+# real: si el baseline cacheado es de esa enumeración y del MISMO hash de tests, responde
+# al instante con un timeout inventado (⏰); si no, tarda STUB_ID_SLEEP s y mata los
+# primeros STUB_KILL_COUNT (999999 por defecto = todos) y sobrevive el resto. STUB_HANG_AFTER=K
+# se cuelga en el id nº K+1. Cada id real se anota en el log como `runid=<id>`.
+cache=${STUB_CACHE:-.stubcache}
+if [ "${1:-}" = result-ids ]; then
+  if [ "${2:-}" = survived ] && [ -f "$cache/enum" ]; then seq -s ' ' 1 "$(cat "$cache/enum")"; else echo; fi
+  exit 0
+fi
+if [ "${1:-}" = show ]; then
+  printf -- '--- src/m.py\n+++ src/m.py\n@@ -1,1 +1,1 @@\n-    return x + 1\n+    return x - 1\n'; exit 0
+fi
+if [ "${1:-}" = run ]; then
+  runner=""; tdir=default; id=""; prev=""
+  for a in "$@"; do
+    case "$prev" in
+      --runner) runner=$a ;;
+      --tests-dir) tdir=$a ;;
+      --paths-to-mutate|--use-patch-file) ;;
+      *) case "$a" in *[!0-9]*|"") ;; *) id=$a ;; esac ;;
+    esac
+    prev=$a
+  done
+  mkdir -p "$cache"
+  if [ "${runner%% *}" = true ]; then
+    rm -f "$cache/count"; echo "${STUB_MUTANTS:-10}" > "$cache/enum"; echo "$tdir" > "$cache/basehash"; echo enum > "$cache/basekind"
+    printf '\r1/1  🎉 0  ⏰ 0  🤔 0  🙁 1  🔇 0'; exit 2
+  fi
+  if [ -n "$id" ]; then
+    echo "runid=$id" >> "$STUB_LOG"
+    if [ "$(cat "$cache/basehash" 2>/dev/null)" = "$tdir" ] && [ "$(cat "$cache/basekind" 2>/dev/null)" = enum ]; then
+      printf '\r1/1  🎉 0  ⏰ 1  🤔 0  🙁 0  🔇 0'; exit 4
+    fi
+    echo "$tdir" > "$cache/basehash"; echo real > "$cache/basekind"
+    n=$(cat "$cache/count" 2>/dev/null || echo 0)
+    if [ -n "${STUB_HANG_AFTER:-}" ] && [ "$n" -ge "$STUB_HANG_AFTER" ]; then sleep 31344; fi
+    echo $((n + 1)) > "$cache/count"
+    [ -n "${STUB_ID_SLEEP:-}" ] && sleep "$STUB_ID_SLEEP"
+    if [ "$n" -lt "${STUB_KILL_COUNT:-999999}" ]; then printf '\r1/1  🎉 1  ⏰ 0  🤔 0  🙁 0  🔇 0'; exit 0; fi
+    printf '\r1/1  🎉 0  ⏰ 0  🤔 0  🙁 1  🔇 0'; exit 2
+  fi
+fi
 # STUB_MODE=nowhatthepatch: como mutmut 2.5.1 sin `mutmut[patch]` instalado.
 if [ "${STUB_MODE:-}" = nowhatthepatch ] && [ "${1:-}" = run ]; then
   echo 'ImportError: The --use-patch feature requires the whatthepatch library. Run "pip install --force-reinstall mutmut[patch]"' >&2; exit 1

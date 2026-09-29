@@ -22,6 +22,10 @@
 # conserva su timeout por defecto (no se pasa --timeoutMS). EXO_MUTATION_EXCLUDE=<pathspecs
 # separados por COMAS> quita ficheros del conjunto a mutar (vacío por defecto), p. ej.
 # 'alembic/versions/**,*_pb2.py'. mutmut y stryker mutan SOLO las líneas del diff.
+# EXO_MUTATION_SAMPLE=<N> (150 por defecto; 0 lo desactiva; inválido = aviso + 150) y
+# EXO_MUTATION_SEED=<s> (20260929 por defecto): SOLO mutmut 2.x. Si el diff genera más de
+# N mutantes se mide una muestra aleatoria de N (sin reemplazo, semilla fija) con IC95 de
+# Wilson, y ese proyecto no entra en el agregado. En cargo y stryker no aplica.
 set -euo pipefail
 
 if [ $# -lt 2 ] || [ $# -gt 3 ]; then
@@ -58,6 +62,13 @@ fi
 #     DEFAULT_RUNNER `python -m pytest -x --assert=plain`) se envuelve con un timeout por
 #     mutante; código de salida != 0 = mutante matado. Progreso: línea
 #     `k/n 🎉 c ⏰ t 🤔 u 🙁 s` (🤔 = matado lento: cuenta como caught).
+#     Muestreo: 1) enumerar SIN ejecutar tests: mutmut run --runner true --tests-dir
+#     <dir vacío> (todo "survived" al instante; el dir vacío da otro hash de tests, así ni
+#     los estados ni el tiempo de baseline de esa pasada se reutilizan luego: sin él, el
+#     baseline cacheado ~0 s daba timeouts inventados); 2) mutmut result-ids survived = ids;
+#     3) muestra por awk (Park-Miller + Fisher-Yates parcial, portable); 4) un
+#     `mutmut run <id>` por id con el runner real (con un solo id mutmut 2.5.1 no lee el
+#     estado cacheado del mutante) y se suma la línea de progreso de cada uno.
 #     mutmut 3.8.0: `--version` -> "mutmut, version 3.x"; no acota por CLI
 #     (solo `only_mutate` en la config) -> no disponible, nunca mutar todo.
 #   stryker 9.6.1: npx --no-install stryker run --mutate "a:1-3,b:5-5"
@@ -131,6 +142,36 @@ mut_rangos() {
     }'
 }
 
+# Muestra sin reemplazo: stdin = ids (uno por línea); $1 = n, $2 = semilla. Imprime n ids
+# distintos, ordenados. PRNG Park-Miller (16807, mod 2^31-1: los productos caben en los 53
+# bits de un double) + Fisher-Yates parcial: mismo resultado en gawk, mawk y busybox.
+mut_muestra() {
+  awk -v n="$1" -v seed="$2" '
+    { a[++t] = $1 }
+    END {
+      m = 2147483647; s = seed % m; if (s == 0) s = 1
+      if (n > t) n = t
+      for (i = 1; i <= n; i++) {
+        s = (s * 16807) % m
+        j = i + int((s - 1) / (m - 1) * (t - i + 1))
+        x = a[i]; a[i] = a[j]; a[j] = x
+      }
+      for (i = 1; i <= n; i++) print a[i]
+    }' | sort -n
+}
+
+# Intervalo de Wilson al 95% (no el normal: en c=0 y c=n el normal degenera). Args: c n.
+# Imprime "p lo hi" en %, un decimal, coma decimal. Los límites se recortan a [0, 100].
+mut_wilson() {
+  LC_ALL=C awk -v c="$1" -v n="$2" 'BEGIN {
+    z = 1.959964; p = c / n; z2 = z * z; d = 1 + z2 / n
+    ctr = (p + z2 / (2 * n)) / d
+    h = z * sqrt(p * (1 - p) / n + z2 / (4 * n * n)) / d
+    lo = ctr - h; hi = ctr + h
+    if (lo < 0) lo = 0; if (hi > 1) hi = 1
+    printf "%.1f %.1f %.1f\n", p * 100, lo * 100, hi * 100 }' | tr . ,
+}
+
 # Progreso parcial ("k/n evaluados, c caught, s supervivientes") de la salida cruda
 # de la herramienta; "no disponible" si no hay forma fiable de leerlo (nunca inventa).
 mut_progreso() {
@@ -168,7 +209,7 @@ mut_existe() {
 }
 
 # Limpieza del worktree temporal (también desde el trap de EXIT/INT/TERM).
-MUT_ROOT=""; MUT_TMP=""; MUT_WT=""; MUT_MSEGS=60
+MUT_ROOT=""; MUT_TMP=""; MUT_WT=""; MUT_MSEGS=60; MUT_SAMPLE=150; MUT_SEED=20260929
 mut_limpia() {
   if [ -n "$MUT_WT" ]; then
     git -C "$MUT_ROOT" worktree remove --force "$MUT_WT" >/dev/null 2>&1 || rm -rf "$MUT_WT"
@@ -204,6 +245,73 @@ mut_proyecto_de() {
 # Muta UN proyecto. Entradas: raíz, dir relativo, eco, segs, ficheros relativos a la raíz (1 por línea).
 # Salidas (globales): R_TEXT (texto tras `MUTACIÓN: `), R_DET/R_TOT (numéricos si hay score),
 # R_N (nº supervivientes), R_DETALLE (líneas extra: supervivientes o crudo).
+# Muestreo por adelantado (mutmut 2.x). Entradas: pd tmp raw lista runner segs t0.
+# Devuelve 1 (sin tocar R_*) si no hay que muestrear: se sigue con la corrida completa.
+# Devuelve 0 con R_* rellenos (score muestreado: R_TEXT lleva `IC95 [`).
+mut_py_muestra() {
+  local pd=$1 tmp=$2 raw=$3 lista=$4 runner=$5 segs=$6 t0=$7
+  local ids total sample n id rem irc l k t u s p lo hi ev=0 c=0 sv=0 surv="" nsurv=0 tmo=0 blfail=0 erc=0 sh
+  mkdir -p "$tmp/notests"
+  # 1) enumerar sin ejecutar tests. Dir de tests vacío = otro hash de tests: los estados
+  #    "survived" y el baseline de ~0 s de esta pasada no se reutilizan en la real.
+  ( cd "$pd" && con_timeout "$segs" mutmut run --paths-to-mutate "$lista" --use-patch-file "$tmp/patch.diff" \
+      --runner true --tests-dir "$tmp/notests" --no-progress ) > "$tmp/enum.txt" 2>&1 || erc=$?
+  if [ "$erc" = 124 ]; then
+    R_TEXT="parcial (timeout ${segs}s) — progreso: no disponible"; return 0
+  fi
+  ids=$( ( cd "$pd" && con_timeout 30 mutmut result-ids survived ) 2>/dev/null | tr -s ' \t' '\n' | grep -E '^[0-9]+$' || true )
+  total=$(printf '%s' "$ids" | grep -c . || true)
+  # no cabe una muestra (o la enumeración falló): corrida completa de siempre
+  [ "$total" -gt "$MUT_SAMPLE" ] || return 1
+  n=$MUT_SAMPLE
+  sample=$(printf '%s\n' "$ids" | mut_muestra "$n" "$MUT_SEED")
+  sh="muestra de ${n}/${total}, semilla ${MUT_SEED}"
+
+  # 2) un `mutmut run <id>` por id con el runner real, dentro del timeout global
+  for id in $sample; do
+    rem=$((segs - (SECONDS - t0)))
+    if [ "$rem" -le 0 ]; then tmo=1; break; fi
+    irc=0
+    ( cd "$pd" && con_timeout "$rem" mutmut run --paths-to-mutate "$lista" --runner "$runner" "$id" ) > "$raw" 2>&1 || irc=$?
+    if [ "$irc" = 124 ]; then tmo=1; break; fi
+    if grep -q "Tests don't run cleanly" "$raw"; then blfail=1; break; fi
+    l=$(tr '\r' '\n' < "$raw" | grep -E '[0-9]+/[0-9]+.*🎉 *[0-9]+.*⏰ *[0-9]+.*🙁 *[0-9]+' | tail -n 1)
+    [ -n "$l" ] || continue
+    k=$(printf '%s' "$l" | sed -nE 's|.*🎉 *([0-9]+).*|\1|p')
+    t=$(printf '%s' "$l" | sed -nE 's|.*⏰ *([0-9]+).*|\1|p')
+    u=$(printf '%s' "$l" | sed -nE 's|.*🤔 *([0-9]+).*|\1|p'); u=${u:-0}
+    s=$(printf '%s' "$l" | sed -nE 's|.*🙁 *([0-9]+).*|\1|p')
+    if [ -z "$k" ] || [ -z "$t" ] || [ -z "$s" ]; then continue; fi
+    if [ $((k + t + u + s)) -eq 0 ]; then continue; fi   # saltado (🔇): no se evalúa
+    ev=$((ev + 1)); c=$((c + k + t + u))
+    if [ "$s" -gt 0 ]; then sv=$((sv + 1)); surv="$surv $id"; fi
+  done
+
+  if [ "$blfail" = 1 ]; then
+    R_TEXT="parcial (baseline falló)"; R_DETALLE=$(mut_tail "$raw"); return 0
+  fi
+  if [ "$tmo" = 1 ]; then
+    R_TEXT="parcial (timeout ${segs}s) — progreso: ${ev}/${n} evaluados, ${c} caught, ${sv} supervivientes (${sh})"; return 0
+  fi
+  if [ "$ev" -eq 0 ]; then
+    R_TEXT="parcial (salida no reconocida)"; R_DETALLE=$(mut_tail "$tmp/enum.txt" "$raw"); return 0
+  fi
+
+  read -r p lo hi <<< "$(mut_wilson "$c" "$ev")"
+  R_DET=$c; R_TOT=$ev; R_N=$sv;
+  R_TEXT="${c}/${ev} (${p}%) IC95 [${lo}%, ${hi}%] — muestra de ${n}/${total} (semilla ${MUT_SEED})"
+  if [ "$sv" -gt 0 ]; then
+    # el worktree se borra al acabar: el diff de cada mutante hay que leerlo ahora
+    R_DETALLE="Supervivientes de la muestra (ids de mutmut):"
+    for id in $surv; do
+      nsurv=$((nsurv + 1)); [ "$nsurv" -le 10 ] || break
+      R_DETALLE="$R_DETALLE"$'\n'"- id ${id}: $( ( cd "$pd" && con_timeout 30 mutmut show "$id" ) 2>&1 | awk '/^\+\+\+ /{f=substr($0,5)} /^-[^-]/{a=substr($0,2)} /^\+[^+]/{b=substr($0,2)} END{gsub(/^ +/,"",a); gsub(/^ +/,"",b); printf "%s: `%s` -> `%s`", f, a, b}')"
+    done
+    if [ "$sv" -gt 10 ]; then R_DETALLE="$R_DETALLE"$'\n'"- (+$((sv - 10)) más)"; fi
+  fi
+  return 0
+}
+
 mut_uno() {
   mut_uno_ "$@"
   mut_limpia
@@ -279,7 +387,16 @@ mut_uno_() {
       # shellcheck disable=SC2016 # el $@ y $rc van literales al script generado
       printf '#!/usr/bin/env bash\n. %q\ncon_timeout "$@"; rc=$?\n[ "$rc" = 124 ] && exit 1\nexit "$rc"\n' "$_ts" > "$cto"; chmod +x "$cto"
       runner="$(printf '%q' "$cto") ${MUT_MSEGS} $(mut_runner "$pd")"
-      ( cd "$pd" && con_timeout "$segs" mutmut run --paths-to-mutate "$lista" --use-patch-file "$tmp/patch.diff" --runner "$runner" ) > "$raw" 2>&1 || rc=$?
+      local t0=$SECONDS resta=$segs
+      if [ "$MUT_SAMPLE" -gt 0 ]; then
+        if mut_py_muestra "$pd" "$tmp" "$raw" "$lista" "$runner" "$segs" "$t0"; then return 0; fi
+        if grep -q whatthepatch "$tmp/enum.txt" 2>/dev/null; then
+          R_TEXT="no disponible (mutmut sin whatthepatch: pip install 'mutmut[patch]')"; return 0
+        fi
+        resta=$((segs - (SECONDS - t0)))
+        if [ "$resta" -le 0 ]; then R_TEXT="parcial (timeout ${segs}s) — progreso: no disponible"; return 0; fi
+      fi
+      ( cd "$pd" && con_timeout "$resta" mutmut run --paths-to-mutate "$lista" --use-patch-file "$tmp/patch.diff" --runner "$runner" ) > "$raw" 2>&1 || rc=$?
       if [ "$rc" != 0 ] && [ "$rc" != 124 ] && grep -q whatthepatch "$raw"; then
         R_TEXT="no disponible (mutmut sin whatthepatch: pip install 'mutmut[patch]')"; return 0
       fi
@@ -370,6 +487,10 @@ mutacion() {
   case "$segs" in ''|*[!0-9]*|0) MUT_AVISO="EXO_MUTATION_TIMEOUT inválido ('${EXO_MUTATION_TIMEOUT}'); se usa 600"; segs=600 ;; esac
   MUT_MSEGS=${EXO_MUTATION_MUTANT_TIMEOUT:-60}
   case "$MUT_MSEGS" in ''|*[!0-9]*|0) MUT_AVISO="${MUT_AVISO:+$MUT_AVISO; }EXO_MUTATION_MUTANT_TIMEOUT inválido ('${EXO_MUTATION_MUTANT_TIMEOUT}'); se usa 60"; MUT_MSEGS=60 ;; esac
+  MUT_SAMPLE=${EXO_MUTATION_SAMPLE:-150}
+  case "$MUT_SAMPLE" in ''|*[!0-9]*) MUT_AVISO="${MUT_AVISO:+$MUT_AVISO; }EXO_MUTATION_SAMPLE inválido ('${EXO_MUTATION_SAMPLE}'); se usa 150"; MUT_SAMPLE=150 ;; esac
+  MUT_SEED=${EXO_MUTATION_SEED:-20260929}
+  case "$MUT_SEED" in ''|*[!0-9]*) MUT_AVISO="${MUT_AVISO:+$MUT_AVISO; }EXO_MUTATION_SEED inválido ('${EXO_MUTATION_SEED}'); se usa 20260929"; MUT_SEED=20260929 ;; esac
   root=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "MUTACIÓN: no disponible (fuera de un repo)"; return 0; }
   type con_timeout >/dev/null 2>&1 || { echo "MUTACIÓN: no disponible (sin _timeout.sh)"; return 0; }
 
@@ -422,7 +543,7 @@ $pr" ;;
   fi
 
   local -a lineas=() detalles=()
-  local sdet=0 stot=0 sn=0 nscored=0 nparcial=0 nnodisp=0 k dir eco fl nombre multi=0 nproy
+  local sdet=0 stot=0 sn=0 nscored=0 nparcial=0 nnodisp=0 nmuestra=0 k dir eco fl nombre multi=0 nproy
   nproy=$(printf '%s\n' "$keys" | grep -c .)
   if [ "$nproy" -gt 1 ] || [ "${keys%%|*}" != "." ]; then multi=1; fi
   while IFS= read -r k; do
@@ -436,6 +557,7 @@ $pr" ;;
       if [ "$multi" = 1 ]; then detalles+=("[${nombre}] ${R_DETALLE}"); else detalles+=("$R_DETALLE"); fi
     fi
     case "$R_TEXT" in
+      *"IC95 ["*) nmuestra=$((nmuestra + 1)) ;;   # muestreado: se reporta aparte, no entra en el agregado
       parcial*) nparcial=$((nparcial + 1)) ;;
       "no disponible"*) nnodisp=$((nnodisp + 1)) ;;
       *) sdet=$((sdet + R_DET)); stot=$((stot + R_TOT)); sn=$((sn + R_N)); nscored=$((nscored + 1)) ;;
@@ -447,8 +569,11 @@ $pr" ;;
     echo "MUTACIÓN: ${lineas[0]#*: }"
   elif [ "$nscored" -gt 0 ]; then
     local extra=""
-    [ $((nparcial + nnodisp)) -gt 0 ] && extra="; $((nparcial + nnodisp)) proyecto(s) sin score"
+    [ $((nparcial + nnodisp + nmuestra)) -gt 0 ] && extra="; $((nparcial + nnodisp + nmuestra)) proyecto(s) sin score"
+    [ "$nmuestra" -gt 0 ] && extra="${extra} (${nmuestra} muestreado(s), aparte)"
     echo "MUTACIÓN: ${sdet}/${stot} ($((sdet * 100 / stot))%) — ${sn} superviviente(s)${extra}"
+  elif [ "$nmuestra" -gt 0 ]; then
+    echo "MUTACIÓN: muestreado (ver proyectos)"
   elif [ "$nparcial" -gt 0 ]; then
     echo "MUTACIÓN: parcial (ver proyectos)"
   else
