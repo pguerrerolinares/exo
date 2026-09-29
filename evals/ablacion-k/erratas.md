@@ -239,3 +239,18 @@ regresión** en `pruebas/`. **No hay tercera auditoría completa:** cada ronda
 encuentra fallos de menor orden. El error residual de los checks se declara
 en el verdict como amenaza a la validez (medición con ruido, no sesgo
 dirigido: los checks no ven el brazo).
+
+### E9 — ampliación: reglas circulares y servicios vivos (2026-09-29)
+
+Tras redactar las sustitutas de E9 se descartan dos, con criterios fijados
+antes de correr nada:
+
+- **Circular** (`g1-26`): una regla cuyo cumplimiento consiste en usar el
+  propio sistema de memoria («busca en la memoria antes de actuar») mide si
+  el brazo tiene la herramienta, no si el agente sigue una regla. Favorece a
+  A2/A3 por construcción. Mismo criterio aplicado antes a `g1-1`.
+- **Externo** (`g1-115`): violar la regla implica llamar de verdad a la API
+  privada de un tercero desde la máquina de Paul. Es el veto `externo` de E6.
+
+Junto con `g0-27` (no-convertible), se sustituyen en orden (E7). Las
+sustitutas tampoco pueden ser circulares ni depender de servicios vivos.
