@@ -1,0 +1,30 @@
+tarea    grupo    rep               rc                fin     usd  resultado
+g0-122   suelo    r1                 1          completed    0.08  no cumple
+g0-122   suelo    r2                 1          completed    0.08  
+g0-149   suelo    r1                 0          completed    0.13  cumple
+g0-149   suelo    r2                 1          completed    0.15  
+g0-33    suelo    r1                 1          completed    0.07  no cumple
+g0-33    suelo    r2                 1          completed    0.06  
+g1-131   suelo    r1                 2          completed    0.06  no cumple
+g1-131   suelo    r2                 1          completed    0.06  
+g1-139   suelo    r1                 1          completed    0.05  no cumple
+g1-139   suelo    r2                 1          completed    0.04  
+g1-140   suelo    r1                 0          completed    0.13  cumple
+g1-140   suelo    r2                 1          completed    0.15  
+g1-157   suelo    r1                 0          completed    0.10  cumple
+g1-157   suelo    r2                 0          completed    0.09  
+g2-154   suelo    r1                 1          completed    0.06  no cumple
+g2-154   suelo    r2                 1          completed    0.06  
+g2-170   suelo    r1                 0          completed    0.18  cumple
+g2-170   suelo    r2                 0          completed    0.14  
+g2-171   suelo    r1                 1          completed    0.12  no cumple
+g2-171   suelo    r2                 1          completed    0.15  
+g2-97    suelo    r1                 1          completed    0.03  no cumple
+g2-97    suelo    r2                 1          completed    0.18  
+g0-159   control  r1                 0          completed    0.09  ok
+g1-144   control  r1                 0          completed    0.19  ok
+g1-16    control  r1                 0          completed    0.11  ok
+g1-25    control  r1                 0          completed    0.06  ok
+g1-34    control  r1                 0          completed    0.07  ok
+g2-35    control  r1                 0          completed    0.05  ok
+GATE: NO PASA (4/11 < 6)

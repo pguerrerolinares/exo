@@ -1,0 +1,280 @@
+{
+ "suelo_cumplen": 4,
+ "suelo_total": 11,
+ "caidas": [],
+ "control_total": 6,
+ "tareas": [
+  {
+   "id": "g0-122",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "1",
+    "r2": "1"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.0766464,
+    "r2": 0.07753580000000002
+   },
+   "resultado": "no cumple"
+  },
+  {
+   "id": "g0-149",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "0",
+    "r2": "1"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.13006700000000002,
+    "r2": 0.14610340000000002
+   },
+   "resultado": "cumple"
+  },
+  {
+   "id": "g0-33",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "1",
+    "r2": "1"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.0739188,
+    "r2": 0.0602626
+   },
+   "resultado": "no cumple"
+  },
+  {
+   "id": "g1-131",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "2",
+    "r2": "1"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.0576148,
+    "r2": 0.0562048
+   },
+   "resultado": "no cumple"
+  },
+  {
+   "id": "g1-139",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "1",
+    "r2": "1"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.0478628,
+    "r2": 0.0448314
+   },
+   "resultado": "no cumple"
+  },
+  {
+   "id": "g1-140",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "0",
+    "r2": "1"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.131668,
+    "r2": 0.151311
+   },
+   "resultado": "cumple"
+  },
+  {
+   "id": "g1-157",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "0",
+    "r2": "0"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.09504220000000001,
+    "r2": 0.0923018
+   },
+   "resultado": "cumple"
+  },
+  {
+   "id": "g2-154",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "1",
+    "r2": "1"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.059197200000000005,
+    "r2": 0.0611958
+   },
+   "resultado": "no cumple"
+  },
+  {
+   "id": "g2-170",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "0",
+    "r2": "0"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.180527,
+    "r2": 0.14338120000000001
+   },
+   "resultado": "cumple"
+  },
+  {
+   "id": "g2-171",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "1",
+    "r2": "1"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.11637659999999998,
+    "r2": 0.1483626
+   },
+   "resultado": "no cumple"
+  },
+  {
+   "id": "g2-97",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "1",
+    "r2": "1"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.03408,
+    "r2": 0.1790512
+   },
+   "resultado": "no cumple"
+  },
+  {
+   "id": "g0-159",
+   "grupo": "control",
+   "rc": {
+    "r1": "0"
+   },
+   "fin": {
+    "r1": "completed"
+   },
+   "usd": {
+    "r1": 0.09149499999999999
+   },
+   "resultado": "ok"
+  },
+  {
+   "id": "g1-144",
+   "grupo": "control",
+   "rc": {
+    "r1": "0"
+   },
+   "fin": {
+    "r1": "completed"
+   },
+   "usd": {
+    "r1": 0.1894124
+   },
+   "resultado": "ok"
+  },
+  {
+   "id": "g1-16",
+   "grupo": "control",
+   "rc": {
+    "r1": "0"
+   },
+   "fin": {
+    "r1": "completed"
+   },
+   "usd": {
+    "r1": 0.10546320000000001
+   },
+   "resultado": "ok"
+  },
+  {
+   "id": "g1-25",
+   "grupo": "control",
+   "rc": {
+    "r1": "0"
+   },
+   "fin": {
+    "r1": "completed"
+   },
+   "usd": {
+    "r1": 0.05894680000000001
+   },
+   "resultado": "ok"
+  },
+  {
+   "id": "g1-34",
+   "grupo": "control",
+   "rc": {
+    "r1": "0"
+   },
+   "fin": {
+    "r1": "completed"
+   },
+   "usd": {
+    "r1": 0.07090700000000001
+   },
+   "resultado": "ok"
+  },
+  {
+   "id": "g2-35",
+   "grupo": "control",
+   "rc": {
+    "r1": "0"
+   },
+   "fin": {
+    "r1": "completed"
+   },
+   "usd": {
+    "r1": 0.053486399999999996
+   },
+   "resultado": "ok"
+  }
+ ],
+ "gate": "GATE: NO PASA (4/11 < 6)"
+}
