@@ -65,7 +65,6 @@ Tabla exacta al cableado vivo de `hooks/hooks.json` (nueve comandos):
 | document-remind | `Stop` | `scripts/document-remind.sh` | recuerda `/document` al cerrar | 1×/sesión + umbral de transcript |
 | exo-index | `Stop` | `scripts/exo-index.sh` | reindexa la KB al cierre de sesión | best-effort, fallback logueado |
 | subagent-inject | `SubagentStart` | `scripts/subagent-inject.sh` | inyecta doctrina/contexto al arrancar un subagente | — (PUSH) |
-| recall-inject | `UserPromptSubmit` | `scripts/recall-inject.sh` | recall dirigido por el prompt del usuario | fallback logueado (`recall-fallback`) |
 
 Nota: el README anterior de `reflex` documentaba también `cost-pyramid` y
 `stuck-loop` como reflejos independientes. Ninguno de los dos está cableado

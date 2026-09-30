@@ -47,11 +47,11 @@ El repo es además su propio marketplace de plugin:
 ```mermaid
 flowchart LR
     subgraph agente["Sesión de Claude Code"]
-        HOOKS["Eventos de hook<br/>SessionStart · UserPromptSubmit ·<br/>SubagentStart · PreToolUse · Stop"]
+        HOOKS["Eventos de hook<br/>SessionStart ·<br/>SubagentStart · PreToolUse · Stop"]
         SKILLS["Skills /brainstorm … /document<br/>+ agente exo:executor"]
     end
     subgraph thin["plugins/exo (capa thin)"]
-        SH["scripts/*.sh<br/>exo-recall.sh · recall-inject.sh ·<br/>subagent-inject.sh · exo-index.sh …"]
+        SH["scripts/*.sh<br/>exo-recall.sh ·<br/>subagent-inject.sh · exo-index.sh …"]
     end
     subgraph engine["engine (binario Rust exo)"]
         CLI["init · config · index · rebuild ·<br/>search · write · recall"]
@@ -262,9 +262,8 @@ flowchart TD
   2026-08-26 (`docs/backlog.md:2117`). `exo init` escribe ahora ese mismo
   0.40 como default de `[embeddings] min_similarity` en una config nueva —
   una sola constante, no dos literales que antes solo coincidían por
-  casualidad. El hook `recall-inject.sh` sigue pasando `--min-similarity
-  0.40` explícito (documenta su propio contrato de todos modos, no depende
-  del default).
+  casualidad. Los consumidores pueden seguir pasando
+  `--min-similarity` explícito si quieren documentar su propio contrato.
 - **Avisos de degradación**: si `vectores` está vacía o a medio poblar
   respecto a `trozos`, el envelope lleva `warnings` ("arm vector INERTE" /
   "cobertura vectorial PARCIAL") y se imprimen por stderr — un hybrid que en
@@ -392,7 +391,6 @@ flowchart TD
     subgraph sesion["Ciclo de vida de una sesión"]
         SS["SessionStart"] --> ERS["exo-recall.sh"]
         SS --> EDS["estilo-directo.sh"]
-        UP["UserPromptSubmit"] --> RIS["recall-inject.sh"]
         SA["SubagentStart"] --> SIS["subagent-inject.sh"]
         ST["Stop"] --> EIS["exo-index.sh"] & DRS["document-remind.sh"]
     end
@@ -400,10 +398,6 @@ flowchart TD
     ERS -->|"exo recall --content --note (kb)/core/core-index --cap-bytes 6144"| ENG["binario exo"]
     ERS -->|"bloque: cuerpo del core-index + actividad reciente por git; fallback embebido si el engine no sirve"| SS
     EDS -->|"bloque estático de estilo desde estilo-directo.md, cap ~700 B"| SS
-
-    RIS -->|"gate léxico: calla ante acks y comandos (lista STOP de 127 tokens)"| RIS2["exo recall --query=(prompt) --min-similarity 0.40 --limit 4 --refresh --json"]
-    RIS2 --> ENG
-    RIS -->|"hasta 3 punteros permalink+snippet, cap 1024 B, excluye el core-index ya inyectado"| UP
 
     SIS -->|"perfil por agent_type (inject-profiles.json); spawnDepth>1 no inyecta"| CIS["compose-inject.sh"]
     CIS -->|"doctrina de executor.md + secciones del core-index + rutas reales de la KB, cap 2048 B"| SA
@@ -427,13 +421,13 @@ Detalles que el diagrama no cuenta:
   respuesta fija: texto estático desde `estilo-directo.md`, no depende del
   engine ni de la KB. Mismo never-block que los demás; cap ~700 B
   independiente del cap de `exo-recall.sh`.
-- **`recall-inject.sh`** (UserPromptSubmit) es "recall en el punto de uso": el
-  transporte es mecánico, el modelo no decide si buscar. Un gate léxico
-  (traducción literal del artefacto normativo
-  `docs/superpowers/consultas/2026-08-22-m6-06/gate-artefacto.py`) filtra
-  acks, comandos y prompts triviales. Este evento tiene un hazard propio: un
-  exit 2 aquí **borra el prompt del usuario**, así que el script no usa
-  `set -e` y termina en `exit 0` incondicional.
+- **Sin recall por prompt.** Existió un hook de recall en cada prompt
+  del usuario que inyectaba punteros de recall; se
+  borró tras la campaña K porque traía la nota fuente de la regla en solo
+  3/40 tareas y costaba +22 % de tokens de entrada
+  (`evals/ablacion-k/verdict-etapa1.md`). La búsqueda queda a demanda
+  (`exo search` + el reflejo `search-first.sh`). Spec:
+  `docs/superpowers/specs/2026-09-30-exo-recorte-mecanismo-design.md`.
 - **`subagent-inject.sh` + `compose-inject.sh`** (SubagentStart) componen un
   bloque por perfil de tipo de agente (`inject-profiles.json`:
   `exo:executor` → `reducido`, `general-purpose`/`claude` → `ejecucion`,
@@ -590,8 +584,8 @@ viven en `docs/backlog.md`:
 - **El desfase binario↔plugin solo se vigila en dos sitios.** `exo doctor`
   lo compara en el check `plugin_compat` (§3.8) y `exo-recall.sh` degrada con
   `engine-stale` y aviso visible en el bloque de arranque, ambos contra
-  `plugins/exo/ENGINE_MIN` (campaña H). `recall-inject.sh` **no** lo comprueba
-  —sería un spawn de `exo --version` por prompt— y `ENGINE_MIN` solo es tan
+  `plugins/exo/ENGINE_MIN` (campaña H). Ningún otro hook lo comprueba
+  —sería un spawn de `exo --version` por disparo— y `ENGINE_MIN` solo es tan
   honesto como quien lo sube cuando un script empieza a necesitar una versión
   nueva del engine.
 - **MCP propio (M5a) y desinstalación de basic-memory (M5b)**: pendientes. El

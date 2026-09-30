@@ -2,8 +2,8 @@
 # Helper COMPARTIDO: `timeout` portable a macOS.
 #
 # macOS no trae `timeout` (es GNU coreutils). Llamarlo a pelo sale con 127
-# "command not found", y en recall-inject.sh eso degradaba el hook en CADA
-# prompt sin inyectar nada (CI macos-latest, run 34720014952).
+# "command not found", y en los hooks eso los degradaba en CADA
+# disparo sin inyectar nada (CI macos-latest, run 34720014952).
 #
 # Uso:
 #   . "$SCRIPT_DIR/_timeout.sh"

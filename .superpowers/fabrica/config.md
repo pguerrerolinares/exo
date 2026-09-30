@@ -152,8 +152,8 @@ binario↔plugin) absorbe el rebase primero — misma regla ya usada en D/E.
   la primera ruptura real de compatibilidad binario↔plugin del proyecto.
 - **Check de versión en hooks (decisión de Paul en pre-flight de H, no en la
   propuesta original)**: SOLO en `exo-recall.sh` (SessionStart) y
-  `exo doctor`; `recall-inject.sh` (UserPromptSubmit, un spawn por prompt)
-  NO lo lleva, para no chocar con la latencia que medirá la futura campaña I.
+  `exo doctor`; el hook por prompt de entonces (`UserPromptSubmit`, hoy borrado)
+  NO lo llevaba, para no chocar con la latencia que medirá la futura campaña I.
 
 **Zonas de colisión, releídas antes de cada task**:
 - `engine/src/main.rs`: H toca los alias (`:153-315`, Task 7) y nada del
@@ -163,7 +163,7 @@ binario↔plugin) absorbe el rebase primero — misma regla ya usada en D/E.
   (`check_kb`, `mtime_mas_reciente`); H añade `check_plugin_compat` (función
   nueva) y edita `check_git_bash`/`script_del_plugin` — cero líneas
   compartidas.
-- `plugins/exo/scripts/{kb-precommit,exo-recall,recall-inject}.sh`: F solo
+- `plugins/exo/scripts/{kb-precommit,exo-recall}.sh`: F solo
   toca comentarios/texto (idioma, «genérico»); el código de estos scripts lo
   tocan H (check de versión, fail-closed) y, después, la campaña I.
 - `docs/arquitectura.md` §3.8: F añade una línea sobre idioma de

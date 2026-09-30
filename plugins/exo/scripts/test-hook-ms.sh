@@ -65,7 +65,7 @@ verifica "10,999900" "11,000100" 0
 # mensaje y la suite seguía en verde (medido en
 # `docker run --rm -v "$PWD":/w -w /w bash:3.2 ./test-hook-ms.sh`, donde
 # hook_ms_soportado DEBE decir "no soportado" y la mutación decía "sí" --
-# consecuencia real: recall-inject.sh muere con
+# consecuencia real: un hook que use hook_ms muere con
 # "EPOCHREALTIME: unbound variable" en bash 3.2).
 if [ "${BASH_VERSINFO[0]:-0}" -ge 5 ]; then
   esperado_rc=0

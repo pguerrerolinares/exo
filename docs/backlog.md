@@ -7,6 +7,8 @@
 > duplicar. Cada item cita su evidencia; un item sin evidencia verificable no
 > entra.
 >
+> Estado: recall-inject borrado (spec 2026-09-30-exo-recorte-mecanismo).
+>
 > Última revisión: **2026-09-22** (sync de `docs/backlog.md` tras la ola 2
 > — recon verificó contra el código de hoy qué ítems abiertos ya estaban
 > cerrados. Cierra con evidencia: «un rojo del job `test` no se puede

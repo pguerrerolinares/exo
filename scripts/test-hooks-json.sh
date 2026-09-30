@@ -54,7 +54,7 @@ done
 # El recall por prompt se borró (campaña K): ningún hook debe volver a colgarse
 # de UserPromptSubmit sin decisión explícita.
 if [ "$(jq '.hooks | has("UserPromptSubmit")' "$HOOKS" | tr -d '\r')" != "false" ]; then
-  echo "[FAIL] $HOOKS: sobrevive la clave UserPromptSubmit (recall-inject borrado)" >&2
+  echo "[FAIL] $HOOKS: sobrevive la clave UserPromptSubmit (hook de recall por prompt borrado)" >&2
   FALLOS=1
 fi
 

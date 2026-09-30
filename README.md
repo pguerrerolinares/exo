@@ -64,7 +64,7 @@ flowchart TB
         direction TB
         skills["skills/<br/>exo:brainstorm · plan · orchestrate · tdd<br/>debug · verify · document · distill · recon-first"]
         agent["agents/<br/>exo:executor"]
-        hooks["hooks/<br/>SessionStart · UserPromptSubmit<br/>SubagentStart · Stop · PreToolUse"]
+        hooks["hooks/<br/>SessionStart<br/>SubagentStart · Stop · PreToolUse"]
     end
 
     subgraph bin["exo — binario Rust, sin runtime"]
@@ -122,7 +122,6 @@ qué hace cada uno y su abstención en `plugins/exo/README.md`):
 | document-remind | `Stop` | `plugins/exo/scripts/document-remind.sh` |
 | exo-index | `Stop` | `plugins/exo/scripts/exo-index.sh` |
 | subagent-inject | `SubagentStart` | `plugins/exo/scripts/subagent-inject.sh` |
-| recall-inject | `UserPromptSubmit` | `plugins/exo/scripts/recall-inject.sh` |
 
 Este repo es la **fuente de verdad** del plugin (co-evoluciona con el engine y con
 sus evals de paridad en `evals/prep-m3/`) y además es su propio marketplace:

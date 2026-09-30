@@ -10,8 +10,8 @@
 # - `estilo-directo.sh` sin bit de ejecución llegó a release (exo 1.1.1):
 #   la caza `test-exec-bit.sh`, no este gate.
 # - GNU-ismos portando mal a macOS (`timeout`, `date -d`, `stat -c`,
-#   `touch -d` en `recall-inject.sh` y otros hooks del plugin) rompían el
-#   plugin en `macos-latest`, degradando en cada prompt sin avisar: los cazó
+#   `touch -d` en los hooks del plugin) rompían el
+#   plugin en `macos-latest`, degradando en cada disparo sin avisar: los cazó
 #   la matriz de `plugin-tests` en macOS EJECUTANDO la suite, no shellcheck
 #   (fix `ec74f43`).
 # - `sha256sum` (GNU) vs `shasum` (macOS/BSD) en `.github/workflows/

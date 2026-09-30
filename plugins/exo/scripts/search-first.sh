@@ -108,10 +108,9 @@ fi
 # Filtro: solo bloques `tool_use` de mensajes del asistente
 # (`select(.type=="assistant") | .message.content[]? | select(.type==
 # "tool_use")`), positivo si `name=="Bash"` y `input.command` casa con la
-# regex de la spec. El pie de `recall-inject.sh` escribe "exo search --type
-# hybrid" como TEXTO en cada prompt (`FOOTER=`, recall-inject.sh:313) -- un
-# grep a pelo sobre la transcripcion daria siempre positivo; mirar solo
-# `tool_use` de tipo Bash lo evita.
+# regex de la spec. Un grep a pelo sobre la transcripcion tambien casaria con
+# "exo search" citado como TEXTO (prompts, respuestas, contexto inyectado);
+# mirar solo `tool_use` de tipo Bash exige una invocacion real.
 RE='(^|[;&|/[:space:]])exo(\.exe)?[[:space:]]+(search|targets)([[:space:]]|$)'
 jq -R -n -e --arg re "$RE" '
   [inputs
