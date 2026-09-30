@@ -5,6 +5,8 @@ description: Usa al implementar cualquier feature o bugfix, antes de escribir c�
 
 # tdd
 
+Destilado de `test-driven-development/SKILL.md` (superpowers 6.4.2, MIT © 2025 Jesse Vincent).
+
 Escribe el test primero. Velo fallar. Código mínimo para pasar. Si no viste
 el test fallar, no sabes si testea lo correcto — ese es el principio.
 
@@ -33,6 +35,10 @@ desechables, código generado.
   test. **Verde = la suite del proyecto entera** (el comando completo que
   define el proyecto), no solo el fichero del test que acabas de escribir.
   Un test nuevo verde con otra parte de la suite roja no es verde.
+  Aunque tu tarea nombre un solo fichero de test, ese scope acota el
+  entregable, no tu verificación. Todo fallo que muestre esa corrida, aunque
+  no lo causaras, va en tu report por su nombre: un test rojo que viste pasar
+  sin mencionarlo falsea el report por omisión.
 - **REFACTOR**: solo en verde — quita duplicación, mejora nombres, extrae
   helpers. Sin añadir comportamiento.
 
