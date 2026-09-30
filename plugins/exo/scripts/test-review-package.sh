@@ -280,9 +280,11 @@ git -C "$r" commit -qam head; HEAD=$(git -C "$r" rev-parse HEAD)
 corre "$r" "$(stubs_para del2 mutmut)" STUB_MUTMUT=2
 if contains "$OUT" "MUTACIÓN: no disponible (diff sin líneas añadidas ni modificadas)" && not_contains "$(cat "$LOG")" "run --paths"; then pass hunk_solo_borrado_python; else fail hunk_solo_borrado_python "$(seccion) log=$(cat "$LOG")"; fi
 
-# ---- parcial_conserva_progreso: el timeout global no descarta el conteo
+# ---- parcial_conserva_progreso: el timeout global no descarta el conteo.
+# EXO_MUTATION_SAMPLE=0: la enumeración del muestreo gasta presupuesto medido con $SECONDS
+# (grano de 1 s); con TIMEOUT=1 un tic de reloj deja resta=0 y el progreso sale "no disponible".
 mkrepo parpy setup.py src/m.py; r=$REPO
-corre "$r" "$(stubs_para parpy mutmut)" STUB_MUTMUT=2 STUB_MODE=progresshang EXO_MUTATION_TIMEOUT=1
+corre "$r" "$(stubs_para parpy mutmut)" STUB_MUTMUT=2 STUB_MODE=progresshang EXO_MUTATION_TIMEOUT=1 EXO_MUTATION_SAMPLE=0
 if pgrep -f "sleep 31339" >/dev/null 2>&1; then pkill -f "sleep 31339" 2>/dev/null; fi
 if contains "$OUT" "MUTACIÓN: parcial (timeout 1s) — progreso: 3/7 evaluados, 2 caught, 1 supervivientes"; then pass parcial_progreso_mutmut; else fail parcial_progreso_mutmut "$(seccion)"; fi
 mkrepo parjs package.json src/a.js; r=$REPO
@@ -323,7 +325,7 @@ if not_contains "$(cat "$LOG")" "timeoutMS" && contains "$(cat "$LOG")" "stryker
 mkrepo susps setup.py src/m.py; r=$REPO
 corre "$r" "$(stubs_para susps mutmut)" STUB_MUTMUT=2 STUB_MODE=suspicious
 if contains "$OUT" "MUTACIÓN: 8/10 (80%) — 2 superviviente(s)"; then pass mutmut_sospechoso_cuenta_stub; else fail mutmut_sospechoso_cuenta_stub "$(seccion)"; fi
-corre "$r" "$(stubs_para susps2 mutmut)" STUB_MUTMUT=2 STUB_MODE=progresshang2 EXO_MUTATION_TIMEOUT=1
+corre "$r" "$(stubs_para susps2 mutmut)" STUB_MUTMUT=2 STUB_MODE=progresshang2 EXO_MUTATION_TIMEOUT=1 EXO_MUTATION_SAMPLE=0
 if pgrep -f "sleep 31342" >/dev/null 2>&1; then pkill -f "sleep 31342" 2>/dev/null; fi
 if contains "$OUT" "progreso: 4/7 evaluados, 3 caught, 1 supervivientes"; then pass parcial_progreso_sospechoso; else fail parcial_progreso_sospechoso "$(seccion)"; fi
 
