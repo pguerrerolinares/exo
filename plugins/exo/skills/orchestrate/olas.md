@@ -67,6 +67,56 @@ batcheada al humano, junto a su fila.
    fix dispatch antes de abrir la siguiente ola.
 5. Ola nueva solo con la anterior mergeada y en verde.
 
+## Fix loop
+
+Se activa con spec ❌, cualquier Critical/Important o un ⚠️ que confirmaste
+como gap real. Antes de entrar salen dos rutas: los Minor no entran nunca
+(`Task N: minor (deferred): <una línea>` al ledger, y el final los triagea), y
+un finding plan-mandated o que choca con el texto del plan lo decide el humano.
+
+Una ronda = un fix + una re-review acotada; **máximo 5 por tarea**:
+
+- **Rondas 1-3: reanuda al executor original** con los findings verbatim (su
+  contexto sigue intacto). Si no puedes escribir a un subagente vivo, despacha
+  uno fresco con el brief, el report file y los findings: el report file es la
+  memoria persistente en ambos casos.
+- **Rondas 4-5: executor fresco en un modelo mayor** que el atascado, con
+  brief, report file, findings abiertos y «un executor previo lo intentó [N]
+  veces; ahora es tuyo, lee el report file para ver qué se probó». Tres
+  resumes sin converger suelen significar que no ve su propio problema.
+- **Toda ronda:** el fix re-corre los tests que cubren lo enmendado, añade su
+  fix report al MISMO report file y devuelve el contrato corto. Antes de la
+  re-review confirma tests cubridores + comando + output. Nombra los tests en
+  el mensaje del fix: un arreglo de una línea no necesita la suite entera.
+- **Re-review acotada:** `scripts/review-package PLAN FIX_BASE HEAD` (FIX_BASE =
+  head que vio la review anterior) y `reviewer-prompt.md` con la lista de
+  findings, brief, report y el path del package. Verdicta cada finding
+  ADDRESSED / NOT ADDRESSED y marca roturas nuevas solo en el diff del fix;
+  una rotura nueva Critical/Important se suma a los abiertos; lo demás va al
+  ledger como minor diferido, nunca alarga el loop. Modelo: tier bajo-medio.
+- Tras cada ronda, ledger: `Task N: fix round R/5 (X addressed, Y open — <findings>; commits a7..b7)`.
+- El padre nunca arregla findings él mismo: su contexto queda para coordinar y
+  un fix del controller se salta la review.
+
+**Breaker.** Si tras la ronda 5 quedan findings abiertos, deja de despachar y
+adjudica cada uno tú (tienes plan y contexto entre tareas):
+
+- reviewer equivocado o punto discutible ⇒ aparca: `Task N: parked — <finding>
+  — ruling: <por qué el código se queda>`;
+- real pero nada posterior depende de él ⇒ aparca igual, con ruling «real y
+  diferido»;
+- real y load-bearing (una tarea posterior lo usa, o revela un defecto del
+  plan) ⇒ PARA: `Task N: BLOCKED — <motivo>` y reporta al humano con el
+  finding, el texto del plan y el historial de fixes.
+
+Adjudicar antes del tope es pre-juzgar con otro nombre. Toda adjudicación es
+entrada de ledger: el descarte silencioso está prohibido. Cierre:
+`Task N: complete (commits …, <K> parked)` tras un breaker.
+
+Review final: si devuelve findings, UN fix con la lista completa y exactamente
+una re-review acotada del rango del fix; los residuos se adjudican como en el
+breaker. No hay segunda ola de fixes: lo load-bearing residual sube al humano.
+
 ## Mutación (review-package)
 
 `EXO_MUTATION=0` la desactiva; `EXO_MUTATION_TIMEOUT` fija el timeout en

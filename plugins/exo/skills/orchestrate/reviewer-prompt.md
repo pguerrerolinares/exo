@@ -263,5 +263,6 @@ Subagent (general-purpose):
 - `[DIFF_FILE]` — REQUIRED: el path que imprime `scripts/review-package
   PLAN_FILE BASE HEAD` (el package nunca entra en el contexto del controller).
 
-Un fix dispatch puede atacar gaps de spec y findings de calidad juntos; el
-re-review tras fixes cubre ambos veredictos.
+Una ronda de fix puede atacar gaps de spec y findings de calidad juntos; la
+re-review acotada (`olas.md` § Fix loop) verdicta cada finding y cubre solo el
+diff del fix.

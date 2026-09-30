@@ -54,11 +54,12 @@ Reviewer (`reviewer-prompt.md`): constraints verbatim, sin directivas
 open-ended, sin re-pedir tests ya corridos, nunca pre-juzgar findings, BASE
 registrado antes del dispatch (nunca `HEAD~1`). Dos verdictos + pase de
 over-engineering por tarea; final con `MERGE_BASE`. Los ⚠️ "cannot verify" los resuelve el orquestador.
-MUTACIÓN sin score (`no disponible`/`parcial`) al ledger: `olas.md`. Fix
-subagents para Critical/Important; Minor al ledger, triaje en el final.
+MUTACIÓN sin score (`no disponible`/`parcial`) al ledger: `olas.md`. Fixes
+para Critical/Important; Minor al ledger, triaje en el final. Fix loop (máx 5 rondas por tarea,
+resume del executor, re-review acotada, breaker con adjudicación): `olas.md`.
 Plan-mandated o conflicto con el plan ⇒ decide el humano; doc/comment
 baratos, inline. Todo fix dispatch re-corre sus tests. Findings del final ⇒
-UN fix subagent con la lista completa.
+UN fix subagent con la lista completa (una re-review, sin segunda ola).
 
 ## Olas
 
