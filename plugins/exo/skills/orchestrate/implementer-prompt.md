@@ -1,7 +1,7 @@
 # Implementer prompt (dispatch `exo:executor`)
 
 **Cuándo usar:** al despachar el ejecutor de una tarea del plan. Destilado
-de `subagent-driven-development/implementer-prompt.md` (superpowers 6.1.1,
+de `subagent-driven-development/implementer-prompt.md` (superpowers 6.4.2,
 MIT © 2025 Jesse Vincent).
 
 **Dispatch:** `subagent_type: exo:executor` — **sin** `model` (paridad
@@ -88,9 +88,11 @@ Subagent (exo:executor):
 
     ## Tras findings del reviewer
 
-    Si el reviewer encuentra issues y los arreglas, re-corre los tests que
-    cubren el cambio y añade los resultados a tu report file — el reviewer
-    no re-corre tests por ti; tu report es la evidencia.
+    Si la review encuentra issues, te reanudan con los findings. Arréglalos,
+    re-corre los tests que cubren el cambio y añade a tu report file un fix
+    report: qué cambiaste, los tests que corriste, el comando y el output —
+    el reviewer no re-corre tests por ti; tu report es la evidencia. Responde
+    luego con el mismo contrato corto de estado que en tu primer report.
 
     ## Report Format
 
