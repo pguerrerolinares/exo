@@ -21,7 +21,7 @@ Revisión crítica del plan + pre-flight de conflictos/mandatos-vs-rubric ⇒
 UNA pregunta batcheada al humano ANTES de empezar (incluye todo `DAG: error`,
 `olas.md`). Recon: refs del plan
 contra el código real. Workspace por plan: arranca con
-`scripts/sdd-workspace PLAN` (imprime `.superpowers/sdd/<basename-del-plan>/`,
+`scripts/sdd-workspace PLAN` (imprime su dir bajo `.superpowers/sdd/`; un marcador `plan-path` evita que dos planes del mismo nombre lo compartan,
 git-ignored; ahí viven ledger, briefs, reports y packages; el de otro plan
 no se lee ni se escribe). Ledger (`<workspace>/progress.md`): nunca
 re-despaches tareas completas. Su primera línea es
