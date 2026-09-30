@@ -20,8 +20,14 @@ v2 se desenchufa sin síntoma.
 Revisión crítica del plan + pre-flight de conflictos/mandatos-vs-rubric ⇒
 UNA pregunta batcheada al humano ANTES de empezar (incluye todo `DAG: error`,
 `olas.md`). Recon: refs del plan
-contra el código real. Ledger (`.superpowers/sdd/progress.md`): nunca
-re-despaches tareas completas. Sin check-ins entre tareas; para SOLO por
+contra el código real. Workspace por plan: arranca con
+`scripts/sdd-workspace PLAN` (imprime `.superpowers/sdd/<basename-del-plan>/`,
+git-ignored; ahí viven ledger, briefs, reports y packages; el de otro plan
+no se lee ni se escribe). Ledger (`<workspace>/progress.md`): nunca
+re-despaches tareas completas. Su primera línea es
+`# SDD ledger — plan: <ruta del plan>`; si nombra otro plan (o es el
+`.superpowers/sdd/progress.md` plano antiguo) es progreso AJENO: déjalo y
+empieza el tuyo limpio. Sin check-ins entre tareas; para SOLO por
 BLOCKED, ambigüedad que impide avanzar o fin de tareas — blocker/gap/
 instrucción incomprensible ⇒ PARA y pregunta, no adivines.
 
@@ -66,7 +72,9 @@ estado completo necesario, debugging exploratorio ni estado compartido
 
 `Task N: complete (commits …)` al cerrar; tras compaction manda el ledger +
 `git log`. El hijo se auto-revisa, el padre valida SIEMPRE — nunca
-auto-aprobar inline. Número que no cuadra ⇒ recon antes de racionalizar.
+auto-aprobar inline. Review final limpia y sus fixes integrados ⇒ borra el workspace del plan
+(`rm -rf <workspace>`; el registro es git; los hermanos son de otros planes).
+Número que no cuadra ⇒ recon antes de racionalizar.
 Backlog autónomo: secuencial, NUNCA push/deploy desatendido, salta
 decisiones del dueño explicando por qué, documenta lo que preguntarías.
 Red lines: nunca main/master sin consentimiento explícito; nunca

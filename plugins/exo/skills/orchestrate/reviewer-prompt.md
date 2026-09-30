@@ -33,7 +33,7 @@ Antes de llenar los placeholders de abajo:
   en el review loop, no lo silencies de antemano.
 - **Package con el BASE registrado ANTES del dispatch del implementer —
   nunca `HEAD~1`** (trunca tareas multi-commit). Genera el package con
-  `scripts/review-package BASE HEAD` y pasa el path que imprime como
+  `scripts/review-package PLAN_FILE BASE HEAD` y pasa el path que imprime como
   `[DIFF_FILE]`. El package trae la sección `MUTACIÓN:` (valores
   `<score> + supervivientes` | `no disponible (<motivo>)` | `parcial
   (<motivo>)`).
@@ -261,7 +261,7 @@ Subagent (general-purpose):
   report detallado.
 - `[BASE_SHA]` / `[HEAD_SHA]` — commit antes/después de esta tarea.
 - `[DIFF_FILE]` — REQUIRED: el path que imprime `scripts/review-package
-  BASE HEAD` (el package nunca entra en el contexto del controller).
+  PLAN_FILE BASE HEAD` (el package nunca entra en el contexto del controller).
 
 Un fix dispatch puede atacar gaps de spec y findings de calidad juntos; el
 re-review tras fixes cubre ambos veredictos.
