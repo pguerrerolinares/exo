@@ -63,6 +63,7 @@ if [ -f "$tarea/meta.json" ]; then
   [ "$s2repo" = django-oscar ] && extra_env+=(DATABASE_ENGINE=django.db.backends.sqlite3 DATABASE_NAME=:memory:)
 fi
 if [ "${K_ENSAYO:-0}" = 1 ]; then
+  echo "correr.sh: modo ensayo, no se lanza claude" >&2
   { printf 'PATH=%s\n' "$ruta"; printf 'deny=%s\n' "${deny[@]}"; } > "$O/cmdline.txt"; exit 0
 fi
 prompt=$(jq -r .prompt "$t_json")
