@@ -28,9 +28,24 @@ done < <(ls "$K_ROOT/gold/s1")
 
 bad=0
 while read -r id sucio; do
-  grep -q "^$id	.*sucio_en_K=$sucio" "$T" || { echo "  $id sucio=$sucio no reportado"; bad=1; }
+  grep -q "^$id	.*sucio_en_K=$sucio\b" "$T" || { echo "  $id sucio=$sucio no reportado"; bad=1; }
 done < <(awk '/^  g[0-9]/ && $4!="sucio=0" {sub(/sucio=/,"",$4); print $1, $4}' "$H/../ablacion-k/congelacion.txt")
 [ $bad = 0 ] && ok sucio_de_K_se_reporta || ko sucio_de_K_se_reporta
 
 [ "$(wc -l < "$T")" = 41 ] && ok "tsv 41 filas" || ko "tsv filas $(wc -l < "$T")"
+
+# Lógica de reconstrucción sobre repos sintéticos (sin tarball ni preparar.sh).
+W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
+git init -q "$W/repo"; git -C "$W/repo" -c user.email=t@t -c user.name=t commit -q --allow-empty -m uno
+c1=$(git -C "$W/repo" rev-parse HEAD)
+mk() { printf '{"setup":false,"repo":"%s","commit":"%s","excluir":[]}' "$2" "$3" > "$W/$1.json"; }
+mk ok "$W/repo" "$c1"; mk nocommit "$W/repo" 0123456789012345678901234567890123456789; mk norepo "$W/no-existe" "$c1"
+fila_sint() { ( export K_ROOT="$W/k" OUT="$W/k.tsv"; RECONSTRUIR_LIB=1; . "$H/reconstruir.sh"; mkdir -p "$K_ROOT"; : > "$OUT"; reconstruir_fuente "$1" "$W/$1.json" 3 >/dev/null; cat "$OUT" ) 2>&1; }
+[ "$(fila_sint ok)" = "$(printf 'ok\tsi\tsucio_en_K=3 no reconstruible')" ] && [ "$(git -C "$W/k/fuentes/ok" rev-parse HEAD)" = "$c1" ] \
+  && ok fuente_sintetica_si || ko "fuente_sintetica_si: $(fila_sint ok)"
+[ "$(fila_sint nocommit)" = "$(printf 'nocommit\tno\tcommit-inexistente')" ] && [ ! -e "$W/k/fuentes/nocommit" ] \
+  && ok fuente_commit_inexistente || ko "fuente_commit_inexistente: $(fila_sint nocommit)"
+[ "$(fila_sint norepo)" = "$(printf 'norepo\tno\trepo-inexistente')" ] && ok fuente_repo_inexistente || ko "fuente_repo_inexistente: $(fila_sint norepo)"
+[ "$(git -C "$W/repo" status --porcelain | wc -l)" = 0 ] && ok repo_fuente_intacto || ko repo_fuente_intacto
+
 exit $fail
