@@ -17,16 +17,16 @@ check() { # nombre, esperado_exit, patrón, fichero, [max]
   fi
 }
 
-echo '[{"body":"latido\nestado: ok","created_at":"2026-09-28T12:00:00Z"}]' > "$T/reciente.json"
-echo '[{"body":"latido\nestado: ok","created_at":"2026-09-21T12:00:00Z"}]' > "$T/frontera.json"
-echo '[{"body":"latido\nestado: ok","created_at":"2026-09-21T11:59:59Z"}]' > "$T/pasada.json"
-echo '[{"body":"latido\nestado: ok","created_at":"2026-09-09T12:00:00Z"},{"body":"latido\nestado: ok","created_at":"2026-09-27T12:00:00Z"},{"body":"latido\nestado: ok","created_at":"2026-08-01T00:00:00Z"}]' > "$T/desordenado.json"
-echo '[{"body":"latido\nestado: ok","created_at":"2026-09-10T12:00:00Z"}]' > "$T/nueve.json"
-echo '[]' > "$T/vacio.json"
-echo '[{"body":"latido\nestado: ok","created_at":"2026-09-20T12:00:00Z"},{"body":"latido\nestado: alerta","created_at":"2026-09-28T12:00:00Z"}]' > "$T/alerta.json"
-echo '[{"body":"latido\nestado: ok\nfallo a mitad\nestado: alerta","created_at":"2026-09-28T12:00:00Z"}]' > "$T/dos_estados.json"
-echo '[{"body":"latido\nestado: ok","created_at":"2026-09-10T12:00:00Z"},{"body":"un comentario humano","created_at":"2026-09-28T12:00:00Z"}]' > "$T/humano.json"
-echo '[{"body":"latido\nestado: alerta","created_at":"2026-09-10T12:00:00Z"},{"body":"latido\nestado: ok","created_at":"2026-09-28T12:00:00Z"}]' > "$T/alerta_vieja.json"
+printf '%s\n' '[{"body":"latido\nestado: ok","created_at":"2026-09-28T12:00:00Z"}]' > "$T/reciente.json"
+printf '%s\n' '[{"body":"latido\nestado: ok","created_at":"2026-09-21T12:00:00Z"}]' > "$T/frontera.json"
+printf '%s\n' '[{"body":"latido\nestado: ok","created_at":"2026-09-21T11:59:59Z"}]' > "$T/pasada.json"
+printf '%s\n' '[{"body":"latido\nestado: ok","created_at":"2026-09-09T12:00:00Z"},{"body":"latido\nestado: ok","created_at":"2026-09-27T12:00:00Z"},{"body":"latido\nestado: ok","created_at":"2026-08-01T00:00:00Z"}]' > "$T/desordenado.json"
+printf '%s\n' '[{"body":"latido\nestado: ok","created_at":"2026-09-10T12:00:00Z"}]' > "$T/nueve.json"
+printf '%s\n' '[]' > "$T/vacio.json"
+printf '%s\n' '[{"body":"latido\nestado: ok","created_at":"2026-09-20T12:00:00Z"},{"body":"latido\nestado: alerta","created_at":"2026-09-28T12:00:00Z"}]' > "$T/alerta.json"
+printf '%s\n' '[{"body":"latido\nestado: ok\nfallo a mitad\nestado: alerta","created_at":"2026-09-28T12:00:00Z"}]' > "$T/dos_estados.json"
+printf '%s\n' '[{"body":"latido\nestado: ok","created_at":"2026-09-10T12:00:00Z"},{"body":"un comentario humano","created_at":"2026-09-28T12:00:00Z"}]' > "$T/humano.json"
+printf '%s\n' '[{"body":"latido\nestado: alerta","created_at":"2026-09-10T12:00:00Z"},{"body":"latido\nestado: ok","created_at":"2026-09-28T12:00:00Z"}]' > "$T/alerta_vieja.json"
 
 check latido_reciente 0 "latido OK" "$T/reciente.json"
 check latido_caducado 1 "latido caducado" "$T/nueve.json" 8

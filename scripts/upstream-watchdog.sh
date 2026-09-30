@@ -30,8 +30,9 @@ if [ "$estado" = alerta ]; then
   echo "latido en alerta: $ultimo"; exit 1
 fi
 
-t_ultimo="$(date -u -d "$ultimo" +%s 2>/dev/null)" && t_ahora="$(date -u -d "$ahora" +%s 2>/dev/null)" || {
-  echo "fecha ilegible: último '$ultimo', ahora '$ahora'"; exit 1; }
+if ! t_ultimo="$(date -u -d "$ultimo" +%s 2>/dev/null)" || ! t_ahora="$(date -u -d "$ahora" +%s 2>/dev/null)"; then
+  echo "fecha ilegible: último '$ultimo', ahora '$ahora'"; exit 1
+fi
 
 diff=$((t_ahora - t_ultimo))
 dias=$((diff / 86400))

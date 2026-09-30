@@ -14,6 +14,7 @@ bad() { echo "FAIL: $1"; FAIL=$((FAIL+1)); }
 
 # refs_validas
 P="$T/validas"; mkdir -p "$P/skills/plan" "$P/skills/orchestrate" "$P/skills/recon-first"
+# shellcheck disable=SC2016 # los backticks son texto literal del fixture, no sustitución
 printf 'Pasa a `exo:orchestrate`.\nVer exo:recon-first, y exo:plan.\n' > "$P/skills/plan/SKILL.md"
 printf '# orchestrate\n' > "$P/skills/orchestrate/SKILL.md"
 printf '# recon\n' > "$P/skills/recon-first/SKILL.md"
@@ -22,6 +23,7 @@ if [ $rc -eq 0 ] && [ -z "$out" ]; then ok refs_validas; else bad "refs_validas 
 
 # ref_rota
 P="$T/rota"; mkdir -p "$P/skills/plan"
+# shellcheck disable=SC2016 # los backticks son texto literal del fixture, no sustitución
 printf 'linea 1\nUsa `exo:planificar`.\n' > "$P/skills/plan/SKILL.md"
 out="$(bash "$CHECK" "$P" 2>&1)"; rc=$?
 if [ $rc -eq 1 ] && printf '%s' "$out" | grep -q 'SKILL.md:2: exo:planificar no existe'; then ok ref_rota; else bad "ref_rota (rc=$rc out=$out)"; fi

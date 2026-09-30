@@ -56,7 +56,7 @@ if [ $rc -eq 1 ] && grep -q 'ya-cubierto-falsos 1' <<<"$out" && grep -q 'acierto
 out="$(bash "$SCORE" "$TMP/g10.md" "$TMP/l10.md" 2>&1)"; rc=$?
 if [ $rc -eq 1 ] && grep -q 'aciertos 8/10 (80%)' <<<"$out" && grep -q 'ya-cubierto-falsos 0' <<<"$out"; then ok bajo_umbral; else bad "bajo_umbral rc=$rc: $out"; fi
 # ... y el umbral es parametrizable
-bash "$SCORE" "$TMP/g10.md" "$TMP/l10.md" 80 >/dev/null 2>&1 && ok umbral_parametrizable || bad umbral_parametrizable
+if bash "$SCORE" "$TMP/g10.md" "$TMP/l10.md" 80 >/dev/null 2>&1; then ok umbral_parametrizable; else bad umbral_parametrizable; fi
 
 # ausente_cuenta_como_fallo
 build20
@@ -103,7 +103,7 @@ if [ $rc -eq 0 ] && grep -q 'aciertos 1/1' <<<"$out"; then ok solo_tabla_princip
 # sin tabla reconocible: falla ruidoso, no 0/0 verde
 printf 'nada\n' > "$TMP/vacio.md"
 bash "$SCORE" "$TMP/vacio.md" "$TMP/l.md" >/dev/null 2>&1; rc=$?
-[ $rc -eq 2 ] && ok sin_tabla_falla_ruidoso || bad "sin_tabla_falla_ruidoso rc=$rc"
+if [ $rc -eq 2 ]; then ok sin_tabla_falla_ruidoso; else bad "sin_tabla_falla_ruidoso rc=$rc"; fi
 
 # umbral inválido: no numérico o fuera de rango -> exit 2
 { gold_head; gold_row '#9201' tdd aplica; } > "$TMP/gu.md"
