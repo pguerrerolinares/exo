@@ -8,7 +8,8 @@ Sellado por el commit que crea este fichero, previo a cualquier corrida de T4. L
 - **Brazo `ar`:** `a0` mas ese hook. `exo` = stub, lecturas del snapshot y de la KB de produccion denegadas, `--setting-sources ""`, `autoMemoryEnabled:false`, `--max-budget-usd 10`, `--max-turns 40`.
 - **Replicas (k):** k=2 en las 11 tareas del suelo (22 corridas); k=1 en las 6 de control (6 corridas). Total 28.
 - **Cumple:** una tarea del suelo cumple si `check.rc == 0` en >=1 de sus 2 replicas (`rc=2`, no evaluable, no cuenta).
-- **Caida:** una tarea de control con `check.rc != 0`.
+- **Caida:** una tarea de control con `check.rc != 0`. Por tanto `check.rc=2` es no cumple en el suelo y caida en el control: misma regla (solo `rc == 0` es exito), sin asimetria.
+- **Re-intentos:** cero. Cada corrida se ejecuta exactamente una vez. Una corrida sin `check.rc` o con rc distinto de 0 (incluido crash, error de API, budget o turns agotados) cuenta como no cumple en el suelo y como caida en el control. Si salta un breaker (`fuga=true`, o mas del 10 % de corridas sin `result`), la tanda se para y la decision se registra en `evals/techo-reglas/erratas.md` antes de seguir.
 - **Gate:** PASA <=> >=6/11 cumplen **y** 0/6 caidas. Si no, NO PASA. El umbral no se renegocia.
 - **No reconstruible:** una tarea cuyo entorno no se puede reconstruir cuenta como no cumple (suelo) o como caida (control).
 - **Modelo:** `claude-sonnet-5-5`, el mismo que en K.
@@ -18,7 +19,7 @@ Sellado por el commit que crea este fichero, previo a cualquier corrida de T4. L
 
 ## Seleccion de control (mecanica)
 
-Tareas S1 (las 40 de `gold/s1`) con `check.rc == 0` en `corridas/<id>/a0-r1` y `a0-r2` del tarball, sin las 11 del suelo ni g1-147 ni g1-57, ordenadas por `sha256(id)` (`printf %s "$id" | sha256sum`, hex en minusculas, orden lexicografico), tomando las 6 primeras con `reconstruible=si` en `reconstruccion.tsv`. `REG` es el tarball extraido.
+Tareas S1 (las 40 de `gold/s1`) con `check.rc == 0` en `corridas/<id>/a0-r1` y `a0-r2` del tarball, sin las 11 del suelo ni g1-147 ni g1-57, ordenadas por `sha256(id)` (con `reconstruccion.tsv` de sha256 `bb0ba52f5bb2a22bad002b04a4b498b563dfbbc92f4f9b0b9616b9c1181d9f2a`) (`printf %s "$id" | sha256sum`, hex en minusculas, orden lexicografico), tomando las 6 primeras con `reconstruible=si` en `reconstruccion.tsv`. `REG` es el tarball extraido.
 
 ```bash
 K=~/.cache/exo-ablacion-k

@@ -35,4 +35,27 @@ done
 [ "$(echo "$ORD" | awk '{print $1" "$2}' | sort -u | wc -l)" -eq 28 ] || err "orden con duplicados"
 for k in 20260930 claude-sonnet-5-5 "claude --version" sucio_en_K; do grep -q -- "$k" "$D/preregistro.md" || err "preregistro.md no menciona '$k'"; done
 
+# clausulas fijadas: una linea de lista anclada por clausula, con su contenido clave
+clausula() { # etiqueta, regex de contenido
+  grep -E "^- \*\*$1[^*]*:\*\*" "$D/preregistro.md" | grep -qE "$2" || err "clausula '$1' ausente o alterada"
+}
+clausula Canal 'SessionStart.*additionalContext'
+clausula 'Replicas' 'k=2.*k=1|k=2'
+clausula Cumple 'check\.rc == 0.*>=1 de sus 2'
+clausula Caida 'check\.rc != 0'
+clausula Gate '>=6/11.*0/6'
+clausula 'No reconstruible' 'no cumple.*caida'
+clausula Modelo 'claude-sonnet-5-5'
+clausula 'Version de' '2\.1\.286'
+clausula 'Re-intentos' 'cero.*exactamente una vez.*erratas\.md'
+grep -q 'semilla 20260930' "$D/preregistro.md" || err "semilla 20260930 no fijada"
+
+# el orden publicado debe ser el que sale de la semilla sobre tareas.tsv
+CALC="$(cd "$D/../.." && python3 -c 'import random,csv; L=[]
+for i,g,_ in csv.reader(open("evals/techo-reglas/tareas.tsv"),delimiter="\t"):
+    L+=[(i,r) for r in ((1,2) if g=="suelo" else (1,))]
+L.sort(); random.Random(20260930).shuffle(L)
+print("\n".join(f"{i} {r}" for i,r in L))')"
+[ "$CALC" = "$ORD" ] || err "el orden del bloque ORDEN no coincide con el barajado de la semilla 20260930"
+
 [ $fail -eq 0 ] && echo "preregistro OK (11+6)" || exit 1
