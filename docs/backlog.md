@@ -369,6 +369,18 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
 
 ## Alta
 
+- [ ] **(campaña K, R2 = DAÑO, pre-registrado) Abstención de `recall-inject`.**
+  La etapa 1 de la ablación (`evals/ablacion-k/verdict-etapa1.md`) dio R2 =
+  DAÑO en S2 (Δ −0,05, IC95 [−0,15, 0,00]), y §6 obliga a abrir este ítem. La
+  adjudicación muestra que el veredicto lo dispara **una sola tarea de 20** y
+  que su causa **no** pasa por lo inyectado (orden de un Union en una
+  respuesta 422). Aun así se mantiene la evidencia de fondo: el recall trajo
+  la nota fuente en 3 de 40 tareas de S1 e inyecta en prompts sin relación
+  (fase 0: 54/55 queries nulas con top-5). **Acción:** umbral de abstención
+  calibrado contra un corpus negativo antes de invertir más en ranking. Las
+  ayudas medidas (g0-12, g1-14) vinieron del core-index de arranque, no del
+  recall por prompt.
+
 - [x] **(revisión 2026-09-04) El 48/55 del hybrid es un resultado in-sample:
   los parámetros se eligieron sobre las mismas 55 queries que lo reportan.**
   Evidencia: `engine/src/main.rs:12-25` documenta que `BONUS_SELLADO` y
