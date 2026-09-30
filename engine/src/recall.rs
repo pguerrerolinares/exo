@@ -607,9 +607,9 @@ fn primer_trozo(conn: &rusqlite::Connection, permalink: &str) -> Result<Option<S
 /// query en sí.
 pub fn resuelve_rutas_absolutas(bruto: &mut RecallBruto, kb: &Path) {
     // `kb.join(...)` NO: en Windows empuja con `\` cuando lo añadido no empieza
-    // por separador, y eso es justo el separador interior que rompía el bloque
-    // que `subagent-inject.sh` inyecta al arrancar un subagente. La ruta que se EMITE se
-    // concatena a mano; el `PathBuf` sigue siendo para E/S.
+    // por separador, y eso es justo el separador interior que rompía las rutas
+    // que emite `exo recall` con consulta, con las que el agente abre la nota.
+    // La ruta que se EMITE se concatena a mano; el `PathBuf` sigue siendo para E/S.
     let raiz = crate::walker::ruta_portable(&kb.display().to_string());
     let raiz = raiz.trim_end_matches('/');
     for nota in &mut bruto.notas {
