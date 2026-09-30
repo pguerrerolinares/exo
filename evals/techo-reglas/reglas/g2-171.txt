@@ -1,0 +1,1 @@
+Usa solo Space Grotesk, Caveat y JetBrains Mono self-hosted vía @fontsource-variable; no uses Instrument Serif.

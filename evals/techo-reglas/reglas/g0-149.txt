@@ -1,0 +1,1 @@
+No encadenes el GC de audio huérfano al pipeline; ejecútalo a mano y abórtalo si hay 0 videoIds vivos.

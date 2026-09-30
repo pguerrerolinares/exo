@@ -1,0 +1,1 @@
+Usa response_format json_object del proveedor para outputs estructurados en vez de parsear JSON de texto libre.

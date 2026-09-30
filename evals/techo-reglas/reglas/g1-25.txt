@@ -1,0 +1,1 @@
+Una hipótesis debe explicar todo el input; ante un residuo sin explicar, ciérralo o descarta la hipótesis, no lo racionalices.

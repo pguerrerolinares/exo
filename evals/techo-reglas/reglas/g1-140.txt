@@ -1,0 +1,1 @@
+No portes `environment*.ts` de Angular (clientId/clientSecret hardcodeados); GTM/Cookiebot/Brevo/reCAPTCHA solo con las páginas que los usan.

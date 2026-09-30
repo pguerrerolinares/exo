@@ -1,0 +1,1 @@
+Genera variantes leet de todo candidato-frase, sin usarlas como seguro de envío porque el formulario normaliza leet.
