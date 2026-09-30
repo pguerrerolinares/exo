@@ -1,0 +1,1 @@
+Verifica afirmaciones importantes con un agente de contexto limpio que las compare contra su fuente primaria.

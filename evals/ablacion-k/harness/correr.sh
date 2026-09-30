@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# correr.sh <dir de tarea> <brazo a0|a1|a2|a3> <réplica> — una corrida de la fase 1 de la campaña K.
+# correr.sh <dir de tarea> <brazo a0|a1|a2|a3|ar> <réplica> — una corrida de la fase 1 de la campaña K.
 # Requiere $K_ROOT/prep/ (preparar.sh). Deja en $K_ROOT/corridas/<tarea>/<brazo>-r<rep>/:
 #   work/ (el repo tal como lo deja el agente), transcript.jsonl, reflex.jsonl, err.log, meta.json
 # Brazos (§4 + erratas E1–E3):
@@ -9,12 +9,17 @@
 #   a1     bloque de arranque con búsqueda por grep · exo = stub
 #   a2     bloque de arranque real (exo-recall.sh) · exo apunta al snapshot
 #   a3     a2 + recall-inject.sh en cada prompt
+#   ar     a0 exacto + SessionStart que inyecta la regla literal de $K_REGLA_FILE (techo de reglas)
+# K_ENSAYO=1: genera settings.json y cmdline.txt (deny, PATH) y sale sin lanzar claude.
 set -uo pipefail
 tarea=$1; brazo=$2; rep=$3
 H="$(cd "$(dirname "$0")" && pwd)"
 K_ROOT="${K_ROOT:-$HOME/.cache/exo-ablacion-k}"; P="$K_ROOT/prep"
 PLUG="$(cd "$H/../../../plugins/exo/scripts" && pwd)"
 MODELO="${K_MODELO:-claude-sonnet-5-5}"
+if [ "$brazo" = ar ] && [ ! -s "${K_REGLA_FILE:-}" ]; then
+  echo "ar requiere K_REGLA_FILE no vacío" >&2; exit 2
+fi
 [ -f "$P/manifiesto.txt" ] || { echo "falta $P (preparar.sh)" >&2; exit 2; }
 id=$(basename "$tarea"); O="$K_ROOT/corridas/$id/$brazo-r$rep"; rm -rf "$O"; mkdir -p "$O"
 t_json="$tarea/tarea.json"
@@ -32,20 +37,23 @@ git -C "$O/work" rev-parse HEAD > "$O/inicio.txt" 2>/dev/null || true
 
 # Settings del brazo.
 hooks='{}'
+# a3 usa recall-inject.sh, borrado tras la campaña K; reproducir a3 desde el commit b94ed74.
 case $brazo in
   a1) hooks=$(jq -n --arg c "cat $P/a1-inicio.json" '{SessionStart:[{hooks:[{type:"command",command:$c}]}]}') ;;
   a2) hooks=$(jq -n --arg c "$PLUG/exo-recall.sh" '{SessionStart:[{hooks:[{type:"command",command:$c}]}]}') ;;
   a3) hooks=$(jq -n --arg c "$PLUG/exo-recall.sh" --arg u "$PLUG/recall-inject.sh" \
         '{SessionStart:[{hooks:[{type:"command",command:$c}]}],UserPromptSubmit:[{hooks:[{type:"command",command:$u}]}]}') ;;
   a0) ;;
+  ar) jq -Rs '{hookSpecificOutput:{hookEventName:"SessionStart",additionalContext:.}}' "$K_REGLA_FILE" > "$O/regla-ctx.json" || exit 2
+      hooks=$(jq -n --arg c "cat $O/regla-ctx.json" '{SessionStart:[{hooks:[{type:"command",command:$c}]}]}') ;;
   *) echo "brazo desconocido: $brazo" >&2; exit 2 ;;
 esac
 jq -n --argjson h "$hooks" '{autoMemoryEnabled:false, hooks:$h}' > "$O/settings.json"
 
 deny=("Read(//home/paul/Documentos/proyectos/wisdom-paul/**)" "Read(//home/paul/.exo/**)"
       "Grep(//home/paul/Documentos/proyectos/wisdom-paul/**)" "Grep(//home/paul/.exo/**)")
-[ "$brazo" = a0 ] && deny+=("Read(/$P/kb/**)" "Grep(/$P/kb/**)")
-ruta="$PATH"; [ "$brazo" = a0 ] || [ "$brazo" = a1 ] && ruta="$P/stub:$PATH"
+{ [ "$brazo" = a0 ] || [ "$brazo" = ar ]; } && deny+=("Read(/$P/kb/**)" "Grep(/$P/kb/**)")
+ruta="$PATH"; case $brazo in a0|a1|ar) ruta="$P/stub:$PATH" ;; esac
 
 # S2: el agente usa el venv del repo (solo lectura) y el código de su workdir.
 extra_env=()
@@ -54,6 +62,10 @@ if [ -f "$tarea/meta.json" ]; then
   ruta="$venv/bin:$ruta"
   extra_env=(VIRTUAL_ENV="$venv" PYTHONPATH="$O/work/src:$O/work")
   [ "$s2repo" = django-oscar ] && extra_env+=(DATABASE_ENGINE=django.db.backends.sqlite3 DATABASE_NAME=:memory:)
+fi
+if [ "${K_ENSAYO:-0}" = 1 ]; then
+  echo "correr.sh: modo ensayo, no se lanza claude" >&2
+  { printf 'PATH=%s\n' "$ruta"; printf 'deny=%s\n' "${deny[@]}"; } > "$O/cmdline.txt"; exit 0
 fi
 prompt=$(jq -r .prompt "$t_json")
 cd "$O/work" || exit 3; t0=$(date +%s)

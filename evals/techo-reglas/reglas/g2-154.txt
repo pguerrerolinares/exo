@@ -1,0 +1,1 @@
+No migres en silencio una shape JSON ya publicada; usa flag para la nueva.

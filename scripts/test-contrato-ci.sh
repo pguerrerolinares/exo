@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Gate: test de contrato engine↔recall-inject.sh contra un fixture propio.
+# Gate: test de contrato engine↔prosa de skills contra un fixture propio.
 #
-# plugins/exo/scripts/test-contrato-engine.sh confronta las expresiones jq de
-# recall-inject.sh con un envelope emitido por el binario REAL. Sin índice ni
-# KB se abstiene (exit 2), y en un runner limpio no hay ninguno de los dos:
-# este script los monta — KB semilla, commit git (el modo
-# arranque lee los recientes por git) e índice, las tres cosas vía `exo init`
-# — con EXO_CONFIG y EXO_DB apuntando a un directorio temporal, sin tocar ~/.exo.
+# plugins/exo/scripts/test-contrato-engine.sh confronta el envelope de
+# `exo search --json` (que cita la prosa de los skills) con el emitido por el
+# binario REAL. Sin índice ni KB se abstiene (exit 2), y en un runner limpio
+# no hay ninguno de los dos: este script los monta vía `exo init` (KB semilla
+# versionada con git e índice) — con EXO_CONFIG y EXO_DB apuntando a un directorio temporal, sin tocar ~/.exo.
 #
 # El indexado de `init` embebe con el modelo ONNX (~0,6 GB): en CI va en el job que ya
 # lo cachea. En local reutiliza la caché de HF de la máquina.
@@ -37,7 +36,7 @@ export EXO_DB="$NATIVO/index.db"
 KB="$NATIVO/kb"
 
 # Los runners de GitHub no traen identidad git: sin ella el commit de la
-# semilla falla (init solo avisa) y el modo arranque no tendría recientes.
+# semilla falla y `init` solo avisa, dejando una KB a medias.
 if [ -z "$(git config user.email 2>/dev/null)" ]; then
   export GIT_AUTHOR_NAME=ci GIT_AUTHOR_EMAIL=ci@exo.invalid
   export GIT_COMMITTER_NAME=ci GIT_COMMITTER_EMAIL=ci@exo.invalid
@@ -46,9 +45,9 @@ fi
 "$BIN" init --kb "$KB" --name contrato-ci > "$TMP/init.txt" 2>&1 || {
   echo "test-contrato-ci: exo init falló" >&2; cat "$TMP/init.txt" >&2; exit 1; }
 
-# `init` ya versiona la KB (git init + commit) e indexa sobre EXO_DB. Si el
-# commit no se pudo hacer (runner sin identidad git), el modo arranque se
-# quedaría sin recientes: se exige que exista.
+# `init` ya versiona la KB (git init + commit) e indexa sobre EXO_DB. Se exige
+# el commit porque sin él `init` terminó a medias y solo avisó: el rojo debe
+# decirlo aquí, no como un fallo raro del contrato más abajo.
 git -C "$TMP/kb" rev-parse --verify -q HEAD >/dev/null || {
   echo "test-contrato-ci: init no dejó commit en la KB semilla" >&2; cat "$TMP/init.txt" >&2; exit 1; }
 [ -f "$TMP/index.db" ] || {

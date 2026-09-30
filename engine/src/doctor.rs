@@ -615,7 +615,7 @@ fn check_modelo(entorno: &Entorno, cfg: Option<&crate::config::Config>) -> Check
 
 /// `jq` es requisito declarado del camino «desde release». Los hooks del
 /// plugin lo usan para componer y leer el envelope
-/// (`plugins/exo/scripts/recall-inject.sh`, `exo-recall.sh`), así que sin él
+/// (`plugins/exo/scripts/subagent-inject.sh`, `exo-recall.sh`), así que sin él
 /// el bloque de recall no se inyecta: `fail`, no `warn`.
 ///
 /// Dos trampas medidas, ambas del runbook de W11: el `jq` de la Store es un
@@ -628,7 +628,7 @@ fn check_jq(entorno: &Entorno) -> Check {
             "jq",
             Estado::Fail,
             format!("PATH={}", entorno.path),
-            "sin jq: recall-inject.sh y exo-recall.sh no pueden leer el envelope",
+            "sin jq: exo-recall.sh y subagent-inject.sh no pueden leer el envelope",
         );
     };
     let artefacto = ruta.display().to_string();

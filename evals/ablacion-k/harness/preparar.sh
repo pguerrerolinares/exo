@@ -35,10 +35,8 @@ EOF
 export EXO_CONFIG="$P/config.toml" EXO_KB="$P/kb" EXO_DB="$P/index.db" EXO_INDEX="$P/index.db"
 exo rebuild > "$P/rebuild.log" 2>&1
 
-# E1: CLAUDE.md sin la sección de memoria (hasta la siguiente cabecera ## o el final).
-awk '/^## Memoria de sesiones/{skip=1; next} /^## /{skip=0} !skip' "$HOME/.claude/CLAUDE.md" > "$P/claude-md.md"
-# E1 (ampliación): la cabecera que apunta a la KB («fuente de verdad… en la KB… búscala»).
-sed -i '/^> .*wisdom-paul.*exo/d' "$P/claude-md.md"
+# E1 + ampliación: CLAUDE.md sin la sección de memoria ni la cabecera que apunta a la KB.
+"$H/filtro-claude-md.sh" < "$HOME/.claude/CLAUDE.md" > "$P/claude-md.md"
 grep -qiE 'Memoria de sesiones|wisdom-paul|\bexo\b' "$P/claude-md.md" && { echo "E1: quedan referencias a la KB o a exo" >&2; exit 1; }
 
 # A1: el mismo bloque de arranque que A2/A3, con la búsqueda por grep.

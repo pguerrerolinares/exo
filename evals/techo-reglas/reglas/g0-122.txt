@@ -1,0 +1,1 @@
+Mide con det-mode reproducible (iteraciones fijas, RNG con seed, BTreeMap), no con wall-clock.

@@ -17,7 +17,7 @@ set -uo pipefail
 KB="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 
 # Resolución del binario, mismo orden de precedencia que usan los hooks del
-# plugin (exo-recall.sh:34, recall-inject.sh:23): EXO_BIN > `command -v exo`
+# plugin (exo-recall.sh:34): EXO_BIN > `command -v exo`
 # > $HOME/.local/bin/exo(.exe). El PATH gana sobre el literal de ~/.local/bin
 # porque así resuelven los hooks; divergir aquí significa que el pre-commit
 # y los hooks pueden acabar usando binarios distintos en la misma máquina

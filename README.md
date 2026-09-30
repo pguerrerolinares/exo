@@ -3,7 +3,7 @@
 Memoria persistente para agentes de código. exo guarda lo que decides y
 aprendes en una KB de notas markdown versionada con git, la indexa en local
 (texto completo + embeddings, SQLite en un solo fichero) y se la devuelve al
-agente cuando la necesita: al empezar la sesión y en cada prompt.
+agente cuando la necesita: al empezar la sesión y cuando busca.
 
 **Para quién es hoy:** exo es el sistema de trabajo de su autor, publicado tal
 cual (MIT). Funciona y se prueba en Linux, macOS y Windows, pero lo decide un
@@ -64,7 +64,7 @@ flowchart TB
         direction TB
         skills["skills/<br/>exo:brainstorm · plan · orchestrate · tdd<br/>debug · verify · document · distill · recon-first"]
         agent["agents/<br/>exo:executor"]
-        hooks["hooks/<br/>SessionStart · UserPromptSubmit<br/>SubagentStart · Stop · PreToolUse"]
+        hooks["hooks/<br/>SessionStart<br/>SubagentStart · Stop · PreToolUse"]
     end
 
     subgraph bin["exo — binario Rust, sin runtime"]
@@ -109,7 +109,7 @@ Agente: `plugins/exo/agents/executor.md` (`exo:executor`) — ejecutor de tareas
 implementación acotadas, despachado por `orchestrate` (subagent-driven
 development).
 
-Hooks (nueve, cableados en `plugins/exo/hooks/hooks.json`; tabla completa con
+Hooks (ocho, cableados en `plugins/exo/hooks/hooks.json`; tabla completa con
 qué hace cada uno y su abstención en `plugins/exo/README.md`):
 
 | Reflejo | Evento | Fichero |
@@ -122,7 +122,6 @@ qué hace cada uno y su abstención en `plugins/exo/README.md`):
 | document-remind | `Stop` | `plugins/exo/scripts/document-remind.sh` |
 | exo-index | `Stop` | `plugins/exo/scripts/exo-index.sh` |
 | subagent-inject | `SubagentStart` | `plugins/exo/scripts/subagent-inject.sh` |
-| recall-inject | `UserPromptSubmit` | `plugins/exo/scripts/recall-inject.sh` |
 
 Este repo es la **fuente de verdad** del plugin (co-evoluciona con el engine y con
 sus evals de paridad en `evals/prep-m3/`) y además es su propio marketplace:

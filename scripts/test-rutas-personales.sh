@@ -3,8 +3,8 @@
 #
 # Decisión de Paul: SOLO rutas (/home/<user>, /Users/<user>,
 # C:\Users\<user> o su forma C:/Users/<user>), nunca nombres propios — "Paul"
-# o "kb-demo" sueltos NO cuentan, así que no hace falta tocar los fixtures de
-# test-recall-inject.sh (EXO_KB_NAME="kb-demo", etc.).
+# o "kb-demo" sueltos NO cuentan, así que no hace falta tocar los fixtures
+# (EXO_KB_NAME="kb-demo", etc.).
 #
 # Precedente: affaan-m/ECC (clone 5064474d4d762dc9640234a41617cccb79185cec,
 # scripts/ci/validate-no-personal-paths.js:41-42) cubre /Users/<nombre> y

@@ -239,7 +239,7 @@ jobs:
       # cacheado, porque `exo init` indexa la KB semilla del fixture.
       # `if: always()`: un rojo del gate hermético no debe esconder un contrato
       # roto detrás.
-      - name: Contrato engine↔recall-inject.sh contra fixture propio
+      - name: Contrato engine↔hooks y prosa contra fixture propio
         if: always()
         shell: bash
         run: ./scripts/test-contrato-ci.sh

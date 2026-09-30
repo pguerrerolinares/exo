@@ -36,7 +36,7 @@ JSON=""
 # Si mktemp falla (disco lleno, /tmp no escribible, etc.) el hook sigue
 # inyectando igual que antes de F3.2: stderr de compose-inject.sh se pierde
 # (mismo `2>/dev/null` que ya se usaba), pero nunca se cuelga ni deja de
-# responder — never-break. Patrón de `recall-inject.sh` (CONFIG_ERR_TMP).
+# responder — never-break.
 COMPOSE_ERR="$(mktemp)" || COMPOSE_ERR=""
 # `${KB_ARGS[@]+"${KB_ARGS[@]}"}`, no `"${KB_ARGS[@]}"` a secas: con `set -u`,
 # bash < 4.4 (el /bin/bash 3.2 de macOS) trata un array vacío como variable
