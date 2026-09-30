@@ -127,5 +127,5 @@ Un cambio upstream que choque con una de estas filas se triagea como `no aplica`
 | #2133 | orchestrate | ya cubierto | — | — | — |
 | #1935 | tdd | ya cubierto | — | — | — |
 | #2333 | plan | ya cubierto | — | — | — |
-| #2319 | plan | ya cubierto | — | — | — |
+| #2319 | plan | parcial | pendiente | tope | — |
 | #2086 | plan | ya cubierto | — | — | — |
