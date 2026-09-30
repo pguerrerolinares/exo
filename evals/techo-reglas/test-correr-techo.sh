@@ -27,7 +27,8 @@ cat > "$T/falso.sh" <<'F'
 #!/usr/bin/env bash
 id=$(basename "$1"); O="$K_ROOT/corridas/$id/$2-r$3"; mkdir -p "$O"; echo "$id $3" >> "$K_ROOT/lanzadas.log"
 if [ -n "${FALSO_SIN:-}" ]; then echo '{"error":"sin result"}' > "$O/meta.json"; else echo "{\"fin\":\"completed\",\"usd\":${FALSO_USD:-0.1}}" > "$O/meta.json"; fi
-if [ "$id $3" = "${FALSO_FUGA:-}" ]; then printf '%s' "${FALSO_TXT-{\"fuga\":true\}}" > "$O/fugas.json"; else echo '{"fuga":false}' > "$O/fugas.json"; fi
+if [ "$id $3" = "${FALSO_NOFUGAS:-}" ]; then :
+elif [ "$id $3" = "${FALSO_FUGA:-}" ]; then printf '%s' "${FALSO_TXT-{\"fuga\":true\}}" > "$O/fugas.json"; else echo '{"fuga":false}' > "$O/fugas.json"; fi
 F
 chmod +x "$T/falso.sh"; export TECHO_CORRER="$T/falso.sh"
 
@@ -36,6 +37,13 @@ mk "$T/k2"; out=$(K_ROOT="$T/k2" bash "$CT" 1 2>&1); rc=$?
 
 mk "$T/k3"; out=$(K_ROOT="$T/k3" FALSO_FUGA="g2-97 2" bash "$CT" 1 2>&1); rc=$?
 [ $rc = 1 ] && [ "$(wc -l < "$T/k3/lanzadas.log")" = 8 ] && [[ $out == *"PARAR: fuga: g2-97/ar-r2"* ]] && ok fuga_para_y_no_lanza_mas || ko "fuga rc=$rc n=$(wc -l < "$T/k3/lanzadas.log")"
+
+# fugas.json ausente: para igual (cerrado), pero el motivo no dice "fuga:"
+mk "$T/k3b"; out=$(K_ROOT="$T/k3b" FALSO_NOFUGAS="g2-97 2" bash "$CT" 1 2>&1); rc=$?
+[ $rc = 1 ] && [ "$(wc -l < "$T/k3b/lanzadas.log")" = 8 ] && [[ $out == *"PARAR: sin fugas.json: g2-97/ar-r2"* ]] && [[ $out != *"PARAR: fuga:"* ]] && ok sin_fugas_json_distingue_del_motivo_fuga || ko "sin fugas.json rc=$rc"
+
+# el tarball basta para re-evaluar
+lista=$(tar -tzf "$TECHO_TARBALL"); [[ $lista == *reconstruccion.tsv* && $lista == *techo.orden* && $lista == *techo-resumen.txt* ]] && ok tarball_incluye_insumos_de_evaluar || ko "tarball sin insumos"
 
 mk "$T/k4"; out=$(K_ROOT="$T/k4" FALSO_USD=1 bash "$CT" 1 2>&1); rc=$?
 [ $rc = 1 ] && [ "$(wc -l < "$T/k4/lanzadas.log")" = 16 ] && [[ $out == *"gasto:"* ]] && ok tope_de_gasto_para || ko "gasto rc=$rc n=$(wc -l < "$T/k4/lanzadas.log")"

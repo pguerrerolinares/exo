@@ -117,3 +117,9 @@ def test_tabla_muestra_fin_y_usd(k):
     out = subprocess.run([sys.executable, str(pathlib.Path(__file__).parent / "evaluar.py"), str(k), str(k / "tareas.tsv"), str(k / "r.json")],
                          capture_output=True, text=True, check=True).stdout
     assert "completed" in out and "1.50" in out
+
+
+def test_sin_reconstruccion_tsv_falla_explicito(k):
+    (k / "reconstruccion.tsv").unlink()
+    with pytest.raises(SystemExit, match="reconstruccion.tsv"):
+        gate(k)

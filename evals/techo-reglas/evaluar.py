@@ -34,8 +34,8 @@ def evalua(k_root, tareas_tsv, salida):
         for f in csv.reader(open(f"{k_root}/reconstruccion.tsv"), delimiter="\t"):
             if len(f) >= 2:
                 rec[f[0]] = f[1]
-    except OSError:
-        pass
+    except OSError as e:
+        sys.exit(f"evaluar: no se puede leer {k_root}/reconstruccion.tsv ({e}); sin él todo sería 'no reconstruible'")
     filas = [f for f in csv.reader(open(tareas_tsv), delimiter="\t") if f]
     for _, grupo, _ in filas:
         if grupo not in ("suelo", "control"):

@@ -59,7 +59,9 @@ corre() {  # $1=id $2=rep $3=regla
   K_REGLA_FILE="$3" "$CORRER" "$K_ROOT/gold/s1/$1" ar "$2" > /dev/null 2>&1
   [ "$K_ENSAYO" = 1 ] && return 0
   local d="$K_ROOT/corridas/$1/ar-r$2" st sr usd
-  jq -e '.fuga == false' "$d/fugas.json" >/dev/null 2>&1 || echo "fuga: $1/ar-r$2 (fugas.json ausente, ilegible o fuga!=false)" >> "$STOP"
+  if [ ! -e "$d/fugas.json" ]; then echo "sin fugas.json: $1/ar-r$2 (setup o prep fallido; no es una fuga comprobada)" >> "$STOP"
+  elif ! jq -e '.fuga == false' "$d/fugas.json" >/dev/null 2>&1; then echo "fuga: $1/ar-r$2 (fugas.json ilegible o fuga!=false)" >> "$STOP"
+  fi
   st=$(estado); read -r sr usd <<< "$st"
   if [[ ! $sr =~ ^[0-9]+$ || ! $usd =~ ^[0-9.eE+-]+$ ]]; then echo "gasto: suma ilegible tras $1/ar-r$2" >> "$STOP"
   else
@@ -87,5 +89,5 @@ parar=()
 [ "$usd" = ilegible ] && parar+=("gasto: suma ilegible")
 { echo "techo: $total corridas con meta, $omitidas omitidas, previas saltadas $previas, $sin_result sin result, $usd USD"
   if [ ${#parar[@]} -gt 0 ]; then echo "PARAR: ${parar[*]}"; else echo SEGUIR; fi; } | tee "$K_ROOT/techo-resumen.txt"
-[ ${#dirs[@]} -gt 0 ] && tar -czf "$TARBALL" -C "$K_ROOT" "${dirs[@]}" && echo "registro: $TARBALL"
+[ ${#dirs[@]} -gt 0 ] && tar -czf "$TARBALL" -C "$K_ROOT" reconstruccion.tsv techo.orden techo-resumen.txt "${dirs[@]}" && echo "registro: $TARBALL"
 [ ${#parar[@]} -eq 0 ]
