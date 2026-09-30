@@ -36,7 +36,7 @@ GATE: NO PASA (4/11 < 6)
 
 Todas las corridas terminaron con `fin = completed`: ningún "cumple" sale de una corrida cortada.
 
-\* **Clase fuera del plan, a ratificar por Paul.** Las 4 clases del plan (conflicto regla-tarea, check roto, regla mal escrita, no reconstruible) son todas del instrumento. Ninguna cubre "el agente tenía una regla clara y no la cumplió", que es justo lo que mide el test. En esos casos no fuerzo una de las cuatro.
+\* **Clase fuera del plan, ratificada por Paul el 2026-09-30.** Las 4 clases del plan (conflicto regla-tarea, check roto, regla mal escrita, no reconstruible) son todas del instrumento. Ninguna cubre "el agente tenía una regla clara y no la cumplió", que es justo lo que mide el test. En esos casos no fuerzo una de las cuatro.
 
 ## 3. Evidencia de las tareas que no cumplen
 
@@ -84,4 +84,16 @@ NO PASA. La sección se cierra con "las reglas no entregadas no eran entregables
 
 Las tres tareas de §5.2 que son del agente no se arreglan revisando reglas.
 
-Pendiente de Paul: ratificar la clase "incumplimiento del agente" (\*) y el caso discutible g2-97.
+Paul ratificó el 2026-09-30 la clase "incumplimiento del agente" (\*) y dejó g2-97 como discutible.
+
+**Siguiente paso decidido.** El NO PASA se queda sellado tal cual. Este test no se vuelve a correr con reglas retocadas: eso sería forking paths. "No mecanismos" se lee como "no demostrado a bajo coste", no como "refutado". Hay dos motivos. El IC95 de 4/11 es [0,11, 0,69] y contiene el umbral. Y la regla llegó sin autoridad: g0-33 habla del agente "que sugería el hook". Queda como última bala un pre-registro nuevo en `evals/techo-reglas-2/`:
+
+- Hipótesis: la regla se cumple si llega con framing de autoridad (la forma real de la 2d).
+- Reglas: las mismas, literales.
+- Cambios respecto a este test:
+  - el check de g2-154 se corrige como errata de gold;
+  - g2-171 queda excluida por un conflicto que ya se conocía.
+- Añade un **brazo `a0` fresco** en las mismas tareas. El 0/11 de K está forzado por la selección: el suelo son justo las tareas en las que A0 falló.
+- Si sale ≤4/10, o si g0-33 no da la vuelta, el frente se cierra sin tercera bala.
+
+Lectura útil pase lo que pase: se cumplen las reglas mecánicas y fallan por el agente las de principio o proceso.
