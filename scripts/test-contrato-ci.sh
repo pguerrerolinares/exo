@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Gate: test de contrato engine↔recall-inject.sh contra un fixture propio.
+# Gate: test de contrato engine↔prosa de skills contra un fixture propio.
 #
-# plugins/exo/scripts/test-contrato-engine.sh confronta las expresiones jq de
-# recall-inject.sh con un envelope emitido por el binario REAL. Sin índice ni
+# plugins/exo/scripts/test-contrato-engine.sh confronta el envelope de
+# `exo search --json` (que cita la prosa de los skills) con el emitido por el
+# binario REAL. Sin índice ni
 # KB se abstiene (exit 2), y en un runner limpio no hay ninguno de los dos:
 # este script los monta — KB semilla, commit git (el modo
 # arranque lee los recientes por git) e índice, las tres cosas vía `exo init`
