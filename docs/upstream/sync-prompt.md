@@ -10,9 +10,13 @@ Estado: `docs/upstream/ledger.md` (léelo entero antes de empezar: `upstream_tag
 
 ## Paso 0 · Reconcilia
 
+**Preparación (antes del 0.1).** Si `command -v gh` falla: `sudo apt-get install -y -qq gh`, **sin `apt-get update` antes** (falla con 403 en PPAs y el `&&` cortaría la instalación). Si sigue sin `gh`, el latido por gh es imposible: no hay otro canal, así que dilo en el resumen final de la sesión y termina.
+
+En este entorno GraphQL da 403 (`GitHub GraphQL is not available from Claude Code sessions`). **Está prohibido usar los subcomandos `pr`, `issue` y `search` de gh** (`gh` seguido de `pr …`, etc.): solo `gh api` sobre REST. `gh auth status` puede decir "token invalid"; es cosmético, la REST funciona con `GH_TOKEN`. El push va por `git push origin <rama>`.
+
 1. `bash scripts/upstream-reconcile.sh docs/upstream/ledger.md`. Promueve `propuesto` a `portado` (con hash) si `main` contiene un commit `port(upstream#N): …`. Exit 2 = ledger roto: latido con alerta y fin. Cada línea de stdout es una fila que sigue `propuesto` sin evidencia (`propuesto-sin-evidencia #N skill`) o una fila corrupta (`propuesto-malformado …`): anótalas en el informe.
-2. **Rechazos.** Lista los PRs cerrados sin merge: `gh pr list -R pguerrerolinares/exo --state closed --limit 200 --json number,headRefName,mergedAt,title,url` y quédate con los de `headRefName` que empiece por `upstream-sync/` y `mergedAt` nulo. Para cada uno cuyo rechazo aún no conste (ninguna fila `rechazado` con su URL en `motivo`): saca las filas de su cambio en el ledger; **solo las que ese PR dejaba en `propuesto` pasan a `rechazado`** (las `pendiente`, `no aplica` y `ya cubierto` se copian tal cual, y las `pendiente` se retoman en el paso 2.1) (`gh pr diff <N> -R pguerrerolinares/exo`, solo `docs/upstream/ledger.md`) y regístralas en el PR de esta pasada como `rechazado`, con la URL del PR en `motivo` y `—` en `hash`. Si no puedes recuperar esas filas (falla `gh pr diff` u otro error), no inventes: el latido de esta pasada lleva `estado: alerta` con el PR afectado. Su tag es lo que sigue a `upstream-sync/` en `headRefName` (sin un posible sufijo `-rN`): la ventana ya está revisada, así que `<desde>` del paso 2 y el `upstream_tag` que avances no pueden quedar por detrás del tag más reciente rechazado; así no se repropone lo mismo.
-3. Detecta un PR abierto: `gh pr list -R pguerrerolinares/exo --state open --json number,headRefName,url` y filtra `headRefName` que empiece por `upstream-sync/` (no busques por título). Si hay uno: latido ("PR abierto, sin trabajo nuevo") y fin. Lo que `upstream-reconcile.sh` haya reescrito en el ledger NO se commitea si la pasada sale sin PR (aquí ni en ninguna otra salida temprana): se descarta y se rehace en la pasada siguiente.
+2. **Rechazos.** Lista los PRs cerrados sin merge: `gh api 'repos/pguerrerolinares/exo/pulls?state=closed&per_page=100' --paginate --jq '.[] | select(.merged_at == null and (.head.ref | startswith("upstream-sync/"))) | {number, ref: .head.ref, title, url: .html_url}'`. Para cada uno cuyo rechazo aún no conste (ninguna fila `rechazado` con su URL en `motivo`): saca las filas de su cambio en el ledger; **solo las que ese PR dejaba en `propuesto` pasan a `rechazado`** (las `pendiente`, `no aplica` y `ya cubierto` se copian tal cual, y las `pendiente` se retoman en el paso 2.1) (`gh api repos/pguerrerolinares/exo/pulls/<N> -H 'Accept: application/vnd.github.diff'`, solo el trozo de `docs/upstream/ledger.md`) y regístralas en el PR de esta pasada como `rechazado`, con la URL del PR en `motivo` y `—` en `hash`. Si no puedes recuperar esas filas (falla la petición del diff u otro error), no inventes: el latido de esta pasada lleva `estado: alerta` con el PR afectado. Su tag es lo que sigue a `upstream-sync/` en `.head.ref` (sin un posible sufijo `-rN`): la ventana ya está revisada, así que `<desde>` del paso 2 y el `upstream_tag` que avances no pueden quedar por detrás del tag más reciente rechazado; así no se repropone lo mismo.
+3. Detecta un PR abierto: `gh api 'repos/pguerrerolinares/exo/pulls?state=open&per_page=100' --paginate --jq '.[] | select(.head.ref | startswith("upstream-sync/")) | {number, ref: .head.ref, url: .html_url}'` (no busques por título). Si hay uno: latido ("PR abierto, sin trabajo nuevo") y fin. Lo que `upstream-reconcile.sh` haya reescrito en el ledger NO se commitea si la pasada sale sin PR (aquí ni en ninguna otra salida temprana): se descarta y se rehace en la pasada siguiente.
 
 ## Paso 1 · Clone y licencia
 
@@ -22,12 +26,16 @@ Compara el `LICENSE` de la raíz del repo adjunto `obra/superpowers`, en el tag 
 
 ## Paso 2 · Detecta
 
-1. **Retoma pendientes, antes de mirar tags.** Filas `pendiente` con motivo `tope`, `gate: …` o `respondida` (ver paso 3 para `respondida`): pórtalas primero, con el mismo tope de 5 por PR de exo, contando también lo nuevo. Su diff: `gh pr diff <N> -R obra/superpowers`, limitado a los ficheros mapeados. Contrástalo con el estado actual del fichero exo, como en el paso 3. La fila se actualiza en su sitio (`pendiente` → `propuesto`, con hash), sin duplicarla. Las `pendiente` por `duda` no se retoman solas: esperan la respuesta de Paul.
+1. **Retoma pendientes, antes de mirar tags.** Filas `pendiente` con motivo `tope`, `gate: …` o `respondida` (ver paso 3 para `respondida`): pórtalas primero, con el mismo tope de 5 por PR de exo, contando también lo nuevo. Su diff: `gh api repos/obra/superpowers/pulls/<N> -H 'Accept: application/vnd.github.diff'`, limitado a los ficheros mapeados. Contrástalo con el estado actual del fichero exo, como en el paso 3. La fila se actualiza en su sitio (`pendiente` → `propuesto`, con hash), sin duplicarla. Las `pendiente` por `duda` no se retoman solas: esperan la respuesta de Paul.
 2. En el clone de `obra/superpowers`: `git tag --sort=version:refname`, ignorando prereleases (`-rc`, `-beta`, `-alpha`…). Tags posteriores a `upstream_tag`, en ese orden. Si no hay tags nuevos y tampoco hay pendientes que retomar ni rechazos por registrar: latido y fin. Si no hay tags nuevos pero sí una de esas dos cosas, abre PR con eso (`<hasta>` es `upstream_tag`). Si hay tags, revisa hasta el más reciente (`<hasta>`); `<desde>` es `upstream_tag` (ver paso 0.2 si hay rechazos).
 3. **Contenido:** diff neto `<desde>..<hasta>` solo de los ficheros del mapeo del ledger. Es lo que hay que portar; un revert dentro del ciclo ya viene anulado.
 4. **Atribución:** PRs mergeados entre las fechas de ambos tags que tocan ficheros mapeados:
-   `gh pr list -R obra/superpowers --state merged --search "merged:<desde>..<hasta>" --limit 200 --json number,title,baseRefName,files`
-   (`--limit 200` es obligatorio: sin él `gh` corta a 30 resultados en silencio) con `<desde>` y `<hasta>` como fechas ISO de los tags. Cualquier rama base cuenta. Descarta los PRs de release (dev→main): su contenido se atribuye a los PRs miembros. Cada hunk del diff neto se atribuye a un PR; el que no puedas atribuir va como `duda` con la pregunta en `motivo`.
+   - números: `gh api 'search/issues?q=repo:obra/superpowers+is:pr+is:merged+merged:<desde>..<hasta>&per_page=100' --paginate --jq '.items[].number'` con `<desde>` y `<hasta>` como fechas ISO de los tags (sin paginar, la API corta a 30 resultados en silencio);
+   - ficheros de cada PR: `gh api repos/obra/superpowers/pulls/<N>/files --paginate --jq '.[].filename'`;
+   - rama base: `gh api repos/obra/superpowers/pulls/<N> --jq .base.ref`;
+   - de un commit del diff neto a su PR: `gh api repos/obra/superpowers/commits/<sha>/pulls --jq '.[].number'`.
+
+   Cualquier rama base cuenta. Descarta los PRs de release (dev→main): su contenido se atribuye a los PRs miembros. Cada hunk del diff neto se atribuye a un PR; el que no puedas atribuir va como `duda` con la pregunta en `motivo`.
 
 ## Paso 3 · Triagea
 
@@ -70,7 +78,7 @@ Ejemplo de commit (número inventado): `port(upstream#9xxx): renombra la secció
 
 ## Paso 6 · Abre PR
 
-Desde la rama `upstream-sync/<tag>`, título `upstream-sync <tag>`, hacia `main`. Contiene:
+Push: `git push origin upstream-sync/<tag>`. Crea el PR con `gh api repos/pguerrerolinares/exo/pulls -f title='upstream-sync <tag>' -f head='upstream-sync/<tag>' -f base=main -F body=@<fichero>` (cuerpo escrito antes en un fichero temporal; imprime `.html_url` con `--jq .html_url`), título `upstream-sync <tag>`, hacia `main`. Contiene:
 
 - los commits `port(upstream#N)`;
 - `docs/upstream/ledger.md` actualizado: filas nuevas (`propuesto` con el hash del commit, `pendiente`, `no aplica`, `ya cubierto`, `rechazado`) y `upstream_tag: <tag>` avanzado;
@@ -80,7 +88,7 @@ Si no hay nada que portar (todo `no aplica`, `ya cubierto` o `duda` de mapeo), a
 
 ## Paso 7 · Latido
 
-Comentario en el issue `upstream-sync: estado` (fijado). Si no existe, créalo y fíjalo. Contenido, una línea por campo:
+Comentario en el issue `upstream-sync: estado` (#30): `gh api repos/pguerrerolinares/exo/issues/30/comments -F body=@<fichero>`. Si el número no responde, búscalo por título exacto: `gh api 'repos/pguerrerolinares/exo/issues?state=all&per_page=100' --paginate --jq '.[] | select(.title == "upstream-sync: estado") | .number'`; si no existe, créalo con `gh api repos/pguerrerolinares/exo/issues -f title='upstream-sync: estado' -F body=@<fichero>`. Fijarlo no es posible por REST: dilo en el latido. Contenido, una línea por campo:
 
 - fecha ISO de hoy;
 - tag revisado (`<hasta>`, o el vigente si no había nuevo);

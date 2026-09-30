@@ -67,7 +67,7 @@ Workflow `.github/workflows/upstream-watchdog.yml`, diario. Solo cuentan los com
 - **Revert dentro del ciclo:** el diff neto entre tags lo anula.
 - **Cambio de licencia:** paso 1.
 - **Degradación del triage:** el bot detecta los PRs `upstream-sync/*` cerrados sin merge y registra sus filas como `rechazado` (paso 0). El latido reporta el ratio de rechazo sobre las últimas 15 filas propuestas/portadas/rechazadas (ventana, para que un rojo no se vuelva permanente); solo las filas `propuesto` de un PR cerrado pasan a `rechazado`; si supera 1/3, `estado: alerta` con "re-corre el eval" (el eval de la primera pasada).
-- **Sin verificar, se comprueba con un "Run now" antes de programar:** coste por pasada, `claude` en el PATH del sandbox, clone del repo adjunto.
+- **Medido en el sandbox cloud (humo, 2026-09-30):** `gh` no viene instalado; `sudo apt-get install -y -qq gh` funciona (2.45.0, archivo de Ubuntu) pero sin `apt-get update` previo (403 en PPAs; el repo apt de cli.github.com y las releases de github.com también dan 403). `GH_TOKEN`/`GITHUB_TOKEN` existen; `gh auth status` dice "token invalid" pero la REST funciona. GraphQL está bloqueado (HTTP 403), así que `gh pr …`/`gh issue …` fallan: solo `gh api` REST. El clone de `obra/superpowers` llega shallow y sin tags; `git fetch --tags` los trae. `claude` y `jq` están en el PATH; se ejecuta como root; `git push origin` funciona. Sigue sin medir: coste por pasada.
 
 ## Primera pasada = eval pre-registrado
 

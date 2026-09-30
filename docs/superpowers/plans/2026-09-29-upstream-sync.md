@@ -140,7 +140,7 @@
 
 **Notas:**
 - `ledger.md`: `upstream_tag: v6.1.1`. Mapeo fichero→fichero de la spec (sección "Estado versionado"), verificado contra los nombres reales de `plugins/exo/skills/`. Divergencias: las que salgan de P1 más las ya documentadas con fuente (p. ej. debug "referenciar OK, depender NO"), y obligatoriamente `orchestrate/scripts/review-package`: la sección MUTACIÓN (acotada al diff, timeout por mutante, `EXO_MUTATION_EXCLUDE`, muestreo; exo 1.5.0–1.5.2, `olas.md` § Mutación) es propia y un porte upstream nunca la pisa; se porta solo lo que toque el resto del script (p. ej. guardas de rango). Tabla de filas vacía, solo cabecera.
-- `sync-prompt.md`: los pasos 0-7 de la spec en orden. Incluye literalmente: el tope de 5; los nombres de rama, PR, issue y commit; que la atribución sale de `gh pr list -R obra/superpowers --state merged --search "merged:<desde>..<hasta>" --json number,title,baseRefName,files` descartando PRs de release dev→main; que la tabla `movimiento upstream → fichero:línea exo` es obligatoria en el cuerpo del PR; y que toda salida termina en latido.
+- `sync-prompt.md`: los pasos 0-7 de la spec en orden. Incluye literalmente: el tope de 5; los nombres de rama, PR, issue y commit; que la atribución sale de los PRs mergeados de `obra/superpowers` en la ventana (`gh api 'search/issues?q=…+is:merged+merged:<desde>..<hasta>'` + `pulls/<N>/files`) descartando PRs de release dev→main; que la tabla `movimiento upstream → fichero:línea exo` es obligatoria en el cuerpo del PR; y que toda salida termina en latido.
 
 ### Task 6: wiring en CI y workflow watchdog
 
@@ -168,4 +168,5 @@
 1. Crear el issue `upstream-sync: estado` y fijarlo. El watchdog pasa de rojo a verde con el primer latido.
 2. Crear la routine con `/schedule`: semanal, repos adjuntos `pguerrerolinares/exo` y `obra/superpowers`, prompt "Lee y sigue docs/upstream/sync-prompt.md del repo exo."
 3. "Run now" de humo con el prompt sustituido por algo trivial: comprobar `gh pr list -R obra/superpowers`, `claude --version` en el PATH, el coste y que el clone de `obra/superpowers` trae tags (`git tag` no vacío, con `upstream_tag` dentro). Si algo falla, se corrige la spec antes de seguir.
+   **Hecho (humos del 2026-09-30):** `gh` no viene (apt sin update lo instala), GraphQL da 403 (solo `gh api` REST), el clone llega sin tags (`git fetch --tags` los trae), `claude` y `jq` en el PATH; el prompt se adaptó en consecuencia (rama `upstream-sync-gh-rest`). Coste por pasada: pendiente.
 4. Primera pasada real (eval): `upstream_tag: v6.1.1`. Después, `scripts/upstream-score.sh <verdad fuera del repo> <ledger de la rama del PR>`. Si hay exit 0, Paul revisa y mergea el PR (cierre de huecos del camino A). Si hay exit 1, no se programa y se revisa el prompt.
