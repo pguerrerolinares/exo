@@ -72,6 +72,15 @@ Un cambio upstream que choque con una de estas filas se triagea como `no aplica`
 | D9 | orchestrate/scripts/review-package | La sección MUTACIÓN (acotada al diff, timeout por mutante, `EXO_MUTATION_EXCLUDE`, muestreo; exo 1.5.0-1.5.2) es propia; un porte nunca la pisa, solo el resto del script | Instrumento propio del pipeline A+ | plugins/exo/skills/orchestrate/olas.md § Mutación |
 | D10 | debug | Referenciar systematic-debugging OK, depender NO | Decisión de diseño previa | — |
 
+## Decisiones de doctrina (portar)
+
+Decisiones de Paul (2026-09-30), distintas de las Divergencias: no son "no portar", son doctrina de exo que un cambio upstream puede implementar. Un cambio que las implementa es `aplica`/`parcial`, no `duda`.
+
+- **Rule and continue.** Ante conflictos, ambigüedades o defectos del plan, el orquestador decide, registra `Ruling: <decisión> — <porqué> — <coste si está mal>` en el ledger y sigue. Solo para ante (1) una operación irreversible o destructiva, (2) una acción sensible de seguridad, (3) un efecto fuera del worktree que las normas mandan preguntar (merge, push a rama compartida, publicar), (4) un plan tan roto que todo camino es adivinar.
+- **Lo que el reviewer no juzgó.** El reviewer lista lo que dejó sin juzgar ("Declined to judge") y el orquestador convierte cada línea en un Ruling.
+- **tdd conserva las refutaciones de "tests después"** como filas de la tabla de rationalizations: upstream midió que quitarlas empeora el test-first.
+- **Brainstorm por tamaño del trabajo.** Las mejoras del flujo que distinguen el tamaño (exploración / acotado / arquitectónico) son compatibles con exo y se portan.
+
 ## Filas
 
 `triage` ∈ {aplica, parcial, ya cubierto, no aplica, duda}, siempre no vacío (una fila `pendiente` por tope lleva su triage real). `estado` ∈ {propuesto, portado, rechazado, pendiente, —}; `—` para no aplica y ya cubierto.
