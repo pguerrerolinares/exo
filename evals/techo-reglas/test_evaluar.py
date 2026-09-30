@@ -89,3 +89,31 @@ def test_cli_ultima_linea_y_json(k):
                          capture_output=True, text=True, check=True).stdout.strip().splitlines()
     assert out[-1] == "GATE: PASA"
     assert json.load(open(k / "r.json"))["gate"] == "GATE: PASA"
+
+
+def test_grupo_desconocido_falla_claro(k):
+    (k / "tareas.tsv").write_text((k / "tareas.tsv").read_text().replace("c0\tcontrol", "c0\tcontrl"))
+    with pytest.raises(SystemExit, match="grupo desconocido"):
+        gate(k)
+
+
+def test_conteos_distintos_de_11_y_6_fallan(k):
+    lineas = (k / "tareas.tsv").read_text().splitlines()
+    (k / "tareas.tsv").write_text("\n".join(lineas[1:]) + "\n")
+    with pytest.raises(SystemExit, match="11 suelo y 6 control"):
+        gate(k)
+
+
+def test_tarea_ausente_de_reconstruccion_no_cumple(k):
+    rompe(k, 6)
+    rec = "".join(l for l in (k / "reconstruccion.tsv").read_text().splitlines(True) if not l.startswith("s0\t"))
+    (k / "reconstruccion.tsv").write_text(rec)
+    assert gate(k) == "GATE: NO PASA (5/11 < 6)"
+
+
+def test_tabla_muestra_fin_y_usd(k):
+    d = k / "corridas" / "s0" / "ar-r1"
+    (d / "meta.json").write_text('{"fin":"completed","usd":1.5}')
+    out = subprocess.run([sys.executable, str(pathlib.Path(__file__).parent / "evaluar.py"), str(k), str(k / "tareas.tsv"), str(k / "r.json")],
+                         capture_output=True, text=True, check=True).stdout
+    assert "completed" in out and "1.50" in out

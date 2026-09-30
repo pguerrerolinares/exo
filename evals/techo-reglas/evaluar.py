@@ -20,6 +20,14 @@ def rc_de(d):
         return None
 
 
+def meta_de(d):
+    try:
+        m = json.load(open(f"{d}/meta.json"))
+        return m.get("fin") or m.get("error") or "?", m.get("usd")
+    except (OSError, ValueError):
+        return "sin meta", None
+
+
 def evalua(k_root, tareas_tsv, salida):
     rec = {}
     try:
@@ -29,6 +37,12 @@ def evalua(k_root, tareas_tsv, salida):
     except OSError:
         pass
     filas = [f for f in csv.reader(open(tareas_tsv), delimiter="\t") if f]
+    for _, grupo, _ in filas:
+        if grupo not in ("suelo", "control"):
+            sys.exit(f"evaluar: grupo desconocido {grupo!r} en {tareas_tsv} (solo suelo/control)")
+    n_s, n_c = sum(f[1] == "suelo" for f in filas), sum(f[1] == "control" for f in filas)
+    if (n_s, n_c) != (11, 6):
+        sys.exit(f"evaluar: se esperaban 11 suelo y 6 control; hay {n_s} y {n_c}")
     res, suelo_ok, n_suelo, caidas, n_control = [], 0, 0, [], 0
     for id_, grupo, _ in filas:
         reps = (1, 2) if grupo == "suelo" else (1,)
@@ -36,6 +50,7 @@ def evalua(k_root, tareas_tsv, salida):
             rcs = {r: "no-reconstruible" for r in reps}
         else:
             rcs = {r: rc_de(f"{k_root}/corridas/{id_}/ar-r{r}") for r in reps}
+        info = {r: ("-", None) if rec.get(id_) != "si" else meta_de(f"{k_root}/corridas/{id_}/ar-r{r}") for r in reps}
         ok = any(v == "0" for v in rcs.values())
         if grupo == "suelo":
             n_suelo += 1; suelo_ok += ok
@@ -44,6 +59,7 @@ def evalua(k_root, tareas_tsv, salida):
             if not ok:
                 caidas.append(id_)
         res.append({"id": id_, "grupo": grupo, "rc": {f"r{r}": v for r, v in rcs.items()},
+                    "fin": {f"r{r}": v[0] for r, v in info.items()}, "usd": {f"r{r}": v[1] for r, v in info.items()},
                     "resultado": ("cumple" if ok else "no cumple") if grupo == "suelo" else ("ok" if ok else "caída")})
     motivos = []
     if suelo_ok < UMBRAL_SUELO:
@@ -61,7 +77,9 @@ if __name__ == "__main__":
         sys.exit(__doc__)
     salida = sys.argv[3] if len(sys.argv) == 4 else os.path.join(os.path.dirname(os.path.abspath(__file__)), "resultado.json")
     res, gate = evalua(os.path.expanduser(sys.argv[1]), sys.argv[2], salida)
-    print(f"{'tarea':10} {'grupo':8} {'r1':>16} {'r2':>16}  resultado")
+    print(f"{'tarea':8} {'grupo':8} {'rep':3} {'rc':>16} {'fin':>18} {'usd':>7}  resultado")
     for t in res:
-        print(f"{t['id']:10} {t['grupo']:8} {str(t['rc'].get('r1')):>16} {str(t['rc'].get('r2', '-')):>16}  {t['resultado']}")
+        for r in t["rc"]:
+            u = t["usd"][r]
+            print(f"{t['id']:8} {t['grupo']:8} {r:3} {str(t['rc'][r]):>16} {t['fin'][r]:>18} {'-' if u is None else format(u, '.2f'):>7}  {t['resultado'] if r == 'r1' else ''}")
     print(gate)

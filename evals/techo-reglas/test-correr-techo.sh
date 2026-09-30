@@ -27,7 +27,7 @@ cat > "$T/falso.sh" <<'F'
 #!/usr/bin/env bash
 id=$(basename "$1"); O="$K_ROOT/corridas/$id/$2-r$3"; mkdir -p "$O"; echo "$id $3" >> "$K_ROOT/lanzadas.log"
 if [ -n "${FALSO_SIN:-}" ]; then echo '{"error":"sin result"}' > "$O/meta.json"; else echo "{\"fin\":\"completed\",\"usd\":${FALSO_USD:-0.1}}" > "$O/meta.json"; fi
-if [ "$id $3" = "${FALSO_FUGA:-}" ]; then echo '{"fuga":true}' > "$O/fugas.json"; else echo '{"fuga":false}' > "$O/fugas.json"; fi
+if [ "$id $3" = "${FALSO_FUGA:-}" ]; then printf '%s' "${FALSO_TXT-{\"fuga\":true\}}" > "$O/fugas.json"; else echo '{"fuga":false}' > "$O/fugas.json"; fi
 F
 chmod +x "$T/falso.sh"; export TECHO_CORRER="$T/falso.sh"
 
@@ -47,5 +47,30 @@ K_ROOT="$T/k3" K_REANUDAR=1 bash "$CT" 1 >/dev/null 2>&1; rc=$?
 [ $rc = 0 ] && [ "$(wc -l < "$T/k3/lanzadas.log")" = 28 ] && [ "$(sort "$T/k3/lanzadas.log" | uniq -d | wc -l)" = 0 ] && ok reanudar_no_repite || ko "reanudar rc=$rc"
 
 mk "$T/k5"; out=$(K_ROOT="$T/k5" FALSO_SIN=1 bash "$CT" 1 2>&1); rc=$?
-[ $rc = 1 ] && [[ $out == *"infra: 28/28 sin result"* ]] && ok infra_sin_result_para || ko "infra rc=$rc"
+[ $rc = 1 ] && [ "$(wc -l < "$T/k5/lanzadas.log")" = 3 ] && [[ $out == *"infra: 3 sin result de 28 planificadas"* ]] && ok infra_para_a_la_tercera || ko "infra rc=$rc n=$(wc -l < "$T/k5/lanzadas.log")"
+
+# fuga falla cerrado: fugas.json vacío o ilegible también paran
+for txt in "" "no es json{"; do
+  mk "$T/k6"; rm -f "$T/k6/lanzadas.log"; out=$(K_ROOT="$T/k6" FALSO_FUGA="g2-97 2" FALSO_TXT="$txt" bash "$CT" 1 2>&1); rc=$?
+  [ $rc = 1 ] && [ "$(wc -l < "$T/k6/lanzadas.log")" = 8 ] && [[ $out == *"fuga: g2-97/ar-r2"* ]] && ok "fuga_falla_cerrado ('$txt')" || ko "fuga cerrado '$txt' rc=$rc"
+  rm -rf "$T/k6"
+done
+
+# gasto: usd no numérico = suma ilegible = STOP; solo cuentan los pares del ORDEN (ar-r* ajenos no suman)
+mk "$T/k7"; mkdir -p "$T/k7/corridas/ajena/ar-r1"; echo '{"fin":"completed","usd":999}' > "$T/k7/corridas/ajena/ar-r1/meta.json"
+out=$(K_ROOT="$T/k7" bash "$CT" 1 2>&1); rc=$?
+[ $rc = 0 ] && ok gasto_ignora_corridas_ajenas || ko "gasto ajenas rc=$rc"
+mk "$T/k8"
+out=$(K_ROOT="$T/k8" FALSO_USD='"abc"' bash "$CT" 1 2>&1); rc=$?
+[ $rc = 1 ] && [ "$(wc -l < "$T/k8/lanzadas.log")" = 1 ] && [[ $out == *"gasto: suma ilegible"* ]] && ok gasto_ilegible_para || ko "gasto ilegible rc=$rc"
+
+# ORDEN debe ser exactamente el conjunto de pares de tareas.tsv
+mk "$T/k9"; sed 's/^g0-149 2$/g0-149 1/' "$HERE/preregistro.md" > "$T/prereg-malo.md"
+out=$(K_ROOT="$T/k9" TECHO_PREREG="$T/prereg-malo.md" bash "$CT" 1 2>&1); rc=$?
+[ $rc = 2 ] && [[ $out == *"exactamente el conjunto"* ]] && [ ! -e "$T/k9/lanzadas.log" ] && ok orden_distinto_se_rechaza || ko "orden rc=$rc"
+
+# tarea ausente de reconstruccion.tsv: no se corre
+mk "$T/k10"; sed -i '/^g1-25\t/d' "$T/k10/reconstruccion.tsv"
+out=$(K_ROOT="$T/k10" bash "$CT" 1 2>&1); rc=$?
+[ $rc = 0 ] && [ "$(wc -l < "$T/k10/lanzadas.log")" = 27 ] && ! grep -q '^g1-25 ' "$T/k10/lanzadas.log" && ok ausente_de_reconstruccion_no_se_corre || ko "ausente rc=$rc"
 exit $fail
