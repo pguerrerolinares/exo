@@ -76,7 +76,7 @@ La campaña K (ablación pre-registrada, 09-30) no encontró efecto concluyente 
 - De las 13 del suelo de K, g1-147 no es violación y g1-57 solo muerde bajo el guard de fábrica. Quedan **11 tareas**.
 
 **Diseño del test:**
-- **Rama:** nueva, desde `origin/campana-k`, porque el harness vive allí. Directorio `evals/techo-reglas/`.
+- **Rama:** nueva, desde `main` (el harness de K, `evals/ablacion-k/harness/`, está en `main` desde el PR #32). Directorio `evals/techo-reglas/`.
 - **Brazo único, canal real:** A0 más un hook SessionStart de ~5 líneas en el `settings.json` de la corrida, que emite la regla literal de la tarea como `additionalContext`. Sin exo. No se usa `--append-system-prompt-file`: el system prompt no es el canal que usaría la 2d.
 - **Tareas:** las 11 del suelo, con k=2, 22 corridas.
 - **Control positivo:** 6 tareas S1 que A0 pasa 2/2, con su regla inyectada por el mismo canal, k=1, 6 corridas. Detecta distracción por la inyección.
