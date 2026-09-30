@@ -2,7 +2,7 @@
 
 Estado versionado del bot que porta a exo lo que cambia en obra/superpowers. Diseño: `docs/superpowers/specs/2026-09-29-upstream-sync-design.md`. Prompt del bot: `docs/upstream/sync-prompt.md`.
 
-upstream_tag: v6.1.1
+upstream_tag: v6.4.2
 
 ## Mapeo fichero → fichero
 
@@ -80,3 +80,52 @@ Un cambio upstream que choque con una de estas filas se triagea como `no aplica`
 
 | PR | skill | triage | estado | motivo | hash |
 |---|---|---|---|---|---|
+| #2136 | orchestrate | aplica | propuesto | — | f0cf912 |
+| #2089 | orchestrate | aplica | propuesto | — | 8a4f832 |
+| #2059 | orchestrate | aplica | propuesto | — | b833219 |
+| #2110 | tdd | parcial | propuesto | — | 34e1fd9 |
+| #2080 | orchestrate | aplica | propuesto | — | bfef11e |
+| #1943 | orchestrate | aplica | pendiente | tope | — |
+| #2138 | orchestrate | aplica | pendiente | tope | — |
+| #1998 | orchestrate | aplica | pendiente | tope | — |
+| #2086 | orchestrate | parcial | pendiente | tope | — |
+| #2258 | brainstorm | aplica | pendiente | tope | — |
+| #2319 | orchestrate | parcial | pendiente | tope | — |
+| #2077 | orchestrate | duda | pendiente | ¿exo pasa a decidir con Ruling en el ledger los conflictos y ambigüedades del plan en vez de parar y preguntar al humano (orchestrate/SKILL.md:25-26 y :53)? Upstream solo para en 4 casos: irreversible / seguridad / efecto fuera del worktree / plan roto | — |
+| #2063 | brainstorm | duda | pendiente | ¿adoptar el router de tres caminos (spike / bounded / architectural) en brainstorm? exo tiene un solo camino (brainstorm/SKILL.md:15-30) | — |
+| #1934 | tdd | duda | pendiente | ¿añadir a tdd las refutaciones de «tests después» que upstream pliega en su tabla de racionalizaciones? tdd/SKILL.md no tiene tabla ni sección equivalente | — |
+| #1934 | writing-skills | duda | pendiente | mapeo: writing-skills/SKILL.md | — |
+| #1934 | orchestrate | no aplica | — | solo elimina: exo no tiene esas secciones (Advantages / Integration) | — |
+| #1934 | debug | no aplica | — | solo elimina: exo no tiene social proof ni Real-World Impact (D2 aparte) | — |
+| #1934 | verify | no aplica | — | solo elimina: exo no tiene esas secciones | — |
+| #1934 | brainstorm | no aplica | — | solo elimina: exo no tiene Key Principles duplicados (brainstorm/SKILL.md:132-134) | — |
+| #1934 | plan | no aplica | — | solo elimina: exo no tiene recap Remember | — |
+| #1933 | finishing-a-development-branch | duda | pendiente | mapeo: finishing-a-development-branch/SKILL.md | — |
+| #2024 | finishing-a-development-branch | duda | pendiente | mapeo: finishing-a-development-branch/SKILL.md | — |
+| #1805 | writing-skills | duda | pendiente | mapeo: writing-skills/render-graphs.js | — |
+| #1959 | writing-skills | duda | pendiente | mapeo: writing-skills/SKILL.md | — |
+| #2301 | writing-skills | duda | pendiente | mapeo: writing-skills/SKILL.md | — |
+| #2010 | using-superpowers | duda | pendiente | mapeo: using-superpowers/SKILL.md | — |
+| #2025 | using-superpowers | duda | pendiente | mapeo: using-superpowers/SKILL.md | — |
+| #2317 | using-superpowers | duda | pendiente | mapeo: using-superpowers/SKILL.md | — |
+| #2320 | using-superpowers | duda | pendiente | mapeo: using-superpowers/SKILL.md y references/claude-code-tools.md | — |
+| #2236 | diagnosing-superpowers | duda | pendiente | mapeo: diagnosing-superpowers/SKILL.md (skill nueva) | — |
+| #2287 | diagnosing-superpowers | duda | pendiente | mapeo: diagnosing-superpowers/ (exports del doctor) | — |
+| #2333 | writing-plans | duda | pendiente | mapeo: writing-plans/plan-document-reviewer-prompt.md (eliminado upstream) | — |
+| #1932 | orchestrate | no aplica | — | D1 | — |
+| #1932 | debug | no aplica | — | D2 | — |
+| #2134 | orchestrate | no aplica | — | D7 | — |
+| #2301 | orchestrate | no aplica | — | D7 | — |
+| #2301 | debug | no aplica | — | D7 | — |
+| #2061 | orchestrate | no aplica | — | D4 | — |
+| #2078 | orchestrate | no aplica | — | D6 | — |
+| #2318 | orchestrate | no aplica | — | D8 | — |
+| #2318 | plan | no aplica | — | D8 | — |
+| #2258 | plan | no aplica | — | D8 | — |
+| #2006 | brainstorm | no aplica | — | sin equivalente: brainstorming/visual-companion.md | — |
+| #1959 | brainstorm | no aplica | — | sin equivalente: brainstorming/visual-companion.md | — |
+| #2133 | orchestrate | ya cubierto | — | — | — |
+| #1935 | tdd | ya cubierto | — | — | — |
+| #2333 | plan | ya cubierto | — | — | — |
+| #2319 | plan | ya cubierto | — | — | — |
+| #2086 | plan | ya cubierto | — | — | — |
