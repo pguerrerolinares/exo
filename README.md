@@ -71,7 +71,7 @@ flowchart TB
         direction TB
         c1["init · config · doctor"]
         c2["index · rebuild · search · recall · write"]
-        c3["targets · budget · lint · ratchet"]
+        c3["targets · budget · lint · ratchet · rotate · stale"]
     end
 
     cfg[("~/.exo/config.toml")]
@@ -109,15 +109,14 @@ Agente: `plugins/exo/agents/executor.md` (`exo:executor`) — ejecutor de tareas
 implementación acotadas, despachado por `orchestrate` (subagent-driven
 development).
 
-Hooks (diez, cableados en `plugins/exo/hooks/hooks.json`; tabla completa con
+Hooks (nueve, cableados en `plugins/exo/hooks/hooks.json`; tabla completa con
 qué hace cada uno y su abstención en `plugins/exo/README.md`):
 
 | Reflejo | Evento | Fichero |
 |---|---|---|
 | clean-orchestrator | `PreToolUse:WebSearch\|WebFetch\|navegación MCP` | `plugins/exo/scripts/clean-orchestrator-research.sh` |
-| git-c | `PreToolUse:Bash` | `plugins/exo/scripts/git-c-bash.sh` |
-| zero-residuo | `PreToolUse:Bash` | `plugins/exo/scripts/git-add-all-guard.sh` |
-| verify-before-done | `PreToolUse:Bash` | `plugins/exo/scripts/verify-before-commit.sh` |
+| git-c + zero-residuo + verify-before-done | `PreToolUse:Bash` | `plugins/exo/scripts/bash-guards.sh` |
+| search-first | `PreToolUse:Agent\|Task\|Edit\|Write\|NotebookEdit` | `plugins/exo/scripts/search-first.sh` |
 | exo-recall | `SessionStart` | `plugins/exo/scripts/exo-recall.sh` |
 | estilo-directo | `SessionStart` | `plugins/exo/scripts/estilo-directo.sh` |
 | document-remind | `Stop` | `plugins/exo/scripts/document-remind.sh` |

@@ -24,7 +24,7 @@ y la nota *"Cerebro portable + capa de reflejos — design spec"* (proyecto
 |---|---|
 | brainstorm | Explora intención, requisitos y diseño en diálogo antes de implementar; termina en spec escrita y aprobada. |
 | plan | De spec/requisitos a plan de tareas bite-sized con paths, código y comandos exactos para un ejecutor sin contexto. |
-| orchestrate | Ejecuta planes multi-tarea: despacha un ejecutor fresco por tarea, review en dos etapas por tarea y review final whole-branch. |
+| orchestrate | Ejecuta planes multi-tarea: despacha un ejecutor fresco por tarea, review en dos etapas por tarea y review final whole-branch. | Scripts propios: `task-dag` (olas desde Files/Interfaces) y `review-package` con mutación sobre el diff.
 | tdd | Test primero, verlo fallar por la razón esperada, código mínimo, verde, refactor. |
 | debug | Dos puertas: bug/test que falla, o atasco (mismo error ≥3 veces, terreno desconocido). Root cause y recon antes de computar. |
 | verify | Evidencia fresca del comando antes de cualquier claim de "completo" o "arreglado" — antes de commitear o aceptar el trabajo de un subagente. |
@@ -53,15 +53,14 @@ verificar ni cómo commitear.
 
 ## Hooks
 
-Tabla exacta al cableado vivo de `hooks/hooks.json` (diez comandos):
+Tabla exacta al cableado vivo de `hooks/hooks.json` (nueve comandos):
 
 | Reflejo | Evento | Fichero | Qué hace | Abstención |
 |---|---|---|---|---|
 | clean-orchestrator | `PreToolUse:WebSearch\|WebFetch\|navegación MCP` | `scripts/clean-orchestrator-research.sh` | recuerda delegar research a subagentes | parent-only + 1×/sesión + app local (`localhost`/`127.0.0.1`/`[::1]`/`0.0.0.0`, con o sin esquema, `file:` y `back`/`forward`) |
-| git-c | `PreToolUse:Bash` | `scripts/git-c-bash.sh` | reescribe `cd <path> && git <read-only>` → `git -C <path> …` | rewrite solo si patrón estricto (ver comentarios del script) |
-| zero-residuo | `PreToolUse:Bash` | `scripts/git-add-all-guard.sh` | avisa ante `git add -A`/`--all`/`.` | calla en `git add <ficheros>` explícito |
-| verify-before-done | `PreToolUse:Bash` | `scripts/verify-before-commit.sh` | avisa antes de `git commit` si no hay test verde reciente | escape hatch `--no-verify`; calla en commits solo-docs |
-| exo-recall | `SessionStart` | `scripts/exo-recall.sh` | inyecta instrucción de memoria + digest 7d, servido por el engine `exo` (SQLite) | — (PUSH) |
+| git-c + zero-residuo + verify-before-done | `PreToolUse:Bash` | `scripts/bash-guards.sh` | fusiona los tres guards de Bash (Task 5, campaña I): reescribe `cd <path> && git <read-only>` → `git -C <path> …`; `git add -A`/`--all`/`.` y `git commit` sin test verde reciente **solo se registran** en `REFLEX_LOG_FILE` (medición; hoy no avisan al agente, ver cabecera del script) | rewrite solo si patrón estricto; calla en `git add <ficheros>` explícito; escape hatch `--no-verify` y commits solo-docs (ver comentarios del script) |
+| search-first | `PreToolUse:Agent\|Task\|Edit\|Write\|NotebookEdit` | `scripts/search-first.sh` | avisa si el primer `Agent`/`Task`/`Edit`/`Write`/`NotebookEdit` de la sesión no fue precedido de `exo search`/`exo targets` en la transcripción | 1×/sesión (sentinel); exenta en subagentes (`agent_id`); sin `jq`, sin `transcript_path`/ilegible, o si el `jq` de detección falla → skip silencioso (igual crea el sentinel) |
+| exo-recall | `SessionStart` | `scripts/exo-recall.sh` | inyecta instrucción de memoria + digest 7d, servido por el engine `exo` (SQLite) | — (PUSH); degrada al fallback embebido si el engine instalado es < `ENGINE_MIN` |
 | estilo-directo | `SessionStart` | `scripts/estilo-directo.sh` | inyecta una directiva de estilo de respuesta estática (`estilo-directo.md`) | sin fichero `.md` legible, o si `jq` falla al construir el JSON |
 | document-remind | `Stop` | `scripts/document-remind.sh` | recuerda `/document` al cerrar | 1×/sesión + umbral de transcript |
 | exo-index | `Stop` | `scripts/exo-index.sh` | reindexa la KB al cierre de sesión | best-effort, fallback logueado |
@@ -101,15 +100,21 @@ parent-only, subagent-aware o indiferente.
 [`obra/superpowers`](https://github.com/obra/superpowers) (MIT, © 2025 Jesse
 Vincent — copia literal del LICENSE en `LICENSES/superpowers.LICENSE`) más
 doctrina propia. brainstorm, plan, orchestrate, tdd, debug y verify son obras
-derivadas por destilación de sus fuentes superpowers 6.1.1; document,
-distill, recon-first y la capa de reflejos son fuente propia.
+derivadas por destilación de sus fuentes superpowers 6.1.1 + portes de
+6.2.0–6.4.2 (writing-plans, writing-good-tests, Review Focus, Rulings);
+document, distill, recon-first y la capa de reflejos son fuente propia.
 
-| Skill | Absorbe de superpowers 6.1.1 (MIT) | Absorbe propio |
+La escalera anti over-engineering del executor y el pase de over-engineering
+del review (tags `delete|stdlib|native|yagni|shrink`) derivan de
+[`ponytail`](https://github.com/DietrichGebert/ponytail) (MIT, © 2026
+DietrichGebert — copia literal en `LICENSES/ponytail.LICENSE`).
+
+| Skill | Absorbe de superpowers 6.1.1 + portes 6.2–6.4.2 (MIT) | Absorbe propio |
 |---|---|---|
 | brainstorm | brainstorming | — |
 | plan | writing-plans | — |
-| orchestrate | subagent-driven-development, executing-plans, dispatching-parallel-agents | orchestrate-personal (cost pyramid, memory packet, blindspot pass) + reviewer-dispatch escalado al riesgo del diff |
-| tdd | test-driven-development | — |
+| orchestrate | subagent-driven-development, executing-plans, dispatching-parallel-agents | orchestrate-personal (cost pyramid, memory packet, blindspot pass) + reviewer-dispatch escalado al riesgo del diff + ponytail (escalera anti over-engineering, pase de review) |
+| tdd | test-driven-development + writing-good-tests (6.2.0) | — |
 | debug | systematic-debugging | recon-first (dos puertas: bug + stuck/pre-grind) |
 | verify | verification-before-completion | gate de validación del padre de orchestrate-personal |
 | document | — | `~/.claude/commands/documenta.md` |

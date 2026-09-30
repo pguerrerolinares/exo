@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Derived from superpowers 6.1.1 (MIT © 2025 Jesse Vincent)
+# Derived from superpowers 6.4.2 (MIT © 2025 Jesse Vincent)
 #
 # Generate a review package: commit list, stat summary, and the net
 # diff with extended context, written to a file the reviewer reads in one
@@ -9,6 +9,25 @@
 # Usage: review-package BASE HEAD [OUTFILE]
 # Default OUTFILE: <repo-root>/.superpowers/sdd/review-<base7>..<head7>.diff
 # (named per range, so a re-review after fixes gets a distinct fresh file).
+#
+# Al final del package va la sección "## MUTACIÓN": mutation testing solo sobre
+# los ficheros de producción del diff (cargo-mutants / mutmut 2.x / stryker).
+# Se muta en un `git worktree add --detach` temporal de HEAD (nunca el árbol del
+# usuario: mutmut 2.x muta en sitio y con un timeout dejaría el código mutado).
+# Degrada siempre de forma visible y nunca bloquea (exit != 0 solo por uso).
+# Env: EXO_MUTATION=0 la desactiva; EXO_MUTATION_TIMEOUT=<s> (600 por defecto;
+# un valor inválido avisa en la sección y usa 600). EXO_MUTATION_MUTANT_TIMEOUT=<s>
+# (60 por defecto, inválido = aviso + 60): timeout por mutante SOLO de mutmut (envuelve
+# su --runner; un mutante cortado cuenta como caught: timeout = detectado). Stryker
+# conserva su timeout por defecto (no se pasa --timeoutMS). EXO_MUTATION_EXCLUDE=<pathspecs
+# separados por COMAS> quita ficheros del conjunto a mutar (vacío por defecto), p. ej.
+# 'alembic/versions/**,*_pb2.py'. mutmut y stryker mutan SOLO las líneas del diff.
+# EXO_MUTATION_SAMPLE=<N> (150 por defecto; 0 lo desactiva; inválido = aviso + 150) y
+# EXO_MUTATION_SEED=<s> (20260929 por defecto): SOLO mutmut 2.x. Si el diff genera más de
+# N mutantes se mide una muestra aleatoria de N (sin reemplazo, semilla fija) con IC95 de
+# Wilson, y ese proyecto no entra en el agregado. Si el muestreo no es posible la línea
+# dice `(muestreo no disponible: <motivo>; corrida completa)`; cargo y stryker con más de N
+# mutantes dicen `(muestreo no aplica: <herramienta>)`.
 set -euo pipefail
 
 if [ $# -lt 2 ] || [ $# -gt 3 ]; then
@@ -22,12 +41,583 @@ head=$2
 git rev-parse --verify --quiet "$base" >/dev/null || { echo "bad BASE: $base" >&2; exit 2; }
 git rev-parse --verify --quiet "$head" >/dev/null || { echo "bad HEAD: $head" >&2; exit 2; }
 
+# Guardas de rango (exit 3): un HEAD de otra rama da un rango vacío o que no
+# parte de BASE; ambos producirían un package falso sin avisar.
+git merge-base --is-ancestor "$base" "$head" || { echo "HEAD no desciende de BASE: ${base}..${head}" >&2; exit 3; }
+[ "$(git rev-list --count "${base}..${head}")" -gt 0 ] || { echo "rango de commits vacío: ${base}..${head}" >&2; exit 3; }
+
 if [ $# -eq 3 ]; then
   out=$3
 else
   dir=$("$(cd "$(dirname "$0")" && pwd)/sdd-workspace")
   out="$dir/review-$(git rev-parse --short "$base")..$(git rev-parse --short "$head").diff"
 fi
+
+# ---------------------------------------------------------------------------
+# Mutación. Imprime las líneas de la sección (la primera es `MUTACIÓN: ...`).
+# Invocaciones verificadas contra los binarios reales (2026-09-29):
+#   cargo-mutants 27.1.0: cargo-mutants mutants --in-diff PATCH -o DIR
+#     (PATCH = git diff -U0 del rango, solo ficheros de producción, con paths
+#      relativos a la RAÍZ DEL WORKSPACE (cargo locate-project --workspace), no
+#      al crate miembro; DIR/mutants.out/{outcomes.json,missed.txt}. Baseline
+#      rojo: total_mutants 0 y outcomes[0] = {Baseline, Failure})
+#   mutmut 2.5.1: mutmut run --paths-to-mutate F1,F2 --use-patch-file PATCH --runner "CTO S RUNNER"
+#     (no tiene --version). PATCH = git diff -U0 --relative del rango, relativo al
+#     proyecto (el cwd de mutmut); requiere whatthepatch (mutmut[patch]) o falla con
+#     ImportError. mutmut solo corta un mutante colgado a baseline*10 (no configurable):
+#     el runner efectivo (config pyproject [tool.mutmut] / setup.cfg [mutmut], si no el
+#     DEFAULT_RUNNER `python -m pytest -x --assert=plain`) se envuelve con un timeout por
+#     mutante; código de salida != 0 = mutante matado. Progreso: línea
+#     `k/n 🎉 c ⏰ t 🤔 u 🙁 s` (🤔 = matado lento: cuenta como caught).
+#     Muestreo: 1) enumerar SIN ejecutar tests: mutmut run --runner true --tests-dir
+#     <dir vacío> (todo "survived" al instante; el dir vacío da otro hash de tests, así ni
+#     los estados ni el tiempo de baseline de esa pasada se reutilizan luego: sin él, el
+#     baseline cacheado ~0 s daba timeouts inventados); 2) mutmut result-ids survived = ids;
+#     3) muestra = random.Random(semilla).sample(sorted(ids), n) con el python de mutmut
+#     (el mismo protocolo del verdict 2); 4) un
+#     `mutmut run <id>` por id con el runner real (con un solo id mutmut 2.5.1 no lee el
+#     estado cacheado del mutante) y se suma la línea de progreso de cada uno.
+#     mutmut 3.8.0: `--version` -> "mutmut, version 3.x"; no acota por CLI
+#     (solo `only_mutate` en la config) -> no disponible, nunca mutar todo.
+#   stryker 9.6.1: npx --no-install stryker run --mutate "a:1-3,b:5-5"
+#     --reporters json,progress-append-only (rangos `fichero:inicio-fin` del lado NUEVO
+#     de cada hunk; lista con comas: repetir --mutate se queda con el último; NO existe
+#      --jsonReporter.fileName). Informe: reports/mutation/mutation.json. Progreso
+#     (stdout): `Mutation testing N% ... k/n tested (s survived, t timed out)`.
+# Monorepo: cada fichero se agrupa con su manifest más cercano (Cargo.toml,
+# pyproject.toml/setup.py, package.json) y la herramienta corre en ese dir.
+# ---------------------------------------------------------------------------
+mut_tail() { # crudo: últimas ~20 líneas de los ficheros dados que existan
+  echo '```'
+  local f
+  for f in "$@"; do [ -f "$f" ] && tail -n 20 "$f"; done
+  echo '```'
+}
+
+# git diff inmune a la config del usuario (noprefix, mnemonicPrefix, color, diff externo):
+# el parseo de paths y rangos exige `a/` y `b/` y texto plano. Uso: mut_gitdiff DIR args...
+mut_gitdiff() {
+  local d=$1; shift
+  git -C "$d" -c core.quotepath=off -c diff.noprefix=false -c diff.mnemonicPrefix=false -c color.ui=never \
+    diff --no-color --no-ext-diff --src-prefix=a/ --dst-prefix=b/ "$@"
+}
+
+# Runner efectivo de mutmut 2.5.1 en el dir $1: `runner` de [tool.mutmut] en pyproject.toml
+# si esa tabla no está vacía (si no, `[mutmut]` de setup.cfg); si no, DEFAULT_RUNNER.
+mut_runner() {
+  local d=$1 out has="" runner=""
+  if [ -f "$d/pyproject.toml" ]; then
+    out=$(mut_cfg_awk '=' 'tool.mutmut' < "$d/pyproject.toml"); has=$(sed -n 1p <<<"$out"); runner=$(sed -n 2p <<<"$out")
+  fi
+  if [ "$has" != 1 ] && [ -f "$d/setup.cfg" ]; then
+    out=$(mut_cfg_awk '=:' 'mutmut' < "$d/setup.cfg"); has=$(sed -n 1p <<<"$out"); runner=$(sed -n 2p <<<"$out")
+  fi
+  printf '%s' "${runner:-python -m pytest -x --assert=plain}"
+}
+# stdin: fichero de config; imprime "1|0" (¿sección con claves?) y el valor de `runner`.
+mut_cfg_awk() {
+  awk -v delim="$1" -v sec="$2" '
+    /^[ \t]*\[/ { s = $0; gsub(/[][ \t]/, "", s); insec = (s == sec); next }
+    insec && /^[ \t]*[A-Za-z_]/ {
+      has = 1
+      i = match($0, "[" delim "]"); if (!i) next
+      k = substr($0, 1, i - 1); gsub(/[ \t]/, "", k)
+      if (k == "runner") {
+        v = substr($0, i + 1); sub(/^[ \t]+/, "", v)
+        q = substr(v, 1, 1)
+        if (q == "\"" || q == "\047") { v = substr(v, 2); j = index(v, q); v = (j ? substr(v, 1, j - 1) : v) }
+        else sub(/[ \t]+$/, "", v)
+        r = v
+      }
+    }
+    END { print has + 0; print r }'
+}
+
+# Rangos `fichero:inicio-fin` (lado NUEVO de cada hunk añadido/modificado, un hunk
+# solo borrado no da rango) de BASE..HEAD para los ficheros dados, relativos al dir $1.
+mut_rangos() {
+  local d=$1; shift
+  mut_gitdiff "$d" -U0 --relative "${base}..${head}" -- "$@" 2>/dev/null | awk '
+    /^diff --git/ { inh = 0; next }
+    !inh && /^\+\+\+ / { f = substr($0, 7); next }
+    /^@@ / {
+      inh = 1
+      if (match($0, /\+[0-9]+(,[0-9]+)?/)) {
+        n = split(substr($0, RSTART + 1, RLENGTH - 1), a, ",")
+        c = (n > 1) ? a[2] : 1
+        if (c > 0) print f ":" a[1] "-" (a[1] + c - 1)
+      }
+    }'
+}
+
+# Python de mutmut (el de su shebang; si no es python, python3 del PATH). Imprime la ruta.
+mut_python_de() {
+  local m sb c
+  m=$(command -v mutmut 2>/dev/null) || return 1
+  sb=$(head -n 1 "$m" 2>/dev/null); sb=${sb#\#!}
+  # shellcheck disable=SC2086 # el shebang se parte en palabras a propósito
+  set -- $sb
+  c=${1:-}; [ "$(basename "${c:-x}")" = env ] && c=${2:-}
+  case "$(basename "${c:-x}")" in python*) command -v "$c" 2>/dev/null && return 0 ;; esac
+  command -v python3 2>/dev/null
+}
+
+# Muestra del protocolo del verdict 2: random.Random(seed).sample(sorted(ids), n), con el
+# python de mutmut. stdin = ids; $1 python, $2 n, $3 semilla. Imprime los n ids, ordenados.
+mut_muestra() {
+  "$1" -c 'import random, sys
+ids = sorted(int(x) for x in sys.stdin.read().split())
+n, seed = int(sys.argv[1]), int(sys.argv[2])
+print("\n".join(map(str, sorted(random.Random(seed).sample(ids, n)))))' "$2" "$3"
+}
+
+# Intervalo de Wilson al 95% (no el normal: en c=0 y c=n el normal degenera). Args: c n.
+# Imprime "p lo hi" en %, un decimal, coma decimal. Los límites se recortan a [0, 100].
+mut_wilson() {
+  LC_ALL=C awk -v c="$1" -v n="$2" 'BEGIN {
+    z = 1.959964; p = c / n; z2 = z * z; d = 1 + z2 / n
+    ctr = (p + z2 / (2 * n)) / d
+    h = z * sqrt(p * (1 - p) / n + z2 / (4 * n * n)) / d
+    lo = ctr - h; hi = ctr + h
+    if (lo < 0) lo = 0; if (hi > 1) hi = 1
+    printf "%.1f %.1f %.1f\n", p * 100, lo * 100, hi * 100 }' | tr . ,
+}
+
+# Progreso parcial ("k/n evaluados, c caught, s supervivientes") de la salida cruda
+# de la herramienta; "no disponible" si no hay forma fiable de leerlo (nunca inventa).
+mut_progreso() {
+  local eco=$1 raw=$2 l n k t u s
+  case "$eco" in
+    python)
+      l=$(tr '\r' '\n' < "$raw" | grep -E '[0-9]+/[0-9]+.*🎉 *[0-9]+.*⏰ *[0-9]+.*🙁 *[0-9]+' | tail -n 1)
+      if [ -n "$l" ]; then
+        n=$(printf '%s' "$l" | sed -nE 's|^[^0-9]*([0-9]+)/([0-9]+).*|\1/\2|p')
+        k=$(printf '%s' "$l" | sed -nE 's|.*🎉 *([0-9]+).*|\1|p')
+        t=$(printf '%s' "$l" | sed -nE 's|.*⏰ *([0-9]+).*|\1|p')
+        u=$(printf '%s' "$l" | sed -nE 's|.*🤔 *([0-9]+).*|\1|p'); u=${u:-0}
+        s=$(printf '%s' "$l" | sed -nE 's|.*🙁 *([0-9]+).*|\1|p')
+        if [ -n "$n" ] && [ -n "$k" ] && [ -n "$t" ] && [ -n "$s" ]; then
+          echo "$n evaluados, $((k + t + u)) caught, $s supervivientes"; return 0
+        fi
+      fi ;;
+    js)
+      l=$(tr '\r' '\n' < "$raw" | grep -E 'Mutation testing [0-9]+%.* [0-9]+/[0-9]+ tested \([0-9]+ survived' | tail -n 1)
+      if [ -n "$l" ]; then
+        n=$(printf '%s' "$l" | sed -nE 's|.* ([0-9]+)/([0-9]+) tested.*|\1/\2|p')
+        s=$(printf '%s' "$l" | sed -nE 's|.*\(([0-9]+) survived.*|\1|p')
+        if [ -n "$n" ] && [ -n "$s" ]; then
+          echo "$n evaluados, $(( ${n%/*} - s )) caught, $s supervivientes"; return 0
+        fi
+      fi ;;
+  esac
+  echo "no disponible"
+}
+
+# ¿existe DIR/NOMBRE en el commit HD? (se mira el commit, no el árbol del usuario)
+mut_existe() {
+  local p=$3; [ "$2" = "." ] || p="$2/$3"
+  git cat-file -e "$1:$p" 2>/dev/null
+}
+
+# Limpieza del worktree temporal (también desde el trap de EXIT/INT/TERM).
+MUT_ROOT=""; MUT_TMP=""; MUT_WT=""; MUT_MSEGS=60; MUT_SAMPLE=150; MUT_SEED=20260929
+mut_limpia() {
+  if [ -n "$MUT_WT" ]; then
+    git -C "$MUT_ROOT" worktree remove --force "$MUT_WT" >/dev/null 2>&1 || rm -rf "$MUT_WT"
+    git -C "$MUT_ROOT" worktree prune >/dev/null 2>&1 || true
+  fi
+  [ -n "$MUT_TMP" ] && rm -rf "$MUT_TMP"
+  MUT_WT=""; MUT_TMP=""
+  return 0
+}
+
+# Manifest más cercano de FICHERO para el ecosistema de su extensión.
+# Imprime "<dir-relativo>|<eco>" ("." = raíz) o nada. Sube hasta la raíz del repo.
+mut_proyecto_de() {
+  local f=$1 hd=$2 eco d
+  case "$f" in
+    *.rs) eco=rust ;;
+    *.py) eco=python ;;
+    *.js|*.jsx|*.mjs|*.cjs|*.ts|*.tsx) eco=js ;;
+    *) return 0 ;;
+  esac
+  d=$(dirname "$f")
+  while :; do
+    case "$eco" in
+      rust)   mut_existe "$hd" "$d" Cargo.toml && { echo "$d|$eco"; return 0; } ;;
+      python) { mut_existe "$hd" "$d" pyproject.toml || mut_existe "$hd" "$d" setup.py; } && { echo "$d|$eco"; return 0; } ;;
+      js)     mut_existe "$hd" "$d" package.json && { echo "$d|$eco"; return 0; } ;;
+    esac
+    [ "$d" = "." ] && return 0
+    d=$(dirname "$d")
+  done
+}
+
+# Muta UN proyecto. Entradas: raíz, dir relativo, eco, segs, ficheros relativos a la raíz (1 por línea).
+# Salidas (globales): R_TEXT (texto tras `MUTACIÓN: `), R_DET/R_TOT (numéricos si hay score),
+# R_N (nº supervivientes), R_DETALLE (líneas extra: supervivientes o crudo).
+# Muestreo por adelantado (mutmut 2.x). Entradas: pd tmp raw lista runner segs t0.
+# Devuelve 1 (sin tocar R_*) si no hay que muestrear: se sigue con la corrida completa.
+# Devuelve 0 con R_* rellenos (score muestreado: R_TEXT lleva `IC95 [`).
+mut_py_muestra() {
+  local pd=$1 tmp=$2 raw=$3 lista=$4 runner=$5 segs=$6 t0=$7
+  local py ids total sample n id rem irc l k t u s p lo hi ev=0 c=0 sv=0 surv="" nsurv=0 tmo=0 blfail=0 erc=0 sh
+  mkdir -p "$tmp/notests"
+  # 1) enumerar sin ejecutar tests. Dir de tests vacío = otro hash de tests: los estados
+  #    "survived" y el baseline de ~0 s de esta pasada no se reutilizan en la real.
+  ( cd "$pd" && con_timeout "$segs" mutmut run --paths-to-mutate "$lista" --use-patch-file "$tmp/patch.diff" \
+      --runner true --tests-dir "$tmp/notests" --no-progress ) > "$tmp/enum.txt" 2>&1 || erc=$?
+  if [ "$erc" = 124 ]; then
+    R_TEXT="parcial (timeout ${segs}s) — progreso: no disponible"; return 0
+  fi
+  ids=$( ( cd "$pd" && con_timeout 30 mutmut result-ids survived ) 2>/dev/null | tr -s ' \t' '\n' | grep -E '^[0-9]+$' || true )
+  total=$(printf '%s' "$ids" | grep -c . || true)
+  # sin ids: la enumeración falló o el formato de result-ids no es el esperado. Se cae
+  # a la corrida completa, y la línea lo dice.
+  if [ "$total" -eq 0 ]; then R_NOTA="muestreo no disponible: sin ids de mutmut"; return 1; fi
+  # no cabe una muestra: corrida completa de siempre (sin nota, es lo esperado)
+  [ "$total" -gt "$MUT_SAMPLE" ] || return 1
+  n=$MUT_SAMPLE
+  py=$(mut_python_de) || { R_NOTA="muestreo no disponible: sin python de mutmut"; return 1; }
+  sample=$(printf '%s\n' "$ids" | mut_muestra "$py" "$n" "$MUT_SEED" 2>/dev/null || true)
+  if [ "$(printf '%s' "$sample" | grep -c . || true)" -ne "$n" ]; then
+    R_NOTA="muestreo no disponible: el python de mutmut no pudo muestrear"; return 1
+  fi
+  sh="muestra de ${n}/${total}, semilla ${MUT_SEED}"
+
+  # 2) un `mutmut run <id>` por id con el runner real, dentro del timeout global
+  for id in $sample; do
+    rem=$((segs - (SECONDS - t0)))
+    if [ "$rem" -le 0 ]; then tmo=1; break; fi
+    irc=0
+    ( cd "$pd" && con_timeout "$rem" mutmut run --paths-to-mutate "$lista" --runner "$runner" "$id" ) > "$raw" 2>&1 || irc=$?
+    if [ "$irc" = 124 ]; then tmo=1; break; fi
+    if grep -q "Tests don't run cleanly" "$raw"; then blfail=1; break; fi
+    l=$(tr '\r' '\n' < "$raw" | grep -E '[0-9]+/[0-9]+.*🎉 *[0-9]+.*⏰ *[0-9]+.*🙁 *[0-9]+' | tail -n 1)
+    [ -n "$l" ] || continue
+    k=$(printf '%s' "$l" | sed -nE 's|.*🎉 *([0-9]+).*|\1|p')
+    t=$(printf '%s' "$l" | sed -nE 's|.*⏰ *([0-9]+).*|\1|p')
+    u=$(printf '%s' "$l" | sed -nE 's|.*🤔 *([0-9]+).*|\1|p'); u=${u:-0}
+    s=$(printf '%s' "$l" | sed -nE 's|.*🙁 *([0-9]+).*|\1|p')
+    if [ -z "$k" ] || [ -z "$t" ] || [ -z "$s" ]; then continue; fi
+    if [ $((k + t + u + s)) -eq 0 ]; then continue; fi   # saltado (🔇): no se evalúa
+    ev=$((ev + 1)); c=$((c + k + t + u))
+    if [ "$s" -gt 0 ]; then sv=$((sv + 1)); surv="$surv $id"; fi
+  done
+
+  if [ "$blfail" = 1 ]; then
+    R_TEXT="parcial (baseline falló)"; R_DETALLE=$(mut_tail "$raw"); return 0
+  fi
+  if [ "$tmo" = 1 ]; then
+    R_TEXT="parcial (timeout ${segs}s) — progreso: ${ev}/${n} evaluados, ${c} caught, ${sv} supervivientes (${sh})"; return 0
+  fi
+  if [ "$ev" -eq 0 ]; then
+    R_TEXT="parcial (salida no reconocida)"; R_DETALLE=$(mut_tail "$tmp/enum.txt" "$raw"); return 0
+  fi
+
+  read -r p lo hi <<< "$(mut_wilson "$c" "$ev")"
+  R_DET=$c; R_TOT=$ev; R_N=$sv;
+  R_TEXT="${c}/${ev} (${p}%) IC95 [${lo}%, ${hi}%] — muestra de ${n}/${total} (semilla ${MUT_SEED})"
+  if [ "$sv" -gt 0 ]; then
+    # el worktree se borra al acabar: el diff de cada mutante hay que leerlo ahora
+    R_DETALLE="Supervivientes de la muestra (ids de mutmut):"
+    for id in $surv; do
+      nsurv=$((nsurv + 1)); [ "$nsurv" -le 10 ] || break
+      R_DETALLE="$R_DETALLE"$'\n'"- id ${id}: $( ( cd "$pd" && con_timeout 30 mutmut show "$id" ) 2>&1 | awk '/^\+\+\+ /{f=substr($0,5)} /^-[^-]/{a=substr($0,2)} /^\+[^+]/{b=substr($0,2)} END{gsub(/^ +/,"",a); gsub(/^ +/,"",b); printf "%s: `%s` -> `%s`", f, a, b}')"
+    done
+    if [ "$sv" -gt 10 ]; then R_DETALLE="$R_DETALLE"$'\n'"- (+$((sv - 10)) más)"; fi
+  fi
+  return 0
+}
+
+mut_uno() {
+  mut_uno_ "$@"
+  mut_limpia
+  return 0
+}
+mut_uno_() {
+  local root=$1 dir=$2 eco=$3 segs=$4 files=$5 pd tmp raw res="" rc=0 f det="" tot="" sup="" ud sha wterr blfail=0
+  R_TEXT=""; R_DET=""; R_TOT=""; R_N=0; R_DETALLE=""; R_NOTA=""
+  ud="$root"; [ "$dir" != "." ] && ud="$root/$dir"
+
+  case "$eco" in
+    rust)   command -v cargo-mutants >/dev/null 2>&1 || { R_TEXT="no disponible (cargo-mutants no instalado)"; return 0; } ;;
+    python) command -v mutmut >/dev/null 2>&1 || { R_TEXT="no disponible (mutmut no instalado)"; return 0; } ;;
+    js)     { command -v npx >/dev/null 2>&1 && git show "${head}:$([ "$dir" = . ] || printf '%s/' "$dir")package.json" 2>/dev/null | grep -q stryker; } || { R_TEXT="no disponible (stryker no instalado)"; return 0; } ;;
+  esac
+  if [ "$eco" != python ]; then
+    command -v jq >/dev/null 2>&1 || { R_TEXT="no disponible (jq no instalado)"; return 0; }
+  fi
+
+  # Se muta un worktree temporal de HEAD: el árbol del usuario (sucio o no, en
+  # otro commit o no) ni se mira ni se toca.
+  tmp=$(mktemp -d) || { R_TEXT="no disponible (sin directorio temporal)"; return 0; }
+  MUT_TMP=$tmp; MUT_ROOT=$root
+  sha=$(git rev-parse "$head")
+  if ! wterr=$(git -C "$root" worktree add --detach "$tmp/wt" "$sha" 2>&1); then
+    R_TEXT="no disponible (worktree: $(printf '%s' "$wterr" | tail -n 1))"; return 0
+  fi
+  MUT_WT="$tmp/wt"
+  pd="$MUT_WT"; [ "$dir" != "." ] && pd="$MUT_WT/$dir"
+  # stryker necesita las dependencias instaladas: se enlazan las del usuario.
+  [ "$eco" = js ] && [ -d "$ud/node_modules" ] && [ ! -e "$pd/node_modules" ] && ln -s "$ud/node_modules" "$pd/node_modules"
+  raw="$tmp/raw.txt"
+  local -a rel=()
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    if [ "$dir" = "." ]; then rel+=("$f"); else rel+=("${f#"$dir"/}"); fi
+  done <<< "$files"
+
+  case "$eco" in
+    rust)
+      # --in-diff acota a las líneas cambiadas (el score no se diluye con código intacto).
+      # Paths relativos a la RAÍZ DEL WORKSPACE (no al crate): así cargo-mutants los
+      # casa en un workspace con miembros.
+      local wsroot; local -a ps=()
+      wsroot=$( cd "$pd" && cargo locate-project --workspace --message-format plain 2>/dev/null ) && wsroot=$(dirname "$wsroot") || wsroot=$pd
+      while IFS= read -r f; do [ -n "$f" ] && ps+=(":(top)$f"); done <<< "$files"
+      mut_gitdiff "$wsroot" -U0 --relative "${base}..${head}" -- "${ps[@]}" > "$tmp/patch.diff" 2>/dev/null || true
+      ( cd "$pd" && con_timeout "$segs" cargo-mutants mutants --in-diff "$tmp/patch.diff" -o "$tmp" ) > "$raw" 2>&1 || rc=$?
+      res="$tmp/mutants.out/outcomes.json"
+      ;;
+    python)
+      # mutmut 3.x no admite acotar por CLI; 2.x sí. `--version` primero (3.x lo
+      # tiene, 2.x no); si no concluye, capacidad de `run --help`.
+      local ver lista rangos
+      ver=$( ( cd "$pd" && con_timeout 30 mutmut --version ) 2>&1 | head -n 5 )
+      case "$ver" in
+        *"version 3."*) R_TEXT="no disponible (mutmut 3.x no admite acotar por CLI)"; return 0 ;;
+      esac
+      if ! ( cd "$pd" && con_timeout 30 mutmut run --help ) 2>&1 | grep -q -- '--paths-to-mutate'; then
+        R_TEXT="no disponible (mutmut 3.x no admite acotar por CLI)"; return 0
+      fi
+      # Solo las líneas del diff: patch relativo al proyecto (el cwd de mutmut), igual
+      # que el fix de workspace de cargo. Sin rangos (solo borrados) no hay nada que mutar.
+      rangos=$(mut_rangos "$pd" "${rel[@]}")
+      if [ -z "$rangos" ]; then R_TEXT="no disponible (diff sin líneas añadidas ni modificadas)"; return 0; fi
+      mut_gitdiff "$pd" -U0 --relative "${base}..${head}" -- "${rel[@]}" > "$tmp/patch.diff" 2>/dev/null || true
+      lista=$(printf '%s\n' "$rangos" | sed 's/:[0-9]*-[0-9]*$//' | awk '!v[$0]++' | tr '\n' ','); lista=${lista%,}
+      # Timeout por mutante: se envuelve el runner (mutmut lo lanza con shlex.split, sin
+      # shell) con un script que carga con_timeout. mutmut 2.5.1 solo da por matado un
+      # mutante si el runner sale con 1 (`returncode != 1` = sobrevive), así que el 124 del
+      # corte se traduce a 1: timeout = detectado (convención estándar).
+      local cto="$tmp/cto" runner
+      # shellcheck disable=SC2016 # el $@ y $rc van literales al script generado
+      printf '#!/usr/bin/env bash\n. %q\ncon_timeout "$@"; rc=$?\n[ "$rc" = 124 ] && exit 1\nexit "$rc"\n' "$_ts" > "$cto"; chmod +x "$cto"
+      runner="$(printf '%q' "$cto") ${MUT_MSEGS} $(mut_runner "$pd")"
+      local t0=$SECONDS resta=$segs
+      if [ "$MUT_SAMPLE" -gt 0 ]; then
+        if mut_py_muestra "$pd" "$tmp" "$raw" "$lista" "$runner" "$segs" "$t0"; then return 0; fi
+        if grep -q whatthepatch "$tmp/enum.txt" 2>/dev/null; then
+          R_TEXT="no disponible (mutmut sin whatthepatch: pip install 'mutmut[patch]')"; return 0
+        fi
+        resta=$((segs - (SECONDS - t0)))
+        if [ "$resta" -le 0 ]; then R_TEXT="parcial (timeout ${segs}s) — progreso: no disponible"; return 0; fi
+      fi
+      ( cd "$pd" && con_timeout "$resta" mutmut run --paths-to-mutate "$lista" --use-patch-file "$tmp/patch.diff" --runner "$runner" ) > "$raw" 2>&1 || rc=$?
+      if [ "$rc" != 0 ] && [ "$rc" != 124 ] && grep -q whatthepatch "$raw"; then
+        R_TEXT="no disponible (mutmut sin whatthepatch: pip install 'mutmut[patch]')"; return 0
+      fi
+      ;;
+    js)
+      # Una sola lista con comas (repetir --mutate se queda con el último), con un
+      # rango `fichero:inicio-fin` por hunk añadido/modificado (lado nuevo).
+      local lista rangos
+      rangos=$(mut_rangos "$pd" "${rel[@]}")
+      if [ -z "$rangos" ]; then R_TEXT="no disponible (diff sin líneas añadidas ni modificadas)"; return 0; fi
+      lista=$(printf '%s\n' "$rangos" | tr '\n' ','); lista=${lista%,}
+      res="$pd/reports/mutation/mutation.json"
+      ( cd "$pd" && con_timeout "$segs" npx --no-install stryker run --mutate "$lista" --reporters json,progress-append-only ) > "$raw" 2>&1 || rc=$?
+      ;;
+  esac
+
+  if [ "$rc" = 124 ]; then
+    R_TEXT="parcial (timeout ${segs}s) — progreso: $(mut_progreso "$eco" "$raw")"; return 0
+  fi
+
+  case "$eco" in
+    rust)
+      if [ -f "$res" ] && jq -e '(.outcomes[0].scenario == "Baseline") and (.outcomes[0].summary == "Failure")' "$res" >/dev/null 2>&1; then
+        blfail=1
+      elif [ -f "$res" ] && jq -e '[.caught,.missed] | all(type == "number")' "$res" >/dev/null 2>&1; then
+        det=$(jq -r '(.caught) + (.timeout // 0)' "$res")
+        tot=$(jq -r '(.caught) + (.timeout // 0) + (.missed)' "$res")
+        sup=$(cat "$tmp/mutants.out/missed.txt" 2>/dev/null)
+      fi ;;
+    python)
+      local l k t u s
+      l=$(tr '\r' '\n' < "$raw" | grep -E '[0-9]+/[0-9]+.*🙁' | tail -n 1)
+      if [ -n "$l" ]; then
+        tot=$(printf '%s' "$l" | sed -nE 's|^[^0-9]*[0-9]+/([0-9]+).*|\1|p')
+        k=$(printf '%s' "$l" | sed -nE 's|.*🎉 *([0-9]+).*|\1|p')
+        t=$(printf '%s' "$l" | sed -nE 's|.*⏰ *([0-9]+).*|\1|p')
+        u=$(printf '%s' "$l" | sed -nE 's|.*🤔 *([0-9]+).*|\1|p'); u=${u:-0}
+        s=$(printf '%s' "$l" | sed -nE 's|.*🙁 *([0-9]+).*|\1|p')
+        if [ -n "$tot" ] && [ -n "$k" ] && [ -n "$t" ] && [ -n "$s" ]; then
+          det=$((k + t + u))
+          # el worktree se borra al acabar: el detalle hay que leerlo ahora
+          [ "$s" -gt 0 ] && sup="$s superviviente(s) (mutmut results):"$'\n'"$( ( cd "$pd" && con_timeout 30 mutmut results ) 2>&1 | head -n 20 )"
+        else tot=""; fi
+      fi ;;
+    js)
+      if [ -f "$res" ] && jq -e '.files | type == "object"' "$res" >/dev/null 2>&1; then
+        det=$(jq -r '[.files[].mutants[] | select(.status=="Killed" or .status=="Timeout")] | length' "$res")
+        tot=$(jq -r '[.files[].mutants[] | select(.status=="Killed" or .status=="Timeout" or .status=="Survived" or .status=="NoCoverage")] | length' "$res")
+        sup=$(jq -r '.files | to_entries[] | .key as $f | .value.mutants[] | select(.status=="Survived" or .status=="NoCoverage") | "\($f):\(.location.start.line) \(.mutatorName) (\(.status))"' "$res")
+      fi ;;
+  esac
+
+  if [ "$blfail" = 1 ]; then
+    R_TEXT="parcial (baseline falló)"
+    R_DETALLE=$(mut_tail "$raw")
+    return 0
+  fi
+  if [ -z "$tot" ] || [ -z "$det" ]; then
+    R_TEXT="parcial (salida no reconocida)"
+    R_DETALLE=$(mut_tail "$res" "$raw")
+    return 0
+  fi
+
+  # cargo y stryker no muestrean: con más de N mutantes lo decimos (por debajo de N, nada)
+  if [ "$eco" != python ] && [ "$MUT_SAMPLE" -gt 0 ] && [ "$tot" -gt "$MUT_SAMPLE" ]; then
+    case "$eco" in rust) R_NOTA="muestreo no aplica: cargo-mutants" ;; *) R_NOTA="muestreo no aplica: stryker" ;; esac
+  fi
+  if [ "$eco" = python ]; then
+    R_N=$(printf '%s' "$sup" | sed -nE 's/^([0-9]+) superviviente.*/\1/p'); R_N=${R_N:-0}
+  else
+    R_N=$(printf '%s' "$sup" | grep -c . || true)
+  fi
+  if [ "$tot" -eq 0 ]; then
+    R_TEXT="no disponible (0 mutantes generados)"
+  else
+    R_DET=$det; R_TOT=$tot
+    R_TEXT="${det}/${tot} ($((det * 100 / tot))%) — ${R_N} superviviente(s)"
+    if [ -n "$sup" ]; then
+      R_DETALLE="Supervivientes:"$'\n'"$(printf '%s\n' "$sup" | head -n 30 | sed 's/^/- /')"
+    fi
+  fi
+  return 0
+}
+
+mutacion() {
+  local head=$1 segs root f pr keys="" files_of="" any_manifest cand=0
+  if [ "${EXO_MUTATION:-1}" = "0" ]; then
+    echo "MUTACIÓN: no disponible (desactivada)"; return 0
+  fi
+  segs=${EXO_MUTATION_TIMEOUT:-600}
+  MUT_AVISO=""
+  case "$segs" in ''|*[!0-9]*|0) MUT_AVISO="EXO_MUTATION_TIMEOUT inválido ('${EXO_MUTATION_TIMEOUT}'); se usa 600"; segs=600 ;; esac
+  MUT_MSEGS=${EXO_MUTATION_MUTANT_TIMEOUT:-60}
+  case "$MUT_MSEGS" in ''|*[!0-9]*|0) MUT_AVISO="${MUT_AVISO:+$MUT_AVISO; }EXO_MUTATION_MUTANT_TIMEOUT inválido ('${EXO_MUTATION_MUTANT_TIMEOUT}'); se usa 60"; MUT_MSEGS=60 ;; esac
+  MUT_SAMPLE=${EXO_MUTATION_SAMPLE:-150}
+  case "$MUT_SAMPLE" in ''|*[!0-9]*) MUT_AVISO="${MUT_AVISO:+$MUT_AVISO; }EXO_MUTATION_SAMPLE inválido ('${EXO_MUTATION_SAMPLE}'); se usa 150"; MUT_SAMPLE=150 ;; esac
+  MUT_SEED=${EXO_MUTATION_SEED:-20260929}
+  case "$MUT_SEED" in ''|*[!0-9]*) MUT_AVISO="${MUT_AVISO:+$MUT_AVISO; }EXO_MUTATION_SEED inválido ('${EXO_MUTATION_SEED}'); se usa 20260929"; MUT_SEED=20260929 ;; esac
+  root=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "MUTACIÓN: no disponible (fuera de un repo)"; return 0; }
+  type con_timeout >/dev/null 2>&1 || { echo "MUTACIÓN: no disponible (sin _timeout.sh)"; return 0; }
+
+  # Exclusiones (EXO_MUTATION_EXCLUDE, pathspecs separados por comas, relativos a la raíz).
+  local -a excl=() exl=()
+  local ex
+  IFS=',' read -ra exl <<< "${EXO_MUTATION_EXCLUDE:-}"
+  for ex in ${exl[@]+"${exl[@]}"}; do
+    ex=${ex#"${ex%%[![:space:]]*}"}; ex=${ex%"${ex##*[![:space:]]}"}
+    [ -n "$ex" ] && excl+=(":(top,exclude)$ex")
+  done
+
+  # Ficheros de producción del diff (añadidos/modificados/renombrados), sin tests,
+  # agrupados por proyecto (manifest más cercano) y ecosistema.
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    case "$f" in
+      *.rs|*.py|*.js|*.jsx|*.mjs|*.cjs|*.ts|*.tsx) ;;
+      *) continue ;;
+    esac
+    printf '%s\n' "$f" | grep -Eq '(^|/)(tests?|__tests__|testdata|fixtures)/|(^|/)test_[^/]*$|_tests?\.[^/]*$|\.(test|spec)\.[^/]*$|(^|/)(conftest\.py|tests\.rs)$' && continue
+    cand=$((cand + 1))
+    pr=$(mut_proyecto_de "$f" "$head")
+    [ -n "$pr" ] || continue
+    case "
+$keys
+" in
+      *"
+$pr
+"*) ;;
+      *) keys="$keys
+$pr" ;;
+    esac
+    files_of="$files_of$pr	$f
+"
+  done < <(mut_gitdiff . --name-only --diff-filter=ACMR "${base}..${head}" -- ':(top)' ${excl[@]+"${excl[@]}"})
+  keys=${keys#$'\n'}
+
+  if [ "$cand" -eq 0 ]; then
+    any_manifest=$(git ls-tree -r --name-only "$head" | grep -E '(^|/)(Cargo\.toml|pyproject\.toml|setup\.py|package\.json)$' | head -n 1 || true)
+    if [ -z "$any_manifest" ]; then
+      echo "MUTACIÓN: no disponible (sin herramienta para este repo)"
+    else
+      echo "MUTACIÓN: no disponible (diff sin código de producción)"
+    fi
+    return 0
+  fi
+  if [ -z "$keys" ]; then
+    echo "MUTACIÓN: no disponible (sin herramienta para este repo)"; return 0
+  fi
+
+  local -a lineas=() detalles=()
+  local sdet=0 stot=0 sn=0 nscored=0 nparcial=0 nnodisp=0 nmuestra=0 k dir eco fl nombre multi=0 nproy
+  nproy=$(printf '%s\n' "$keys" | grep -c .)
+  if [ "$nproy" -gt 1 ] || [ "${keys%%|*}" != "." ]; then multi=1; fi
+  while IFS= read -r k; do
+    [ -n "$k" ] || continue
+    dir=${k%|*}; eco=${k#*|}
+    fl=$(printf '%s' "$files_of" | awk -F'\t' -v k="$k" '$1 == k { print $2 }')
+    mut_uno "$root" "$dir" "$eco" "$segs" "$fl"
+    nombre=$dir; [ "$dir" = "." ] && nombre="raíz"
+    [ -n "$R_NOTA" ] && case "$R_NOTA" in
+      "muestreo no disponible"*) R_TEXT="${R_TEXT} (${R_NOTA}; corrida completa)" ;;
+      *) R_TEXT="${R_TEXT} (${R_NOTA})" ;;
+    esac
+    lineas+=("MUTACIÓN [${nombre}]: ${R_TEXT}")
+    if [ -n "$R_DETALLE" ]; then
+      if [ "$multi" = 1 ]; then detalles+=("[${nombre}] ${R_DETALLE}"); else detalles+=("$R_DETALLE"); fi
+    fi
+    case "$R_TEXT" in
+      *"IC95 ["*) nmuestra=$((nmuestra + 1)) ;;   # muestreado: se reporta aparte, no entra en el agregado
+      parcial*) nparcial=$((nparcial + 1)) ;;
+      "no disponible"*) nnodisp=$((nnodisp + 1)) ;;
+      *) sdet=$((sdet + R_DET)); stot=$((stot + R_TOT)); sn=$((sn + R_N)); nscored=$((nscored + 1)) ;;
+    esac
+  done <<< "$keys"
+
+  # Primera línea: el único resultado, o el agregado.
+  if [ "$multi" = 0 ]; then
+    echo "MUTACIÓN: ${lineas[0]#*: }"
+  elif [ "$nscored" -gt 0 ]; then
+    local extra=""
+    [ $((nparcial + nnodisp + nmuestra)) -gt 0 ] && extra="; $((nparcial + nnodisp + nmuestra)) proyecto(s) sin score"
+    [ "$nmuestra" -gt 0 ] && extra="${extra} (${nmuestra} muestreado(s), aparte)"
+    echo "MUTACIÓN: ${sdet}/${stot} ($((sdet * 100 / stot))%) — ${sn} superviviente(s)${extra}"
+  elif [ "$nmuestra" -gt 0 ]; then
+    echo "MUTACIÓN: muestreado (ver proyectos)"
+  elif [ "$nparcial" -gt 0 ]; then
+    echo "MUTACIÓN: parcial (ver proyectos)"
+  else
+    echo "MUTACIÓN: no disponible (ver proyectos)"
+  fi
+  [ "$multi" = 1 ] && printf '%s\n' "${lineas[@]}"
+  [ "${#detalles[@]}" -gt 0 ] && printf '%s\n' "${detalles[@]}"
+  return 0
+}
+
+# _timeout.sh vive en plugins/exo/scripts (tres niveles por encima de este script).
+_ts="$(cd "$(dirname "$0")" && pwd)/../../../scripts/_timeout.sh"
+# shellcheck source=/dev/null
+[ -f "$_ts" ] && . "$_ts"
+
+trap mut_limpia EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
 
 {
   echo "# Review package: ${base}..${head}"
@@ -40,6 +630,10 @@ fi
   echo
   echo "## Diff"
   git diff -U10 "${base}..${head}"
+  echo
+  echo "## MUTACIÓN"
+  mutacion "$head" || echo "MUTACIÓN: no disponible (error interno)"
+  if [ -n "${MUT_AVISO:-}" ]; then echo "MUTACIÓN aviso: ${MUT_AVISO}"; fi
 } > "$out"
 
 commits=$(git rev-list --count "${base}..${head}")

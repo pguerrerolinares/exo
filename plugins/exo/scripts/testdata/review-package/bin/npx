@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Stub de npx + stryker 9.6.1 (verificado contra el binario real).
+# Invocación real: `npx --no-install stryker run --mutate "a,b" --reporters json`
+# en el dir del proyecto; el informe sale en reports/mutation/mutation.json.
+# Como el real, rechaza opciones desconocidas (p. ej. --jsonReporter.fileName, exit 2).
+{ printf 'cwd=%s\n' "$PWD"; printf 'argv=%s\n' "$*"; } >> "${STUB_LOG:?}"
+for a in "$@"; do
+  case "$a" in
+    --jsonReporter*) echo "Unknown option: $a" >&2; exit 2 ;;
+  esac
+done
+# STUB_MODE=progresshang: escribe una línea de progress-append-only (como el real)
+# y se cuelga; STUB_MODE=silenciohang: se cuelga sin escribir progreso.
+if [ "${STUB_MODE:-}" = progresshang ]; then
+  echo "Mutation testing 57% (elapsed: <1m, remaining: <1m) 4/7 tested (1 survived, 0 timed out)"
+  sleep 31340
+fi
+[ "${STUB_MODE:-}" = silenciohang ] && sleep 31341
+mkdir -p reports/mutation
+cat > reports/mutation/mutation.json <<'J'
+{"files":{"src/a.js":{"mutants":[
+{"id":"1","mutatorName":"EqualityOperator","status":"Killed","location":{"start":{"line":1}}},
+{"id":"2","mutatorName":"BlockStatement","status":"Killed","location":{"start":{"line":2}}},
+{"id":"3","mutatorName":"ConditionalExpression","status":"Survived","location":{"start":{"line":7}}},
+{"id":"4","mutatorName":"StringLiteral","status":"Timeout","location":{"start":{"line":8}}}]}}}
+J
+exit 0
