@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Derived from superpowers 6.1.1 (MIT © 2025 Jesse Vincent)
+# Derived from superpowers 6.4.2 (MIT © 2025 Jesse Vincent)
 #
 # Generate a review package: commit list, stat summary, and the net
 # diff with extended context, written to a file the reviewer reads in one
@@ -40,6 +40,11 @@ head=$2
 
 git rev-parse --verify --quiet "$base" >/dev/null || { echo "bad BASE: $base" >&2; exit 2; }
 git rev-parse --verify --quiet "$head" >/dev/null || { echo "bad HEAD: $head" >&2; exit 2; }
+
+# Guardas de rango (exit 3): un HEAD de otra rama da un rango vacío o que no
+# parte de BASE; ambos producirían un package falso sin avisar.
+git merge-base --is-ancestor "$base" "$head" || { echo "HEAD no desciende de BASE: ${base}..${head}" >&2; exit 3; }
+[ "$(git rev-list --count "${base}..${head}")" -gt 0 ] || { echo "rango de commits vacío: ${base}..${head}" >&2; exit 3; }
 
 if [ $# -eq 3 ]; then
   out=$3

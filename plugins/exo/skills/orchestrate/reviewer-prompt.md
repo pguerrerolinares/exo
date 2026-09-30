@@ -2,7 +2,7 @@
 
 **Cuándo usar:** al despachar el reviewer de una tarea (dos verdictos: spec
 + calidad) o el review final whole-branch. Destilado de
-`subagent-driven-development/task-reviewer-prompt.md` (superpowers 6.1.1,
+`subagent-driven-development/task-reviewer-prompt.md` (superpowers 6.4.2,
 MIT © 2025 Jesse Vincent) + la guía de escalado de modelo de
 `orchestrate-personal` (paul-profile 0.5.0, propio).
 
@@ -81,6 +81,15 @@ Subagent (general-purpose):
     Tu review es read-only sobre este checkout: no mutes working tree,
     index, HEAD ni branch state de ninguna forma.
 
+    ## No despaches subagentes
+
+    Haz toda esta review tú. No lances un subagente para revisar parte del
+    diff ni otro reviewer para una segunda opinión: este proceso ya aporta
+    todos los asientos de review que el trabajo recibe, y uno que lances
+    duplica uno de ellos a coste completo y su verdict no cuenta. Si el
+    diff es demasiado grande para una pasada, revísalo por pasadas tú y
+    dilo en tu report.
+
     ## No confíes en el report
 
     Trata el report del implementer como claims sin verificar — puede
@@ -103,6 +112,13 @@ Subagent (general-purpose):
 
     Warnings u otro ruido en el output que reporta el implementer son
     findings — el output de test debe ser pristine.
+
+    Que no veas una evidencia no significa que no exista. Si el report o
+    su evidencia de tests parece cortado, o no localizas los resultados
+    que claima, relee el fichero en la ruta indicada; si de verdad falta o
+    está ilegible, repórtalo como gap para el orquestador. Re-correr la
+    suite para regenerar lo que no supiste leer no es verificar: la
+    ilegibilidad de la evidencia no la invalida.
 
     ## Parte 1: Spec Compliance
 
