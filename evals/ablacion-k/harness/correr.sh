@@ -37,6 +37,7 @@ git -C "$O/work" rev-parse HEAD > "$O/inicio.txt" 2>/dev/null || true
 
 # Settings del brazo.
 hooks='{}'
+# a3 usa recall-inject.sh, borrado tras la campaña K; reproducir a3 desde el commit b94ed74.
 case $brazo in
   a1) hooks=$(jq -n --arg c "cat $P/a1-inicio.json" '{SessionStart:[{hooks:[{type:"command",command:$c}]}]}') ;;
   a2) hooks=$(jq -n --arg c "$PLUG/exo-recall.sh" '{SessionStart:[{hooks:[{type:"command",command:$c}]}]}') ;;
