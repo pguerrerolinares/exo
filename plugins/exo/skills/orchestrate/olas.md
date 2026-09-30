@@ -1,5 +1,7 @@
 # Olas: mecánica
 
+Pre-flight en tabla destilado de `subagent-driven-development/SKILL.md` (superpowers 6.4.2, MIT © 2025 Jesse Vincent).
+
 Regla: dos tareas comparten ola si sus `Files` son disjuntos y ninguna
 consume, directa o transitivamente, algo que produce la otra (`Interfaces`).
 
@@ -18,6 +20,16 @@ consume, directa o transitivamente, algo que produce la otra (`Interfaces`).
 - Solo si el script falla: a mano con la misma regla, leyendo `Files` e
   `Interfaces`. Ambiguo o no parseable ⇒ una tarea por ola, en orden, y
   `DAG: secuencial (<motivo>)` en el ledger.
+
+## Pre-flight: tabla
+
+La salida del pre-flight es una tabla en el ledger, no un veredicto: «plan
+limpio» sin filas no es un scan que corriste. Los pares de tareas que
+comparten fichero o interfaz los da `task-dag` (olas y avisos): cópialos, no
+los recalcules a mano. Añade solo una fila por tarea de coherencia interna:
+¿los tests que especifica concuerdan con el código que especifica, y los
+ficheros que crea con los que toca después? Cada hallazgo entra en la pregunta
+batcheada al humano, junto a su fila.
 
 ## Ejecutar una ola
 
