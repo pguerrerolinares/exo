@@ -94,8 +94,7 @@ if printf '%s' "$SALIDA_S" | jq -e '.data.results | type == "array"' >/dev/null 
   pass "contrato search: .data.results es un array"
 else fail "contrato search: .data.results es un array" "$(printf '%s' "$SALIDA_S" | jq -c '.data | keys' 2>/dev/null)"; fi
 
-# Guard de vacuidad, hermano del de `.data.notes` de arriba: los tres predicados
-# siguientes miran `.data.results[0]`, y sobre una lista vacía `jq` opera contra
+# Guard de vacuidad: los tres predicados siguientes miran `.data.results[0]`, y sobre una lista vacía `jq` opera contra
 # `null` — pasarían o fallarían por vacuidad, sin haber ejercido nada. Importa
 # porque este gate corre en CI (`scripts/test-contrato-ci.sh`) contra la KB
 # semilla de `exo init`, no contra una KB poblada: el día que la semilla deje de
