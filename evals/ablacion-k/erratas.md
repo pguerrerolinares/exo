@@ -264,3 +264,11 @@ corte; las incompletas **se repiten todas, de ambos brazos**, con
 `K_REANUDAR=1` (salta solo las corridas con `fin` en `meta.json`). El corte es
 externo e independiente de cualquier resultado, y no se ha mirado ninguna tasa
 de éxito. Desde aquí, cada tanda se lanza como proceso propio.
+
+**I1, continuación.** Una corrida (`s2-wagtail-fb5f684a82f3/a0-r2`) había
+escrito `meta.json` (agente terminado) cuando llegó el corte, pero no el check
+ni `fugas.json`. El modo reanudar la dio por completa y el breaker de fuga saltó
+por el fichero ausente, no por una fuga. Se completaron sus pasos posteriores
+(check, fugas, diff) sobre su workdir intacto, igual que en `correr.sh`, y
+`fugas.json` salió limpio. La tanda 3 queda completa, sin fugas ni fallos de
+infraestructura.
