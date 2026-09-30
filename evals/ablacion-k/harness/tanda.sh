@@ -19,7 +19,7 @@ corre() {  # $1=tarea $2=brazo $3=rep
   local d="$K_ROOT/gold/s1/$1"; [ -d "$d" ] || d="$K_ROOT/gold/s2/$1"
   # K_REANUDAR=1: salta las corridas ya completas (con `fin` en meta.json). Solo para cortes
   # de infraestructura; se repiten todas las incompletas, de cualquier brazo.
-  if [ "${K_REANUDAR:-0}" = 1 ] && jq -e '.fin' "$K_ROOT/corridas/$1/$2-r$3/meta.json" >/dev/null 2>&1; then return 0; fi
+  if [ "${K_REANUDAR:-0}" = 1 ] && jq -e '.fin' "$K_ROOT/corridas/$1/$2-r$3/meta.json" >/dev/null 2>&1 && [ -f "$K_ROOT/corridas/$1/$2-r$3/fugas.json" ]; then return 0; fi
   "$H/correr.sh" "$d" "$2" "$3" > /dev/null 2>&1
 }
 export -f corre; export H K_REANUDAR
