@@ -53,7 +53,7 @@ verificar ni cómo commitear.
 
 ## Hooks
 
-Tabla exacta al cableado vivo de `hooks/hooks.json` (nueve comandos):
+Tabla exacta al cableado vivo de `hooks/hooks.json` (ocho comandos):
 
 | Reflejo | Evento | Fichero | Qué hace | Abstención |
 |---|---|---|---|---|

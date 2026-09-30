@@ -20,7 +20,7 @@ con frontmatter YAML, versionada con git, donde una persona —o el propio
 agente— va destilando decisiones, aprendizajes y estado de proyectos. exo
 indexa esa carpeta en SQLite (texto completo + embeddings semánticos), la hace
 buscable en milisegundos, y **empuja** el contexto relevante al agente en el
-momento en que lo necesita: al arrancar la sesión, al enviar cada prompt y al
+momento en que lo necesita: al arrancar la sesión y al
 lanzar subagentes, sin que el agente tenga que acordarse de buscar.
 
 El problema que resuelve es concreto: un agente de código arranca cada sesión
