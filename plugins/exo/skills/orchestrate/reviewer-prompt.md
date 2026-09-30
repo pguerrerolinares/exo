@@ -81,6 +81,15 @@ Subagent (general-purpose):
     Tu review es read-only sobre este checkout: no mutes working tree,
     index, HEAD ni branch state de ninguna forma.
 
+    ## No despaches subagentes
+
+    Haz toda esta review tú. No lances un subagente para revisar parte del
+    diff ni otro reviewer para una segunda opinión: este proceso ya aporta
+    todos los asientos de review que el trabajo recibe, y uno que lances
+    duplica uno de ellos a coste completo y su verdict no cuenta. Si el
+    diff es demasiado grande para una pasada, revísalo por pasadas tú y
+    dilo en tu report.
+
     ## No confíes en el report
 
     Trata el report del implementer como claims sin verificar — puede
