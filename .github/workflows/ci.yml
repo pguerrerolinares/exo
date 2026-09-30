@@ -247,7 +247,9 @@ jobs:
   plugin-tests:
     name: tests del plugin (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
+    # Windows (fork caro) tarda ~9,5 min con las 22 suites (review-package ~5,5 aun
+    # saltando la muestra de 150): con 10 cualquier runner lento daba rojo.
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
