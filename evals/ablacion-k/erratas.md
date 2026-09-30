@@ -272,3 +272,13 @@ por el fichero ausente, no por una fuga. Se completaron sus pasos posteriores
 (check, fugas, diff) sobre su workdir intacto, igual que en `correr.sh`, y
 `fugas.json` salió limpio. La tanda 3 queda completa, sin fugas ni fallos de
 infraestructura.
+
+## Incidencia I2 — snapshot de la KB mutado durante la etapa 1 (detectado por el adjudicador)
+
+`g1-16/a3-r2` escribió 3 notas en el snapshot compartido (`prep/kb`). El
+harness no lo restaura entre corridas y el refresh del recall las reindexó:
+77 corridas A3 posteriores vieron un snapshot con esas notas, y
+`g1-16/a3-r1` acertó leyéndolas. El 0,5 de A3 en `g1-16` está confundido. No
+cambia ningún veredicto (lo verifica el adjudicador en
+`verdict-etapa1.md` §3). **Para cualquier réplica:** snapshot de solo lectura,
+o restaurado por corrida.
