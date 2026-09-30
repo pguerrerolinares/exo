@@ -4,7 +4,7 @@
 # así que nunca se lanza una corrida que ya tenga meta.json. K_REANUDAR=1 tras un corte solo SALTA las
 # que ya tienen meta.json (completas o no); sin K_REANUDAR, si ya hay alguna, aborta (exit 2).
 # Una tarea `no` (o ausente) en $K_ROOT/reconstruccion.tsv no se corre: evaluar.py la cuenta no cumple/caída.
-# Breakers (tras cada corrida): fuga=true, gasto acumulado (meta.json .usd) > K_TOPE_USD (15). Al final:
+# Breakers (tras cada corrida): fuga=true, gasto acumulado (meta.json .usd) > K_TOPE_USD (15), y
 # > 10 % de las planificadas sin `result`. Todo falla cerrado. Si salta alguno: no se lanzan más, exit 1, y hay que registrarlo
 # en evals/techo-reglas/erratas.md antes de seguir. Exit 0 = tanda completa sin breakers; 2 = precondición.
 # K_ENSAYO=1 pasa a correr.sh (no lanza claude; sin breakers ni tarball).
