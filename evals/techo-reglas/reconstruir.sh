@@ -36,6 +36,25 @@ reconstruir_fuente() {
   printf '%s\t%s\t%s\n' "$id" "$rec" "$mot" >> "$OUT"
 }
 
+# rederivar_claude_md <CLAUDE.md>: re-deriva SIEMPRE prep/claude-md.md del CLAUDE.md dado (barato), para que un
+# prep reutilizado no dé un coincide falso. Si falta o difiere, lo escribe y actualiza el manifiesto.
+# Fija prep_nota (se le añade la nota) y prep_res (coincide/DIFIERE frente a CLAUDE_MD_SHA).
+rederivar_claude_md() {
+  local src=$1 P="$K_ROOT/prep" nuevo sha
+  nuevo=$(mktemp); "$HARNESS/filtro-claude-md.sh" < "$src" > "$nuevo"
+  if [ ! -f "$P/claude-md.md" ]; then prep_nota="${prep_nota}prep/claude-md.md faltaba, derivado; "
+  elif ! cmp -s "$nuevo" "$P/claude-md.md"; then prep_nota="${prep_nota}prep/claude-md.md estaba obsoleto, re-derivado; "
+  fi
+  if ! cmp -s "$nuevo" "$P/claude-md.md" 2>/dev/null; then
+    cp "$nuevo" "$P/claude-md.md"
+    if [ -f "$P/manifiesto.txt" ]; then sed -i "s/^claude-md.md .*/claude-md.md $(sha256sum < "$nuevo" | cut -c1-16)/" "$P/manifiesto.txt"; fi
+  fi
+  rm -f "$nuevo"
+  sha=$(sha256sum < "$P/claude-md.md" | cut -c1-16)
+  if [ "$sha" = "$CLAUDE_MD_SHA" ]; then prep_res="claude-md sha=$sha coincide"
+  else prep_res="claude-md DIFIERE sha=$sha esperado=$CLAUDE_MD_SHA (~/.claude/CLAUDE.md cambio desde K)"; fi
+}
+
 # Con RECONSTRUIR_LIB=1 el script solo define funciones (para los tests).
 [ -n "${RECONSTRUIR_LIB:-}" ] && return 0
 
@@ -59,20 +78,8 @@ elif ! bash "$HARNESS/preparar.sh" "$KB_COMMIT" > "$K_ROOT/preparar.log" 2>&1; t
   prep_nota="preparar.sh fallo (ver preparar.log); "
 fi
 [ -f "$K_ROOT/prep/manifiesto.txt" ] || { prep_nota="${prep_nota}sin manifiesto.txt (correr.sh fallara); "; prep_ok=no; }
-# claude-md.md se re-deriva SIEMPRE del ~/.claude/CLAUDE.md actual (barato): un prep reutilizado no puede dar un coincide falso.
 mkdir -p "$K_ROOT/prep"
-"$HARNESS/filtro-claude-md.sh" < "$HOME/.claude/CLAUDE.md" > "$TMP/claude-md.md"
-if ! cmp -s "$TMP/claude-md.md" "$K_ROOT/prep/claude-md.md"; then
-  prep_nota="${prep_nota}prep/claude-md.md estaba obsoleto, re-derivado; "
-  cp "$TMP/claude-md.md" "$K_ROOT/prep/claude-md.md"
-  [ -f "$K_ROOT/prep/manifiesto.txt" ] && sed -i "s/^claude-md.md .*/claude-md.md $(sha256sum < "$TMP/claude-md.md" | cut -c1-16)/" "$K_ROOT/prep/manifiesto.txt"
-fi
-sha=$(sha256sum < "$K_ROOT/prep/claude-md.md" | cut -c1-16)
-if [ "$sha" = "$CLAUDE_MD_SHA" ]; then
-  prep_res="claude-md sha=$sha coincide"
-else
-  prep_res="claude-md DIFIERE sha=$sha esperado=$CLAUDE_MD_SHA (~/.claude/CLAUDE.md cambio desde K)"
-fi
+rederivar_claude_md "$HOME/.claude/CLAUDE.md"
 printf '_prep\t%s\t%s%s\n' "$prep_ok" "$prep_nota" "$prep_res" >> "$OUT"
 echo "PREP: ${prep_nota}${prep_res}"
 
