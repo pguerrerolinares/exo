@@ -160,5 +160,27 @@ $(printf '%b' "$PIN" | awk '!seen[$0]++')"
   fi
 fi
 
+# --- Aviso: superpowers habilitado a la vez que exo (campaña Q) ---
+# Sin spawns: `$(<fichero)` y `[[ =~ ]]` son builtins de bash. Precedencia de
+# Claude Code, de menos a más específico: user < project < local; gana el
+# último fichero que menciona la clave. Scope managed no se mira (la ruta
+# cambia por SO); `exo doctor` cubre el scope de usuario.
+SP_KEY=""
+SP_RE='"(superpowers@[^"]*)"[[:space:]]*:[[:space:]]*(true|false)'
+for f in "$HOME/.claude/settings.json" \
+         "${CLAUDE_PROJECT_DIR:-$PWD}/.claude/settings.json" \
+         "${CLAUDE_PROJECT_DIR:-$PWD}/.claude/settings.local.json"; do
+  [ -f "$f" ] || continue
+  contenido="$(<"$f")"
+  if [[ "$contenido" =~ $SP_RE ]]; then
+    if [ "${BASH_REMATCH[2]}" = true ]; then SP_KEY="${BASH_REMATCH[1]}"; else SP_KEY=""; fi
+  fi
+done
+if [ -n "$SP_KEY" ]; then
+  TEXTO="${TEXTO}
+
+AVISO exo: ${SP_KEY} sigue habilitado junto a exo (skills y hooks duplicados). Desactívalo: claude plugin disable ${SP_KEY}"
+fi
+
 printf '%s' "$TEXTO" | jq -Rs '{hookSpecificOutput:{hookEventName:"SessionStart",additionalContext:.}}'
 exit 0
