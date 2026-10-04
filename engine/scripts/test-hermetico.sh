@@ -31,7 +31,7 @@ LOG="${EXO_HERMETICO_LOG:-$TMP/out.txt}"
 # corre esto a mano. `PIPESTATUS[0]`: el exit code de `cargo test`, no el de
 # `tee` — explícito, no depende de que a alguien se le ocurra quitar
 # `set -o pipefail` de la línea de arriba en un cambio futuro.
-EXO_CONFIG="$TMP/no-existe.toml" cargo test --release --locked --no-fail-fast 2>&1 | tee "$LOG"
+EXO_CONFIG="$TMP/no-existe.toml" cargo test --locked --no-fail-fast 2>&1 | tee "$LOG"
 EC=${PIPESTATUS[0]}
 
 if [ "$EC" -ne 0 ]; then
