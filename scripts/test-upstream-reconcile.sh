@@ -103,5 +103,20 @@ cp "$d/ledger.md" "$d/antes.md"
 out="$("$SCRIPT" "$d/ledger.md")"
 if [[ "$out" == *"propuesto-malformado #abc a"* ]] && cmp -s "$d/antes.md" "$d/ledger.md"; then ok pr_no_numerico; else bad "pr_no_numerico ($out)"; fi
 
+# revert_no_es_portado: un port revertido no es evidencia; port -> revert -> re-port sí
+# (git revert no revierte commits vacíos: el port lleva un fichero)
+d="$(nuevo_repo)"; echo a > "$d/f"; git -C "$d" add f; git -C "$d" commit -q -m "port(upstream#9143): x"
+git -C "$d" revert --no-edit HEAD >/dev/null 2>&1
+ledger "$d" '| #9143 | orchestrate | aplica | propuesto | m | abc123 |'
+out="$("$SCRIPT" "$d/ledger.md")"
+if grep -qF "| propuesto |" "$d/ledger.md" && ! grep -qF portado "$d/ledger.md" && [ "$out" = "propuesto-sin-evidencia #9143 orchestrate" ]; then ok revert_no_es_portado; else bad "revert_no_es_portado ($out)"; fi
+
+# reporte_tras_revert
+commit "$d" "port(upstream#9143): x otra vez"
+h="$(git -C "$d" rev-parse --short HEAD)"
+ledger "$d" '| #9143 | orchestrate | aplica | propuesto | m | abc123 |'
+out="$("$SCRIPT" "$d/ledger.md")"
+if grep -qF "| portado |" "$d/ledger.md" && grep -qF "$h" "$d/ledger.md" && [ -z "$out" ]; then ok reporte_tras_revert; else bad "reporte_tras_revert ($out)"; fi
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" = 0 ]
