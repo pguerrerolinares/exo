@@ -34,7 +34,7 @@ Fuente: spec §7 (grafo de milestones original, hoy cerrado: M0-M4 y M6 hechos, 
 |---|---|---|---|
 | **P** | `upstream-sync`: deuda del bot + primera pasada puntuada | mecánica + PAUL-STEP | **MERGEADA** en `main` `beecead` (`6a9ffcb`, `1e20dd4`, `5dc8382`, `190a756`). Pasada 1: 81 % (30/37), no pasa el gate; Paul activó la routine de todas formas |
 | **O** | Deuda menor viva (engine, evals, CI, restos de macOS) | mecánica | rama `o-deuda`, **gate MERGED por consultor fable con condición «vía PR»** (verdict `0c0d2a4`); merge pendiente del PR de Paul |
-| **Q** | Shipeo a W11: `install.ps1`, `doctor`, aviso de superpowers, `hook_ms` | mecánica, oráculo = CI Windows | rama `q-w11`, en curso <!-- Q: lo completa el orquestador --> |
+| **Q** | Shipeo a W11: `install.ps1`, `doctor`, aviso de superpowers, `hook_ms` | mecánica, oráculo = CI Windows | rama `q-w11`, **gate MERGED por consultor fable con condición «vía PR, mergear solo con `install gate (windows-latest)` verde»**; diseño del disable por verdict B' (`verdicts/ola3-q-disable-superpowers.md`). Post-merge: release de engine + prueba real en W11 (PAUL-STEP) |
 | **N** | Sincronía de `docs/backlog.md`, `pendiente-paul.md` y este config | mecánica (docs) | rama `n-sync`, esta |
 | R | `retirar-limites` | — | **ENTERRADA** por D1: tag local `archivo/retirar-limites` (`3226cfa`), sin pushear. Los techos por tier y el ratchet siguen vivos |
 
