@@ -64,7 +64,7 @@ pub struct Busqueda {
 /// Existe `tabla` en el schema de `conn` — vía `sqlite_master`, que también
 /// registra las tablas virtuales (`vectores` es `USING vec0(...)`) con
 /// `type='table'`.
-fn tabla_existe(conn: &rusqlite::Connection, tabla: &str) -> Result<bool> {
+pub(crate) fn tabla_existe(conn: &rusqlite::Connection, tabla: &str) -> Result<bool> {
     Ok(conn
         .query_row(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?1",
