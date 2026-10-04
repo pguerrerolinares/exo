@@ -182,20 +182,25 @@ jobs:
   test:
     name: test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: engine
+          # Clave propia: con la de antes acertaba la caché release de main y,
+          # en acierto exacto, rust-cache no guarda: las deps debug se
+          # recompilaban de cero en cada run (~60 s).
+          key: dev
       # Nueve suites indexan cuerpos no vacíos y eso descarga el ONNX de
-      # jina-es (615 MB medidos) vía hf-hub. NO se marcan `#[ignore]`: un CI
-      # que no ejerce indexer ni buscador es verde sin significado. La clave
+      # jina-es (615 MB medidos) vía hf-hub. Las de `inicia.rs` que lanzan
+      # `exo init` van `#[ignore]` (61 s): el extremo a extremo indexer +
+      # buscador lo ejerce `test-contrato-ci.sh` (init + indexado, ~8 s). La clave
       # lleva la revisión pineada del modelo, así que es inmutable: un acierto
       # de caché no vuelve a subir nada.
       # La fuente de verdad de la revisión pineada es `engine/src/lib.rs`
@@ -247,13 +252,13 @@ jobs:
   plugin-tests:
     name: tests del plugin (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    # Windows (fork caro) tarda ~9,5 min con las 22 suites (review-package ~5,5 aun
-    # saltando la muestra de 150): con 10 cualquier runner lento daba rojo.
-    timeout-minutes: 15
+    # Solo Ubuntu (2026-10-04): Windows tardaba ~9,5 min y macOS ~3 min, y el
+    # wall-clock del CI lo marca el job más lento. W11 se cubre con install-gate.
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest]
     steps:
       - uses: actions/checkout@v4
       # Los hooks de plugins/exo corren en la máquina del usuario, en los tres
@@ -273,8 +278,6 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            script: bash scripts/test-install.sh
-          - os: macos-latest
             script: bash scripts/test-install.sh
           # scripts/test-install.ps1 lleva su propio gate: sale 0 solo si el
           # caso "checksum correcto instala" Y el caso "checksum manipulado

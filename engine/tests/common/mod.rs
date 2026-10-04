@@ -140,7 +140,16 @@ fn con_config_restaura_env_aunque_f_panique() {
     unsafe { std::env::set_var("EXO_CONFIG", "valor-de-partida-conocido") };
 
     let resultado = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        con_config_sin_candado("contenido irrelevante: f panica antes de leerlo", || {
+        // TOML válido, no basura: `common` va en cada binario y los tests que
+        // leen config sin candado (p. ej. `indexer.rs` llamando a `indexa`)
+        // podían leer este fichero a mitad y caer por parse error (visto en
+        // debug, PR #37).
+        let valida = render_config(
+            Path::new("/kb-inexistente"),
+            "kb-test",
+            Path::new("/db-inexistente.db"),
+        );
+        con_config_sin_candado(&valida, || {
             panic!("panic deliberado del test de RestauraEnv")
         })
     }));
