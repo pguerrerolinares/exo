@@ -952,6 +952,13 @@ fn emite_escritura(esc: exo::escritor::Escritura, json: bool) {
     if esc.forzado {
         eprintln!("aviso: escritura forzada (--force); queda registrada en el envelope");
     }
+    if !esc.frontmatter_faltante.is_empty() {
+        eprintln!(
+            "aviso: {} nace sin {} en el frontmatter (pasa --tier y pon tags en el --from)",
+            esc.ruta_rel,
+            esc.frontmatter_faltante.join(", ")
+        );
+    }
     if json {
         envelope::emite(
             "write",

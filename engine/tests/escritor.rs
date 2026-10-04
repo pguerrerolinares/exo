@@ -120,6 +120,47 @@ fn nueva_respeta_el_frontmatter_que_ya_trae_el_cuerpo() {
 }
 
 #[test]
+fn nueva_sin_tier_ni_tags_lo_declara_y_aun_asi_escribe() {
+    // exo no inventa `tier` (decide el presupuesto) ni `tags` (semántica):
+    // si faltan, la nota se escribe igual (un cierre no falla por metadatos)
+    // pero la ausencia sale en el envelope. Antes salía muda y la prosa del
+    // skill prometía que se auto-completaba.
+    let kb = kb_falsa();
+    let esc = escribe_nueva(&NuevaNota {
+        kb: kb.path(),
+        proyecto: "kb-test",
+        dir: "projects",
+        titulo: "Sin Metadatos",
+        cuerpo: "cuerpo\n",
+        tier: None,
+        dup_candidatas: &[],
+        forzado: false,
+    })
+    .unwrap();
+
+    assert!(esc.creada);
+    assert_eq!(esc.frontmatter_faltante, vec!["tier", "tags"]);
+}
+
+#[test]
+fn nueva_completa_no_declara_nada_faltante() {
+    let kb = kb_falsa();
+    let esc = escribe_nueva(&NuevaNota {
+        kb: kb.path(),
+        proyecto: "kb-test",
+        dir: "projects",
+        titulo: "Con Todo",
+        cuerpo: "---\ntags:\n- uno\n---\ncuerpo\n",
+        tier: Some("stable"),
+        dup_candidatas: &[],
+        forzado: false,
+    })
+    .unwrap();
+
+    assert!(esc.frontmatter_faltante.is_empty());
+}
+
+#[test]
 fn nueva_jamas_pisa_una_nota_existente() {
     let kb = kb_falsa();
     escribe_nota(

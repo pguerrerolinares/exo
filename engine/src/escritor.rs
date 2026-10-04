@@ -99,6 +99,12 @@ pub struct Escritura {
     /// auto-completa y nunca rechaza). Vacío = el autor lo traía todo.
     #[serde(rename = "frontmatter_filled")]
     pub frontmatter_completado: Vec<String>,
+    /// Claves obligatorias (`tier`, `tags`) que la nota escrita NO lleva.
+    /// exo no las inventa —`tier` decide el presupuesto, `tags` es semántica—
+    /// y tampoco rechaza (M4-03), así que la ausencia se declara aquí y por
+    /// stderr en vez de salir muda. Vacío = nota completa.
+    #[serde(rename = "frontmatter_missing")]
+    pub frontmatter_faltante: Vec<String>,
     /// `--force` usado. Se emite SIEMPRE que se fuerza, para que el escape
     /// quede auditable (spec M4 §7.3: un guard sin vía de excepción muere por
     /// ruido; una vía de excepción sin rastro es peor).
@@ -292,6 +298,12 @@ pub fn escribe_nueva(n: &NuevaNota) -> Result<Escritura> {
     let (yaml_previo, cuerpo_limpio) = separa_frontmatter(n.cuerpo);
     let (frontmatter, completado) = compone_frontmatter(&yaml_previo, n.titulo, &permalink, n.tier);
 
+    let frontmatter_faltante = ["tier", "tags"]
+        .into_iter()
+        .filter(|k| valor_yaml(&frontmatter, k).is_none())
+        .map(String::from)
+        .collect();
+
     let contenido = format!("---\n{frontmatter}---\n{cuerpo_limpio}");
     escribe_atomico(&ruta_abs, &contenido)?;
 
@@ -302,6 +314,7 @@ pub fn escribe_nueva(n: &NuevaNota) -> Result<Escritura> {
         ruta_abs: crate::walker::ruta_portable(&ruta_abs.display().to_string()),
         creada: true,
         frontmatter_completado: completado,
+        frontmatter_faltante,
         forzado: n.forzado,
     })
 }
@@ -349,6 +362,7 @@ pub fn escribe_append(kb: &Path, ruta_rel: &str, texto: &str, forzar: bool) -> R
         ruta_abs: crate::walker::ruta_portable(&ruta_abs.display().to_string()),
         creada: false,
         frontmatter_completado: Vec::new(),
+        frontmatter_faltante: Vec::new(),
         forzado: forzar,
     })
 }
