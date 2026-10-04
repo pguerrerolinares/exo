@@ -8,6 +8,26 @@ description: Usa antes de cualquier trabajo creativo — nueva feature, componen
 Explora intención, requisitos y diseño en diálogo colaborativo antes de
 implementar. Termina invocando `exo:plan` — nunca código.
 
+Entendimiento compartido y gate por etapa destilados de `brainstorming/SKILL.md`
+(superpowers 6.4.2, MIT © 2025 Jesse Vincent).
+
+## Entendimiento compartido
+
+El resultado es un entendimiento que el usuario pueda reconocer y corregir,
+anclado en lo que quiere lograr.
+
+1. **Descubre la intención:** resultado buscado, para quién, cómo se ve el
+   éxito. Si falta, UNA pregunta sobre propósito o uso antes de proponer
+   features o enfoque: conocer el género de la app no dice por qué la quiere.
+2. **Devuélvelo por escrito:** resumen corto (resultado, restricciones,
+   criterios de éxito) separando lo dicho de tus supuestos; invita a
+   corregir e incorpora la respuesta antes de tratarlo como brief del diseño.
+3. **Llévalo al diseño:** conserva ese entendimiento en el diseño y contrasta
+   con él cada feature y decisión técnica.
+
+Si la petición ya trae propósito y restricciones, refléjalos en vez de
+repreguntar. La nota es breve; importa que sea exacta y corregible.
+
 ## Proceso
 
 - Explora primero el contexto del proyecto: ficheros, docs, commits recientes.
@@ -30,10 +50,17 @@ implementar. Termina invocando `exo:plan` — nunca código.
 
 ## Gate: diseño antes de código
 
-No invoques ninguna skill de implementación, ni escribas código, hasta que el
-usuario apruebe el diseño. Aplica a TODO proyecto, sin importar cuán simple
+No invoques ninguna skill de implementación, ni escribas código, ni scaffold,
+ni instales dependencias de producto, hasta que el usuario apruebe el diseño y
+luego revise la spec escrita. Aplica a TODO proyecto, sin importar cuán simple
 parezca — "demasiado simple para necesitar diseño" es la trampa más común: el
 diseño puede ser corto, pero se presenta y se aprueba siempre.
+
+Una respuesta aprueba la etapa que realmente se presentó: aprobar una idea o
+su alcance no aprueba artefactos que aún no existen; el visto bueno del
+diseño conversacional solo permite escribir la spec, y el de la spec escrita
+solo permite invocar `exo:plan`. Retoma en la primera etapa incompleta. La
+exploración de solo lectura del proyecto sigue permitida.
 
 ## Después del diseño
 

@@ -89,16 +89,16 @@ Decisiones de Paul (2026-09-30), distintas de las Divergencias: no son "no porta
 
 | PR | skill | triage | estado | motivo | hash |
 |---|---|---|---|---|---|
-| #2136 | orchestrate | aplica | propuesto | — | f0cf912 |
-| #2089 | orchestrate | aplica | propuesto | — | 8a4f832 |
-| #2059 | orchestrate | aplica | propuesto | — | b833219 |
-| #2110 | tdd | parcial | propuesto | — | 34e1fd9 |
-| #2080 | orchestrate | aplica | propuesto | — | bfef11e |
-| #1943 | orchestrate | aplica | pendiente | tope | — |
-| #2138 | orchestrate | aplica | pendiente | tope | — |
-| #1998 | orchestrate | aplica | pendiente | tope | — |
-| #2086 | orchestrate | parcial | pendiente | tope | — |
-| #2258 | brainstorm | aplica | pendiente | tope | — |
+| #2136 | orchestrate | aplica | portado | — | f0cf912 |
+| #2089 | orchestrate | aplica | portado | — | 8a4f832 |
+| #2059 | orchestrate | aplica | portado | — | b833219 |
+| #2110 | tdd | parcial | portado | — | 34e1fd9 |
+| #2080 | orchestrate | aplica | portado | — | bfef11e |
+| #1943 | orchestrate | aplica | portado | — | 5b4ca55 |
+| #2138 | orchestrate | aplica | portado | — | f6d91e7 |
+| #1998 | orchestrate | aplica | portado | — | 54bc199 |
+| #2086 | orchestrate | parcial | portado | — | b78b279 |
+| #2258 | brainstorm | aplica | portado | — | 8952629 |
 | #2319 | orchestrate | parcial | pendiente | tope | — |
 | #2077 | orchestrate | duda | pendiente | ¿exo pasa a decidir con Ruling en el ledger los conflictos y ambigüedades del plan en vez de parar y preguntar al humano (orchestrate/SKILL.md:25-26 y :53)? Upstream solo para en 4 casos: irreversible / seguridad / efecto fuera del worktree / plan roto | — |
 | #2063 | brainstorm | duda | pendiente | ¿adoptar el router de tres caminos (spike / bounded / architectural) en brainstorm? exo tiene un solo camino (brainstorm/SKILL.md:15-30) | — |

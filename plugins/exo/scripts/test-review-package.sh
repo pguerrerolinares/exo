@@ -11,6 +11,7 @@ RP="${SCRIPT_DIR}/../skills/orchestrate/scripts/review-package"
 STUBS="${SCRIPT_DIR}/testdata/review-package/bin"
 
 TMP="$(mktemp -d)"
+: > "$TMP/plan.md"
 trap 'rm -rf "$TMP"' EXIT
 
 PASS=0
@@ -79,7 +80,7 @@ mkrepo() {
 corre() {
   local r=$1 pdir=$2; shift 2
   LOG="$TMP/stub-$$-$RANDOM.log"; : > "$LOG"
-  ( cd "$r" && env PATH="$pdir" STUB_LOG="$LOG" "$@" "$RP" "$BASE" "$HEAD" "$TMP/out.diff" >/dev/null 2>"$TMP/err" )
+  ( cd "$r" && env PATH="$pdir" STUB_LOG="$LOG" "$@" "$RP" "$TMP/plan.md" "$BASE" "$HEAD" "$TMP/out.diff" >/dev/null 2>"$TMP/err" )
   RC=$?
   OUT=$(cat "$TMP/out.diff")
 }
