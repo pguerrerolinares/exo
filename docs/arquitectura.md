@@ -207,11 +207,13 @@ motivos, tal como los declara el código:
 `hybrid` desde el 2026-09-15** — D6, decisión 1 de Paul, campaña G Task 11;
 antes `fts`), implementados en `engine/src/buscador.rs`. Todos devuelven
 resultados **a nivel de nota** (`type: "entity"`), nunca de trozo. El modo
-calibrado y medido (48/55 hit@5 **in-sample**, §6; held-out **64/92**,
-Wilson 95 % [59,5 %, 78,0 %], **no comparable** con el 48/55 — distinta
-fuente de queries, §6; desde B2 (2026-10-04, FTS en OR + CombSUM) el
-gold J da 107/145 hit@5 frente a 90/145 de la fusión anterior, medido con
-`evals/b-retrieval/`, orientativo) es ahora justo el default: `--type hybrid` con
+medido es el default, `--type hybrid`. Desde el 2026-10-04 (serie B, engine
+0.3.0) el FTS une los tokens con OR y la fusión es CombSUM. Sobre el gold J
+da hit@5 **107/145**, frente a 90/145 de la versión anterior (AND + CombMAX).
+Sin el estrato `prompt`, que modelaba el recall por prompt ya borrado, la
+cifra pasa de **61/91 a 74/91**. Es un eval orientativo (`evals/b-retrieval/`,
+§6). Las cifras históricas (48/55 in-sample, 64/92 held-out de la campaña C)
+son de la fusión anterior. El default usa
 `min_similarity = MIN_SIMILARITY_SELLADO = 0.40` cuando `--min-similarity`
 se omite — ya no hace falta pasarlo a mano. `fts` a secas sigue disponible
 con `--type fts`, es el modo léxico barato, no el medido. `exo recall
@@ -237,7 +239,7 @@ flowchart TD
     Q["query"] --> FTSQ["prepara_query<br/>tokens entre comillas, unidos con OR<br/>(guiones, acentos y / no rompen MATCH)"]
     FTSQ --> FTS["busca — canal FTS<br/>MATCH sobre notas_fts,<br/>score = −bm25, hasta K_c = 50 candidatos"]
     Q --> EMBQ["Embedder: embed de la query<br/>(mismo modelo que el índice)"]
-    EMBQ --> KNN["vectores::knn — KNN EXHAUSTIVO<br/>k = COUNT(*) sobre vec0"]
+    EMBQ --> KNN["KNN por consulta (H29)<br/>ventana k = max(64, 8·limite),<br/>crece ×4 hasta que basta"]
     KNN --> SIM["similitud = 1 − L2/2 (monótona en coseno,<br/>NO coseno exacto — H28)<br/>filtro min_similarity (flag > config)"]
     SIM --> AGG["agregación trozo→nota:<br/>la nota puntúa como su MEJOR trozo"]
     FTS --> NORM["normaliza_fts (por query)<br/>f = β · f_raw / f_max — el top-1<br/>FTS vale exactamente β"]
@@ -249,11 +251,15 @@ flowchart TD
 
 - **fts**: FTS5 puro, score `-bm25` (mayor = mejor). Query sin hits = éxito
   con lista vacía, no error.
-- **vector**: embed de la query + KNN exhaustivo (pedir menos vecinos no
-  ahorra trabajo en vec0 sin partición y arriesga perder el mejor trozo de una
-  nota), umbral de similitud monótona en el coseno (no coseno exacto — H28,
+- **vector**: embed de la query + KNN con ventana adaptativa
+  (`busca_vector_con_embedding`, H29): pide `max(64, 8·limite)` vecinos y
+  multiplica por 4 hasta que hay `limite` notas distintas sobre el umbral o
+  se agota el corpus. El resultado es idéntico al exhaustivo (test
+  `equivalencia_exacta_contra_exhaustiva`). Umbral de similitud monótona en el coseno (no coseno exacto — H28,
   ver §3.4), agregación trozo→nota por máximo.
-- **hybrid**: los dos canales fusionados por unión. Los parámetros de fusión
+- **hybrid**: los dos canales fusionados por unión con **CombSUM**,
+  `v + f`. Hasta la 0.2.0 era CombMAX, `max(v, f)`, elegido cuando el FTS
+  era conjuntivo. Cada canal aporta hasta K_c = 50 candidatos. Los parámetros de fusión
   van **sellados** en `main.rs` tras el sweep de calibración de M2-07:
   `bonus = 0.0` y `β = 0.6` (`BONUS_SELLADO`, `ESCALA_FTS_SELLADA`),
   sobreescribibles con `--bonus`/`--fts-scale`. El umbral ganador del sweep
@@ -283,8 +289,12 @@ formas:
   vuelca el **cuerpo** de la nota pedida (o de todas las `tier: core`) más la
   lista de actividad reciente. Es lo que consume el hook de SessionStart; qué
   nota es "la de arranque" lo decide el consumidor, no el engine.
-- **Consulta** (`--query`): `busca_hybrid` con los defaults sellados; cada hit
-  lleva un snippet (su primer trozo, recortado a ~200 bytes).
+- **Consulta** (`--query`): `busca_hybrid` con los defaults sellados. Sale
+  una lista L0: cada hit lleva su score y el fragmento del cuerpo que casa con
+  la query (`snippet()` de FTS5, ~200 bytes). Si la nota entró solo por
+  vector, lleva su primer trozo. No hay umbral de abstención: el score absoluto
+  no separa una query sin respuesta de una con ella, y el agente decide qué
+  abre.
 
 Contratos transversales: presupuesto duro de salida (`--cap-bytes`, default
 2048, trunca por **líneas enteras**, nunca una nota a medias, con aviso por
@@ -379,7 +389,7 @@ tareas acotadas con la doctrina en su system prompt. El catálogo destila
 [`obra/superpowers`](https://github.com/obra/superpowers) (MIT) más doctrina
 propia; el reparto exacto está en `plugins/exo/README.md`.
 
-**Hooks** (9 comandos cableados en `plugins/exo/hooks/hooks.json`). Son los
+**Hooks** (8 comandos cableados en `plugins/exo/hooks/hooks.json`). Son los
 "reflejos": guardrails deterministas que activan el conocimiento en el punto
 de acción. Invariantes de todos ellos: **never-block** (exit 0 siempre; como
 mucho `additionalContext` o un rewrite silencioso de alta confianza),
@@ -562,8 +572,13 @@ corrida, y los números no se renegocian.
   LLM ciegos de familias distintas, con suelo de fiabilidad pre-registrado
   (κ ≥ 0,6 y acuerdo ≥ 0,7): salió **κ 0,810** sobre 285 filas
   (`verdict/gold-j-acuerdo.md`). Con eso cierra la fase 1 (gold y
-  pre-registro congelados); la corrida que mide al engine contra él es la
-  fase 2.
+  pre-registro congelados).
+- **`evals/b-retrieval/`** (serie B, 2026-10-04): eval **orientativo**, no
+  gate, contra el gold J. `rapido.py` corre `exo search` por brazo y da hit@5
+  y MRR@10 por estrato, con las nulas y el estrato `prompt` aparte.
+  `fusion.py` simula operadores de fusión (CombMAX, CombSUM, RRF) offline
+  sobre las listas capturadas y reproduce el binario exactamente. Con ellos
+  se decidieron FTS en OR y CombSUM, en minutos y sin pre-registro.
 - **`evals/prep-m3/`**: eval de otra naturaleza — paridad de **movimientos**
   de las skills destiladas frente a sus fuentes de superpowers. El oráculo no
   es mecánico: checklists gold por skill (`gold/*.md`, con sección DESCARTES

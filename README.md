@@ -21,7 +21,7 @@ separado:
 - **El engine** — `exo`, un binario sin runtime: indexa la KB y sirve búsqueda
   y recall (`exo --help`).
 - **El plugin de Claude Code** — `plugins/exo/`: hooks que inyectan el recall
-  al arrancar y en cada prompt, y skills de proceso (plan, tdd, debug,
+  al arrancar, y skills de proceso (plan, tdd, debug,
   document…) que escriben en la KB.
 
 ## Instalar
@@ -53,8 +53,8 @@ exo recall --query "qué base de datos usamos" --limit 3
 ```
 
 `exo search` devuelve `mi-kb/learnings/por-que-sqlite` como primer resultado,
-y `exo recall` la sirve primera con su primer párrafo: es el bloque que el
-plugin inyecta al agente.
+y `exo recall --query` la sirve primera con su score y el fragmento que casa
+con la consulta: una lista corta para que el agente decida qué nota abre.
 
 ## Arquitectura
 
