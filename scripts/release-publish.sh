@@ -48,7 +48,7 @@ if [ -z "$n" ]; then
     --repo "$REPO" \
     --verify-tag \
     --title "exo $TAG" \
-    --notes "Binarios para linux-x86_64, windows-x86_64 y macos-arm64, cada uno con su \`.sha256\`.
+    --notes "Binarios para linux-x86_64 y windows-x86_64, cada uno con su \`.sha256\`.
 
 Instalación (requiere \`git\` y \`jq\`; ni Rust ni toolchain C):
 

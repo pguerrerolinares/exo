@@ -36,10 +36,10 @@ exit 0
 STUB
 chmod +x "$TMP/bin/gh"
 
-# --- Un dist con los 6 ficheros que publica una release real.
+# --- Un dist con los 4 ficheros que publica una release real.
 DIST="$TMP/dist"
 mkdir -p "$DIST"
-for t in x86_64-unknown-linux-gnu aarch64-apple-darwin; do
+for t in x86_64-unknown-linux-gnu; do
   printf 'binario-falso' > "$DIST/exo-$t"
   printf 'hash  exo-%s\n' "$t" > "$DIST/exo-$t.sha256"
 done

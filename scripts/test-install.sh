@@ -14,7 +14,6 @@ fallos=0
 
 case "$(uname -s)" in
   Linux)  asset="exo-x86_64-unknown-linux-gnu"; bin="exo" ;;
-  Darwin) asset="exo-aarch64-apple-darwin"; bin="exo" ;;
   MINGW*|MSYS*|CYGWIN*) asset="exo-x86_64-pc-windows-msvc.exe"; bin="exo.exe" ;;
   *) echo "test-install: plataforma no soportada por el test: $(uname -s)" >&2; exit 1 ;;
 esac

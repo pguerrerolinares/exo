@@ -50,8 +50,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
-      # Sin fail-fast: si macOS cae, se quiere ver si linux y windows
-      # compilaron. Quien impide que una release coja se publique NO es el
+      # Sin fail-fast: si un SO cae, se quiere ver si el otro compiló. Quien impide que una release coja se publique NO es el
       # gate de inventario de `publish`, sino su `needs: build`: si cualquier
       # leg de la matriz falla, el job `build` concluye en `failure` y
       # `publish` ni arranca. El inventario es la segunda línea.
@@ -64,9 +63,6 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             bin: exo.exe
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            bin: exo
     steps:
       - uses: actions/checkout@v4
         with:
@@ -145,14 +141,15 @@ jobs:
         run: |
           set -euo pipefail
           ls -l dist
-          # Seis ficheros exactos: 3 binarios + 3 .sha256. Defensa en
+          # Cuatro ficheros exactos: 2 binarios + 2 .sha256 (macOS fuera desde
+          # 2026-10-04). Defensa en
           # profundidad, no la defensa principal: un runner caído ya lo para
           # `needs: build` antes de llegar aquí. Esto cubre lo que aquel no ve
           # —un artifact que sube de menos, un cambio de nombres— y el daño
           # que evita es el mismo: install.sh daría 404 en esa plataforma y
           # nadie lo sabría hasta que alguien intentara instalar.
           n="$(find dist -maxdepth 1 -mindepth 1 | wc -l)"
-          [ "$n" -eq 6 ] || { echo "esperaba 6 ficheros en dist, hay $n" >&2; exit 1; }
+          [ "$n" -eq 4 ] || { echo "esperaba 4 ficheros en dist, hay $n" >&2; exit 1; }
       # Un tag que no casa con Cargo.toml publicaría binarios cuyo
       # `exo --version` dice otra cosa.
       - name: El tag casa con engine/Cargo.toml

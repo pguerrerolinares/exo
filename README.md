@@ -6,7 +6,7 @@ aprendes en una KB de notas markdown versionada con git, la indexa en local
 agente cuando la necesita: al empezar la sesión y cuando busca.
 
 **Para quién es hoy:** exo es el sistema de trabajo de su autor, publicado tal
-cual (MIT). Funciona y se prueba en Linux, macOS y Windows, pero lo decide un
+cual (MIT). Funciona y se prueba en Linux y Windows, pero lo decide un
 solo usuario: sin promesa de estabilidad ni soporte.
 
 ## Qué problema resuelve
