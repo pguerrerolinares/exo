@@ -924,7 +924,9 @@ fn write_append_cmd(args: ArgsWriteAppend) -> Result<()> {
                     proyecto: &proyecto,
                     dir,
                     titulo: slug_nota,
-                    cuerpo: "",
+                    // `tags` obligatorio en toda nota (con `tier`): la
+                    // convención de las bitácoras de la KB es `bitacora`.
+                    cuerpo: "---\ntags:\n- bitacora\n---\n",
                     tier: Some("log"),
                     dup_candidatas: &[],
                     forzado: false,
