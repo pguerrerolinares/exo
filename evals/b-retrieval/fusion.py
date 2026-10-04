@@ -78,15 +78,15 @@ def main():
     for op in ("vector", "combmax", "combsum", "rrf"):
         rks = [fusiona(caps[f["id"]], op) for f in filas]
         por = metricas(filas, rks)
-        pos = [v for k, v in por.items() if k != "negativo"]
+        pos = [v for k, v in por.items() if k != "nulas"]
         n, h = sum(v["n"] for v in pos), sum(v["hit5"] for v in pos)
         rr = sum(v["rr"] for v in pos) / max(n, 1)
         h1 = sum(1 for f, rk in zip(filas, rks) if f["expected_permalink"] and rk
                  and rk[0] in {f["expected_permalink"], *f.get("acceptable_permalinks", [])})
-        estr = " ".join(f"{k}={v['hit5']}/{v['n']}" for k, v in sorted(por.items()) if k != "negativo")
-        neg = por.get("negativo", {"n": 0, "con_algo": 0})
+        estr = " ".join(f"{k}={v['hit5']}/{v['n']}" for k, v in sorted(por.items()) if k != "nulas")
+        neg = por.get("nulas", {"n": 0, "con_algo": 0})
         print(f"{op:8} hit@5 {h}/{n} hit@1 {h1} MRR@10 {rr:.3f} | {estr} | "
-              f"negativos con resultado {neg['con_algo']}/{neg['n']}")
+              f"nulas con resultado {neg['con_algo']}/{neg['n']}")
 
 
 if __name__ == "__main__":

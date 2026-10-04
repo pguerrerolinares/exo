@@ -616,7 +616,7 @@ fn normaliza_fts(candidatos_fts: &[(String, f64)], beta: f64) -> HashMap<String,
 
 /// Fusión por UNIÓN (spec fusión §4.4/§4.5, D-f2), clave `(entity,
 /// permalink)`: `score(e) = v + f + bonus·min(v,f)` (CombSUM, B2 2026-10-04:
-/// con FTS en OR, CombSUM dio hit@5 107/200 frente a 95/200 de CombMAX sobre
+/// con FTS en OR, CombSUM dio hit@5 107/145 frente a 95/145 de CombMAX sobre
 /// el gold J, `evals/b-retrieval/fusion.py`), canal ausente = 0.
 /// Admite la entidad si aparece en CUALQUIERA de los dos mapas (gate FTS =
 /// lectura B, el gate lo realiza el término `bonus·min`, no la admisión).

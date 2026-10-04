@@ -32,12 +32,16 @@ def busca(binario, db, query, tipo, min_sim):
 def metricas(filas, rankings):
     por = collections.defaultdict(lambda: {"n": 0, "hit5": 0, "rr": 0.0, "con_algo": 0})
     for f, rk in zip(filas, rankings):
-        e = por[f["source"]]
-        e["n"] += 1
         rk = rk or []
         if f["expected_permalink"] is None:
+            # Nula (estrato negativo o prompt sin nota en la KB): no cuenta
+            # como positiva; lo ideal es que no devuelva nada.
+            e = por["nulas"]
+            e["n"] += 1
             e["con_algo"] += bool(rk)
             continue
+        e = por[f["source"]]
+        e["n"] += 1
         rel = {f["expected_permalink"], *f.get("acceptable_permalinks", [])}
         e["hit5"] += any(p in rel for p in rk[:5])
         e["rr"] += next((1 / i for i, p in enumerate(rk[:10], 1) if p in rel), 0.0)
@@ -61,14 +65,14 @@ def main():
             rks = list(ex.map(lambda f: busca(binario, a.db, f["query"], tipo, min_sim), filas))
         errores = sum(r is None for r in rks)
         por = metricas(filas, rks)
-        pos = [v for k, v in por.items() if k != "negativo"]
+        pos = [v for k, v in por.items() if k != "nulas"]
         n = sum(v["n"] for v in pos)
         h = sum(v["hit5"] for v in pos)
         rr = sum(v["rr"] for v in pos)
-        neg = por.get("negativo", {"n": 0, "con_algo": 0})
-        estratos = " ".join(f"{k}={v['hit5']}/{v['n']}" for k, v in sorted(por.items()) if k != "negativo")
+        neg = por.get("nulas", {"n": 0, "con_algo": 0})
+        estratos = " ".join(f"{k}={v['hit5']}/{v['n']}" for k, v in sorted(por.items()) if k != "nulas")
         print(f"{nombre:14} hit@5 {h}/{n} MRR@10 {rr / max(n, 1):.3f} | {estratos} | "
-              f"negativos con resultado {neg['con_algo']}/{neg['n']} | errores {errores}", flush=True)
+              f"nulas con resultado {neg['con_algo']}/{neg['n']} | errores {errores}", flush=True)
 
 
 if __name__ == "__main__":

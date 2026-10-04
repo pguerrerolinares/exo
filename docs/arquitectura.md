@@ -210,7 +210,7 @@ resultados **a nivel de nota** (`type: "entity"`), nunca de trozo. El modo
 calibrado y medido (48/55 hit@5 **in-sample**, §6; held-out **64/92**,
 Wilson 95 % [59,5 %, 78,0 %], **no comparable** con el 48/55 — distinta
 fuente de queries, §6; desde B2 (2026-10-04, FTS en OR + CombSUM) el
-gold J da 107/200 hit@5 frente a 90/200 de la fusión anterior, medido con
+gold J da 107/145 hit@5 frente a 90/145 de la fusión anterior, medido con
 `evals/b-retrieval/`, orientativo) es ahora justo el default: `--type hybrid` con
 `min_similarity = MIN_SIMILARITY_SELLADO = 0.40` cuando `--min-similarity`
 se omite — ya no hace falta pasarlo a mano. `fts` a secas sigue disponible
