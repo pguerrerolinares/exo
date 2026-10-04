@@ -42,7 +42,7 @@ if [ "$N_HOOKS" -eq 0 ]; then
 fi
 
 FALLOS=0
-EVENTOS_VALIDOS="PreToolUse SessionStart Stop SubagentStart UserPromptSubmit"
+EVENTOS_VALIDOS="PreToolUse SessionStart Stop SubagentStart"
 
 for evento in $(jq -r '.hooks | keys[]' "$HOOKS" | tr -d '\r'); do
   if ! printf '%s\n' "$EVENTOS_VALIDOS" | tr ' ' '\n' | grep -qx "$evento"; then
@@ -50,6 +50,13 @@ for evento in $(jq -r '.hooks | keys[]' "$HOOKS" | tr -d '\r'); do
     FALLOS=1
   fi
 done
+
+# El recall por prompt se borró (campaña K): ningún hook debe volver a colgarse
+# de UserPromptSubmit sin decisión explícita.
+if [ "$(jq '.hooks | has("UserPromptSubmit")' "$HOOKS" | tr -d '\r')" != "false" ]; then
+  echo "[FAIL] $HOOKS: sobrevive la clave UserPromptSubmit (hook de recall por prompt borrado)" >&2
+  FALLOS=1
+fi
 
 while IFS= read -r tipo; do
   if [ "$tipo" != "command" ]; then
@@ -79,6 +86,6 @@ while IFS= read -r cmd; do
 done < <(jq -r '.hooks[][].hooks[].command' "$HOOKS" | tr -d '\r')
 
 if [ "$FALLOS" -eq 0 ]; then
-  echo "[OK] test-hooks-json: eventos, type=command y scripts referenciados, todos 100755"
+  echo "[OK] test-hooks-json: eventos, sin UserPromptSubmit, type=command y scripts referenciados, todos 100755"
 fi
 exit "$FALLOS"

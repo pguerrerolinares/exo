@@ -33,11 +33,23 @@ stubs_para() {
     p=$(command -v "$u" 2>/dev/null) || continue
     # `true` puede resolverse como builtin (sin ruta): mutmut lo lanza como binario (--runner true)
     case "$p" in /*) ;; *) p=""; for c in "/usr/bin/$u" "/bin/$u"; do [ -x "$c" ] && { p=$c; break; }; done ;; esac
-    case "$p" in /*) ln -sf "$p" "$d/$u" ;; esac
+    # En MSYS (Windows) `ln -s` COPIA el .exe lejos de sus DLLs (msys-2.0.dll...), y con el
+    # PATH hermético el loader no las encuentra: 127. Un wrapper ejecuta el binario desde su
+    # dir real, donde el loader busca las DLLs primero.
+    case "$p" in /*)
+      case "$(uname -s)" in
+        MINGW*|MSYS*|CYGWIN*) printf '#!/bin/sh\nexec %s "$@"\n' "'$p'" > "$d/$u"; chmod +x "$d/$u" ;;
+        *) ln -sf "$p" "$d/$u" ;;
+      esac ;;
+    esac
   done
   for u in "$@"; do cp "$STUBS/$u" "$d/$u"; done
   echo "$d"
 }
+
+# sedi ARGS... FICHERO -> `sed -i` portable: el de BSD (macOS) toma el script como
+# sufijo de backup. El último argumento es el fichero; se reescribe vía temporal.
+sedi() { local f=${!#}; sed "${@:1:$#-1}" "$f" > "$f.sedi" && mv "$f.sedi" "$f"; }
 
 # mkrepo NOMBRE MANIFIESTO FICHERO... -> repo con base (manifiesto + README) y
 # head (FICHEROs añadidos). Deja la ruta en $REPO y los commits en $BASE/$HEAD
@@ -89,11 +101,14 @@ corre "$r" "$(stubs_para vacio)"
 if contains "$OUT" "MUTACIÓN: no disponible (cargo-mutants no instalado)"; then pass herramienta_ausente; else fail herramienta_ausente "$(seccion)"; fi
 
 # ---- timeout (y sin huérfanos: sleep con duración única)
+# Cota de dt: lo que se vigila es no esperar al `sleep 31337`. En Windows (fork caro en MSYS)
+# el resto del paquete ya cuesta 4-5 s solo, y `<5` caía a ras en 3/3 runs de main tras 946a2a4.
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) DT_MAX=15 ;; *) DT_MAX=5 ;; esac
 mkrepo tmo Cargo.toml src/lib.rs; r=$REPO
 t0=$SECONDS
 corre "$r" "$(stubs_para tmo cargo-mutants)" EXO_MUTATION_TIMEOUT=1 STUB_SLEEP=31337
 dt=$((SECONDS - t0))
-if contains "$OUT" "MUTACIÓN: parcial (timeout 1s)" && [ "$dt" -lt 5 ]; then pass timeout; else fail timeout "dt=${dt}s: $(seccion)"; fi
+if contains "$OUT" "MUTACIÓN: parcial (timeout 1s)" && [ "$dt" -lt "$DT_MAX" ]; then pass timeout; else fail timeout "dt=${dt}s: $(seccion)"; fi
 if pgrep -f "sleep 31337" >/dev/null 2>&1; then fail timeout_huerfanos "queda un sleep 31337 vivo"; pkill -f "sleep 31337" 2>/dev/null; else pass timeout_huerfanos; fi
 
 # ---- rust_ok
@@ -241,7 +256,7 @@ echo x > "$r/py/setup.py"
 printf 'def a(x):\n    return x + 1\n\ndef b(x):\n    return x - 1\n\ndef c(x):\n    return x * 2\n' > "$r/py/src/m.py"
 echo "def test_a(): pass" > "$r/py/tests/test_m.py"
 git -C "$r" add -A >/dev/null; git -C "$r" commit -qm base; BASE=$(git -C "$r" rev-parse HEAD)
-sed -i 's/return x - 1/return x - 2/' "$r/py/src/m.py"; echo "def test_b(): pass" >> "$r/py/tests/test_m.py"
+sedi 's/return x - 1/return x - 2/' "$r/py/src/m.py"; echo "def test_b(): pass" >> "$r/py/tests/test_m.py"
 git -C "$r" commit -qam head; HEAD=$(git -C "$r" rev-parse HEAD)
 corre "$r" "$(stubs_para mmdiff mutmut)" STUB_MUTMUT=2
 a=$(cat "$LOG")
@@ -255,8 +270,8 @@ echo '{"devDependencies":{"@stryker-mutator/core":"9"}}' > "$r/package.json"
 lineas 30 L > "$r/src/a.js"; lineas 8 M > "$r/src/b.js"
 git -C "$r" add -A >/dev/null; git -C "$r" commit -qm base; BASE=$(git -C "$r" rev-parse HEAD)
 # a.js: cambia L3-L4, borra L10 (los siguientes suben 1), cambia L20 (queda en la 19 nueva)
-sed -i -e 's/^L3$/X3/' -e 's/^L4$/X4/' -e '/^L10$/d' -e 's/^L20$/X20/' "$r/src/a.js"
-sed -i 's/^M5$/Y5/' "$r/src/b.js"
+sedi -e 's/^L3$/X3/' -e 's/^L4$/X4/' -e '/^L10$/d' -e 's/^L20$/X20/' "$r/src/a.js"
+sedi 's/^M5$/Y5/' "$r/src/b.js"
 git -C "$r" commit -qam head; HEAD=$(git -C "$r" rev-parse HEAD)
 corre "$r" "$(stubs_para strange npx)"
 a=$(cat "$LOG")
@@ -268,7 +283,7 @@ r="$TMP/repo-del"; mkdir -p "$r/src"; git -C "$r" init -q; git -C "$r" config us
 echo '{"devDependencies":{"@stryker-mutator/core":"9"}}' > "$r/package.json"
 lineas 10 L > "$r/src/c.js"; printf 'def a():\n    return 1\n\ndef b():\n    return 2\n' > "$r/src/m.py"; echo x > "$r/setup.py"
 git -C "$r" add -A >/dev/null; git -C "$r" commit -qm base; BASE=$(git -C "$r" rev-parse HEAD)
-sed -i '/^L5$/d;/^L6$/d' "$r/src/c.js"
+sedi '/^L5$/d;/^L6$/d' "$r/src/c.js"
 git -C "$r" commit -qam head; HEAD=$(git -C "$r" rev-parse HEAD)
 corre "$r" "$(stubs_para del npx mutmut)" STUB_MUTMUT=2
 if contains "$OUT" "MUTACIÓN: no disponible (diff sin líneas añadidas ni modificadas)" && [ ! -s "$LOG" ]; then pass hunk_solo_borrado; else fail hunk_solo_borrado "$(seccion) log=$(cat "$LOG")"; fi
@@ -276,7 +291,7 @@ if contains "$OUT" "MUTACIÓN: no disponible (diff sin líneas añadidas ni modi
 r="$TMP/repo-del2"; mkdir -p "$r/src"; git -C "$r" init -q; git -C "$r" config user.email t@t; git -C "$r" config user.name t
 echo x > "$r/setup.py"; printf 'def a():\n    return 1\n\ndef b():\n    return 2\n' > "$r/src/m.py"
 git -C "$r" add -A >/dev/null; git -C "$r" commit -qm base; BASE=$(git -C "$r" rev-parse HEAD)
-sed -i '4,5d' "$r/src/m.py"
+sedi '4,5d' "$r/src/m.py"
 git -C "$r" commit -qam head; HEAD=$(git -C "$r" rev-parse HEAD)
 corre "$r" "$(stubs_para del2 mutmut)" STUB_MUTMUT=2
 if contains "$OUT" "MUTACIÓN: no disponible (diff sin líneas añadidas ni modificadas)" && not_contains "$(cat "$LOG")" "run --paths"; then pass hunk_solo_borrado_python; else fail hunk_solo_borrado_python "$(seccion) log=$(cat "$LOG")"; fi
@@ -343,7 +358,7 @@ r="$TMP/repo-hostil"; mkdir -p "$r/src"; git -C "$r" init -q; git -C "$r" config
 echo '{"devDependencies":{"@stryker-mutator/core":"9"}}' > "$r/package.json"
 lineas 30 L > "$r/src/a.js"; lineas 8 M > "$r/src/b.js"
 git -C "$r" add -A >/dev/null; git -C "$r" commit -qm base; BASE=$(git -C "$r" rev-parse HEAD)
-sed -i -e 's/^L3$/X3/' -e 's/^L4$/X4/' -e '/^L10$/d' -e 's/^L20$/X20/' "$r/src/a.js"; sed -i 's/^M5$/Y5/' "$r/src/b.js"
+sedi -e 's/^L3$/X3/' -e 's/^L4$/X4/' -e '/^L10$/d' -e 's/^L20$/X20/' "$r/src/a.js"; sedi 's/^M5$/Y5/' "$r/src/b.js"
 git -C "$r" commit -qam head; HEAD=$(git -C "$r" rev-parse HEAD)
 corre "$r" "$(stubs_para hostil npx)" GIT_CONFIG_GLOBAL="$TMP/hostil.gitconfig"
 if contains "$(cat "$LOG")" '--mutate src/a.js:3-4,src/a.js:19-19,src/b.js:5-5'; then pass gitconfig_hostil_rangos; else fail gitconfig_hostil_rangos "log=$(cat "$LOG")"; fi
@@ -366,7 +381,14 @@ if contains "$OUT" "MUTACIÓN: no disponible (diff sin código de producción)" 
 
 # ---- muestreo por adelantado (mutmut 2.x): enumerar sin tests, elegir n ids, correr solo esos
 runids() { grep '^runid=' "$LOG" | sed 's/^runid=//'; }
+# Los casos con la muestra de 150 cuestan ~150 procesos de mutmut cada uno: en Windows (fork
+# caro) ~17 min en total, fuera del presupuesto del job. Allí se saltan, con [SKIP] visible:
+# la lógica es bash sin nada del SO, y lo propio de Windows (CRLF del python) lo cubre
+# muestra_python_crlf con n=5. Todos pasaron en windows-latest (run 36671923207).
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) N150=0 ;; *) N150=1 ;; esac
+salta_n150() { for t in "$@"; do printf '[SKIP] %s — muestra de 150: cara en Windows, solo en Unix\n' "$t"; done; }
 mkrepo mues setup.py src/m.py; r=$REPO
+if [ "$N150" = 1 ]; then
 corre "$r" "$(stubs_para mues1 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=400
 ids1=$(runids); s=$(seccion)
 if [ "$(wc -l <<<"$ids1" | tr -d ' ')" = 150 ] && [ "$(sort -u <<<"$ids1" | wc -l | tr -d ' ')" = 150 ] \
@@ -376,6 +398,13 @@ if [ "$(wc -l <<<"$ids1" | tr -d ' ')" = 150 ] && [ "$(sort -u <<<"$ids1" | wc -
 corre "$r" "$(stubs_para mues2 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=400; ids2=$(runids)
 corre "$r" "$(stubs_para mues3 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=400 EXO_MUTATION_SEED=7; ids3=$(runids)
 if [ -n "$ids1" ] && [ "$ids1" = "$ids2" ] && [ "$ids1" != "$ids3" ] && [ "$(wc -l <<<"$ids3" | tr -d ' ')" = 150 ]; then pass muestra_reproducible; else fail muestra_reproducible "misma semilla iguales=$([ "$ids1" = "$ids2" ] && echo si || echo no) otra semilla iguales=$([ "$ids1" = "$ids3" ] && echo si || echo no)"; fi
+else salta_n150 muestra_por_encima_de_n muestra_reproducible; fi
+# python con CRLF (el de Windows): `5\r` no es un id; sin quitar el \r cada id caía en la
+# corrida completa y el agregado salía 1193/150.
+p=$(stubs_para crlf mutmut); py=$(command -v python3); rm -f "$p/python3"   # es un symlink: no escribir a través
+printf '#!/bin/sh\n%s "$@" | sed "s/\\$/\\r/"\n' "'$py'" > "$p/python3"; chmod +x "$p/python3"
+corre "$r" "$p" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=400 EXO_MUTATION_SAMPLE=5
+if [ "$(runids | grep -cE '^[0-9]+$')" = 5 ] && contains "$(seccion)" "MUTACIÓN: 5/5 (100,0%)"; then pass muestra_python_crlf; else fail muestra_python_crlf "runids=$(runids | od -c | head -n 2) $(seccion)"; fi
 # por debajo de N: corrida completa de siempre (sin IC, sin ids sueltos)
 corre "$r" "$(stubs_para mues4 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=100
 if contains "$OUT" "MUTACIÓN: 8/10 (80%) — 2 superviviente(s)" && not_contains "$OUT" "IC95" && [ -z "$(runids)" ] \
@@ -385,6 +414,7 @@ corre "$r" "$(stubs_para mues5 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 S
 if contains "$OUT" "MUTACIÓN: 8/10 (80%) — 2 superviviente(s)" && not_contains "$OUT" "IC95" && [ -z "$(runids)" ] \
    && not_contains "$(cat "$LOG")" "--runner true"; then pass muestreo_desactivado; else fail muestreo_desactivado "$(seccion) log=$(cat "$LOG")"; fi
 # Wilson: 33/150 = [16,1%, 29,3%] (el intervalo normal daría [15,2%, 28,8%]); bordes c=0 y c=n sin NaN
+if [ "$N150" = 1 ]; then
 corre "$r" "$(stubs_para wil1 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=400 STUB_KILL_COUNT=33
 w1=$(seccion)
 corre "$r" "$(stubs_para wil2 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=400 STUB_KILL_COUNT=0
@@ -394,6 +424,7 @@ w3=$(seccion)
 if contains "$w1" "33/150 (22,0%) IC95 [16,1%, 29,3%] — muestra de 150/400" \
    && contains "$w2" "0/150 (0,0%) IC95 [0,0%, 2,5%]" && contains "$w3" "150/150 (100,0%) IC95 [97,5%, 100,0%]" \
    && not_contains "$w2$w3" "nan" && not_contains "$w2$w3" "inf"; then pass wilson_correcto; else fail wilson_correcto "$w1 | $w2 | $w3"; fi
+else salta_n150 wilson_correcto; fi
 # sin caché previa: dos corridas seguidas comparten el estado de mutmut (STUB_CACHE, el equivalente a
 # un .mutmut-cache que sobreviviera); la segunda no puede leer el baseline ~0 s de la enumeración
 # (⏰ inventados) ni acabar en <1 s. 5 ids x 0,3 s = 1,5 s reales cada corrida.
@@ -405,6 +436,7 @@ corre "$r" "$(stubs_para mues6 mutmut)" STUB_MUTMUT=2 STUB_MUTANTS=400 EXO_MUTAT
 if pgrep -f "sleep 31344" >/dev/null 2>&1; then pkill -f "sleep 31344" 2>/dev/null; fi
 if contains "$OUT" "MUTACIÓN: parcial (timeout 3s) — progreso: 2/5 evaluados, 2 caught, 0 supervivientes (muestra de 5/400, semilla 20260929)"; then pass timeout_en_muestra; else fail timeout_en_muestra "$(seccion)"; fi
 # valores inválidos: aviso visible y se usan los de siempre
+if [ "$N150" = 1 ]; then
 corre "$r" "$(stubs_para mues7 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=400 EXO_MUTATION_SAMPLE=abc EXO_MUTATION_SEED=x1
 if contains "$(seccion)" "EXO_MUTATION_SAMPLE inválido" && contains "$(seccion)" "EXO_MUTATION_SEED inválido" \
    && contains "$(seccion)" "muestra de 150/400 (semilla 20260929)"; then pass muestreo_env_invalido; else fail muestreo_env_invalido "$(seccion)"; fi
@@ -424,6 +456,7 @@ if [ -f "$MUESTRA_V2" ]; then
 else
   printf '[SKIP] muestra_igual_protocolo — no está %s\n' "$MUESTRA_V2"
 fi
+else salta_n150 muestreo_env_invalido muestra_fuera_del_agregado muestra_igual_protocolo; mkrepo prot setup.py src/m.py; r=$REPO; fi
 # degradaciones nunca mudas
 corre "$r" "$(stubs_para dg1 mutmut)" STUB_MUTMUT=2 EXO_MUTATION_TIMEOUT=120 STUB_MUTANTS=0
 if contains "$(seccion)" "MUTACIÓN: 8/10 (80%)" && contains "$(seccion)" "(muestreo no disponible: sin ids de mutmut; corrida completa)"; then pass degrada_sin_ids; else fail degrada_sin_ids "$(seccion)"; fi

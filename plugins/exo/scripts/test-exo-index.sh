@@ -31,8 +31,7 @@ fail() { printf '[FAIL] %s — %s\n' "$1" "$2"; FAIL=$((FAIL+1)); }
 contains() { case "$1" in *"$2"*) return 0 ;; *) return 1 ;; esac; }
 
 # Invoca el hook con el stdin JSON del Stop hook y deja HOOK_RC / HOOK_OUT.
-# NO devuelve por stdout a propósito (mismo motivo que en test-recall-inject:
-# un subshell se comería el exit code). $@ = VAR=valor extra para ESTA llamada.
+# NO devuelve por stdout a propósito (un subshell se comería el exit code). $@ = VAR=valor extra para ESTA llamada.
 run_hook() {
   printf '{"session_id":"test-sess","hook_event_name":"Stop"}' \
     | env "$@" "$HOOK" > "$TMP/hook-out.txt" 2>/dev/null

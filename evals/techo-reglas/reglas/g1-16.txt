@@ -1,0 +1,1 @@
+En el backlog, edita la sección del frente existente; no abras una sección `delta AAAA-MM-DD` nueva.

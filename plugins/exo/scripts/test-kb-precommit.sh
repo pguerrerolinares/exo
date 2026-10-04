@@ -43,7 +43,7 @@ fi
 
 # ------------------- fallback al PATH: exo SOLO en PATH ⇒ pasa el gate ----
 # Ni EXO_BIN ni $HOME/.local/bin/exo(.exe): el hook tiene que caer al mismo
-# `command -v exo` que ya usan exo-recall.sh/recall-inject.sh (I2 de la
+# `command -v exo` que ya usa exo-recall.sh (I2 de la
 # review final de H). HOME aparte para no depender de si esta máquina tiene
 # un exo real instalado en ~/.local/bin.
 HOME_SIN_EXO="$TMP/home-sin-exo"
@@ -64,7 +64,7 @@ fi
 
 # ------------------- precedencia: PATH antes que ~/.local/bin --------------
 # Los dos sitios tienen un exo ejecutable a la vez (sin EXO_BIN): el hook
-# debe resolver el mismo que exo-recall.sh/recall-inject.sh — `command -v
+# debe resolver el mismo que exo-recall.sh — `command -v
 # exo` (PATH) — antes que el literal ~/.local/bin/exo. Cada stub marca en un
 # fichero cuál se ejecutó para poder distinguirlos aunque ambos exit 0.
 HOME_CON_EXO="$TMP/home-con-exo"

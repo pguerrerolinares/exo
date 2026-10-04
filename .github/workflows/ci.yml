@@ -239,7 +239,7 @@ jobs:
       # cacheado, porque `exo init` indexa la KB semilla del fixture.
       # `if: always()`: un rojo del gate hermético no debe esconder un contrato
       # roto detrás.
-      - name: Contrato engine↔recall-inject.sh contra fixture propio
+      - name: Contrato engine↔hooks y prosa contra fixture propio
         if: always()
         shell: bash
         run: ./scripts/test-contrato-ci.sh
@@ -247,7 +247,9 @@ jobs:
   plugin-tests:
     name: tests del plugin (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
+    # Windows (fork caro) tarda ~9,5 min con las 22 suites (review-package ~5,5 aun
+    # saltando la muestra de 150): con 10 cualquier runner lento daba rojo.
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:

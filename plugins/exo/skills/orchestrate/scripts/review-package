@@ -166,11 +166,12 @@ mut_python_de() {
 
 # Muestra del protocolo del verdict 2: random.Random(seed).sample(sorted(ids), n), con el
 # python de mutmut. stdin = ids; $1 python, $2 n, $3 semilla. Imprime los n ids, ordenados.
+# Sin \r: el python de Windows escribe CRLF y `5\r` no es un id para `mutmut run`.
 mut_muestra() {
   "$1" -c 'import random, sys
 ids = sorted(int(x) for x in sys.stdin.read().split())
 n, seed = int(sys.argv[1]), int(sys.argv[2])
-print("\n".join(map(str, sorted(random.Random(seed).sample(ids, n)))))' "$2" "$3"
+print("\n".join(map(str, sorted(random.Random(seed).sample(ids, n)))))' "$2" "$3" | tr -d '\r'
 }
 
 # Intervalo de Wilson al 95% (no el normal: en c=0 y c=n el normal degenera). Args: c n.

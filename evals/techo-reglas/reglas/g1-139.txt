@@ -1,0 +1,1 @@
+Porta el copy como texto exacto de producción con la ruta de origen anotada; los datos estructurados salen de la misma fuente que el contenido visible.

@@ -42,9 +42,9 @@ hook_ms_soportado() { [ "${BASH_VERSINFO[0]:-0}" -ge 5 ]; }
 # $EPOCHREALTIME imprime "1789804285,193241". Sin esto, `${ini%.*}` no
 # encuentra ningún punto, devuelve la cadena ENTERA con la coma dentro, y la
 # aritmética de abajo da un número absurdo SIN fallar (medido: del orden de
-# 8x10^8) -- el recall-inject.sh que llama a esto TAMBIÉN fuerza
-# `export LC_NUMERIC=C` (mismo patrón que `recall-latencia.sh:13`), así que
-# esto es cinturón y tirantes, no la única defensa.
+# 8x10^8) -- los hooks que llaman a esto TAMBIÉN fuerzan
+# `export LC_NUMERIC=C`, así que esto es cinturón y tirantes, no la única
+# defensa.
 #
 # `10#` fuerza base 10 en la aritmética: un componente con cero a la
 # izquierda ("007811") lo interpretaría bash como octal y "008" o "009"

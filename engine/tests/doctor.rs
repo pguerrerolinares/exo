@@ -309,8 +309,8 @@ fn sin_jq_es_fail_porque_los_hooks_del_plugin_lo_exigen() {
     let c = check(&informe, "jq");
     assert_eq!(c.estado, Estado::Fail);
     assert!(
-        c.detalle.contains("recall-inject"),
-        "dice QUÉ se rompe sin jq: {}",
+        c.detalle.contains("exo-recall") && !c.detalle.contains("recall-inject"),
+        "dice QUÉ se rompe sin jq, sin nombrar scripts borrados: {}",
         c.detalle
     );
 }

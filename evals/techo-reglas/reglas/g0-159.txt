@@ -1,0 +1,1 @@
+Al resolver vídeo a canción, acepta el candidato solo si comparte >=1 artista y su título base está contenido en el título crudo.

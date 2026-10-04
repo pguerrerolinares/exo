@@ -37,9 +37,9 @@ EXO_CAP="${EXO_RECALL_CAP:-6144}"
 # ENGINE_MIN (campaña H): el mínimo de engine que ESTE plugin declara
 # necesitar, sobreescribible por test (`ENGINE_MIN=x.y.z`, seam igual que
 # EXO_BIN/EXO_INDEX de arriba). Sin override, el fichero versionado junto al
-# plugin. El check vive SOLO aquí (SessionStart) y no en recall-inject.sh
-# (UserPromptSubmit, un spawn por prompt): SessionStart + `exo doctor` ya
-# lo cubren.
+# plugin. El check vive SOLO aquí (SessionStart): un `exo --version` por
+# disparo de hook sería un spawn extra, y SessionStart + `exo doctor` ya lo
+# cubren.
 . "$SCRIPT_DIR/_engine-version.sh" 2>/dev/null
 ENGINE_MIN="${ENGINE_MIN:-$(cat "$SCRIPT_DIR/../ENGINE_MIN" 2>/dev/null)}"
 ENGINE_MIN="${ENGINE_MIN:-0.0.0}"

@@ -57,7 +57,7 @@ ultimo_payload() { tail -1 "$LOGC" 2>/dev/null | jq -r '.payload // empty' 2>/de
 # `test-exo-recall-golden.sh` -- ni el existente `reafirma-compact` (que YA
 # tiene esa combinación) ni uno nuevo -- puede exponer esta regresión por el
 # output final: se prueba aquí, extrayendo la asignación LITERAL de
-# exo-recall.sh (mismo patrón que `norm_token` en test-recall-inject.sh) y
+# exo-recall.sh y
 # aserta directamente sobre SOURCE/SID, sin pasar por el gate.
 JSON_SIN_SOURCE='{"session_id":"sess-solo-id"}'
 

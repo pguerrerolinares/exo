@@ -1,0 +1,1 @@
+Sirve /proxy-doc con un route handler con UA de navegador (rewrite no manda UA), con helper central en lib/cdn.ts.
