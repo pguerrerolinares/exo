@@ -51,5 +51,10 @@ printf '{"enabledPlugins":{"superpowers@claude-plugins-official":false}}' > "$PR
 if ! contains "$(ctx)" "superpowers"; then pass "project false pisa a user true: no avisa"
 else fail "project false pisa a user true: no avisa" "avisó"; fi
 
+limpia
+printf '{"enabledPlugins":{"superpowers@a":false,"superpowers@b":true}}' > "$HOME/.claude/settings.json"
+if contains "$(ctx)" "claude plugin disable superpowers@b"; then pass "false seguido de true en el mismo fichero: avisa con la clave true"
+else fail "false seguido de true: avisa" "no avisó"; fi
+
 printf '\n%d pass, %d fail\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

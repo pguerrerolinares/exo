@@ -172,9 +172,17 @@ for f in "$HOME/.claude/settings.json" \
          "${CLAUDE_PROJECT_DIR:-$PWD}/.claude/settings.local.json"; do
   [ -f "$f" ] || continue
   contenido="$(<"$f")"
-  if [[ "$contenido" =~ $SP_RE ]]; then
-    if [ "${BASH_REMATCH[2]}" = true ]; then SP_KEY="${BASH_REMATCH[1]}"; else SP_KEY=""; fi
-  fi
+  # Se recorren TODAS las claves superpowers@… del fichero (no solo la
+  # primera): {"superpowers@a":false,"superpowers@b":true} está habilitado.
+  # Falsos positivos aceptados: clave fuera de enabledPlugins o en comentario.
+  hallada=0; activa=""
+  resto="$contenido"
+  while [[ "$resto" =~ $SP_RE ]]; do
+    hallada=1
+    if [ "${BASH_REMATCH[2]}" = true ] && [ -z "$activa" ]; then activa="${BASH_REMATCH[1]}"; fi
+    resto="${resto#*"${BASH_REMATCH[0]}"}"
+  done
+  [ "$hallada" = 1 ] && SP_KEY="$activa"
 done
 if [ -n "$SP_KEY" ]; then
   TEXTO="${TEXTO}
