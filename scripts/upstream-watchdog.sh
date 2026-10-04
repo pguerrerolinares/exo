@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Watchdog del bot upstream-sync: rojo si el último latido (comentario del issue
 # de estado con línea `estado: ok|alerta`) está en alerta o es más viejo que
-# <max_dias>, o si no hay issue/latidos. Toda ausencia es rojo.
+# <max_dias> (default: 15 días), o si no hay issue/latidos. Toda ausencia es rojo.
 # Uso: upstream-watchdog.sh <comentarios.json|-> [<ahora_iso>] [<max_dias>]
 set -uo pipefail
 
 f="${1:-}"
 ahora="${2:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
-max="${3:-8}"
+max="${3:-15}"
 
 [ -n "$f" ] || { echo "uso: $0 <comentarios.json|-> [<ahora_iso>] [<max_dias>]" >&2; exit 2; }
 if [ "$f" = "-" ]; then

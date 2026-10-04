@@ -6,7 +6,7 @@ Tienes dos repos adjuntos: `pguerrerolinares/exo` (donde trabajas) y `obra/super
 
 Estado: `docs/upstream/ledger.md` (léelo entero antes de empezar: `upstream_tag`, mapeo, excluidos, sin equivalente, divergencias, filas).
 
-**Regla de salida:** toda salida, sea cual sea el paso donde termines, acaba en el paso 7 (latido). Si no llegas a comentar en el issue, la pasada no cuenta: el watchdog lo pone rojo a los 8 días.
+**Regla de salida:** toda salida, sea cual sea el paso donde termines, acaba en el paso 7 (latido). Si no llegas a comentar en el issue, la pasada no cuenta: el watchdog lo pone rojo a los 15 días.
 
 ## Paso 0 · Reconcilia
 

@@ -18,8 +18,9 @@ check() { # nombre, esperado_exit, patrón, fichero, [max]
 }
 
 printf '%s\n' '[{"body":"latido\nestado: ok","created_at":"2026-09-28T12:00:00Z"}]' > "$T/reciente.json"
-printf '%s\n' '[{"body":"latido\nestado: ok","created_at":"2026-09-21T12:00:00Z"}]' > "$T/frontera.json"
-printf '%s\n' '[{"body":"latido\nestado: ok","created_at":"2026-09-21T11:59:59Z"}]' > "$T/pasada.json"
+printf '%s\n' '[{"body":"latido\nestado: ok","created_at":"2026-09-14T12:00:00Z"}]' > "$T/frontera.json"
+printf '%s\n' '[{"body":"latido\nestado: ok","created_at":"2026-09-14T11:59:59Z"}]' > "$T/pasada.json"
+printf '%s\n' '[{"body":"latido\nestado: ok","created_at":"2026-09-20T12:00:00Z"}]' > "$T/nueve_dias.json"
 printf '%s\n' '[{"body":"latido\nestado: ok","created_at":"2026-09-09T12:00:00Z"},{"body":"latido\nestado: ok","created_at":"2026-09-27T12:00:00Z"},{"body":"latido\nestado: ok","created_at":"2026-08-01T00:00:00Z"}]' > "$T/desordenado.json"
 printf '%s\n' '[{"body":"latido\nestado: ok","created_at":"2026-09-10T12:00:00Z"}]' > "$T/nueve.json"
 printf '%s\n' '[]' > "$T/vacio.json"
@@ -31,6 +32,7 @@ printf '%s\n' '[{"body":"latido\nestado: alerta","created_at":"2026-09-10T12:00:
 check latido_reciente 0 "latido OK" "$T/reciente.json"
 check latido_caducado 1 "latido caducado" "$T/nueve.json" 8
 check frontera 0 "latido OK" "$T/frontera.json"
+check nueve_dias_verde 0 "latido OK" "$T/nueve_dias.json"
 check frontera_mas_un_segundo 1 "latido caducado" "$T/pasada.json"
 check usa_el_ultimo 0 "latido OK" "$T/desordenado.json"
 check max_dias_parametro 1 "latido caducado" "$T/reciente.json" 0

@@ -12,7 +12,7 @@
 
 **Global Constraints:**
 - Tope: máximo 5 portes por PR.
-- Watchdog: rojo si el último latido tiene más de 8 días o si el issue no existe.
+- Watchdog: rojo si el último latido tiene más de 15 días o si el issue no existe.
 - Umbral del eval: 0 filas `ya cubierto` cuya verdad sea aplica/parcial, y ≥ 90% de acierto en triage, con `aplica` y `parcial` como una sola clase.
 - Nombres literales: rama `upstream-sync/<tag>`; título de PR `upstream-sync <tag>`; issue `upstream-sync: estado`; commit `port(upstream#N): <resumen>`.
 - Ledger: `upstream_tag: <tag>` en línea propia. Filas `| PR | skill | triage | estado | motivo | hash |`. `triage` ∈ {aplica, parcial, ya cubierto, no aplica, duda}; `estado` ∈ {propuesto, portado, rechazado, pendiente, —}.
@@ -81,12 +81,12 @@
 - Test: `scripts/test-upstream-watchdog.sh`
 
 **Interfaces:**
-- Produces: `scripts/upstream-watchdog.sh <comentarios.json> [<ahora_iso>] [<max_dias>]`. `<comentarios.json>` es la salida de `gh api repos/<repo>/issues/<n>/comments` (array con `created_at`), o el literal `-` si el issue no existe. `<ahora_iso>` default la fecha actual UTC; `<max_dias>` default 8. Exit 0 y `latido OK: <fecha> (<n> días)` si el último `created_at` tiene ≤ max_dias. Exit 1 con `latido caducado: último <fecha> (<n> días > <max>)`, `sin latidos` (array vacío) o `issue upstream-sync: estado no existe` (`-`).
+- Produces: `scripts/upstream-watchdog.sh <comentarios.json> [<ahora_iso>] [<max_dias>]`. `<comentarios.json>` es la salida de `gh api repos/<repo>/issues/<n>/comments` (array con `created_at`), o el literal `-` si el issue no existe. `<ahora_iso>` default la fecha actual UTC; `<max_dias>` default 15. Exit 0 y `latido OK: <fecha> (<n> días)` si el último `created_at` tiene ≤ max_dias. Exit 1 con `latido caducado: último <fecha> (<n> días > <max>)`, `sin latidos` (array vacío) o `issue upstream-sync: estado no existe` (`-`).
 
 **Tests:**
 - `latido_reciente`: último comentario hace 1 día → exit 0. Falla si da rojo con latido sano.
 - `latido_caducado`: hace 9 días con max 8 → exit 1 y `latido caducado`. Falla si una routine muerta pasa en verde.
-- `frontera`: exactamente 8 días → exit 0. Falla si el límite es off-by-one.
+- `frontera`: exactamente 15 días → exit 0, más de 15 falla. Falla si el límite es off-by-one.
 - `usa_el_ultimo`: array desordenado con uno de hace 20 días y otro de hace 2 → exit 0. Falla si toma el primero y no el más reciente.
 - `sin_issue` (`-`) y `sin_latidos` (`[]`) → exit 1 con su mensaje. Falla si la ausencia se lee como éxito.
 
