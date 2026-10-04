@@ -113,6 +113,12 @@ jobs:
       - name: upstream-sync — el eval puntúa aplica y parcial como una clase
         if: always()
         run: bash scripts/test-upstream-score.sh
+      # Stdlib pura, sin red ni claves (los tests de red del juez están
+      # mockeados) y ~6 s: el harness de J no tiene otro sitio donde correr.
+      # `python3` ya viene en la imagen del runner.
+      - name: Harness de retrieval-heldout (suite Python, offline)
+        if: always()
+        run: python3 -m unittest discover -s evals/retrieval-heldout/harness -p "test_*.py"
 
   plugin-bump:
     name: el plugin no cambia sin subir de versión
