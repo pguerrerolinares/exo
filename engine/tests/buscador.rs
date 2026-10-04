@@ -382,8 +382,9 @@ fn db_con_entidades_empatadas(orden: [&str; 3]) -> (tempfile::TempDir, std::path
 /// de la similitud propia: 0.0 para vectores unitarios opuestos, L2 = 2)
 /// garantiza que el filtro de umbral nunca descarte las tres entidades
 /// empatadas, sin importar el signo real de la similitud contra la query
-/// embebida. El threshold es explícito (`Some`), pero el embed de la query pasa por el embedder de proceso, que sí lee config —
-/// de ahí el envoltorio.
+/// embebida. El threshold es explícito (`Some`), pero el embed de la query
+/// pasa por el embedder de proceso, que sí lee config — de ahí el
+/// envoltorio.
 #[test]
 fn busca_vector_desempate_determinista_por_permalink() {
     let (d1, db1) = db_con_entidades_empatadas(["z", "x", "y"]);
