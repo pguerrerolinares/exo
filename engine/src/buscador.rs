@@ -185,7 +185,10 @@ pub fn ruta_de(db_ruta: &Path, permalink: &str) -> Result<Option<String>> {
 /// Prepara la query cruda para FTS5 (interpretación adjudicada en el brief
 /// m2-05, provisional — la calibración de retrieval es de M2-07/M2-09):
 /// divide por whitespace, envuelve cada token en comillas dobles (escapando
-/// `"` internas duplicándolas), une con espacio (AND implícito de FTS5).
+/// `"` internas duplicándolas), une con ` OR ` (B1, 2026-10-04: con el AND
+/// implícito de FTS5 una query de N palabras exigía las N en la nota —
+/// "por", "qué", "de" incluidas— y el canal léxico daba 0/18 en paráfrasis
+/// largas; con OR, BM25 pondera por IDF y las palabras comunes pesan poco).
 /// Dentro de `"..."` no queda sintaxis FTS5 activa, así que tokens con
 /// guiones (`agent-develop`), acentos o `/` nunca revientan la sintaxis de
 /// MATCH — la fuente de verdad de esta regla es que ninguna de las 56
@@ -195,7 +198,7 @@ fn prepara_query(cruda: &str) -> String {
         .split_whitespace()
         .map(|tok| format!("\"{}\"", tok.replace('"', "\"\"")))
         .collect::<Vec<_>>()
-        .join(" ")
+        .join(" OR ")
 }
 
 /// Búsqueda FTS5 mínima sobre `notas_fts` (spec §4/§4.1). `score` usa
@@ -612,7 +615,9 @@ fn normaliza_fts(candidatos_fts: &[(String, f64)], beta: f64) -> HashMap<String,
 }
 
 /// Fusión por UNIÓN (spec fusión §4.4/§4.5, D-f2), clave `(entity,
-/// permalink)`: `score(e) = max(v,f) + bonus·min(v,f)`, canal ausente = 0.
+/// permalink)`: `score(e) = v + f + bonus·min(v,f)` (CombSUM, B2 2026-10-04:
+/// con FTS en OR, CombSUM dio hit@5 107/200 frente a 95/200 de CombMAX sobre
+/// el gold J, `evals/b-retrieval/fusion.py`), canal ausente = 0.
 /// Admite la entidad si aparece en CUALQUIERA de los dos mapas (gate FTS =
 /// lectura B, el gate lo realiza el término `bonus·min`, no la admisión).
 /// Orden por score fusionado desc, truncado a `limite` DESPUÉS de fusionar
@@ -634,7 +639,7 @@ fn fusiona(
             Resultado {
                 permalink: permalink.clone(),
                 tipo: "entity".to_string(),
-                score: v.max(f) + bonus * v.min(f),
+                score: v + f + bonus * v.min(f),
                 ruta: None,
             }
         })
@@ -657,19 +662,9 @@ fn fusiona(
 /// `2026-07-17-fusion-design.md` §4). Candidatos FTS: hasta **K_c = 50**
 /// (constante de implementación, NO parámetro del sweep — §4.2, insensible
 /// mientras K_c ≫ `limite`) vía `busca()` (ya no trunca a `limite` porque se
-/// le pide K_c directamente, sin refactor necesario). Candidatos vector: con
-/// `bonus == 0` (sellado en producción, `BONUS_SELLADO` en `main.rs`, pero
-/// override-able con `--bonus`), acotado a `limite` (H29) — la fórmula de
-/// fusión (`score = max(v,f) + bonus·min(v,f)`) colapsa a `max(v,f)`, y
-/// ningún permalink fuera del top-`limite` por `v` puede desplazar a uno de
-/// los `limite` mejores fusionados: el mismo argumento del Threshold
-/// Algorithm de `busca_vector_con_embedding` (el `limite`-ésimo por `v` ya
-/// domina a cualquier candidato no visto) aplica aquí porque el canal FTS
-/// no depende de cuántos candidatos de `v` se pidan. **Con `bonus != 0` esa
-/// garantía NO vale** (un permalink con `v` bajo puede colar por el término
-/// `bonus·min(v,f)` si su `f` es alto) — ahí el arm vector vuelve a pedirse
-/// exhaustivo (mismo comportamiento pre-H29), guardado explícitamente abajo
-/// en vez de arriesgar un resultado distinto al pre-fix. Normalización BM25
+/// le pide K_c directamente, sin refactor necesario). Candidatos vector:
+/// también hasta K_c (con CombSUM el atajo top-`limite` de H29 ya no es
+/// exacto). Normalización BM25
 /// por-query con anclaje β (`escala_fts`) vía `normaliza_fts`; fusión por
 /// unión (D-f2) vía `fusiona`. Orden por score fusionado desc, truncado a
 /// `limite` DESPUÉS de fusionar (§4.4).
@@ -701,11 +696,9 @@ pub fn busca_hybrid(
         .collect();
     let f_por_entidad = normaliza_fts(&candidatos_fts, escala_fts);
 
-    // Guarda explícita (H29, ver doc de la función): el atajo top-`limite`
-    // solo es exacto con `bonus == 0.0`. Cualquier `bonus` distinto — hoy
-    // solo alcanzable con `--bonus` explícito, `BONUS_SELLADO` es 0.0 —
-    // vuelve al arm vector exhaustivo de siempre.
-    let limite_vector = if bonus == 0.0 { limite } else { usize::MAX };
+    // Con CombSUM un candidato fuera del top-`limite` por `v` puede subir por
+    // su `f`: el arm vector pide K_C, como el FTS (y como la simulación de B2).
+    let limite_vector = limite.max(K_C);
     let vector = busca_vector_con(&conn, query, limite_vector, min_similitud, kb)?;
     let avisos = vector.avisos;
     // El aviso de kb_root sale de la MISMA conexión por los dos arms ahora:
@@ -731,6 +724,20 @@ pub fn busca_hybrid(
 }
 
 #[cfg(test)]
+mod tests_prepara_query {
+    use super::prepara_query;
+
+    #[test]
+    fn une_los_tokens_con_or_y_los_entrecomilla() {
+        assert_eq!(
+            prepara_query("por qué  borró"),
+            "\"por\" OR \"qué\" OR \"borró\""
+        );
+        assert_eq!(prepara_query("di \"x\""), "\"di\" OR \"\"\"x\"\"\"");
+    }
+}
+
+#[cfg(test)]
 mod tests_fusion {
     use super::*;
 
@@ -746,7 +753,7 @@ mod tests_fusion {
         let resultados = fusiona(&v, &f, 0.25, 10);
         assert_eq!(resultados.len(), 1);
         assert_eq!(resultados[0].permalink, "a");
-        let esperado = 0.6_f64.max(0.4) + 0.25 * 0.6_f64.min(0.4);
+        let esperado = 0.6 + 0.4 + 0.25 * 0.6_f64.min(0.4);
         assert!((resultados[0].score - esperado).abs() < 1e-12);
     }
 
@@ -808,14 +815,15 @@ mod tests_fusion {
         assert!(f.is_empty(), "{:?}", f);
     }
 
-    /// Test contractual 8: bonus = 0 ⇒ score == max(v,f).
+    /// Test contractual 8 (B2): bonus = 0 ⇒ score == v + f (CombSUM), y una
+    /// nota en los dos canales adelanta a otra con más score en uno solo.
     #[test]
-    fn fusion_bonus_cero_es_max() {
-        let v = mapa(&[("a", 0.6)]);
-        let f = mapa(&[("a", 0.9)]);
+    fn fusion_bonus_cero_es_suma() {
+        let v = mapa(&[("a", 0.5), ("b", 0.7)]);
+        let f = mapa(&[("a", 0.4)]);
         let resultados = fusiona(&v, &f, 0.0, 10);
-        assert_eq!(resultados.len(), 1);
-        assert_eq!(resultados[0].score, 0.9);
+        assert_eq!(resultados[0].permalink, "a");
+        assert!((resultados[0].score - 0.9).abs() < 1e-12);
     }
 
     /// Test contractual 10: orden por score fusionado desc, truncado a

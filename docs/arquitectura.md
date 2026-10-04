@@ -209,7 +209,9 @@ antes `fts`), implementados en `engine/src/buscador.rs`. Todos devuelven
 resultados **a nivel de nota** (`type: "entity"`), nunca de trozo. El modo
 calibrado y medido (48/55 hit@5 **in-sample**, §6; held-out **64/92**,
 Wilson 95 % [59,5 %, 78,0 %], **no comparable** con el 48/55 — distinta
-fuente de queries, §6) es ahora justo el default: `--type hybrid` con
+fuente de queries, §6; desde B2 (2026-10-04, FTS en OR + CombSUM) el
+gold J da 107/200 hit@5 frente a 90/200 de la fusión anterior, medido con
+`evals/b-retrieval/`, orientativo) es ahora justo el default: `--type hybrid` con
 `min_similarity = MIN_SIMILARITY_SELLADO = 0.40` cuando `--min-similarity`
 se omite — ya no hace falta pasarlo a mano. `fts` a secas sigue disponible
 con `--type fts`, es el modo léxico barato, no el medido. `exo recall
@@ -232,14 +234,14 @@ imprime `(sin-ruta:rebuild)` y avisa por stderr; el envelope pone `path: null`.
 
 ```mermaid
 flowchart TD
-    Q["query"] --> FTSQ["prepara_query<br/>tokens entre comillas, AND implícito<br/>(guiones, acentos y / no rompen MATCH)"]
+    Q["query"] --> FTSQ["prepara_query<br/>tokens entre comillas, unidos con OR<br/>(guiones, acentos y / no rompen MATCH)"]
     FTSQ --> FTS["busca — canal FTS<br/>MATCH sobre notas_fts,<br/>score = −bm25, hasta K_c = 50 candidatos"]
     Q --> EMBQ["Embedder: embed de la query<br/>(mismo modelo que el índice)"]
     EMBQ --> KNN["vectores::knn — KNN EXHAUSTIVO<br/>k = COUNT(*) sobre vec0"]
     KNN --> SIM["similitud = 1 − L2/2 (monótona en coseno,<br/>NO coseno exacto — H28)<br/>filtro min_similarity (flag > config)"]
     SIM --> AGG["agregación trozo→nota:<br/>la nota puntúa como su MEJOR trozo"]
     FTS --> NORM["normaliza_fts (por query)<br/>f = β · f_raw / f_max — el top-1<br/>FTS vale exactamente β"]
-    AGG --> FUS["fusiona (por UNIÓN de permalinks)<br/>score = max(v,f) + bonus·min(v,f)"]
+    AGG --> FUS["fusiona (por UNIÓN de permalinks)<br/>score = v + f + bonus·min(v,f) (CombSUM)"]
     NORM --> FUS
     FUS --> ORD["orden desc, desempate determinista<br/>por permalink, truncado a --limit<br/>DESPUÉS de fusionar"]
     ORD --> OUT["envelope JSON schema_version 2:<br/>permalink, type, score, path<br/>+ warnings (arm vector inerte/parcial)"]
