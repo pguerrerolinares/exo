@@ -310,8 +310,11 @@ de la KB y nada más — no commitea (eso es del agente, commit scoped por rutas
 y no indexa (lo absorbe el `--refresh` del recall siguiente).
 
 - `write new --dir <carpeta> --title <título> --from <fichero|->`: crea la
-  nota con frontmatter completado (`permalink`, `title`, `type`, `tier` — solo
-  las claves que falten; el YAML del autor se preserva literal), permalink
+  nota con frontmatter completado (`permalink`, `title`, `type`, y `tier` solo
+  si llega `--tier` — solo las claves que falten; el YAML del autor se
+  preserva literal). `tier` y `tags` no se inventan: si la nota escrita no los
+  lleva, no se rechaza, pero se declaran en `frontmatter_missing` del envelope
+  y por stderr. Permalink
   `<nombre-kb>/<dir>/<slug>`, escritura atómica (temporal + rename). Antes de
   tocar disco corre el **dup-gate**: solape de tokens (Jaccard) entre el slug
   nuevo y los permalinks indexados, umbral 0.6. Es deliberadamente léxico y no
@@ -322,7 +325,7 @@ y no indexa (lo absorbe el `--refresh` del recall siguiente).
   bitácora **sin releerla** (`O_APPEND`, solo inspecciona la cola y la
   cabecera). Rechaza si el destino no es `tier: log` — el anti-patrón medido
   de la KB original era anexar deltas al canon. `--create` crea la bitácora si
-  no existe.
+  no existe, con `tier: log` y `tags: [bitacora]`.
 
 Un gate rechazado no es un error: sale con **exit 3** (frente al 1 de error
 real), con el detalle en el envelope, y `--force` es la vía de excepción — que

@@ -233,6 +233,7 @@ fn las_claves_de_write_estan_en_ingles() {
         ruta_abs: "/kb/projects/x.md".into(),
         creada: true,
         frontmatter_completado: vec!["tier".into()],
+        frontmatter_faltante: vec!["tags".into()],
         forzado: false,
     };
     let v = serde_json::to_value(&e).expect("serializar");
@@ -244,6 +245,7 @@ fn las_claves_de_write_estan_en_ingles() {
         "absolute_path",
         "created",
         "frontmatter_filled",
+        "frontmatter_missing",
         "forced",
     ] {
         assert!(obj.contains_key(k), "falta la clave {k} en {v}");
@@ -253,6 +255,7 @@ fn las_claves_de_write_estan_en_ingles() {
         "ruta_abs",
         "creada",
         "frontmatter_completado",
+        "frontmatter_faltante",
         "forzado",
     ] {
         assert!(!obj.contains_key(k), "sobrevive la clave española {k}");
@@ -266,6 +269,7 @@ fn las_claves_de_write_estan_en_ingles() {
     assert_eq!(v["absolute_path"], "/kb/projects/x.md");
     assert_eq!(v["created"], true);
     assert_eq!(v["frontmatter_filled"][0], "tier");
+    assert_eq!(v["frontmatter_missing"][0], "tags");
     assert_eq!(v["forced"], false);
 }
 

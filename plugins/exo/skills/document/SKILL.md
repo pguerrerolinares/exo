@@ -54,7 +54,7 @@ contexto:
 |---|---|---|
 | **Bitácora** (`tier: log`) | `exo write append --from <fichero> <permalink>` | Escribe sin leer: las bitácoras pesan decenas de KB y cargarlas enteras en cada cierre es el coste que este camino evita |
 | **Canon** (delta a nota core/stable) | `Edit` sobre la `ruta` que dio `search` | Ya has leído la ganadora para escribir el delta; `Edit` opera sobre texto exacto y no parsea headings |
-| **Nota nueva** | `exo write new --dir <d> --title <t> --from <f>` | Genera permalink, slug, ruta y frontmatter completo; el permalink jamás se improvisa |
+| **Nota nueva** | `exo write new --dir <d> --title <t> --tier <core\|stable\|log> --from <f>` | Genera permalink, slug, ruta, `title` y `type`; el permalink jamás se improvisa |
 
 El cuerpo va **en un fichero** (`--from`), que escribes antes con `Write`.
 Nunca por heredoc: el escaping de comillas, backticks y `$` es la fuente de
@@ -70,9 +70,13 @@ real, que es 1):
 - *nota duplicada* → ya existe una canónica con slug muy parecido. Edítala en
   vez de crear otra; `--force` si de verdad es un tema nuevo.
 
-Frontmatter obligatorio en lo que escribas a mano: `tags` + `tier`. `exo write
-new` lo auto-completa y **nunca rechaza** por frontmatter — un cierre de sesión
-no puede fallar por metadatos. Títulos consistentes: el title es el id de los
+Frontmatter obligatorio en toda nota: `tags` + `tier`. `exo write new`
+**no los inventa**: `tier` solo entra si pasas `--tier`, y `tags` solo si van
+en el frontmatter del fichero `--from` (se preserva literal). Lo que sí
+rellena es `permalink`, `title` y `type`. Tampoco rechaza por frontmatter —un
+cierre de sesión no puede fallar por metadatos—, pero si falta alguna de las
+dos lo avisa por stderr y en `frontmatter_missing` del envelope: si lo ves,
+corrígelo antes del commit. Títulos consistentes: el title es el id de los
 wikilinks `[[...]]` — reusa el exacto al enlazar.
 
 ## Paso 4 · Commit scoped y resumen

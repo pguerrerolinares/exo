@@ -158,6 +158,15 @@ min_similarity = 0.35
             frontmatter.contains(&linea_esperada),
             "el frontmatter en disco no lleva `{linea_esperada}` — contenido:\n{frontmatter}"
         );
+        // `tags` + `tier` son obligatorios en toda nota: `--create` no puede
+        // parir una bitácora que nace sin `tags` (antes salía muda).
+        for linea in ["tier: log\n", "tags:\n- bitacora\n"] {
+            assert!(
+                frontmatter.contains(linea),
+                "la bitácora creada no lleva `{}` — contenido:\n{frontmatter}",
+                linea.trim_end()
+            );
+        }
     });
 }
 

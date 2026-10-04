@@ -924,7 +924,9 @@ fn write_append_cmd(args: ArgsWriteAppend) -> Result<()> {
                     proyecto: &proyecto,
                     dir,
                     titulo: slug_nota,
-                    cuerpo: "",
+                    // `tags` obligatorio en toda nota (con `tier`): la
+                    // convención de las bitácoras de la KB es `bitacora`.
+                    cuerpo: "---\ntags:\n- bitacora\n---\n",
                     tier: Some("log"),
                     dup_candidatas: &[],
                     forzado: false,
@@ -951,6 +953,13 @@ fn write_append_cmd(args: ArgsWriteAppend) -> Result<()> {
 fn emite_escritura(esc: exo::escritor::Escritura, json: bool) {
     if esc.forzado {
         eprintln!("aviso: escritura forzada (--force); queda registrada en el envelope");
+    }
+    if !esc.frontmatter_faltante.is_empty() {
+        eprintln!(
+            "aviso: {} nace sin {} en el frontmatter (pasa --tier y pon tags en el --from)",
+            esc.ruta_rel,
+            esc.frontmatter_faltante.join(", ")
+        );
     }
     if json {
         envelope::emite(
