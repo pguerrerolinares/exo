@@ -60,7 +60,7 @@ Tabla exacta al cableado vivo de `hooks/hooks.json` (ocho comandos):
 | clean-orchestrator | `PreToolUse:WebSearch\|WebFetch\|navegación MCP` | `scripts/clean-orchestrator-research.sh` | recuerda delegar research a subagentes | parent-only + 1×/sesión + app local (`localhost`/`127.0.0.1`/`[::1]`/`0.0.0.0`, con o sin esquema, `file:` y `back`/`forward`) |
 | git-c + zero-residuo + verify-before-done | `PreToolUse:Bash` | `scripts/bash-guards.sh` | fusiona los tres guards de Bash (Task 5, campaña I): reescribe `cd <path> && git <read-only>` → `git -C <path> …`; `git add -A`/`--all`/`.` y `git commit` sin test verde reciente **solo se registran** en `REFLEX_LOG_FILE` (medición; hoy no avisan al agente, ver cabecera del script) | rewrite solo si patrón estricto; calla en `git add <ficheros>` explícito; escape hatch `--no-verify` y commits solo-docs (ver comentarios del script) |
 | search-first | `PreToolUse:Agent\|Task\|Edit\|Write\|NotebookEdit` | `scripts/search-first.sh` | avisa si el primer `Agent`/`Task`/`Edit`/`Write`/`NotebookEdit` de la sesión no fue precedido de `exo search`/`exo targets` en la transcripción | 1×/sesión (sentinel); exenta en subagentes (`agent_id`); sin `jq`, sin `transcript_path`/ilegible, o si el `jq` de detección falla → skip silencioso (igual crea el sentinel) |
-| exo-recall | `SessionStart` | `scripts/exo-recall.sh` | inyecta instrucción de memoria + digest 7d, servido por el engine `exo` (SQLite) | — (PUSH); degrada al fallback embebido si el engine instalado es < `ENGINE_MIN` |
+| exo-recall | `SessionStart` | `scripts/exo-recall.sh` | inyecta instrucción de memoria + digest 7d, servido por el engine `exo` (SQLite) | — (PUSH); degrada al fallback embebido si el engine instalado es < `ENGINE_MIN`. Añade una línea de aviso si `superpowers@*` está habilitado (settings de usuario, proyecto o local; sin spawns extra) |
 | estilo-directo | `SessionStart` | `scripts/estilo-directo.sh` | inyecta una directiva de estilo de respuesta estática (`estilo-directo.md`) | sin fichero `.md` legible, o si `jq` falla al construir el JSON |
 | document-remind | `Stop` | `scripts/document-remind.sh` | recuerda `/document` al cerrar | 1×/sesión + umbral de transcript |
 | exo-index | `Stop` | `scripts/exo-index.sh` | reindexa la KB al cierre de sesión | best-effort, fallback logueado |
@@ -72,6 +72,36 @@ hoy en `hooks.json` como hook propio: `cost-pyramid` no tiene script en
 `scripts/`, y la técnica de `stuck-loop` vive absorbida como comentario/lógica
 dentro de `verify-before-commit.sh`. Se documenta la tabla real, no la
 aspiracional.
+
+## Sustituir superpowers
+
+exo absorbe los skills de superpowers (ver Atribución); con los dos
+habilitados el agente recibe skills y hooks duplicados. Antes de usar exo en
+una máquina que tenía superpowers, desactívalo (desactivar, no desinstalar:
+se puede revertir):
+
+```bash
+claude plugin disable superpowers
+```
+
+`install.ps1 -DisableSuperpowers` (o `EXO_DISABLE_SUPERPOWERS=1`) lo ejecuta por ti; sin el flag solo imprime
+el comando, porque toca la config de Claude Code del usuario. Si se te olvida,
+`exo doctor` marca `superpowers_disabled` como `warn` (scope de usuario) y
+SessionStart añade una línea de aviso (scopes usuario, proyecto y local; el
+scope managed no se mira).
+
+## Latencia del hook SessionStart
+
+`hook_ms` es el reloj de pared de `exo-recall.sh` entero (campaña I).
+Medido el 2026-09-24:
+
+| Máquina | `hook_ms` p95 |
+|---|---|
+| W11 (Windows 11, Git Bash, máquina de trabajo) | **1671 ms** |
+| Linux | 1035-1173 ms |
+
+W11 queda por encima del umbral de 1500 ms que se fijó. Lo que queda ya no es
+shell sino `exo recall` (~0,94 s); bajarlo exige un proceso residente.
 
 ## Medición de falsos positivos
 
