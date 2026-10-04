@@ -1,0 +1,396 @@
+# Histórico de la fábrica de exo
+
+> **Qué es esto.** Los bloques `ACTUALIZACIÓN` de `.superpowers/fabrica/config.md`
+> que ya no mandan, movidos aquí **enteros y sin resumir** el 2026-10-05 (campaña
+> N, ola 3) para que `config.md` quede corto y vivo. Cada bloque conserva su
+> cabecera, que dice qué bloque lo sustituyó. Nada de aquí es contrato vigente:
+> el vigente es `config.md`. Los bloques se citan por su fecha.
+>
+> Orden: del más reciente al más antiguo (2026-09-15 → 2026-08-17), como
+> estaban en `config.md`. Al final, tres apéndices con secciones de `config.md`
+> que citaban herramientas que ya no existen (`kbx doctor`, `kb-demo`,
+> `eval.jsonl` de M0) y se retiraron del config vivo, también verbatim.
+
+---
+
+## ACTUALIZACIÓN 2026-09-15 — ola 1: campañas H, F y G (histórico: ola cerrada y mergeada; la sustituye el bloque 2026-09-20)
+
+Tras el cierre de D+E (PR #19-#22, todos mergeados el 2026-09-15), un
+consultor Fable propuso F→K en
+`docs/superpowers/consultas/2026-09-15-campanas/propuesta.md` (§6 =
+decisiones de Paul sobre el paquete de decisiones del §5). La ola 1 son las
+tres campañas que no piden nada caro a Paul: F, G y H, en tres ramas
+paralelas.
+
+| Orden de merge | Campaña | Plan |
+|---|---|---|
+| 1 | **H — Fail-closed: `doctor` y cutover binario↔plugin que no mienten** | `docs/superpowers/plans/2026-09-15-campana-h-fail-closed.md` |
+| 2 | **F — Superficie publicable: docs vivos, gates estáticos, «genérico»** | `docs/superpowers/plans/2026-09-15-campana-f-superficie-publicable.md` |
+| 3 | **G — Engine: deuda diferida sin cambio de ranking** | `docs/superpowers/plans/2026-09-15-campana-g-engine-deuda-diferida.md` |
+
+Orden H → F → G: la que más toca (H, primera ruptura real de compatibilidad
+binario↔plugin) absorbe el rebase primero — misma regla ya usada en D/E.
+
+**Decisiones de Paul resueltas** (`propuesta.md` §6):
+- **#1 (D6, default de `exo search --type`)**: `hybrid` + `--min-similarity
+  0.40` — entra en G, junto con el default de `exo init` a 0.40.
+- **#5 (idioma de identificadores de código)**: español, una línea en
+  `arquitectura.md` §3.8 (identificadores en español, claves JSON/flags en
+  inglés) — entra en F.
+- **#8 (branch protection)**: en dos pasos — F renombra primero el job
+  `lint` (a algo que refleje sus steps); los required checks los activa Paul
+  después, fuera de la fábrica.
+- **#9 (`walk_kb` unificado)**: unificar sobre `walk_kb_excluyendo`, cambio
+  de comportamiento declarado (`.git/` deja de recorrerse, `NOTA.MD` empieza
+  a indexarse) — entra en G.
+- **#10 (check de desfase binario↔plugin en `doctor` + hooks)**: entra en H.
+  Deroga la exclusión que la campaña E había fijado («check de desfase en
+  `doctor` FUERA», bloque 2026-09-14 de este mismo config).
+- **#11 (`kb-precommit.sh` sin `exo`)**: fail-closed, `exit 1`, escape
+  consciente documentado (`git commit --no-verify`) — entra en H.
+- **#14 (`docs/superpowers/`)**: se queda con su nombre actual, una frase en
+  `arquitectura.md` explicándolo — entra en F.
+- **Retirar los aliases españoles del CLI → `engine` 0.2.0**: entra en H, es
+  la primera ruptura real de compatibilidad binario↔plugin del proyecto.
+- **Check de versión en hooks (decisión de Paul en pre-flight de H, no en la
+  propuesta original)**: SOLO en `exo-recall.sh` (SessionStart) y
+  `exo doctor`; el hook por prompt de entonces (`UserPromptSubmit`, hoy borrado)
+  NO lo llevaba, para no chocar con la latencia que medirá la futura campaña I.
+
+**Zonas de colisión, releídas antes de cada task**:
+- `engine/src/main.rs`: H toca los alias (`:153-315`, Task 7) y nada del
+  `--version` (clap lo deriva de `Cargo.toml`); G toca el default de
+  `--type` (`:241`) y `write_append_cmd` (`:832-868`) — disjuntas.
+- `engine/src/doctor.rs`: G solo añade llamadas al `walk_kb` unificado
+  (`check_kb`, `mtime_mas_reciente`); H añade `check_plugin_compat` (función
+  nueva) y edita `check_git_bash`/`script_del_plugin` — cero líneas
+  compartidas.
+- `plugins/exo/scripts/{kb-precommit,exo-recall}.sh`: F solo
+  toca comentarios/texto (idioma, «genérico»); el código de estos scripts lo
+  tocan H (check de versión, fail-closed) y, después, la campaña I.
+- `docs/arquitectura.md` §3.8: F añade una línea sobre idioma de
+  identificadores; H (Task 8) ya corrigió ahí las menciones de los alias
+  españoles retirados en `5353038`, sin tocar el resto del párrafo, para que
+  el rebase de F sea trivial.
+
+**Gotchas de entorno medidos** (Windows 11 + Git Bash, válidos para F/G/H):
+- `jq`/`.exe` con CRLF: wrappers `.exe` de utilidades SÍ reintroducen CRLF en
+  la salida cuando se redirige a fichero sin normalizar — medido en H
+  (`tr -d '\r'` lo arregla); verificar con `file`/`cat -A` antes de comparar
+  salidas byte a byte en gates de paridad.
+- `core.filemode=false`: git en Windows no trackea el bit ejecutable por
+  defecto, así que un script nuevo puede quedar `100644` en vez de `100755`
+  sin que nadie lo note al hacer `git add` — verificar con
+  `git ls-files -s <script>` antes de dar un script nuevo por bueno (H, Task
+  1, lo pisó y lo corrigió en `d5281ad`).
+- `grep`/locale con caracteres no-ASCII: bajo el locale por defecto de esta
+  máquina (`LC_ALL`/`LANG` vacíos, resuelve a `C` pese a lo que reporta
+  `locale`), el `.` de una regex de `grep` **no** hace match con un
+  carácter multibyte UTF-8 (`↔`, vocales con tilde, `ñ`) — hace falta
+  `LC_ALL=C.UTF-8` o `LC_ALL=en_US.UTF-8` explícito. Medido en H, Task 8: el
+  oráculo `grep -n "cutover binario.scripts: cerrado" docs/backlog.md` da
+  vacío sin el override y encuentra la línea con él puesto. Cualquier
+  oráculo de F/G/H que use `.` como comodín sobre texto en español debe
+  fijar el locale explícitamente o evitar el comodín sobre no-ASCII.
+
+**Se mantienen**: el régimen de gates de §Ejecución de gates, la línea roja
+(`git push`, tag y release = SIEMPRE Paul, nunca un consultor ni un
+executor), y la regla PENDIENTE-PAUL (una decisión sin dueño citable no se
+adjudica, queda encolada — el cap de 6.144 de H, Task 8, es un ejemplo vivo
+de esta ola).
+
+
+---
+
+## ACTUALIZACIÓN 2026-09-19 — campañas I ∥ L + J fase 1 (histórico: las tres mergeadas el 2026-09-20; la sustituye el bloque 2026-09-20)
+
+D, E, F, G, H mergeadas (PR #19, #20, #24, #25, #26; fix #23 en #27). F/G/H
+se ejecutaron fuera de esta fábrica: no tienen filas en el ledger y no se
+reconstruyen (git es la verdad). Paquete de decisiones de
+`docs/superpowers/consultas/2026-09-15-campanas/propuesta.md` §5 **vacío**:
+todas firmadas en §6 (09-15) y §7 (09-19). Branch protection de `main`
+**activa** desde 2026-09-19 (12 required checks) — un merge ya no pasa con CI
+rojo.
+
+| Lane | Campaña | Plan | Tipo |
+|---|---|---|---|
+| mecánica A | **L — sueltos pre-v0.2.0 + prep M5b** | `docs/superpowers/plans/2026-09-19-campana-l-sueltos-pre-v020.md` | engine + CI + docs; se mergea PRIMERO |
+| mecánica B | **I — latencia del hook en W11** | `docs/superpowers/plans/2026-09-19-campana-i-latencia-hook-w11.md` | hooks bash; la medición en W11 es PAUL-STEP |
+| diseño (secuencial, at-risk) | **J fase 1 — T0 diagnóstico + pre-registro borrador + kit de gold** | `docs/superpowers/plans/2026-09-19-campana-j-fase1-diagnostico-y-preregistro.md` + `…-campana-j-preregistro-BORRADOR.md` | evals; **no toca `engine/src`** |
+
+- **Orden de merge**: L → (tag `v0.2.0`, acción de Paul) → I → J fase 1.
+  I y L comparten solo `docs/backlog.md` (re-anclado por texto).
+- **Decisiones que el plan hereda (citar §7 de la propuesta)**: #12 = b
+  (`hook_ms` decide la reapertura del daemon, 1.500 ms p95 por SO) · #4 = c
+  (`archive/` como brazo penalizado en J) · #13 (gold de Paul esta semana) ·
+  #15 = a (slug de exo canónico) · #6 (M5b tras C10: la fábrica prepara el
+  runbook en seco, **nunca desinstala**).
+- **J no congela su pre-registro** hasta que exista el gold de Paul con su
+  sha256; sin gold, J fase 1 termina en borrador + kit y para. Ningún brazo
+  de J toca `engine/src` en esta fábrica.
+- **Presupuesto de fable** (reserva 8): 1 review final de rama por campaña
+  (I, L, J) + 1 review adversarial del pre-registro de J; el resto queda de
+  margen para adjudicaciones. Gate de merge = Paul vía PR (patrón D+E).
+- Se mantienen: ninguna task escribe en `~/.local/bin`, veto AGPL,
+  permalinks jamás regenerados, línea roja de acciones destructivas o
+  externas a Paul, y la regla PENDIENTE-PAUL del bloque 2026-09-13.
+
+
+---
+
+## ACTUALIZACIÓN 2026-09-14 — campañas D+E en la misma fábrica (histórico: la sustituye el bloque 2026-09-19)
+
+A, B y C mergeadas (PR #13, #14, #16). La siguiente fábrica ejecuta **dos
+campañas independientes**, elegidas por Paul el 2026-09-14 a partir de un
+dictamen de consultor Fable. Un segundo Fable revisó los planes: 17 hallazgos,
+aplicados antes de este commit.
+
+| Orden de merge | Campaña | Plan | Decisiones de Paul (resueltas) |
+|---|---|---|---|
+| 1 | **E — Hooks honestos e higiene de CI** | `docs/superpowers/plans/2026-09-14-campana-e-hooks-honestos-y-ci.md` | Gate de datos personales = solo rutas · check de desfase en `doctor` FUERA · `walk_kb` FUERA |
+| 2 | **D — Cutover kbx→exo: `rotate` + `stale` y paridad con Go** | `docs/superpowers/plans/2026-09-14-campana-d-cutover-kbx.md` + pre-registro `…-campana-d-preregistro-paridad-rotate-stale.md` | Alcance `rotate`+`stale` · `stale` con la fórmula de kbx tal cual (1.5/1.0/0.5/NOTIER 0.5, degree 0.2) · `history`/`diff-since` sustituidos por git en `/distill` · tras D ningún consumidor del plugin invoca `kbx` |
+
+- **Lanes en paralelo**: comparten solo `engine/src/main.rs` (zonas disjuntas,
+  tabla en los dos planes) y `docs/backlog.md` (re-anclado por texto). E se
+  mergea primero; D se rebasa.
+- **Prerequisito de D**: Go 1.26.4 en `~/.local/go` (Task 2). Si falla, las
+  tasks de paridad (3, 4, 6, 8) quedan `encolado` y el port (5, 7, 9) sigue.
+- **Abiertas en D, con la recomendación ya aplicada en el plan**: D-3 (exit
+  code de `rotate` ante un fallo parcial: 1 en exo frente a 2 en kbx,
+  declarado) y D-4 (prefijo del permalink = `nombre_kb()`, con aviso visible
+  si falta config). No bloquean el critical path.
+- **Ninguna task escribe en `~/.local/bin`**: el `exo` y el `kbx` instalados
+  son el entorno vivo de Paul.
+- Se mantienen el régimen de gates, la línea roja y la regla PENDIENTE-PAUL
+  del bloque 2026-09-13.
+
+
+---
+
+## ACTUALIZACIÓN 2026-09-13 — campañas A→B→C (histórico: la sustituye el bloque 2026-09-14)
+
+Decisión de Paul en sesión 2026-09-13: la **fase de cierre queda levantada**
+(v0.1.0 publicada). El roadmap ejecutable pasa a ser el de tres campañas
+salidas de la revisión multi-ángulo del 2026-09-13 (hallazgos `H1`–`H29`):
+
+| Orden | Campaña | Plan (fuente de selección de items) | Estado 2026-09-13 |
+|---|---|---|---|
+| 1 | **A — Recall por prompt: correcto, barato y medido** | `docs/superpowers/plans/2026-09-13-campana-a-recall-por-prompt.md` + pre-registro `…-campana-a-preregistro-bench.md` | Ejecutada. Task 15 (W11) corrida el 2026-09-15: C-H10 CERRADA en las dos máquinas, Task 12 no se ejecuta por puerta. Veredicto: `evals/recall-coste/verdict/2026-09-campana-a.md`. D0–D6 resueltas en el plan |
+| 2 | **B — Superficie pública y gates** | `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md` | Planificada. D1–D5 abiertas (PENDIENTE-PAUL); T1, T4, T5, T6, T8 no dependen de ellas. H25 es checklist externo de Paul, no tarea de fábrica |
+| 3 | **C — Retrieval fuera de muestra** | `docs/superpowers/plans/2026-09-13-campana-c-retrieval-held-out.md` + pre-registro `…-campana-c-preregistro.md` | Planificada. T0–T5 (diseño, harness, gold) pueden arrancar; medición y producción tras A. D1–D6 abiertas; el gold lo aprueba Paul (gate humano) |
+
+Fuera de las campañas, ya en `main`: hotfix H27 (PR #11, KNN por encima del
+tope k=4096 de vec0) y hotfix del `k` por consulta (PR #12, exacto solo con la
+fusión sellada — restricción anotada en el plan de C).
+
+**Cambios de régimen respecto al bloque 2026-08-17:**
+- **Pre-registros y métricas permitidos de nuevo.** Una puerta numérica
+  pre-registrada decide; un resultado no se re-corre ni se reinterpreta a la
+  vista del número.
+- **Decisiones PENDIENTE-PAUL de cada plan**: una tarea bloqueada por una
+  decisión abierta no se adjudica por consultor ni por clase pre-autorizada;
+  queda `encolado` y el selector pasa a la siguiente adjudicable.
+- **Backlog**: `docs/backlog.md` es el instrumento vivo; cada campaña añade
+  líneas de estado a los items que toca (editar el item, no duplicar).
+- **Pendiente, no bloquea**: proceso residente para el coste fijo de ~910 ms
+  de carga del modelo (item Media del backlog; requiere brainstorming con
+  Paul antes de planificar).
+- **Se mantienen** del bloque 2026-08-17: veto AGPL, permalinks jamás
+  regenerados, línea roja de acciones destructivas o externas a Paul (push a
+  `main`, merges, borrado de ramas remotas, `gh repo edit`), y el gate de merge.
+
+
+---
+
+## ACTUALIZACIÓN 2026-08-17 — fase de cierre (histórico: la sustituye el bloque 2026-09-13)
+
+Decisión de Paul en sesión 2026-08-17: **el proyecto se cierra hasta M5b**
+(desinstalación de basic-memory), con régimen ligero. Plan de campañas:
+`docs/superpowers/plans/2026-08-17-cierre-exo-m2-a-m5b.md` — es la **fuente de
+selección de items** de aquí en adelante; la spec §7 sigue siendo la fuente de
+criterio, pero el orden ejecutable lo fija el plan (C5→C10, con M6 adelantado
+sobre M4 por razón escrita en el plan).
+
+**Estado real (git es la verdad, 2026-08-17)**: M0 cerrado · M1a completo ·
+M2-01..07 mergeados y pusheados (`main` == `origin/main` en `67d37c7`) ·
+`exo index/rebuild/search --type fts|vector|hybrid` vivos, 72 tests verdes ·
+hybrid sellado `bonus=0.0 / β=0.6 / thr=0.40`, 49/55 diagnóstico. Falta M2-08
+(`exo recall`) y M2-09 (corrida final) para cerrar E1.
+
+**Cambios de régimen (vinculantes para orquestador y consultores):**
+- **Sin métricas nuevas, sin pre-registros nuevos, sin ventanas de observación.**
+  Ningún item se selecciona ni se bloquea por producir un número.
+- **El gate de M2-09 es INFORMATIVO, no bloqueante.** Se corre (el harness ya
+  existe), se anota en el reporte, y un resultado peor no para la campaña.
+- **`GATE-CALENDARIO-D`: CERRADO**, no derogado. Su condición literal era
+  "fecha ≥ 2026-07-23 Y métrica D medida y cerrada"; D se corrió el 2026-08-02
+  con verdict NO-PASS firmado
+  (`agent-develop/docs/superpowers/evals/2026-08-02-reflex-v2-verdict.md`).
+  M1b/M3/M6 quedan adjudicables sin override. El NO-PASS no bloquea exo: su
+  causa raíz (transporte orquestador→subagente) se atacó en reflex/A1.
+- **`GATE-HUECO-M2`: abierto desde 2026-07-17**, sigue abierto.
+- **M7 (templates) fuera de plan** — sin consumidor, se reabre si aparece un tercero.
+- **Se mantienen** intactos: veto AGPL, permalinks jamás regenerados, gates de
+  merge por consultor fable delegado, línea roja de acciones destructivas o
+  externas a Paul, y **M5b gated por M6 completo y probado** (único gate duro
+  que sobrevive: sin M6 mueren en silencio recall, matchers de hooks y kbx).
+
+
+---
+
+## Apéndice A — estado original del config (2026-07-17) y gates de calendario
+
+> Retirado de `config.md` el 2026-10-05: todo él es histórico (M0..M2 de julio,
+> `GATE-CALENDARIO-D` cerrado el 2026-08-02, `GATE-HUECO-M2` abierto el 2026-07-17).
+
+**Estado a fecha de redacción original de este config (2026-07-17)** — histórico,
+reconciliar contra el bloque de arriba:
+- **M0 — CERRADO.** Verdict firmado (`evals/retrieval-fase0/verdict/m0-verdict.md`,
+  commit `51e104b`/`2a8c034` en rama `m0-fase0`): jina-es/768/threshold-0.35 en
+  producción, Rust firmado como lenguaje del engine (spec §10 decisión 1).
+  **Pendiente solo el merge de `m0-fase0` → `master`** (en curso al redactar este
+  config); al reconciliar (§0.2 del skill), git es la verdad — si el merge ya
+  aterrizó, marcar `mergeada` sin re-adjudicar nada.
+- **M1a — PARCIAL.** Hecho: repo creado, spec/plan/audit-trail commiteados.
+  **Siguiente, en este orden** (selector simple: primero lo no-gateado):
+  1. **Higiene pre-baseline de la KB** (spec §6.5): backfill `type:` en 11 notas
+     de `kb-demo` sin ese campo, limpieza de root files ya flaggeados por
+     `kbx doctor` (`developercv.cls`, `fontawesome.pdf`), decisión dotdirs ya
+     escrita (se quedan, documentados fuera del bundle — no acción, solo
+     verificar que sigue así), borrar comentario huérfano del cron reflex-fp +
+     actualizar línea stale del backlog. **Lane mecánica** (oráculo: `kbx doctor`,
+     ver §Oráculos) — NO gateada por calendario, puede correr ya.
+     **Nota de worktree cruzada**: este ítem toca `kb-demo` (repo git
+     separado de exo), no `exo/`. El worktree va bajo
+     `~/Documentos/proyectos/kb-demo/.worktrees/<item>` (spec: "un git
+     worktree por item, sin excepción"), NO bajo `exo/.worktrees/`. El guard
+     PreToolUse de exo (flag `exo/.superpowers/fabrica/ACTIVE`) **no cubre
+     `kb-demo`** — hasta que ese repo tenga su propio guard, el perímetro
+     de "nunca push/merge a main sin gate" para ESTE ítem se sostiene solo por
+     disciplina de la sesión, no por hook. Tratar como línea roja reforzada:
+     cualquier `git push`/`merge` en `kb-demo` durante esta sesión exige el
+     mismo `GATE-EXEC` que un merge en exo, aunque el hook no lo fuerce.
+  2. **Prep-M3: skills de `process` escritas y revisadas, SIN instalar**
+     (checklist spec §5.3 paso 1 — solo eso, NUNCA el paso 2 "mismo día
+     superpowers disabled + process enabled", que es cutover real y está
+     gateado por calendario, ver más abajo). **Lane diseño, secuencial**: el
+     "gold" de cada skill absorbida es su checklist de paridad de movimientos
+     vs la skill superpowers correspondiente (tabla spec §5.2). Formato de
+     skill es superficie irreversible interna nombrada en spec §8 → pasa
+     SIEMPRE por el régimen de gates (§Ejecución de gates), nunca por clase
+     pre-autorizada.
+  3. **M2 — E1 read**: `GATE-HUECO-M2` ABIERTO por Paul 2026-07-17 (commit
+     `f97c0fd`). ADJUDICABLE. Fuente de items: spec
+     `docs/superpowers/specs/2026-07-17-m2-e1-read-design.md` §3 (M2-01..09,
+     lanes y oráculos adjudicados por consultor fable, veredicto FIRMADO en
+     `docs/superpowers/consultas/2026-07-17-m2-breakdown/consultor-verdict.md`).
+     **Campaña 1 (D5): SOLO M2-01 + M2-02**; M2-03 arranca únicamente si el
+     gate de 02 cierra esa misma noche. Plan ejecutable:
+     `docs/superpowers/plans/2026-07-17-m2-campana1-scaffold-spec-indexer.md`.
+     (Nota de reconciliación: los items 1 y 2 de M1a arriba están MERGEADOS a
+     fecha 2026-07-17 — higiene KB y prep-M3 135/135, ver git log; git es la
+     verdad, no re-adjudicar.)
+- **M1b, M3 (cutover real), M6**: bloqueados por `GATE-CALENDARIO-D` (ver
+  más abajo). No se seleccionan bajo ninguna circunstancia antes de esa fecha
+  Y de que la métrica D esté efectivamente cerrada.
+- **M4, M5a, M5b, M7**: no adjudicables aún (dependen transitivamente de M2/M3/M6
+  no iniciados); quedan `encolado` sin acción.
+
+### GATE-CALENDARIO-D — **CERRADO 2026-08-02** (histórico, ya no bloquea)
+> Condición cumplida: fecha superada Y métrica D medida y cerrada (verdict
+> NO-PASS 2026-08-02). M1b/M3/M6 son adjudicables. Texto original abajo.
+
+(pre-registro de la métrica D, spec §7 + §2 decisión 6)
+- **Bloquea**: M1b (rename/registro del marketplace), M3 cutover real (paso 2
+  del checklist §5.3 en adelante), M6 (guardrails + cutover del hook de recall),
+  y **cualquier cambio que altere marketplace/skills/recall del agente**
+  (formulación literal spec §2.6: "nada que altere el entorno del agente...
+  se ejecuta dentro de la ventana").
+- **Condición de apertura**: fecha ≥ 2026-07-23 **Y** la métrica D efectivamente
+  medida y cerrada (no basta con que pase la fecha sola — alguien tiene que
+  correr `reflex-baseline.sh` post-fix del `jq 2>/dev/null` — spec §7 último
+  párrafo — y cerrar el análisis). Ese cierre debe quedar citado en el ledger
+  antes de que cualquier item de M1b/M3/M6 pase a `en_curso`.
+- **Mecánica**: el orquestador, al reconciliar (§0.2 del skill), verifica esta
+  condición ANTES de tocar el selector. Si no se cumple, esos items quedan
+  `encolado` con nota "gate de calendario D, ver config" y el selector pasa al
+  siguiente item adjudicable. Ningún consultor-gate ni override informal salta
+  esto — es un `OVERRIDE` explícito de Paul (§Overrides de Paul) si alguna vez
+  se decide adelantar, y dado que invalidaría un experimento pre-registrado,
+  se espera que NO se pida nunca.
+
+### GATE-HUECO-M2 (ventana de calendario de Paul, spec línea 171 — no es una fecha)
+- **Bloquea**: M2 (E1 read) completo.
+- **Condición de apertura**: NO es calculable por la fábrica — es una decisión
+  de agenda de Paul ("hueco real entre una LAN party y cge P2"). Flag físico
+  en este config: `hueco_m2_abierto: sí, 2026-07-17` (abierto por Paul en
+  sesión interactiva 2026-07-17). Mientras diga `no`, la fábrica no
+  empieza M2 aunque M0 esté cerrado (ya lo está) y no haya gate de calendario D
+  activo para M2 (M2 no está en la lista de items D-gateados).
+- Paul abre la ventana editando esta línea a `hueco_m2_abierto: sí, <fecha>` en
+  una rama de config gateada como cualquier otra, o vía `OVERRIDE` puntual si
+  quiere una sola noche de adelanto sin tocar el config.
+
+---
+
+## Apéndice B — secciones de `config.md` retiradas el 2026-10-05
+
+> Texto verbatim de las secciones `Lanes`, `Oráculos` y `Corpus negativos` tal
+> como estaban en `config.md`. Sustituidas por versiones vivas allí; los
+> oráculos citaban `kbx doctor --kb …/kb-demo`, `make check` de kbx y
+> `evals/retrieval-fase0/eval.jsonl`, que ya no existen.
+
+### Lanes (routing, spec §8 + skill §1)
+- **Higiene KB (§6.5)**: mecánica — oráculo `kbx doctor` ya existe y corrió en
+  seco (ver §Oráculos), última corrida verde-parcial 2026-07-17 (5
+  `budget_exceeded` preexistentes fuera de scope de este ítem, 2 `waived
+  orphan` esperados).
+  Correr en paralelo con el ítem 2 si hay executors libres.
+- **Prep-M3 skills de process**: diseño, secuencial, fable en cabeza (redacción
+  + review adversarial de cada skill contra su checklist de paridad).
+- **M2 (ABIERTO 2026-07-17)**: routing por item fijado en la spec de M2 §3
+  (tabla M2-01..09, veredicto D2 firmado): lane diseño = M2-02+M2-03 (par con
+  UN gate fable) y M2-07 (fusión clean-room); el resto mecánica. Merges
+  mecánicos adyacentes (04+05, 06) pueden agrupar gate si el ledger lo pide
+  (trade-off D2). Oráculos de la campaña 1: `cargo build --release
+  --manifest-path engine/Cargo.toml && cargo test --manifest-path
+  engine/Cargo.toml` (+ smoke `-- --ignored` del embedding, citar duración del
+  primer embed) para M2-01; para M2-02 el oráculo es el gate fable sobre
+  spec-indexer + gold sellado (`evals/e1-read/harness/corpus-parity.py
+  --capture-bm`, probe RO, dotdirs_dentro=0 obligatorio).
+
+### Oráculos (comando literal + qué prueba)
+- **KB doctor** (higiene M1a): `kbx doctor --kb ~/Documentos/proyectos/kb-demo`
+  (o sin `--kb` si el default ya apunta ahí — verificado 2026-07-17). Corrida de
+  referencia a esa fecha: 5 `budget_exceeded` (notas grandes preexistentes,
+  fuera de scope de la higiene pre-baseline) + 2 `waived orphan` esperados
+  (README.md, metodologia.md — `kbx_orphan_ok`). El ítem de higiene se
+  considera cerrado cuando el backfill de `type:` y la limpieza de root files
+  NO introducen findings nuevos (comparar corrida antes/después, no solo "sale
+  verde").
+- **M0 — retrieval eval** (ya cerrado, referencia para M2): `evals/retrieval-fase0/harness/analyze.py`
+  + `harness/replay.py` + `harness/stratify.py` sobre los `.jsonl` de
+  `results/`. Última corrida verde: commit `2a8c034` (verdict aplicado). Reusar
+  este harness como base del side-by-side de E1 (spec §4.4-E1) cuando se abra
+  M2 — no reinventar el arnés.
+- **kbx suite** (si M1a toca código de kbx al absorberlo "tal cual"):
+  `cd ~/Documentos/proyectos/kbx && make check` (build + vet + test, tag
+  `sqlite_fts5`). Nada debe cambiar de comportamiento en la absorción — un
+  diff de comportamiento post-absorción es bloqueante, no ajuste cosmético.
+- **Skills de process (prep-M3)**: sin oráculo mecánico — el "oráculo" es el
+  checklist de paridad de movimientos vs la skill superpowers absorbida (spec
+  §5.2, tabla), verificado por el consultor-gate (§Ejecución de gates), no por
+  comando.
+
+### Corpus negativos
+- **Higiene KB**: no aplica en el sentido clásico (no hay extractor); el
+  equivalente es la lista de findings de `kbx doctor` — cualquier finding NO
+  cerrado por la higiene y cualquier finding NUEVO introducido cuenta como
+  regresión.
+- **M2 (indexer/fusión, cuando se abra)**: el propio eval set de M0
+  (`evals/retrieval-fase0/eval.jsonl`, 56 filas, incluye filas `null` como
+  negativos explícitos de permalink) es el corpus negativo/gold de partida —
+  no se construye uno nuevo desde cero (spec §8: "el eval set de M0 es el
+  oráculo").
+- **M4 write-path (futuro)**: corpus de casos search-before-write — sin
+  construir aún (spec §4.2, decisión explícita de no adelantarse).
