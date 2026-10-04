@@ -88,7 +88,7 @@ directorio que esté en `PATH`:
 
 ```bash
 mkdir -p ~/.local/bin
-cp target/release/exo ~/.local/bin/       # Linux / macOS
+cp target/release/exo ~/.local/bin/       # Linux (o macOS, desde fuente)
 cp target/release/exo.exe ~/.local/bin/   # Windows (Git Bash); ~/.local/bin en PATH
 ```
 
@@ -219,9 +219,9 @@ Dos avisos honestos, ambos anotados en `docs/backlog.md`:
 
 ## 7. Lo que NO hay todavía
 
-- **Binario para macOS Intel, ni para Linux ARM.** Solo se publican
-  `x86_64-unknown-linux-gnu`, `x86_64-pc-windows-msvc` y
-  `aarch64-apple-darwin`; en un Mac Intel o en un Linux aarch64 toca compilar
+- **Binario para macOS (retirado el 2026-10-04) ni para Linux ARM.** Solo se
+  publican `x86_64-unknown-linux-gnu` y `x86_64-pc-windows-msvc`; en macOS o
+  en un Linux aarch64 toca compilar
   desde fuente. Los instaladores lo detectan y abortan diciéndolo, en vez de
   dejar un binario que no arranca.
 - **`exo diff-since` y `exo history`.** No se portan por decisión: se usan
