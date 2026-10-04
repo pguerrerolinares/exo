@@ -26,20 +26,23 @@
 //! ruidoso frente a su propio vector limpio (coseno medio medido 0,5845)
 //! coincide casi exacto con la fórmula cerrada para ruido gaussiano
 //! ortogonal en expectativa a la señal en alta dimensión,
-//! `1/sqrt(1+768·sigma²)` (0,5852 para sigma=0,05). Esa fórmula, sin
-//! embargo, **no predice el techo real del bench**: aplicada
-//! ingenuamente al techo sin ruido (0,4747 × 0,585 ≈ 0,28) da un valor
-//! muy por debajo del máximo medido end-to-end sobre la KB completa
-//! (0,4230, N=174) — la búsqueda real agrega por MaxP entre ~19 trozos
-//! por nota, y los embeddings de las 24 palabras del vocabulario NO son
-//! ortogonales entre sí ni con la query (anisotropía típica de embeddings
-//! de frases cortas: coseno medio limpio entre pares de palabras del pool
-//! medido en 0,223, lejos de 0) — agregación + geometría real sin forma
-//! cerrada simple. Por eso sigma se calibra por SWEEP empírico sobre el
-//! pipeline completo (`search --type vector`, N=174, la misma query que
+//! `1/sqrt(1+768·sigma²)` (0,5852 para sigma=0,05). Esa fórmula **no se
+//! puede multiplicar a ciegas por el techo del bench**: el 0,4747 «sin
+//! ruido» está en la escala propia `sim = 1 − L2/2` de `similitud_desde_l2`
+//! (NO coseno — H28) y el shrinkage 0,585 se midió en coseno real; mezclar
+//! las dos (0,4747 × 0,585 ≈ 0,28) queda muy por debajo del máximo medido
+//! end-to-end (0,4230, N=174, escala propia). Aplicada en coseno y
+//! reconvertida: 0,4747 → cos₀ ≈ 0,4481 → × 0,585 ≈ 0,2622 → sim ≈ 0,393,
+//! a 0,030 del medido. La brecha restante es agregación por MaxP entre ~19
+//! trozos por nota y geometría real: los embeddings de las 24 palabras NO
+//! son ortogonales entre sí ni con la query (anisotropía típica de
+//! embeddings de frases cortas: coseno medio limpio entre pares de
+//! palabras del pool medido en 0,223, lejos de 0) — sin forma cerrada
+//! simple. Por eso sigma se calibra por SWEEP empírico sobre el pipeline
+//! completo (`search --type vector`, N=174, la misma query que
 //! usa `bench.sh`), no por la fórmula de shrinkage de un solo trozo:
 //!
-//! | sigma | max coseno | notas ≥0.40 / 174 |
+//! | sigma | max sim (escala propia) | notas ≥0.40 / 174 |
 //! |---|---|---|
 //! | 0 (sin ruido) | 0.4747 | 149 |
 //! | 0.02 | 0.4668 | 110 |
