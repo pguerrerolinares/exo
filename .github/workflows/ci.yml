@@ -193,6 +193,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: engine
+          # Clave propia: con la de antes acertaba la caché release de main y,
+          # en acierto exacto, rust-cache no guarda: las deps debug se
+          # recompilaban de cero en cada run (~60 s).
+          key: dev
       # Nueve suites indexan cuerpos no vacíos y eso descarga el ONNX de
       # jina-es (615 MB medidos) vía hf-hub. Las de `inicia.rs` que lanzan
       # `exo init` van `#[ignore]` (61 s): el extremo a extremo indexer +
