@@ -1012,3 +1012,85 @@ fn con_1_9_0_y_1_10_0_en_cache_elige_la_1_10_0() {
         c.artefacto
     );
 }
+
+/// Escribe `~/.claude/settings.json` en el HOME fabricado del entorno.
+fn settings_en(env: &Entorno, contenido: &str) {
+    let d = env.home.join(".claude");
+    fs::create_dir_all(&d).unwrap();
+    fs::write(d.join("settings.json"), contenido).unwrap();
+}
+
+#[test]
+fn superpowers_habilitado_junto_a_exo_es_warn_y_dice_el_comando() {
+    let dir = tempfile::tempdir().unwrap();
+    let env = entorno(dir.path());
+    settings_en(
+        &env,
+        r#"{"enabledPlugins":{"superpowers@claude-plugins-official":true,"exo@exo":true}}"#,
+    );
+    let c = analiza(&env)
+        .checks
+        .into_iter()
+        .find(|c| c.id == "superpowers_disabled")
+        .expect("el informe lleva el check superpowers_disabled");
+    assert_eq!(
+        c.estado,
+        Estado::Warn,
+        "deuda con arreglo conocido: no gatea"
+    );
+    assert!(
+        c.artefacto.contains("settings.json"),
+        "reporta lo que miró: {}",
+        c.artefacto
+    );
+    assert!(
+        c.detalle
+            .contains("claude plugin disable superpowers@claude-plugins-official"),
+        "{}",
+        c.detalle
+    );
+}
+
+#[test]
+fn superpowers_deshabilitado_o_ausente_es_ok_y_sin_settings_es_na() {
+    let dir = tempfile::tempdir().unwrap();
+    let env = entorno(dir.path());
+    let estado = |env: &Entorno| check(&analiza(env), "superpowers_disabled").estado;
+    assert_eq!(
+        estado(&env),
+        Estado::Na,
+        "sin settings.json no hay nada que medir"
+    );
+    settings_en(
+        &env,
+        r#"{"enabledPlugins":{"superpowers@claude-plugins-official":false,"exo@exo":true}}"#,
+    );
+    assert_eq!(estado(&env), Estado::Ok);
+    settings_en(&env, r#"{"enabledPlugins":{"exo@exo":true}}"#);
+    assert_eq!(estado(&env), Estado::Ok);
+}
+
+#[test]
+fn superpowers_habilitado_sin_exo_habilitado_no_es_deuda() {
+    let dir = tempfile::tempdir().unwrap();
+    let env = entorno(dir.path());
+    settings_en(
+        &env,
+        r#"{"enabledPlugins":{"superpowers@claude-plugins-official":true}}"#,
+    );
+    assert_eq!(
+        check(&analiza(&env), "superpowers_disabled").estado,
+        Estado::Ok
+    );
+}
+
+#[test]
+fn settings_ilegible_es_warn_no_silencio() {
+    let dir = tempfile::tempdir().unwrap();
+    let env = entorno(dir.path());
+    settings_en(&env, "{ esto no es json");
+    assert_eq!(
+        check(&analiza(&env), "superpowers_disabled").estado,
+        Estado::Warn
+    );
+}

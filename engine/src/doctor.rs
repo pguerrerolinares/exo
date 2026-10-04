@@ -174,6 +174,7 @@ pub fn analiza(entorno: &Entorno) -> InformeDoctor {
         check_detach(entorno),
         check_hook_precommit(entorno, cfg.as_ref()),
         check_plugin_compat(entorno),
+        check_superpowers(entorno),
     ])
 }
 
@@ -972,5 +973,57 @@ fn check_config(entorno: &Entorno) -> Check {
             ),
         ),
         Err(e) => Check::nuevo("config", Estado::Fail, ruta, format!("{e:#}")),
+    }
+}
+
+/// superpowers y exo cubren el mismo terreno (skills y hooks de proceso): con
+/// los dos habilitados el agente recibe instrucciones duplicadas y a veces
+/// contradictorias. Solo mira el scope de usuario (`~/.claude/settings.json`,
+/// `enabledPlugins`, claves `plugin@marketplace`): `Entorno` no lleva el
+/// directorio de proyecto, y el scope project/managed lo cubre el aviso de
+/// SessionStart, que sí corre en el proyecto. `warn`, no `fail`: es deuda con
+/// arreglo conocido, no una máquina rota.
+fn check_superpowers(entorno: &Entorno) -> Check {
+    let ruta = entorno.home.join(".claude").join("settings.json");
+    let artefacto = ruta.display().to_string();
+    let Ok(texto) = std::fs::read_to_string(&ruta) else {
+        return Check::nuevo(
+            "superpowers_disabled",
+            Estado::Na,
+            artefacto,
+            "no hay ~/.claude/settings.json legible: sin plugins habilitados que medir",
+        );
+    };
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(&texto) else {
+        return Check::nuevo(
+            "superpowers_disabled",
+            Estado::Warn,
+            artefacto,
+            "settings.json no es JSON válido: no puedo saber si superpowers está habilitado",
+        );
+    };
+    let habilitado = |prefijo: &str| -> Option<String> {
+        json.get("enabledPlugins")?
+            .as_object()?
+            .iter()
+            .find(|(k, v)| k.starts_with(prefijo) && v.as_bool() == Some(true))
+            .map(|(k, _)| k.clone())
+    };
+    match (habilitado("superpowers@"), habilitado("exo@")) {
+        (Some(sp), Some(_)) => Check::nuevo(
+            "superpowers_disabled",
+            Estado::Warn,
+            artefacto,
+            format!(
+                "{sp} sigue habilitado junto a exo (skills y hooks duplicados). \
+                 Desactívalo: claude plugin disable {sp}"
+            ),
+        ),
+        _ => Check::nuevo(
+            "superpowers_disabled",
+            Estado::Ok,
+            artefacto,
+            "superpowers no está habilitado a la vez que exo",
+        ),
     }
 }
