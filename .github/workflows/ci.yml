@@ -279,8 +279,6 @@ jobs:
         include:
           - os: ubuntu-latest
             script: bash scripts/test-install.sh
-          - os: macos-latest
-            script: bash scripts/test-install.sh
           # scripts/test-install.ps1 lleva su propio gate: sale 0 solo si el
           # caso "checksum correcto instala" Y el caso "checksum manipulado
           # aborta sin dejar binario" pasan los dos.

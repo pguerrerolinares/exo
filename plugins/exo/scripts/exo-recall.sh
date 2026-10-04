@@ -140,7 +140,7 @@ if [ "$SOURCE" = "compact" ] && [ -n "$SID" ] && [ -f "$HOME/.claude/reflex-log.
   # H5: el log crece sin cota (~11 KB/día medidos el 2026-09-13) y esto corre
   # en cada compactación. Los disparos de ESTA sesión están en la cola: 2.000
   # líneas son ~74 días al ritmo actual. No se rota nada, porque el análisis
-  # (a1-gate, reflex-baseline, reflex-fp-review) necesita la historia entera.
+  # (reflex-fp-review) necesita la historia entera.
   FIRED="$(tail -n "${EXO_RECALL_COMPACT_LINEAS:-2000}" "$HOME/.claude/reflex-log.jsonl" 2>/dev/null \
             | jq -r --arg sid "$SID" 'select(.session_id==$sid) | .reflex' 2>/dev/null | sort -u)"
   if [ -n "$FIRED" ]; then
