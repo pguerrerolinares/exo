@@ -100,11 +100,14 @@ corre "$r" "$(stubs_para vacio)"
 if contains "$OUT" "MUTACIÓN: no disponible (cargo-mutants no instalado)"; then pass herramienta_ausente; else fail herramienta_ausente "$(seccion)"; fi
 
 # ---- timeout (y sin huérfanos: sleep con duración única)
+# Cota de dt: lo que se vigila es no esperar al `sleep 31337`. En Windows (fork caro en MSYS)
+# el resto del paquete ya cuesta 4-5 s solo, y `<5` caía a ras en 3/3 runs de main tras 946a2a4.
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) DT_MAX=15 ;; *) DT_MAX=5 ;; esac
 mkrepo tmo Cargo.toml src/lib.rs; r=$REPO
 t0=$SECONDS
 corre "$r" "$(stubs_para tmo cargo-mutants)" EXO_MUTATION_TIMEOUT=1 STUB_SLEEP=31337
 dt=$((SECONDS - t0))
-if contains "$OUT" "MUTACIÓN: parcial (timeout 1s)" && [ "$dt" -lt 5 ]; then pass timeout; else fail timeout "dt=${dt}s: $(seccion)"; fi
+if contains "$OUT" "MUTACIÓN: parcial (timeout 1s)" && [ "$dt" -lt "$DT_MAX" ]; then pass timeout; else fail timeout "dt=${dt}s: $(seccion)"; fi
 if pgrep -f "sleep 31337" >/dev/null 2>&1; then fail timeout_huerfanos "queda un sleep 31337 vivo"; pkill -f "sleep 31337" 2>/dev/null; else pass timeout_huerfanos; fi
 
 # ---- rust_ok
