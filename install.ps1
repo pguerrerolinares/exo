@@ -10,6 +10,15 @@
   literal $HOME/.local/bin/exo(.exe). Si ninguno de los dos resuelve un exo
   ejecutable, ese gate sale 1 y BLOQUEA el commit (fail-closed); el escape
   consciente es git commit --no-verify.
+
+  Además deja un jq.exe real (el binario oficial de jqlang, con su SHA256
+  verificado) junto a exo.exe, y antepone ese directorio al PATH de USUARIO
+  para que gane al alias de la Store (WindowsApps\jq.exe, que no es un jq).
+  Si ya hay un jq real en el PATH, no lo toca.
+
+  No desactiva superpowers por su cuenta: es una acción sobre la config de
+  Claude Code del usuario. Imprime el comando; con -DisableSuperpowers lo
+  ejecuta (disable, nunca uninstall).
 #>
 [CmdletBinding()]
 param(
@@ -25,7 +34,11 @@ param(
     # cuando existe.
     [string]$Dir     = $(if ($env:EXO_DIR)     { $env:EXO_DIR }     else { Join-Path $(if ($env:HOME) { $env:HOME } else { $HOME }) '.local\bin' }),
     [string]$Repo    = $(if ($env:EXO_REPO)    { $env:EXO_REPO }    else { 'pguerrerolinares/exo' }),
-    [string]$BaseUrl = $env:EXO_BASE_URL
+    [string]$BaseUrl = $env:EXO_BASE_URL,
+    [string]$JqBaseUrl = $(if ($env:EXO_JQ_BASE_URL) { $env:EXO_JQ_BASE_URL } else { 'https://github.com/jqlang/jq/releases/download/jq-1.7.1' }),
+    # 'Process' es el seam de test: evita escribir el PATH real del usuario.
+    [string]$PathScope = $(if ($env:EXO_PATH_SCOPE) { $env:EXO_PATH_SCOPE } else { 'User' }),
+    [switch]$DisableSuperpowers
 )
 
 $ErrorActionPreference = 'Stop'
@@ -72,15 +85,57 @@ try {
     }
     Write-Host "install: sha256 verificado"
 
+    # jq se baja y verifica ANTES de copiar nada, igual que exo: un fallo no
+    # deja binarios a medias. Un alias de WindowsApps NO cuenta como jq.
+    $jqAsset = 'jq-windows-amd64.exe'
+    $jqPrevio = Get-Command jq -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    $jqReal = $jqPrevio -and ($jqPrevio.Source -notlike '*WindowsApps*')
+    $jqTmp = Join-Path $tmp $jqAsset
+    if ($jqReal) {
+        Write-Host "install: jq ya presente en $($jqPrevio.Source) — no se toca"
+    } else {
+        Write-Host "install: bajando $jqAsset de $JqBaseUrl"
+        Invoke-WebRequest -Uri "$JqBaseUrl/$jqAsset"        -OutFile $jqTmp -UseBasicParsing
+        Invoke-WebRequest -Uri "$JqBaseUrl/sha256sum.txt"   -OutFile "$jqTmp.sums" -UseBasicParsing
+        # sha256sum.txt lista todos los assets de la release: "<hash>  <fichero>".
+        $jqEsperado = $null
+        foreach ($linea in (Get-Content "$jqTmp.sums")) {
+            $c = $linea.Trim() -split '\s+'
+            if ($c.Count -ge 2 -and ($c[-1] -replace '^\*', '') -eq $jqAsset) { $jqEsperado = $c[0]; break }
+        }
+        if (-not $jqEsperado) { throw "install: sha256sum.txt de jq no lista $jqAsset. NO se ha instalado nada." }
+        $jqReal256 = (Get-FileHash -Path $jqTmp -Algorithm SHA256).Hash.ToLower()
+        if ($jqReal256 -ne $jqEsperado.ToLower()) {
+            throw "install: el SHA256 de jq no cuadra. Esperado $jqEsperado, calculado $jqReal256. NO se ha instalado nada."
+        }
+        Write-Host "install: sha256 de jq verificado"
+    }
+
     if (-not (Test-Path $Dir)) { New-Item -ItemType Directory -Path $Dir -Force | Out-Null }
     $destino = Join-Path $Dir 'exo.exe'
     Copy-Item -Path $binTmp -Destination $destino -Force
     Write-Host "install: instalado en $destino"
 
-    $enPath = ($env:PATH -split ';') -contains $Dir
-    if (-not $enPath) {
-        Write-Warning "install: $Dir no está en tu PATH; añádelo para que 'exo' se resuelva solo"
+    if (-not $jqReal) {
+        $jqDestino = Join-Path $Dir 'jq.exe'
+        Copy-Item -Path $jqTmp -Destination $jqDestino -Force
+        & $jqDestino --version
+        if ($LASTEXITCODE -ne 0) {
+            throw "install: el jq instalado en $jqDestino no responde a --version (exit $LASTEXITCODE)."
+        }
+        Write-Host "install: jq instalado en $jqDestino"
     }
+
+    # PATH de usuario, no de proceso: tiene que sobrevivir a esta consola. Se
+    # ANTEPONE (no se añade al final) para que este jq gane al alias de la
+    # Store. Idempotente: si $Dir ya está, no se reescribe.
+    $pathActual = [Environment]::GetEnvironmentVariable('Path', $PathScope)
+    $yaEsta = ($pathActual -split ';') -contains $Dir
+    if (-not $yaEsta) {
+        [Environment]::SetEnvironmentVariable('Path', "$Dir;$pathActual", $PathScope)
+        Write-Host "install: $Dir antepuesto al PATH ($PathScope); abre una consola nueva para que lo vea"
+    }
+    if (($env:PATH -split ';') -notcontains $Dir) { $env:PATH = "$Dir;$env:PATH" }
 
     # El exit code de un proceso NATIVO no lanza excepcion en PowerShell, ni
     # siquiera con $ErrorActionPreference='Stop': hay que mirar $LASTEXITCODE a
@@ -113,6 +168,16 @@ try {
     & $destino doctor
     if ($LASTEXITCODE -ne 0) {
         Write-Host "install: doctor ha marcado deuda (exit $LASTEXITCODE) — mira las filas 'fail' de arriba"
+    }
+
+    # exo sustituye a superpowers; con los dos habilitados se duplican skills y
+    # hooks. `disable`, nunca `uninstall`: se puede revertir.
+    if ($DisableSuperpowers -or $env:EXO_DISABLE_SUPERPOWERS) {
+        & claude plugin disable superpowers
+        if ($LASTEXITCODE -ne 0) { Write-Warning "install: 'claude plugin disable superpowers' salió con $LASTEXITCODE" }
+    } else {
+        Write-Host "install: si tienes superpowers instalado, desactívalo (exo lo sustituye):"
+        Write-Host "  claude plugin disable superpowers"
     }
 } finally {
     Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue

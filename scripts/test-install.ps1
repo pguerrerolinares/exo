@@ -77,6 +77,23 @@ function Get-FileUrl {
     'file:///' + $Dir.Replace('\', '/')
 }
 
+# jq: todos los casos corren con un jq falso servido por file:// y con
+# PathScope=Process. Sin lo primero, el instalador bajaria jq de GitHub (o lo
+# saltaria si el runner ya trae uno); sin lo segundo escribiria el PATH de
+# USUARIO real de quien corra este test.
+function New-ReleaseJq {
+    param([string]$Dir, [switch]$Corrupto)
+    New-Item -ItemType Directory -Force -Path $Dir | Out-Null
+    $f = Join-Path $Dir 'jq-windows-amd64.exe'
+    [System.IO.File]::WriteAllBytes($f, $payloadBytes)
+    $hash = (Get-FileHash -Path $f -Algorithm SHA256).Hash.ToLower()
+    Set-Content -Path (Join-Path $Dir 'sha256sum.txt') -Value "$hash  jq-windows-amd64.exe" -Encoding ascii
+    if ($Corrupto) { Add-Content -Path $f -Value 'basura' -Encoding ascii -NoNewline }
+}
+New-ReleaseJq -Dir (Join-Path $tmp 'jq-ok')
+$env:EXO_JQ_BASE_URL = Get-FileUrl -Dir (Join-Path $tmp 'jq-ok')
+$env:EXO_PATH_SCOPE = 'Process'
+
 # --- Caso 1: checksum correcto -> instala y el binario queda donde el gate mira
 $rel = Join-Path $tmp 'release-ok'
 $dest = Join-Path $tmp 'bin-ok'
@@ -166,6 +183,72 @@ if ($ec3 -ne 0) {
     Write-Output "test-install: OK - el formato de sha256sum tambien instala"
 }
 
+# --- Caso 4: jq. El PATH del hijo se reduce a System32 para que NO resuelva
+# ningun jq previo (los runners windows-latest traen uno) y el instalador
+# tenga que bajar el de la "release" falsa. PathScope=Process: no se toca el
+# PATH de usuario real de quien corra este test.
+$psExe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+$pathOriginal = $env:PATH
+
+$rel4 = Join-Path $tmp 'release-jq'
+$dest4 = Join-Path $tmp 'bin-jq'
+New-Release -Dir $rel4
+$env:EXO_BASE_URL = Get-FileUrl -Dir $rel4
+$env:EXO_DIR = $dest4
+$env:PATH = Join-Path $env:SystemRoot 'System32'
+$log4 = Join-Path $tmp 'jq.log'
+$ErrorActionPreference = 'Continue'
+& $psExe -NoProfile -ExecutionPolicy Bypass -File $installScript *> $log4
+$ec4 = $LASTEXITCODE
+$ErrorActionPreference = 'Stop'
+$env:PATH = $pathOriginal
+if ($ec4 -ne 0) {
+    Write-Output "test-install: FALLO - caso jq no instalo (exit $ec4)"
+    Get-Content $log4
+    $fallos = 1
+} elseif (-not (Test-Path (Join-Path $dest4 'jq.exe'))) {
+    Write-Output "test-install: FALLO - caso jq salio 0 pero no hay jq.exe en $dest4"
+    $fallos = 1
+} elseif (-not (Select-String -Path $log4 -Pattern 'antepuesto al PATH' -Quiet)) {
+    Write-Output "test-install: FALLO - caso jq no antepuso $dest4 al PATH"
+    Get-Content $log4
+    $fallos = 1
+} elseif (-not (Select-String -Path $log4 -Pattern 'claude plugin disable superpowers' -Quiet)) {
+    Write-Output "test-install: FALLO - el instalador no imprimio como desactivar superpowers"
+    $fallos = 1
+} else {
+    Write-Output "test-install: OK - jq.exe instalado, PATH antepuesto, instruccion de superpowers impresa"
+}
+
+# --- Caso 5: jq con checksum manipulado aborta y NO deja ni exo ni jq
+$rel5 = Join-Path $tmp 'release-jq-malo'
+$dest5 = Join-Path $tmp 'bin-jq-malo'
+New-Release -Dir $rel5
+New-ReleaseJq -Dir (Join-Path $tmp 'jq-malo') -Corrupto
+$env:EXO_BASE_URL = Get-FileUrl -Dir $rel5
+$env:EXO_JQ_BASE_URL = Get-FileUrl -Dir (Join-Path $tmp 'jq-malo')
+$env:EXO_DIR = $dest5
+$env:PATH = Join-Path $env:SystemRoot 'System32'
+$log5 = Join-Path $tmp 'jq-malo.log'
+$ErrorActionPreference = 'Continue'
+& $psExe -NoProfile -ExecutionPolicy Bypass -File $installScript *> $log5
+$ec5 = $LASTEXITCODE
+$ErrorActionPreference = 'Stop'
+$env:PATH = $pathOriginal
+$env:EXO_BASE_URL = $null
+$env:EXO_JQ_BASE_URL = $null
+$env:EXO_DIR = $null
+$env:EXO_PATH_SCOPE = $null
+if ($ec5 -eq 0) {
+    Write-Output "test-install: FALLO - jq con checksum malo salio 0"
+    $fallos = 1
+} elseif (Test-Path $dest5) {
+    Write-Output "test-install: FALLO - jq malo aborto pero dejo algo en $dest5"
+    $fallos = 1
+} else {
+    Write-Output "test-install: OK - jq con checksum malo aborta y no instala nada"
+}
+
 Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
 
 
@@ -173,5 +256,5 @@ if ($fallos -ne 0) {
     Write-Output "test-install: hay fallos"
     exit 1
 }
-Write-Output "test-install: OK - los tres casos"
+Write-Output "test-install: OK - los cinco casos"
 exit 0

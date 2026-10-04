@@ -59,8 +59,15 @@ resuelve un `exo` ejecutable, ese hook sale 1 y BLOQUEA el commit
 (fail-closed) — el escape consciente es `git commit --no-verify`. `exo
 doctor` tiene un check dedicado al literal (`hook_fallback_binary`).
 
+`install.ps1` además deja un `jq.exe` oficial (jq 1.7.1, SHA256 verificado)
+junto a `exo.exe` si no hay ya un jq real en el PATH, y antepone el
+directorio al PATH de **usuario** (el alias de WindowsApps no es un jq).
+No desactiva superpowers por su cuenta: imprime `claude plugin disable
+superpowers`; `-DisableSuperpowers` (o `EXO_DISABLE_SUPERPOWERS=1`, que sí llega por `irm | iex`) lo ejecuta.
+
 Variables reconocidas: `EXO_DIR` (destino), `EXO_VERSION` (un tag concreto en
-vez de `latest`), `EXO_INIT_KB` + `EXO_INIT_NAME` (encadenan `exo init`).
+vez de `latest`), `EXO_INIT_KB` + `EXO_INIT_NAME` (encadenan `exo init`; sin
+ellas el instalador imprime el comando, no inventa una KB).
 
 ### Verificar la instalación
 
@@ -68,7 +75,7 @@ vez de `latest`), `EXO_INIT_KB` + `EXO_INIT_NAME` (encadenan `exo init`).
 exo doctor
 ```
 
-Doce checks de entorno; cada uno dice **el artefacto que miró**. `warn`
+Trece checks de entorno; cada uno dice **el artefacto que miró**. `warn`
 informa, `fail` sale con código 3. Con `--json` emite el envelope v2.
 
 ## 3. Compilar el engine
