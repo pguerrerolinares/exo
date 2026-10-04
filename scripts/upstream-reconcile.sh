@@ -7,6 +7,9 @@
 # el título del PR y los `port(...)` van en el body como viñetas `* port(...)`.
 # Un commit port revertido (`This reverts commit <sha>.`) no cuenta: sin
 # evidencia la fila sigue propuesta, salvo que haya un re-port posterior.
+# Solo reconoce el trailer de `git revert` con sha de 40 hex: un revert manual,
+# con sha abreviado o parcial (quitar un port de un commit con varios) sigue
+# promoviendo; un `Reapply "port(...)"` no promueve (hace falta un port nuevo).
 # stdout: `propuesto-sin-evidencia #<PR> <skill>` por fila que sigue propuesta.
 # exit 2: ledger sin `upstream_tag:` o sin la cabecera de la tabla de filas.
 set -uo pipefail
