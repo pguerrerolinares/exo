@@ -57,7 +57,7 @@ El ledger inicial lleva tag + mapeo + divergencias y **cero filas**.
 
 ## Watchdog
 
-Workflow `.github/workflows/upstream-watchdog.yml`, diario. Solo cuentan los comentarios con una línea `estado: ok|alerta`. Falla si el más reciente de ésos está en `alerta`, si tiene **más de 8 días**, si no hay ninguno o si el issue no existe. Un comentario humano no renueva el reloj. GitHub avisa por email del rojo. Cubre la routine pausada (conexión caducada a 72 h, cap diario) y el "verde = solo arrancó".
+Workflow `.github/workflows/upstream-watchdog.yml`, diario. Solo cuentan los comentarios con una línea `estado: ok|alerta`. Falla si el más reciente de ésos está en `alerta`, si tiene **más de 15 días** (15 = una pasada semanal perdida de holgura; era 8 hasta 2026-10-05), si no hay ninguno o si el issue no existe. Un comentario humano no renueva el reloj. GitHub avisa por email del rojo. Cubre la routine pausada (conexión caducada a 72 h, cap diario) y el "verde = solo arrancó".
 
 ## Errores y límites
 
@@ -85,6 +85,6 @@ document, distill, recon-first, reflejos y engine (sin original upstream); issue
 
 - `check-skill-refs`: un fixture que referencia una skill inexistente falla.
 - `upstream-reconcile`: en un repo git temporal, la fila `propuesto` más el commit `port(upstream#N)` en `main` pasa a `portado`; sin el commit sigue en `propuesto`.
-- `upstream-watchdog`: un latido de hace 9 días falla; uno de ayer, verde; sin issue, falla; último latido en alerta, falla; un comentario sin línea de estado no cuenta.
+- `upstream-watchdog`: un latido de hace 16 días falla, uno de 15 días pasa, uno de ayer verde; sin issue falla; último latido en alerta falla; un comentario sin línea de estado no cuenta.
 - `upstream-score`: fixtures de verdad y ledger con resultados conocidos.
 - El juicio del triage solo se prueba con el eval de la primera pasada.

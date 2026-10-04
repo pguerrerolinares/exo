@@ -5,6 +5,11 @@
 # y fija su hash al de ese commit. El hash de la rama del PR no sirve: tras un
 # squash ya no existe. Con squash de >1 commit (COMMIT_OR_PR_TITLE) el subject es
 # el título del PR y los `port(...)` van en el body como viñetas `* port(...)`.
+# Un commit port revertido (`This reverts commit <sha>.`) no cuenta: sin
+# evidencia la fila sigue propuesta, salvo que haya un re-port posterior.
+# Solo reconoce el trailer de `git revert` con sha de 40 hex: un revert manual,
+# con sha abreviado o parcial (quitar un port de un commit con varios) sigue
+# promoviendo; un `Reapply "port(...)"` no promueve (hace falta un port nuevo).
 # stdout: `propuesto-sin-evidencia #<PR> <skill>` por fila que sigue propuesta.
 # exit 2: ledger sin `upstream_tag:` o sin la cabecera de la tabla de filas.
 set -uo pipefail
@@ -18,6 +23,8 @@ trim() { local s="$1"; s="${s#"${s%%[![:space:]]*}"}"; s="${s%"${s##*[![:space:]
 git -C "$dir" rev-parse --verify --quiet "$rama^{commit}" >/dev/null \
   || { echo "upstream-reconcile: rama $rama no existe o no es un commit" >&2; exit 2; }
 grep -q '^upstream_tag:' "$ledger" || { echo "upstream-reconcile: falta 'upstream_tag:'" >&2; exit 2; }
+
+revertidos="$(git -C "$dir" log --format=%b "$rama" -- | grep -oE 'This reverts commit [0-9a-f]{40}' | awk '{print $4}')"
 
 tmp="$(mktemp)"; trap 'rm -f "$tmp"' EXIT
 en_tabla=0; visto_cabecera=0
@@ -42,7 +49,10 @@ while IFS= read -r linea || [ -n "$linea" ]; do
   if [ "$(trim "${c[4]:-}")" = propuesto ] && ! [[ "$pr" =~ ^[0-9]+$ ]]; then
     echo "propuesto-malformado $(trim "${c[1]:-}") $skill"
   elif [ "$(trim "${c[4]:-}")" = propuesto ]; then
-    hash="$(git -C "$dir" log -1 --format=%H -E --grep="^(\* )?port\(upstream#$pr\):" "$rama" --)"
+    hash=""
+    while IFS= read -r h; do
+      [ -n "$h" ] && ! grep -qxF "$h" <<< "$revertidos" && { hash="$h"; break; }
+    done < <(git -C "$dir" log --format=%H -E --grep="^(\* )?port\(upstream#$pr\):" "$rama" --)
     if [ -n "$hash" ]; then
       c[4]=" portado "
       c[6]=" $(git -C "$dir" rev-parse --short "$hash") "
