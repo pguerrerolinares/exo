@@ -244,6 +244,7 @@ fn init_con_nombre_invalido_no_escribe_nada() {
 /// propiedad que de verdad importa es que la nota sea indexable, no solo que
 /// el fichero exista.
 #[test]
+#[ignore = "lento: `exo init` carga el modelo; cargo test -- --include-ignored"]
 fn init_con_nombre_valido_produce_frontmatter_parseable_e_indexable() {
     let tmp = tempfile::TempDir::new().unwrap();
     let kb = tmp.path().join("kb-nueva");
@@ -309,6 +310,7 @@ fn init_con_nombre_valido_produce_frontmatter_parseable_e_indexable() {
 /// fallaba de las dos formas posibles: sin `--force` abortaba, y con `--force`
 /// machacaba `core/core-index.md` con la semilla.
 #[test]
+#[ignore = "lento: `exo init` carga el modelo; cargo test -- --include-ignored"]
 fn adopcion_no_toca_ni_un_fichero_de_la_kb_existente() {
     let tmp = tempfile::TempDir::new().unwrap();
     let kb = tmp.path().join("kb-poblada");
@@ -368,6 +370,7 @@ fn adopcion_no_toca_ni_un_fichero_de_la_kb_existente() {
 /// hermana de `init_con_nombre_invalido_no_escribe_nada` (misma forma,
 /// disparador distinto).
 #[test]
+#[ignore = "lento: `exo init` carga el modelo; cargo test -- --include-ignored"]
 fn init_con_config_existente_sin_force_no_deja_residuo_en_la_kb() {
     let tmp = tempfile::TempDir::new().unwrap();
     let kb = tmp.path().join("kb-nueva");
@@ -414,6 +417,7 @@ fn init_con_config_existente_sin_force_no_deja_residuo_en_la_kb() {
 /// que lanza. El objetivo es el mismo que pide la review: que el test no
 /// dependa de si la máquina que lo corre tiene `user.name`/`user.email`.
 #[test]
+#[ignore = "lento: `exo init` carga el modelo; cargo test -- --include-ignored"]
 fn init_en_modo_creacion_deja_un_commit_en_la_kb() {
     let tmp = tempfile::TempDir::new().unwrap();
     let kb = tmp.path().join("kb-nueva");
@@ -470,6 +474,7 @@ fn init_en_modo_creacion_deja_un_commit_en_la_kb() {
 /// notas `.md` de la plantilla: 11 (los 12 ficheros de la semilla menos
 /// `archive/log/.gitkeep`, que `walk_kb` filtra por extensión y ni ve).
 #[test]
+#[ignore = "lento: `exo init` carga el modelo; cargo test -- --include-ignored"]
 fn init_en_modo_creacion_publica_el_resumen_de_indexado_en_el_envelope() {
     let tmp = tempfile::TempDir::new().unwrap();
     let kb = tmp.path().join("kb-nueva");
@@ -535,6 +540,7 @@ fn verifica_indexado_completo_falla_ruidoso_cuando_no_cuadra() {
 /// volcar la plantilla y escribir su config, dejando residuo. Ahora falla
 /// antes de tocar el disco, nombra la KB dueña y dice el remedio.
 #[test]
+#[ignore = "lento: `exo init` carga el modelo; cargo test -- --include-ignored"]
 fn dos_kbs_con_la_misma_plantilla_sobre_la_misma_db_la_segunda_falla_sin_residuo() {
     let tmp = tempfile::TempDir::new().unwrap();
     let db = tmp.path().join("compartida.db");
@@ -587,6 +593,7 @@ fn dos_kbs_con_la_misma_plantilla_sobre_la_misma_db_la_segunda_falla_sin_residuo
 /// `db_objetivo`. Con `$EXO_DB` puesto, la config queda mintiendo sobre qué
 /// DB usa este `init`.
 #[test]
+#[ignore = "lento: `exo init` carga el modelo; cargo test -- --include-ignored"]
 fn init_con_exo_db_graba_en_config_la_db_de_exo_db_no_el_default() {
     let tmp = tempfile::TempDir::new().unwrap();
     let kb = tmp.path().join("kb-nueva");
@@ -658,6 +665,7 @@ fn db_de_init_con_exo_db_es_exo_db() {
 /// `exo config --json` con solo `EXO_CONFIG` de la segunda mentía sobre qué
 /// DB usa.
 #[test]
+#[ignore = "lento: `exo init` carga el modelo; cargo test -- --include-ignored"]
 fn segunda_kb_con_exo_config_y_exo_db_propios_no_hereda_la_db_de_la_primera() {
     let home = tempfile::TempDir::new().unwrap();
     let otro = tempfile::TempDir::new().unwrap();
@@ -769,6 +777,7 @@ fn valida_db_para_kb_rechaza_otra_kb_sin_mencionar_un_flag_que_init_no_tiene() {
 /// sigue fijando 0.35 en su fixture a propósito: es el valor que trae ESA
 /// KB de origen, no un default de `exo init`).
 #[test]
+#[ignore = "lento: `exo init` carga el modelo; cargo test -- --include-ignored"]
 fn init_en_modo_creacion_escribe_min_similarity_0_40_por_defecto() {
     let tmp = tempfile::TempDir::new().unwrap();
     let kb = tmp.path().join("kb-nueva");

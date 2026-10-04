@@ -12,12 +12,12 @@
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 
-BIN="engine/target/release/exo"
+BIN="engine/target/debug/exo"
 [ "${OS:-}" = "Windows_NT" ] && BIN="$BIN.exe"
 
-# Compila si hace falta. En el job `test` de CI, `cargo test --release` ya
+# Compila si hace falta. En el job `test` de CI, `cargo test` (debug) ya
 # dejó los artefactos: esto solo enlaza el binario.
-cargo build --release --locked --manifest-path engine/Cargo.toml || {
+cargo build --locked --manifest-path engine/Cargo.toml || {
   echo "test-contrato-ci: no compila el engine" >&2; exit 1; }
 [ -x "$BIN" ] || { echo "test-contrato-ci: falta $BIN tras compilar" >&2; exit 1; }
 

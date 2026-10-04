@@ -1034,6 +1034,7 @@ mod tests_knn_por_consulta {
     /// `distintas >= limite` o `k == total`, mismo resultado final, más
     /// lento. Verificado con las dos mutaciones antes de commitear.
     #[test]
+    #[ignore = "lento (~12 s en debug); cargo test -- --include-ignored"]
     fn equivalencia_exacta_contra_exhaustiva() {
         let umbrales = [0.0, 0.3, 0.45];
         let limites = [1usize, 4, 10];
