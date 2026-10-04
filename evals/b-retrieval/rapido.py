@@ -70,8 +70,12 @@ def main():
         h = sum(v["hit5"] for v in pos)
         rr = sum(v["rr"] for v in pos)
         neg = por.get("nulas", {"n": 0, "con_algo": 0})
+        # El estrato `prompt` modela recall-inject (borrado en el #35): se
+        # reporta aparte, no pesa en la cifra principal.
+        vivos = [v for k, v in por.items() if k not in ("nulas", "prompt")]
+        nv, hv = sum(v["n"] for v in vivos), sum(v["hit5"] for v in vivos)
         estratos = " ".join(f"{k}={v['hit5']}/{v['n']}" for k, v in sorted(por.items()) if k != "nulas")
-        print(f"{nombre:14} hit@5 {h}/{n} MRR@10 {rr / max(n, 1):.3f} | {estratos} | "
+        print(f"{nombre:14} hit@5 sin prompt {hv}/{nv} | total {h}/{n} MRR@10 {rr / max(n, 1):.3f} | {estratos} | "
               f"nulas con resultado {neg['con_algo']}/{neg['n']} | errores {errores}", flush=True)
 
 

@@ -199,6 +199,32 @@ fn recall_consulta_devuelve_score_y_snippet_no_nulos() {
     });
 }
 
+/// B3 (recall L0): el snippet es el fragmento que casa con la query, no el
+/// arranque de la nota (que en bitácoras y destilados es cabecera).
+#[test]
+fn recall_consulta_snippet_es_el_fragmento_que_casa() {
+    let kb = tempfile::TempDir::new().unwrap();
+    let cabecera = "Cabecera de bitácora sin nada útil. ".repeat(12);
+    std::fs::write(
+        kb.path().join("larga.md"),
+        nota_md(
+            "kb-test/larga",
+            "larga",
+            None,
+            &format!("{cabecera}\n\nAl final aparece la zanahoria morada."),
+        ),
+    )
+    .unwrap();
+    let (_db_dir, db) = db_temporal();
+
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
+        let bruto = recall_consulta(&db, "zanahoria", 5, Some(0.0), 0.0, 0.6, kb.path()).unwrap();
+        let snippet = bruto.notas[0].snippet.as_deref().unwrap();
+        assert!(snippet.contains("zanahoria"), "{snippet}");
+    });
+}
+
 #[test]
 fn recall_consulta_sin_hits_da_notas_vacias_no_error() {
     let kb = kb_arranque();
