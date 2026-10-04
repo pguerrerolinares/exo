@@ -1029,7 +1029,8 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
                 // sellado manda salvo flag explícito, la config ya no entra
                 // en este camino (antes caía a `min_similitud_efectivo` de
                 // `buscador.rs`, que resuelve `None` contra
-                // `[embeddings] min_similarity`, 0.35 por defecto).
+                // `[embeddings] min_similarity`, 0.40 por defecto: escala propia de
+                // `similitud_desde_l2`, ≈ coseno 0,28 — H28).
                 Some(args.min_similitud.unwrap_or(MIN_SIMILARITY_SELLADO)),
                 BONUS_SELLADO,
                 ESCALA_FTS_SELLADA,

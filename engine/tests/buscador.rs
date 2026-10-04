@@ -213,8 +213,8 @@ fn busca_vector_con_db_poblada_devuelve_entidades_ordenadas() {
     });
 }
 
-/// Un threshold inalcanzable (por encima del máximo teórico de similitud
-/// coseno, 1.0) filtra todo — verifica que el filtro por
+/// Un threshold inalcanzable (por encima del máximo teórico de la similitud
+/// propia, 1.0 = vector idéntico) filtra todo — verifica que el filtro por
 /// `semantic_min_similarity`/`--min-similarity` realmente se aplica.
 #[test]
 fn busca_vector_threshold_alto_filtra_todo() {
@@ -344,8 +344,8 @@ fn busqueda_hybrid_envelope() {
 }
 
 /// DB con 3 entidades que comparten el MISMO embedding (unitario, componentes
-/// 0/1 iguales para las tres) — garantiza empate EXACTO de similitud coseno
-/// contra cualquier query, sin depender de azares del modelo real. Inserta
+/// 0/1 iguales para las tres) — garantiza empate EXACTO de similitud (distancia L2
+/// idéntica) contra cualquier query, sin depender de azares del modelo real. Inserta
 /// las notas en el orden dado (M2-09a: el desempate debe ser independiente
 /// del orden de llegada de las filas).
 fn db_con_entidades_empatadas(orden: [&str; 3]) -> (tempfile::TempDir, std::path::PathBuf) {
@@ -379,10 +379,10 @@ fn db_con_entidades_empatadas(orden: [&str; 3]) -> (tempfile::TempDir, std::path
 
 /// M2-09a: `busca_vector` desempata por permalink ascendente cuando el score
 /// empata exactamente. `--min-similarity -2.0` (por debajo del mínimo teórico
-/// de coseno, -1.0) garantiza que el filtro de umbral nunca descarte las
-/// tres entidades empatadas, sin importar el signo real de la similitud
-/// contra la query embebida. El threshold es explícito (`Some`), pero el
-/// embed de la query pasa por el embedder de proceso, que sí lee config —
+/// de la similitud propia: 0.0 para vectores unitarios opuestos, L2 = 2)
+/// garantiza que el filtro de umbral nunca descarte las tres entidades
+/// empatadas, sin importar el signo real de la similitud contra la query
+/// embebida. El threshold es explícito (`Some`), pero el embed de la query pasa por el embedder de proceso, que sí lee config —
 /// de ahí el envoltorio.
 #[test]
 fn busca_vector_desempate_determinista_por_permalink() {
