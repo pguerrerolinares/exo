@@ -22,8 +22,8 @@ da por candidata `permalink`, `type`, `score` y **la ruta absoluta**, en cuatro
 columnas separadas por tab y sin jq de por medio. Elige "nota X, sección Y" y lee
 SOLO la ganadora antes de escribir. La ruta es imprescindible: el permalink NO es
 invertible (el slug come acentos, espacios y em-dashes), así que sin ella no
-puedes localizar el fichero. Alternativa con snippet y misma búsqueda híbrida:
-`exo recall --query "<topic>" --limit 5`; `search` es la que además da el score.
+puedes localizar el fichero. Alternativa con score y el fragmento que casa con
+la query, misma búsqueda híbrida: `exo recall --query "<topic>" --limit 5`.
 Si necesitas el envelope para un script: `exo search --type hybrid --json
 "<topic>" | jq -r '.data.results[] | "\(.score)  \(.permalink)  \(.path)"'` — los
 resultados cuelgan de `.data.results[]` (`.data` es un objeto, no un array) y el
