@@ -138,7 +138,10 @@ fn aplica_cap(
     let unidades: Vec<Unidad> = notas
         .into_iter()
         .map(|n| {
-            let principal = format!("- {} — {}", n.ruta, n.titulo);
+            let principal = match n.score {
+                Some(s) => format!("- {} — {} ({s:.2})", n.ruta, n.titulo),
+                None => format!("- {} — {}", n.ruta, n.titulo),
+            };
             let mut lineas = vec![principal];
             if let Some(s) = &n.snippet {
                 lineas.push(format!("  · {s}"));
@@ -514,11 +517,10 @@ fn tier_de(ruta: &Path) -> Option<String> {
 /// `[embeddings] min_similarity` de la config — mismo umbral sellado que
 /// `search --type hybrid`, no "el mismo default de config" (afirmación
 /// vieja, falsa desde este fix). El
-/// snippet de cada nota es su PRIMER trozo (`orden = 0`): la fusión
-/// hybrid no expone qué trozo individual disparó el match de una entidad
-/// (agrega por máxima similitud, spec fusión) y recalcular esa similitud
-/// por trozo aquí duplicaría trabajo para un dato puramente informativo
-/// (decisión declarada, ver reporte).
+/// snippet de cada nota (B3, 2026-10-04, recall L0) es el fragmento del
+/// cuerpo que casa con la query (`snippet()` de FTS5 con la misma query OR
+/// de `buscador`); si la nota entró solo por vector, su PRIMER trozo. Antes
+/// era siempre el primer trozo, que en bitácoras y destilados es cabecera.
 pub fn recall_consulta(
     db_ruta: &Path,
     query: &str,
@@ -558,8 +560,11 @@ pub fn recall_consulta(
         let Some((ruta_rel, titulo)) = fila_notas(&conn, &r.permalink)? else {
             continue; // huérfano defensivo: entidad en `vectores`/FTS sin fila en `notas` (no debería pasar)
         };
-        let snippet = primer_trozo(&conn, &r.permalink)?
-            .map(|texto| recorta_bytes(&texto.replace('\n', " "), SNIPPET_MAX_BYTES));
+        let snippet = match fragmento_que_casa(&conn, &r.permalink, query)? {
+            Some(f) => Some(f),
+            None => primer_trozo(&conn, &r.permalink)?,
+        }
+        .map(|texto| recorta_bytes(&texto.replace('\n', " "), SNIPPET_MAX_BYTES));
         notas.push(NotaRecall {
             permalink: r.permalink,
             ruta: ruta_rel, // se resuelve a absoluta en `recall_consulta_con_kb`
@@ -587,6 +592,22 @@ fn fila_notas(conn: &rusqlite::Connection, permalink: &str) -> Result<Option<(St
     )
     .optional()
     .with_context(|| format!("leer ruta/titulo de {permalink}"))
+}
+
+fn fragmento_que_casa(
+    conn: &rusqlite::Connection,
+    permalink: &str,
+    query: &str,
+) -> Result<Option<String>> {
+    conn.query_row(
+        "SELECT snippet(notas_fts, 1, '', '', '…', 24) FROM notas_fts
+         WHERE notas_fts MATCH ?1 AND permalink = ?2",
+        params![crate::buscador::prepara_query(query), permalink],
+        |r| r.get::<_, String>(0),
+    )
+    .optional()
+    .map(|f| f.filter(|t| !t.trim().is_empty()))
+    .with_context(|| format!("leer fragmento de {permalink}"))
 }
 
 fn primer_trozo(conn: &rusqlite::Connection, permalink: &str) -> Result<Option<String>> {

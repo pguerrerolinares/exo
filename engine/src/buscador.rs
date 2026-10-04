@@ -193,7 +193,7 @@ pub fn ruta_de(db_ruta: &Path, permalink: &str) -> Result<Option<String>> {
 /// guiones (`agent-develop`), acentos o `/` nunca revientan la sintaxis de
 /// MATCH — la fuente de verdad de esta regla es que ninguna de las 56
 /// queries de `eval.jsonl` produzca error (oráculo m2-05 paso 2).
-fn prepara_query(cruda: &str) -> String {
+pub(crate) fn prepara_query(cruda: &str) -> String {
     cruda
         .split_whitespace()
         .map(|tok| format!("\"{}\"", tok.replace('"', "\"\"")))
