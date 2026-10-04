@@ -62,8 +62,13 @@ doctor` tiene un check dedicado al literal (`hook_fallback_binary`).
 `install.ps1` además deja un `jq.exe` oficial (jq 1.7.1, SHA256 verificado)
 junto a `exo.exe` si no hay ya un jq real en el PATH, y antepone el
 directorio al PATH de **usuario** (el alias de WindowsApps no es un jq).
-No desactiva superpowers por su cuenta: imprime `claude plugin disable
-superpowers`; `-DisableSuperpowers` (o `EXO_DISABLE_SUPERPOWERS=1`, que sí llega por `irm | iex`) lo ejecuta.
+El SHA256 de jq 1.7.1 va fijado en el script. El PATH de usuario se reescribe
+conservando los `%VAR%` (REG_EXPAND_SZ).
+Si superpowers está habilitado en el scope de usuario, lo desactiva
+(`claude plugin disable <clave> --scope user`, nunca uninstall) y te dice cómo
+revertirlo (`claude plugin enable <clave>`). Opt-out: `-KeepSuperpowers` o
+`EXO_DISABLE_SUPERPOWERS=0` (el entorno es lo que llega por `irm | iex`). Sin
+`claude` en el PATH, imprime el comando y sigue.
 
 Variables reconocidas: `EXO_DIR` (destino), `EXO_VERSION` (un tag concreto en
 vez de `latest`), `EXO_INIT_KB` + `EXO_INIT_NAME` (encadenan `exo init`; sin

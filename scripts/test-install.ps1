@@ -4,7 +4,7 @@
   Gate de install.ps1, sin red: fabrica una "release" falsa en disco y la
   sirve por file:///, que Invoke-WebRequest sabe leer.
 .DESCRIPTION
-  Mismos dos casos que scripts/test-install.sh:
+  Casos 1 y 2 como scripts/test-install.sh (3-11 son propios de Windows):
     1. checksum correcto -> instala, el binario queda en el -Dir pedido.
     2. checksum manipulado -> ABORTA y NO deja binario (ni crea el destino).
   El caso 2 es el que importa: un instalador que verifica el hash y sigue
@@ -93,6 +93,13 @@ function New-ReleaseJq {
 New-ReleaseJq -Dir (Join-Path $tmp 'jq-ok')
 $env:EXO_JQ_BASE_URL = Get-FileUrl -Dir (Join-Path $tmp 'jq-ok')
 $env:EXO_PATH_SCOPE = 'Process'
+# El hash de jq esta fijado en install.ps1; este seam lo sustituye por el del
+# jq falso. El caso 6 lo quita para probar que el pin manda.
+$jqFalsoSha = (Get-FileHash -Path (Join-Path $tmp 'jq-ok\jq-windows-amd64.exe') -Algorithm SHA256).Hash.ToLower()
+$env:EXO_JQ_SHA256 = $jqFalsoSha
+# Sin settings de claude por defecto: ningun caso puede tocar el superpowers
+# real de quien corra el test (en un runner con claude, el pre-check lo veria).
+$env:EXO_CLAUDE_SETTINGS = Join-Path $tmp 'no-existe-settings.json'
 
 # --- Caso 1: checksum correcto -> instala y el binario queda donde el gate mira
 $rel = Join-Path $tmp 'release-ok'
@@ -238,7 +245,6 @@ $env:PATH = $pathOriginal
 $env:EXO_BASE_URL = $null
 $env:EXO_JQ_BASE_URL = $null
 $env:EXO_DIR = $null
-$env:EXO_PATH_SCOPE = $null
 if ($ec5 -eq 0) {
     Write-Output "test-install: FALLO - jq con checksum malo salio 0"
     $fallos = 1
@@ -249,6 +255,163 @@ if ($ec5 -eq 0) {
     Write-Output "test-install: OK - jq con checksum malo aborta y no instala nada"
 }
 
+# --- Caso 6: el SHA256 de jq esta fijado en el script. Sin el seam, el jq
+# falso (cuyo hash no es el de jq 1.7.1) tiene que rechazarse aunque este bien
+# firmado en el servidor: un hash que viaja con el binario no verifica nada.
+$rel6 = Join-Path $tmp 'release-jq-pin'
+$dest6 = Join-Path $tmp 'bin-jq-pin'
+New-Release -Dir $rel6
+$env:EXO_BASE_URL = Get-FileUrl -Dir $rel6
+$env:EXO_DIR = $dest6
+$env:EXO_JQ_BASE_URL = Get-FileUrl -Dir (Join-Path $tmp 'jq-ok')
+$env:EXO_JQ_SHA256 = $null
+$env:PATH = Join-Path $env:SystemRoot 'System32'
+$log6 = Join-Path $tmp 'jq-pin.log'
+$ErrorActionPreference = 'Continue'
+& $psExe -NoProfile -ExecutionPolicy Bypass -File $installScript *> $log6
+$ec6 = $LASTEXITCODE
+$ErrorActionPreference = 'Stop'
+$env:PATH = $pathOriginal
+$env:EXO_JQ_SHA256 = $jqFalsoSha
+if ($ec6 -eq 0) {
+    Write-Output "test-install: FALLO - jq sin el hash fijado salio 0"
+    $fallos = 1
+} elseif (Test-Path $dest6) {
+    Write-Output "test-install: FALLO - jq contra el pin aborto pero dejo algo en $dest6"
+    $fallos = 1
+} else {
+    Write-Output "test-install: OK - el SHA256 de jq fijado en el script manda sobre lo que sirva el servidor"
+}
+
+# --- Caso 7: idempotencia del PATH con entradas normalizadas (mayusculas, `/`
+# y `\` final). PathScope=Process, asi que se prueba la comparacion, no el
+# registro.
+$rel7 = Join-Path $tmp 'release-path'
+$dest7 = Join-Path $tmp 'bin-path'
+New-Release -Dir $rel7
+$env:EXO_BASE_URL = Get-FileUrl -Dir $rel7
+$env:EXO_DIR = $dest7
+$env:PATH = (Join-Path $env:SystemRoot 'System32') + ';' + $dest7.ToUpper().Replace('\', '/') + '/'
+$log7 = Join-Path $tmp 'path.log'
+$ErrorActionPreference = 'Continue'
+& $psExe -NoProfile -ExecutionPolicy Bypass -File $installScript *> $log7
+$ec7 = $LASTEXITCODE
+$ErrorActionPreference = 'Stop'
+$env:PATH = $pathOriginal
+if ($ec7 -ne 0) {
+    Write-Output "test-install: FALLO - caso PATH no instalo (exit $ec7)"
+    Get-Content $log7
+    $fallos = 1
+} elseif (Select-String -Path $log7 -Pattern 'antepuesto al PATH' -Quiet) {
+    Write-Output "test-install: FALLO - el PATH ya tenia $dest7 (otra grafia) y se reescribio"
+    $fallos = 1
+} else {
+    Write-Output "test-install: OK - PATH idempotente con entradas en otra grafia"
+}
+
+# --- Casos 8-11: superpowers. Un `claude.cmd` falso al frente del PATH apunta
+# sus argumentos a un fichero; EXO_CLAUDE_SETTINGS es el settings.json de
+# usuario que lee el pre-check.
+$stubDir = Join-Path $tmp 'stub'
+New-Item -ItemType Directory -Force -Path $stubDir | Out-Null
+$stubLog = Join-Path $tmp 'stub-args.log'
+function New-StubClaude {
+    param([int]$Salida)
+    Set-Content -Path (Join-Path $stubDir 'claude.cmd') -Value @('@echo off', ('>>"{0}" echo %*' -f $stubLog), ('exit /b {0}' -f $Salida)) -Encoding ascii
+}
+function Set-SettingsSp {
+    param([string]$Json)
+    $f = Join-Path $tmp 'settings-sp.json'
+    Set-Content -Path $f -Value $Json -Encoding ascii
+    $env:EXO_CLAUDE_SETTINGS = $f
+}
+function Invoke-InstallSp {
+    param([string]$Name)
+    $relN = Join-Path $tmp "release-$Name"
+    New-Release -Dir $relN
+    $env:EXO_BASE_URL = Get-FileUrl -Dir $relN
+    $env:EXO_DIR = Join-Path $tmp "bin-$Name"
+    $env:PATH = "$stubDir;$pathOriginal"
+    $logN = Join-Path $tmp "$Name.log"
+    Remove-Item -Force $stubLog -ErrorAction SilentlyContinue
+    $ErrorActionPreference = 'Continue'
+    & $psExe -NoProfile -ExecutionPolicy Bypass -File $installScript *> $logN
+    $ecN = $LASTEXITCODE
+    $ErrorActionPreference = 'Stop'
+    $env:PATH = $pathOriginal
+    return $ecN
+}
+function Get-StubArgs {
+    if (Test-Path $stubLog) { return (Get-Content $stubLog -Raw) } else { return '' }
+}
+
+# 8: habilitado -> disable con la clave completa y --scope user
+New-StubClaude -Salida 0
+Set-SettingsSp -Json '{"enabledPlugins":{"superpowers@test":true}}'
+$ec8 = Invoke-InstallSp -Name 'sp-on'
+$args8 = Get-StubArgs
+if ($ec8 -ne 0) {
+    Write-Output "test-install: FALLO - caso superpowers habilitado salio $ec8"
+    Get-Content (Join-Path $tmp 'sp-on.log')
+    $fallos = 1
+} elseif ($args8 -notlike '*plugin disable superpowers@test --scope user*') {
+    Write-Output "test-install: FALLO - claude no recibio 'plugin disable superpowers@test --scope user' (recibio: $args8)"
+    $fallos = 1
+} elseif (-not (Select-String -Path (Join-Path $tmp 'sp-on.log') -Pattern 'claude plugin enable superpowers@test' -Quiet)) {
+    Write-Output "test-install: FALLO - no aviso de como revertir"
+    $fallos = 1
+} else {
+    Write-Output "test-install: OK - superpowers habilitado -> claude plugin disable <clave> --scope user"
+}
+
+# 9: opt-out por entorno
+$env:EXO_DISABLE_SUPERPOWERS = '0'
+$ec9 = Invoke-InstallSp -Name 'sp-keep'
+$env:EXO_DISABLE_SUPERPOWERS = $null
+if ($ec9 -ne 0) {
+    Write-Output "test-install: FALLO - EXO_DISABLE_SUPERPOWERS=0 salio $ec9"
+    $fallos = 1
+} elseif (Test-Path $stubLog) {
+    Write-Output "test-install: FALLO - EXO_DISABLE_SUPERPOWERS=0 pero se invoco claude"
+    $fallos = 1
+} else {
+    Write-Output "test-install: OK - EXO_DISABLE_SUPERPOWERS=0 no toca superpowers"
+}
+
+# 10: settings sin superpowers habilitado -> no se invoca
+Set-SettingsSp -Json '{"enabledPlugins":{"superpowers@test":false}}'
+$ec10 = Invoke-InstallSp -Name 'sp-off'
+if ($ec10 -ne 0) {
+    Write-Output "test-install: FALLO - superpowers ya deshabilitado salio $ec10"
+    $fallos = 1
+} elseif (Test-Path $stubLog) {
+    Write-Output "test-install: FALLO - superpowers ya deshabilitado pero se invoco claude"
+    $fallos = 1
+} else {
+    Write-Output "test-install: OK - superpowers ya deshabilitado: nada que hacer"
+}
+
+# 11: claude falla -> aviso, la instalacion sigue en verde
+New-StubClaude -Salida 1
+Set-SettingsSp -Json '{"enabledPlugins":{"superpowers@test":true}}'
+$ec11 = Invoke-InstallSp -Name 'sp-fail'
+if ($ec11 -ne 0) {
+    Write-Output "test-install: FALLO - un claude que falla tumbo la instalacion (exit $ec11)"
+    Get-Content (Join-Path $tmp 'sp-fail.log')
+    $fallos = 1
+} elseif (-not (Select-String -Path (Join-Path $tmp 'sp-fail.log') -Pattern 'WARNING' -Quiet)) {
+    Write-Output "test-install: FALLO - claude salio 1 y no hubo Write-Warning"
+    $fallos = 1
+} else {
+    Write-Output "test-install: OK - claude plugin disable falla -> aviso, install exit 0"
+}
+$env:EXO_BASE_URL = $null
+$env:EXO_DIR = $null
+$env:EXO_JQ_BASE_URL = $null
+$env:EXO_JQ_SHA256 = $null
+$env:EXO_PATH_SCOPE = $null
+$env:EXO_CLAUDE_SETTINGS = $null
+
 Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
 
 
@@ -256,5 +419,5 @@ if ($fallos -ne 0) {
     Write-Output "test-install: hay fallos"
     exit 1
 }
-Write-Output "test-install: OK - los cinco casos"
+Write-Output "test-install: OK - los once casos"
 exit 0

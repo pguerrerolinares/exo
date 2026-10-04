@@ -84,8 +84,9 @@ se puede revertir):
 claude plugin disable superpowers
 ```
 
-`install.ps1 -DisableSuperpowers` (o `EXO_DISABLE_SUPERPOWERS=1`) lo ejecuta por ti; sin el flag solo imprime
-el comando, porque toca la config de Claude Code del usuario. Si se te olvida,
+`install.ps1` lo ejecuta por ti (`claude plugin disable <clave> --scope user`)
+si superpowers está habilitado en el scope de usuario; opt-out con
+`-KeepSuperpowers` o `EXO_DISABLE_SUPERPOWERS=0`. Si se te olvida,
 `exo doctor` marca `superpowers_disabled` como `warn` (scope de usuario) y
 SessionStart añade una línea de aviso (scopes usuario, proyecto y local; el
 scope managed no se mira).
