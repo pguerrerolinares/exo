@@ -4,7 +4,7 @@
   Gate de install.ps1, sin red: fabrica una "release" falsa en disco y la
   sirve por file:///, que Invoke-WebRequest sabe leer.
 .DESCRIPTION
-  Casos 1 y 2 como scripts/test-install.sh (3-11 son propios de Windows):
+  Casos 1 y 2 como scripts/test-install.sh (3-12 son propios de Windows; el 12 solo en CI):
     1. checksum correcto -> instala, el binario queda en el -Dir pedido.
     2. checksum manipulado -> ABORTA y NO deja binario (ni crea el destino).
   El caso 2 es el que importa: un instalador que verifica el hash y sigue
@@ -78,7 +78,7 @@ function Get-FileUrl {
 }
 
 # jq: todos los casos corren con un jq falso servido por file:// y con
-# PathScope=Process. Sin lo primero, el instalador bajaria jq de GitHub (o lo
+# PathScope=Process (salvo el 12, solo en CI). Sin lo primero, el instalador bajaria jq de GitHub (o lo
 # saltaria si el runner ya trae uno); sin lo segundo escribiria el PATH de
 # USUARIO real de quien corra este test.
 function New-ReleaseJq {
@@ -405,6 +405,74 @@ if ($ec11 -ne 0) {
 } else {
     Write-Output "test-install: OK - claude plugin disable falla -> aviso, install exit 0"
 }
+# --- Caso 12: scope User de PATH contra el registro REAL (HKCU:\Environment).
+# Los casos 1-11 fuerzan PathScope=Process y por eso el bloque User de
+# install.ps1 (GetValue DoNotExpandEnvironmentNames, Set-ItemProperty
+# -Type ExpandString, broadcast) no lo ejecutaba nadie. Solo en CI: escribe el
+# PATH de usuario de quien lo corra, y el runner es desechable.
+if ($env:GITHUB_ACTIONS -ne 'true') {
+    Write-Output "test-install: skip - caso 12 (PATH User real) solo corre en GitHub Actions"
+} else {
+    $regKey = 'HKCU:\Environment'
+    $teniaPath = (Get-Item $regKey).GetValueNames() -contains 'Path'
+    if ($teniaPath) {
+        $pathCrudo = (Get-Item $regKey).GetValue('Path', '', 'DoNotExpandEnvironmentNames')
+        $pathKind = (Get-Item $regKey).GetValueKind('Path').ToString()
+    }
+    try {
+        $rel12 = Join-Path $tmp 'release-user'
+        $dest12 = Join-Path $tmp 'bin-user'
+        New-Release -Dir $rel12
+        $semilla = '%USERPROFILE%\exo-semilla-bin'
+        Set-ItemProperty -Path $regKey -Name 'Path' -Value ($semilla + ';' + (Join-Path $env:SystemRoot 'System32')) -Type ExpandString
+
+        $env:EXO_BASE_URL = Get-FileUrl -Dir $rel12
+        $env:EXO_DIR = $dest12
+        $env:EXO_PATH_SCOPE = $null
+        $env:EXO_CLAUDE_SETTINGS = Join-Path $tmp 'no-existe-settings.json'
+        $log12 = Join-Path $tmp 'user.log'
+        $ErrorActionPreference = 'Continue'
+        & $psExe -NoProfile -ExecutionPolicy Bypass -File $installScript *> $log12
+        $ec12a = $LASTEXITCODE
+        $raw12a = (Get-Item $regKey).GetValue('Path', '', 'DoNotExpandEnvironmentNames')
+        $kind12a = (Get-Item $regKey).GetValueKind('Path').ToString()
+        & $psExe -NoProfile -ExecutionPolicy Bypass -File $installScript *>> $log12
+        $ec12b = $LASTEXITCODE
+        $ErrorActionPreference = 'Stop'
+        $raw12b = (Get-Item $regKey).GetValue('Path', '', 'DoNotExpandEnvironmentNames')
+        $entradas12 = @($raw12b -split ';')
+        $dirNorm12 = $dest12.TrimEnd('\').ToLowerInvariant()
+        $veces12 = @($entradas12 | Where-Object { $_.Trim().Replace('/', '\').TrimEnd('\').ToLowerInvariant() -eq $dirNorm12 }).Count
+
+        if ($ec12a -ne 0 -or $ec12b -ne 0) {
+            Write-Output "test-install: FALLO - caso PATH User no instalo (exit $ec12a / $ec12b)"
+            Get-Content $log12
+            $fallos = 1
+        } elseif ($kind12a -ne 'ExpandString') {
+            Write-Output "test-install: FALLO - PATH de usuario quedo como $kind12a, no ExpandString"
+            $fallos = 1
+        } elseif ($raw12a.Split(';')[0] -ne $dest12) {
+            Write-Output "test-install: FALLO - $dest12 no es la primera entrada del PATH de usuario (es: $($raw12a.Split(';')[0]))"
+            $fallos = 1
+        } elseif (-not $raw12a.Contains($semilla)) {
+            Write-Output "test-install: FALLO - la entrada $semilla se aplano o se perdio (PATH: $raw12a)"
+            $fallos = 1
+        } elseif ($veces12 -ne 1 -or $raw12b -ne $raw12a) {
+            Write-Output "test-install: FALLO - reejecutar duplico o reescribio el PATH de usuario ($veces12 veces)"
+            $fallos = 1
+        } else {
+            Write-Output "test-install: OK - PATH de usuario real: ExpandString, $dest12 primero, %VAR% intacta, idempotente"
+        }
+    } finally {
+        $ErrorActionPreference = 'Stop'
+        if ($teniaPath) {
+            Set-ItemProperty -Path $regKey -Name 'Path' -Value $pathCrudo -Type $pathKind
+        } else {
+            Remove-ItemProperty -Path $regKey -Name 'Path' -ErrorAction SilentlyContinue
+        }
+        $env:EXO_PATH_SCOPE = 'Process'
+    }
+}
 $env:EXO_BASE_URL = $null
 $env:EXO_DIR = $null
 $env:EXO_JQ_BASE_URL = $null
@@ -419,5 +487,5 @@ if ($fallos -ne 0) {
     Write-Output "test-install: hay fallos"
     exit 1
 }
-Write-Output "test-install: OK - los once casos"
+Write-Output "test-install: OK - todos los casos"
 exit 0
