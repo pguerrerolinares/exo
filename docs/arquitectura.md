@@ -348,7 +348,7 @@ Extraída del parser de clap (`engine/src/main.rs`):
 | `exo targets <tema>` | Candidatas de la KB para un tema, portado de `kbx targets` | `--limit` (10), `--db`, `--kb`, `--json` |
 | `exo rotate` | Divide una bitácora `tier: log` en frío (a `archive/log/`) y caliente, portado de `kbx rotate`. Solo el nivel superior de `log/`, sin recursión | `--hot-bytes` (20480), `--apply`, `--kb`, `--json` |
 | `exo stale` | Urgencia de actualización por nota (edad de último commit, degree, tier), portado de `kbx stale`. Solo lectura | `--now`, `--db`, `--kb`, `--json` |
-| `exo doctor` | Preflight de **entorno** (la máquina), frente a `lint`, que es de la KB. Doce checks; cada uno reporta el artefacto que miró y ninguno desaparece del informe: lo que no aplica sale como `na`. Emite el informe entero y luego gatea (exit 3 si hay algún `fail`; los `warn` no gatean) | `--json` |
+| `exo doctor` | Preflight de **entorno** (la máquina), frente a `lint`, que es de la KB. Trece checks; cada uno reporta el artefacto que miró y ninguno desaparece del informe: lo que no aplica sale como `na`. Emite el informe entero y luego gatea (exit 3 si hay algún `fail`; los `warn` no gatean) | `--json` |
 
 Los flags largos están en inglés. Los diez alias en español que aceptaban
 como forma escondida (`--limite`, `--titulo`, `--crea`, `--min-similitud`,

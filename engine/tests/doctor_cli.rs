@@ -148,6 +148,8 @@ fn la_lista_de_checks_es_contrato_y_no_puede_encoger() {
             // contra el ENGINE_MIN que declara el plugin instalado. Mismo
             // motivo que `index_paths_portable`: la lista crece, no encoge.
             "plugin_compat",
+            // Añadido 2026-10-05 (campaña Q): superpowers y exo a la vez.
+            "superpowers_disabled",
         ]
     );
 }
