@@ -20,7 +20,11 @@ fail() { printf '[FAIL] %s — %s\n' "$1" "$2"; FAIL=$((FAIL+1)); }
 cd "$TMP" || exit 1
 outa="$("$TB" plan-a.md 1)"; ra=$?
 outb="$("$TB" plan-b.md 1)"; rb=$?
-[ "$ra" = 0 ] && [ "$rb" = 0 ] && pass "ambos briefs generados" || fail "ambos briefs generados" "rc=$ra,$rb: $outa / $outb"
+if [ "$ra" = 0 ] && [ "$rb" = 0 ]; then
+  pass "ambos briefs generados"
+else
+  fail "ambos briefs generados" "rc=$ra,$rb: $outa / $outb"
+fi
 
 a="$TMP/.superpowers/sdd/plan-a/task-1-brief.md"
 b="$TMP/.superpowers/sdd/plan-b/task-1-brief.md"
@@ -30,11 +34,17 @@ else
   fail "dos planes, dos directorios" "$(find "$TMP/.superpowers" -type f 2>/dev/null | tr '\n' ' ')"
 fi
 
-grep -q 'alfa' "$a" 2>/dev/null && grep -q 'beta' "$b" 2>/dev/null && ! grep -q 'beta' "$a" 2>/dev/null \
-  && pass "cada brief tiene el texto de su plan" || fail "cada brief tiene el texto de su plan" "contenido cruzado o ausente"
+if grep -q 'alfa' "$a" 2>/dev/null && grep -q 'beta' "$b" 2>/dev/null && ! grep -q 'beta' "$a" 2>/dev/null; then
+  pass "cada brief tiene el texto de su plan"
+else
+  fail "cada brief tiene el texto de su plan" "contenido cruzado o ausente"
+fi
 
-[ ! -e "$TMP/.superpowers/sdd/task-1-brief.md" ] \
-  && pass "nada en la raíz plana" || fail "nada en la raíz plana" ".superpowers/sdd/task-1-brief.md existe"
+if [ ! -e "$TMP/.superpowers/sdd/task-1-brief.md" ]; then
+  pass "nada en la raíz plana"
+else
+  fail "nada en la raíz plana" ".superpowers/sdd/task-1-brief.md existe"
+fi
 
 printf 'PASS=%d FAIL=%d\n' "$PASS" "$FAIL"
 [ "$FAIL" = 0 ]
