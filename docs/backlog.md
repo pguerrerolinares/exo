@@ -21,11 +21,13 @@
 > `o-deuda`, pendientes de PR** (no mergeados): `recall` sin `trozos`,
 > `kb_sintetica.rs`, `MAX_CHARS`, suite Python de J en CI. **Registra** lo que
 > entró entre el 09-22 y hoy sin pasar por este fichero (ver `## Cerrado con
-> evidencia`, primer ítem) y la campaña P. **Abre 3 ítems** (dos residuos de O y
-> el hallazgo del gate de `upstream-sync`). Quedan **5 `[ ]`**: «Prosa
+> evidencia`, primer ítem) y la campaña P. **Abre 4 ítems** (dos residuos de O, el
+> hallazgo del gate de `upstream-sync` y el SIGPIPE de `_bash-versionado.sh`,
+> del gate de N). Quedan **6 `[ ]`**: «Prosa
 > “coseno”» (cerrado a medias), «El relato de campaña en los comentarios» y los
-> 3 nuevos. M5b cerrada por D3 (basic-memory y kbx desinstalados). Q
-> (`q-w11`) en curso: no registrada aún.)
+> 4 nuevos. M5b cerrada por D3 (basic-memory y kbx desinstalados). Q
+> (`q-w11`) registrada con gate MERGED-con-condición (PR + CI Windows), no
+> mergeada.)
 >
 > Anterior: **2026-09-22** (sync de `docs/backlog.md` tras la ola 2
 > — recon verificó contra el código de hoy qué ítems abiertos ya estaban
@@ -404,7 +406,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   **Cerrado (campaña N, 2026-10-05): obsoleto.** `recall-inject` se borró
   (PR #35, merge `d33df4e`; barrido de comentarios y docs en `1e19bd0`): no
   queda hook por prompt al que abstener. K se cerró sin campaña L, por decisión
-  de Paul (`wisdom-paul/log/exo-bitacora.md:71`; veredicto en
+  de Paul (`wisdom-paul/log/exo-bitacora.md:66-72`; veredicto en
   `evals/ablacion-k/verdict-etapa1.md`, commit `b94ed74`). La abstención por
   umbral, además, se descartó por decisión (ver el ítem «El corpus negativo casi
   entero devuelve top-5», Media).
@@ -1712,8 +1714,9 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   merge `308d1d5`) pasa FTS a OR y la fusión a CombSUM:
   `engine/src/buscador.rs:185-201` (`prepara_query`, une con ` OR `) y `:618`
   (CombSUM). La «Acción» que quedaba sin probar —OR con fusión que premia el
-  acuerdo— es exactamente lo que se midió allí (hit@5 107/145 frente a 95/145 de
-  CombMAX sobre el gold de J, orientativo y no pre-registrado).
+  acuerdo— es exactamente lo que se midió allí (hit@5 107 frente a 95 hits de
+  CombMAX sobre el gold de J, `6bcc85e`; denominador 145 tras `441d806`;
+  orientativo y no pre-registrado).
 
 - [x] **(NUEVO, 2026-09-13) El bench sintético de la campaña A es ciego al
   umbral de similitud.** Vectores aleatorios en 768 dimensiones dan coseno
@@ -1871,7 +1874,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   **Cerrado (campaña N, 2026-10-05): hecho, con validación orientativa y no
   pre-registrada.** `6bcc85e` (B2, PR #38): CombSUM sustituye a `max(v, β·f)`,
   `engine/src/buscador.rs:618`. Quita el bonus fijo de 0,6 con un único
-  candidato FTS que describía este ítem. La cifra (107/145 vs 95/145) sale del
+  candidato FTS que describía este ítem. La cifra (107 vs 95 hits; denominador 145 tras `441d806`) sale del
   gold de J usado como orientativo; no es un held-out nuevo.
 
 - [x] **(campaña C, verdict §9) El corpus negativo casi entero devuelve
@@ -2379,6 +2382,20 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   **declarado antes de puntuar**, con verdad nueva: v6.1.1..v6.4.2 ya está
   vista y no sirve como held-out. Una pasada puntuable que nadie puntúa no es
   un gate (lección 1 de la ola 3, `config.md`).
+- [ ] **(NUEVO, 2026-10-05, hallazgo del gate de N, baja) SIGPIPE en
+  `scripts/_bash-versionado.sh:22` omite scripts en `test-shellcheck.sh` y
+  `test-rutas-personales.sh`.** `git cat-file -p "$blob" | head -n 1 | grep -Eq …`
+  bajo `set -o pipefail` (los dos gates lo activan): con ficheros grandes como
+  `plugins/exo/skills/orchestrate/scripts/review-package` (32 KB, sin extensión,
+  shebang bash) `head` cierra la tubería antes de que `cat-file` acabe, este
+  muere con SIGPIPE (`PIPESTATUS: 141 0`), `pipefail` da falso y el script se
+  **omite** en silencio. Es el 69/68 de `test-rutas-personales.sh` entre
+  corridas (medido por el consultor: 80/100 fallos con `pipefail`, 0/100 sin
+  él); `test-shellcheck.sh` no lintea `review-package` la mayoría de las veces.
+  **Fix propuesto** (código, fuera de N): `git cat-file -p "$blob" | sed -n 1p |
+  grep -Eq …` (`sed` sin `q` lee hasta EOF). Oráculo: 20 corridas seguidas con
+  el mismo recuento y `PIPESTATUS` sin 141. Evidencia:
+  `docs/superpowers/consultas/2026-10-05-campanas/verdict-gate-n.md`.
 
 ---
 
@@ -2395,7 +2412,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   lo marcado; fuente: el recon de la ola 3
   (`docs/superpowers/consultas/2026-10-05-campanas/propuesta.md`) y el ledger.
   - **Campaña K cerrada** sin campaña L, por decisión de Paul
-    (`wisdom-paul/log/exo-bitacora.md:71`; `evals/ablacion-k/verdict-etapa1.md`,
+    (`wisdom-paul/log/exo-bitacora.md:66-72`; `evals/ablacion-k/verdict-etapa1.md`,
     `b94ed74`): R1 NO CONCLUYENTE, R2 = DAÑO disparado por 1 tarea de 20.
   - **Recorte: `recall-inject` borrado** (PR #35, merge `d33df4e`; barrido
     `1e19bd0`). Sin hook por prompt; el recall queda en `SessionStart`.
@@ -2418,7 +2435,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   `1e20dd4` test de U1 cerrada (U1 = upstream #1943 portada en `5b4ca55`; dos
   planes van a workspaces distintos), `5dc8382` el latido caduca a 15 días,
   `190a756` el contrato declara qué revert reconoce y cuál no. Suites en rc=0
-  (reconcile 10/10, score 19/19, watchdog 13/13). D0 («D0 lanza P ya»): se
+  (reconcile 12/12, score 19/19, watchdog 14/14, tras los fixes). D0 («D0 lanza P ya»): se
   lanzó antes de que el watchdog caducara (2026-10-08). **La pasada 1 no pasó el
   gate** (81 %, ver el ítem abierto «El gate de la pasada de `upstream-sync` no
   mide los “no aplica” falsos», Baja) y Paul activó la routine de todas formas.

@@ -28,7 +28,7 @@
 
 
 ## Roadmap / backlog
-Fuente: spec §7 (grafo de milestones original, hoy cerrado: M0-M4 y M6 hechos, M5a decidido no construir, M5b cerrada por D3) + §8 (ejecución con fábrica). **El roadmap vivo es la ola 3**; lo que queda fuera de fábrica está debajo. El diagrama M0..M7 original está en `docs/superpowers/fabrica-historico.md`, Apéndice A, y en el spec.
+Fuente: spec §7 (grafo de milestones original, hoy cerrado: M0-M4 y M6 hechos, M5a decidido no construir, M5b cerrada por D3) + §8 (ejecución con fábrica). **El roadmap vivo es la ola 3**; lo que queda fuera de fábrica está debajo. El diagrama M0..M7 original está en `docs/superpowers/fabrica-historico.md`, Apéndice C, y en el spec.
 
 | Campaña | Qué | Lane | Estado 2026-10-05 |
 |---|---|---|---|
@@ -239,7 +239,7 @@ base; la de gold se retira del config y pasa al plan de cada campaña.
 > desde el día 1.
 - (Retiradas el 2026-10-05, agotadas: el backfill de `type:` y la limpieza de
   root files de la higiene M1a se hicieron y mergearon el 2026-07-17; su texto
-  está en `docs/superpowers/fabrica-historico.md`, Apéndice A.)
+  está en `docs/superpowers/fabrica-historico.md`, Apéndice C.)
 - Layout interno de directorios bajo `engine/`, `plugins/`, `templates/`
   (cuando arranquen) siguiendo el patrón ya usado por agent-develop (estructura de plugin) — decide el executor sin verdict,
   **salvo que toque el envelope JSON o el formato de skill**, que son
@@ -310,7 +310,9 @@ Ya en uso en exo (M0: verdict `m0-t8`/`consultor-gate` sobre el eval de M0).
   
 ## Overrides de Paul
 
-Las prohibiciones y caps (incluidos los dos gates de calendario de arriba)
+Las prohibiciones y caps (los dos gates de calendario históricos,
+`GATE-CALENDARIO-D` y `GATE-HUECO-M2`, viven en
+`docs/superpowers/fabrica-historico.md`, Apéndice A, y ya no bloquean)
 ceden SOLO ante pedido directo de Paul en sesión. Todo override se registra en
 el ledger **ANTES** de ejecutarlo:
 

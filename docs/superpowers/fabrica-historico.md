@@ -7,7 +7,7 @@
 > el vigente es `config.md`. Los bloques se citan por su fecha.
 >
 > Orden: del más reciente al más antiguo (2026-09-15 → 2026-08-17), como
-> estaban en `config.md`. Al final, tres apéndices con secciones de `config.md`
+> estaban en `config.md`. Al final, tres apéndices (A, B y C) con secciones de `config.md`
 > que citaban herramientas que ya no existen (`kbx doctor`, `kb-demo`,
 > `eval.jsonl` de M0) y se retiraron del config vivo, también verbatim.
 
@@ -394,3 +394,32 @@ reconciliar contra el bloque de arriba:
   oráculo").
 - **M4 write-path (futuro)**: corpus de casos search-before-write — sin
   construir aún (spec §4.2, decisión explícita de no adelantarse).
+
+## Apéndice C — Roadmap original (diagrama M0..M7) y clases pre-autorizadas retiradas el 2026-10-05
+
+Texto verbatim de `.superpowers/fabrica/config.md` en `main` (`beecead`).
+
+### Roadmap original (líneas 37-46)
+
+Fuente única: spec §7 (grafo de milestones) + §8 (ejecución con fábrica).
+
+```
+M0 Fase 0 ──→ M1a repo ──→ M2 E1-read ──→ M4 E2-write ──→ M5a MCP ──→ M5b desinstalar
+                 │                                            ▲ gated por M6 completo
+                 └──→ M3 cutover skills + M1b marketplace     │
+                        (gated: métrica D ≥07-23)             │
+                      M6 guardrails ←── (métrica D + M2) ─────┘
+                      M7 templates (diferible)
+```
+
+### Clases pre-autorizadas de `kbx doctor` (líneas 499-505)
+
+Retiradas: kbx está desinstalado (D3) y el backfill y la limpieza de root files se mergearon el 2026-07-17.
+
+- Backfill mecánico de `type:` en frontmatter cuando el valor lo determina sin
+  ambigüedad el contenido/carpeta de la nota (p.ej. `projects/*.md` → `type:
+  project`) y `kbx doctor` ya lo señala como finding — decide el executor sin
+  verdict.
+- Limpieza de root files ya flaggeados por `kbx doctor` como fuera de lugar
+  (mover/borrar `developercv.cls`, `fontawesome.pdf` según ya decidido en spec
+  §6.5) — decide el executor sin verdict.
