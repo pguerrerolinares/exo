@@ -9,15 +9,14 @@
 # reales, cada una cazada por un gate distinto (o por ninguno):
 # - `estilo-directo.sh` sin bit de ejecución llegó a release (exo 1.1.1):
 #   la caza `test-exec-bit.sh`, no este gate.
-# - GNU-ismos portando mal a macOS (`timeout`, `date -d`, `stat -c`,
-#   `touch -d` en los hooks del plugin) rompían el
-#   plugin en `macos-latest`, degradando en cada disparo sin avisar: los cazó
-#   la matriz de `plugin-tests` en macOS EJECUTANDO la suite, no shellcheck
-#   (fix `ec74f43`).
-# - `sha256sum` (GNU) vs `shasum` (macOS/BSD) en `.github/workflows/
+# - GNU-ismos portando mal a entornos sin GNU coreutils (`timeout`,
+#   `date -d`, `stat -c`, `touch -d` en los hooks del plugin) rompían el
+#   plugin, degradando en cada disparo sin avisar: los cazó la matriz de
+#   `plugin-tests` EJECUTANDO la suite, no shellcheck (fix `ec74f43`).
+# - `sha256sum` (GNU) vs `shasum` (BSD) en `.github/workflows/
 #   release.yml` rompió la publicación del tag `v0.1.0` en el runner de
 #   Windows (`shasum: command not found`, exit 127) y, ya arreglado hacia
-#   macOS, rompió `install.ps1` en la dirección contraria (formato de firma
+#   `shasum`, rompió `install.ps1` en la dirección contraria (formato de firma
 #   distinto según el comando). Bash inline de un `run:` de workflow: en su
 #   momento NINGÚN gate de este repo lo cubría — se cazó en producción, dos
 #   veces (PR #7 `360175c`, PR #8 `8a86832`; detalle en `docs/backlog.md`).
@@ -83,7 +82,7 @@ fi
 #
 # Qué SÍ entra: bloques `run: |` (literal, con o sin `+`/`-` de chomping)
 # tal y como aparecen hoy en ci.yml y release.yml — todos bajo `shell: bash`
-# (explícito o por default de runner Linux/macOS).
+# (explícito o por default de runner Linux).
 # Qué NO entra (gaps conocidos, no silenciosos):
 # - `run:` de una sola línea: ya es bash inline sin analizar, pero extraerlo
 #   fichero a fichero no aporta gran cosa sobre un one-liner y complica la

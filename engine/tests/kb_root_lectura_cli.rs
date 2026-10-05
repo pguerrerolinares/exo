@@ -679,3 +679,51 @@ fn search_exo_kb_con_conflicto_gana_a_config_sin_conflicto() {
         "$EXO_KB en conflicto debía ganar a la config (que NO estaría en conflicto) y avisar: {err}"
     );
 }
+
+/// `recall --query` contra una DB sin `trozos` (nunca pasó por `exo index`):
+/// la nota entra por FTS solo por el título (cuerpo vacío), el fragmento sale
+/// vacío y el snippet cae a `primer_trozo`, que antes reventaba con
+/// `no such table: trozos`. Debe degradar a snippet ausente, como `search`
+/// degrada ante `vectores` ausente.
+#[test]
+fn recall_json_query_degrada_si_falta_tabla_trozos() {
+    let kb_pedida = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let db = db_sin_tabla_meta(dir.path());
+    let conn = exo::abre_db(&db).unwrap();
+    conn.execute(
+        "INSERT INTO notas (permalink, ruta, titulo, tipo, mtime, git_epoch)
+         VALUES ('kb/z', 'z.md', 'zafiro', 'note', 0.0, NULL)",
+        [],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO notas_fts (titulo, cuerpo, permalink)
+         VALUES ('zafiro', '', 'kb/z')",
+        [],
+    )
+    .unwrap();
+    drop(conn);
+    let cfg = config_con_kb(dir.path(), kb_pedida.path());
+
+    let out = Command::new(bin())
+        .args(["recall", "--kb"])
+        .arg(kb_pedida.path())
+        .arg("--db")
+        .arg(&db)
+        .args(["--query=zafiro", "--json"])
+        .env("EXO_CONFIG", &cfg)
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "DB sin tabla trozos no debía tumbar recall: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let salida: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let notas = serde_json::to_string(&salida).unwrap();
+    assert!(
+        notas.contains("kb/z"),
+        "la nota debía seguir saliendo: {notas}"
+    );
+}

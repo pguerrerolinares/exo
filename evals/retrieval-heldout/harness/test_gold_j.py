@@ -57,6 +57,12 @@ class TestJuez(unittest.TestCase):
         self.assertEqual(len(candidata_grande["cuerpo"]), jz.MAX_CHARS)
         self.assertEqual(paq["candidatos"], ["kb/core/n", "kb/zz"])
         self.assertIn("título: Nota A", paq["texto"])
+        # El camino que de verdad llega al juez: el cuerpo dentro de
+        # `paq["texto"]` (no el `nota()` suelto de arriba) respeta el tope.
+        # Sin esto, `paquete()` leyendo el fichero crudo en vez de `nota()`
+        # dejaba la suite en verde.
+        cuerpo_servido = paq["texto"].split("cuerpo:\n", 1)[1].split("\n\n[", 1)[0]
+        self.assertEqual(len(cuerpo_servido), jz.MAX_CHARS)
         self.assertIn("(nota no encontrada en el snapshot)", paq["texto"])
         # F1 del review de rama (2026-09-20): la ceguera de los jueces era
         # asimétrica -- `source` es la etiqueta de estrato que §3 del

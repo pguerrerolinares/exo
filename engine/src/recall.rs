@@ -611,6 +611,11 @@ fn fragmento_que_casa(
 }
 
 fn primer_trozo(conn: &rusqlite::Connection, permalink: &str) -> Result<Option<String>> {
+    // DB que nunca pasó por `exo index`: sin `trozos` no hay snippet, pero la
+    // nota sigue siendo un resultado válido (mismo criterio que `vectores`).
+    if !crate::buscador::tabla_existe(conn, "trozos")? {
+        return Ok(None);
+    }
     conn.query_row(
         "SELECT texto FROM trozos WHERE permalink = ?1 ORDER BY orden LIMIT 1",
         params![permalink],

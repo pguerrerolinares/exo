@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Helper COMPARTIDO: `timeout` portable a macOS.
+# Helper COMPARTIDO: `timeout` con fallback para entornos que no lo traen.
 #
-# macOS no trae `timeout` (es GNU coreutils). Llamarlo a pelo sale con 127
-# "command not found", y en los hooks eso los degradaba en CADA
-# disparo sin inyectar nada (CI macos-latest, run 34720014952).
+# `timeout` es GNU coreutils; en un entorno sin él (BSD, Git Bash sin
+# coreutils) llamarlo a pelo sale con 127 "command not found", y en los
+# hooks eso los degradaba en CADA disparo sin inyectar nada.
 #
 # Uso:
 #   . "$SCRIPT_DIR/_timeout.sh"
@@ -12,7 +12,7 @@
 # Contrato: el del `timeout` GNU que sustituye — exit 124 si corta; si no, el
 # exit del comando (128+señal si murió por señal; 127 si no existe).
 #
-# Sin `timeout`, cae a perl (de serie en macOS), replicando lo que hace GNU:
+# Sin `timeout`, cae a perl (de serie en casi cualquier sistema), replicando lo que hace GNU:
 # el comando va en SU PROPIO grupo de procesos y al vencer se mata el GRUPO.
 # Un `alarm`+`exec` a secas solo mata al proceso directo: si es un script que
 # lanza hijos (un `sleep`), el nieto huérfano retiene el pipe de `$(...)` y la
