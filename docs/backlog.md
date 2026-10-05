@@ -9,7 +9,27 @@
 >
 > Estado: recall-inject borrado (spec 2026-09-30-exo-recorte-mecanismo).
 >
-> Última revisión: **2026-09-22** (sync de `docs/backlog.md` tras la ola 2
+> Última revisión: **2026-10-05** (campaña N, ola 3 — sincronía contra el
+> código de `origin/main` `a3fcb5f` + P mergeada en `beecead`; método: recon de
+> vigencia de `docs/superpowers/consultas/2026-10-05-campanas/propuesta.md` §2,
+> no el backlog contra sí mismo). **Cierra 14 ítems con evidencia** (K y la
+> abstención de `recall-inject`, el coste del hook completo en Windows, el
+> proceso residente para el recall por prompt, H28 conversión por D2, N1, el
+> orden dentro del top, la abstención real, el diagnóstico por fila de los
+> 6/55, `juez.py`, `bench.sh`, proceso frente a producto, residuos de entorno,
+> `archive/` por D4, sinergias) y marca `[x]` otros 4 de la campaña O **en la rama
+> `o-deuda`, pendientes de PR** (no mergeados): `recall` sin `trozos`,
+> `kb_sintetica.rs`, `MAX_CHARS`, suite Python de J en CI. **Registra** lo que
+> entró entre el 09-22 y hoy sin pasar por este fichero (ver `## Cerrado con
+> evidencia`, primer ítem) y la campaña P. **Abre 4 ítems** (dos residuos de O, el
+> hallazgo del gate de `upstream-sync` y el SIGPIPE de `_bash-versionado.sh`,
+> del gate de N). Quedan **6 `[ ]`**: «Prosa
+> “coseno”» (cerrado a medias), «El relato de campaña en los comentarios» y los
+> 4 nuevos. M5b cerrada por D3 (basic-memory y kbx desinstalados). Q
+> (`q-w11`) registrada con gate MERGED-con-condición (PR + CI Windows), no
+> mergeada.)
+>
+> Anterior: **2026-09-22** (sync de `docs/backlog.md` tras la ola 2
 > — recon verificó contra el código de hoy qué ítems abiertos ya estaban
 > cerrados. Cierra con evidencia: «un rojo del job `test` no se puede
 > diagnosticar desde el CI» (Alta); «el bench sintético de la campaña A es
@@ -348,7 +368,7 @@
 | | |
 |---|---|
 | **Cerradas** | C5 (M2-08+09, cierra E1 read) · C6 (M6, cutover del recall) · C7 (M4, write-path) |
-| **Pendientes** | C8 (M3+M1b, cutover de skills) → C9 (M5a, MCP + config propia — la sub-tarea de config propia ya cerró el 2026-08-26, `M5a-02`, ver `## Cerrado con evidencia`; el servidor MCP en sí sigue sin construir, ver «M5a (MCP propio) se diseñó contra un MCP…» en Baja) → C10 (M5b, desinstalar basic-memory, gated por C9 completo) (**F, 2026-09-15: C8 verificado HECHO** — 9 skills en `plugins/exo/skills/` + `plugins/exo/agents/executor.md` + `.claude-plugin/marketplace.json` sirviendo `plugins/exo/` como marketplace único; lo que queda de M1a/M1b es checklist de máquina, ver «Residuos de entorno del plan» más abajo, no trabajo de fábrica) |
+| **Pendientes** | C8 (M3+M1b, cutover de skills) → C9 (M5a, MCP + config propia — la sub-tarea de config propia ya cerró el 2026-08-26, `M5a-02`, ver `## Cerrado con evidencia`; el servidor MCP en sí sigue sin construir, ver «M5a (MCP propio) se diseñó contra un MCP…» en Baja) → C10 (M5b, desinstalar basic-memory, gated por C9 completo — **CERRADA 2026-10-05, D3 de Paul («d3, hecho»): basic-memory y kbx desinstalados** (`which kbx basic-memory` → *not found* hoy); C9 queda como M5a no se construye) (**F, 2026-09-15: C8 verificado HECHO** — 9 skills en `plugins/exo/skills/` + `plugins/exo/agents/executor.md` + `.claude-plugin/marketplace.json` sirviendo `plugins/exo/` como marketplace único; lo que queda de M1a/M1b es checklist de máquina, ver «Residuos de entorno del plan» más abajo, no trabajo de fábrica) |
 | **Medido** | engine-hybrid **48/55** hit@5 in-sample vs bm-hybrid 39/55, mismo día, paridad de corpus ∅, recall <2s (`evals/e1-read/verdict/m2-09-corrida.md`) · held-out **64/92** (campaña C, `evals/retrieval-heldout/verdict/c-verdict.md`) — no comparables entre sí: distinta fuente de queries |
 | **Tests** | 111 verdes / 0 rojos en la rama de M4, 98 en main previo (contados por el consultor del gate en esa ola; el CI que los corre solo llegó después, en G5a — 200 tests / 28 binarios). **El 2026-09-13 (cierre de campaña B), `cargo test --release --locked --no-fail-fast` en `engine/`: 478 tests verdes en 48 binarios, 2 ignorados, 0 rojos** |
 | **Release** | `v0.1.0` publicada el **2026-09-11** — tres binarios y sus tres `.sha256`, instalables por `install.sh` / `install.ps1`. Ver `## Cerrado con evidencia` |
@@ -366,12 +386,13 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
 | **Campaña F** | 9 tasks (superficie publicable: held-out en `arquitectura.md`, gates `test-docs-vivos.sh`/`test-hooks-json.sh`, `test-shellcheck.sh` sobre `run: |` de los workflows, `test-hermetico.sh` distingue error de compilación, job `lint`→`static-checks`, `Paul`→«el dueño de la KB» + idioma de identificadores, sync de este backlog) — ejecutada el **2026-09-15** en la rama `campana-f`, **PR #25 abierto** (merge tras H); `HF_HOME` (Task 6, `4cec5b7`) se revirtió en `6e4477a` el 2026-09-16 — el engine no lo lee, arreglo diferido a la Task 13 de la campaña G; plan en `docs/superpowers/plans/2026-09-15-campana-f-superficie-publicable.md` |
 | **Campaña G** | 11 tasks del engine (bench sintético con vectores reales, `busca_hybrid` a una sola conexión, `git_epoch_de` en batch, `walk_kb` unificada, `budget_prose_drift` sin truncar, `escribe_nueva` con struct de parámetros, M4 #5/#6, assert de embeddings, `trinquete --staged` sobre el índice de git, `kb-demo`→`kb-test`, D6 default hybrid+0.40 con `exo init` alineado a la misma constante, y `HF_HOME` respetada por el engine) — sin cambio de ranking (β/bonus/umbral/fusión intactos) — ejecutada en la rama `campana-g`, **sin PR todavía**; plan en `docs/superpowers/plans/2026-09-15-campana-g-engine-deuda-diferida.md` |
 | **Ola 2** | tres frentes en paralelo, cada uno mergeado a `main` por su cuenta tras el gate del dueño — **sin PR, merge local**, push a `origin` pendiente: **A** — gold de J congelado, held-out nuevo de 240 filas / 145 no nulas, κ 0,810, p_o 0,874, pre-registro congelado en `a936770` (merge `01be694`); **B1** — los dos bugs de `evals/recall-coste/harness/bench.sh` (commits `70274a8`/`1901407`, merge `ca40d04`); **B2** — H28: vec0 devuelve L2 llana, no L2² — parte documental cerrada (commits `28dbb2f`/`d027d23`, merge `063d07c`), la conversión real queda abierta para fase 2. Deuda nueva que dejó la ola, registrada en su sitio: dos colas de H28 (Media y Baja), dos del harness de J (Media) y dos de bajo impacto (`juez.py`, `bench.sh`) — ver Media y Baja. |
+| **Ola 3** | **P** MERGEADA en `main` (`beecead`): `6a9ffcb` un revert no es portado, `1e20dd4` test de U1 cerrada (U1 = upstream #1943 portada en `5b4ca55`), `5dc8382` latido del watchdog caduca a 15 días, `190a756` el contrato declara qué revert reconoce — hallazgo: la pasada 1 puntuada dio `aciertos 30/37 (81%)`, `ya-cubierto-falsos 0`, rc=1 (<90 %); Paul activó la routine de todas formas (D0) · **O** (`o-deuda`, gate MERGED por consultor, merge vía PR pendiente de Paul) · **Q** (`q-w11`: `doctor` check `superpowers_disabled`, aviso en SessionStart, `install.ps1` con jq 1.7.1 de SHA fijado, PATH de usuario REG_EXPAND_SZ y `claude plugin disable superpowers --scope user` por defecto con opt-out — verdict B' del consultor sobre KB-exo:45 —, `hook_ms` en el README; gate MERGED por consultor con condición «PR y `install gate (windows-latest)` verde»; Windows sin ejecutar en local) · **N** (esta, `n-sync`) |
 
 ---
 
 ## Alta
 
-- [ ] **(campaña K, R2 = DAÑO, pre-registrado) Abstención de `recall-inject`.**
+- [x] **(campaña K, R2 = DAÑO, pre-registrado) Abstención de `recall-inject`.**
   La etapa 1 de la ablación (`evals/ablacion-k/verdict-etapa1.md`) dio R2 =
   DAÑO en S2 (Δ −0,05, IC95 [−0,15, 0,00]), y §6 obliga a abrir este ítem. La
   adjudicación muestra que el veredicto lo dispara **una sola tarea de 20** y
@@ -382,6 +403,13 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   calibrado contra un corpus negativo antes de invertir más en ranking. Las
   ayudas medidas (g0-12, g1-14) vinieron del core-index de arranque, no del
   recall por prompt.
+  **Cerrado (campaña N, 2026-10-05): obsoleto.** `recall-inject` se borró
+  (PR #35, merge `d33df4e`; barrido de comentarios y docs en `1e19bd0`): no
+  queda hook por prompt al que abstener. K se cerró sin campaña L, por decisión
+  de Paul (`wisdom-paul/log/exo-bitacora.md:66-72`; veredicto en
+  `evals/ablacion-k/verdict-etapa1.md`, commit `b94ed74`). La abstención por
+  umbral, además, se descartó por decisión (ver el ítem «El corpus negativo casi
+  entero devuelve top-5», Media).
 
 - [x] **(revisión 2026-09-04) El 48/55 del hybrid es un resultado in-sample:
   los parámetros se eligieron sobre las mismas 55 queries que lo reportan.**
@@ -870,7 +898,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   2026-09-23; Task 5 de la campaña I ejecutada el mismo día; queda abierto
   por publicar la cifra en `plugins/exo/README.md` y por el umbral de W11).
 
-- [ ] **(revisión 2026-09-04) El coste del hook completo en Windows no está
+- [x] **(revisión 2026-09-04) El coste del hook completo en Windows no está
   medido; solo el del binario.** `plugins/exo/hooks/hooks.json` cablea
   **tres** scripts bash en cada `PreToolUse:Bash` (`git-c-bash.sh`,
   `git-add-all-guard.sh`, `verify-before-commit.sh`) y uno en cada
@@ -979,6 +1007,14 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   **354** ms, p95 = **378** ms — comando exacto en el Step 2 de la
   Task 3 del plan. Criterio (spec §7, umbral 150 ms p50 del camino rápido):
   **cumplido, matcher sin cambios**.
+  **Cerrado (campaña N, 2026-10-05): obsoleto.** El ítem cita tres scripts
+  `PreToolUse:Bash` y `recall-inject.sh`, que ya no existen: `1e19bd0` borró el
+  hook por prompt y `b3488df` podó `_hook-ms.sh`, `a1-gate.sh` y
+  `reflex-baseline.sh`. `plugins/exo/hooks/hooks.json` tiene hoy un único script
+  bajo el matcher `Bash` (`bash-guards.sh`). Lo único vivo de la **Acción**
+  —publicar el `hook_ms` p95 = 1671 ms en `plugins/exo/README.md`— es de la
+  campaña Q (`q-w11`), no de este ítem.
+  Publicado en `plugins/exo/README.md` en la rama `q-w11` (`8c16960`), pendiente de PR.
 
 - [x] **(campaña I, Task 6, detectados al correr el bench — preexistentes de
   campaña G, deliberadamente no arreglados fuera del alcance de I) Dos bugs en
@@ -1550,7 +1586,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   ítem: la pregunta que planteaba (releer M5a contra el spec sin estado y
   decidir si vale la pena) queda respondida — no.
 
-- [ ] **(NUEVO, 2026-09-13) Proceso residente para el coste fijo del recall
+- [x] **(NUEVO, 2026-09-13) Proceso residente para el coste fijo del recall
   por prompt — decisión de Paul: al backlog, no se hace ahora.** Medido por
   el consultor: de los ~950 ms de `exo recall --query`, ~910 ms son carga
   del modelo (`fs::read` de `model.onnx`, 641 MB, ≈190 ms + sesión ORT con
@@ -1595,8 +1631,13 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   umbral de 1.500 ms, pero sin valor de decisión (mínimo 200 disparos). Es
   indicio de que la ventana real de producción en W11 reabrirá el proceso
   residente: el veredicto se lee sobre `~/.claude/reflex-log.jsonl` de W11.
+  **Cerrado (campaña N, 2026-10-05): obsoleto para el recall por prompt.**
+  Sin hook por prompt (`1e19bd0`, PR #35), el coste fijo del modelo solo se paga
+  en `SessionStart`. `exo serve` sigue vivo como brainstorm aparte (propuesta
+  de la ola 3, §4: `docs/superpowers/consultas/2026-10-05-campanas/propuesta.md`),
+  sin criterio de cierre escrito y por tanto sin ítem en este backlog.
 
-- [ ] **(H28) La `distance` de vec0 es L2, no L2²; el
+- [x] **(H28) La `distance` de vec0 es L2, no L2²; el
   umbral 0,40 del hook equivale a coseno 0,28.** Medido por el consultor
   sobre la KB real: los embeddings están normalizados (norma 1,000000) y
   `similitud_desde_l2` (`engine/src/buscador.rs:311`, antes
@@ -1631,8 +1672,16 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   campaña C, que sigue consumido. Ver
   `evals/retrieval-heldout/verdict/gold-j-acuerdo.md` y
   `gold-j-erratas.md`.
+  **Cerrado (campaña N, 2026-10-05) por decisión de Paul, D2: «D2 cerrar».**
+  Se cierra declarando que el 0,40 es un umbral en la escala L2 sellada de
+  `similitud_desde_l2` (≈ coseno 0,28) y **no se convierte**. Lo que quedaba con
+  valor —que el código no mintiera sobre la escala— lo cubrió la parte
+  documental (`28dbb2f` + `d027d23`, merge `063d07c`) y la prosa de la ola 3
+  (`4e315fc`, pendiente de PR en `o-deuda`). Abrir la conversión exigiría un
+  held-out nuevo (el gold de J se consumió como orientativo en B1/B2, `6bcc85e`),
+  coste L; no se hace.
 
-- [ ] **(N1) Con un prompt natural, FTS5 hace AND de
+- [x] **(N1) Con un prompt natural, FTS5 hace AND de
   todos los tokens y da 0 candidatos: `exo recall --query` es en la práctica
   vectorial puro.** Medido por el consultor sobre prompts naturales; la
   fusión híbrida (bonus, β) solo actúa de verdad en queries de palabras
@@ -1661,6 +1710,13 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   El held-out de la campaña C ya está consumido
   (§11 del verdict): cualquier cambio de retrieval exige uno nuevo antes de
   adoptarse.
+  **Cerrado (campaña N, 2026-10-05): hecho en B1/B2.** `6bcc85e` (PR #38,
+  merge `308d1d5`) pasa FTS a OR y la fusión a CombSUM:
+  `engine/src/buscador.rs:185-201` (`prepara_query`, une con ` OR `) y `:618`
+  (CombSUM). La «Acción» que quedaba sin probar —OR con fusión que premia el
+  acuerdo— es exactamente lo que se midió allí (hit@5 107 frente a 95 hits de
+  CombMAX sobre el gold de J, `6bcc85e`; denominador 145 tras `441d806`;
+  orientativo y no pre-registrado).
 
 - [x] **(NUEVO, 2026-09-13) El bench sintético de la campaña A es ciego al
   umbral de similitud.** Vectores aleatorios en 768 dimensiones dan coseno
@@ -1684,7 +1740,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   con la escala equivocada) queda registrada como deuda nueva de la ola 2,
   ver más abajo en esta misma sección, «Cola de H28».
 
-- [ ] **(NUEVO, 2026-09-22, cola de H28, media) `kb_sintetica.rs` calibra su
+- [x] **(NUEVO, 2026-09-22, cola de H28, media) `kb_sintetica.rs` calibra su
   bench razonando en la escala equivocada.** El doc-comment de
   `engine/examples/kb_sintetica.rs:16-33` llama «coseno» al 0,4747 «techo
   sin ruido» que en realidad mide sobre la escala propia de
@@ -1705,8 +1761,13 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   **Acción:** corregir el doc-comment para que declare qué escala mide cada
   número (propia vs. cosine real) y recalcular el ≈0,28 como ≈0,393 antes
   de comparar contra el 0,4230 medido.
+  **Cerrado en la rama `o-deuda` (`49e1a0e`), pendiente de PR (campaña O,
+  2026-10-05).** El doc-comment declara la escala de cada número y recalcula el
+  ≈0,28 como ≈0,393. El brief del orquestador había invertido ambas cifras; el
+  executor siguió el criterio literal de este ítem (ledger de la ola 3).
+  **No mergeado todavía:** el merge es vía PR de Paul.
 
-- [ ] **(NUEVO, 2026-09-22, harness de J, media) El test de `MAX_CHARS` no
+- [x] **(NUEVO, 2026-09-22, harness de J, media) El test de `MAX_CHARS` no
   cubre el camino real que llega al juez.** `evals/retrieval-heldout/harness/test_gold_j.py::test_paquete_y_parsea`
   llama a `jz.paquete(...)` y comprueba que `paq["texto"]` contiene ciertas
   subcadenas, pero la aserción de longitud (`len(candidata_grande["cuerpo"])
@@ -1719,8 +1780,11 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   **Acción:** añadir una aserción sobre `paq["texto"]` (p.ej. que ningún
   bloque de cuerpo entre candidatas supere `MAX_CHARS` caracteres) para que
   una regresión en `paquete()` la cace.
+  **Cerrado en la rama `o-deuda` (`31e1d31`), pendiente de PR (campaña O,
+  2026-10-05).** La aserción de `MAX_CHARS` se hace sobre `paquete()→texto`, el
+  camino que llega al juez. **No mergeado todavía.**
 
-- [ ] **(NUEVO, 2026-09-22, harness de J, media) La suite Python del harness
+- [x] **(NUEVO, 2026-09-22, harness de J, media) La suite Python del harness
   no corre en CI.** `evals/retrieval-heldout/harness/test_*.py` — 82 tests,
   verificado hoy (`python3 -m unittest discover -s
   evals/retrieval-heldout/harness -p "test_*.py"` → `Ran 82 tests … OK`) —
@@ -1732,6 +1796,10 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   **Acción:** un job de CI que instale Python y corra
   `python3 -m unittest discover` sobre el harness — no depende de red ni de
   claves de API, los tests de red están mockeados.
+  **Cerrado en la rama `o-deuda` (`3949b2a`), pendiente de PR (campaña O,
+  2026-10-05).** La suite Python de J corre en el job `static-checks` de CI.
+  Toca CI, así que el merge va por PR (gate de la campaña O, verdict `0c0d2a4`
+  en la rama): sin PR no hay verde de CI que lo confirme. **No mergeado todavía.**
 
 - [x] **(revisión 2026-09-13 · plegado el 2026-09-13, campaña B) Hallazgos
   de hoy — cada uno cerrado con su commit; este bloque no queda «planificado»
@@ -1791,7 +1859,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   --batch` si el número de notas selladas crece lo suficiente para que se
   note.
 
-- [ ] **(campaña C, verdict §9) Orden dentro del top: vector y RRF superan a
+- [x] **(campaña C, verdict §9) Orden dentro del top: vector y RRF superan a
   la fusión sellada en ranking, no en cobertura.** Held-out: vector supera a
   A0 en hit@1 (37/92 vs 29/92) y MRR@10 (0,5144 vs 0,4730, IC95 ΔMRR
   [−0,008, 0,090]); en strict, RRF vs A0 es 3/0. Mecanismo visto en filas:
@@ -1803,8 +1871,13 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   **Acción:** no se afina sobre el held-out de C, ya consumido (§11): un
   diseño nuevo de normalización FTS exige su propio held-out antes de tocar
   `buscador.rs`.
+  **Cerrado (campaña N, 2026-10-05): hecho, con validación orientativa y no
+  pre-registrada.** `6bcc85e` (B2, PR #38): CombSUM sustituye a `max(v, β·f)`,
+  `engine/src/buscador.rs:618`. Quita el bonus fijo de 0,6 con un único
+  candidato FTS que describía este ítem. La cifra (107 vs 95 hits; denominador 145 tras `441d806`) sale del
+  gold de J usado como orientativo; no es un held-out nuevo.
 
-- [ ] **(campaña C, verdict §9) El corpus negativo casi entero devuelve
+- [x] **(campaña C, verdict §9) El corpus negativo casi entero devuelve
   top-5: el hook no abstiene.** 54/55 queries nulas (sin respuesta esperada)
   devuelven algo en el top-5 con el umbral 0,40 (55/55 con 0,35; solo FTS
   abstiene de verdad, 18/55). El umbral no es un mecanismo de abstención —
@@ -1813,8 +1886,14 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   **Acción:** diseñar abstención real (calibración por distribución de
   scores, o gap top1–top2, no un umbral fijo) y medir con un corpus negativo
   propio. Exige held-out nuevo — el de C está consumido.
+  **Cerrado (campaña N, 2026-10-05) por decisión: abstención descartada.**
+  «La abstención por umbral se descarta: rinde poco (23/95 nulas sin perder
+  hits) y el agente decide sobre la lista L0»
+  (`wisdom-paul/log/exo-bitacora.md:114`). Además, las nulas «operativas» que
+  inflaban el problema modelaban `recall-inject`, borrado en el PR #35
+  (`1e19bd0`).
 
-- [ ] **(campaña C, verdict §9) Sin diagnóstico por fila de qué 6 de las 55
+- [x] **(campaña C, verdict §9) Sin diagnóstico por fila de qué 6 de las 55
   dejaron de acertar.** In-sample: 43/55 con el binario y snapshot de la
   campaña C, frente a 49/55 en `metrics-engine-hybrid-b0.0-e0.6.md` (otro
   binario, KB de 138 notas). El pre-registro prohíbe comparar las dos
@@ -1825,6 +1904,9 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   **Acción:** diagnóstico por fila de las 55 (sin re-etiquetar el gold). No
   exige held-out por sí solo —es sobre datos in-sample ya capturados— pero
   cualquier cambio de retrieval que salga de ese diagnóstico sí lo exige.
+  **Cerrado (campaña N, 2026-10-05): obsoleto.** Son datos in-sample de otro
+  binario y anteriores a B1/B2 (`6bcc85e`): el diagnóstico por fila de los 6/55
+  describe un ranking que ya no existe.
 
 - [x] **(campaña C, verdict §9) README y `docs/arquitectura.md` §6 citan el
   48/55 sin la cifra held-out.** El held-out de la campaña C (64/92,
@@ -1861,8 +1943,15 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   caducado de `main.rs:1023`, y decidir si el `--help` debe citar un
   concepto público (p.ej. «similitud interna, ver `--min-similarity`») en
   vez del nombre de una función privada.
+  **Estado (campaña N, 2026-10-05): cerrado en la prosa, abierto en dos
+  sitios.** La rama `o-deuda` (`4e315fc`, pendiente de PR) limpia los
+  comentarios de `engine/tests/buscador.rs` y el «0.35» de `main.rs`. Sigue
+  abierto lo que el título nombra: el `--help` de `search`/`recall`
+  (`engine/src/main.rs:258,304`) nombra `similitud_desde_l2`, y
+  `engine/src/inicia.rs:177` remite a `docs/arquitectura.md` §3.4, que sin repo
+  clonado no está a mano.
 
-- [ ] **(NUEVO, 2026-09-22, harness de J, baja) El comentario del timeout
+- [x] **(NUEVO, 2026-09-22, harness de J, baja) El comentario del timeout
   de `juez.py` exagera el coste, y `kimi()` no captura todos los cortes de
   conexión.** `juez.py:383-388` justifica `timeout=600` con «esperar de más
   cuesta segundos» — engañoso: una conexión colgada cuesta hasta 600 s por
@@ -1877,8 +1966,12 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   **Acción:** corregir el comentario del timeout (coste real: minutos por
   intento colgado, no segundos) y añadir `OSError` (o las subclases
   concretas) al `except` de `kimi()`.
+  **Cerrado (campaña N, 2026-10-05) como *won't fix*.** Instrumento de un
+  frente cerrado (J juzgado y congelado en `a936770`); no se vuelve a correr
+  `juez.py` y arreglarlo no protege ninguna medición futura. Si J se reabre, el
+  ítem se vuelve a abrir con ese motivo.
 
-- [ ] **(NUEVO, 2026-09-22, bench.sh, baja) `mide()` no comprueba el
+- [x] **(NUEVO, 2026-09-22, bench.sh, baja) `mide()` no comprueba el
   código de salida de hyperfine, y un fallo a medias deja `resumen.tsv` a
   medio escribir.**
   `evals/recall-coste/harness/bench.sh:51-56`, `mide()`: corre hyperfine sin
@@ -1893,6 +1986,10 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   **Acción:** comprobar el `$?` de hyperfine en `mide()` y registrar el
   fallo en vez de callarlo; documentar (o automatizar) el borrado de `$OUT`
   a medias tras un aborto del resumen.
+  **Cerrado (campaña N, 2026-10-05) como *won't fix*.** `bench.sh` es el
+  instrumento de `recall-coste`, frente histórico: `b3488df` ya podó
+  `_hook-ms.sh`/`a1-gate.sh` y el hook por prompt que medía no existe (`1e19bd0`).
+  Si el bench se reusa, se reabre con ese motivo.
 
 - [x] **(NUEVO, revisión final campaña B, 2026-09-13) El bash inline de
   `run:` en `.github/workflows/*.yml` no pasa por ningún gate.**
@@ -1958,7 +2055,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   `strict: false`, sin revisión obligatoria (autor único), `enforce_admins:
   false`, force-push y borrado de `main` prohibidos.
 
-- [ ] **(revisión 2026-09-04 · cifras RE-MEDIDAS el 2026-09-09) Decisión
+- [x] **(revisión 2026-09-04 · cifras RE-MEDIDAS el 2026-09-09) Decisión
   abierta: proceso frente a producto.**
   Medido el 2026-09-04 con `wc -l` sobre `git ls-files`: **30.547** líneas de
   markdown en `docs/` + `evals/` + `reports/` frente a **5.224** de Rust en
@@ -2002,6 +2099,12 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   frágil de tests. Lo que queda abierto no es la acción, es la **decisión de
   fondo** que el propio título nombra (proceso frente a producto): escribir
   la respuesta no es tomarla.
+  **Cerrado (campaña N, 2026-10-05): no es deuda.** La evidencia medible se
+  retiró el 2026-09-11 (el propio texto: «un número que se mueve un 25 % por
+  razones ajenas a lo que dice medir no sostiene un item») y la acción
+  accionable (README en dos frases) se hizo en `c5c5b7f`. Lo que quedaba, la
+  «decisión de fondo», no tiene criterio de cierre ni evidencia que la sostenga.
+  **Criterio de N, no de Paul: reabrir si se quiere.**
 
 - [x] **(revisión 2026-09-04) Idioma mezclado sin criterio único.** Medido
   sobre `engine/src/`: identificadores y módulos en español (`buscador`,
@@ -2088,18 +2191,24 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   de ruta) que no se actualizan y se citan con su fecha. No hacía falta
   ningún cambio nuevo — Task 8 de F solo lo verificó y lo cita aquí.
 
-- [ ] **Residuos de entorno del plan** (ya listados allí, se repiten aquí para no
+- [x] **Residuos de entorno del plan** (ya listados allí, se repiten aquí para no
   perderlos): `crontab -r` pendiente de M1a · `reflex-baseline.sh` traga errores
   de `jq` con `2>/dev/null` · cachés huérfanas de reflex 0.6.0/0.8.0.
   **(campaña F, 2026-09-15): CADUCADO** lo de `reflex-baseline.sh`.
   `reflex-baseline.sh` no tiene `2>/dev/null` sobre salida de `jq`; `:12-14`
   valida cada línea con `jq -e .` y lista las inválidas por stderr.
   Verificado leyendo el script completo.
+  **Cerrado (campaña N, 2026-10-05): obsoleto.** `reflex-baseline.sh` se
+  borró (`b3488df`); el resto (`crontab -r`, cachés de reflex 0.6.0/0.8.0) es
+  higiene local de máquina, sin criterio de cierre citable.
 
-- [ ] **Decisión abierta: `archive/` en el ranking.** Es el 32%–39% del índice
+- [x] **Decisión abierta: `archive/` en el ranking.** Es el 32%–39% del índice
   (54 de 138 notas). Se decide con la corrida de C5 delante o se cierra
   declarando que se queda indexado. Llevar la decisión abierta indefinidamente es
   peor que cualquiera de las dos opciones.
+  **Cerrado (campaña N, 2026-10-05) por decisión de Paul, D4: «d4, ok».**
+  `archive/` se queda indexado, sin downrank. No hay evidencia nueva desde hace
+  un mes y no se abre eval.
 
 - [x] **`kb-demo` como fixture por defecto en 8 ficheros de test. CERRADO el
   2026-09-16 (campaña G, Task 10, commit `5a71911`).** Medido
@@ -2133,7 +2242,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   `engine/src/lib.rs:103` (hecho histórico sobre una versión anterior del
   código, no un default vigente).
 
-- [ ] **(pasada de coste 2026-09-09) Sinergias anotadas, dueño sin decidir: el
+- [x] **(pasada de coste 2026-09-09) Sinergias anotadas, dueño sin decidir: el
   mecanismo de guards de exo sirve para delegar I/O, y el método de evals de
   exo sirve fuera de exo.**
   Evidencia: `plugins/exo/hooks/hooks.json:3-27` ya cablea tres
@@ -2157,6 +2266,10 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   hooks vive aquí, pero el worker barato vive fuera (plataforma on-prem) y el
   catálogo de skills a evaluar también. Si se decide que exo asume delegación,
   esto sube a item propio con su gate; si no, se cierra como «no es de exo».
+  **Cerrado (campaña N, 2026-10-05): no es deuda.** El propio texto lo
+  declara («esto queda anotado como sinergia, no como deuda») y su Acción es
+  «ninguna en exo por ahora». Si exo asume delegación de I/O, entra como ítem
+  propio con su gate.
 
 - [x] **(NUEVO, campaña G, 2026-09-16) El `cd "$(git rev-parse --show-toplevel)"`
   sin guarda contra una sustitución vacía sigue en tres gates de CI.**
@@ -2208,7 +2321,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   por otra razón, degradar "tabla `vectores` ausente" igual que "0 filas en
   `vectores`" (mismo aviso de cobertura, no un error duro).
 
-- [ ] **(NUEVO, review final de campaña L, 2026-09-20) `exo recall --json
+- [x] **(NUEVO, review final de campaña L, 2026-09-20) `exo recall --json
   --query <q>` contra una DB sin `vectores`/`trozos` sigue saliendo `exit
   1`, ahora reventando en otro sitio.** Misma clase de fallo que el ítem de
   arriba (`exo search` sin `--type`), distinto síntoma: la Task 1 de esta
@@ -2228,6 +2341,61 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   `avisos_cobertura_vector` ya usa para `vectores`, cuando alguien toque
   `recall.rs` por otra razón o priorice cerrar esta clase de fallo en
   `recall` también.
+  **Cerrado en la rama `o-deuda` (`789ac19`), pendiente de PR (campaña O,
+  2026-10-05).** `primer_trozo` degrada a sin-snippet si falta la tabla `trozos`.
+  **No mergeado todavía.** Residuo nuevo, ítem aparte: `avisos_cobertura_vector`
+  cuenta `trozos` sin `tabla_existe` (`buscador.rs:106`).
+
+- [ ] **(NUEVO, 2026-10-05, residuo de la campaña O, baja) `avisos_cobertura_vector`
+  cuenta `trozos` sin comprobar que la tabla exista.** `engine/src/buscador.rs:106`
+  hace `SELECT count(*) FROM trozos` directamente: contra una DB sin `trozos` ni
+  `vectores` revienta con `no such table`, la misma clase de fallo que cerró
+  `789ac19` en `primer_trozo` (rama `o-deuda`, pendiente de PR). Lo vio el
+  consultor del gate de O (verdict `0c0d2a4` en esa rama).
+  **Acción:** aplicar el patrón `tabla_existe` + degradación con aviso que ya usa
+  el mismo fichero para `vectores`, con un test que reproduzca el error.
+
+- [ ] **(NUEVO, 2026-10-05, residuo de la campaña O, baja) El comentario de
+  `_timeout.sh` presume un Git Bash sin coreutils que no se ha verificado en W11.**
+  `plugins/exo/scripts/_timeout.sh:4-5` (en `o-deuda`, `cbdd221`) dice «Git Bash
+  sin coreutils» como motivo del fallback a perl; nadie ha comprobado si el Git
+  Bash de W11 trae `timeout`. Es el criterio del recon previo de O
+  (propuesta §3 O): si lo trae, el fallback sobra; si no, se queda y se
+  re-comenta como de Windows.
+  **Acción:** una línea en W11 (`command -v timeout`) y ajustar el comentario o
+  quitar el fallback. Va con la prueba en W11 de Q.
+
+- [ ] **(NUEVO, 2026-10-05, campaña P) El gate de la pasada de `upstream-sync` no
+  mide los «no aplica» falsos.** La pasada 1 puntuada
+  (`scripts/upstream-score.sh ~/.exo/upstream-sync/verdad-v6.1.1-v6.4.2.md
+  docs/upstream/ledger.md`) dio `aciertos 30/37 (81%)`, `ya-cubierto-falsos 0`,
+  rc=1: el gate (≥90 %, 0 ya-cubierto falsos) no pasa. De los 7 fallos, 3 son
+  `duda` ya decididas «aplica» en el pre-registro (#1934/tdd, #2077/orchestrate,
+  #2063/brainstorm), 1 es benigno y 2 son ausencias con verdad `no aplica`; hay
+  **un error real**: #2258/plan marcado `no aplica` por D8 («sin modo inline»,
+  `docs/upstream/ledger.md:133`) cuando la verdad dice `aplica` (gate de review
+  del plan) — el bot sobre-extendió D8 (`ledger.md:54` ya manda evaluar contra
+  orchestrate una regla de review independiente del modo inline). Un
+  «no aplica» falso es la clase de error que **más cuesta** (la regla no se
+  porta nunca) y el gate no la cuenta. Paul activó la routine de todas formas.
+  **Acción:** añadir los no-aplica falsos al gate de la próxima pasada,
+  **declarado antes de puntuar**, con verdad nueva: v6.1.1..v6.4.2 ya está
+  vista y no sirve como held-out. Una pasada puntuable que nadie puntúa no es
+  un gate (lección 1 de la ola 3, `config.md`).
+- [ ] **(NUEVO, 2026-10-05, hallazgo del gate de N, baja) SIGPIPE en
+  `scripts/_bash-versionado.sh:22` omite scripts en `test-shellcheck.sh` y
+  `test-rutas-personales.sh`.** `git cat-file -p "$blob" | head -n 1 | grep -Eq …`
+  bajo `set -o pipefail` (los dos gates lo activan): con ficheros grandes como
+  `plugins/exo/skills/orchestrate/scripts/review-package` (32 KB, sin extensión,
+  shebang bash) `head` cierra la tubería antes de que `cat-file` acabe, este
+  muere con SIGPIPE (`PIPESTATUS: 141 0`), `pipefail` da falso y el script se
+  **omite** en silencio. Es el 69/68 de `test-rutas-personales.sh` entre
+  corridas (medido por el consultor: 80/100 fallos con `pipefail`, 0/100 sin
+  él); `test-shellcheck.sh` no lintea `review-package` la mayoría de las veces.
+  **Fix propuesto** (código, fuera de N): `git cat-file -p "$blob" | sed -n 1p |
+  grep -Eq …` (`sed` sin `q` lee hasta EOF). Oráculo: 20 corridas seguidas con
+  el mismo recuento y `PIPESTATUS` sin 141. Evidencia:
+  `docs/superpowers/consultas/2026-10-05-campanas/verdict-gate-n.md`.
 
 ---
 
@@ -2238,6 +2406,39 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
 > quedaron seis días huérfanos al final de `## Baja` mientras 16 referencias
 > seguían apuntando aquí. No es exhaustiva: desde la campaña F muchos
 > cierres se marcan `[x]` en sitio, dentro de Alta/Media/Baja.
+
+- [x] **(campaña N, 2026-10-05) Lo que entró entre el 2026-09-22 y hoy sin pasar
+  por este fichero.** Todo mergeado a `main` (`origin/main` `a3fcb5f`) salvo
+  lo marcado; fuente: el recon de la ola 3
+  (`docs/superpowers/consultas/2026-10-05-campanas/propuesta.md`) y el ledger.
+  - **Campaña K cerrada** sin campaña L, por decisión de Paul
+    (`wisdom-paul/log/exo-bitacora.md:66-72`; `evals/ablacion-k/verdict-etapa1.md`,
+    `b94ed74`): R1 NO CONCLUYENTE, R2 = DAÑO disparado por 1 tarea de 20.
+  - **Recorte: `recall-inject` borrado** (PR #35, merge `d33df4e`; barrido
+    `1e19bd0`). Sin hook por prompt; el recall queda en `SessionStart`.
+  - **B1/B2/B3** (PR #38 `308d1d5`, #40 `669e518`, #41 `ceaac09`): FTS en OR y
+    CombSUM (`6bcc85e`), recall L0 con fragmento (`c7f55d9`), doc de la skill.
+    Validación orientativa sobre el gold de J, no pre-registrada.
+  - **CI podado** (PR #39 `6d888a1`; `b3488df` fuera `install-gate` de macOS e
+    instrumentos de frentes cerrados) y **sin macOS** (PR #42 `8cd3bd4`).
+  - **Engine 0.3.0** (PR #43 `603cf4a`, `59ad826`), **docs de B** (PR #44
+    `ca77623`) y **`exo write` con frontmatter faltante** (PR #45 `a3fcb5f`).
+  - **`retirar-limites` enterrada** por decisión de Paul, D1 («D1 entiérrala con
+    tag»): tag local anotado `archivo/retirar-limites` → `3226cfa`, **sin
+    pushear**; ramas `retirar-limites` y `spec-search-por-trozo` borradas. Los
+    techos por tier y el ratchet **siguen vivos**. D6 («D6 borra ramas»): 30
+    ramas ya mergeadas y el worktree `campana-k` retirados.
+  - **M5b cerrada** por D3 («d3, hecho»): basic-memory y kbx desinstalados.
+
+- [x] **(campaña P, 2026-10-05) `upstream-sync`: de mergeado a activo.** MERGEADA
+  en `main` `beecead`: `6a9ffcb` un port revertido no es evidencia de porte,
+  `1e20dd4` test de U1 cerrada (U1 = upstream #1943 portada en `5b4ca55`; dos
+  planes van a workspaces distintos), `5dc8382` el latido caduca a 15 días,
+  `190a756` el contrato declara qué revert reconoce y cuál no. Suites en rc=0
+  (reconcile 12/12, score 19/19, watchdog 14/14, tras los fixes). D0 («D0 lanza P ya»): se
+  lanzó antes de que el watchdog caducara (2026-10-08). **La pasada 1 no pasó el
+  gate** (81 %, ver el ítem abierto «El gate de la pasada de `upstream-sync` no
+  mide los “no aplica” falsos», Baja) y Paul activó la routine de todas formas.
 
 - [x] **(revisión 2026-09-04) `tier` no se persiste en el índice y cada
   arranque relee el frontmatter de TODAS las notas desde disco: cerrado —
