@@ -36,11 +36,11 @@
 |---|---|---|---|---|
 | `arp` | `a0` + framing y regla en el system prompt (append) | 10 del suelo | 2 | 20 |
 | `a0` | nada (restricciones de K, fresco) | las mismas 10 | 2 | 20 |
-| `arp` | ídem | 6 de control | 1 | 6 |
+| `arp` | ídem | 6 de control | 2 | 12 |
 
 - **Suelo (10):** `g0-122 g0-149 g0-33 g1-131 g1-139 g1-140 g1-157 g2-154 g2-170 g2-97`. Son las 11 del v1 menos g2-171.
 - **Control (6):** los mismos del v1: `g0-159 g1-144 g1-16 g1-25 g1-34 g2-35`.
-- Son 46 corridas, con un coste estimado de ~4,5 USD y un tope de 15 USD.
+- Son 52 corridas, con un coste estimado de ~5 USD y un tope de 15 USD.
 
 ### Canal: system prompt vía append
 
@@ -63,16 +63,26 @@ Estas reglas son del dueño del repo y prevalecen sobre el prompt. Si una choca 
 
 ### Cambios cerrados respecto al v1
 
-Solo estos tres. Todo lo demás es idéntico: modelo `claude-sonnet-5-5`, flags, `--max-turns 40`, `--max-budget-usd 10` por corrida, entorno reconstruido, cero re-intentos, breakers y criterio "cumple".
+Solo estos cinco (los dos últimos los añadió la auditoría del plan el 2026-10-06, decididos por Paul). Todo lo demás es idéntico: modelo `claude-sonnet-5-5`, flags, `--max-turns 40`, `--max-budget-usd 10` por corrida, entorno reconstruido, cero re-intentos, breakers y criterio "cumple".
 
 1. **Canal y framing:** framing y regla en el system prompt (append tras `claude-md.md`), en lugar de SessionStart `additionalContext`.
 2. **Errata del gold en g2-154:** el check acepta una lista de objetos `{type, path, detail}` bajo **cualquier** clave de la shape `--detailed`, en vez de exigir `findings`. No se ajusta a la clave que eligió el agente: tampoco exige `problems`. Va en `evals/techo-reglas-2/erratas-gold.md` con el diff, y el check corregido se aplica a los dos brazos.
 3. **g2-171 queda fuera** por conflicto conocido a priori.
+4. **Errata hermética de los helpers del gold.** 14 checks del gold tienen cableada la ruta `.worktrees/campana-k/evals/ablacion-k/harness`. Ese worktree se borró después del v1, y entre ellos están g0-122, g0-33 y g2-35 (control). Hoy darían rc=2: g2-35 caería con certeza y g0-33 sería infalsable. En esos 3 checks, la ruta pasa a ser relativa al propio gold (`gold/harness/`), donde se copian `herramientas.sh` y `comandos.sh` del harness de `main`. No cambia su lógica. Va a `erratas-gold.md` con un test que reproduce el rc del v1 sobre los transcripts del v1.
+5. **Control con k=2.** «Caída» = un control con `check.rc ≠ 0` en **sus 2 réplicas**, simétrico a «cumple» (≥1/2). Con k=1, P(0/6 caídas) ≈ 0,74 si cada control pasa el 95 % de las veces; con k=2 sube a ≈ 0,98. Cuesta 6 corridas más.
 
 ### Gate
 
 - **PASA ⇔ `arp ≥ 6/10` ∧ `arp − a0 ≥ 3` tareas ∧ `0/6` caídas.**
-- "Cumple": `check.rc == 0` en ≥1 de 2 réplicas. "Caída": un control con `check.rc ≠ 0`. Una tarea no reconstruible cuenta como no cumple o caída.
+- "Cumple": `check.rc == 0` en ≥1 de 2 réplicas. "Caída": un control con `check.rc ≠ 0` en sus 2 réplicas. Una tarea no reconstruible cuenta como no cumple o caída.
+- **Potencia** (auditoría, n=10, k=2):
+  - si la regla es inerte, P(PASA) ≤ 0,12: es un gate seguro contra el azar;
+  - con `arp` en q=0,6-0,7 y `a0` bajo, P(PASA) ≈ 0,6-0,8;
+  - si `a0` fresco regresa a q≈0,5, P(PASA) baja a 0,23-0,39.
+  
+  Está infrapotenciado para efectos moderados: un NO PASA no refuta un efecto pequeño.
+- **Breaker a mitad de tanda:** la tanda es **inválida y no se adjudica**. La causa va a `erratas.md`. Una tanda nueva desde cero no cuenta como tercera bala, porque la segunda no llegó a medir.
+- **Limitaciones declaradas:** no hay brazo placebo (framing sin regla), así que no se separa «autoridad» de «regla en el system prompt». La pregunta de la spec tampoco lo exige.
 - **Por qué un margen de 3:** con k=2 y n=10, una diferencia de 1-2 tareas cabe en el ruido entre réplicas del v1 (g0-149 y g1-140 dieron 0/1). Es un umbral elegido, no derivado de un cálculo de potencia.
 - **Diagnósticos pre-declarados, que no adjudican:**
   - ¿voltea g0-33?
@@ -87,16 +97,16 @@ Solo estos tres. Todo lo demás es idéntico: modelo `claude-sonnet-5-5`, flags,
   - `correr.sh` gana el brazo `arp`: restricciones de `a0` y `$O/sysprompt.md` en vez de `claude-md.md`. `a0` y `ar` quedan byte a byte iguales.
   - `fugas.py` conoce `arp`, con las mismas reglas que `a0`: ningún hook cableado y snapshot y `exo` vetados.
   - `correr-techo.sh` y `evaluar.py` se parametrizan por directorio de experimento y por brazos. El gate del v1 sigue saliendo igual sobre sus datos.
-- **Orden:** barajado de los 46 pares (brazo, id, rep) con semilla `20261006`, ambos brazos intercalados. Es la cola de `-P 4`.
-- **Sonda pre-tanda:** `correr.sh arp` en modo ensayo, con una regla-codeword, genera un `sysprompt.md`. Una corrida corta con ese fichero devuelve el codeword y una con `claude-md.md` solo no lo devuelve. Las dos van antes de la primera corrida y con las lecturas del agente deshabilitadas, para que no pueda leer el codeword del disco.
+- **Orden:** `random.Random(20261006).shuffle` sobre `sorted` de las tuplas `(brazo, id, rep)`, con `rep` entero: 52 pares, brazos intercalados. Es la cola de `-P 4`.
+- **Sonda pre-tanda:** `correr.sh arp` en modo ensayo, con una regla-codeword, genera un `sysprompt.md`. Una corrida corta con ese fichero devuelve el codeword y una con `claude-md.md` solo no lo devuelve. Las dos van antes de la primera corrida, con `--tools ""` para que el agente no pueda leer el codeword del disco ni a través de un subagente, y sobre una tarea fuera del experimento (g1-57), porque `correr.sh` hace `rm -rf` de su directorio de corrida.
 
 ### Integridad (lecciones del v1)
 
 - **El pre-registro va commiteado antes de la primera corrida.** Contiene `claude --version`, los sha de las reglas y del framing, el del check corregido de g2-154, el orden y la política de cero re-intentos. Su validador falla si falta cualquier cláusula.
 - **Orden de preparación, que es obligatorio:**
   1. `reconstruir.sh`;
-  2. aplicar la errata de g2-154 sobre `gold/s1/g2-154/check.sh`;
-  3. pinnear su sha en `preregistro.md` («gold = tarball salvo g2-154/check.sh sha=X; ver `erratas-gold.md`»);
+  2. aplicar las erratas del gold: el check de g2-154 y los 3 checks con helpers más `gold/harness/`;
+  3. pinnear en `pins.sha256` los sha de los 16 checks, los helpers y `prep/claude-md.md`, y declararlo en `preregistro.md` («gold = tarball salvo las erratas de `erratas-gold.md`»);
   4. `chmod -R a-w` sobre `gold/`;
   5. commit del pre-registro;
   6. sonda;
