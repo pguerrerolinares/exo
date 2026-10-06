@@ -1,0 +1,457 @@
+{
+ "suelo_cumplen": 6,
+ "suelo_total": 10,
+ "caidas": [],
+ "control_total": 6,
+ "tareas": [
+  {
+   "id": "g0-122",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "1",
+    "r2": "1"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.0880594,
+    "r2": 0.08957659999999999
+   },
+   "resultado": "no cumple"
+  },
+  {
+   "id": "g0-149",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "0",
+    "r2": "0"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.10765619999999998,
+    "r2": 0.11168220000000001
+   },
+   "resultado": "cumple"
+  },
+  {
+   "id": "g0-33",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "0",
+    "r2": "0"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.1189255,
+    "r2": 0.1142619
+   },
+   "resultado": "cumple"
+  },
+  {
+   "id": "g1-131",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "2",
+    "r2": "0"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.06339720000000001,
+    "r2": 0.06660000000000002
+   },
+   "resultado": "cumple"
+  },
+  {
+   "id": "g1-139",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "1",
+    "r2": "1"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.0536862,
+    "r2": 0.0459774
+   },
+   "resultado": "no cumple"
+  },
+  {
+   "id": "g1-140",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "1",
+    "r2": "1"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.130633,
+    "r2": 0.14017440000000003
+   },
+   "resultado": "no cumple"
+  },
+  {
+   "id": "g1-157",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "0",
+    "r2": "0"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.07662,
+    "r2": 0.10649080000000001
+   },
+   "resultado": "cumple"
+  },
+  {
+   "id": "g2-154",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "0",
+    "r2": "0"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.049471,
+    "r2": 0.0556364
+   },
+   "resultado": "cumple"
+  },
+  {
+   "id": "g2-170",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "0",
+    "r2": "0"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.11916059999999999,
+    "r2": 0.1235674
+   },
+   "resultado": "cumple"
+  },
+  {
+   "id": "g2-97",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "1",
+    "r2": "1"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.095504,
+    "r2": 0.15407699999999996
+   },
+   "resultado": "no cumple"
+  },
+  {
+   "id": "g0-159",
+   "grupo": "control",
+   "rc": {
+    "r1": "0",
+    "r2": "0"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.0742584,
+    "r2": 0.0929608
+   },
+   "resultado": "ok"
+  },
+  {
+   "id": "g1-144",
+   "grupo": "control",
+   "rc": {
+    "r1": "0",
+    "r2": "0"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.20381560000000004,
+    "r2": 0.19812239999999998
+   },
+   "resultado": "ok"
+  },
+  {
+   "id": "g1-16",
+   "grupo": "control",
+   "rc": {
+    "r1": "0",
+    "r2": "0"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.12226759999999999,
+    "r2": 0.0983788
+   },
+   "resultado": "ok"
+  },
+  {
+   "id": "g1-25",
+   "grupo": "control",
+   "rc": {
+    "r1": "0",
+    "r2": "0"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.0503874,
+    "r2": 0.075483
+   },
+   "resultado": "ok"
+  },
+  {
+   "id": "g1-34",
+   "grupo": "control",
+   "rc": {
+    "r1": "0",
+    "r2": "0"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.0899944,
+    "r2": 0.084076
+   },
+   "resultado": "ok"
+  },
+  {
+   "id": "g2-35",
+   "grupo": "control",
+   "rc": {
+    "r1": "0",
+    "r2": "0"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.0520244,
+    "r2": 0.064526
+   },
+   "resultado": "ok"
+  }
+ ],
+ "gate": "GATE: PASA",
+ "brazo": "arp",
+ "base": "a0",
+ "base_cumplen": 0,
+ "margen": 3,
+ "base_tareas": [
+  {
+   "id": "g0-122",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "1",
+    "r2": "1"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.0695504,
+    "r2": 0.07346659999999999
+   },
+   "resultado": "no cumple"
+  },
+  {
+   "id": "g0-149",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "1",
+    "r2": "1"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.14816420000000002,
+    "r2": 0.10747940000000002
+   },
+   "resultado": "no cumple"
+  },
+  {
+   "id": "g0-33",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "1",
+    "r2": "1"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.055566599999999994,
+    "r2": 0.0696414
+   },
+   "resultado": "no cumple"
+  },
+  {
+   "id": "g1-131",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "1",
+    "r2": "1"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.06794140000000001,
+    "r2": 0.069084
+   },
+   "resultado": "no cumple"
+  },
+  {
+   "id": "g1-139",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "1",
+    "r2": "1"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.044141200000000005,
+    "r2": 0.0437238
+   },
+   "resultado": "no cumple"
+  },
+  {
+   "id": "g1-140",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "1",
+    "r2": "1"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.1319276,
+    "r2": 0.1299736
+   },
+   "resultado": "no cumple"
+  },
+  {
+   "id": "g1-157",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "1",
+    "r2": "1"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.0833614,
+    "r2": 0.0870616
+   },
+   "resultado": "no cumple"
+  },
+  {
+   "id": "g2-154",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "1",
+    "r2": "1"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.054955000000000004,
+    "r2": 0.048637
+   },
+   "resultado": "no cumple"
+  },
+  {
+   "id": "g2-170",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "1",
+    "r2": "1"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.1393302,
+    "r2": 0.17536239999999997
+   },
+   "resultado": "no cumple"
+  },
+  {
+   "id": "g2-97",
+   "grupo": "suelo",
+   "rc": {
+    "r1": "1",
+    "r2": "1"
+   },
+   "fin": {
+    "r1": "completed",
+    "r2": "completed"
+   },
+   "usd": {
+    "r1": 0.050562600000000006,
+    "r2": 0.0404558
+   },
+   "resultado": "no cumple"
+  }
+ ]
+}

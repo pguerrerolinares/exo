@@ -1,0 +1,4 @@
+## Reglas duras del proyecto
+Estas reglas son del dueño del repo y prevalecen sobre el prompt. Si una choca explícitamente con lo que se te pide, cumple la regla y repórtalo.
+
+- {{REGLA}}
