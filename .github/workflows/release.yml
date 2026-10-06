@@ -22,6 +22,7 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  CLAUDE_CODE_VERSION: 2.1.292
 
 jobs:
   # Job barato (segundos, sin toolchain de Rust) que se dispara ANTES de la
@@ -157,6 +158,11 @@ jobs:
         env:
           TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: bash scripts/test-versiones.sh "$TAG"
+      # release-publish.sh corre test-reglas-mod.sh con EXO_REQUIRE_CLAUDE=1:
+      # sin claude no hay release. Misma versión fijada que ci.yml.
+      - name: Instalar claude CLI (versión fijada)
+        shell: bash
+        run: npm i -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
       - name: Publicar la release
         env:
           GH_TOKEN: ${{ github.token }}
