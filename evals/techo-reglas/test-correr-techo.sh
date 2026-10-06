@@ -81,4 +81,65 @@ out=$(K_ROOT="$T/k9" TECHO_PREREG="$T/prereg-malo.md" bash "$CT" 1 2>&1); rc=$?
 mk "$T/k10"; sed -i '/^g1-25\t/d' "$T/k10/reconstruccion.tsv"
 out=$(K_ROOT="$T/k10" bash "$CT" 1 2>&1); rc=$?
 [ $rc = 0 ] && [ "$(wc -l < "$T/k10/lanzadas.log")" = 27 ] && ! grep -q '^g1-25 ' "$T/k10/lanzadas.log" && ok ausente_de_reconstruccion_no_se_corre || ko "ausente rc=$rc"
+
+# --- v2: TECHO_EXP, brazos, pins, framing, nombres del v1, ensayo con evidencia ---
+mkexp() {  # $1 = dir; 2 suelo (arp:2,a0:2) + 1 control (arp:2) = 10 pares
+  mkdir -p "$1"; printf 'g0-122\tsuelo\tevals/techo-reglas/reglas/g0-122.txt\tarp:2,a0:2\ng0-149\tsuelo\tevals/techo-reglas/reglas/g0-149.txt\tarp:2,a0:2\ng0-159\tcontrol\tevals/techo-reglas/reglas/g0-159.txt\tarp:2\n' > "$1/tareas.tsv"
+  { echo '<!-- ORDEN-BEGIN -->'; printf '%s\n' "${@:2}"; echo '<!-- ORDEN-END -->'; } > "$1/preregistro.md"
+}
+ORD10=("arp g0-149 2" "a0 g0-122 1" "arp g0-159 1" "a0 g0-149 1" "arp g0-122 1" "arp g0-159 2" "a0 g0-122 2" "arp g0-149 1" "a0 g0-149 2" "arp g0-122 2")
+cat > "$T/falso3.sh" <<'F'
+#!/usr/bin/env bash
+id=$(basename "$1"); O="$K_ROOT/corridas/$id/$2-r$3"; mkdir -p "$O"
+echo "$2 $id $3 framing=${K_FRAMING_FILE:-} regla=${K_REGLA_FILE##*/}" >> "$K_ROOT/lanzadas3.log"
+[ "$2 $id $3" = "${FALSO_NOCMD:-}" ] && exit 1
+echo x > "$O/cmdline.txt"
+[ "${K_ENSAYO:-0}" = 1 ] && exit 0
+echo '{"fin":"completed","usd":0.1}' > "$O/meta.json"; echo '{"fuga":false}' > "$O/fugas.json"
+F
+chmod +x "$T/falso3.sh"
+
+mkexp "$T/exp" "${ORD10[@]}"; echo 'FRAMING {{REGLA}}' > "$T/exp/framing.txt"; mk "$T/k11"
+out=$(TECHO_CORRER="$T/falso3.sh" TECHO_EXP="$T/exp" K_ROOT="$T/k11" bash "$CT" 1 2>&1); rc=$?
+esp=$(for l in "${ORD10[@]}"; do set -- $l; echo "$1 $2 $3 framing=$T/exp/framing.txt regla=$2.txt"; done)
+[ $rc = 0 ] && [ "$(cat "$T/k11/lanzadas3.log")" = "$esp" ] && [ -s "$T/k11/exp-resumen.txt" ] && ok orden_tres_campos || ko "orden3 rc=$rc: $out"
+for malo in "sobra:${ORD10[*]}|arp g0-122 2" "falta:${ORD10[*]:1}"; do
+  mkexp "$T/expm" "${ORD10[@]}"; mk "$T/k12"
+  if [ "${malo%%:*}" = sobra ]; then mkexp "$T/expm" "${ORD10[@]}" "arp g0-122 2"; else mkexp "$T/expm" "${ORD10[@]:1}"; fi
+  out=$(TECHO_CORRER="$T/falso3.sh" TECHO_EXP="$T/expm" K_ROOT="$T/k12" bash "$CT" 1 2>&1); rc=$?
+  [ $rc = 2 ] && [ ! -e "$T/k12/lanzadas3.log" ] && ok "orden_tres_campos_${malo%%:*}_exit2" || ko "orden ${malo%%:*} rc=$rc"
+  rm -rf "$T/k12"
+done
+
+# pins: hash falso -> exit 2 y 0 lanzadas; hash bueno -> sigue
+mk "$T/k13"; echo dato > "$T/k13/pin.txt"
+echo "0000000000000000000000000000000000000000000000000000000000000000  pin.txt" > "$T/exp/pins.sha256"
+out=$(TECHO_CORRER="$T/falso3.sh" TECHO_EXP="$T/exp" K_ROOT="$T/k13" bash "$CT" 1 2>&1); rc=$?
+[ $rc = 2 ] && [[ $out == *"pins no coinciden: pin.txt"* ]] && [ ! -e "$T/k13/lanzadas3.log" ] && ok pins_no_coinciden_aborta || ko "pins rc=$rc: $out"
+(cd "$T/k13" && sha256sum pin.txt) > "$T/exp/pins.sha256"
+out=$(TECHO_CORRER="$T/falso3.sh" TECHO_EXP="$T/exp" K_ROOT="$T/k13" bash "$CT" 1 2>&1); rc=$?
+[ $rc = 0 ] && [ "$(wc -l < "$T/k13/lanzadas3.log")" = 10 ] && ok pins_buenos_siguen || ko "pins ok rc=$rc: $out"
+
+# el TECHO_EXP por defecto (también dado como ruta relativa a la raíz) conserva los nombres del v1
+mkdir -p "$T/home"
+mk "$T/k14"; out=$(cd / && HOME="$T/home" TECHO_EXP=evals/techo-reglas TECHO_TARBALL= K_ROOT="$T/k14" bash "$CT" 1 2>&1); rc=$?
+[ $rc = 0 ] && [ -e "$T/k14/techo.cola" ] && [ -e "$T/k14/techo.orden" ] && [ -e "$T/k14/techo-resumen.txt" ] && [ -s "$T/home/.cache/exo-techo-registro.tar.gz" ] && ok v1_nombres_sin_cambio || ko "nombres v1 rc=$rc: $out"
+mk "$T/k15"; out=$(HOME="$T/home" TECHO_CORRER="$T/falso.sh" TECHO_TARBALL= K_ROOT="$T/k15" FALSO_FUGA="g2-97 2" bash "$CT" 1 2>&1)
+[ -e "$T/k15/techo-STOP" ] && ok v1_stop_conserva_nombre || ko "techo-STOP ausente"
+
+# ensayo con evidencia: exit 0 solo si cada par lanzado tiene cmdline.txt
+rm -f "$T/exp/pins.sha256"
+mk "$T/k16"; out=$(K_ENSAYO=1 TECHO_CORRER="$T/falso3.sh" TECHO_EXP="$T/exp" K_ROOT="$T/k16" bash "$CT" 1 2>&1); rc=$?
+[ $rc = 0 ] && ok ensayo_con_cmdlines_exit0 || ko "ensayo ok rc=$rc: $out"
+mk "$T/k17"; out=$(K_ENSAYO=1 FALSO_NOCMD="arp g0-122 2" TECHO_CORRER="$T/falso3.sh" TECHO_EXP="$T/exp" K_ROOT="$T/k17" bash "$CT" 1 2>&1); rc=$?
+[ $rc != 0 ] && [[ $out == *"sin cmdline.txt: g0-122/arp-r2"* ]] && ok ensayo_cuenta_cmdlines || ko "ensayo sin evidencia rc=$rc: $out"
+
+# ensayo con 0 lanzadas (todas omitidas) = sin evidencia
+mk "$T/k18"; sed -i 's/\tsi\t/\tno\t/' "$T/k18/reconstruccion.tsv"
+out=$(K_ENSAYO=1 TECHO_CORRER="$T/falso3.sh" TECHO_EXP="$T/exp" K_ROOT="$T/k18" bash "$CT" 1 2>&1); rc=$?
+[ $rc != 0 ] && ok ensayo_cero_lanzadas_falla || ko "ensayo 0 lanzadas rc=$rc"
+
+# tar fallido: exit != 0 y aviso
+mk "$T/k19"; out=$(TECHO_CORRER="$T/falso3.sh" TECHO_EXP="$T/exp" K_ROOT="$T/k19" TECHO_TARBALL=/proc/no/puede.tgz bash "$CT" 1 2>&1); rc=$?
+[ $rc != 0 ] && [[ $out == *"FALLO el tarball"* ]] && ok tar_fallido_sale_distinto_de_0 || ko "tar rc=$rc"
 exit $fail

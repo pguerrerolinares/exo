@@ -18,8 +18,8 @@ def k(tmp_path):
     return tmp_path
 
 
-def rc(k, i, r, v):
-    d = k / "corridas" / i / f"ar-r{r}"; d.mkdir(parents=True, exist_ok=True)
+def rc(k, i, r, v, brazo="ar"):
+    d = k / "corridas" / i / f"{brazo}-r{r}"; d.mkdir(parents=True, exist_ok=True)
     if v is None:
         (d / "check.rc").unlink(missing_ok=True)
     else:
@@ -123,3 +123,91 @@ def test_sin_reconstruccion_tsv_falla_explicito(k):
     (k / "reconstruccion.tsv").unlink()
     with pytest.raises(SystemExit, match="reconstruccion.tsv"):
         gate(k)
+
+
+# --- v2: brazos, base y margen, control 2/2 ---
+REAL_K = pathlib.Path.home() / ".cache" / "exo-ablacion-k"
+S10, C6 = SUELO[:10], CONTROL
+
+
+@pytest.fixture
+def k2(tmp_path):
+    """10 suelo (arp:2,a0:2) + 6 control (arp:2); arp cumple los 10, a0 ninguno, controles ok."""
+    (tmp_path / "tareas.tsv").write_text("".join(f"{i}\tsuelo\tx\tarp:2,a0:2\n" for i in S10)
+                                         + "".join(f"{i}\tcontrol\tx\tarp:2\n" for i in C6))
+    (tmp_path / "reconstruccion.tsv").write_text("".join(f"{i}\tsi\tok\n" for i in S10 + C6))
+    for i in S10:
+        for r in (1, 2):
+            rc(tmp_path, i, r, 1, "a0"); rc(tmp_path, i, r, 0, "arp")
+    for i in C6:
+        for r in (1, 2):
+            rc(tmp_path, i, r, 0, "arp")
+    return tmp_path
+
+
+def gate2(k):
+    return evalua(str(k), str(k / "tareas.tsv"), str(k / "r.json"), "arp", "a0", 3, (10, 6))[1]
+
+
+def arp_a_6(k):
+    for i in S10[6:]:
+        for r in (1, 2):
+            rc(k, i, r, 1, "arp")
+
+
+def a0_cumple(k, n):
+    for i in S10[:n]:
+        rc(k, i, 1, 0, "a0")
+
+
+def test_margen_a0_4_arp_6_no_pasa(k2):
+    arp_a_6(k2); a0_cumple(k2, 4)
+    assert gate2(k2) == "GATE: NO PASA (margen 6\u22124=2 < 3)"
+
+
+def test_margen_a0_3_arp_6_pasa(k2):
+    arp_a_6(k2); a0_cumple(k2, 3)
+    assert gate2(k2) == "GATE: PASA"
+
+
+def test_control_k2_una_replica_ok_no_cae(k2):
+    arp_a_6(k2); a0_cumple(k2, 3)
+    rc(k2, "c0", 1, 1, "arp")                       # r1=1, r2=0: no cae
+    assert gate2(k2) == "GATE: PASA"
+    rc(k2, "c1", 1, 1, "arp"); rc(k2, "c1", 2, 1, "arp")   # 1/1: cae
+    assert gate2(k2) == "GATE: NO PASA (1/6 caídas)"
+
+
+def test_a0_cumple_misma_regla(k2):
+    arp_a_6(k2)
+    rc(k2, "s0", 1, 0, "a0"); rc(k2, "s0", 2, 1, "a0")
+    rc(k2, "s1", 1, 1, "a0"); rc(k2, "s1", 2, 0, "a0")
+    rc(k2, "s2", 1, 0, "a0"); rc(k2, "s2", 2, 0, "a0")
+    assert evalua(str(k2), str(k2 / "tareas.tsv"), str(k2 / "r.json"), "arp", "a0", 3, (10, 6))[2][0]["resultado"] == "cumple"
+    assert json.load(open(k2 / "r.json"))["base_cumplen"] == 3
+
+
+def test_esperado_v2_distinto_de_v1_falla(k2):
+    with pytest.raises(SystemExit, match="11 suelo y 6 control"):
+        evalua(str(k2), str(k2 / "tareas.tsv"), str(k2 / "r.json"), "arp", "a0", 3)
+
+
+@pytest.mark.skipif(not (REAL_K / "corridas").is_dir(), reason="sin datos reales del v1")
+def test_v1_identico(tmp_path):
+    aqui = pathlib.Path(__file__).parent
+    out = subprocess.run([sys.executable, str(aqui / "evaluar.py"), str(REAL_K), str(aqui / "tareas.tsv"), str(tmp_path / "r.json")],
+                         capture_output=True, text=True, check=True).stdout
+    assert out == (aqui / "resultado-tabla.txt").read_text()
+
+
+def test_base_no_declarada_falla_claro(k2):
+    (k2 / "tareas.tsv").write_text((k2 / "tareas.tsv").read_text().replace("s0\tsuelo\tx\tarp:2,a0:2", "s0\tsuelo\tx\tarp:2"))
+    with pytest.raises(SystemExit, match="no declara el brazo base"):
+        gate2(k2)
+
+
+def test_base_incompleta_no_se_adjudica(k2):
+    arp_a_6(k2); a0_cumple(k2, 3)
+    rc(k2, "s5", 2, None, "a0")
+    with pytest.raises(SystemExit, match=r"base a0 incompleta: s5 r2 sin check.rc"):
+        gate2(k2)
