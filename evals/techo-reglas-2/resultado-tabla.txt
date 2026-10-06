@@ -1,0 +1,55 @@
+tarea    grupo    rep               rc                fin     usd  resultado
+g0-122   suelo    r1                 1          completed    0.09  no cumple
+g0-122   suelo    r2                 1          completed    0.09  
+g0-149   suelo    r1                 0          completed    0.11  cumple
+g0-149   suelo    r2                 0          completed    0.11  
+g0-33    suelo    r1                 0          completed    0.12  cumple
+g0-33    suelo    r2                 0          completed    0.11  
+g1-131   suelo    r1                 2          completed    0.06  cumple
+g1-131   suelo    r2                 0          completed    0.07  
+g1-139   suelo    r1                 1          completed    0.05  no cumple
+g1-139   suelo    r2                 1          completed    0.05  
+g1-140   suelo    r1                 1          completed    0.13  no cumple
+g1-140   suelo    r2                 1          completed    0.14  
+g1-157   suelo    r1                 0          completed    0.08  cumple
+g1-157   suelo    r2                 0          completed    0.11  
+g2-154   suelo    r1                 0          completed    0.05  cumple
+g2-154   suelo    r2                 0          completed    0.06  
+g2-170   suelo    r1                 0          completed    0.12  cumple
+g2-170   suelo    r2                 0          completed    0.12  
+g2-97    suelo    r1                 1          completed    0.10  no cumple
+g2-97    suelo    r2                 1          completed    0.15  
+g0-159   control  r1                 0          completed    0.07  ok
+g0-159   control  r2                 0          completed    0.09  
+g1-144   control  r1                 0          completed    0.20  ok
+g1-144   control  r2                 0          completed    0.20  
+g1-16    control  r1                 0          completed    0.12  ok
+g1-16    control  r2                 0          completed    0.10  
+g1-25    control  r1                 0          completed    0.05  ok
+g1-25    control  r2                 0          completed    0.08  
+g1-34    control  r1                 0          completed    0.09  ok
+g1-34    control  r2                 0          completed    0.08  
+g2-35    control  r1                 0          completed    0.05  ok
+g2-35    control  r2                 0          completed    0.06  
+-- base a0
+g0-122   suelo    r1                 1          completed    0.07  no cumple
+g0-122   suelo    r2                 1          completed    0.07  
+g0-149   suelo    r1                 1          completed    0.15  no cumple
+g0-149   suelo    r2                 1          completed    0.11  
+g0-33    suelo    r1                 1          completed    0.06  no cumple
+g0-33    suelo    r2                 1          completed    0.07  
+g1-131   suelo    r1                 1          completed    0.07  no cumple
+g1-131   suelo    r2                 1          completed    0.07  
+g1-139   suelo    r1                 1          completed    0.04  no cumple
+g1-139   suelo    r2                 1          completed    0.04  
+g1-140   suelo    r1                 1          completed    0.13  no cumple
+g1-140   suelo    r2                 1          completed    0.13  
+g1-157   suelo    r1                 1          completed    0.08  no cumple
+g1-157   suelo    r2                 1          completed    0.09  
+g2-154   suelo    r1                 1          completed    0.05  no cumple
+g2-154   suelo    r2                 1          completed    0.05  
+g2-170   suelo    r1                 1          completed    0.14  no cumple
+g2-170   suelo    r2                 1          completed    0.18  
+g2-97    suelo    r1                 1          completed    0.05  no cumple
+g2-97    suelo    r2                 1          completed    0.04  
+GATE: PASA
