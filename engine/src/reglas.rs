@@ -58,8 +58,27 @@ fn skip(repo: Option<String>, reason: Razon, candidates: Vec<String>) -> Resulta
     }
 }
 
-/// Nombre del repo principal (también desde un worktree). `Ok(None)` si git
-/// sale con ≠ 0 (cwd fuera de un repo); `Err` solo si git no se puede lanzar.
+/// ¿Hay una entrada `.git` (fichero o directorio) en `cwd` o sus ancestros?
+/// Respeta `GIT_CEILING_DIRECTORIES` como git: el techo y lo de encima no se miran.
+fn hay_entrada_git(cwd: &Path) -> bool {
+    let techos: Vec<PathBuf> = std::env::var_os("GIT_CEILING_DIRECTORIES")
+        .map(|v| {
+            std::env::split_paths(&v)
+                .filter_map(|p| std::fs::canonicalize(p).ok())
+                .collect()
+        })
+        .unwrap_or_default();
+    let inicio = std::fs::canonicalize(cwd).unwrap_or_else(|_| cwd.to_path_buf());
+    inicio
+        .ancestors()
+        .take_while(|a| !techos.iter().any(|t| t == a))
+        .any(|a| a.join(".git").symlink_metadata().is_ok())
+}
+
+/// Nombre del repo principal (también desde un worktree). Si git sale con ≠ 0
+/// hay dos casos: sin ningún `.git` en los ancestros del cwd es `Ok(None)`
+/// (cwd fuera de un repo); con `.git` es un repo roto y `Err` (error del
+/// engine, visible). `Err` también si git no se puede lanzar.
 /// No se parsea stderr: con `--path-format=absolute` basta el código de salida.
 fn clave_repo(cwd: &Path) -> Result<Option<String>> {
     let salida = Command::new("git")
@@ -69,6 +88,9 @@ fn clave_repo(cwd: &Path) -> Result<Option<String>> {
         .output()
         .with_context(|| format!("invocar git en {}", cwd.display()))?;
     if !salida.status.success() {
+        if hay_entrada_git(cwd) {
+            anyhow::bail!("git falla en {} pese a haber un .git", cwd.display());
+        }
         return Ok(None);
     }
     let comun = String::from_utf8_lossy(&salida.stdout).trim().to_string();
@@ -107,9 +129,9 @@ fn casa(clave: &str, contenido: &str, fichero: &Path) -> bool {
 /// Candidatas ordenadas: `projects/*.md` de primer nivel que casan con `clave`.
 fn candidatas(kb: &Path, clave: &str) -> Result<Vec<(String, PathBuf)>> {
     let dir = kb.join("projects");
-    let Ok(lectura) = std::fs::read_dir(&dir) else {
-        return Ok(Vec::new());
-    };
+    // KB mal apuntada ≠ repo sin nota: sin `projects/` legible todo daría
+    // `sin_nota` en silencio.
+    let lectura = std::fs::read_dir(&dir).with_context(|| format!("leer {}", dir.display()))?;
     let mut halladas = Vec::new();
     for entrada in lectura {
         let entrada = entrada.with_context(|| format!("leer {}", dir.display()))?;

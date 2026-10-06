@@ -59,19 +59,29 @@ impl Mundo {
     }
 
     fn rules(&self, cwd: &Path) -> Value {
-        let o = Command::new(bin())
-            .args(["rules", "--json", "--kb"])
-            .arg(self.kb())
-            .arg("--cwd")
-            .arg(cwd)
-            .env("GIT_CONFIG_GLOBAL", &self.cfg)
-            .env("GIT_CONFIG_SYSTEM", &self.cfg)
-            .output()
-            .unwrap();
+        self.rules_con(cwd, &self.kb(), None)
+    }
+
+    fn rules_con(&self, cwd: &Path, kb: &Path, techo: Option<&Path>) -> Value {
+        let o = self.ejecuta(cwd, kb, techo);
         assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
         let linea = String::from_utf8(o.stdout).unwrap();
         assert_eq!(linea.trim().lines().count(), 1);
         serde_json::from_str(linea.trim()).unwrap()
+    }
+
+    fn ejecuta(&self, cwd: &Path, kb: &Path, techo: Option<&Path>) -> std::process::Output {
+        let mut c = Command::new(bin());
+        c.args(["rules", "--json", "--kb"])
+            .arg(kb)
+            .arg("--cwd")
+            .arg(cwd)
+            .env("GIT_CONFIG_GLOBAL", &self.cfg)
+            .env("GIT_CONFIG_SYSTEM", &self.cfg);
+        if let Some(t) = techo {
+            c.env("GIT_CEILING_DIRECTORIES", t);
+        }
+        c.output().unwrap()
     }
 }
 
@@ -134,7 +144,7 @@ fn sin_git() {
     let m = Mundo::nuevo();
     let d = m.dir.path().join("vacio");
     std::fs::create_dir_all(&d).unwrap();
-    let v = m.rules(&d);
+    let v = m.rules_con(&d, &m.kb(), Some(m.dir.path()));
     assert_eq!(data(&v)["status"], "skip");
     assert_eq!(data(&v)["reason"], "sin_git");
     assert!(data(&v)["repo"].is_null());
@@ -282,5 +292,34 @@ fn git_que_no_arranca_es_error_del_engine_no_sin_git() {
         .output()
         .unwrap();
     assert!(!o.status.success(), "git ausente debe ser exit != 0");
+    assert!(!String::from_utf8_lossy(&o.stdout).contains("sin_git"));
+}
+
+#[test]
+fn kb_sin_projects_es_error_del_engine() {
+    let m = Mundo::nuevo();
+    let r = m.repo("foo");
+    for kb in [
+        m.dir.path().join("no-existe"),
+        m.dir.path().join("vacio-kb"),
+    ] {
+        std::fs::create_dir_all(m.dir.path().join("vacio-kb")).unwrap();
+        let o = m.ejecuta(&r, &kb, None);
+        assert!(!o.status.success(), "KB sin projects/ debe ser exit != 0");
+        assert!(!String::from_utf8_lossy(&o.stdout).contains("sin_nota"));
+    }
+}
+
+#[test]
+fn git_roto_dentro_de_un_repo_es_error_no_sin_git() {
+    let m = Mundo::nuevo();
+    let roto = m.dir.path().join("roto");
+    std::fs::create_dir_all(roto.join("sub")).unwrap();
+    std::fs::write(roto.join(".git"), "gitdir: /no/existe\n").unwrap();
+    let o = m.ejecuta(&roto.join("sub"), &m.kb(), Some(m.dir.path()));
+    assert!(
+        !o.status.success(),
+        "git roto bajo un .git debe ser exit != 0"
+    );
     assert!(!String::from_utf8_lossy(&o.stdout).contains("sin_git"));
 }

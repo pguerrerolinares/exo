@@ -46,6 +46,8 @@ KB: projects/<repo>.md ── ## Reglas duras (≤10 líneas «- », mecánicas)
 
 **Clave del repo:** `basename(dirname(git rev-parse --path-format=absolute --git-common-dir))`, con la ruta canonicalizada. Cubre la raíz, los subdirectorios y los worktrees. Nunca se parsea el stderr de git, porque está localizado.
 
+**Git que falla:** si `git rev-parse` sale con ≠ 0, el engine sube desde el cwd por los ancestros buscando una entrada `.git` (fichero o directorio; respeta `GIT_CEILING_DIRECTORIES`). Si la hay, el repo está roto y es un error del engine (exit ≠ 0, visible como `error_engine`); si no la hay, es `sin_git`.
+
 **Candidatas [enmienda]:** solo notas de **primer nivel**, `projects/*.md`, cuya clave coincida sin distinguir mayúsculas con:
 - el `slug` del frontmatter, o
 - el stem del fichero hasta ` — ` (o el stem entero si no lo lleva).
