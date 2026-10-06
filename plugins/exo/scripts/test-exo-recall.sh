@@ -39,8 +39,11 @@ if ! contains "$CTX" "git -C X"; then pass "H5: no escanea más allá de la vent
 else fail "H5: no escanea más allá de la ventana de 2000 líneas" "ctx='$CTX'"; fi
 
 # ------------------- helpers para leer el log de fallback -----------------
-ultimo_evento() { tail -1 "$LOGC" 2>/dev/null | jq -r '.reflex // empty' 2>/dev/null; }
-ultimo_payload() { tail -1 "$LOGC" 2>/dev/null | jq -r '.payload // empty' 2>/dev/null; }
+# Ignoran project-rules-* (2d): miden el fallback de recall, no las reglas.
+ultimo_evento() { grep -v '"project-rules-' "$LOGC" 2>/dev/null | tail -1 | jq -r '.reflex // empty' 2>/dev/null; }
+ultimo_payload() { grep -v '"project-rules-' "$LOGC" 2>/dev/null | tail -1 | jq -r '.payload // empty' 2>/dev/null; }
+regla_evento() { tail -1 "$LOGC" 2>/dev/null | jq -r '.reflex // empty' 2>/dev/null; }
+regla_payload() { tail -1 "$LOGC" 2>/dev/null | jq -r '.payload // empty' 2>/dev/null; }
 
 # ------------------- Campaña I: SOURCE/SID no se desalinean -----------------
 # `read` con IFS=tab trata el tab como whitespace de IFS y COLAPSA un campo
@@ -165,6 +168,7 @@ case "$1" in
   --version) echo "exo 9.0.0" ;;
   config) echo '{"schema_version":2,"command":"config","data":{"kb":{"name":"kb-test","path":"/tmp/kb-test"}}}' ;;
   recall) echo "Contrato de memoria: bloque de prueba camino feliz." ;;
+  rules) echo '{"schema_version":2,"command":"rules","data":{"status":"ok","repo":"r","note":"projects/r.md","rules":[],"ignored_lines":[]}}' ;;
   *) exit 1 ;;
 esac
 EOF
@@ -234,6 +238,112 @@ else
   fail "engine-stale: --version no responde ⇒ recall-fallback reason=engine-stale engine=desconocida" \
     "evento=$EV_SV payload=$PL_SV"
 fi
+
+# ------------------- 2d: reglas de proyecto (ss-<sid>, gritos) ---------------
+# El stub registra cada llamada a `exo rules` y devuelve lo que diga RULES_MODE.
+RULES_CALLS="$TMP/rules-calls"
+STUB_REGLAS="$TMP/exo-stub-reglas"
+cat > "$STUB_REGLAS" <<EOF
+#!/usr/bin/env bash
+case "\$1" in
+  --version) echo "exo \${STUB_VER:-9.0.0}" ;;
+  config) echo '{"schema_version":2,"command":"config","data":{"kb":{"name":"kb-test","path":"/tmp/kb-test"}}}' ;;
+  recall) echo "Contrato de memoria: bloque de prueba camino feliz." ;;
+  rules)
+    echo "\$*" >> "$RULES_CALLS"
+    case "\${RULES_MODE:-ok}" in
+      ok) echo '{"schema_version":2,"command":"rules","data":{"status":"ok","repo":"mirepo","note":"projects/mirepo.md","rules":["a","b","c"],"ignored_lines":[]}}' ;;
+      vacio) exit 0 ;;
+      error) echo 'boom-stderr-del-engine' >&2; exit 1 ;;
+      cuelga) exec sleep 10 ;;
+      skip:*) echo '{"schema_version":2,"command":"rules","data":{"status":"skip","repo":"mirepo","reason":"'"\${RULES_MODE#skip:}"'","candidates":[]}}' ;;
+    esac ;;
+  *) exit 1 ;;
+esac
+EOF
+chmod +x "$STUB_REGLAS"
+touch "$TMP/index-reglas.db"
+RULES_DIR="$HOME/.claude/exo-rules"
+reglas_hook() {  # $1=input JSON, $2=RULES_MODE, resto env extra
+  local input="$1" mode="$2"; shift 2
+  : > "$LOGC"; : > "$RULES_CALLS"
+  run_hook "$input" EXO_BIN="$STUB_REGLAS" EXO_INDEX="$TMP/index-reglas.db" ENGINE_MIN=0.1.0 RULES_MODE="$mode" "$@"
+  SYSMSG="$(printf '%s' "$HOOK_OUT" | jq -r '.systemMessage // empty' 2>/dev/null)"
+  CTX_R="$(printf '%s' "$HOOK_OUT" | jq -r '.hookSpecificOutput.additionalContext' 2>/dev/null)"
+}
+ss_de() { jq -c . "$RULES_DIR/ss-$1" 2>/dev/null; }
+
+reglas_hook '{"session_id":"r-ok","cwd":"/tmp/proy-x"}' ok
+if [ -z "$SYSMSG" ] && [ "$(ss_de r-ok)" = '{"status":"ok","n":3,"repo":"mirepo"}' ] \
+   && [ "$CTX_R" = "Contrato de memoria: bloque de prueba camino feliz." ] && [ ! -s "$LOGC" ] \
+   && grep -q -- '--cwd /tmp/proy-x' "$RULES_CALLS"; then
+  pass "reglas_ok_silencioso: ss ok n=3, sin systemMessage, additionalContext intacto, cwd del input"
+else fail "reglas_ok_silencioso" "sys='$SYSMSG' ss=$(ss_de r-ok) ctx='$CTX_R' calls=$(cat "$RULES_CALLS")"; fi
+
+reglas_hook '{"session_id":"r-ss"}' skip:sin_seccion
+if [ -z "$SYSMSG" ] && contains "$(regla_payload)" "reason=sin_seccion" && [ "$(regla_evento)" = "project-rules-skip" ]; then
+  pass "sin_seccion_solo_log: sin systemMessage, project-rules-skip en reflex-log"
+else fail "sin_seccion_solo_log" "sys='$SYSMSG' log=$(cat "$LOGC")"; fi
+
+reglas_hook '{"session_id":"r-amb"}' skip:ambigua
+if [ "$SYSMSG" = "⚠ sin reglas de proyecto para mirepo (ambigua)" ] && [ "$(regla_evento)" = "project-rules-skip" ] \
+   && [ "$(ss_de r-amb)" = '{"status":"skip","reason":"ambigua","n":0,"repo":"mirepo"}' ]; then
+  pass "ambigua_visible: systemMessage con el copy fijado + reflex-log + ss"
+else fail "ambigua_visible" "sys='$SYSMSG' log=$(cat "$LOGC") ss=$(ss_de r-amb)"; fi
+
+for modo in error vacio; do
+  reglas_hook '{"session_id":"r-err-'"$modo"'"}' "$modo"
+  if contains "$SYSMSG" "(error_engine)" && [ "$(ss_de "r-err-$modo" | jq -r '.status+"/"+.reason')" = "skip/error_engine" ] \
+     && contains "$HOOK_OUT" '"additionalContext"'; then
+    pass "error_engine_visible ($modo): systemMessage y ss skip/error_engine, el hook sigue emitiendo"
+  else fail "error_engine_visible ($modo)" "sys='$SYSMSG' ss=$(ss_de "r-err-$modo")"; fi
+done
+
+reglas_hook '{"session_id":"r-err-stderr"}' error
+if contains "$(regla_payload)" "reason=error_engine" && contains "$(regla_payload)" "err=boom-stderr-del-engine"; then
+  pass "error_engine_stderr: el stderr del engine viaja en el payload de project-rules-skip"
+else fail "error_engine_stderr" "log=$(cat "$LOGC")"; fi
+
+rm -f "$RULES_DIR/ss-r-sin-indice"
+reglas_hook '{"session_id":"r-sin-indice","cwd":"/tmp/proy-y"}' ok EXO_INDEX="$TMP/no-existe.db"
+if [ -s "$RULES_CALLS" ] && [ "$(ss_de r-sin-indice)" = '{"status":"ok","n":3,"repo":"mirepo"}' ]; then
+  pass "sin_indice_resuelve_reglas: engine OK e índice ausente ⇒ exo rules llamado y ss escrito"
+else fail "sin_indice_resuelve_reglas" "calls=$(cat "$RULES_CALLS") ss=$(ss_de r-sin-indice)"; fi
+
+reglas_hook '{"session_id":"r-stale"}' ok STUB_VER=0.1.0 ENGINE_MIN=9.9.9
+if [ ! -s "$RULES_CALLS" ] && contains "$SYSMSG" "(engine_stale)" \
+   && [ "$(ss_de r-stale | jq -r '.reason')" = "engine_stale" ]; then
+  pass "engine_stale_sin_llamar: no se invoca exo rules, systemMessage engine_stale"
+else fail "engine_stale_sin_llamar" "calls=$(cat "$RULES_CALLS") sys='$SYSMSG'"; fi
+
+reglas_hook '{"session_id":"r-compact","source":"compact"}' ok
+if [ ! -s "$RULES_CALLS" ] && [ ! -e "$RULES_DIR/ss-r-compact" ] && [ -z "$SYSMSG" ]; then
+  pass "compact_no_resuelve: sin llamada a exo rules ni ss"
+else fail "compact_no_resuelve" "calls=$(cat "$RULES_CALLS")"; fi
+
+reglas_hook '{}' ok
+if [ -s "$RULES_CALLS" ] && [ ! -e "$RULES_DIR/ss-" ]; then
+  pass "sin session_id: se resuelve pero no se escribe ss-"
+else fail "sin session_id" "dir=$(ls "$RULES_DIR")"; fi
+
+touch -d '8 days ago' "$RULES_DIR/ss-viejo"; touch -d '1 day ago' "$RULES_DIR/ss-reciente"
+reglas_hook '{"session_id":"r-poda"}' ok
+if [ ! -e "$RULES_DIR/ss-viejo" ] && [ -e "$RULES_DIR/ss-reciente" ]; then
+  pass "poda_7_dias: ss de 8 días fuera, de 1 día se queda"
+else fail "poda_7_dias" "dir=$(ls "$RULES_DIR")"; fi
+
+SECS_ANTES=$SECONDS
+reglas_hook '{"session_id":"r-cuelga"}' cuelga EXO_RULES_TIMEOUT=1
+if contains "$SYSMSG" "(error_engine)" && [ "$(ss_de r-cuelga | jq -r '.reason')" = "error_engine" ] \
+   && [ $((SECONDS - SECS_ANTES)) -lt 6 ]; then
+  pass "timeout_rules: exo rules colgado ⇒ corta y grita error_engine"
+else fail "timeout_rules" "sys='$SYSMSG' ss=$(ss_de r-cuelga) t=$((SECONDS - SECS_ANTES))s"; fi
+
+mkdir -p "$RULES_DIR/ss-sub"
+reglas_hook '{"session_id":"sub/y"}' ok
+if [ ! -e "$RULES_DIR/ss-sub/y" ] && [ -z "$SYSMSG" ]; then
+  pass "session_id con '/': no se escribe ss (ni dentro de subdirectorios)"
+else fail "session_id con '/'" "dir=$(ls "$RULES_DIR/ss-sub")"; fi
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

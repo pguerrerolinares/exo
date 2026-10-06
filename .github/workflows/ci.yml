@@ -19,6 +19,9 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  # Versión del CLI que valida el mod de reglas. Pin duplicado en release.yml;
+  # scripts/test-versiones.sh exige que ambos coincidan.
+  CLAUDE_CODE_VERSION: 2.1.292
   # `HF_HOME` NO se fija a propósito. El engine sí la respeta desde la Task 13
   # de la campaña G (`ApiBuilder::from_env`, `engine/src/lib.rs`), pero sin
   # ella `hf-hub` usa `~/.cache/huggingface/hub`, que es exactamente la ruta
@@ -271,8 +274,18 @@ jobs:
       # SO para los que se publican binarios. Hasta aquí ningún CI los
       # ejercía: test-estilo-directo.sh fallaba 0/2 y el hook llegó roto a
       # exo 1.1.1. Sin toolchain de Rust: son bash + jq + git.
+      # test-reglas-mod.sh valida el mod de reglas con el harness del propio
+      # claude. Versión fijada (la misma que release.yml): sin ella, un claude
+      # nuevo cambiaría el veredicto sin tocar el repo. `claude plugin
+      # validate/test` no piden auth. EXO_REQUIRE_CLAUDE=1 impide que la suite
+      # se salte el mod en silencio si la instalación falla.
+      - name: Instalar claude CLI (versión fijada)
+        shell: bash
+        run: npm i -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
       - name: Todas las suites plugins/exo/scripts/test-*.sh
         shell: bash
+        env:
+          EXO_REQUIRE_CLAUDE: '1'
         run: ./scripts/test-plugin.sh
 
   install-gate:

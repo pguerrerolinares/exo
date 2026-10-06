@@ -83,6 +83,9 @@ enum Comando {
     /// Lista las notas candidatas a tocar para un tema, con tier, tamaño,
     /// cabeceras y último commit. Solo lectura.
     Targets(ArgsTargets),
+    /// Reglas duras del proyecto del cwd, leídas de su nota en la KB. Solo
+    /// lectura; un skip sale con 0.
+    Rules(ArgsRules),
     /// Comprueba el presupuesto de bytes por tier. Imprime el informe entero y
     /// sale con 3 si alguna nota lo rebasa o no declara un tier válido.
     Budget(ArgsBudget),
@@ -332,6 +335,19 @@ struct ArgsRecall {
 }
 
 #[derive(clap::Args)]
+struct ArgsRules {
+    /// Raíz de la KB en disco. Precedencia: flag > $EXO_KB > config.
+    #[arg(long)]
+    kb: Option<PathBuf>,
+    /// Directorio dentro del repo a resolver. Por defecto, el actual.
+    #[arg(long)]
+    cwd: Option<PathBuf>,
+    /// Emite el resultado como envelope JSON en stdout.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(clap::Args)]
 struct ArgsTargets {
     /// Fichero SQLite del índice. Precedencia: flag > $EXO_DB > config.
     #[arg(long)]
@@ -493,6 +509,7 @@ fn quiere_json(c: &Comando) -> bool {
         Comando::Search(a) => a.json,
         Comando::Recall(a) => a.json,
         Comando::Targets(a) => a.json,
+        Comando::Rules(a) => a.json,
         Comando::Budget(a) => a.json,
         Comando::Lint(a) => a.json,
         Comando::Ratchet(a) => a.json,
@@ -549,6 +566,7 @@ fn ejecuta(comando: Comando) -> Result<()> {
         Comando::Search(args) => busca_cmd(args),
         Comando::Recall(args) => recall_cmd(args),
         Comando::Targets(args) => targets_cmd(args),
+        Comando::Rules(args) => rules_cmd(args),
         Comando::Budget(args) => budget_cmd(args),
         Comando::Lint(args) => lint_cmd(args),
         Comando::Ratchet(args) => ratchet_cmd(args),
@@ -1189,6 +1207,32 @@ fn targets_cmd(args: ArgsTargets) -> Result<()> {
                 c.permalink, c.tier, c.tamano_bytes, c.ultimo_commit, c.headings
             );
             println!("\t{}", c.snippet);
+        }
+    }
+    Ok(())
+}
+
+fn rules_cmd(args: ArgsRules) -> Result<()> {
+    let kb = resuelve_kb(args.kb)?;
+    let cwd = match args.cwd {
+        Some(c) => c,
+        None => std::env::current_dir().context("directorio actual")?,
+    };
+    let resultado = exo::reglas::resuelve(&kb, &cwd)?;
+    if args.json {
+        envelope::emite("rules", serde_json::to_value(&resultado)?);
+    } else {
+        match &resultado {
+            exo::reglas::Resultado::Ok { repo, rules, .. } => {
+                println!("ok {repo}: {} reglas", rules.len());
+            }
+            exo::reglas::Resultado::Skip { repo, reason, .. } => {
+                println!(
+                    "skip {}: {}",
+                    repo.as_deref().unwrap_or("-"),
+                    reason.como_str()
+                );
+            }
         }
     }
     Ok(())

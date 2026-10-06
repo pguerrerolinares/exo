@@ -36,6 +36,11 @@ exit 0
 STUB
 chmod +x "$TMP/bin/gh"
 
+# El test del mod de reglas, falso y en verde: lo real necesita `claude`, que
+# no tiene por qué estar en el entorno que corre esta suite. Su contrato propio se ejerce en release_exige_mod_validado.
+printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP/mod-ok.sh"
+chmod +x "$TMP/mod-ok.sh"
+
 # --- Un dist con los 4 ficheros que publica una release real.
 DIST="$TMP/dist"
 mkdir -p "$DIST"
@@ -49,6 +54,7 @@ corre() {
   : > "$TMP/gh.log"
   STUB_LOG="$TMP/gh.log" STUB_MODO="$1" STUB_N="$2" FORCE="${3:-}" \
   GH_BIN="$TMP/bin/gh" DIST="$DIST" GITHUB_REPOSITORY=owner/repo \
+  MOD_TEST="$TMP/mod-ok.sh" \
     bash ./scripts/release-publish.sh v9.9.9 > "$TMP/out.log" 2>&1
   rc=$?
 }
@@ -116,6 +122,7 @@ vacio="$TMP/dist-vacio"; mkdir -p "$vacio"
 : > "$TMP/gh.log"
 STUB_LOG="$TMP/gh.log" STUB_MODO=inexistente STUB_N=0 FORCE="" \
 GH_BIN="$TMP/bin/gh" DIST="$vacio" GITHUB_REPOSITORY=owner/repo \
+MOD_TEST="$TMP/mod-ok.sh" \
   bash ./scripts/release-publish.sh v9.9.9 > "$TMP/out.log" 2>&1
 rc=$?
 if [ "$rc" -eq 0 ]; then
@@ -131,5 +138,40 @@ else
   ok "dist vacío ⇒ para antes de llamar a gh"
 fi
 
+# --- release_exige_mod_validado: con un PATH sin `claude` y el test REAL del
+# mod, la release no puede salir: falla antes de llamar a gh.
+mkdir -p "$TMP/pathsin"
+for b in bash env dirname find sort basename; do
+  ln -sf "$(command -v "$b")" "$TMP/pathsin/$b"
+done
+: > "$TMP/gh.log"
+PATH="$TMP/pathsin" STUB_LOG="$TMP/gh.log" STUB_MODO=inexistente STUB_N=0 FORCE="" \
+GH_BIN="$TMP/bin/gh" DIST="$DIST" GITHUB_REPOSITORY=owner/repo \
+  "$TMP/pathsin/bash" ./scripts/release-publish.sh v9.9.9 > "$TMP/out.log" 2>&1
+rc=$?
+if [ "$rc" -eq 0 ]; then
+  mal "release_exige_mod_validado: salió 0 sin claude, la release saldría con el mod sin validar"
+elif [ -s "$TMP/gh.log" ]; then
+  mal "release_exige_mod_validado: llamó a gh con el mod sin validar"; cat "$TMP/gh.log" >&2
+elif ! grep -q "SKIP-GRITA" "$TMP/out.log"; then
+  mal "release_exige_mod_validado: paró, pero no por el mod sin validar"; cat "$TMP/out.log" >&2
+else
+  ok "release_exige_mod_validado ⇒ sin claude falla antes de gh"
+fi
+
+# --- mod_sin_claude_se_salta_en_voz_alta: sin `claude` y sin EXO_REQUIRE_CLAUDE,
+# test-reglas-mod.sh sale 0 pero lo grita por stderr. `env -u`: no hereda
+# EXO_REQUIRE_CLAUDE=1 del entorno de quien corre la suite.
+env -u EXO_REQUIRE_CLAUDE PATH="$TMP/pathsin" "$TMP/pathsin/bash" ./plugins/exo/scripts/test-reglas-mod.sh \
+  > "$TMP/mod.out" 2> "$TMP/mod.err"
+rc=$?
+if [ "$rc" -ne 0 ]; then
+  mal "mod_sin_claude: esperaba exit 0, hubo $rc"; cat "$TMP/mod.err" >&2
+elif ! grep -q "\[SKIP-GRITA\]" "$TMP/mod.err"; then
+  mal "mod_sin_claude: saltó en silencio, sin [SKIP-GRITA] en stderr"
+else
+  ok "mod_sin_claude_se_salta_en_voz_alta ⇒ exit 0 y [SKIP-GRITA] por stderr"
+fi
+
 [ "$fallos" -eq 0 ] || { echo "test-release-publish: hay fallos" >&2; exit 1; }
-echo "test-release-publish: OK — los cinco casos"
+echo "test-release-publish: OK — los siete casos"

@@ -54,6 +54,7 @@ case "$1" in
   --version) echo "exo 9.0.0" ;;
   config) echo '{"schema_version":2,"command":"config","data":{"kb":{"name":"kb-test","path":"/tmp/kb-test"}}}' ;;
   recall) echo "Contrato de memoria: bloque de prueba camino feliz." ;;
+  rules) echo '{"schema_version":2,"command":"rules","data":{"status":"ok","repo":"r","note":"projects/r.md","rules":[],"ignored_lines":[]}}' ;;
   *) exit 1 ;;
 esac
 EOF
