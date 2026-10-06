@@ -20,16 +20,16 @@ grep -qF "$CODEWORD" "$SYS" || { echo "sonda: FALLA, sysprompt.md sin el codewor
 mkdir -p "$T/repo"; git -C "$T/repo" init -q
 echo '{"autoMemoryEnabled":false,"hooks":{}}' > "$T/settings.json"
 q="¿Cuál es el codeword que te dieron? Responde solo el codeword, o NINGUNO si no te dieron ninguno."
-corre(){ # $1 = fichero de system prompt; imprime "<resultado>\t<usd>"
+corre(){ # $1 = fichero de system prompt; imprime "<resultado>\x1f<usd>"
   local out
   out=$(cd "$T/repo" && printf '%s' "$q" | DISABLE_AUTOUPDATER=1 timeout 300 claude -p --model "$MODELO" \
     --setting-sources "" --strict-mcp-config --settings "$T/settings.json" --append-system-prompt-file "$1" \
     --tools "" --permission-mode bypassPermissions --max-turns 3 --max-budget-usd 0.10 --no-session-persistence \
     --output-format json 2> "$T/err.$2.log")
-  printf '%s\t%s\n' "$(jq -r '.result // empty' <<<"$out" | tr '\n' ' ')" "$(jq -r '.total_cost_usd // "?"' <<<"$out")"
+  printf '%s\x1f%s\n' "$(jq -r '.result // empty' <<<"$out" | tr '\n' ' ')" "$(jq -r '.total_cost_usd // "?"' <<<"$out")"
 }
-IFS=$'\t' read -r r1 u1 < <(corre "$SYS" sys)
-IFS=$'\t' read -r r2 u2 < <(corre "$P/claude-md.md" ctl)
+IFS=$'\x1f' read -r r1 u1 < <(corre "$SYS" sys)
+IFS=$'\x1f' read -r r2 u2 < <(corre "$P/claude-md.md" ctl)
 echo "sonda: con sysprompt  -> '$r1' (usd=$u1)"
 echo "sonda: control        -> '$r2' (usd=$u2)"
 if [[ $r1 == *"$CODEWORD"* && $r2 != *"$CODEWORD"* ]]; then echo "sonda: OK $CODEWORD"; exit 0; fi

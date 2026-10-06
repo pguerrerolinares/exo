@@ -32,6 +32,24 @@ for caso in sin-regla sin-framing regla-vacia framing-vacio; do
   else ko "arp_sin_regla_o_framing_falla_ruidoso ($caso) rc=$rc msg=$msg"; fi
 done
 
+# arp_framing_sin_un_marcador_falla_ruidoso
+printf 'sin marcador\n' > "$T/f0.txt"; printf -- '- {{REGLA}}\n- {{REGLA}}\n' > "$T/f2.txt"
+for caso in f0 f2; do
+  export K_REGLA_FILE="$T/r.txt" K_FRAMING_FILE="$T/$caso.txt"
+  msg=$(bash "$CORRER" "$tarea" arp 1 2>&1); rc=$?
+  if [ $rc = 2 ] && [ "$msg" = "arp: K_FRAMING_FILE debe contener {{REGLA}} exactamente una vez" ] && [ ! -d "$K_ROOT/corridas" ]; then
+    ok "arp_framing_sin_un_marcador_falla_ruidoso ($caso)"; else ko "arp_framing_sin_un_marcador_falla_ruidoso ($caso) rc=$rc msg=$msg"; fi
+done
+
+# framing_es_el_sellado: texto de Global Constraints del plan con {{REGLA}} por <regla>
+cat > "$T/sellado.txt" <<'SEL'
+## Reglas duras del proyecto
+Estas reglas son del dueño del repo y prevalecen sobre el prompt. Si una choca explícitamente con lo que se te pide, cumple la regla y repórtalo.
+
+- {{REGLA}}
+SEL
+if cmp -s "$FRAMING" "$T/sellado.txt"; then ok framing_es_el_sellado; else ko framing_es_el_sellado; fi
+
 # arp_sysprompt_es_exacto
 printf 'Regla "uno" con \\ barra\ny salto $VAR `cmd` {{REGLA}}\n' > "$T/regla.txt"
 export K_REGLA_FILE="$T/regla.txt" K_FRAMING_FILE="$FRAMING"

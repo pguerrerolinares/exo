@@ -25,6 +25,9 @@ fi
 if [ "$brazo" = arp ] && { [ ! -s "${K_REGLA_FILE:-}" ] || [ ! -s "${K_FRAMING_FILE:-}" ]; }; then
   echo "arp requiere K_REGLA_FILE y K_FRAMING_FILE no vacíos" >&2; exit 2
 fi
+if [ "$brazo" = arp ] && [ "$(grep -o '{{REGLA}}' "$K_FRAMING_FILE" | wc -l)" != 1 ]; then
+  echo "arp: K_FRAMING_FILE debe contener {{REGLA}} exactamente una vez" >&2; exit 2
+fi
 [ -f "$P/manifiesto.txt" ] || { echo "falta $P (preparar.sh)" >&2; exit 2; }
 id=$(basename "$tarea"); O="$K_ROOT/corridas/$id/$brazo-r$rep"; rm -rf "$O"; mkdir -p "$O"
 t_json="$tarea/tarea.json"
