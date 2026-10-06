@@ -33,7 +33,7 @@ if [ ! -f "$WSENT" ]; then
   else
     SS_ST="$(jq -r '.status // ""' "$SS" 2>/dev/null)"
     SS_N="$(jq -r '.n // 0' "$SS" 2>/dev/null)"
-    if HB_ROW="$(jq -r '[(.status // ""), (.n // 0)] | @tsv' "$HB" 2>/dev/null)"; then
+    if HB_ROW="$(jq -r '[(.status // ""), (.n // 0)] | @tsv' "$HB" 2>/dev/null)" && [ -n "$HB_ROW" ]; then
       HB_ST="${HB_ROW%%$'\t'*}"; HB_N="${HB_ROW##*$'\t'}"
     else
       HB_ST="corrupto"; HB_N="?"
@@ -43,6 +43,9 @@ if [ ! -f "$WSENT" ]; then
        || { [ "$SS_ST" = "skip" ] && [ "$HB_ST" = "ok" ]; }; then
       WREASON="no_entrego"
       WITNESS_MSG="⚠ el mod de reglas de proyecto no entregó: SessionStart vio ${SS_ST} n=${SS_N}, el latido dice ${HB_ST} n=${HB_N}"
+    elif [ "$SS_ST" = "skip" ] && [ "$HB_ST" = "error" ]; then
+      # El mod falló pero no había reglas que entregar: sin ruido en pantalla, con rastro.
+      WREASON="hb_error"
     fi
   fi
   if [ -n "$WREASON" ]; then

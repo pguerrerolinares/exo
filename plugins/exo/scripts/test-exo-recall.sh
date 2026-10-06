@@ -254,7 +254,7 @@ case "\$1" in
     case "\${RULES_MODE:-ok}" in
       ok) echo '{"schema_version":2,"command":"rules","data":{"status":"ok","repo":"mirepo","note":"projects/mirepo.md","rules":["a","b","c"],"ignored_lines":[]}}' ;;
       vacio) exit 0 ;;
-      error) exit 1 ;;
+      error) echo 'boom-stderr-del-engine' >&2; exit 1 ;;
       cuelga) exec sleep 10 ;;
       skip:*) echo '{"schema_version":2,"command":"rules","data":{"status":"skip","repo":"mirepo","reason":"'"\${RULES_MODE#skip:}"'","candidates":[]}}' ;;
     esac ;;
@@ -292,12 +292,23 @@ if [ "$SYSMSG" = "⚠ sin reglas de proyecto para mirepo (ambigua)" ] && [ "$(re
 else fail "ambigua_visible" "sys='$SYSMSG' log=$(cat "$LOGC") ss=$(ss_de r-amb)"; fi
 
 for modo in error vacio; do
-  reglas_hook '{"session_id":"r-err-'$modo'"}' $modo
-  if contains "$SYSMSG" "(error_engine)" && [ "$(ss_de r-err-$modo | jq -r '.status+"/"+.reason')" = "skip/error_engine" ] \
+  reglas_hook '{"session_id":"r-err-'"$modo"'"}' "$modo"
+  if contains "$SYSMSG" "(error_engine)" && [ "$(ss_de "r-err-$modo" | jq -r '.status+"/"+.reason')" = "skip/error_engine" ] \
      && contains "$HOOK_OUT" '"additionalContext"'; then
     pass "error_engine_visible ($modo): systemMessage y ss skip/error_engine, el hook sigue emitiendo"
-  else fail "error_engine_visible ($modo)" "sys='$SYSMSG' ss=$(ss_de r-err-$modo)"; fi
+  else fail "error_engine_visible ($modo)" "sys='$SYSMSG' ss=$(ss_de "r-err-$modo")"; fi
 done
+
+reglas_hook '{"session_id":"r-err-stderr"}' error
+if contains "$(regla_payload)" "reason=error_engine" && contains "$(regla_payload)" "err=boom-stderr-del-engine"; then
+  pass "error_engine_stderr: el stderr del engine viaja en el payload de project-rules-skip"
+else fail "error_engine_stderr" "log=$(cat "$LOGC")"; fi
+
+rm -f "$RULES_DIR/ss-r-sin-indice"
+reglas_hook '{"session_id":"r-sin-indice","cwd":"/tmp/proy-y"}' ok EXO_INDEX="$TMP/no-existe.db"
+if [ -s "$RULES_CALLS" ] && [ "$(ss_de r-sin-indice)" = '{"status":"ok","n":3,"repo":"mirepo"}' ]; then
+  pass "sin_indice_resuelve_reglas: engine OK e índice ausente ⇒ exo rules llamado y ss escrito"
+else fail "sin_indice_resuelve_reglas" "calls=$(cat "$RULES_CALLS") ss=$(ss_de r-sin-indice)"; fi
 
 reglas_hook '{"session_id":"r-stale"}' ok STUB_VER=0.1.0 ENGINE_MIN=9.9.9
 if [ ! -s "$RULES_CALLS" ] && contains "$SYSMSG" "(engine_stale)" \
@@ -311,7 +322,7 @@ if [ ! -s "$RULES_CALLS" ] && [ ! -e "$RULES_DIR/ss-r-compact" ] && [ -z "$SYSMS
 else fail "compact_no_resuelve" "calls=$(cat "$RULES_CALLS")"; fi
 
 reglas_hook '{}' ok
-if [ -s "$RULES_CALLS" ] && ! ls "$RULES_DIR" | grep -qx 'ss-'; then
+if [ -s "$RULES_CALLS" ] && [ ! -e "$RULES_DIR/ss-" ]; then
   pass "sin session_id: se resuelve pero no se escribe ss-"
 else fail "sin session_id" "dir=$(ls "$RULES_DIR")"; fi
 

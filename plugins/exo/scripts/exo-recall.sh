@@ -65,12 +65,20 @@ log_recall_fallback() {  # $1=reason $2=payload extra opcional
 BASE=""
 ENGINE_VER=""
 RULES_ENGINE=""  # ok|stale: solo con engine presente se intenta resolver reglas
+# Versión antes del check de índice: `exo rules` no usa el índice, así que las
+# reglas se resuelven con binario + versión aunque falte `index.db`.
+if [ -x "$EXO_BIN" ]; then
+  if ENGINE_VER="$(exo_version_de "$EXO_BIN")" && [ -n "$ENGINE_VER" ] && ! semver_lt "$ENGINE_VER" "$ENGINE_MIN"; then
+    RULES_ENGINE=ok
+  else
+    RULES_ENGINE=stale
+  fi
+fi
 if [ ! -x "$EXO_BIN" ]; then
   log_recall_fallback "no-engine" "bin=$EXO_BIN"
 elif [ ! -f "$EXO_INDEX" ]; then
   log_recall_fallback "no-index" "db=$EXO_INDEX"
-elif ENGINE_VER="$(exo_version_de "$EXO_BIN")" && [ -n "$ENGINE_VER" ] && ! semver_lt "$ENGINE_VER" "$ENGINE_MIN"; then
-  RULES_ENGINE=ok
+elif [ "$RULES_ENGINE" = ok ]; then
   # El nombre de la KB sale de la config del engine, no de un literal: era el
   # último sitio donde `kb-demo` seguía cableado en el camino de arranque.
   # Resuelto AQUÍ (binario ejecutable e índice ya confirmados arriba) y no
@@ -112,7 +120,6 @@ elif ENGINE_VER="$(exo_version_de "$EXO_BIN")" && [ -n "$ENGINE_VER" ] && ! semv
     BASE=""
   fi
 else
-  RULES_ENGINE=stale
   ENGINE_VER="${ENGINE_VER:-desconocida}"
   log_recall_fallback "engine-stale" "engine=$ENGINE_VER min=$ENGINE_MIN"
   BASE="engine desactualizado ($ENGINE_VER < $ENGINE_MIN) — actualiza el binario instalado
@@ -203,13 +210,16 @@ if [ "$SOURCE" != "compact" ] && [ -n "$RULES_ENGINE" ]; then
   find "$RULES_DIR" -maxdepth 1 -type f \( -name 'ss-*' -o -name 'hb-*' \) -mtime +7 -delete 2>/dev/null
   RCWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)"
   RCWD="${RCWD:-$PWD}"
-  RSTATUS=""; RREASON=""; RREPO=""; RN=0
+  RSTATUS=""; RREASON=""; RREPO=""; RN=0; RERR=""
   if [ "$RULES_ENGINE" = stale ]; then
     # Un engine viejo no tiene `exo rules`: ni se llama.
     RSTATUS=skip; RREASON=engine_stale
   else
     . "$SCRIPT_DIR/_timeout.sh" 2>/dev/null
-    ROUT="$(con_timeout "${EXO_RULES_TIMEOUT:-3}" "$EXO_BIN" rules --cwd "$RCWD" --json 2>/dev/null)" && RRC=0 || RRC=$?
+    RERR_TMP="$(mktemp)"
+    ROUT="$(con_timeout "${EXO_RULES_TIMEOUT:-3}" "$EXO_BIN" rules --cwd "$RCWD" --json 2>"$RERR_TMP")" && RRC=0 || RRC=$?
+    RERR="$(head -c 200 "$RERR_TMP" 2>/dev/null | tr '\n' ' ')"
+    rm -f "$RERR_TMP"
     if [ "$RRC" -eq 0 ]; then
       IFS=$'\x1f' read -r RSTATUS RREASON RREPO RN <<< "$(printf '%s' "$ROUT" | jq -r '[(.data.status // ""), (.data.reason // ""), (.data.repo // ""), ((.data.rules // []) | length | tostring)] | join("\u001f")' 2>/dev/null)"
     fi
@@ -219,11 +229,12 @@ if [ "$SOURCE" != "compact" ] && [ -n "$RULES_ENGINE" ]; then
     esac
   fi
   [ "$RSTATUS" = skip ] && RN=0
+  [ "$RREASON" = error_engine ] || RERR=""
   case "${RN:-}" in ''|*[!0-9]*) RN=0 ;; esac
   if [ "$RSTATUS" = skip ]; then
     RLABEL="${RREPO:-$(basename "$RCWD")}"
     . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && \
-      reflex_log "project-rules-skip" "${INPUT:-"{}"}" "reason=$RREASON repo=${RREPO:--}" || true
+      reflex_log "project-rules-skip" "${INPUT:-"{}"}" "reason=$RREASON repo=${RREPO:--}${RERR:+ err=$RERR}" || true
     case "$RREASON" in
       ambigua|seccion_vacia|excede_cap|error_engine|engine_stale)
         VISIBLE="⚠ sin reglas de proyecto para $RLABEL ($RREASON)" ;;

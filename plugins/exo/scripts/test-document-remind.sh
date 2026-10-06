@@ -84,6 +84,21 @@ run h "$SMALL"; r3="$OUT"
 if [ -z "$r1$r2$r3" ]; then pass "coherente_calla: ok=ok, skip=skip, skip/error"
 else fail "coherente_calla: ok=ok, skip=skip, skip/error" "r1=$r1 r2=$r2 r3=$r3"; fi
 
+# M1: hb vacío (jq sin salida) cuenta como corrupto
+echo '{"status":"skip","reason":"sin_nota","n":0,"repo":"exo"}' > "$RULES/ss-hv"
+: > "$RULES/hb-hv"
+run hv "$SMALL"
+if contains "$(msg)" "no entregó"; then pass "hb vacío: cuenta como corrupto"
+else fail "hb vacío: cuenta como corrupto" "out=$OUT"; fi
+
+# M2: ss skip + hb error: callado en pantalla, pero con rastro en el log
+: > "$REFLEX_LOG_FILE"
+echo '{"status":"skip","reason":"sin_nota","n":0,"repo":"exo"}' > "$RULES/ss-he"
+echo '{"status":"error","n":0,"error":"x"}' > "$RULES/hb-he"
+run he "$SMALL"
+if [ -z "$OUT" ] && contains "$(witness_reasons)" "reason=hb_error"; then pass "ss skip + hb error: calla en pantalla, log hb_error"
+else fail "ss skip + hb error: calla en pantalla, log hb_error" "out=$OUT log=$(witness_reasons)"; fi
+
 # sin_ss_solo_log
 : > "$REFLEX_LOG_FILE"
 run nss "$SMALL"
