@@ -46,6 +46,8 @@ export function register(on: any) {
     } catch (err: any) {
       hb = { status: "error", n: 0, error: String(err?.message || err) || "error" };
     }
+    // Sin sid o sin HOME no hay nombre de latido válido: no se escribe en una ruta inventada.
+    if (!sid || !home) return r;
     try {
       await $.fs.write(`${home}/.claude/exo-rules/hb-${sid}`, JSON.stringify(hb));
     } catch {

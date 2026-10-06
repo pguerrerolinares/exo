@@ -17,13 +17,20 @@ const skipOut = JSON.stringify({
 type Run = (argv: readonly string[], init: any) => any;
 
 // Monta el mundo bajo el plugin: sesión, env, process.run, fs.write y la base de compose.
-async function correr($: any, on: any, run: Run, env: Record<string, string> = { HOME: "/h" }) {
+async function correr(
+  $: any,
+  on: any,
+  run: Run,
+  env: Record<string, string> = { HOME: "/h" },
+  deny: readonly string[] = [],
+) {
   const writes: Record<string, string> = {};
   const calls: { argv: readonly string[]; init: any }[] = [];
   mock.env(on, env);
-  on("session.cwd", async () => ({ value: "/repo" }));
-  on("session.id", async () => ({ value: "sid1" }));
+  on("session.cwd", async () => (deny.includes("session.cwd") ? { deny: "cwd" } : { value: "/repo" }));
+  on("session.id", async () => (deny.includes("session.id") ? { deny: "id" } : { value: "sid1" }));
   on("fs.write", async (_$: any, e: any) => {
+    if (deny.includes("fs.write")) return { deny: "disco" };
     writes[e.path] = e.text;
     return { value: undefined };
   });
@@ -67,6 +74,33 @@ test("error_exit_no_cero", async ($, on) => {
   expect(hb.status).toBe("error");
   expect(hb.error.length > 0).toBe(true);
   expect(hb.n).toBe(0);
+});
+
+test("exit_no_cero_sin_fallback", async ($, on) => {
+  const { calls } = await correr($, on, () => ({ exitCode: 1, stdout: "", stderr: "boom" }));
+  expect(calls.length).toBe(1);
+});
+
+test("fs_write_rechaza", async ($, on) => {
+  const { r, writes, calls } = await correr($, on, () => out(okOut), { HOME: "/h" }, ["fs.write"]);
+  expect(calls.length).toBe(1);
+  expect(Object.keys(writes)).toEqual([]);
+  expect(r.sections).toEqual(BASE);
+});
+
+test("session_cwd_lanza", async ($, on) => {
+  const { r, writes, calls } = await correr($, on, () => out(okOut), { HOME: "/h" }, ["session.cwd"]);
+  expect(calls.length).toBe(0);
+  expect(r.sections).toEqual(BASE);
+  const hb = JSON.parse(writes["/h/.claude/exo-rules/hb-sid1"]);
+  expect(hb.status).toBe("error");
+});
+
+test("session_id_lanza", async ($, on) => {
+  const { r, writes, calls } = await correr($, on, () => out(okOut), { HOME: "/h" }, ["session.id"]);
+  expect(calls.length).toBe(0);
+  expect(r.sections).toEqual(BASE);
+  expect(Object.keys(writes)).toEqual([]);
 });
 
 test("json_invalido", async ($, on) => {
