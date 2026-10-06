@@ -107,5 +107,20 @@ run both "$BIG"
 if [ "$(printf '%s\n' "$OUT" | wc -l)" -eq 1 ] && [ "$(msg)" = "$NOCARGO"$'\n'"$REMIND" ]; then pass "ambos_unidos: una línea, dos textos"
 else fail "ambos_unidos: una línea, dos textos" "out=$OUT"; fi
 
+# independencia de sentinels (a): el testigo ya gritó; el recordatorio sale igual
+echo '{"status":"ok","n":3,"repo":"exo"}' > "$RULES/ss-ind1"
+run ind1 "$SMALL"
+r1="$(msg)"
+run ind1 "$BIG"
+if [ "$r1" = "$NOCARGO" ] && [ "$(msg)" = "$REMIND" ]; then pass "sentinels independientes: testigo no silencia recordatorio"
+else fail "sentinels independientes: testigo no silencia recordatorio" "r1=$r1 out=$OUT"; fi
+
+# (b): el recordatorio ya salió; el testigo grita igual
+echo '{"status":"ok","n":3,"repo":"exo"}' > "$RULES/ss-ind2"
+touch "$REMIND_SENTINEL_DIR/claude-document-reminded-ind2"
+run ind2 "$BIG"
+if [ "$(msg)" = "$NOCARGO" ]; then pass "sentinels independientes: recordatorio no silencia testigo"
+else fail "sentinels independientes: recordatorio no silencia testigo" "out=$OUT"; fi
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
