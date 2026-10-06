@@ -43,6 +43,7 @@ const PANTALLAS: &[&[&str]] = &[
     &["write", "append"],
     &["recall"],
     &["targets"],
+    &["rules"],
     &["budget"],
     &["lint"],
     &["ratchet"],
