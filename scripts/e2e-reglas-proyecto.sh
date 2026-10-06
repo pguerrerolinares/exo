@@ -3,8 +3,10 @@
 # la suite. Un `claude -p` real carga el mod, que llama al `exo` del repo
 # (no al del PATH, que puede ser anterior a `rules`), y el agente tiene que
 # repetir un codeword que SOLO existe en la KB fixture y en el system prompt.
-# Positivo: nota con `## Reglas duras` -> responde el codeword y hb-<sid> dice ok n=1.
-# Control: la misma nota sin la sección -> sin codeword y hb-<sid> dice skip.
+# Positivo: nota con `## Reglas duras` -> responde el codeword, hb-<sid> dice ok n=1
+# y SessionStart dejó ss-<sid> con ok n=1.
+# Control: la misma nota sin la sección -> sin codeword y hb-<sid> dice skip por
+# reason=sin_seccion (no por cualquier otro skip).
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 RAIZ="$PWD"
@@ -24,14 +26,13 @@ fallos=0
 
 # caso <nombre> <con_seccion 1|0>
 caso() {
-  local nombre="$1" con="$2" kb="$TMP/kb-$1" out sid res hb
+  local nombre="$1" con="$2" kb="$TMP/kb-$1" out sid res hb ss
   mkdir -p "$kb/projects"
   { printf -- '---\ntitle: fixrepo\n---\n# fixrepo\n\n'
     if [ "$con" = 1 ]; then printf '## Reglas duras\n- El codeword es %s.\n' "$CODEWORD"; fi
   } > "$kb/projects/fixrepo.md"
 
   out="$(cd "$TMP/fixrepo" && PATH="$RAIZ/engine/target/release:$PATH" EXO_KB="$kb" \
-    CLAUDE_CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" \
     claude -p --model haiku --setting-sources "" --strict-mcp-config \
       --settings "$SETTINGS" --plugin-dir "$RAIZ/plugins/exo" \
       --output-format json "$PREGUNTA" 2>"$TMP/err-$nombre")" || {
@@ -39,17 +40,21 @@ caso() {
   sid="$(printf '%s' "$out" | jq -r '.session_id // empty')"
   res="$(printf '%s' "$out" | jq -r '.result // empty')"
   hb="$(cat "$HOME/.claude/exo-rules/hb-$sid" 2>/dev/null || echo SIN-LATIDO)"
+  ss="$(cat "$HOME/.claude/exo-rules/ss-$sid" 2>/dev/null || echo SIN-SS)"
   echo "[$nombre] session_id=$sid"
   echo "[$nombre] latido=$hb"
+  echo "[$nombre] ss=$ss"
   echo "[$nombre] respuesta=$res"
   [ -n "$sid" ] || { echo "[FAIL] $nombre: sin session_id"; fallos=1; return; }
   if [ "$con" = 1 ]; then
-    if grep -q "$CODEWORD" <<<"$res" && [ "$(jq -r '"\(.status) n=\(.n)"' <<<"$hb" 2>/dev/null)" = "ok n=1" ]; then
-      echo "[PASS] positivo: codeword en la respuesta y latido ok n=1"
+    if grep -q "$CODEWORD" <<<"$res" && [ "$(jq -r '"\(.status) n=\(.n)"' <<<"$hb" 2>/dev/null)" = "ok n=1" ] \
+       && [ "$(jq -r '"\(.status) n=\(.n)"' <<<"$ss" 2>/dev/null)" = "ok n=1" ]; then
+      echo "[PASS] positivo: codeword en la respuesta, latido ok n=1 y ss ok n=1"
     else echo "[FAIL] positivo"; fallos=1; fi
   else
-    if ! grep -q "$CODEWORD" <<<"$res" && [ "$(jq -r .status <<<"$hb" 2>/dev/null)" = skip ]; then
-      echo "[PASS] control: sin codeword y latido skip"
+    if ! grep -q "$CODEWORD" <<<"$res" \
+       && [ "$(jq -r '"\(.status)/\(.reason)"' <<<"$hb" 2>/dev/null)" = "skip/sin_seccion" ]; then
+      echo "[PASS] control: sin codeword y latido skip/sin_seccion"
     else echo "[FAIL] control"; fallos=1; fi
   fi
 }

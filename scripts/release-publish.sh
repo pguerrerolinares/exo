@@ -22,8 +22,9 @@
 #   GH_BIN (default gh) · DIST (default dist) · FORCE (1 = reemplazar) ·
 #   MOD_TEST (default plugins/exo/scripts/test-reglas-mod.sh).
 #
-# Antes de publicar se valida el mod de reglas con EXO_REQUIRE_CLAUDE=1: CI no
-# tiene `claude`, y sin esto una release podría salir con el mod sin validar.
+# Antes de publicar se valida el mod de reglas con EXO_REQUIRE_CLAUDE=1: sin
+# `claude`, test-reglas-mod.sh se salta en voz alta y sale 0, y una release
+# podría salir con el mod sin validar. Con la variable, ese salto es un fallo.
 set -euo pipefail
 cd "$(dirname "$0")/.." || exit 1
 

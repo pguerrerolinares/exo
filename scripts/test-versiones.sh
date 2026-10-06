@@ -65,5 +65,14 @@ elif [ -n "$engine" ]; then
   fi
 fi
 
+# El CLI de claude que valida el mod está pineado en dos workflows: tienen que
+# coincidir o CI y release validarían contra versiones distintas.
+claude_ci="$(sed -nE 's/^[[:space:]]*CLAUDE_CODE_VERSION:[[:space:]]*([^[:space:]#]+).*/\1/p' .github/workflows/ci.yml)"
+claude_rel="$(sed -nE 's/^[[:space:]]*CLAUDE_CODE_VERSION:[[:space:]]*([^[:space:]#]+).*/\1/p' .github/workflows/release.yml)"
+if [ -z "$claude_ci" ] || [ "$claude_ci" != "$claude_rel" ]; then
+  echo "[FAIL] CLAUDE_CODE_VERSION difiere entre ci.yml ('$claude_ci') y release.yml ('$claude_rel')" >&2
+  fallos=1
+fi
+
 [ "$fallos" -eq 0 ] && echo "[OK] engine $engine · plugin $plugin · ENGINE_MIN $engine_min"
 exit "$fallos"

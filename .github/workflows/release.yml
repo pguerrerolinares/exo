@@ -22,6 +22,7 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  # Mismo pin que ci.yml (lo comprueba scripts/test-versiones.sh).
   CLAUDE_CODE_VERSION: 2.1.292
 
 jobs:

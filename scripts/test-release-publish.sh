@@ -37,7 +37,7 @@ STUB
 chmod +x "$TMP/bin/gh"
 
 # El test del mod de reglas, falso y en verde: lo real necesita `claude`, que
-# no está en CI. Su contrato propio se ejerce en release_exige_mod_validado.
+# no tiene por qué estar en el entorno que corre esta suite. Su contrato propio se ejerce en release_exige_mod_validado.
 printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP/mod-ok.sh"
 chmod +x "$TMP/mod-ok.sh"
 
@@ -160,8 +160,9 @@ else
 fi
 
 # --- mod_sin_claude_se_salta_en_voz_alta: sin `claude` y sin EXO_REQUIRE_CLAUDE,
-# test-reglas-mod.sh sale 0 pero lo grita por stderr (CI no tiene claude).
-PATH="$TMP/pathsin" "$TMP/pathsin/bash" ./plugins/exo/scripts/test-reglas-mod.sh \
+# test-reglas-mod.sh sale 0 pero lo grita por stderr. `env -u`: no hereda
+# EXO_REQUIRE_CLAUDE=1 del entorno de quien corre la suite.
+env -u EXO_REQUIRE_CLAUDE PATH="$TMP/pathsin" "$TMP/pathsin/bash" ./plugins/exo/scripts/test-reglas-mod.sh \
   > "$TMP/mod.out" 2> "$TMP/mod.err"
 rc=$?
 if [ "$rc" -ne 0 ]; then

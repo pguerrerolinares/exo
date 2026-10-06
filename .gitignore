@@ -9,6 +9,9 @@ evals/retrieval-fase0/snapshot/reflex-retrieval-log.jsonl
 __pycache__/
 engine/target/
 
+# Lo generan `claude plugin validate/test` al correr contra plugins/exo.
+plugins/exo/tsconfig.json
+
 # B1: material de trabajo del privacy-pass. Llevan el mapa termino->placeholder
 # en claro; NUNCA se commitean. Se conservan junto al bundle, fuera del arbol.
 docs/superpowers/plans/2026-09-01-b1-privacy-pass-y-autoria.md

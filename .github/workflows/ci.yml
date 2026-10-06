@@ -19,7 +19,8 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
-  # Única fuente de la versión del CLI que valida el mod de reglas (también en release.yml).
+  # Versión del CLI que valida el mod de reglas. Pin duplicado en release.yml;
+  # scripts/test-versiones.sh exige que ambos coincidan.
   CLAUDE_CODE_VERSION: 2.1.292
   # `HF_HOME` NO se fija a propósito. El engine sí la respeta desde la Task 13
   # de la campaña G (`ApiBuilder::from_env`, `engine/src/lib.rs`), pero sin
