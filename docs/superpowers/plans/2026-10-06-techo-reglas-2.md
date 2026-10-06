@@ -54,13 +54,13 @@
 - Produces: `correr.sh <dir tarea> arp <rep>`. Requiere `K_REGLA_FILE` y `K_FRAMING_FILE`, ambos no vacíos; si no, `exit 2` con el mensaje `arp requiere K_REGLA_FILE y K_FRAMING_FILE no vacíos`, antes de crear `$O` y de comprobar prep. Escribe `$O/sysprompt.md` y lo pasa en `--append-system-prompt-file`.
 - Produces: `evals/techo-reglas-2/framing.txt`, el framing sellado con el marcador literal `{{REGLA}}` en lugar de `<regla>`.
 - Produces: `fugas.py <dir> arp`, con los mismos chequeos que `a0`: ningún hook cableado, `exo` sin stub, snapshot de la KB y recall-inject.
-- Produces: `sonda-sysprompt.sh`, que da exit 0 e imprime `sonda: OK <codeword>` solo si la corrida con `sysprompt.md` devuelve el codeword y la corrida con `claude-md.md` solo no lo devuelve.
+- Produces: `sonda-sysprompt.sh`. Obtiene `sysprompt.md` del **generador real**: `K_ENSAYO=1 K_REGLA_FILE=<fichero con el codeword> K_FRAMING_FILE=evals/techo-reglas-2/framing.txt correr.sh <tarea gold> arp 1`, y lee `$O/sysprompt.md`. Da exit 0 e imprime `sonda: OK <codeword>` solo si la corrida corta con ese fichero devuelve el codeword y la corrida con `claude-md.md` solo no lo devuelve. En modo ensayo, `correr.sh` escribe `sysprompt.md` antes de salir.
 
 **Tests:**
 - `arp_sin_regla_o_framing_falla_ruidoso`: sin `K_REGLA_FILE`, sin `K_FRAMING_FILE` o con cualquiera de los dos vacío da exit 2, el mensaje exacto, y no se crea `corridas/`. Falla si `arp` corre en silencio como `a0`.
 - `arp_sysprompt_es_exacto`: con una regla que contiene `"`, `\`, `$VAR`, backticks, salto de línea interno y salto final, `sysprompt.md` es byte a byte `claude-md.md` + `\n` + el framing con `{{REGLA}}` sustituido por la regla. Falla si el escape altera un byte o si `{{REGLA}}` queda sin sustituir.
 - `arp_hereda_restricciones_de_a0`: en modo `K_ENSAYO=1`, `settings.json` es igual al de `a0`, el deny incluye `Read(/$P/kb/**)` y `Grep(/$P/kb/**)` y `PATH` empieza por `$P/stub`. Falla si `arp` ve la KB o el `exo` real.
-- `a0_y_ar_sin_cambio`: el `settings.json` y la `cmdline.txt` de `a0` y `ar` son idénticos a los de antes del cambio. Para `a0` se compara además con el `settings.json` de `corridas/g1-57/a0-r1/` del tarball de K. Falla si el cambio altera los brazos viejos.
+- `a0_sin_cambio`: el `settings.json` de `a0` es byte a byte el de `corridas/g1-57/a0-r1/` del tarball de K, y su `cmdline.txt` pasa `$P/claude-md.md`. `ar` queda cubierto por `test-correr-ar.sh` del v1. Falla si el cambio altera los brazos viejos.
 - `arp_cmdline_usa_sysprompt`: la `cmdline.txt` del ensayo de `arp` contiene `--append-system-prompt-file <O>/sysprompt.md`, y la de `a0` contiene `$P/claude-md.md`. Para eso, el modo ensayo pasa a registrar también el fichero de append. Falla si `arp` sigue pasando `claude-md.md`.
 - `fugas_arp_sin_hooks`: un transcript sintético de `arp` sin eventos de hook da `fuga=false`; con un evento `hook_*` SessionStart da `fuga=true`; con un `Read` del snapshot da `fuga=true`. Falla si `fugas.py` lanza `KeyError` con `arp`, o lo trata como `ar`.
 
@@ -109,12 +109,13 @@
 - Modify: `evals/techo-reglas/test-correr-techo.sh`
 
 **Interfaces:**
+- Produces: formato de `tareas.tsv` con una 4.ª columna opcional `brazos`, que es una lista de `brazo:k` separada por comas (`arp:2,a0:2` en el suelo, `arp:1` en el control). Si falta, el default es `ar:2` en el suelo y `ar:1` en el control, lo que reproduce el v1 sin tocar su tsv. El conjunto esperado de pares (brazo, id, rep) del ORDEN sale de esa columna, en el runner y en el validador.
 - Produces: `correr-techo.sh [paralelo=4]`. El directorio del experimento sale de `TECHO_EXP` (por defecto `evals/techo-reglas`). Lee `$TECHO_EXP/tareas.tsv` y el bloque ORDEN de `$TECHO_EXP/preregistro.md`.
   - Formato de las líneas de ORDEN: `id rep` significa brazo `ar` (compatible con el v1); `brazo id rep` lo nombra explícitamente.
   - Antes de lanzar nada, si existe `$TECHO_EXP/pins.sha256`, ejecuta `sha256sum -c` con rutas relativas a `$K_ROOT`. Si falla, `exit 2` con `pins no coinciden: <fichero>`.
+  - Si existe `$TECHO_EXP/claude-version.txt`, el `claude --version` actual tiene que coincidir. Si no, `exit 2` con `claude --version distinta del sello: <pinneada> != <actual>`. Se salta en `K_ENSAYO=1`.
   - Exporta por corrida `K_REGLA_FILE` y, si existe `$TECHO_EXP/framing.txt`, `K_FRAMING_FILE`.
-  - Los ficheros de estado se nombran por experimento: `$K_ROOT/<basename TECHO_EXP>-STOP`, `-cola`, `-orden` y `-resumen.txt`.
-  - El tarball de registro va a `~/.cache/exo-<basename TECHO_EXP>-registro.tar.gz`.
+  - Ficheros de estado y tarball: con el `TECHO_EXP` por defecto, los nombres del v1 (`techo-STOP`, `techo.cola`, `techo.orden`, `techo-resumen.txt`, `~/.cache/exo-techo-registro.tar.gz`). Con otro, `$K_ROOT/<basename TECHO_EXP>-{STOP,cola,orden,resumen.txt}` y `~/.cache/exo-<basename TECHO_EXP>-registro.tar.gz`.
 - Produces: `evaluar.py <K_ROOT> <tareas.tsv> [salida] [--brazo B] [--base A --margen M]`.
   - Por defecto `--brazo ar` sin base, lo que da el gate del v1 idéntico.
   - Con `--base a0 --margen 3`: PASA ⇔ `cumple(B) ≥ 6/10` ∧ `cumple(B) − cumple(A) ≥ M` ∧ `0/6` caídas. Las caídas se cuentan solo sobre el brazo B.
@@ -126,14 +127,16 @@
 - `margen_a0_3_arp_6_pasa`: `arp` 6/10, `a0` 3/10, 0 caídas → `GATE: PASA`. Falla si el margen es estricto `>`.
 - `margen_ok_con_caida_no_pasa`: `arp` 6/10, `a0` 3/10, 1 caída → `NO PASA (1/6 caídas)`.
 - `a0_cumple_igual_que_arp`: una tarea de `a0` con `r1 rc=0` cuenta como cumple para `a0`, con el mismo criterio ≥1/2. Falla si la base usa otra regla.
-- `orden_tres_campos`: en `test-correr-techo.sh`, con un correr falso, un ORDEN de líneas `brazo id rep` lanza cada corrida con su brazo, en orden, con `K_FRAMING_FILE` exportado. El conjunto (brazo, id, rep) tiene que ser exactamente el esperado de `tareas.tsv` × brazos; si no, exit 2.
+- `orden_tres_campos`: en `test-correr-techo.sh`, con un correr falso y un `tareas.tsv` con la columna `brazos`, un ORDEN de líneas `brazo id rep` lanza cada corrida con su brazo, en orden, con `K_FRAMING_FILE` exportado. Si el conjunto (brazo, id, rep) no es exactamente el derivado de la columna `brazos` (sobra o falta un par), exit 2. Falla si el runner ignora la columna.
+- `version_distinta_aborta`: con un `claude-version.txt` falso da exit 2 y 0 corridas lanzadas.
+- `v1_nombres_sin_cambio`: con el `TECHO_EXP` por defecto, el STOP, la cola y el tarball conservan los nombres del v1.
 - `pins_no_coinciden_aborta`: un `pins.sha256` con un hash falso da exit 2 y 0 corridas lanzadas. Falla si una errata pisada pasa sin aviso.
 - Los tests existentes del v1 siguen en verde sin tocar sus aserciones.
 
 **Verificación:** `python3 -m pytest evals/techo-reglas/test_evaluar.py` → verde. `bash evals/techo-reglas/test-correr-techo.sh` → 0 FAIL. `bash evals/techo-reglas/validar-preregistro.sh` → `preregistro OK (11+6)`.
 
 **Review Focus:**
-- Conjunto esperado de pares en el v2: suelo × {arp, a0} × {1, 2} + control × {arp} × {1}. En el v1 era suelo × {ar} × {1, 2} + control × {ar} × {1}. Cómo se derivan los brazos de `tareas.tsv` lo decide el executor (p.ej. una columna o el preregistro), pero tiene que estar declarado en el report.
+- La columna `brazos` es la única fuente del conjunto esperado. `evaluar.py` también lee de ella qué brazos existen, para validar `--brazo` y `--base`.
 - El breaker de gasto suma solo las corridas del ORDEN de este experimento, no las del v1, que viven en el mismo `$K_ROOT`.
 - La validación 11/6 de `evaluar.py` pasa a derivarse de `tareas.tsv` (10/6 en el v2), sin romper el v1.
 
@@ -143,11 +146,12 @@
 - Create: `evals/techo-reglas-2/preregistro.md`
 - Create: `evals/techo-reglas-2/tareas.tsv`
 - Create: `evals/techo-reglas-2/pins.sha256`
+- Create: `evals/techo-reglas-2/claude-version.txt`
 - Create: `evals/techo-reglas-2/validar-preregistro.sh`
 
 **Interfaces:**
 - Consumes: `framing.txt` @Task 1; `aplicar-errata.sh` @Task 2; formato de ORDEN y `pins.sha256` de `correr-techo.sh` @Task 3.
-- Produces: `tareas.tsv` (`id  grupo  regla_file`, 16 filas, `regla_file` = `evals/techo-reglas/reglas/<id>.txt`), el bloque ORDEN de 46 líneas `brazo id rep` y `pins.sha256` con el check de g2-154.
+- Produces: `tareas.tsv` (`id  grupo  regla_file  brazos`, 16 filas; `regla_file` = `evals/techo-reglas/reglas/<id>.txt`; `brazos` = `arp:2,a0:2` en el suelo y `arp:1` en el control), el bloque ORDEN de 46 líneas `brazo id rep`, `pins.sha256` con el check de g2-154 y `claude-version.txt` con la salida de `claude --version` en el sello.
 
 **Tests:**
 - `validar-preregistro.sh` falla, con un mensaje que nombre la cláusula, si:
