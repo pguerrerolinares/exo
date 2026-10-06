@@ -83,7 +83,16 @@ def evalua(k_root, tareas_tsv, salida, brazo="ar", base=None, margen=3, esperado
         motivos.append(f"{suelo_ok}/{n_s} < {UMBRAL_SUELO}")
     res_base = None
     if base:
-        res_base = evalua_brazo(k_root, [f for f in filas if f[1] == "suelo"], rec, base)
+        suelo_f = [f for f in filas if f[1] == "suelo"]
+        for f in suelo_f:
+            if not replicas(f, base):
+                sys.exit(f"evaluar: {f[0]} no declara el brazo base {base!r} en {tareas_tsv}")
+        res_base = evalua_brazo(k_root, suelo_f, rec, base)
+        # una ausencia en la base inflaría el margen: no se adjudica (breaker = tanda inválida)
+        for t in res_base:
+            for r, v in t["rc"].items():
+                if v is None:
+                    sys.exit(f"evaluar: base {base} incompleta: {t['id']} {r} sin check.rc \u2014 tanda inválida")
         base_ok = sum(t["ok"] for t in res_base)
         if suelo_ok - base_ok < margen:
             motivos.append(f"margen {suelo_ok}\u2212{base_ok}={suelo_ok - base_ok} < {margen}")
@@ -114,8 +123,9 @@ if __name__ == "__main__":
     a = ap.parse_args()
     try:
         esperado = tuple(int(x) for x in a.esperado.split(","))
-        assert len(esperado) == 2
-    except (ValueError, AssertionError):
+    except ValueError:
+        esperado = ()
+    if len(esperado) != 2:
         sys.exit("evaluar: --esperado debe ser S,C (dos enteros)")
     salida = a.salida or os.path.join(os.path.dirname(os.path.abspath(__file__)), "resultado.json")
     res, gate, res_base = evalua(os.path.expanduser(a.k_root), a.tareas, salida, a.brazo, a.base, a.margen, esperado)

@@ -2,7 +2,7 @@
 # correr-techo.sh [paralelo=4] — las corridas del test de techo, en el orden barajado de $TECHO_EXP/preregistro.md.
 # TECHO_EXP (def. evals/techo-reglas; relativa = contra la raíz del repo) trae tareas.tsv (4.ª col. opcional
 # `brazos` = brazo:k,... ; def. ar:2 suelo / ar:1 control), preregistro.md y, si existen, pins.sha256 (se verifica
-# antes de lanzar nada, rutas relativas a $K_ROOT) y framing.txt (K_FRAMING_FILE). ORDEN: `brazo id rep` o, v1, `id rep` (= brazo ar).
+# antes de lanzar nada, rutas relativas a $K_ROOT) y framing.txt (K_FRAMING_FILE: se exporta a todos los brazos; solo arp lo lee en correr.sh). ORDEN: `brazo id rep` o, v1, `id rep` (= brazo ar).
 # Política sellada: cero re-intentos. Cada corrida se ejecuta una vez; correr.sh hace rm -rf de su dir,
 # así que nunca se lanza una corrida que ya tenga meta.json. K_REANUDAR=1 tras un corte solo SALTA las
 # que ya tienen meta.json (completas o no); sin K_REANUDAR, si ya hay alguna, aborta (exit 2).
@@ -88,7 +88,9 @@ xargs -P "$par" -L 1 bash -c 'corre "$0" "$1" "$2" "$3"' < "$Q"
 
 if [ "$K_ENSAYO" = 1 ]; then
   sin=0; while read -r b id rep _; do [ -e "$K_ROOT/corridas/$id/$b-r$rep/cmdline.txt" ] || { echo "ensayo: sin cmdline.txt: $id/$b-r$rep" >&2; sin=$((sin+1)); }; done < "$Q"
-  echo "ensayo: $lanzadas lanzadas, $omitidas omitidas, $sin sin cmdline.txt"; [ "$sin" = 0 ]; exit
+  echo "ensayo: $lanzadas lanzadas, $omitidas omitidas, $sin sin cmdline.txt"
+  [ "$lanzadas" -gt 0 ] || { echo "ensayo: 0 corridas lanzadas, sin evidencia" >&2; exit 1; }
+  [ "$sin" = 0 ]; exit
 fi
 
 # Todas las corridas del orden con meta (también las de una sesión previa): resumen, breaker de infra y tarball de registro.
@@ -106,5 +108,9 @@ parar=()
 { echo "techo: $total corridas con meta, $omitidas omitidas, previas saltadas $previas, $sin_result sin result, $usd USD"
   if [ ${#parar[@]} -gt 0 ]; then echo "PARAR: ${parar[*]}"; else echo SEGUIR; fi; } | tee "$RESUMEN"
 mkdir -p "$(dirname "$TARBALL")"
-[ ${#dirs[@]} -gt 0 ] && tar -czf "$TARBALL" -C "$K_ROOT" reconstruccion.tsv "$(basename "$ORDEN_F")" "$(basename "$RESUMEN")" "${dirs[@]}" && echo "registro: $TARBALL"
-[ ${#parar[@]} -eq 0 ]
+tar_ok=0
+if [ ${#dirs[@]} -gt 0 ]; then
+  if tar -czf "$TARBALL" -C "$K_ROOT" reconstruccion.tsv "$(basename "$ORDEN_F")" "$(basename "$RESUMEN")" "${dirs[@]}"; then echo "registro: $TARBALL"
+  else echo "correr-techo: FALLO el tarball de registro $TARBALL" >&2; tar_ok=1; fi
+fi
+[ ${#parar[@]} -eq 0 ] && [ "$tar_ok" = 0 ]
