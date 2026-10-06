@@ -64,11 +64,13 @@ log_recall_fallback() {  # $1=reason $2=payload extra opcional
 # evento greppable con su razón, siempre best-effort.
 BASE=""
 ENGINE_VER=""
+RULES_ENGINE=""  # ok|stale: solo con engine presente se intenta resolver reglas
 if [ ! -x "$EXO_BIN" ]; then
   log_recall_fallback "no-engine" "bin=$EXO_BIN"
 elif [ ! -f "$EXO_INDEX" ]; then
   log_recall_fallback "no-index" "db=$EXO_INDEX"
 elif ENGINE_VER="$(exo_version_de "$EXO_BIN")" && [ -n "$ENGINE_VER" ] && ! semver_lt "$ENGINE_VER" "$ENGINE_MIN"; then
+  RULES_ENGINE=ok
   # El nombre de la KB sale de la config del engine, no de un literal: era el
   # último sitio donde `kb-demo` seguía cableado en el camino de arranque.
   # Resuelto AQUÍ (binario ejecutable e índice ya confirmados arriba) y no
@@ -110,6 +112,7 @@ elif ENGINE_VER="$(exo_version_de "$EXO_BIN")" && [ -n "$ENGINE_VER" ] && ! semv
     BASE=""
   fi
 else
+  RULES_ENGINE=stale
   ENGINE_VER="${ENGINE_VER:-desconocida}"
   log_recall_fallback "engine-stale" "engine=$ENGINE_VER min=$ENGINE_MIN"
   BASE="engine desactualizado ($ENGINE_VER < $ENGINE_MIN) — actualiza el binario instalado
@@ -190,5 +193,53 @@ if [ -n "$SP_KEY" ]; then
 AVISO exo: ${SP_KEY} sigue habilitado junto a exo (skills y hooks duplicados). Desactívalo: claude plugin disable ${SP_KEY}"
 fi
 
-printf '%s' "$TEXTO" | jq -Rs '{hookSpecificOutput:{hookEventName:"SessionStart",additionalContext:.}}'
+# --- Reglas de proyecto (2d): resuelve para el testigo de Stop y grita anomalías ---
+# El mod inyecta las reglas en el system prompt; aquí solo se resuelve para
+# dejar `ss-<sid>` (lo que SessionStart vio) y avisar. Nada va a additionalContext.
+# Sin engine/índice no se resuelve: ya lo registra recall-fallback.
+VISIBLE=""
+if [ "$SOURCE" != "compact" ] && [ -n "$RULES_ENGINE" ]; then
+  RULES_DIR="$HOME/.claude/exo-rules"
+  find "$RULES_DIR" -maxdepth 1 -type f \( -name 'ss-*' -o -name 'hb-*' \) -mtime +7 -delete 2>/dev/null
+  RCWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)"
+  RCWD="${RCWD:-$PWD}"
+  RSTATUS=""; RREASON=""; RREPO=""; RN=0
+  if [ "$RULES_ENGINE" = stale ]; then
+    # Un engine viejo no tiene `exo rules`: ni se llama.
+    RSTATUS=skip; RREASON=engine_stale
+  else
+    . "$SCRIPT_DIR/_timeout.sh" 2>/dev/null
+    ROUT="$(con_timeout 3 "$EXO_BIN" rules --cwd "$RCWD" --json 2>/dev/null)" && RRC=0 || RRC=$?
+    if [ "$RRC" -eq 0 ]; then
+      IFS=$'\x1f' read -r RSTATUS RREASON RREPO RN <<< "$(printf '%s' "$ROUT" | jq -r '[(.data.status // ""), (.data.reason // ""), (.data.repo // ""), ((.data.rules // []) | length | tostring)] | join("\u001f")' 2>/dev/null)"
+    fi
+    case "$RSTATUS" in
+      ok|skip) ;;
+      *) RSTATUS=skip; RREASON=error_engine; RREPO=""; RN=0 ;;
+    esac
+  fi
+  [ "$RSTATUS" = skip ] && RN=0
+  case "${RN:-}" in ''|*[!0-9]*) RN=0 ;; esac
+  if [ "$RSTATUS" = skip ]; then
+    RLABEL="${RREPO:-$(basename "$RCWD")}"
+    . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && \
+      reflex_log "project-rules-skip" "${INPUT:-"{}"}" "reason=$RREASON repo=${RREPO:--}" || true
+    case "$RREASON" in
+      ambigua|seccion_vacia|excede_cap|error_engine|engine_stale)
+        VISIBLE="⚠ sin reglas de proyecto para $RLABEL ($RREASON)" ;;
+    esac
+  fi
+  if [ -n "$SID" ] && [ "${SID#*/}" = "$SID" ]; then
+    mkdir -p "$RULES_DIR" 2>/dev/null
+    jq -cn --arg st "$RSTATUS" --arg rs "$RREASON" --arg repo "$RREPO" --argjson n "$RN" \
+      '{status:$st} + (if $rs=="" then {} else {reason:$rs} end) + {n:$n, repo:(if $repo=="" then null else $repo end)}' \
+      > "$RULES_DIR/ss-$SID.tmp" 2>/dev/null && mv -f "$RULES_DIR/ss-$SID.tmp" "$RULES_DIR/ss-$SID" 2>/dev/null
+  fi
+fi
+
+if [ -n "$VISIBLE" ]; then
+  printf '%s' "$TEXTO" | jq -Rs --arg m "$VISIBLE" '{hookSpecificOutput:{hookEventName:"SessionStart",additionalContext:.},systemMessage:$m}'
+else
+  printf '%s' "$TEXTO" | jq -Rs '{hookSpecificOutput:{hookEventName:"SessionStart",additionalContext:.}}'
+fi
 exit 0
