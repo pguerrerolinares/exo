@@ -209,7 +209,7 @@ if [ "$SOURCE" != "compact" ] && [ -n "$RULES_ENGINE" ]; then
     RSTATUS=skip; RREASON=engine_stale
   else
     . "$SCRIPT_DIR/_timeout.sh" 2>/dev/null
-    ROUT="$(con_timeout 3 "$EXO_BIN" rules --cwd "$RCWD" --json 2>/dev/null)" && RRC=0 || RRC=$?
+    ROUT="$(con_timeout "${EXO_RULES_TIMEOUT:-3}" "$EXO_BIN" rules --cwd "$RCWD" --json 2>/dev/null)" && RRC=0 || RRC=$?
     if [ "$RRC" -eq 0 ]; then
       IFS=$'\x1f' read -r RSTATUS RREASON RREPO RN <<< "$(printf '%s' "$ROUT" | jq -r '[(.data.status // ""), (.data.reason // ""), (.data.repo // ""), ((.data.rules // []) | length | tostring)] | join("\u001f")' 2>/dev/null)"
     fi

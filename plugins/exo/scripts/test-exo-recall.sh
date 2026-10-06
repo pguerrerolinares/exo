@@ -255,6 +255,7 @@ case "\$1" in
       ok) echo '{"schema_version":2,"command":"rules","data":{"status":"ok","repo":"mirepo","note":"projects/mirepo.md","rules":["a","b","c"],"ignored_lines":[]}}' ;;
       vacio) exit 0 ;;
       error) exit 1 ;;
+      cuelga) exec sleep 10 ;;
       skip:*) echo '{"schema_version":2,"command":"rules","data":{"status":"skip","repo":"mirepo","reason":"'"\${RULES_MODE#skip:}"'","candidates":[]}}' ;;
     esac ;;
   *) exit 1 ;;
@@ -319,6 +320,19 @@ reglas_hook '{"session_id":"r-poda"}' ok
 if [ ! -e "$RULES_DIR/ss-viejo" ] && [ -e "$RULES_DIR/ss-reciente" ]; then
   pass "poda_7_dias: ss de 8 días fuera, de 1 día se queda"
 else fail "poda_7_dias" "dir=$(ls "$RULES_DIR")"; fi
+
+SECS_ANTES=$SECONDS
+reglas_hook '{"session_id":"r-cuelga"}' cuelga EXO_RULES_TIMEOUT=1
+if contains "$SYSMSG" "(error_engine)" && [ "$(ss_de r-cuelga | jq -r '.reason')" = "error_engine" ] \
+   && [ $((SECONDS - SECS_ANTES)) -lt 6 ]; then
+  pass "timeout_rules: exo rules colgado ⇒ corta y grita error_engine"
+else fail "timeout_rules" "sys='$SYSMSG' ss=$(ss_de r-cuelga) t=$((SECONDS - SECS_ANTES))s"; fi
+
+mkdir -p "$RULES_DIR/ss-sub"
+reglas_hook '{"session_id":"sub/y"}' ok
+if [ ! -e "$RULES_DIR/ss-sub/y" ] && [ -z "$SYSMSG" ]; then
+  pass "session_id con '/': no se escribe ss (ni dentro de subdirectorios)"
+else fail "session_id con '/'" "dir=$(ls "$RULES_DIR/ss-sub")"; fi
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
