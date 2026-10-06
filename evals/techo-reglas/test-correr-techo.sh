@@ -133,4 +133,13 @@ mk "$T/k16"; out=$(K_ENSAYO=1 TECHO_CORRER="$T/falso3.sh" TECHO_EXP="$T/exp" K_R
 [ $rc = 0 ] && ok ensayo_con_cmdlines_exit0 || ko "ensayo ok rc=$rc: $out"
 mk "$T/k17"; out=$(K_ENSAYO=1 FALSO_NOCMD="arp g0-122 2" TECHO_CORRER="$T/falso3.sh" TECHO_EXP="$T/exp" K_ROOT="$T/k17" bash "$CT" 1 2>&1); rc=$?
 [ $rc != 0 ] && [[ $out == *"sin cmdline.txt: g0-122/arp-r2"* ]] && ok ensayo_cuenta_cmdlines || ko "ensayo sin evidencia rc=$rc: $out"
+
+# ensayo con 0 lanzadas (todas omitidas) = sin evidencia
+mk "$T/k18"; sed -i 's/\tsi\t/\tno\t/' "$T/k18/reconstruccion.tsv"
+out=$(K_ENSAYO=1 TECHO_CORRER="$T/falso3.sh" TECHO_EXP="$T/exp" K_ROOT="$T/k18" bash "$CT" 1 2>&1); rc=$?
+[ $rc != 0 ] && ok ensayo_cero_lanzadas_falla || ko "ensayo 0 lanzadas rc=$rc"
+
+# tar fallido: exit != 0 y aviso
+mk "$T/k19"; out=$(TECHO_CORRER="$T/falso3.sh" TECHO_EXP="$T/exp" K_ROOT="$T/k19" TECHO_TARBALL=/proc/no/puede.tgz bash "$CT" 1 2>&1); rc=$?
+[ $rc != 0 ] && [[ $out == *"FALLO el tarball"* ]] && ok tar_fallido_sale_distinto_de_0 || ko "tar rc=$rc"
 exit $fail

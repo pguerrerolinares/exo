@@ -198,3 +198,16 @@ def test_v1_identico(tmp_path):
     out = subprocess.run([sys.executable, str(aqui / "evaluar.py"), str(REAL_K), str(aqui / "tareas.tsv"), str(tmp_path / "r.json")],
                          capture_output=True, text=True, check=True).stdout
     assert out == (aqui / "resultado-tabla.txt").read_text()
+
+
+def test_base_no_declarada_falla_claro(k2):
+    (k2 / "tareas.tsv").write_text((k2 / "tareas.tsv").read_text().replace("s0\tsuelo\tx\tarp:2,a0:2", "s0\tsuelo\tx\tarp:2"))
+    with pytest.raises(SystemExit, match="no declara el brazo base"):
+        gate2(k2)
+
+
+def test_base_incompleta_no_se_adjudica(k2):
+    arp_a_6(k2); a0_cumple(k2, 3)
+    rc(k2, "s5", 2, None, "a0")
+    with pytest.raises(SystemExit, match=r"base a0 incompleta: s5 r2 sin check.rc"):
+        gate2(k2)
