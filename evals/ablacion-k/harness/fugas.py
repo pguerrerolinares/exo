@@ -17,7 +17,7 @@ SNAP = os.path.join(K_ROOT, "prep", "kb")
 PROD = ["/home/paul/Documentos/proyectos/wisdom-paul", "/home/paul/.exo", "~/.exo"]
 EXO = re.compile(r"(^|[\s;&|(`$])(\S*/)?exo\s+(search|recall|targets|index|rebuild|write|config|budget|lint|ratchet|rotate|doctor|stale|init)\b")
 STUB = "exo: orden no encontrada"
-HOOKS = {"a0": set(), "ar": {"SessionStart"}, "a1": {"SessionStart"}, "a2": {"SessionStart"}, "a3": {"SessionStart", "UserPromptSubmit"}}
+HOOKS = {"a0": set(), "arp": set(), "ar": {"SessionStart"}, "a1": {"SessionStart"}, "a2": {"SessionStart"}, "a3": {"SessionStart", "UserPromptSubmit"}}
 
 motivos, avisos = [], []
 eventos = []
@@ -46,7 +46,7 @@ for e in eventos:
         if b.get("type") != "tool_use":
             continue
         entrada = json.dumps(b.get("input"), ensure_ascii=False)
-        if brazo in ("a0", "a1", "ar") and b.get("name") == "Bash" and EXO.search((b.get("input") or {}).get("command", "")):
+        if brazo in ("a0", "a1", "ar", "arp") and b.get("name") == "Bash" and EXO.search((b.get("input") or {}).get("command", "")):
             # Ampliación de E2: un intento que el stub bloquea no pasa información; se avisa, no es fuga.
             if STUB in resultados.get(b.get("id"), ""):
                 avisos.append("intento de exo bloqueado por el stub")
@@ -54,11 +54,11 @@ for e in eventos:
                 motivos.append("invoca exo sin bloqueo del stub")
         if any(p in entrada for p in PROD):
             motivos.append("toca la KB de producción o ~/.exo")
-        if brazo in ("a0", "ar") and SNAP in entrada:
+        if brazo in ("a0", "ar", "arp") and SNAP in entrada:
             motivos.append("toca el snapshot de la KB")
 
 log = os.path.join(d, "reflex.jsonl")
-if brazo in ("a0", "a1", "a2", "ar") and os.path.exists(log):
+if brazo in ("a0", "a1", "a2", "ar", "arp") and os.path.exists(log):
     if any('"recall-inject-emitted"' in l for l in open(log, encoding="utf-8")):
         motivos.append("recall-inject emitió")
 
