@@ -21,6 +21,7 @@ pub mod obsolescencia;
 pub mod plantilla;
 pub mod presupuesto;
 pub mod recall;
+pub mod reglas;
 pub mod rotacion;
 pub mod schema;
 pub mod trinquete;

@@ -129,5 +129,16 @@ if printf '%s' "$SALIDA_S" | jq -e '[.data.results[].path | select(. != null) | 
   pass "contrato search: ninguna path del envelope lleva barra invertida"
 else fail "contrato search: ninguna path lleva barra invertida" "$(printf '%s' "$SALIDA_S" | jq -c '[.data.results[].path]' 2>/dev/null)"; fi
 
+# --- `exo rules`: el envelope lo consumen el mod y el hook SessionStart ------
+# cwd sin git: skip con exit 0. Basta para fijar command/schema_version sin
+# depender de qué repos y notas tenga esta máquina.
+DIR_R="$(mktemp -d)"
+SALIDA_R="$(GIT_CEILING_DIRECTORIES="$(dirname "$DIR_R")" con_timeout "${EXO_CONTRATO_TIMEOUT:-15}" "$EXO_BIN" rules --json --cwd "$DIR_R" --kb "$EXO_KB" 2>/dev/null)"
+RC_R=$?
+rmdir "$DIR_R" 2>/dev/null
+if [ "$RC_R" -eq 0 ] && printf '%s' "$SALIDA_R" | jq -e '.command == "rules" and .schema_version == 2 and .data.status == "skip"' >/dev/null 2>&1; then
+  pass "contrato rules: command=rules, schema_version=2, skip con exit 0"
+else fail "contrato rules: envelope" "rc=$RC_R $SALIDA_R"; fi
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
