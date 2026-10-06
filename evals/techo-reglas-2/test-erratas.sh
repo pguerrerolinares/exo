@@ -47,7 +47,7 @@ done
 for r in r1 r2; do
   wd="$T/w3$r"; base="$(nuevo "$wd")"; git -C "$wd" apply "$T/reg/corridas/g2-154/a0-$r/diff.patch" || bad g2154_rechaza_migracion_a0_K "apply $r"
   rc="$(correr "$HERE/gold/g2-154/check.sh" "$wd" "$base")"
-  [ "$rc" != 0 ] && ok "g2154_rechaza_migracion_a0_K_$r (rc=$rc)" || bad "g2154_rechaza_migracion_a0_K_$r" "rc=0"
+  chk "g2154_rechaza_migracion_a0_K_$r" "$rc" 1
 done
 
 # 4) helpers reproducen v1, en un K_ROOT temporal
@@ -66,12 +66,15 @@ done
 # 5) diff mínimo
 d="$(diff "$(orig g2-154)" "$HERE/gold/g2-154/check.sh" | grep -E '^[<>]' | wc -l)"
 chk diff_minimo_g2-154_lineas "$d" 3
-diff "$(orig g2-154)" "$HERE/gold/g2-154/check.sh" | grep -qE '^[<>].*(f = g.get|ok = isinstance)' && ok diff_minimo_g2-154_solo_valid || bad diff_minimo_g2-154_solo_valid
+# líneas cambiadas del original (cabeceras "a,bcN") dentro de valid() { … }
+o="$(orig g2-154)"; vs="$(grep -n '^valid() {' "$o" | cut -d: -f1)"; ve="$(awk -v s="$vs" 'NR>s && /^}/ {print NR; exit}' "$o")"
+fuera="$(diff "$o" "$HERE/gold/g2-154/check.sh" | grep -E '^[0-9]' | sed -E 's/[acd].*//' | awk -F, -v s="$vs" -v e="$ve" '{b=$1; f=($2==""?$1:$2); if (b<=s || f>=e) print}')"
+[ -n "$vs" ] && [ -n "$ve" ] && [ -z "$fuera" ] && ok diff_minimo_g2-154_solo_valid || bad diff_minimo_g2-154_solo_valid "valid()=$vs-$ve fuera=$fuera"
 for i in g0-122 g0-33 g2-35; do
   d="$(diff "$(orig $i)" "$HERE/gold/$i/check.sh" | grep -E '^[<>]')"
   [ "$(echo "$d" | wc -l)" = 2 ] && echo "$d" | grep -q '^< H=.*campana-k' && echo "$d" | grep -q '^> H="\$(cd' && ok "diff_minimo_$i" || bad "diff_minimo_$i" "$d"
 done
 for i in g2-154 g0-122 g0-33 g2-35; do [ "$(grep -c 'worktrees/campana-k' "$HERE/gold/$i/check.sh")" = 0 ] && ok "sin_campana-k_$i" || bad "sin_campana-k_$i"; done
-for f in herramientas comandos; do git -C "$HERE" show "main:evals/ablacion-k/harness/$f.sh" | cmp -s - "$HERE/gold/harness/$f.sh" && ok "harness_copia_main_$f" || bad "harness_copia_main_$f"; done
+for f in herramientas comandos; do cmp -s "$HERE/../ablacion-k/harness/$f.sh" "$HERE/gold/harness/$f.sh" && ok "harness_copia_main_$f" || bad "harness_copia_main_$f"; done
 
 echo "== $pass PASS, $fail FAIL"; [ "$fail" = 0 ]
