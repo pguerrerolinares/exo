@@ -180,10 +180,9 @@
 - Create: `evals/techo-reglas-2/validar-preregistro.sh`
 
 **Interfaces:**
-- Consumes:
-  - `framing.txt` @Task 1;
-  - `gold/` corregido @Task 2;
-  - la columna `brazos`, el formato de ORDEN, `pins.sha256` y la regla de caída @Task 3.
+- Consumes: `framing.txt` @Task 1
+- Consumes: `gold/` corregido @Task 2
+- Consumes: la columna `brazos`, el formato de ORDEN, `pins.sha256` y la regla de caída @Task 3
 - Produces: `aplicar-erratas.sh [K_ROOT]`. Instala con `install -m 755` los 4 checks en `$K_ROOT/gold/s1/<id>/check.sh` y los helpers en `$K_ROOT/gold/harness/`. Si el destino no es escribible: exit 2.
 - Produces: `tareas.tsv` (`id  grupo  regla_file  brazos`, 16 filas). `regla_file` = `evals/techo-reglas/reglas/<id>.txt`; `brazos` = `arp:2,a0:2` en el suelo y `arp:2` en el control.
 - Produces: el bloque ORDEN de 52 líneas `brazo id rep`, entre `<!-- ORDEN-BEGIN -->` y `<!-- ORDEN-END -->`.
