@@ -159,5 +159,18 @@ else
   ok "release_exige_mod_validado ⇒ sin claude falla antes de gh"
 fi
 
+# --- mod_sin_claude_se_salta_en_voz_alta: sin `claude` y sin EXO_REQUIRE_CLAUDE,
+# test-reglas-mod.sh sale 0 pero lo grita por stderr (CI no tiene claude).
+PATH="$TMP/pathsin" "$TMP/pathsin/bash" ./plugins/exo/scripts/test-reglas-mod.sh \
+  > "$TMP/mod.out" 2> "$TMP/mod.err"
+rc=$?
+if [ "$rc" -ne 0 ]; then
+  mal "mod_sin_claude: esperaba exit 0, hubo $rc"; cat "$TMP/mod.err" >&2
+elif ! grep -q "\[SKIP-GRITA\]" "$TMP/mod.err"; then
+  mal "mod_sin_claude: saltó en silencio, sin [SKIP-GRITA] en stderr"
+else
+  ok "mod_sin_claude_se_salta_en_voz_alta ⇒ exit 0 y [SKIP-GRITA] por stderr"
+fi
+
 [ "$fallos" -eq 0 ] || { echo "test-release-publish: hay fallos" >&2; exit 1; }
-echo "test-release-publish: OK — los seis casos"
+echo "test-release-publish: OK — los siete casos"
