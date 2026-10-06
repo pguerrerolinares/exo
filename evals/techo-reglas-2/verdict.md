@@ -41,7 +41,7 @@ GATE: PASA
 
 ## 3. Evidencia de los no-cumple
 
-Clasificación del **adjudicador fresco**: un subagente que solo vio la tarea, la regla, el check y los transcripts, sin plan, sin spec y sin resultados agregados. `C` = `~/.cache/exo-ablacion-k/corridas`; `:N` es la línea de `transcript.jsonl`. Los `check.log` están vacíos, solo hay `check.rc`.
+Clasificación del **adjudicador fresco**: un subagente que solo vio la tarea, la regla, el check y los transcripts, sin plan, sin spec y sin resultados agregados. `C` = `~/.cache/exo-ablacion-k/corridas`; `:N` es la línea de `transcript.jsonl`. Los `check.log` de `arp` están vacíos: solo hay `check.rc`. Rastro del adjudicador (brief y salida): `adjudicacion.md`.
 
 - **g0-122, incumplimiento del agente** (confianza media; en el límite con regla mal escrita).
   - Lanza `game_headless.py … --rounds 100` sin `BOT_RNG_SEED` en las dos réplicas (`C/g0-122/arp-r1:23`, `arp-r2:19`).
@@ -85,7 +85,8 @@ El gate pasa y así queda. Estos matices no lo reabren, pero condicionan qué ha
    - Aun así hay que decirlo: el resultado no sobrevive sin ese arreglo del instrumento.
 4. **g1-131 cumple por una réplica.** r1 da rc=2: sin edges alucinados pero incompleto (`gold/s1/g1-131/check.sh:76`). r2 da rc=0. Por el criterio pre-registrado (≥1/2) cuenta como cumple.
 5. **Regresión en g1-140.** Cumplía en el v1 y falla 2/2 en el v2. El agente cita la regla y aun así decide cargar Cookiebot donde no toca. La autoridad no blinda las reglas con varias cláusulas: la cumple a medias.
-6. **Potencia.** Con n=10 y k=2, el gate tiene P(PASA | regla inerte) ≤ 0,12. Un PASA con margen de 6 queda lejos del azar.
+6. **Auditabilidad del canal.** Que `a0` recibió solo `claude-md.md` está garantizado por construcción: `correr.sh` solo reasigna el append en `arp`. Las corridas reales no registran el fichero pasado. Los 32 `sysprompt.md` de `arp` coinciden byte a byte con lo sellado. Llevan dos líneas en blanco antes del framing, porque `claude-md.md` ya termina en `\n\n`; es idéntico en las 32, así que no tiene efecto.
+7. **Potencia.** Con n=10 y k=2, el gate tiene P(PASA | regla inerte) ≤ 0,12. Un PASA con margen de 6 queda lejos del azar.
 
 ## 6. Consecuencia (fijada por la spec)
 
