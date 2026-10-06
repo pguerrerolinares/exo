@@ -22,6 +22,7 @@ placeholders entre corchetes.
 | Decisión, patrón u opinión sobre el propio dueño | `[nota de perfil del dueño]` | edita — nunca nota nueva |
 | Proyecto o tema nuevo | nota nueva en su directorio de proyectos | crea |
 | Research standalone | nota nueva en su directorio de research | crea |
+| Regla **mecánica** de un solo repo | además, `## Reglas duras` de su nota-puerta | una línea `- `, ≤10 por nota |
 | Decisión que merece nota canónica propia | nota nueva | crea — es la excepción, no la regla |
 
 ## Frontmatter

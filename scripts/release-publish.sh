@@ -19,7 +19,11 @@
 #     hashes son justo lo que install.sh verifica.
 #
 # Seams de test (scripts/test-release-publish.sh los usa con un `gh` falso):
-#   GH_BIN (default gh) · DIST (default dist) · FORCE (1 = reemplazar).
+#   GH_BIN (default gh) · DIST (default dist) · FORCE (1 = reemplazar) ·
+#   MOD_TEST (default plugins/exo/scripts/test-reglas-mod.sh).
+#
+# Antes de publicar se valida el mod de reglas con EXO_REQUIRE_CLAUDE=1: CI no
+# tiene `claude`, y sin esto una release podría salir con el mod sin validar.
 set -euo pipefail
 cd "$(dirname "$0")/.." || exit 1
 
@@ -29,6 +33,10 @@ GH_BIN="${GH_BIN:-gh}"
 DIST="${DIST:-dist}"
 REPO="${GITHUB_REPOSITORY:-}"
 [ -n "$REPO" ] || { echo "release-publish: falta GITHUB_REPOSITORY" >&2; exit 1; }
+
+MOD_TEST="${MOD_TEST:-plugins/exo/scripts/test-reglas-mod.sh}"
+EXO_REQUIRE_CLAUDE=1 "$MOD_TEST" || {
+  echo "release-publish: el mod de reglas no está validado: no se publica" >&2; exit 1; }
 
 # `find` y no un glob: un `"$DIST"/*` que no casa con nada se le pasaría a gh
 # como el literal `dist/*`, y la release saldría a cero binarios con el job en
