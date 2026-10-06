@@ -267,3 +267,20 @@ fn texto_sin_json() {
         .unwrap();
     assert_eq!(String::from_utf8_lossy(&o.stdout), "ok foo: 1 reglas\n");
 }
+
+#[test]
+fn git_que_no_arranca_es_error_del_engine_no_sin_git() {
+    let m = Mundo::nuevo();
+    let vacio = m.dir.path().join("path-vacio");
+    std::fs::create_dir_all(&vacio).unwrap();
+    let o = Command::new(bin())
+        .args(["rules", "--json", "--kb"])
+        .arg(m.kb())
+        .arg("--cwd")
+        .arg(m.dir.path())
+        .env("PATH", &vacio)
+        .output()
+        .unwrap();
+    assert!(!o.status.success(), "git ausente debe ser exit != 0");
+    assert!(!String::from_utf8_lossy(&o.stdout).contains("sin_git"));
+}
