@@ -16,7 +16,7 @@ Sonda del 2026-10-06 en Linux, `claude` 2.1.291. Evidencia en el scratchpad de l
 - Un plugin con un solo `hooks/hooks.json` puede llevar `"modules": ["./register.ts"]` y hooks de comando a la vez. Los dos funcionan.
 - **`prompt.compose` no llega a los subagentes.** Tampoco llega el `additionalContext` de SessionStart. El evento `e` de compose (`model, promptModel, tools, outputStyle, traits, surfaces`) no distingue padre de subagente.
 - Dentro del mod funcionan `$.session.cwd()`, `$.session.id()`, `$.fs.read/write/exists` y `$.process.run(argv)` (sin shell, timeout por defecto de 30 s). `exo` está en el PATH.
-- compose se ejecuta **una vez por proceso**, no en cada turno. `--resume` lo vuelve a ejecutar. No se ha probado en sesiones interactivas largas, con `/compact` ni con cambio de modelo.
+- compose se ejecuta **en cada prompt** en una sesión interactiva (`hb-<sid>` se reescribe al empezar cada turno) y una vez en `-p`. `--resume` lo vuelve a ejecutar. No se ha probado con `/compact` ni con cambio de modelo.
 - Un `register.ts` roto da exit 0 en silencio, y los hooks de comando del plugin siguen funcionando. `claude plugin validate` detecta el error de parseo.
 - El SessionStart de comando corre **antes** que el `session.start` del mod (25–240 ms de diferencia).
 - `git rev-parse --git-common-dir` devuelve una ruta **relativa** desde subdirectorios (`../../.git`). Con `--path-format=absolute` (git ≥2.31) devuelve la ruta absoluta.
@@ -62,7 +62,7 @@ Tiene que haber exactamente 1 candidata; si no, es skip. Las subcarpetas de fami
 - Cada línea que empieza por `- ` es una regla, literal y con `\r` recortado.
 - Las demás líneas no vacías se devuelven en `ignored_lines`; nunca se descartan en silencio.
 - La raíz de la KB sale de la config del engine (`cfg.kb`, la misma que usa `exo config`). Sin config, `error_engine`.
-- La KB se lee directamente de los `.md`, no del índice. La frescura es **por proceso**: una regla escrita a mitad de sesión entra en la siguiente.
+- La KB se lee directamente de los `.md`, no del índice. La frescura es **por prompt**: una regla escrita a mitad de sesión entra en el siguiente prompt.
 
 **Contrato:** el envelope del engine (`envelope::emite("rules", …)`):
 
@@ -113,10 +113,11 @@ Todo skip y toda anomalía van a reflex-log (`project-rules-skip reason=…`). L
 | `sin_git`, `sin_nota`, `sin_seccion` | `exo-recall.sh` | no, solo log **[enmienda]** |
 | `ambigua`, `seccion_vacia`, `excede_cap`, `error_engine`, `engine_stale` | `exo-recall.sh` | sí, `systemMessage` de una línea |
 | no hay latido (el mod no cargó o compose no corrió) | Stop | sí, una vez por sesión |
-| el latido no coincide con `ss-<sid>` (`status` o `n` distintos) | Stop | sí, una vez por sesión |
+| el latido no coincide con `ss-<sid>` y el engine (`exo rules --cwd <cwd del Stop>`) no coincide con el latido; o latido corrupto/vacío; o `hb.status=error` con `ss` ok | Stop | sí, una vez por sesión |
 
 - **[enmienda]** El contorno pedía una línea visible para cualquier skip. Con 0 secciones en la KB, eso sería ruido en cada arranque, y acostumbra a ignorar justo las anomalías.
 - `exo-recall.sh` solo resuelve con `source` distinto de `compact`. Guarda su resultado en `~/.claude/exo-rules/ss-<sid>` y poda las entradas de más de 7 días.
+- `ss-<sid>` es una foto de SessionStart y compose corre en cada prompt, así que una divergencia entre ambos no prueba fallo: la KB pudo cambiar. Solo en ese caso (sin error) el testigo consulta `exo rules`: si el engine coincide con el latido, calla (`reason=kb_cambio`) y reescribe `ss-<sid>`; si no, grita «el engine dice … n=N, el latido dice … n=M» (`no_entrego`); si `exo rules` falla, calla (`sin_verdad`). `hb.status=error` con `ss` skip solo se loguea (`hb_error`). Las ramas que callan por adjudicación no crean sentinel.
 - El testigo de Stop usa un sentinel propio por sesión, como `document-remind.sh`, para no gritar en cada turno.
 - **Cap de 6.144 B:** no se toca. La sección va por compose y la línea por `systemMessage`; ninguna pasa por `additionalContext`.
 
