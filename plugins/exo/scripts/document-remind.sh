@@ -39,6 +39,7 @@ if [ ! -f "$WSENT" ]; then
     else
       HB_ST="corrupto"; HB_N="?"
     fi
+    [ -z "$HB_ST" ] && { HB_ST="corrupto"; HB_N="?"; }
     if [ "$HB_ST" = "corrupto" ] || { [ "$HB_ST" = "error" ] && [ "$SS_ST" = "ok" ]; }; then
       WREASON="no_entrego"
       WITNESS_MSG="⚠ el mod de reglas de proyecto no entregó: SessionStart vio ${SS_ST} n=${SS_N}, el latido dice ${HB_ST} n=${HB_N}"

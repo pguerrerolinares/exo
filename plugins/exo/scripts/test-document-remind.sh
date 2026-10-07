@@ -197,6 +197,14 @@ if [ "$(cat "$STUB_CALLS")" = "rules --cwd /ruta/del/input --json" ]; then pass 
 else fail "cwd_del_input" "calls=$(cat "$STUB_CALLS")"; fi
 stub_reset
 
+# hb_sin_status_es_corrupto: `{}` grita y no consulta al engine
+stub_reset; : > "$STUB_CALLS"
+ss_json hs ok 1; echo '{}' > "$RULES/hb-hs"; stub "$ENV_OK1"
+run hs "$SMALL"
+if contains "$(msg)" "no entregó" && [ ! -s "$STUB_CALLS" ]; then pass "hb_sin_status_es_corrupto"
+else fail "hb_sin_status_es_corrupto" "out=$OUT calls=$(cat "$STUB_CALLS")"; fi
+stub_reset
+
 # recordatorio_intacto
 run rem "$BIG"
 if [ "$OUT" = "{\"systemMessage\":\"$REMIND\"}" ]; then pass "recordatorio_intacto"
