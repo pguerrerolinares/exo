@@ -15,23 +15,39 @@ const skipOut = JSON.stringify({
 });
 
 type Run = (argv: readonly string[], init: any) => any;
+type Opts = {
+  env?: Record<string, string>;
+  deny?: readonly string[];
+  store?: Record<string, unknown>;
+  hbExiste?: boolean;
+  claudeJson?: string | "rechaza";
+};
 
-// Monta el mundo bajo el plugin: sesión, env, process.run, fs.write y la base de compose.
-async function correr(
-  $: any,
-  on: any,
-  run: Run,
-  env: Record<string, string> = { HOME: "/h" },
-  deny: readonly string[] = [],
-) {
+// Monta el mundo bajo el plugin: sesión, env, process.run, fs, store y la base de compose/submit.
+async function mundo($: any, on: any, run: Run, o: Opts = {}) {
+  const deny = o.deny ?? [];
   const writes: Record<string, string> = {};
   const calls: { argv: readonly string[]; init: any }[] = [];
-  mock.env(on, env);
+  const store: Record<string, unknown> = { ...(o.store ?? {}) };
+  const storeSets: { key: string; value: unknown }[] = [];
+  const ctx = { sid: "sid1" };
+  mock.env(on, o.env ?? { HOME: "/h" });
   on("session.cwd", async () => (deny.includes("session.cwd") ? { deny: "cwd" } : { value: "/repo" }));
-  on("session.id", async () => (deny.includes("session.id") ? { deny: "id" } : { value: "sid1" }));
+  on("session.id", async () => (deny.includes("session.id") ? { deny: "id" } : { value: ctx.sid }));
   on("fs.write", async (_$: any, e: any) => {
     if (deny.includes("fs.write")) return { deny: "disco" };
-    writes[e.path] = e.text;
+    writes[e.path.replace(/^[A-Za-z]:/, "").replace(/\\/g, "/")] = e.text;
+    return { value: undefined };
+  });
+  on("fs.exists", async () => ({ value: !!o.hbExiste }));
+  on("fs.read", async (_$: any, e: any) => {
+    if (e.path.replace(/\\/g, "/").endsWith("/.claude.json") && o.claudeJson && o.claudeJson !== "rechaza") return { value: o.claudeJson };
+    return { deny: "no legible" };
+  });
+  on("store.get", async (_$: any, e: any) => ({ value: store[e.key] }));
+  on("store.set", async (_$: any, e: any) => {
+    store[e.key] = e.value;
+    storeSets.push({ key: e.key, value: e.value });
     return { value: undefined };
   });
   on("process.run", async (_$: any, e: any) => {
@@ -39,9 +55,23 @@ async function correr(
     return { value: await run(e.argv, e.init) };
   });
   on("prompt.compose", async () => ({ sections: BASE }));
-  const r = await $.prompt.compose({ model: "m", promptModel: "m", surfaces: [], tools: [], outputStyle: null, traits: [] });
-  return { r, writes, calls };
+  on("session.start", async (_$: any, e: any) => ({ cwd: e.cwd }));
+  on("prompt.submit", async (_$: any, e: any) => ({ text: e.text, context: e.context ?? [] }));
+  const compose = () =>
+    $.prompt.compose({ model: "m", promptModel: "m", surfaces: [], tools: [], outputStyle: null, traits: [] });
+  const submit = (text = "hola") => $.prompt.submit({ text });
+  const start = () => $.session.start({ cwd: "/repo", surface: null, isInteractive: true });
+  return { ctx, writes, calls, store, storeSets, compose, submit, start };
 }
+
+async function correr($: any, on: any, run: Run, env: Record<string, string> = { HOME: "/h" }, deny: readonly string[] = []) {
+  const w = await mundo($, on, run, { env, deny });
+  const r = await w.compose();
+  return { r, writes: w.writes, calls: w.calls };
+}
+
+const HB = "/h/.claude/exo-rules/hb-sid1";
+const REGLAS = FRAMING_HEAD + "- r1\n- r2";
 
 const out = (stdout: string, exitCode = 0) => ({ exitCode, stdout, stderr: "" });
 
@@ -59,12 +89,12 @@ test("ok_anade_seccion", async ($, on) => {
 test("skip_no_anade", async ($, on) => {
   const { r, writes } = await correr($, on, () => out(skipOut));
   expect(r.sections).toEqual(BASE);
-  expect(JSON.parse(writes["/h/.claude/exo-rules/hb-sid1"])).toEqual({ status: "skip", reason: "sin_seccion", n: 0 });
+  expect(JSON.parse(writes["/h/.claude/exo-rules/hb-sid1"])).toEqual({ status: "skip", reason: "sin_seccion", n: 0, via: "compose" });
 });
 
 test("latido_ok", async ($, on) => {
   const { writes } = await correr($, on, () => out(okOut));
-  expect(JSON.parse(writes["/h/.claude/exo-rules/hb-sid1"])).toEqual({ status: "ok", n: 2 });
+  expect(JSON.parse(writes["/h/.claude/exo-rules/hb-sid1"])).toEqual({ status: "ok", n: 2, via: "compose" });
 });
 
 test("error_exit_no_cero", async ($, on) => {
@@ -136,4 +166,132 @@ test("fallback_agotado", async ($, on) => {
 test("home_userprofile", async ($, on) => {
   const { writes } = await correr($, on, () => out(okOut), { USERPROFILE: "/u" });
   expect(Object.keys(writes)).toEqual(["/u/.claude/exo-rules/hb-sid1"]);
+});
+
+const ultimo = (r: any) => r.context[r.context.length - 1];
+
+test("submit_entrega_sin_compose", async ($, on) => {
+  const w = await mundo($, on, () => out(okOut));
+  const r = await w.submit();
+  expect(ultimo(r)).toBe(REGLAS);
+  expect(JSON.parse(w.writes[HB])).toEqual({ status: "ok", n: 2, via: "submit" });
+  expect(w.calls.length).toBe(1);
+});
+
+test("submit_calla_si_compose_vivo", async ($, on) => {
+  const w = await mundo($, on, () => out(okOut));
+  await w.compose();
+  const antes = w.calls.length;
+  const r = await w.submit();
+  expect(r.context).toEqual([]);
+  expect(w.calls.length).toBe(antes);
+});
+
+test("turno1_store_compose_no_entrega", async ($, on) => {
+  const w = await mundo($, on, () => out(okOut), { store: { compose: true } });
+  const r = await w.submit();
+  expect(r.context).toEqual([]);
+  expect(w.calls.length).toBe(0);
+  expect(JSON.parse(w.writes[HB]).via).toBe("none");
+});
+
+test("turno2_sin_compose_entrega_aunque_store", async ($, on) => {
+  const w = await mundo($, on, () => out(okOut), { store: { compose: true } });
+  await w.submit();
+  const r2 = await w.submit();
+  expect(ultimo(r2)).toBe(REGLAS);
+  expect(w.store.compose).toBe(false);
+});
+
+test("turnos_por_sid", async ($, on) => {
+  const w = await mundo($, on, () => out(okOut), { store: { compose: true } });
+  await w.submit();
+  w.ctx.sid = "sidB";
+  const r = await w.submit();
+  expect(r.context).toEqual([]);
+  expect(w.calls.length).toBe(0);
+});
+
+test("session_start_marca_via_none", async ($, on) => {
+  const w = await mundo($, on, () => out(okOut));
+  await w.start();
+  expect(JSON.parse(w.writes[HB])).toEqual({ status: "error", n: 0, via: "none", error: "sin entrega" });
+  await w.compose();
+  expect(JSON.parse(w.writes[HB]).via).toBe("compose");
+});
+
+test("session_start_no_pisa_hb", async ($, on) => {
+  const w = await mundo($, on, () => out(okOut), { hbExiste: true });
+  await w.start();
+  expect(Object.keys(w.writes)).toEqual([]);
+});
+
+test("submit_sin_hb_siembra_none", async ($, on) => {
+  const w = await mundo($, on, () => out(okOut), { store: { compose: true } });
+  await w.submit();
+  expect(JSON.parse(w.writes[HB])).toEqual({ status: "error", n: 0, via: "none", error: "sin entrega" });
+});
+
+test("forzar_entrega_submit", async ($, on) => {
+  const w = await mundo($, on, () => out(okOut), { env: { HOME: "/h", EXO_RULES_FORZAR_SUBMIT: "1" }, store: { compose: true } });
+  const r = await w.submit();
+  expect(ultimo(r)).toBe(REGLAS);
+  expect(w.storeSets).toEqual([]);
+});
+
+test("forzar_compose_inerte", async ($, on) => {
+  const w = await mundo($, on, () => out(okOut), { env: { HOME: "/h", EXO_RULES_FORZAR_SUBMIT: "1" } });
+  const r = await w.compose();
+  expect(r.sections).toEqual(BASE);
+  expect(Object.keys(w.writes)).toEqual([]);
+  expect(w.calls.length).toBe(0);
+  const s = await w.submit();
+  expect(ultimo(s)).toBe(REGLAS);
+});
+
+test("submit_skip_no_adjunta", async ($, on) => {
+  const w = await mundo($, on, () => out(skipOut));
+  const r = await w.submit();
+  expect(r.context).toEqual([]);
+  expect(JSON.parse(w.writes[HB])).toEqual({ status: "skip", reason: "sin_seccion", n: 0, via: "submit" });
+});
+
+test("submit_nunca_lanza", async ($, on) => {
+  const w = await mundo($, on, () => out("no soy json"));
+  const r = await w.submit("texto");
+  expect(r.text).toBe("texto");
+  expect(r.context).toEqual([]);
+  const hb = JSON.parse(w.writes[HB]);
+  expect(hb.status).toBe("error");
+  expect(hb.via).toBe("submit");
+});
+
+test("submit_process_run_lanza", async ($, on) => {
+  const w = await mundo($, on, () => {
+    throw new Error("ENOENT");
+  });
+  const r = await w.submit("texto");
+  expect(r.text).toBe("texto");
+  expect(r.context).toEqual([]);
+  expect(JSON.parse(w.writes[HB]).via).toBe("submit");
+});
+
+test("submit_fs_write_denegado_entrega", async ($, on) => {
+  const w = await mundo($, on, () => out(okOut), { deny: ["fs.write"] });
+  const r = await w.submit();
+  expect(ultimo(r)).toBe(REGLAS);
+});
+
+test("org_pista_en_hb", async ($, on) => {
+  const w = await mundo($, on, () => out(okOut), { claudeJson: '{"oauthAccount":{"organizationType":"claude_team"}}' });
+  await w.submit();
+  expect(JSON.parse(w.writes[HB]).org).toBe("claude_team");
+});
+
+test("org_rechaza_sin_error", async ($, on) => {
+  const w2 = await mundo($, on, () => out(okOut), { claudeJson: "rechaza" });
+  await w2.submit();
+  const hb = JSON.parse(w2.writes[HB]);
+  expect(hb.org).toBe(undefined);
+  expect(hb.status).toBe("ok");
 });
