@@ -1,5 +1,8 @@
 # Backlog de exo — deuda abierta
 
+> **Congelado el 2026-10-07.** La cola vive en GitHub Issues (https://github.com/pguerrerolinares/exo/issues); este fichero es histórico de cierres y no se edita. Los abiertos que quedaban apuntan a su issue. Saneado pendiente: #67.
+
+
 > Nota viva: deuda técnica y documental de exo con su siguiente paso accionable.
 > **No duplica el plan de cierre** (`plans/2026-08-17-cierre-exo-m2-a-m5b.md`), que
 > fija QUÉ campañas quedan y en qué orden. Esto es lo que está suelto: hallazgos
@@ -1925,7 +1928,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
 
 ## Baja
 
-- [ ] **(NUEVO, 2026-09-22, cola de H28, baja) Prosa desfasada que sigue
+- [ ] → #63 · **(NUEVO, 2026-09-22, cola de H28, baja) Prosa desfasada que sigue
   llamando «coseno» a la escala propia de `similitud_desde_l2`.** Restos
   documentales que el fix de H28 (`28dbb2f`+`d027d23`) no tocó: comentarios
   de `engine/tests/buscador.rs:216-217` («por encima del máximo teórico de
@@ -2135,7 +2138,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   español (26 módulos de `engine/src/`), claves JSON y flags en inglés. Cero
   rename de código — decisión #5 del paquete de Paul del 2026-09-15.
 
-- [ ] **(revisión 2026-09-04 · re-medido y ACOTADO el 2026-09-09) El relato
+- [ ] → #66 · **(revisión 2026-09-04 · re-medido y ACOTADO el 2026-09-09) El relato
   de campaña en los comentarios se concentra en `main.rs` y `buscador.rs`, y
   referencia briefs que no están en el repo.** Medido el 2026-09-04: **1.370**
   de las 5.224 líneas de `engine/src/*.rs` eran comentario (26 %); `main.rs`
@@ -2346,7 +2349,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   **No mergeado todavía.** Residuo nuevo, ítem aparte: `avisos_cobertura_vector`
   cuenta `trozos` sin `tabla_existe` (`buscador.rs:106`).
 
-- [ ] **(NUEVO, 2026-10-05, residuo de la campaña O, baja) `avisos_cobertura_vector`
+- [ ] → #64 · **(NUEVO, 2026-10-05, residuo de la campaña O, baja) `avisos_cobertura_vector`
   cuenta `trozos` sin comprobar que la tabla exista.** `engine/src/buscador.rs:106`
   hace `SELECT count(*) FROM trozos` directamente: contra una DB sin `trozos` ni
   `vectores` revienta con `no such table`, la misma clase de fallo que cerró
@@ -2355,7 +2358,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   **Acción:** aplicar el patrón `tabla_existe` + degradación con aviso que ya usa
   el mismo fichero para `vectores`, con un test que reproduzca el error.
 
-- [ ] **(NUEVO, 2026-10-05, residuo de la campaña O, baja) El comentario de
+- [ ] → #53 · **(NUEVO, 2026-10-05, residuo de la campaña O, baja) El comentario de
   `_timeout.sh` presume un Git Bash sin coreutils que no se ha verificado en W11.**
   `plugins/exo/scripts/_timeout.sh:4-5` (en `o-deuda`, `cbdd221`) dice «Git Bash
   sin coreutils» como motivo del fallback a perl; nadie ha comprobado si el Git
@@ -2365,7 +2368,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   **Acción:** una línea en W11 (`command -v timeout`) y ajustar el comentario o
   quitar el fallback. Va con la prueba en W11 de Q.
 
-- [ ] **(NUEVO, 2026-10-05, campaña P) El gate de la pasada de `upstream-sync` no
+- [ ] → #59 · **(NUEVO, 2026-10-05, campaña P) El gate de la pasada de `upstream-sync` no
   mide los «no aplica» falsos.** La pasada 1 puntuada
   (`scripts/upstream-score.sh ~/.exo/upstream-sync/verdad-v6.1.1-v6.4.2.md
   docs/upstream/ledger.md`) dio `aciertos 30/37 (81%)`, `ya-cubierto-falsos 0`,
@@ -2382,7 +2385,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   **declarado antes de puntuar**, con verdad nueva: v6.1.1..v6.4.2 ya está
   vista y no sirve como held-out. Una pasada puntuable que nadie puntúa no es
   un gate (lección 1 de la ola 3, `config.md`).
-- [ ] **(NUEVO, 2026-10-05, hallazgo del gate de N, baja) SIGPIPE en
+- [ ] → #65 · **(NUEVO, 2026-10-05, hallazgo del gate de N, baja) SIGPIPE en
   `scripts/_bash-versionado.sh:22` omite scripts en `test-shellcheck.sh` y
   `test-rutas-personales.sh`.** `git cat-file -p "$blob" | head -n 1 | grep -Eq …`
   bajo `set -o pipefail` (los dos gates lo activan): con ficheros grandes como
