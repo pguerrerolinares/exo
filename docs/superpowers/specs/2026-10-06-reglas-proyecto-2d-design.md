@@ -22,6 +22,14 @@ Sonda del 2026-10-06 en Linux, `claude` 2.1.291. Evidencia en el scratchpad de l
 - `git rev-parse --git-common-dir` devuelve una ruta **relativa** desde subdirectorios (`../../.git`). Con `--path-format=absolute` (git ≥2.31) devuelve la ruta absoluta.
 - Hoy **0** notas de `projects/` tienen `## Reglas duras`.
 - **Por qué mod y no append:** `--append-system-prompt-file` es un flag de arranque. Un hook no puede añadirlo, así que en sesiones reales "append" significaría un wrapper de shell que desktop e IDE se saltan en silencio. El mod viaja con el plugin y cubre todas las superficies.
+- **Política de org `cc-plugin-sec-default` (medido en W11, cuenta Team, 2026-10-07).** Los mods de plugins de usuario no corren todos sus eventos:
+
+  | evento del mod | bajo la política |
+  |---|---|
+  | `session.start`, `prompt.submit`, `$.session.append` | corren |
+  | `prompt.compose`, `prompt.context`, `classic.*` | bypassed |
+
+  Por eso la entrega tiene un canal degradado: `prompt.submit` entrega `FRAMING`+reglas como `context` cuando compose no está vivo (`hb.via=submit`). El e2e (`scripts/e2e-reglas-proyecto.sh`) cubre positivo, forzado (`EXO_RULES_FORZAR_SUBMIT=1`, compose inerte), `--resume` con codeword cambiado (re-entrega) y control; en esta máquina salen todos con `via=submit`. Cuenta personal (compose vivo): no verificado.
 - W11 no se sondea. Que Anthropic publique mods que no carguen en su app de escritorio de Windows no es plausible. Los fallos posibles en W11 son de **nuestro** código, y se mitigan abajo; el testigo de Stop caza el resto.
 
 ## Arquitectura
@@ -112,7 +120,8 @@ Todo skip y toda anomalía van a reflex-log (`project-rules-skip reason=…`). L
 |---|---|---|
 | `sin_git`, `sin_nota`, `sin_seccion` | `exo-recall.sh` | no, solo log **[enmienda]** |
 | `ambigua`, `seccion_vacia`, `excede_cap`, `error_engine`, `engine_stale` | `exo-recall.sh` | sí, `systemMessage` de una línea |
-| no hay latido (el mod no cargó o compose no corrió) | Stop | sí, una vez por sesión |
+| no hay latido, o es el sembrado `via=none` (`sin_canal`: ningún canal corrió) | Stop | sí, una vez por sesión |
+| latido ok con `via=submit` y compose no vivo (`entrega_degradada`) | Stop | sí, aviso diario `ℹ`; **pendiente**: el prefijo `ℹ` presupone que el canal degradado es útil; el eval `ars` (T3, brazo construido, sin lanzar, sin `verdict-ars.md`) decide si pasa a `⚠` o a solo log |
 | el latido no coincide con `ss-<sid>` y el engine (`exo rules --cwd <cwd del Stop>`) no coincide con el latido; o latido corrupto/vacío; o `hb.status=error` con `ss` ok | Stop | sí, una vez por sesión |
 
 - **[enmienda]** El contorno pedía una línea visible para cualquier skip. Con 0 secciones en la KB, eso sería ruido en cada arranque, y acostumbra a ignorar justo las anomalías.
@@ -149,4 +158,6 @@ Se añade una frase en `plugins/exo/skills/document/routing.md`: una regla **mec
 - Entrega a subagentes y a los executors de orchestrate: lo decide el canario `k-subagente`.
 - Reporte visible de los conflictos regla-prompt (verdict §6, g2-97).
 - `repo_alias`, submódulos y `GIT_DIR`.
+- Auto-compact a mitad de turno: el contexto entregado por `prompt.submit` puede perderse hasta el siguiente prompt (v2).
+- Re-entrega vía `$.session.append`/`session.compact`: sin medir.
 - La migración de los reflejos bash a mods (frente «Mods de Claude Code»). La 2d solo introduce el primer módulo.
