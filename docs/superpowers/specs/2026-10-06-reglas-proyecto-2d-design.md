@@ -29,7 +29,7 @@ Sonda del 2026-10-06 en Linux, `claude` 2.1.291. Evidencia en el scratchpad de l
   | `session.start`, `prompt.submit`, `$.session.append` | corren |
   | `prompt.compose`, `prompt.context`, `classic.*` | bypassed |
 
-  Por eso la entrega tiene un canal degradado: `prompt.submit` entrega `FRAMING`+reglas como `context` cuando compose no está vivo (`hb.via=submit`). El e2e (`scripts/e2e-reglas-proyecto.sh`) cubre positivo, forzado (`EXO_RULES_FORZAR_SUBMIT=1`, compose inerte), `--resume` con codeword cambiado (re-entrega) y control; en esta máquina salen todos con `via=submit`. Cuenta personal (compose vivo): no verificado.
+  Por eso la entrega tiene un canal degradado: `prompt.submit` entrega `FRAMING`+reglas como `context` cuando compose no está vivo (`hb.via=submit`). El e2e (`scripts/e2e-reglas-proyecto.sh`) cubre positivo, forzado (`EXO_RULES_FORZAR_SUBMIT=1`, compose inerte), `--resume` con codeword cambiado (re-entrega) y control; en esta máquina salen todos con `via=submit`. Cuenta personal (compose vivo): no verificado. Límite del e2e: bajo la política `forzado` no discrimina el seam `EXO_RULES_FORZAR_SUBMIT` (compose ya está bypassed y `positivo` da `via=submit`; el e2e lo imprime como `[INFO]`); solo en cuenta personal `via=compose` delataría que FORZAR no llegó al mod.
 - W11 no se sondea. Que Anthropic publique mods que no carguen en su app de escritorio de Windows no es plausible. Los fallos posibles en W11 son de **nuestro** código, y se mitigan abajo; el testigo de Stop caza el resto.
 
 ## Arquitectura
@@ -120,8 +120,9 @@ Todo skip y toda anomalía van a reflex-log (`project-rules-skip reason=…`). L
 |---|---|---|
 | `sin_git`, `sin_nota`, `sin_seccion` | `exo-recall.sh` | no, solo log **[enmienda]** |
 | `ambigua`, `seccion_vacia`, `excede_cap`, `error_engine`, `engine_stale` | `exo-recall.sh` | sí, `systemMessage` de una línea |
-| no hay latido, o es el sembrado `via=none` (`sin_canal`: ningún canal corrió) | Stop | sí, una vez por sesión |
-| latido ok con `via=submit` y compose no vivo (`entrega_degradada`) | Stop | sí, aviso diario `ℹ`; **pendiente**: el prefijo `ℹ` presupone que el canal degradado es útil; el eval `ars` (T3, brazo construido, sin lanzar, sin `verdict-ars.md`) decide si pasa a `⚠` o a solo log |
+| no hay latido (`sin_latido`: el mod no cargó o ningún evento corrió) | Stop | sí, una vez por sesión; copy en `document-remind.sh` |
+| latido sembrado `via=none` (`sin_canal`: el mod cargó pero ningún canal entregó) | Stop | sí, una vez por sesión; copy en `document-remind.sh` |
+| latido ok con `via=submit` y compose no vivo (`entrega_degradada`) | Stop | sí, aviso diario (copy y `DEGRADADO_PREFIJO` en `document-remind.sh`, hoy `ℹ`); **pendiente**: el prefijo `ℹ` presupone que el canal degradado es útil; el eval `ars` (T3, brazo construido, sin lanzar, sin `verdict-ars.md`) decide si pasa a `⚠` o a solo log |
 | el latido no coincide con `ss-<sid>` y el engine (`exo rules --cwd <cwd del Stop>`) no coincide con el latido; o latido corrupto/vacío; o `hb.status=error` con `ss` ok | Stop | sí, una vez por sesión |
 
 - **[enmienda]** El contorno pedía una línea visible para cualquier skip. Con 0 secciones en la KB, eso sería ruido en cada arranque, y acostumbra a ignorar justo las anomalías.

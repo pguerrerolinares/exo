@@ -6,9 +6,13 @@
 # Positivo: nota con `## Reglas duras` -> responde el codeword, hb-<sid> dice ok n=1
 # y SessionStart dejó ss-<sid> con ok n=1.
 # Positivo acepta via compose|submit (se imprime cuál; bajo la política de org
-# Team compose se salta y debe salir submit). Forzado: EXO_RULES_FORZAR_SUBMIT=1
-# vuelve inerte a compose y exige via=submit. Resume: --resume del forzado debe
-# re-entregar un codeword cambiado tras borrar el latido. Control: la misma nota sin la sección -> sin codeword y hb-<sid> dice skip por
+# Team compose se salta y debe salir submit).
+# Forzado: EXO_RULES_FORZAR_SUBMIT=1 vuelve inerte a compose y exige via=submit.
+# Solo discrimina el seam en cuenta personal (compose vivo); bajo política imprime
+# un [INFO] explícito.
+# Resume: --resume del forzado debe re-entregar un codeword cambiado tras borrar
+# el latido.
+# Control: la misma nota sin la sección -> sin codeword y hb-<sid> dice skip por
 # reason=sin_seccion (no por cualquier otro skip).
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
@@ -59,10 +63,13 @@ evaluar() {
       any) { [ "$via" = compose ] || [ "$via" = submit ]; } && viaok=1 ;;
       submit) [ "$via" = submit ] && viaok=1 ;;
     esac
-    # ss-<sid> es del SessionStart; --resume crea sesión nueva con su propio ss
-    [ "$(jq -r '"\(.status) n=\(.n)"' <<<"$ss" 2>/dev/null)" = "ok n=1" ] || ssok=0
+    # --resume conserva el session_id: su ss-<sid> es el del arranque original, no prueba nada
+    if [ "$nombre" != resume ]; then
+      [ "$(jq -r '"\(.status) n=\(.n)"' <<<"$ss" 2>/dev/null)" = "ok n=1" ] || ssok=0
+    fi
     if grep -q "${CW:-$CODEWORD}" <<<"$res" && [ "$hbok" = "ok n=1" ] && [ "$viaok" = 1 ] && [ "$ssok" = 1 ]; then
-      echo "[PASS] $nombre: codeword en la respuesta, latido ok n=1 via=$via, ss ok n=1"
+      echo "[PASS] $nombre: codeword en la respuesta, latido ok n=1 via=$via"
+      LASTVIA="$via"
     else echo "[FAIL] $nombre (esperaba via=$viaesp)"; fallos=1; fi
   else
     if ! grep -q "$CODEWORD" <<<"$res" \
@@ -94,7 +101,11 @@ t0=$(date +%s%N)
 echo "[info] exo rules tiempo_ms=$(( ($(date +%s%N) - t0) / 1000000 ))"
 
 caso positivo 1 any
+VIA_POSITIVO="${LASTVIA:-?}"
 caso forzado 1 submit 1
+if [ "$VIA_POSITIVO" = submit ]; then
+  echo "[INFO] forzado: no discrimina el seam bajo política de org (positivo ya via=submit); solo prueba en cuenta personal"
+fi
 if [ -n "${SID:-}" ]; then
   # Codeword nuevo en la KB: el historial del forzado solo tiene el viejo, así que
   # acertarlo prueba re-entrega y no memoria de la conversación.
