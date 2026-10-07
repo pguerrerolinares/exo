@@ -18,11 +18,32 @@ pass() { printf '[PASS] %s\n' "$1"; PASS=$((PASS+1)); }
 fail() { printf '[FAIL] %s — %s\n' "$1" "$2"; FAIL=$((FAIL+1)); }
 contains() { case "$1" in *"$2"*) return 0 ;; *) return 1 ;; esac; }
 
+# Stub de `exo rules`: registra llamadas y devuelve STUB_OUT con exit STUB_RC.
+# Por defecto falla (sin_verdad): ningún test toca el engine real.
+STUB="$TMP/exo-stub"
+STUB_CALLS="$TMP/stub-calls"
+cat > "$STUB" <<'STUBEOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$STUB_CALLS"
+[ -n "${STUB_ERR:-}" ] && printf '%s' "$STUB_ERR" >&2
+printf '%s' "${STUB_OUT:-}"
+exit "${STUB_RC:-1}"
+STUBEOF
+chmod +x "$STUB"
+export EXO_BIN="$STUB" STUB_CALLS
+stub() {  # $1 = envelope JSON, $2 = rc (default 0)
+  export STUB_OUT="$1" STUB_RC="${2:-0}"
+}
+stub_reset() { unset STUB_OUT STUB_ERR; export STUB_RC=1; : > "$STUB_CALLS"; }
+ENV_OK1='{"data":{"status":"ok","repo":"exo","rules":["r1"]}}'
+ENV_SKIP='{"data":{"status":"skip","reason":"sin_seccion","repo":"exo","rules":[]}}'
+stub_reset
+
 SMALL="$TMP/small.jsonl"; seq 1 10 > "$SMALL"
 BIG="$TMP/big.jsonl"; seq 1 80 > "$BIG"
 
-run() {  # $1 = sid, $2 = transcript
-  OUT="$(printf '{"session_id":"%s","transcript_path":"%s"}' "$1" "$2" | "$HOOK" 2>/dev/null)"
+run() {  # $1 = sid, $2 = transcript, $3 = cwd (opcional)
+  OUT="$(printf '{"session_id":"%s","transcript_path":"%s","cwd":"%s"}' "$1" "$2" "${3:-$TMP}" | "$HOOK" 2>/dev/null)"
 }
 msg() { printf '%s' "$OUT" | jq -r '.systemMessage // empty' 2>/dev/null; }
 witness_reasons() { jq -r 'select(.reflex=="project-rules-witness") | .payload' "$REFLEX_LOG_FILE" 2>/dev/null; }
@@ -56,9 +77,11 @@ else fail "no_entrego: copy exacto" "out=$OUT"; fi
 # n_distinto
 echo '{"status":"ok","n":3,"repo":"exo"}' > "$RULES/ss-c"
 echo '{"status":"ok","n":2}' > "$RULES/hb-c"
+stub '{"data":{"status":"ok","rules":["a","b","c"]}}'
 run c "$SMALL"
-if contains "$(msg)" "no entregó" && contains "$(msg)" "el latido dice ok n=2"; then pass "n_distinto: grita no entregó"
-else fail "n_distinto: grita no entregó" "out=$OUT"; fi
+stub_reset
+if contains "$(msg)" "no entregó" && contains "$(msg)" "el engine dice ok n=3, el latido dice ok n=2"; then pass "n_distinto: engine adjudica, grita no entregó"
+else fail "n_distinto: engine adjudica, grita no entregó" "out=$OUT"; fi
 
 # hb corrupto
 echo '{"status":"ok","n":3,"repo":"exo"}' > "$RULES/ss-d"
@@ -70,9 +93,11 @@ else fail "hb corrupto: cuenta como no entregó" "out=$OUT"; fi
 # ss skip con hb ok: no entregó
 echo '{"status":"skip","reason":"sin_nota","n":0,"repo":"exo"}' > "$RULES/ss-e"
 echo '{"status":"ok","n":2}' > "$RULES/hb-e"
+stub '{"data":{"status":"ok","rules":["a"]}}'
 run e "$SMALL"
-if contains "$(msg)" "no entregó" && contains "$(msg)" "SessionStart vio skip n=0, el latido dice ok n=2"; then pass "ss skip + hb ok: grita no entregó"
-else fail "ss skip + hb ok: grita no entregó" "out=$OUT"; fi
+stub_reset
+if contains "$(msg)" "no entregó" && contains "$(msg)" "el engine dice ok n=1, el latido dice ok n=2"; then pass "ss skip + hb ok n distinto de la verdad: grita no entregó"
+else fail "ss skip + hb ok n distinto de la verdad: grita no entregó" "out=$OUT"; fi
 
 # coherente_calla
 echo '{"status":"ok","n":3,"repo":"exo"}' > "$RULES/ss-f"; echo '{"status":"ok","n":3}' > "$RULES/hb-f"
@@ -110,6 +135,75 @@ echo '{"status":"ok","n":1,"repo":"exo"}' > "$RULES/ss-u"
 run u "$SMALL"
 if [ "$(msg)" = "$NOCARGO" ]; then pass "testigo_antes_de_umbral: 10 líneas gritan"
 else fail "testigo_antes_de_umbral: 10 líneas gritan" "out=$OUT"; fi
+
+# --- fila 5: divergencia sin error, adjudica `exo rules` ---
+ss_json() { printf '{"status":"%s","n":%s,"repo":"exo"}' "$2" "$3" > "$RULES/ss-$1"; }
+hb_json() { printf '{"status":"%s","n":%s}' "$2" "$3" > "$RULES/hb-$1"; }
+
+# kb_cambio_calla_y_refresca_ss (la regresión real: regla añadida a mitad de sesión)
+: > "$REFLEX_LOG_FILE"; stub_reset
+ss_json kc skip 0; hb_json kc ok 1; stub "$ENV_OK1"
+run kc "$SMALL"
+if [ -z "$OUT" ] && contains "$(witness_reasons)" "reason=kb_cambio" \
+   && [ "$(jq -r '[.status,.n]|@tsv' "$RULES/ss-kc")" = "$(printf 'ok\t1')" ] && [ ! -f "$RULES/ss-kc.tmp" ]; then pass "kb_cambio_calla_y_refresca_ss"
+else fail "kb_cambio_calla_y_refresca_ss" "out=$OUT log=$(witness_reasons) ss=$(cat "$RULES/ss-kc")"; fi
+# sin sentinel: el siguiente Stop ya es la fila 4 y no llama al engine
+: > "$STUB_CALLS"; run kc "$SMALL"
+if [ -z "$OUT" ] && [ ! -s "$STUB_CALLS" ]; then pass "kb_cambio: siguiente Stop coherente sin spawn"
+else fail "kb_cambio: siguiente Stop coherente sin spawn" "out=$OUT calls=$(cat "$STUB_CALLS")"; fi
+
+# regla_quitada_calla
+: > "$REFLEX_LOG_FILE"; stub_reset
+ss_json rq ok 1; hb_json rq skip 0; stub "$ENV_SKIP"
+run rq "$SMALL"
+if [ -z "$OUT" ] && contains "$(witness_reasons)" "reason=kb_cambio"; then pass "regla_quitada_calla"
+else fail "regla_quitada_calla" "out=$OUT log=$(witness_reasons)"; fi
+
+# divergencia_real_grita (+ no sentinel en kb_cambio previo)
+: > "$REFLEX_LOG_FILE"; stub_reset
+ss_json dr ok 1; hb_json dr skip 0; stub "$ENV_OK1"
+run dr "$SMALL"
+EXP='⚠ el mod de reglas de proyecto no entregó: el engine dice ok n=1, el latido dice skip n=0'
+if [ "$(msg)" = "$EXP" ] && contains "$(witness_reasons)" "reason=no_entrego"; then pass "divergencia_real_grita: copy exacto"
+else fail "divergencia_real_grita: copy exacto" "out=$OUT log=$(witness_reasons)"; fi
+
+# sin_verdad_calla (exit 1) y JSON inválido; no crea sentinel
+: > "$REFLEX_LOG_FILE"; stub_reset
+ss_json sv ok 1; hb_json sv skip 0; export STUB_RC=1 STUB_ERR="boom del engine"
+run sv "$SMALL"
+if [ -z "$OUT" ] && contains "$(witness_reasons)" "reason=sin_verdad" && contains "$(witness_reasons)" "boom del engine" \
+   && [ ! -f "$REMIND_SENTINEL_DIR/claude-rules-witness-sv" ]; then pass "sin_verdad_calla: exit 1, stderr en log, sin sentinel"
+else fail "sin_verdad_calla: exit 1, stderr en log, sin sentinel" "out=$OUT log=$(witness_reasons)"; fi
+: > "$REFLEX_LOG_FILE"; stub_reset
+ss_json sv2 ok 1; hb_json sv2 skip 0; stub 'no json{' 0
+run sv2 "$SMALL"
+if [ -z "$OUT" ] && contains "$(witness_reasons)" "reason=sin_verdad"; then pass "sin_verdad_calla: JSON inválido"
+else fail "sin_verdad_calla: JSON inválido" "out=$OUT log=$(witness_reasons)"; fi
+stub_reset
+
+# coherente_no_llama_al_engine (todas las filas que no son divergencia)
+: > "$STUB_CALLS"
+ss_json nc1 ok 3; hb_json nc1 ok 3; run nc1 "$SMALL"
+ss_json nc2 skip 0; hb_json nc2 skip 0; run nc2 "$SMALL"
+ss_json nc3 skip 0; hb_json nc3 error 0; run nc3 "$SMALL"
+ss_json nc4 ok 3; hb_json nc4 error 0; run nc4 "$SMALL"
+if [ ! -s "$STUB_CALLS" ]; then pass "coherente_no_llama_al_engine"
+else fail "coherente_no_llama_al_engine" "calls=$(cat "$STUB_CALLS")"; fi
+
+# cwd_del_input
+stub_reset; ss_json cw ok 1; hb_json cw skip 0; stub "$ENV_OK1"
+run cw "$SMALL" "/ruta/del/input"
+if [ "$(cat "$STUB_CALLS")" = "rules --cwd /ruta/del/input --json" ]; then pass "cwd_del_input"
+else fail "cwd_del_input" "calls=$(cat "$STUB_CALLS")"; fi
+stub_reset
+
+# hb_sin_status_es_corrupto: `{}` grita y no consulta al engine
+stub_reset; : > "$STUB_CALLS"
+ss_json hs ok 1; echo '{}' > "$RULES/hb-hs"; stub "$ENV_OK1"
+run hs "$SMALL"
+if contains "$(msg)" "no entregó" && [ ! -s "$STUB_CALLS" ]; then pass "hb_sin_status_es_corrupto"
+else fail "hb_sin_status_es_corrupto" "out=$OUT calls=$(cat "$STUB_CALLS")"; fi
+stub_reset
 
 # recordatorio_intacto
 run rem "$BIG"
