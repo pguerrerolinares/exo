@@ -19,12 +19,13 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # Testigo: compara lo que SessionStart decidio (ss) con lo que el mod entrego (hb).
 # Va ANTES del umbral del recordatorio y con sentinel propio: ninguno silencia al otro.
 WITNESS_MSG=""
+WITNESS_LOG=""
 RULES_DIR="$HOME/.claude/exo-rules"
 WSENT="${SENTINEL_DIR}/claude-rules-witness-${SESSION_ID}"
 SS="$RULES_DIR/ss-${SESSION_ID}"
 HB="$RULES_DIR/hb-${SESSION_ID}"
 if [ ! -f "$WSENT" ]; then
-  WREASON=""
+  WREASON=""; WTOUCH=1
   if [ ! -f "$SS" ]; then
     WREASON="sin_ss"
   elif [ ! -f "$HB" ]; then
@@ -38,20 +39,54 @@ if [ ! -f "$WSENT" ]; then
     else
       HB_ST="corrupto"; HB_N="?"
     fi
-    if { [ "$SS_ST" = "ok" ] && { [ "$HB_ST" != "ok" ] || [ "$HB_N" != "$SS_N" ]; }; } \
-       || [ "$HB_ST" = "corrupto" ] \
-       || { [ "$SS_ST" = "skip" ] && [ "$HB_ST" = "ok" ]; }; then
+    if [ "$HB_ST" = "corrupto" ] || { [ "$HB_ST" = "error" ] && [ "$SS_ST" = "ok" ]; }; then
       WREASON="no_entrego"
       WITNESS_MSG="⚠ el mod de reglas de proyecto no entregó: SessionStart vio ${SS_ST} n=${SS_N}, el latido dice ${HB_ST} n=${HB_N}"
-    elif [ "$SS_ST" = "skip" ] && [ "$HB_ST" = "error" ]; then
+    elif [ "$HB_ST" = "error" ]; then
       # El mod falló pero no había reglas que entregar: sin ruido en pantalla, con rastro.
       WREASON="hb_error"
+    elif [ "$HB_ST" != "$SS_ST" ] || [ "$HB_N" != "$SS_N" ]; then
+      # ss es una foto de SessionStart y compose corre en cada prompt: la KB pudo
+      # cambiar a mitad de sesión. Solo el engine adjudica quién tiene razón.
+      . "$SCRIPT_DIR/_timeout.sh" 2>/dev/null
+      EXO_BIN="${EXO_BIN:-$(command -v exo 2>/dev/null || echo "$HOME/.local/bin/exo")}"
+      WCWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)"
+      WCWD="${WCWD:-$PWD}"
+      WERR_TMP="$(mktemp)"
+      WOUT="$(con_timeout "${EXO_RULES_TIMEOUT:-3}" "$EXO_BIN" rules --cwd "$WCWD" --json 2>"$WERR_TMP")" && WRC=0 || WRC=$?
+      WERR="$(head -c 200 "$WERR_TMP" 2>/dev/null | tr '\n' ' ')"
+      rm -f "$WERR_TMP"
+      TR_ST=""; TR_REASON=""; TR_REPO=""; TR_N=""
+      if [ "$WRC" -eq 0 ]; then
+        IFS=$'\x1f' read -r TR_ST TR_REASON TR_REPO TR_N <<< "$(printf '%s' "$WOUT" | jq -r '[(.data.status // ""), (.data.reason // ""), (.data.repo // ""), ((.data.rules // []) | length | tostring)] | join("\u001f")' 2>/dev/null)"
+      fi
+      case "$TR_ST" in
+        ok) ;;
+        skip) TR_N=0 ;;
+        *) TR_ST="" ;;
+      esac
+      case "${TR_N:-}" in ''|*[!0-9]*) TR_ST="" ;; esac
+      if [ -z "$TR_ST" ]; then
+        WREASON="sin_verdad"; WTOUCH=0
+        WITNESS_LOG="${WERR:+ err=$WERR}"
+      elif [ "$TR_ST" = "$HB_ST" ] && [ "$TR_N" = "$HB_N" ]; then
+        WREASON="kb_cambio"; WTOUCH=0
+        if [ -n "$SESSION_ID" ] && [ "${SESSION_ID#*/}" = "$SESSION_ID" ]; then
+          jq -cn --arg st "$TR_ST" --arg rs "$TR_REASON" --arg repo "$TR_REPO" --argjson n "$TR_N" \
+            '{status:$st} + (if $rs=="" then {} else {reason:$rs} end) + {n:$n, repo:(if $repo=="" then null else $repo end)}' \
+            > "$SS.tmp" 2>/dev/null && mv -f "$SS.tmp" "$SS" 2>/dev/null
+        fi
+      else
+        WREASON="no_entrego"
+        WITNESS_MSG="⚠ el mod de reglas de proyecto no entregó: el engine dice ${TR_ST} n=${TR_N}, el latido dice ${HB_ST} n=${HB_N}"
+      fi
     fi
   fi
   if [ -n "$WREASON" ]; then
-    touch "$WSENT" 2>/dev/null
+    # kb_cambio y sin_verdad callan: sin sentinel, para poder gritar una divergencia real después.
+    [ "$WTOUCH" = 1 ] && touch "$WSENT" 2>/dev/null
     . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null \
-      && reflex_log "project-rules-witness" "$INPUT" "reason=${WREASON}${WITNESS_MSG:+ msg=$WITNESS_MSG}" || true
+      && reflex_log "project-rules-witness" "$INPUT" "reason=${WREASON}${WITNESS_MSG:+ msg=$WITNESS_MSG}${WITNESS_LOG}" || true
   fi
 fi
 
