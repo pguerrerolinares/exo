@@ -11,6 +11,7 @@
 # > 10 % de las planificadas sin `result`. Todo falla cerrado. Si salta alguno: no se lanzan más, exit 1, y hay que registrarlo
 # en el erratas.md del experimento antes de seguir (v2: la tanda es inválida y no se adjudica). Exit 0 = tanda completa sin breakers; 2 = precondición.
 # K_ENSAYO=1 pasa a correr.sh (no lanza claude; sin breakers ni tarball); exit 0 solo si cada par lanzado dejó cmdline.txt.
+# TECHO_P: prefijo del estado ($K_ROOT/<P>-orden, -cola, -STOP, -resumen.txt); def. el de TECHO_EXP. Otro ORDEN sobre un P ya usado aborta (exit 2).
 # Overrides de test: TECHO_CORRER, TECHO_TAREAS, TECHO_PREREG, TECHO_TARBALL.
 set -uo pipefail
 par=${1:-4}
@@ -20,6 +21,7 @@ EXP="$(cd "$EXP" 2>/dev/null && pwd)" || { echo "correr-techo: no existe TECHO_E
 K_ROOT="${K_ROOT:-$HOME/.cache/exo-ablacion-k}"; export K_ROOT
 TAREAS="${TECHO_TAREAS:-$EXP/tareas.tsv}"; PREREG="${TECHO_PREREG:-$EXP/preregistro.md}"
 if [ "$EXP" = "$H" ]; then P=techo; else P=$(basename "$EXP"); fi  # v1 conserva sus nombres
+[ -n "${TECHO_P:-}" ] && P="$TECHO_P"  # otra tanda sobre el mismo EXP: estado propio
 TARBALL="${TECHO_TARBALL:-$HOME/.cache/exo-$P-registro.tar.gz}"
 export K_TOPE_USD="${K_TOPE_USD:-15}" K_ENSAYO="${K_ENSAYO:-0}" K_REANUDAR="${K_REANUDAR:-0}"
 CORRER="${TECHO_CORRER:-$H/../ablacion-k/harness/correr.sh}"
@@ -37,6 +39,9 @@ orden=$(sed -n '/^<!-- ORDEN-BEGIN -->$/,/^<!-- ORDEN-END -->$/p' "$PREREG" | gr
 esperado=$(awk -F'\t' '{b=($4!=""?$4:($2=="suelo"?"ar:2":"ar:1")); n=split(b,a,","); for(i=1;i<=n;i++){split(a[i],c,":"); for(r=1;r<=c[2];r++) print c[1]" "$1" "r}}' "$TAREAS" | sort)
 [ -n "$esperado" ] && [ "$(printf '%s\n' "$orden" | sort)" = "$esperado" ] || die "el bloque ORDEN no es exactamente el conjunto de pares (brazo, id, rep) de $TAREAS"
 
+if [ -s "$ORDEN_F" ] && [ "$(cat "$ORDEN_F")" != "$orden" ]; then
+  die "$ORDEN_F es de otra tanda (ORDEN distinto); usa TECHO_P=<nombre propio> para esta"
+fi
 mkdir -p "$K_ROOT"; : > "$Q"; rm -f "$STOP"; printf '%s\n' "$orden" > "$ORDEN_F"; export PLAN; PLAN=$(printf '%s\n' "$orden" | grep -c .)
 lanzadas=0; omitidas=0; previas=0
 while read -r brazo id rep; do
