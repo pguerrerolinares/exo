@@ -19,6 +19,9 @@ Pregunta: bajo la politica Team/Enterprise `prompt.compose` queda bypassed y la 
 - **Clases cerradas:** cada no-cumple de `ars` recibe una de 5 clases: conflicto regla-tarea, check roto, regla mal escrita, no reconstruible, incumplimiento del agente.
 - **Gold y reglas:** los de `preregistro.md` (pins en `pins.sha256`), sin cambios.
 - **Suelo (10):** `g0-122 g0-149 g0-33 g1-131 g1-139 g1-140 g1-157 g2-154 g2-170 g2-97`.
+- **Sonda previa (obligatoria):** antes de la tanda se corre 1 sola corrida de `ars` fuera del ORDEN (rep 9, ver comando en el informe de la tarea; no cuenta para el gate ni usa una rep del ORDEN). Si `fugas.py` marca eventos `hook_*` del mod (HOOKS["ars"] es `set()`, hipotesis estricta), se para, se documentan los eventos en `erratas.md` y se ajusta `HOOKS["ars"]` antes de lanzar. Solo si la sonda sale con `fuga:false` y con `result` se lanza la tanda.
+- **Estado de la tanda:** `TECHO_P=techo-reglas-2-ars` (estado propio en `$K_ROOT`); `correr-techo.sh` aborta si el estado ya es de otra tanda con otro ORDEN.
+- **Adjudicacion:** `evaluar.py` trae el gate >=6 cableado; para `ars` solo vale el recuento n/10 contra el umbral >=4 de arriba.
 
 >=4/10 cumplen = util; <4 = placebo
 

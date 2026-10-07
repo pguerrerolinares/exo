@@ -91,13 +91,15 @@ extra_env=(); plugin_args=()
 if [ -f "$tarea/meta.json" ]; then
   s2repo=$(jq -r .repo "$tarea/meta.json"); venv="$K_ROOT/s2/venv-$s2repo"
   ruta="$venv/bin:$ruta"
-  extra_env=(VIRTUAL_ENV="$venv" PYTHONPATH="$O/work/src:$O/work")
+  extra_env+=(VIRTUAL_ENV="$venv" PYTHONPATH="$O/work/src:$O/work")
   [ "$s2repo" = django-oscar ] && extra_env+=(DATABASE_ENGINE=django.db.backends.sqlite3 DATABASE_NAME=:memory:)
 fi
 if [ "${K_ENSAYO:-0}" = 1 ]; then
   echo "correr.sh: modo ensayo, no se lanza claude" >&2
   { printf 'PATH=%s\n' "$ruta"; printf 'deny=%s\n' "${deny[@]}"; printf 'append=%s\n' "$append"
-    [ "$brazo" = ars ] && printf 'plugin-dir=%s\nenv=EXO_RULES_FORZAR_SUBMIT=1\n' "$O/plugin-ars"; } > "$O/cmdline.txt"; exit 0
+    # plugin-dir y env se derivan de los arrays que de verdad se pasan a claude
+    [ ${#plugin_args[@]} -gt 0 ] && printf 'plugin-dir=%s\n' "${plugin_args[1]}"
+    [ ${#extra_env[@]} -gt 0 ] && printf 'env=%s\n' "${extra_env[@]}"; } > "$O/cmdline.txt"; exit 0
 fi
 prompt=$(jq -r .prompt "$t_json")
 cd "$O/work" || exit 3; t0=$(date +%s)

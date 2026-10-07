@@ -92,4 +92,47 @@ if [ -f "$PR" ] && [ "$(sort "$TS")" = "$esperado" ] && grep -qxF '>=4/10 cumple
    && grep -qE '^- \*\*Re-intentos:\*\*.*cero' "$PR" && grep -qE '^- \*\*Breaker:\*\*.*no se adjudica' "$PR" \
    && [ "$(grep -c . <<<"$pub")" = 20 ] && [ "$calc" = "$pub" ]; then
   ok preregistro_ars_valido; else ko preregistro_ars_valido; fi
+
+# ars_env_forzar_con_s2: el env de S2 (meta.json) se suma, no reemplaza al del brazo
+t2="$T/tareas/t2"; mkdir -p "$t2" "$K_ROOT/fuentes/t2"; echo '{"prompt":"x"}' > "$t2/tarea.json"; echo '{"repo":"r"}' > "$t2/meta.json"
+git -C "$K_ROOT/fuentes/t2" init -q
+bash "$CORRER" "$t2" ars 1 >/dev/null 2>&1; O2="$K_ROOT/corridas/t2/ars-r1"
+if grep -qxF 'env=EXO_RULES_FORZAR_SUBMIT=1' "$O2/cmdline.txt" && grep -q '^env=VIRTUAL_ENV=' "$O2/cmdline.txt" && grep -q '^env=PYTHONPATH=' "$O2/cmdline.txt"; then
+  ok ars_env_forzar_con_s2; else ko ars_env_forzar_con_s2; fi
+
+# fugas_ars_exo_rules_es_fuga: leer la regla por Bash fuera del canal medido
+exo_rules='{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t9","name":"Bash","input":{"command":"exo rules --json"}}]}}'
+printf '%s\n' "$exo_rules" > "$F/transcript.jsonl"
+out=$(python3 "$FUG" "$F" ars 2>&1); rc=$?
+[ $rc = 1 ] && [ "$(jq -r .fuga <<<"$out")" = true ] && ok fugas_ars_exo_rules_es_fuga || ko "fugas_ars_exo_rules_es_fuga rc=$rc out=$out"
+
+# framing_del_mod_es_el_de_arp: ars mide el canal, no el framing; falla si se edita uno de los dos
+if python3 - "$REPO/plugins/exo/hooks/register.ts" "$HERE/framing.txt" <<'PY'
+import json, re, sys
+ts = open(sys.argv[1], encoding="utf-8").read()
+m = re.search(r'const FRAMING =\s*("[^;]*");', ts)
+mod = json.loads(m.group(1))
+fr = open(sys.argv[2], encoding="utf-8", newline="").read()
+suf = "- {{REGLA}}\n"
+sys.exit(0 if fr.endswith(suf) and fr[:-len(suf)] == mod else 1)
+PY
+then ok framing_del_mod_es_el_de_arp; else ko framing_del_mod_es_el_de_arp; fi
+
+# correr_techo_ars_no_pisa_el_estado_de_arp: ensayo con estado propio; sin TECHO_P aborta sin tocar nada
+KC="$T/kc"; EXPD="$T/x/techo-reglas-2"; mkdir -p "$KC/prep/stub" "$KC/fuentes" "$EXPD"; : > "$KC/prep/manifiesto.txt"; : > "$KC/reconstruccion.tsv"
+printf 'base\n' > "$KC/prep/claude-md.md"
+for i in $(cut -f1 "$HERE/tareas-ars.tsv"); do
+  mkdir -p "$KC/gold/s1/$i" "$KC/fuentes/$i"; echo '{"prompt":"x"}' > "$KC/gold/s1/$i/tarea.json"
+  git -C "$KC/fuentes/$i" init -q; printf '%s\tsi\tok\n' "$i" >> "$KC/reconstruccion.tsv"
+done
+cp "$HERE/tareas-ars.tsv" "$HERE/preregistro-ars.md" "$EXPD/"
+echo SELLADO-ORDEN > "$KC/techo-reglas-2-orden"; echo SELLADO-RESUMEN > "$KC/techo-reglas-2-resumen.txt"
+ct() { K_ROOT="$KC" K_ENSAYO=1 TECHO_EXP="$EXPD" TECHO_TAREAS="$EXPD/tareas-ars.tsv" TECHO_PREREG="$EXPD/preregistro-ars.md" "$@" bash "$REPO/evals/techo-reglas/correr-techo.sh" 4 2>&1; }
+out=$(ct env); rc=$?
+sin=$([ "$(cat "$KC/techo-reglas-2-orden")" = SELLADO-ORDEN ] && [ "$(cat "$KC/techo-reglas-2-resumen.txt")" = SELLADO-RESUMEN ] && echo si)
+[ $rc = 2 ] && [[ $out == *"es de otra tanda"* ]] && [ "$sin" = si ] && ok correr_techo_sin_techo_p_no_pisa_otra_tanda || ko "correr_techo_sin_techo_p rc=$rc out=$out"
+out=$(ct env TECHO_P=techo-reglas-2-ars); rc=$?
+sin=$([ "$(cat "$KC/techo-reglas-2-orden")" = SELLADO-ORDEN ] && [ "$(cat "$KC/techo-reglas-2-resumen.txt")" = SELLADO-RESUMEN ] && echo si)
+if [ $rc = 0 ] && [ "$sin" = si ] && [ "$(grep -c . "$KC/techo-reglas-2-ars-orden")" = 20 ] && [ "$(ls -d "$KC"/corridas/*/ars-r* | wc -l)" = 20 ]; then
+  ok correr_techo_ars_estado_propio; else ko "correr_techo_ars_estado_propio rc=$rc out=$out"; fi
 exit $fail

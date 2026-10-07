@@ -15,7 +15,7 @@ d, brazo = sys.argv[1], sys.argv[2]
 K_ROOT = os.environ.get("K_ROOT", os.path.expanduser("~/.cache/exo-ablacion-k"))
 SNAP = os.path.join(K_ROOT, "prep", "kb")
 PROD = ["/home/paul/Documentos/proyectos/wisdom-paul", "/home/paul/.exo", "~/.exo"]
-EXO = re.compile(r"(^|[\s;&|(`$])(\S*/)?exo\s+(search|recall|targets|index|rebuild|write|config|budget|lint|ratchet|rotate|doctor|stale|init)\b")
+EXO = re.compile(r"(^|[\s;&|(`$])(\S*/)?exo\s+(search|recall|targets|index|rebuild|write|config|budget|lint|ratchet|rotate|doctor|stale|init|rules)\b")
 STUB = "exo: orden no encontrada"
 HOOKS = {"a0": set(), "arp": set(), "ars": set(), "ar": {"SessionStart"}, "a1": {"SessionStart"}, "a2": {"SessionStart"}, "a3": {"SessionStart", "UserPromptSubmit"}}
 
