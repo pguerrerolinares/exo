@@ -30,6 +30,7 @@ async function mundo($: any, on: any, run: Run, o: Opts = {}) {
   const calls: { argv: readonly string[]; init: any }[] = [];
   const store: Record<string, unknown> = { ...(o.store ?? {}) };
   const storeSets: { key: string; value: unknown }[] = [];
+  const claudeJsonReads: string[] = [];
   const ctx = { sid: "sid1" };
   mock.env(on, o.env ?? { HOME: "/h" });
   on("session.cwd", async () => (deny.includes("session.cwd") ? { deny: "cwd" } : { value: "/repo" }));
@@ -41,7 +42,11 @@ async function mundo($: any, on: any, run: Run, o: Opts = {}) {
   });
   on("fs.exists", async () => ({ value: !!o.hbExiste }));
   on("fs.read", async (_$: any, e: any) => {
-    if (e.path.replace(/\\/g, "/").endsWith("/.claude.json") && o.claudeJson && o.claudeJson !== "rechaza") return { value: o.claudeJson };
+    if (e.path.replace(/\\/g, "/").endsWith("/.claude.json")) {
+      claudeJsonReads.push(e.path);
+      if (o.claudeJson === "rechaza") return { deny: "no legible" };
+      return { value: o.claudeJson ?? "{}" };
+    }
     return { deny: "no legible" };
   });
   on("store.get", async (_$: any, e: any) => ({ value: store[e.key] }));
@@ -56,12 +61,14 @@ async function mundo($: any, on: any, run: Run, o: Opts = {}) {
   });
   on("prompt.compose", async () => ({ sections: BASE }));
   on("session.start", async (_$: any, e: any) => ({ cwd: e.cwd }));
+  on("turn.complete", async (_$: any, e: any) => ({ text: e.answer }));
   on("prompt.submit", async (_$: any, e: any) => ({ text: e.text, context: e.context ?? [] }));
   const compose = () =>
     $.prompt.compose({ model: "m", promptModel: "m", surfaces: [], tools: [], outputStyle: null, traits: [] });
   const submit = (text = "hola") => $.prompt.submit({ text });
+  const complete = () => $.turn.complete({ answer: "ok", durationMs: 1, isAborted: false, turnId: "t1", reason: "answer" });
   const start = () => $.session.start({ cwd: "/repo", surface: null, isInteractive: true });
-  return { ctx, writes, calls, store, storeSets, compose, submit, start };
+  return { ctx, writes, calls, store, storeSets, claudeJsonReads, compose, submit, start, complete };
 }
 
 async function correr($: any, on: any, run: Run, env: Record<string, string> = { HOME: "/h" }, deny: readonly string[] = []) {
@@ -289,9 +296,64 @@ test("org_pista_en_hb", async ($, on) => {
 });
 
 test("org_rechaza_sin_error", async ($, on) => {
-  const w2 = await mundo($, on, () => out(okOut), { claudeJson: "rechaza" });
-  await w2.submit();
-  const hb = JSON.parse(w2.writes[HB]);
+  const w = await mundo($, on, () => out(okOut), { claudeJson: "rechaza" });
+  await w.submit();
+  expect(w.claudeJsonReads.length).toBe(1);
+  const hb = JSON.parse(w.writes[HB]);
   expect(hb.org).toBe(undefined);
   expect(hb.status).toBe("ok");
+});
+
+test("org_se_lee_una_vez", async ($, on) => {
+  const w = await mundo($, on, () => out(okOut), { claudeJson: '{"oauthAccount":{"organizationType":"claude_team"}}' });
+  await w.submit();
+  await w.submit();
+  expect(w.claudeJsonReads.length).toBe(1);
+  expect(JSON.parse(w.writes[HB]).org).toBe("claude_team");
+});
+
+test("org_fallo_no_se_cachea", async ($, on) => {
+  const w = await mundo($, on, () => out(okOut), { claudeJson: "rechaza" });
+  await w.submit();
+  await w.submit();
+  expect(w.claudeJsonReads.length).toBe(2);
+});
+
+test("compose_marca_store", async ($, on) => {
+  const w = await mundo($, on, () => out(okOut));
+  const r = await w.submit();
+  expect(ultimo(r)).toBe(REGLAS);
+  await w.compose();
+  expect(w.store.compose).toBe(true);
+  expect(JSON.parse(w.writes[HB]).via).toBe("compose");
+});
+
+test("segunda_sesion_no_duplica", async ($, on) => {
+  const w = await mundo($, on, () => out(okOut), { store: { compose: true } });
+  const r = await w.submit();
+  expect(r.context).toEqual([]);
+  await w.compose();
+  expect(w.calls.filter((c) => c.argv[1] === "rules").length).toBe(1);
+});
+
+test("turn_complete_sin_compose_desmarca_store", async ($, on) => {
+  const w = await mundo($, on, () => out(okOut), { store: { compose: true } });
+  await w.submit();
+  const r = await w.complete();
+  expect(r.text).toBe("ok");
+  expect(w.store.compose).toBe(false);
+});
+
+test("turn_complete_con_compose_no_toca", async ($, on) => {
+  const w = await mundo($, on, () => out(okOut), { store: { compose: true } });
+  await w.compose();
+  await w.complete();
+  expect(w.store.compose).toBe(true);
+});
+
+test("turn_complete_forzar_no_toca_store", async ($, on) => {
+  const w = await mundo($, on, () => out(okOut), { env: { HOME: "/h", EXO_RULES_FORZAR_SUBMIT: "1" }, store: { compose: true } });
+  await w.submit();
+  await w.complete();
+  expect(w.storeSets).toEqual([]);
 });

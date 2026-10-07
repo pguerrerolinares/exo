@@ -11,7 +11,8 @@
 # Solo discrimina el seam en cuenta personal (compose vivo); bajo política imprime
 # un [INFO] explícito.
 # Resume: --resume del forzado debe re-entregar un codeword cambiado tras borrar
-# el latido.
+# el latido. No cubre el resume real con latido presente (hb viejo de otro
+# proceso): el e2e lo borra para aislar la re-entrega.
 # Control: la misma nota sin la sección -> sin codeword y hb-<sid> dice skip por
 # reason=sin_seccion (no por cualquier otro skip).
 set -uo pipefail

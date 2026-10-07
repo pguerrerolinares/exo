@@ -23,11 +23,15 @@ const bloque = (reglas: string[]) => FRAMING + reglas.map((x) => `- ${x}`).join(
 const msg = (err: any) => String(err?.message || err) || "error";
 
 // Pista no documentada y puede rechazar (>4 MiB): nunca gate, nunca lanza.
+// Se cachea por proceso solo el valor leído; un fallo se reintenta en el siguiente turno.
+let orgCache: string | undefined;
 async function leerOrg($: any, home: string): Promise<string | undefined> {
+  if (orgCache) return orgCache;
   try {
     const t = JSON.parse(await $.fs.read(`${home}/.claude.json`));
     const org = t?.oauthAccount?.organizationType;
-    return typeof org === "string" && org ? org : undefined;
+    if (typeof org === "string" && org) orgCache = org;
+    return orgCache;
   } catch {
     return undefined;
   }
@@ -125,6 +129,20 @@ export function register(on: any) {
     }
     return next(extra ? { ...e, context: [...(e.context ?? []), extra] } : e);
   }).catch(($: any, e: any, next: any) => next(e));
+
+  // Sin compose vivo en este sid, la marca del store es de otra cuenta/sesión: se baja para que
+  // las sesiones de un solo prompt (-p) no queden sin reglas tras pasar de cuenta personal a Team.
+  on("turn.complete", async ($: any, e: any, next: any) => {
+    try {
+      const sid = await $.session.id();
+      if (sid && !composeVivo.has(sid) && (await $.env.get("EXO_RULES_FORZAR_SUBMIT")) !== "1") {
+        if ((await $.store.get("compose")) === true) await $.store.set("compose", false);
+      }
+    } catch {
+      // best-effort: sin bajar la marca solo se pierde la autocuración
+    }
+    return next(e);
+  });
 
   on("prompt.compose", async ($: any, e: any, next: any) => {
     // Seam de test: con FORZAR compose queda inerte para que el eval/e2e midan solo el canal submit.

@@ -30,6 +30,7 @@ Sonda del 2026-10-06 en Linux, `claude` 2.1.291. Evidencia en el scratchpad de l
   | `prompt.compose`, `prompt.context`, `classic.*` | bypassed |
 
   Por eso la entrega tiene un canal degradado: `prompt.submit` entrega `FRAMING`+reglas como `context` cuando compose no está vivo (`hb.via=submit`). El e2e (`scripts/e2e-reglas-proyecto.sh`) cubre positivo, forzado (`EXO_RULES_FORZAR_SUBMIT=1`, compose inerte), `--resume` con codeword cambiado (re-entrega) y control; en esta máquina salen todos con `via=submit`. Cuenta personal (compose vivo): no verificado. Límite del e2e: bajo la política `forzado` no discrimina el seam `EXO_RULES_FORZAR_SUBMIT` (compose ya está bypassed y `positivo` da `via=submit`; el e2e lo imprime como `[INFO]`); solo en cuenta personal `via=compose` delataría que FORZAR no llegó al mod.
+  Autocuración de la marca del store: un hook `turn.complete` baja `store.compose` a `false` cuando el sid no tiene compose vivo (y no es FORZAR), para que tras pasar de cuenta personal a Team las sesiones de un solo prompt (`-p`) no queden sin reglas. Que `turn.complete` corra bajo la política es inferido de la lista de eventos del debug log, sin medir en real.
 - W11 no se sondea. Que Anthropic publique mods que no carguen en su app de escritorio de Windows no es plausible. Los fallos posibles en W11 son de **nuestro** código, y se mitigan abajo; el testigo de Stop caza el resto.
 
 ## Arquitectura
