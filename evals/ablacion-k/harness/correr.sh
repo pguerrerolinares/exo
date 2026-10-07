@@ -12,6 +12,8 @@
 #   ar     a0 exacto + SessionStart que inyecta la regla literal de $K_REGLA_FILE (techo de reglas)
 #   arp    a0 exacto + sysprompt.md (claude-md.md + framing con la regla) por --append-system-prompt-file;
 #          requiere K_REGLA_FILE y K_FRAMING_FILE (techo-reglas-2)
+#   ars    a0 exacto (claude-md.md sin framing) + solo el mod register.ts por --plugin-dir con EXO_RULES_FORZAR_SUBMIT=1:
+#          entrega la regla por prompt.submit (canal degradado); un shim `exo` le sirve la regla de K_REGLA_FILE
 # K_ENSAYO=1: genera settings.json y cmdline.txt (deny, PATH) y sale sin lanzar claude.
 set -uo pipefail
 tarea=$1; brazo=$2; rep=$3
@@ -21,6 +23,9 @@ PLUG="$(cd "$H/../../../plugins/exo/scripts" && pwd)"
 MODELO="${K_MODELO:-claude-sonnet-5-5}"
 if [ "$brazo" = ar ] && [ ! -s "${K_REGLA_FILE:-}" ]; then
   echo "ar requiere K_REGLA_FILE no vacío" >&2; exit 2
+fi
+if [ "$brazo" = ars ] && [ ! -s "${K_REGLA_FILE:-}" ]; then
+  echo "ars requiere K_REGLA_FILE no vacío" >&2; exit 2
 fi
 if [ "$brazo" = arp ] && { [ ! -s "${K_REGLA_FILE:-}" ] || [ ! -s "${K_FRAMING_FILE:-}" ]; }; then
   echo "arp requiere K_REGLA_FILE y K_FRAMING_FILE no vacíos" >&2; exit 2
@@ -61,17 +66,28 @@ base, framing, regla = (open(p, "rb").read() for p in sys.argv[1:4])
 sys.stdout.buffer.write(base + b"\n" + framing.replace(b"{{REGLA}}", regla))
 PY
       append="$O/sysprompt.md" ;;
+  ars) # Sin scripts/ ni hooks de comando: el plugin completo metería recall de KB y contaminaría la medición.
+      mkdir -p "$O/plugin-ars/hooks" "$O/plugin-ars/.claude-plugin" "$O/stub-ars" || exit 2
+      cp "$H/../../../plugins/exo/hooks/register.ts" "$O/plugin-ars/hooks/register.ts" || exit 2
+      echo '{"modules":["./register.ts"]}' > "$O/plugin-ars/hooks/hooks.json"
+      echo '{"name":"exo-ars","description":"Mod de reglas de proyecto, solo para el eval ars","version":"0.0.0"}' > "$O/plugin-ars/.claude-plugin/plugin.json"
+      jq -Rs '{schema_version:2,command:"rules",data:{status:"ok",repo:"x",note:"x.md",rules:[rtrimstr("\n")],ignored_lines:[]}}' \
+        "$K_REGLA_FILE" > "$O/stub-ars/rules.json" || exit 2
+      printf '#!/usr/bin/env bash\nif [ "${1:-}" = rules ]; then cat "%s/rules.json"; exit 0; fi\nexec "%s/stub/exo" "$@"\n' \
+        "$O/stub-ars" "$P" > "$O/stub-ars/exo"
+      chmod +x "$O/stub-ars/exo" ;;
   *) echo "brazo desconocido: $brazo" >&2; exit 2 ;;
 esac
 jq -n --argjson h "$hooks" '{autoMemoryEnabled:false, hooks:$h}' > "$O/settings.json"
 
 deny=("Read(//home/paul/Documentos/proyectos/wisdom-paul/**)" "Read(//home/paul/.exo/**)"
       "Grep(//home/paul/Documentos/proyectos/wisdom-paul/**)" "Grep(//home/paul/.exo/**)")
-{ [ "$brazo" = a0 ] || [ "$brazo" = ar ] || [ "$brazo" = arp ]; } && deny+=("Read(/$P/kb/**)" "Grep(/$P/kb/**)")
-ruta="$PATH"; case $brazo in a0|a1|ar|arp) ruta="$P/stub:$PATH" ;; esac
+{ [ "$brazo" = a0 ] || [ "$brazo" = ar ] || [ "$brazo" = arp ] || [ "$brazo" = ars ]; } && deny+=("Read(/$P/kb/**)" "Grep(/$P/kb/**)")
+ruta="$PATH"; case $brazo in a0|a1|ar|arp) ruta="$P/stub:$PATH" ;; ars) ruta="$O/stub-ars:$P/stub:$PATH" ;; esac
 
 # S2: el agente usa el venv del repo (solo lectura) y el código de su workdir.
-extra_env=()
+extra_env=(); plugin_args=()
+[ "$brazo" = ars ] && { extra_env+=(EXO_RULES_FORZAR_SUBMIT=1); plugin_args=(--plugin-dir "$O/plugin-ars"); }
 if [ -f "$tarea/meta.json" ]; then
   s2repo=$(jq -r .repo "$tarea/meta.json"); venv="$K_ROOT/s2/venv-$s2repo"
   ruta="$venv/bin:$ruta"
@@ -80,14 +96,15 @@ if [ -f "$tarea/meta.json" ]; then
 fi
 if [ "${K_ENSAYO:-0}" = 1 ]; then
   echo "correr.sh: modo ensayo, no se lanza claude" >&2
-  { printf 'PATH=%s\n' "$ruta"; printf 'deny=%s\n' "${deny[@]}"; printf 'append=%s\n' "$append"; } > "$O/cmdline.txt"; exit 0
+  { printf 'PATH=%s\n' "$ruta"; printf 'deny=%s\n' "${deny[@]}"; printf 'append=%s\n' "$append"
+    [ "$brazo" = ars ] && printf 'plugin-dir=%s\nenv=EXO_RULES_FORZAR_SUBMIT=1\n' "$O/plugin-ars"; } > "$O/cmdline.txt"; exit 0
 fi
 prompt=$(jq -r .prompt "$t_json")
 cd "$O/work" || exit 3; t0=$(date +%s)
 env "${extra_env[@]}" PATH="$ruta" EXO_CONFIG="$P/config.toml" EXO_KB="$P/kb" EXO_DB="$P/index.db" EXO_INDEX="$P/index.db" \
 EXO_BIN="$(command -v exo)" REFLEX_LOG_FILE="$O/reflex.jsonl" \
 DISABLE_AUTOUPDATER=1 timeout 1800 claude -p --model "$MODELO" --setting-sources "" --strict-mcp-config \
-  --settings "$O/settings.json" --append-system-prompt-file "$append" \
+  --settings "$O/settings.json" "${plugin_args[@]}" --append-system-prompt-file "$append" \
   --disallowedTools "${deny[@]}" \
   --permission-mode bypassPermissions --max-turns 40 --max-budget-usd 10 --no-session-persistence \
   --output-format stream-json --verbose "$prompt" < /dev/null > "$O/transcript.jsonl" 2> "$O/err.log"
