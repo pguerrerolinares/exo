@@ -231,5 +231,102 @@ run ind2 "$BIG"
 if [ "$(msg)" = "$NOCARGO" ]; then pass "sentinels independientes: recordatorio no silencia testigo"
 else fail "sentinels independientes: recordatorio no silencia testigo" "out=$OUT"; fi
 
+# --- tres estados: via del latido (none / submit / legacy) ---
+hbraw() { printf '%s' "$2" > "$RULES/hb-$1"; }
+SINCANAL='⚠ el mod de reglas de proyecto cargó pero ningún canal entregó (via=none): SessionStart vio ok n=1; ¿política de la org nueva o exo rules falla?'
+DEGRADADO='ℹ reglas de proyecto entregadas por canal degradado (política de la org): n=1'
+HOY="$(date +%Y%m%d)"
+rm_degradado() { rm -f "$REMIND_SENTINEL_DIR"/claude-rules-degradado-*; }
+
+# via_none_con_ss_ok_grita
+: > "$REFLEX_LOG_FILE"; stub_reset
+ss_json vn ok 1; hbraw vn '{"status":"error","n":0,"via":"none","error":"sin entrega"}'
+run vn "$SMALL"
+if [ "$(msg)" = "$SINCANAL" ] && contains "$(witness_reasons)" "reason=sin_canal"; then pass "via_none_con_ss_ok_grita: copy exacto"
+else fail "via_none_con_ss_ok_grita: copy exacto" "out=$OUT log=$(witness_reasons)"; fi
+run vn "$SMALL"
+if [ -z "$OUT" ]; then pass "via_none_con_ss_ok_grita: segundo Stop calla"
+else fail "via_none_con_ss_ok_grita: segundo Stop calla" "out=$OUT"; fi
+
+# via_none_con_ss_skip_calla
+: > "$REFLEX_LOG_FILE"
+echo '{"status":"skip","reason":"sin_nota","n":0,"repo":"exo"}' > "$RULES/ss-vs"
+hbraw vs '{"status":"error","n":0,"via":"none","error":"sin entrega"}'
+run vs "$SMALL"
+if [ -z "$OUT" ] && contains "$(witness_reasons)" "reason=hb_error"; then pass "via_none_con_ss_skip_calla"
+else fail "via_none_con_ss_skip_calla" "out=$OUT log=$(witness_reasons)"; fi
+
+# via_submit_log_y_aviso_una_vez (sentinel diario compartido entre sesiones)
+rm_degradado; : > "$REFLEX_LOG_FILE"
+ss_json sb1 ok 1; hbraw sb1 '{"status":"ok","n":1,"via":"submit"}'
+ss_json sb2 ok 1; hbraw sb2 '{"status":"ok","n":1,"via":"submit"}'
+run sb1 "$SMALL"
+if [ "$(msg)" = "$DEGRADADO" ] && contains "$(witness_reasons)" "reason=entrega_degradada"; then pass "via_submit: primer aviso copy exacto"
+else fail "via_submit: primer aviso copy exacto" "out=$OUT log=$(witness_reasons)"; fi
+: > "$REFLEX_LOG_FILE"
+run sb2 "$SMALL"
+if [ -z "$OUT" ] && contains "$(witness_reasons)" "reason=entrega_degradada"; then pass "via_submit: otra sesión el mismo día, log sí, mensaje no"
+else fail "via_submit: otra sesión el mismo día, log sí, mensaje no" "out=$OUT log=$(witness_reasons)"; fi
+if [ -f "$REMIND_SENTINEL_DIR/claude-rules-degradado-$HOY" ]; then pass "via_submit: sentinel diario"
+else fail "via_submit: sentinel diario" "falta claude-rules-degradado-$HOY"; fi
+
+# el sentinel diario no silencia el recordatorio /document
+rm_degradado
+ss_json sb3 ok 1; hbraw sb3 '{"status":"ok","n":1,"via":"submit"}'
+run sb3 "$BIG"
+if [ "$(msg | tr -d '\r')" = "$DEGRADADO"$'\n'"$REMIND" ]; then pass "via_submit: convive con el recordatorio"
+else fail "via_submit: convive con el recordatorio" "out=$OUT"; fi
+
+# via_submit_org_en_log
+rm_degradado; : > "$REFLEX_LOG_FILE"
+ss_json so ok 1; hbraw so '{"status":"ok","n":1,"via":"submit","org":"claude_team"}'
+run so "$SMALL"
+if contains "$(witness_reasons)" "org=claude_team"; then pass "via_submit_org_en_log"
+else fail "via_submit_org_en_log" "log=$(witness_reasons)"; fi
+
+# via_submit_skip_no_avisa
+rm_degradado; : > "$REFLEX_LOG_FILE"
+echo '{"status":"skip","reason":"sin_nota","n":0,"repo":"exo"}' > "$RULES/ss-sk"
+hbraw sk '{"status":"skip","reason":"sin_seccion","n":0,"via":"submit"}'
+run sk "$SMALL"
+if [ -z "$OUT" ] && ! contains "$(witness_reasons)" "entrega_degradada"; then pass "via_submit_skip_no_avisa"
+else fail "via_submit_skip_no_avisa" "out=$OUT log=$(witness_reasons)"; fi
+
+# via_submit_n_distinto_adjudica
+rm_degradado; : > "$REFLEX_LOG_FILE"; stub_reset
+ss_json vk ok 3; hbraw vk '{"status":"ok","n":2,"via":"submit"}'
+stub '{"data":{"status":"ok","rules":["a","b"]}}'
+run vk "$SMALL"
+if [ -z "$OUT" ] && contains "$(witness_reasons)" "reason=kb_cambio" \
+   && [ "$(jq -r '[.status,.n]|@tsv' "$RULES/ss-vk")" = "$(printf 'ok\t2')" ]; then pass "via_submit_n_distinto_adjudica: kb_cambio"
+else fail "via_submit_n_distinto_adjudica: kb_cambio" "out=$OUT log=$(witness_reasons)"; fi
+: > "$REFLEX_LOG_FILE"; stub_reset
+ss_json vk2 ok 3; hbraw vk2 '{"status":"ok","n":2,"via":"submit"}'
+stub '{"data":{"status":"ok","rules":["a","b","c"]}}'
+run vk2 "$SMALL"; stub_reset
+if contains "$(msg)" "el engine dice ok n=3, el latido dice ok n=2" && contains "$(witness_reasons)" "reason=no_entrego"; then pass "via_submit_n_distinto_adjudica: no_entrego"
+else fail "via_submit_n_distinto_adjudica: no_entrego" "out=$OUT log=$(witness_reasons)"; fi
+
+# sin_hb_sigue_siendo_no_cargo
+: > "$REFLEX_LOG_FILE"
+ss_json nh ok 1
+run nh "$SMALL"
+if [ "$(msg)" = "$NOCARGO" ] && contains "$(witness_reasons)" "reason=sin_latido"; then pass "sin_hb_sigue_siendo_no_cargo"
+else fail "sin_hb_sigue_siendo_no_cargo" "out=$OUT log=$(witness_reasons)"; fi
+
+# hb_sin_via_legacy (1.6.1): se trata como compose
+rm_degradado; : > "$REFLEX_LOG_FILE"
+ss_json lg ok 2; hbraw lg '{"status":"ok","n":2}'
+run lg "$SMALL"
+if [ -z "$OUT" ] && ! contains "$(witness_reasons)" "entrega_degradada"; then pass "hb_sin_via_legacy"
+else fail "hb_sin_via_legacy" "out=$OUT log=$(witness_reasons)"; fi
+
+# via_none_hb_corrupto: sigue siendo no_entrego
+: > "$REFLEX_LOG_FILE"
+ss_json vc ok 1; hbraw vc 'no es json{'
+run vc "$SMALL"
+if contains "$(msg)" "no entregó" && contains "$(witness_reasons)" "reason=no_entrego"; then pass "via_none_hb_corrupto"
+else fail "via_none_hb_corrupto" "out=$OUT log=$(witness_reasons)"; fi
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

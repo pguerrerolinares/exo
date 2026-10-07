@@ -22,6 +22,8 @@ WITNESS_MSG=""
 WITNESS_LOG=""
 RULES_DIR="$HOME/.claude/exo-rules"
 WSENT="${SENTINEL_DIR}/claude-rules-witness-${SESSION_ID}"
+DEGRADADO_PREFIJO="ℹ"
+DSENT="${SENTINEL_DIR}/claude-rules-degradado-$(date +%Y%m%d)"
 SS="$RULES_DIR/ss-${SESSION_ID}"
 HB="$RULES_DIR/hb-${SESSION_ID}"
 if [ ! -f "$WSENT" ]; then
@@ -40,7 +42,16 @@ if [ ! -f "$WSENT" ]; then
       HB_ST="corrupto"; HB_N="?"
     fi
     [ -z "$HB_ST" ] && { HB_ST="corrupto"; HB_N="?"; }
-    if [ "$HB_ST" = "corrupto" ] || { [ "$HB_ST" = "error" ] && [ "$SS_ST" = "ok" ]; }; then
+    # hb de 1.6.1 sin via = compose; corrupto no se lee.
+    HB_VIA=""; HB_ORG=""
+    if [ "$HB_ST" != "corrupto" ]; then
+      HB_VIA="$(jq -r '.via // ""' "$HB" 2>/dev/null)" || HB_VIA=""
+      HB_ORG="$(jq -r '.org // ""' "$HB" 2>/dev/null)" || HB_ORG=""
+    fi
+    if [ "$HB_VIA" = "none" ] && [ "$SS_ST" = "ok" ]; then
+      WREASON="sin_canal"
+      WITNESS_MSG="⚠ el mod de reglas de proyecto cargó pero ningún canal entregó (via=none): SessionStart vio ok n=${SS_N}; ¿política de la org nueva o exo rules falla?"
+    elif [ "$HB_ST" = "corrupto" ] || { [ "$HB_ST" = "error" ] && [ "$SS_ST" = "ok" ]; }; then
       WREASON="no_entrego"
       WITNESS_MSG="⚠ el mod de reglas de proyecto no entregó: SessionStart vio ${SS_ST} n=${SS_N}, el latido dice ${HB_ST} n=${HB_N}"
     elif [ "$HB_ST" = "error" ]; then
@@ -80,6 +91,14 @@ if [ ! -f "$WSENT" ]; then
       else
         WREASON="no_entrego"
         WITNESS_MSG="⚠ el mod de reglas de proyecto no entregó: el engine dice ${TR_ST} n=${TR_N}, el latido dice ${HB_ST} n=${HB_N}"
+      fi
+    elif [ "$HB_VIA" = "submit" ] && [ "$HB_ST" = "ok" ] && [ "$HB_N" -gt 0 ] 2>/dev/null; then
+      # Entrega por prompt.submit (la org salta compose): log siempre, aviso una vez al día.
+      WREASON="entrega_degradada"
+      WITNESS_LOG="${HB_ORG:+ org=$HB_ORG}"
+      if [ ! -f "$DSENT" ]; then
+        WITNESS_MSG="${DEGRADADO_PREFIJO} reglas de proyecto entregadas por canal degradado (política de la org): n=${HB_N}"
+        touch "$DSENT" 2>/dev/null
       fi
     fi
   fi
