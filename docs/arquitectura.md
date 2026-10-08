@@ -85,7 +85,7 @@ inventados: el error de config ausente nombra el comando que la crea
 
 - **Creación** (`--kb <ruta> --name <nombre>`): valida el nombre (whitelist
   ASCII: es el prefijo de permalink de todas las notas), vuelca la KB semilla
-  (12 ficheros de `kb-template/`, embebidos en el binario con `include_str!`,
+  (17 ficheros de `kb-template/`, embebidos en el binario con `include_str!`,
   con `{{KB_NAME}}` sustituido), la versiona con `git init` + primer commit
   (best-effort: sin git la KB funciona igual), la indexa y verifica que lo
   volcado quedó indexado.

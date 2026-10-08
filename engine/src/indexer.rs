@@ -61,7 +61,7 @@ pub struct Resumen {
     /// legible (YAML roto, o `permalink` ausente) — `parsea_nota` las
     /// devuelve `None` y el bucle de `indexa` hacía `continue` sin sumar a
     /// NINGÚN contador (C2, review de rama): invisibles en el envelope, así
-    /// que un `exo init` que vuelca 12 ficheros e indexa 0 salía exit 0. Este
+    /// que un `exo init` que vuelca 17 ficheros e indexa 0 salía exit 0. Este
     /// contador es justo lo que faltaba para que ese hueco fuera
     /// representable.
     #[serde(rename = "unreadable")]

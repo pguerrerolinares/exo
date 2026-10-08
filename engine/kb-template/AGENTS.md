@@ -93,6 +93,38 @@ en `projects/proyecto-x.md`. El flujo correcto es:
   contextos, añadir (o actualizar) una nota en `learnings/`.
 - No crear una nota nueva en `projects/` para esto: el proyecto ya existe.
 
+## Operativa: leer y escribir en una sesión
+
+- **Busca antes de actuar.** Antes del primer Agent, Edit o Write de una
+  sesión, busca contexto (`exo search`, `exo targets <tema>`) y carga las
+  notas `core`/`stable` relevantes. Las notas `log` se leen por enlace,
+  cuando hace falta el detalle: leer una entera cuesta.
+- **La búsqueda trae el fragmento, no el desenlace.** Sigue los enlaces de
+  la nota encontrada antes de concluir: la decisión final suele estar en
+  otra nota o más abajo.
+- **Cierra con `exo:document`.** Al terminar una sesión con decisiones o
+  aprendizajes: delta sobre el canon + apunte breve en la bitácora. No crees
+  una nota por sesión.
+- **Edita la sección que ya existe; no anexes un bloque
+  `delta AAAA-MM-DD` al final.** Así es como se fragmentan las notas. Una
+  nota `core` o `stable` nunca recibe apuntes fechados: eso es bitácora.
+
+## Presupuestos y trinquete
+
+- **Cada nota tiene un techo de bytes.** Una nota nueva hereda el nominal de
+  su tier (`exo budget`: `core` 8.500 B, `stable` 12.500 B; `log` sin
+  techo). Una vez sellado (`exo ratchet --seal`, en `.kbx-ratchet.json`), el
+  techo es de esa nota.
+- **El trinquete solo baja.** Subir un techo, borrar el sello o reclasificar
+  una nota a `log` para escapar de él rompe `exo ratchet`. Sellar o bajar un
+  techo exige un 15% de aire: a ras es un mordisco programado para mañana.
+- **Al morder el techo**: parte la nota (canon + bitácora), rota la bitácora
+  (`exo rotate`) o consolida (`exo:distill`). Nunca subas el techo, nunca
+  mutiles la nota y **nunca recortes el delta que ibas a escribir** para que
+  quepa. Si nada cabe, deja el commit pendiente y dilo.
+- **Al destilar, mueve bloques enteros; no re-resumas prosa.** Cada
+  re-resumen pierde matices que nadie decidió perder.
+
 ## `semilla: true`: qué es y cuándo quitarlo
 
 Las notas que venían con esta KB al crearla llevan `semilla: true` en el

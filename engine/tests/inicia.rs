@@ -361,7 +361,7 @@ fn adopcion_no_toca_ni_un_fichero_de_la_kb_existente() {
     assert!(!kb.join(".git").exists(), "la adopción hizo git init");
 }
 
-/// I4 (review de rama): `init_cmd` volcaba la plantilla (12 ficheros) y hacía
+/// I4 (review de rama): `init_cmd` volcaba la plantilla (17 ficheros) y hacía
 /// `git init` + commit ANTES de que `escribe_config` descubriera, ya al
 /// final, que la config existía y abortara sin `--force` — residuo de KB +
 /// repo git en disco tras el exit 1, y el reintento fallaba ya por otra vía
@@ -467,11 +467,11 @@ fn init_en_modo_creacion_deja_un_commit_en_la_kb() {
 }
 
 /// C2 (review de rama): `init_cmd` capturaba el `Resumen` de `indexa` y lo
-/// tiraba — `data.files` (12, ficheros ESCRITOS) era lo único que decía el
+/// tiraba — `data.files` (17, ficheros ESCRITOS) era lo único que decía el
 /// envelope, nunca cuántas notas quedaron INDEXADAS. Una semilla que vuelca
-/// 12 ficheros e indexa cero notas salía exit 0 con mensaje de éxito. Ahora
+/// 17 ficheros e indexa cero notas salía exit 0 con mensaje de éxito. Ahora
 /// `data.index` lleva el resumen completo y, en creación, cuadra con las
-/// notas `.md` de la plantilla: 11 (los 12 ficheros de la semilla menos
+/// notas `.md` de la plantilla: 16 (los 17 ficheros de la semilla menos
 /// `archive/log/.gitkeep`, que `walk_kb` filtra por extensión y ni ve).
 #[test]
 #[ignore = "lento: `exo init` carga el modelo; cargo test -- --include-ignored"]
@@ -495,9 +495,9 @@ fn init_en_modo_creacion_publica_el_resumen_de_indexado_en_el_envelope() {
         String::from_utf8_lossy(&salida.stderr)
     );
     let env: serde_json::Value = serde_json::from_slice(&salida.stdout).expect("json");
-    assert_eq!(env["data"]["files"], 12, "ficheros escritos: {env}");
+    assert_eq!(env["data"]["files"], 17, "ficheros escritos: {env}");
     assert_eq!(
-        env["data"]["index"]["indexed"], 11,
+        env["data"]["index"]["indexed"], 16,
         "el envelope no publica cuántas notas quedaron indexadas: {env}"
     );
     assert_eq!(env["data"]["index"]["skipped"], 0);
@@ -584,7 +584,7 @@ fn dos_kbs_con_la_misma_plantilla_sobre_la_misma_db_la_segunda_falla_sin_residuo
             |r| r.get(0),
         )
         .unwrap();
-    assert_eq!(n, 11, "el índice de la primera KB sigue entero");
+    assert_eq!(n, 16, "el índice de la primera KB sigue entero");
 }
 
 /// Bug real (2026-09-13): `init_cmd` calcula `db_objetivo` con la precedencia

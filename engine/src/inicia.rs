@@ -92,7 +92,7 @@ fn cadena_toml(s: &str) -> String {
 
 /// Comprueba que `destino` admite escribir la config: inexistente, o
 /// `force`. Pensada para llamarse ANTES de tocar el disco de la KB (I4,
-/// review de rama): `init_cmd` volcaba la plantilla de 12 ficheros y hacía
+/// review de rama): `init_cmd` volcaba la plantilla de 17 ficheros y hacía
 /// `git init` + commit ANTES de que `escribe_config` (más abajo) descubriera
 /// que ya había una config y abortara sin `--force` — residuo en disco tras
 /// un exit 1, y el reintento fallaba ya por otra vía (`prepara_kb`, "no está
@@ -230,7 +230,7 @@ pub fn prepara_kb(kb: &Path, force: bool) -> Result<()> {
 
 /// Exige que en modo CREACIÓN lo indexado cuadre con lo volcado (C2, review
 /// de rama). Antes, `init_cmd` descartaba el `indexer::Resumen` de `indexa` —
-/// una semilla que vuelca 12 ficheros e indexa CERO notas (frontmatter
+/// una semilla que vuelca 17 ficheros e indexa CERO notas (frontmatter
 /// ilegible, cualquier causa) salía exit 0 con mensaje de éxito. Solo aplica
 /// en creación: en modo ADOPCIÓN la KB es del usuario, `init` no decide su
 /// contenido, y una nota suya sin permalink no es un bug de `init`.
