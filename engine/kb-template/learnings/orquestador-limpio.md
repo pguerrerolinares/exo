@@ -33,7 +33,9 @@ del hijo termina; el del padre sigue ligero.
 
 ## Pirámide de coste
 
-- **`model` explícito siempre.** Omitirlo hereda el del padre y rompe la
+- **`model` explícito siempre, salvo en un rol con modelo fijo** (p. ej.
+  `exo:executor` trae sonnet; pasarlo lo pisaría). Si ni la invocación ni el
+  agente lo fijan, se hereda el del padre y se rompe la
   pirámide en silencio.
 - **haiku = transcripción** (fix mecánico de un fichero, extracción literal);
   **sonnet = juicio e integración** (multi-fichero, refactors, wiring que
@@ -74,8 +76,9 @@ del hijo termina; el del padre sigue ligero.
 ## Operar con subagentes vivos
 
 - **No pongas polling ni wait-loops caseros en el brief.** Los jobs largos los
-  lanza y vigila el padre (con `run_in_background`, que re-invoca al
-  terminar). Los ejecutores no lanzan subagentes.
+  lanza y vigila el padre en segundo plano, que le avisa al terminar. Los
+  ejecutores no lanzan subagentes: el harness permite anidar, así que es una
+  restricción del rol (`exo:executor` no tiene la herramienta Agent).
 - **Un agente idle tras entrega no es incidencia.** Verifica por artefacto
   (mtime, `git log`), empuja con `SendMessage`, no re-despaches. No infieras
   abandono de un estado intermedio: dos escritores sobre el mismo estado es la

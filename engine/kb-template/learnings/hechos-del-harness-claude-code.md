@@ -12,12 +12,12 @@ semilla: true
 
 ## Hooks
 
-- **`PostToolUse` de Bash no trae `exit_code`.** Un hook que dependa de él está muerto en producción. El fallo de una herramienta tiene **su propio evento** (`PostToolUseFailure`); no lo deduzcas del evento de éxito.
+- **`PostToolUse` de Bash no trae `exit_code`.** Un hook que dependa de él está muerto en producción. El fallo de una herramienta tiene **su propio evento** (`PostToolUseFailure`, con el código como primera línea de `error`: `Exit code N`); no lo deduzcas del evento de éxito.
 - **`PreToolUse` evalúa antes de ejecutar.** Un guard que mira el comando completo ve `rm FLAG && merge` entero y lo deniega aunque el `rm` fuera primero. Gate y ejecución van en **comandos separados**: baja el flag en una llamada propia y ejecuta en la siguiente.
-- **Los hooks se cargan al arrancar la sesión.** Cambiar o actualizar un hook no basta: hay que abrir sesión nueva para que cuente. Comprueba siempre sobre una sesión fresca.
+- **No des por cargado un hook que acabas de cambiar.** Los cambios en settings suelen recogerse en caliente y los de un plugin con `/reload-plugins`, pero no siempre: si el hook no se dispara, reinicia la sesión. Comprueba el cambio provocando el evento, no leyendo el fichero.
 - **Un guard que casa por texto del comando casa también menciones.** Un heredoc o un `echo` que contenga `git push` puede tumbar la llamada entera. Y resuelve el repo por el `cwd` del payload: `cd dir && git commit` puede denegarse donde `git -C dir commit` pasa.
 - **Un "Edit operation failed" de un hook `PostToolUse` puede ser ruido.** Si el `tool_result` del propio edit dice "updated successfully", el aviso es falso: no reverifiques el fichero ni reintentes. Verifica al final del bloque de trabajo, no tras cada edit.
-- **Hooks en background a mano:** con `cmd &`, un hijo que hereda stdout retiene el hook hasta que termina. Redirige los tres descriptores, o usa la opción nativa asíncrona si tu versión la ofrece.
+- **Hooks en background a mano:** con `cmd &`, un hijo que hereda stdout retiene el hook hasta que termina. Redirige los tres descriptores, o declara el hook con `"async": true` (ojo: a un hook asíncrono no se le aplica el `timeout`).
 - **La telemetría no debe romper lo que instrumenta.** Si el log falla (disco lleno, ruta ausente), eso no debe tumbar el hook ni la herramienta: `>> log 2>/dev/null || true`.
 
 ## Concurrencia y estado compartido
@@ -31,7 +31,7 @@ semilla: true
 
 ## Plugins
 
-- **El marketplace de plugins sirve por número de versión, no por contenido.** Si `version` no cambia, el contenido nuevo del repo no llega a ninguna máquina y la respuesta ("ya estás en la última versión") es indistinguible de estar al día. La caché no se refresca sin bump. La única comprobación falsable es un `diff -r` entre la caché y el repo. Remedio estructural: un gate de CI que exija versión distinta cuando cambia el directorio del plugin. Y recuerda que los hooks se cargan al arrancar: tras actualizar, sesión nueva.
+- **El marketplace de plugins sirve por número de versión, no por contenido.** Si `version` no cambia, el contenido nuevo del repo no llega a ninguna máquina y la respuesta ("ya estás en la última versión") es indistinguible de estar al día. La caché no se refresca sin bump. La única comprobación falsable es un `diff -r` entre la caché y el repo. Remedio estructural: un gate de CI que exija versión distinta cuando cambia el directorio del plugin, o no declarar `version` (ni en `plugin.json` ni en el marketplace) para que se siga por commit. Un marketplace local cargado en sitio no depende de la versión: ahí el `diff -r` no aplica. Tras actualizar, `/reload-plugins` o sesión nueva.
 
 ## Windows
 

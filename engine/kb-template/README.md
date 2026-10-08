@@ -62,14 +62,14 @@ tier: stable   # "core" solo para core-index.md; "log" para las bitácoras
 secciones `## Doctrina compacta` y `## Cores` para componer lo que inyecta a
 cada subagente. Puedes cambiar lo que hay dentro, pero no renombres esas dos
 cabeceras: si no las encuentra, esa parte de la inyección sale vacía sin
-avisar.
+avisar. De `## Doctrina compacta` solo viajan los primeros **550 B**, por
+líneas enteras: pon arriba lo que más necesita un subagente.
 
 ## Cómo se busca
 
-Una vez indexada, la KB se consulta mediante el buscador asociado al
-indexador (por título, por tag, o por contenido de texto libre, según lo que
-soporte la herramienta concreta que se esté usando). Con `exo`, es
-`exo search "lo que buscas"`. El flujo habitual de
+Una vez indexada, la KB se consulta con `exo search "lo que buscas"`: por
+defecto fusiona búsqueda léxica y semántica (`hybrid`); `--type fts` es el
+modo léxico barato, sin cargar el modelo de embeddings. El flujo habitual de
 un agente es: buscar primero si ya existe una nota relacionada con lo que se
 quiere anotar o consultar, y solo si no existe, plantearse crear una nueva
 siguiendo la regla de oro descrita en [[Contrato de la KB para agentes|AGENTS.md]].
