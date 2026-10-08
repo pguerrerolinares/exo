@@ -30,7 +30,7 @@ Para el contrato completo de cómo un agente debe leer y escribir en esta
 estructura (qué va a cada carpeta, la regla de oro de routing), ver
 [[Contrato de la KB para agentes|AGENTS.md]] en esta misma carpeta. Como
 primera lectura, empieza por
-[[core-index — mapa y presupuesto de esta KB|core/core-index]]: es el mapa
+[[core-index — mapa de esta KB|core/core-index]]: es el mapa
 de qué hay y dónde, pensado para leerse antes que cualquier otra cosa.
 
 ## Cómo se indexa

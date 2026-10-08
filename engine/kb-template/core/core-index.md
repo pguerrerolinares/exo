@@ -26,16 +26,16 @@ compacta" importa: a cada subagente solo le llegan sus primeros 550 B.
 
 ## Doctrina compacta
 
-- **Ejecutar > leer**: solo ejecutar verifica verdad; exige el rojo real. → [[verificar-ejecutando-no-leyendo|learnings/verificar-ejecutando-no-leyendo]]
-- **Fallo silencioso**: un check debe poder ponerse rojo por su caso. → [[fallo-silencioso|learnings/fallo-silencioso]]
-- **Recon-first**: mismo error ≥3 veces → verifica el supuesto. → [[recon-first|learnings/recon-first]]
-- **Orquestador limpio**: delega la lectura y la ejecución voluminosas; el padre detecta y valida, el ejecutor arregla. → [[orquestador-limpio|learnings/orquestador-limpio]]
-- **Pirámide de coste**: `model` explícito (salvo rol con modelo fijo, como `exo:executor`); haiku transcribe, sonnet juzga e integra, Opus la review final de rama. → [[orquestador-limpio|learnings/orquestador-limpio]]
-- **Brief**: la ambigüedad del encargo manda; hechos con ancla `fichero:línea` o marcados SUPUESTO; blindspot pass antes de despachar. → [[el-brief-es-el-cuello-de-botella|learnings/el-brief-es-el-cuello-de-botella]]
-- **Instrumento validado**: un negativo o "0 resultados" no vale hasta validar el detector con un positivo conocido. → [[instrumento-validado-antes-de-medir|learnings/instrumento-validado-antes-de-medir]]
-- **Enforcement**: una lección que no acaba en hook, test o gate se ha anotado, no aprendido; mecaniza lo verificable. → [[la-prosa-no-es-enforcement|learnings/la-prosa-no-es-enforcement]]
-- **LLM como último recurso**: determinista primero, `null > inventado`; lo que no mide se aparca, no se borra. → [[construir-con-llms-y-descartar|learnings/construir-con-llms-y-descartar]]
-- **Harness**: hechos de Claude Code y Windows que muerden (hooks, JSONL, `git add -A`, CP-1252); verifícalos contra la versión viva. → [[hechos-del-harness-claude-code|learnings/hechos-del-harness-claude-code]]
+- **Ejecutar > leer**: solo ejecutar verifica verdad; exige el rojo real. → [[La lectura verifica coherencia; solo la ejecución verifica verdad|verificar-ejecutando-no-leyendo]]
+- **Fallo silencioso**: un check debe poder ponerse rojo por su caso. → [[El fallo más caro es el que no avisa, y cada forma tiene su remedio|fallo-silencioso]]
+- **Recon-first**: mismo error ≥3 veces → verifica el supuesto. → [[En terreno desconocido, verificar el supuesto antes de seguir computando|recon-first]]
+- **Orquestador limpio**: delega la lectura y la ejecución voluminosas; el padre detecta y valida, el ejecutor arregla. → [[El padre coordina y valida; el ejecutor implementa|orquestador-limpio]]
+- **Pirámide de coste**: `model` explícito (salvo rol con modelo fijo, como `exo:executor`); haiku transcribe, sonnet juzga e integra, Opus la review final de rama. → [[El padre coordina y valida; el ejecutor implementa|orquestador-limpio]]
+- **Brief**: la ambigüedad del encargo manda; hechos con ancla `fichero:línea` o marcados SUPUESTO; blindspot pass antes de despachar. → [[La claridad del encargo es el cuello de botella, no la capacidad del agente|el-brief-es-el-cuello-de-botella]]
+- **Instrumento validado**: un negativo o "0 resultados" no vale hasta validar el detector con un positivo conocido. → [[Un negativo no vale si el instrumento no está validado|instrumento-validado-antes-de-medir]]
+- **Enforcement**: una lección que no acaba en hook, test o gate se ha anotado, no aprendido; mecaniza lo verificable. → [[Una regla que se cita y se ignora es un comentario|la-prosa-no-es-enforcement]]
+- **LLM como último recurso**: determinista primero, `null > inventado`; lo que no mide se aparca, no se borra. → [[El LLM es el operador de último recurso, y lo que no mide se aparca|construir-con-llms-y-descartar]]
+- **Harness**: hechos de Claude Code y Windows que muerden (hooks, JSONL, `git add -A`, CP-1252); verifícalos contra la versión viva. → [[El harness tiene hechos que muerden en producción: verificarlos contra la versión viva|hechos-del-harness-claude-code]]
 - **Evidencia antes que afirmación**, **cambios pequeños en el estilo de alrededor**, **revisión proporcional al riesgo**. → [[Doctrina de trabajo con agentes|core/doctrina]]
 
 ## Routing de proceso (plugin exo)
