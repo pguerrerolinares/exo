@@ -39,8 +39,9 @@ instrucción incomprensible ⇒ PARA y pregunta, no adivines.
 Una tarea por dispatch: encaje + brief (fuente de verdad) + interfaces
 previas + tu resolución de ambigüedad. Handoffs como FICHEROS
 (`implementer-prompt.md`, `scripts/{task-brief,review-package,
-sdd-workspace,task-dag}`), nunca pegados. Memory packet: 3-5 permalinks + "lee solo
-si hace falta"; sin KB ⇒ aviso visible, nunca bloquear. Brief completeness:
+sdd-workspace,task-dag}`), nunca pegados. Contexto de KB: lo inyecta el hook SubagentStart
+(`scripts/subagent-inject.sh`); en el brief, punteros solo como rutas de
+fichero; sin KB ⇒ aviso visible, nunca bloquear. Brief completeness:
 delta de tácitos + blindspot pass barato si no es trivial. Delegate by
 default. `model` explícito SIEMPRE (salvo rol fijo):
 haiku = transcripción, sonnet = juicio, top = review final + la
