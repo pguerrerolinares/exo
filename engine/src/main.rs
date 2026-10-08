@@ -627,7 +627,7 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
 
     // I4 (review de rama): se comprueba ANTES de tocar nada en disco. Antes
     // esta guarda solo vivía dentro de `escribe_config`, llamada después de
-    // volcar la plantilla (12 ficheros) y de `git init` + commit en modo
+    // volcar la plantilla (17 ficheros) y de `git init` + commit en modo
     // creación — sin `--force` contra una config existente, el aborto llegaba
     // tarde: KB a medio escribir + repo git en disco + exit 1, y el reintento
     // fallaba ya por otra vía (`prepara_kb`: "no está vacía").

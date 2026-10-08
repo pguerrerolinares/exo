@@ -1,6 +1,6 @@
 //! La plantilla de la KB semilla, embebida en el binario. `include_str!`
-//! explícito doce veces en vez de un macro-crate de embedding: D4 exige un
-//! binario autosuficiente, y doce líneas legibles valen más que una dependencia
+//! explícito diecisiete veces en vez de un macro-crate de embedding: D4 exige un
+//! binario autosuficiente, y diecisiete líneas legibles valen más que una dependencia
 //! que hay que auditar para publicar.
 
 use anyhow::{Context, Result};
@@ -37,6 +37,26 @@ pub const FICHEROS: &[(&str, &str)] = &[
     (
         "learnings/el-brief-es-el-cuello-de-botella.md",
         include_str!("../kb-template/learnings/el-brief-es-el-cuello-de-botella.md"),
+    ),
+    (
+        "learnings/verificar-ejecutando-no-leyendo.md",
+        include_str!("../kb-template/learnings/verificar-ejecutando-no-leyendo.md"),
+    ),
+    (
+        "learnings/instrumento-validado-antes-de-medir.md",
+        include_str!("../kb-template/learnings/instrumento-validado-antes-de-medir.md"),
+    ),
+    (
+        "learnings/la-prosa-no-es-enforcement.md",
+        include_str!("../kb-template/learnings/la-prosa-no-es-enforcement.md"),
+    ),
+    (
+        "learnings/hechos-del-harness-claude-code.md",
+        include_str!("../kb-template/learnings/hechos-del-harness-claude-code.md"),
+    ),
+    (
+        "learnings/construir-con-llms-y-descartar.md",
+        include_str!("../kb-template/learnings/construir-con-llms-y-descartar.md"),
     ),
     (
         "projects/_template.md",
