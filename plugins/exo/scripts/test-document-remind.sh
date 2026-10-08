@@ -45,7 +45,7 @@ BIG="$TMP/big.jsonl"; seq 1 80 > "$BIG"
 run() {  # $1 = sid, $2 = transcript, $3 = cwd (opcional)
   OUT="$(printf '{"session_id":"%s","transcript_path":"%s","cwd":"%s"}' "$1" "$2" "${3:-$TMP}" | "$HOOK" 2>/dev/null)"
 }
-msg() { printf '%s' "$OUT" | jq -r '.systemMessage // empty' 2>/dev/null; }
+msg() { printf '%s' "$OUT" | jq -r '.systemMessage // empty' 2>/dev/null | tr -d '\r'; }
 witness_reasons() { jq -r 'select(.reflex=="project-rules-witness") | .payload' "$REFLEX_LOG_FILE" 2>/dev/null; }
 
 NOCARGO='⚠ el mod de reglas de proyecto no cargó (sin latido): esta sesión no lleva reglas en el system prompt'
