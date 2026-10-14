@@ -74,7 +74,10 @@ Con ojos frescos contra la spec, checklist propio (no dispatch):
 1. Cobertura: ¿cada requisito tiene tarea?
 2. Placeholders: nada de lo anterior.
 3. Tipos: nombres y firmas coinciden entre tareas.
-4. Proporción: "un plan más largo que el código que describe ya es el
+4. Review Focus: por cada input o fallo que la spec implica, ¿hay tarea
+   cuyos tests lo ejerciten? Los ≤5 más probables van en su `Review Focus`
+   con su test; vacío = lo comprobaste y no hay, no que lo saltaste.
+5. Proporción: "un plan más largo que el código que describe ya es el
    código". Si dominan los bloques de código, sustituye cuerpos por firma +
    nombre de test + aserción y comprueba que cada tarea sigue siendo
    inequívoca.

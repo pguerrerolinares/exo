@@ -57,7 +57,7 @@ modelo mayor / partir la tarea / escalar — nunca retry sin cambiar nada.
 Reviewer (`reviewer-prompt.md`): constraints verbatim, sin directivas
 open-ended, sin re-pedir tests ya corridos, nunca pre-juzgar findings, BASE
 registrado antes del dispatch (nunca `HEAD~1`). Dos verdictos + pase de
-over-engineering por tarea; final con `MERGE_BASE`. Los ⚠️ "cannot verify" los resuelve el orquestador.
+over-engineering por tarea; final con `MERGE_BASE`. Los ⚠️ "cannot verify" y las líneas «Declined to judge» las resuelve el orquestador (Ruling, `olas.md`); el final recibe los `Review Focus` del plan.
 MUTACIÓN sin score (`no disponible`/`parcial`) al ledger: `olas.md`. Fixes
 para Critical/Important; Minor al ledger, triaje en el final. Fix loop (máx 5 rondas por tarea,
 resume del executor, re-review acotada, breaker con adjudicación): `olas.md`.
