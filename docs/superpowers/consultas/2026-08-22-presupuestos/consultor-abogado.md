@@ -146,7 +146,7 @@ quitarlo es **invisible, compuesto y diferido**: +1,5-5 KB/día por nota activa,
 sin ningún evento que avise, hasta que abrir el estado de un proyecto cueste
 25k tokens y el retrieval sirva arcos muertos. Un sistema cuyo modo de fallo
 es ruidoso e inmediato siempre gana a uno cuyo modo de fallo es silencioso y
-acumulativo. Eso es exactamente [[Fallo silencioso]], que la KB destiló como
+acumulativo. Eso es exactamente «Fallo silencioso», que la KB destiló como
 nota propia *ayer*.
 
 ---

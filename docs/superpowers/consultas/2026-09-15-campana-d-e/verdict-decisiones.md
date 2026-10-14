@@ -89,7 +89,7 @@ Respuesta a la pregunta del brief: **la "fórmula tal cual" es el cálculo del s
 
 ## Decisión 3 — D-4: fallback sin `[kb] name` y valor base de D-4
 
-**Decisión: (b) abortar `--apply` sin `[kb] name` resoluble; el dry-run sigue funcionando sin config.** Y **se confirma D-4 base = `exo::nombre_kb()`** (no el literal `"wisdom-paul"`).
+**Decisión: (b) abortar `--apply` sin `[kb] name` resoluble; el dry-run sigue funcionando sin config.** Y **se confirma D-4 base = `exo::nombre_kb()`** (no el literal del nombre de la KB).
 
 **Qué cambia exactamente** (rama D, coste ~30 min + tests):
 1. `engine/src/main.rs:1485-1488` — sustituir el `unwrap_or_else` por:
@@ -121,7 +121,7 @@ Respuesta a la pregunta del brief: **la "fórmula tal cual" es el cálculo del s
 - `engine/src/config.rs:10-11`: *"**Sin defaults inventados**: un default silencioso es la clase de fallo que este proyecto existe para no volver a tener."* — el prefijo `kb` es un default inventado (avisado, pero inventado y persistido en disco).
 - `engine/src/lib.rs:112-117`: *"Nombre de proyecto de la KB (prefijo de permalink), EXPLÍCITO en config. Cierra el disenso del gate M4: `write new` lo derivaba de `kb.file_name()`, contra lo que decía la spec §3.1. Coincidían por suerte."* — esto **descarta la opción (c)** (derivar del nombre del directorio): es exactamente la convención que exo ya abandonó a propósito.
 - `main.rs:794-797` (`write new`): *"El nombre del proyecto sale de `[kb] name` de la config, EXPLÍCITO … el día que no, reventaba en silencio."* — `write new` no tiene fallback: `exo::nombre_kb()?`. `rotate --apply` es el otro comando que escribe permalinks; debe comportarse igual.
-- Plan D :133 (D-4, contra de la opción verbatim): *"exo sirve **cualquier** KB … escribiría un permalink falso en cuanto alguien use exo sobre una KB que no se llame `wisdom-paul`"* — el mismo argumento condena `kb/…`: también es un permalink falso, solo que para todas las KBs.
+- Plan D :133 (D-4, contra de la opción verbatim): *"exo sirve **cualquier** KB … escribiría un permalink falso en cuanto alguien use exo sobre una KB que no tenga ese nombre"* — el mismo argumento condena `kb/…`: también es un permalink falso, solo que para todas las KBs.
 - Plan D :134 (D-4 b): *"Usar `[kb] name` de la config, el mismo mecanismo que ya usan `write new`/`write append`"* — confirmación del valor base.
 - `walker.rs:9-10`: *"`archive/` SE incluye (§6.2 regla 4)"* — el archivo con `kb/…` entra en el índice bajo un namespace que no es el de la KB.
 
@@ -132,7 +132,7 @@ Respuesta a la pregunta del brief: **la "fórmula tal cual" es el cálculo del s
 - (a) Pro: fijado por test, cero trabajo. Contra: persiste un permalink inventado; el aviso va a stderr, que `distill` no lee (`SKILL.md:55` solo mira `data.rotations`).
 - (c) Descartada por cita (`lib.rs:114-117`).
 
-**Qué busqué para objetar**: el argumento más fuerte a favor de (a) es "el permalink del archivo es cosmético: el indexer puede derivar el permalink de la ruta". Miré `walker.rs` e `indexer` — `archive/` se indexa y el permalink es la PK del índice (brief + `write append` resuelve permalink→ruta contra el índice, `main.rs:832`); un `kb/archive/log/x` convive con `wisdom-paul/log/x` en la misma tabla. No es cosmético. Segundo: "abortar rompe la paridad con kbx" — no: kbx nunca puede fallar por esto porque hardcodea el nombre; la divergencia 6 ya está declarada y este cambio solo afecta al caso sin config, que el gate (con `~/.exo/config.toml` presente) no ejercita. Tercero: "(b) es over-engineering" — es quitar un `unwrap_or_else` y su string; hay menos líneas después que antes.
+**Qué busqué para objetar**: el argumento más fuerte a favor de (a) es "el permalink del archivo es cosmético: el indexer puede derivar el permalink de la ruta". Miré `walker.rs` e `indexer` — `archive/` se indexa y el permalink es la PK del índice (brief + `write append` resuelve permalink→ruta contra el índice, `main.rs:832`); un `kb/archive/log/x` convive con `<kb>/log/x` en la misma tabla. No es cosmético. Segundo: "abortar rompe la paridad con kbx" — no: kbx nunca puede fallar por esto porque hardcodea el nombre; la divergencia 6 ya está declarada y este cambio solo afecta al caso sin config, que el gate (con `~/.exo/config.toml` presente) no ejercita. Tercero: "(b) es over-engineering" — es quitar un `unwrap_or_else` y su string; hay menos líneas después que antes.
 
 **Rama afectada**: D.
 

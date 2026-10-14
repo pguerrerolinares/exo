@@ -116,7 +116,7 @@ poder trocearse, y **M5b sigue bloqueado** hasta que estén:
   única que el modelo lee en cada sesión). Decisión de Paul pendiente sobre el resto.
 - `$EXO_KB` con espacios no se trimea en `compose-inject.sh` (el script previo
   tampoco sanitizaba `--kb`: no es regresión).
-- `skills/consolida/SKILL.md` lleva 13 rutas absolutas a `/home/paul/…`.
+- `skills/consolida/SKILL.md` lleva 13 rutas absolutas a `~/…`.
 - `test-reflex-baseline.sh` es el único test sin bit `+x` (venía así).
 
 ## Cerrado, no anotar como deuda

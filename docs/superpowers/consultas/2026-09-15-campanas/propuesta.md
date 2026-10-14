@@ -1,7 +1,7 @@
 # Propuesta de campañas F→K — deuda abierta de exo agrupada por sinergia real
 
 - **Fecha**: 2026-09-15 · **Base**: `docs-backlog-estado-0915` @ `99ddd05` (árbol limpio).
-- **Fuentes leídas**: `docs/backlog.md` entero (2.080 líneas, las cuatro secciones), `wisdom-paul/backlog/Backlog — exo.md` y `Backlog — Memoria v2.md`, los planes de B/D/E, `.superpowers/fabrica/config.md` §Roadmap y §2026-09-14, `verdict-decisiones.md` de D+E, y el código donde un item olía a caducado (`doctor.rs`, `buscador.rs`, `walker.rs`, `lint.rs`, `escritor.rs`, `main.rs`, `trinquete.rs`, `lib.rs`, `kb_sintetica.rs`, `hooks.json`, `kb-precommit.sh`, `recall-inject.sh`, `exo-recall.sh`, `reflex-baseline.sh`, `test-hermetico.sh`, `test-shellcheck.sh`, `ci.yml`, `release.yml`, `document/SKILL.md`, `distill/chequeos.md`, README, `arquitectura.md`).
+- **Fuentes leídas**: `docs/backlog.md` entero (2.080 líneas, las cuatro secciones), `<kb>/backlog/Backlog — exo.md` y `Backlog — Memoria v2.md`, los planes de B/D/E, `.superpowers/fabrica/config.md` §Roadmap y §2026-09-14, `verdict-decisiones.md` de D+E, y el código donde un item olía a caducado (`doctor.rs`, `buscador.rs`, `walker.rs`, `lint.rs`, `escritor.rs`, `main.rs`, `trinquete.rs`, `lib.rs`, `kb_sintetica.rs`, `hooks.json`, `kb-precommit.sh`, `recall-inject.sh`, `exo-recall.sh`, `reflex-baseline.sh`, `test-hermetico.sh`, `test-shellcheck.sh`, `ci.yml`, `release.yml`, `document/SKILL.md`, `distill/chequeos.md`, README, `arquitectura.md`).
 - **Régimen**: directiva «construir antes que medir» (Paul, 2026-08-17). Ninguna campaña de abajo lleva ventana de medición como relleno; donde hay medición es porque el cambio es irreversible (retrieval) o porque el instrumento ya existe y solo se lee después de construir (latencia W11).
 - Líneas del backlog citadas como `backlog:N` = `docs/backlog.md:N` en `99ddd05`. `KB-exo:N` = `Backlog — exo.md:N`.
 
@@ -266,7 +266,7 @@ Por qué F/G/H primero: son las tres que no piden nada caro a Paul, cierran 24 i
 | # | Decisión | Opciones | Recomendación | Desbloquea |
 |---|---|---|---|---|
 | 1 | **D6** default de `exo search --type` (`main.rs:241`) | a) sigue `fts` · b) `hybrid` + `--min-similarity 0.40` (el modo medido) | **b**. El held-out ya lo decidió: A0 gana a FTS en 41 filas y FTS a A0 en 0 (`c-verdict.md`). El coste (≈1 s de modelo) es el que el hook ya paga en cada prompt. J podrá ajustar el umbral, no el tipo | G Task 11 |
-| 2 | **D-4** permalink de `rotate`: `nombre_kb()` vs `"wisdom-paul/"` | a) literal · b) `nombre_kb()` (ya en código) | **b**; cerrar el item con el verdict de D+E | Cierra `backlog:181` |
+| 2 | **D-4** permalink de `rotate`: `nombre_kb()` vs `"<kb>/"` | a) literal · b) `nombre_kb()` (ya en código) | **b**; cerrar el item con el verdict de D+E | Cierra `backlog:181` |
 | 3 | `budget` vs `cost` | a) `exo cost` verbo · b) vive en `evals/` · c) nada hasta que exista | **b/c**: `budget`=bytes ya está sellado; un cruce reflex-log×transcripts es medición, no producto. Solo si se aprueba la decisión 12 | Cierra `backlog:926-941` |
 | 4 | Downrank de `archive/` | a) nada · b) excluir · c) penalizar, medido en J | **c**: el 33 % de punteros del día 1 vino de archivo, pero 9 filas SUPERADA viven allí. Se decide con gold que incluya esas queries | J Task 6 |
 | 5 | Idioma de identificadores de código | a) español (estado real, 26 módulos) · b) inglés en módulos nuevos · c) rename masivo | **a, escrito en una línea** en §3.8: identificadores en español, claves JSON/flags en inglés (D8/D9). Cero código | F Task 8 |
@@ -378,7 +378,7 @@ Tomadas en sesión, una a una, sobre la tabla de §5. Con esto el paquete queda
   Paul), jueces a ciegas **fable + Kimi (Moonshot)** —otra familia de modelo,
   para romper la correlación de errores Claude–Claude— y un suelo de acuerdo
   pre-registrado por debajo del cual J para. **Paul autoriza explícitamente
-  enviar trozos de la KB `wisdom-paul` y queries de agentes a la API de
+  enviar trozos de la KB personal y queries de agentes a la API de
   Moonshot** («no me importa mandar a kimi, continua por ahí»). Por la misma
   tesis, la evicción editorial de `core-index` (#16) la hace un agente, no
   Paul.

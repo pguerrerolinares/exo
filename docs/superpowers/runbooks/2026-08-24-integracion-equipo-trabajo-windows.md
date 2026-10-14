@@ -197,7 +197,7 @@ por una razón que no tiene que ver con lo que dice medir. El producto estaba
 bien: el corte por líneas enteras de `compose-inject.sh` no parte caracteres
 multibyte, verificado con payload real.
 
-### Rutas absolutas a `/home/paul`
+### Rutas absolutas a `~`
 
 `skills/consolida/SKILL.md` lleva 13 y depende de `kbx`, que aquí no está
 compilado (no hay toolchain de Go). El skill queda inservible en esta máquina.

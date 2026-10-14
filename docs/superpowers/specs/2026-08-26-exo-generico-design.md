@@ -423,7 +423,7 @@ v1 se dejaba fuera lo más peligroso. La lista real:
 6. `skills/documenta/routing.md` → `skills/document/routing.md`.
 7. `paul-profile` (A2): `plugin.json:3`, `skills/fabrica/SKILL.md:8,43,61`.
 8. `plugins/reflex/README.md` + `plugins/process/README.md` → uno solo.
-9. `consolida/SKILL.md`: **13 rutas absolutas `/home/paul/…`** → se
+9. `consolida/SKILL.md`: **13 rutas absolutas `~/…`** → se
    parametrizan contra la config de G1.
 10. Las dos cachés instaladas (`0.16.0`, `0.17.0`) y el runbook de W11.
 
@@ -444,7 +444,7 @@ anunciada, o el rewiring de `distill`/`document` se mueve entero a G4.
 > irrelevante para *ejecutarlo*, que es lo único que `distill` necesita.
 >
 > **La causa real** de que `distill` esté roto en W11 son las **13 rutas
-> absolutas `/home/paul/…`** del punto 9 de este mismo inventario: un bug de
+> absolutas `~/…`** del punto 9 de este mismo inventario: un bug de
 > parametrización, no una ausencia de binario. Sigue yendo a G4 porque es allí
 > donde esas rutas se parametrizan y donde se reescriben sus comandos a verbos
 > `exo` — dos arreglos sobre el mismo fichero, y separarlos es peor. Se cae el

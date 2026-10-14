@@ -3,7 +3,7 @@
 Consultor fable fresco, 2026-10-05T01:39:54+02:00. No participé en ninguna fase de la rama.
 Objeto: `.worktrees/q-w11` @ `b146d71`, 6 commits sobre `main` `beecead`. Régimen:
 `.superpowers/fabrica/config.md` §"Ejecución de gates" (4 condiciones) + lección 1 del bloque
-ACTUALIZACIÓN 2026-09-20. Criterio: KB `wisdom-paul/backlog/Backlog — exo.md:45,48`.
+ACTUALIZACIÓN 2026-09-20. Criterio: KB `<kb>/backlog/Backlog — exo.md:45,48`.
 
 ## Veredicto
 

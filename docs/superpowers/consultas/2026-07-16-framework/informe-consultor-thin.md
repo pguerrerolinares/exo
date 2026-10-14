@@ -34,7 +34,7 @@ El plan afirma "using-superpowers desaparece sin sustituto: el routing lo hacen 
 
 ### Eje 3 — Overlay KB-opcional: SÓLIDO, con dos acotaciones
 
-No es YAGNI: el principio "genérico de base, instancia = KB + profile" está firmado, y el coste del overlay es una línea-patrón, no una feature. Y no es dependencia nueva: las skills de Paul YA hacen overlay hoy (recon-first y orchestrate-personal apuntan a [[doctrina-agentes]] con la regla "si divergen, manda la nota"; documenta usa kbx con fallback visible). Acotaciones:
+No es YAGNI: el principio "genérico de base, instancia = KB + profile" está firmado, y el coste del overlay es una línea-patrón, no una feature. Y no es dependencia nueva: las skills de Paul YA hacen overlay hoy (recon-first y orchestrate-personal apuntan a doctrina-agentes con la regla "si divergen, manda la nota"; documenta usa kbx con fallback visible). Acotaciones:
 
 1. **La degradación debe ser el patrón documenta, estandarizado**: probe barato del CLI (exit ≠ 0 / no ejecutable) → defaults + una línea visible en el output ("engine unavailable → defaults"). Nunca bloquear, nunca silencioso. Una sola forma para las 6 skills, no seis variantes.
 2. **No construyas read-path del engine para esto antes de E1.** Mientras el engine no exista, "vía engine" significa "vía kbx/basic-memory como hoy". El overlay es un *contrato de interfaz* (la skill llama a UN comando que algún día será el engine), no una razón para adelantar código. Si la Sección 3 se lee como "las skills necesitan engine read-path el día del cutover", eso contradice el write-path-acotado firmado — aclarar la redacción.

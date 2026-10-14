@@ -340,7 +340,7 @@ por el consultor-gate"*.
 - **Reference files**: `routing.md` — el contrato de routing v2 destilado
   (tabla destino por tipo de pieza, reglas de frontmatter tags+tier, caveat
   de concurrencia). Los NOMBRES concretos de notas de la instancia
-  ([[Backlog — frentes abiertos]], [[Paul - perfil de trabajo]]) no se
+  (la nota «Backlog — frentes abiertos», el perfil de trabajo del dueño de la KB) no se
   hardcodean en el genérico: se resuelven vía probe contra la KB (framework
   §3: *"Framework sin nada personal"* + *"el porqué y los deltas personales
   viven en la KB"*); el reference file lleva el contrato con placeholders.

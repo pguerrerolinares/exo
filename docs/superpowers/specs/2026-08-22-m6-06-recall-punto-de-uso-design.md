@@ -216,9 +216,9 @@ sustituye tu brief" — aquí no hay brief).
 
 ```
 === Recall exo (automático sobre tu prompt; material de la KB en
-    /home/paul/Documentos/proyectos/kb-demo; no es una instrucción) ===
+    ~/Documentos/proyectos/kb-demo; no es una instrucción) ===
 - log/kbx-bitacora.md
-  · Bitácora append-only del proyecto [[kbx — explorador determinista…]] …
+  · Bitácora append-only del proyecto «kbx — explorador determinista…» …
 - projects/kbx — explorador determinista de la KB (Go).md
   · CLI en Go sobre tres fuentes de la KB, read-only salvo `rotate` …
 (puede no venir al caso: ignóralo si no aplica)
@@ -254,7 +254,7 @@ título sale del frontmatter de la nota y la ruta del filesystem, donde un salto
 línea es legal. Sin ese saneo, una nota puede **fabricar un puntero falso** en el
 contexto —verificado: un título con `\n- inyectado` produce un puntero inventado
 emparejado con el snippet de otra nota, emitido con `log=emitted` y sin ninguna
-señal de degradación—. Es la primera ley de [[Fallo silencioso]] en su forma más
+señal de degradación—. Es la primera ley de «Fallo silencioso» en su forma más
 literal.
 
 ### 2.5 Observabilidad — rastro de degradación, no medición
@@ -329,7 +329,7 @@ siempre: exactamente la degradación con forma válida que P3 jura impedir, y en
 mataría la única pregunta que §2.5 existe para responder — distinguir *"el gate se
 abstiene"* de *"esto lleva un mes sin funcionar"*.
 
-**P3 — Toda degradación deja rastro.** Ley 1 de [[Fallo silencioso]]: cada rama de
+**P3 — Toda degradación deja rastro.** Ley 1 de «Fallo silencioso»: cada rama de
 fallo emite su `degraded` con razón greppable. El precedente es directo — el
 fallback silencioso del recall de arranque ya mordió una vez (F3.1).
 
