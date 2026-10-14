@@ -42,6 +42,8 @@ Ficheros upstream que no se portan nunca, ni se triagean.
 - `systematic-debugging/CREATION-LOG.md`
 - `systematic-debugging/test-pressure-1.md`, `test-pressure-2.md`, `test-pressure-3.md` (patrón `test-pressure-*.md`)
 - `systematic-debugging/find-polluter.sh`
+- `writing-skills/*`, `using-superpowers/*`, `finishing-a-development-branch/*` y `diagnosing-superpowers/*`: skills sin contraparte en exo, fuera del catálogo destilado (decisión de Paul 2026-10-14)
+- `writing-plans/plan-document-reviewer-prompt.md`: eliminado upstream
 
 ## Sin equivalente en exo
 
@@ -106,24 +108,24 @@ Decisiones de Paul (2026-09-30), distintas de las Divergencias: no son "no porta
 | #2077 | orchestrate | aplica | propuesto | — | a8d0c5b |
 | #2063 | brainstorm | ya cubierto | — | cubierto por #2463: brainstorm/SKILL.md «Tamaño del trabajo» (decisión de Paul 2026-10-14) | — |
 | #1934 | tdd | aplica | propuesto | — | 719a1fd |
-| #1934 | writing-skills | duda | pendiente | mapeo: writing-skills/SKILL.md | — |
+| #1934 | writing-skills | no aplica | — | Excluidos: `writing-skills/*` (decisión de Paul 2026-10-14) | — |
 | #1934 | orchestrate | no aplica | — | solo elimina: exo no tiene esas secciones (Advantages / Integration) | — |
 | #1934 | debug | no aplica | — | solo elimina: exo no tiene social proof ni Real-World Impact (D2 aparte) | — |
 | #1934 | verify | no aplica | — | solo elimina: exo no tiene esas secciones | — |
 | #1934 | brainstorm | no aplica | — | solo elimina: exo no tiene Key Principles duplicados (brainstorm/SKILL.md:132-134) | — |
 | #1934 | plan | no aplica | — | solo elimina: exo no tiene recap Remember | — |
-| #1933 | finishing-a-development-branch | duda | pendiente | mapeo: finishing-a-development-branch/SKILL.md | — |
-| #2024 | finishing-a-development-branch | duda | pendiente | mapeo: finishing-a-development-branch/SKILL.md | — |
-| #1805 | writing-skills | duda | pendiente | mapeo: writing-skills/render-graphs.js | — |
-| #1959 | writing-skills | duda | pendiente | mapeo: writing-skills/SKILL.md | — |
-| #2301 | writing-skills | duda | pendiente | mapeo: writing-skills/SKILL.md | — |
-| #2010 | using-superpowers | duda | pendiente | mapeo: using-superpowers/SKILL.md | — |
-| #2025 | using-superpowers | duda | pendiente | mapeo: using-superpowers/SKILL.md | — |
-| #2317 | using-superpowers | duda | pendiente | mapeo: using-superpowers/SKILL.md | — |
-| #2320 | using-superpowers | duda | pendiente | mapeo: using-superpowers/SKILL.md y references/claude-code-tools.md | — |
-| #2236 | diagnosing-superpowers | duda | pendiente | mapeo: diagnosing-superpowers/SKILL.md (skill nueva) | — |
-| #2287 | diagnosing-superpowers | duda | pendiente | mapeo: diagnosing-superpowers/ (exports del doctor) | — |
-| #2333 | writing-plans | duda | pendiente | mapeo: writing-plans/plan-document-reviewer-prompt.md (eliminado upstream) | — |
+| #1933 | finishing-a-development-branch | no aplica | — | Excluidos: `finishing-a-development-branch/*` (decisión de Paul 2026-10-14) | — |
+| #2024 | finishing-a-development-branch | no aplica | — | Excluidos: `finishing-a-development-branch/*` (decisión de Paul 2026-10-14) | — |
+| #1805 | writing-skills | no aplica | — | Excluidos: `writing-skills/*` (decisión de Paul 2026-10-14) | — |
+| #1959 | writing-skills | no aplica | — | Excluidos: `writing-skills/*` (decisión de Paul 2026-10-14) | — |
+| #2301 | writing-skills | no aplica | — | Excluidos: `writing-skills/*` (decisión de Paul 2026-10-14) | — |
+| #2010 | using-superpowers | no aplica | — | Excluidos: `using-superpowers/*` (decisión de Paul 2026-10-14) | — |
+| #2025 | using-superpowers | no aplica | — | Excluidos: `using-superpowers/*` (decisión de Paul 2026-10-14) | — |
+| #2317 | using-superpowers | no aplica | — | Excluidos: `using-superpowers/*` (decisión de Paul 2026-10-14) | — |
+| #2320 | using-superpowers | no aplica | — | Excluidos: `using-superpowers/*` (decisión de Paul 2026-10-14) | — |
+| #2236 | diagnosing-superpowers | no aplica | — | Excluidos: `diagnosing-superpowers/*` (decisión de Paul 2026-10-14) | — |
+| #2287 | diagnosing-superpowers | no aplica | — | Excluidos: `diagnosing-superpowers/*` (decisión de Paul 2026-10-14) | — |
+| #2333 | writing-plans | no aplica | — | Excluidos: `writing-plans/plan-document-reviewer-prompt.md` (decisión de Paul 2026-10-14) | — |
 | #1932 | orchestrate | no aplica | — | D1 | — |
 | #1932 | debug | no aplica | — | D2 | — |
 | #2134 | orchestrate | no aplica | — | D7 | — |
