@@ -8,18 +8,18 @@ use std::path::Path;
 use std::time::Instant;
 
 /// Un resultado de búsqueda, forma EXACTA del contrato §4.1 de
-/// `2026-07-17-indexer-design.md` (sellado, gateado en 4912295).
+/// `docs/superpowers/specs/2026-07-17-indexer-design.md`.
 #[derive(Debug, Serialize, PartialEq)]
 pub struct Resultado {
     pub permalink: String,
     /// Siempre `"entity"` en v1 — resultados a nivel entidad, jamás filas
-    /// observation (gotcha M0, spec M2 §4).
+    /// observation (el ground truth del eval es a nivel de nota).
     #[serde(rename = "type")]
     pub tipo: String,
-    /// Escala informativa, no contractual (spec §4.1 literal).
+    /// Escala informativa, no contractual (indexer-design §4.1).
     pub score: f64,
-    /// Ruta relativa a la raíz de la KB (M4 §2). **Campo aditivo**: no sube
-    /// `SCHEMA_VERSION` (envelope §4).
+    /// Ruta relativa a la raíz de la KB. **Campo aditivo**: no sube
+    /// `SCHEMA_VERSION` (envelope, indexer-design §4).
     ///
     /// Existe porque la ruta NO es derivable del permalink: el slug come
     /// acentos, espacios y em-dashes (`kb-test/projects/exo-framework-…`
@@ -31,7 +31,8 @@ pub struct Resultado {
     pub ruta: Option<String>,
 }
 
-/// `data` del envelope de `exo search`, forma EXACTA del contrato §4.1.
+/// `data` del envelope de `exo search`, forma EXACTA del contrato §4.1
+/// (`docs/superpowers/specs/2026-07-17-indexer-design.md`).
 #[derive(Debug, Serialize, PartialEq)]
 pub struct Busqueda {
     pub query: String,
@@ -48,11 +49,11 @@ pub struct Busqueda {
     /// `search_type` NO cambia a propósito: lo comparan los scripts del eval.
     #[serde(rename = "warnings", skip_serializing_if = "Vec::is_empty")]
     pub avisos: Vec<String>,
-    /// Aviso de LECTURA (H1 en lectura, `indexer::aviso_kb_root_lectura`):
-    /// la DB resuelta trae `meta.kb_root` de OTRA KB que sigue en disco.
+    /// Aviso de LECTURA (`indexer::aviso_kb_root_lectura`): la DB resuelta
+    /// trae `meta.kb_root` de OTRA KB que sigue en disco.
     /// **NO serializado** (`#[serde(skip)]`): el envelope de `search` es
-    /// superficie sellada sin gate (review 2026-09-13) — este aviso va
-    /// SOLO a stderr, nunca a `data`. Vive en este struct (no en un canal
+    /// superficie sellada sin gate — este aviso va SOLO a stderr, nunca a
+    /// `data`. Vive en este struct (no en un canal
     /// aparte) porque es el valor natural que ya devuelven `busca`/
     /// `busca_vector`/`busca_hybrid` sobre la conexión que ya tienen
     /// abierta; que no se serialice es una propiedad de ESTE campo, no del
@@ -82,15 +83,14 @@ pub(crate) fn tabla_existe(conn: &rusqlite::Connection, tabla: &str) -> Result<b
 /// Corpus vacío (`trozos == 0`) no avisa: una DB recién creada no está
 /// degradada, está vacía. Avisar ahí sería el falso rojo simétrico. Eso
 /// asume que el schema SÍ existe (`exo index`/`rebuild` ya corrieron) — una
-/// tabla `vectores` AUSENTE (Campaña L Task 1: «exo search sin --type
-/// contra una DB sin tabla vectores falla duro donde antes daba FTS»,
-/// review final de G, 2026-09-16, M5) es un caso distinto: la DB no es
-/// "vacía todavía", es "nunca pasó por el indexer" — por eso este chequeo
-/// va ANTES del early-return de `trozos == 0`, y avisa aunque `trozos`
-/// también sea 0 (fixture real: `db_sin_tabla_meta` en
+/// tabla `vectores` AUSENTE es un caso distinto: la DB no es "vacía
+/// todavía", es "nunca pasó por el indexer" (y `exo search` sin `--type`
+/// no debe fallar duro contra ella, sino degradar a FTS avisando) — por eso
+/// este chequeo va ANTES del early-return de `trozos == 0`, y avisa aunque
+/// `trozos` también sea 0 (fixture real: `db_sin_tabla_meta` en
 /// `engine/tests/kb_root_lectura_cli.rs` no crea NI `trozos` NI `vectores`
-/// — sin este orden, el early-return de `trozos == 0` se comía el aviso
-/// antes de llegar a mirar `vectores`, dejando un fallback MUDO).
+/// — con el orden inverso, el early-return de `trozos == 0` se comería el
+/// aviso y dejaría un fallback MUDO).
 fn avisos_cobertura_vector(conn: &rusqlite::Connection) -> Result<Vec<String>> {
     if !tabla_existe(conn, "vectores")? {
         return Ok(vec![
@@ -136,7 +136,7 @@ fn avisos_cobertura_vector(conn: &rusqlite::Connection) -> Result<Vec<String>> {
     })
 }
 
-/// Rellena `ruta` en los resultados a partir de `notas` (M4 §2). Un único
+/// Rellena `ruta` en los resultados a partir de `notas`. Un único
 /// punto para las tres búsquedas: se llama justo antes de devolver, cuando la
 /// lista ya está ordenada y truncada, así que consulta como mucho `limite`
 /// filas. Un permalink ausente de `notas` deja `None` (índice rancio) en vez
@@ -193,17 +193,15 @@ pub fn ruta_de(db_ruta: &Path, permalink: &str) -> Result<Option<String>> {
     .with_context(|| format!("resolver ruta de {permalink}"))
 }
 
-/// Prepara la query cruda para FTS5 (interpretación adjudicada en el brief
-/// m2-05, provisional — la calibración de retrieval es de M2-07/M2-09):
-/// divide por whitespace, envuelve cada token en comillas dobles (escapando
-/// `"` internas duplicándolas), une con ` OR ` (B1, 2026-10-04: con el AND
-/// implícito de FTS5 una query de N palabras exigía las N en la nota —
-/// "por", "qué", "de" incluidas— y el canal léxico daba 0/18 en paráfrasis
-/// largas; con OR, BM25 pondera por IDF y las palabras comunes pesan poco).
-/// Dentro de `"..."` no queda sintaxis FTS5 activa, así que tokens con
-/// guiones (`agent-develop`), acentos o `/` nunca revientan la sintaxis de
-/// MATCH — la fuente de verdad de esta regla es que ninguna de las 56
-/// queries de `eval.jsonl` produzca error (oráculo m2-05 paso 2).
+/// Prepara la query cruda para FTS5: divide por whitespace, envuelve cada
+/// token en comillas dobles (escapando `"` internas duplicándolas), une con
+/// ` OR `. Con el AND implícito de FTS5 una query de N palabras exigiría las
+/// N en la nota —"por", "qué", "de" incluidas— y el canal léxico daría 0/18
+/// en paráfrasis largas; con OR, BM25 pondera por IDF y las palabras
+/// comunes pesan poco. Dentro de `"..."` no queda sintaxis FTS5 activa, así
+/// que tokens con guiones (`agent-develop`), acentos o `/` nunca revientan
+/// la sintaxis de MATCH — el criterio es que ninguna de las 56 queries de
+/// `eval.jsonl` produzca error.
 pub(crate) fn prepara_query(cruda: &str) -> String {
     cruda
         .split_whitespace()
@@ -212,10 +210,10 @@ pub(crate) fn prepara_query(cruda: &str) -> String {
         .join(" OR ")
 }
 
-/// Búsqueda FTS5 mínima sobre `notas_fts` (spec §4/§4.1). `score` usa
-/// `-bm25(notas_fts)` (bm25 nativo de SQLite es "menor = mejor"; se niega
-/// para que "mayor = mejor", consistente con `results` ordenados por score
-/// descendente — spec §4.1: "su escala es informativa, no contractual").
+/// Búsqueda FTS5 mínima sobre `notas_fts` (indexer-design §4/§4.1). `score`
+/// usa `-bm25(notas_fts)` (bm25 nativo de SQLite es "menor = mejor"; se
+/// niega para que "mayor = mejor", consistente con `results` ordenados por
+/// score descendente; su escala es informativa, no contractual).
 /// Query sin hits = éxito con `results: []` (no es un error). DB inexistente
 /// = error claro, JAMÁS se crea un fichero vacío como side-effect (a
 /// diferencia de `rusqlite::Connection::open`, que crea el fichero si falta).
@@ -227,11 +225,9 @@ pub fn busca(db_ruta: &Path, query: &str, limite: usize, kb: Option<&Path>) -> R
     busca_con(&conn, query, limite, kb)
 }
 
-/// Cuerpo de `busca` sobre una conexión YA ABIERTA (Ola 1 G Task 2,
-/// backlog:524-566: antes `busca_hybrid` pagaba tres `abre_db` — una por
-/// `busca()`, una por `busca_vector()`, una propia para `enriquece_rutas` —
-/// esta variante deja que el llamador decida la conexión). Mismo cuerpo que
-/// antes tenía `busca`, palabra por palabra.
+/// Cuerpo de `busca` sobre una conexión YA ABIERTA: el llamador decide la
+/// conexión, así `busca_hybrid` comparte una sola entre sus dos arms y
+/// `enriquece_rutas` en vez de pagar un `abre_db` por cada uno.
 fn busca_con(
     conn: &rusqlite::Connection,
     query: &str,
@@ -287,7 +283,7 @@ fn busca_con(
     })
 }
 
-/// Conversión distancia→similitud (blindspot nota 1 del brief M2-06): la
+/// Conversión distancia→similitud: la
 /// DDL sellada de `vectores` (`schema.rs` §2, `CREATE VIRTUAL TABLE
 /// vectores USING vec0(embedding float[768])`) NO declara
 /// `distance_metric=cosine`, así que vec0 usa su métrica por defecto:
@@ -312,16 +308,13 @@ fn busca_con(
 /// coseno real — ver argumento de monotonía en `busca_vector_con_embedding`
 /// más abajo), pero cuya MAGNITUD no es un coseno: comparado contra
 /// `[embeddings] min_similarity` (config propia de `~/.exo/config.toml`,
-/// hoy 0.40 por defecto desde D6 — `MIN_SIMILARITY_SELLADO` en `main.rs`,
-/// Ola 1 G Task 11) el 0.40 sellado equivale a un coseno real ≈0.28
-/// (despejando la fórmula de arriba). H28 (`docs/backlog.md`): esto es un
-/// hallazgo de documentación, no de comportamiento — no se toca ni la
-/// fórmula ni el umbral aquí, eso exige antes un held-out nuevo. El nombre
-/// del parámetro se corrige (era `distancia_l2_cuadrado`, mentía sobre lo
-/// que recibe); el nombre de la función se mantiene sin el sufijo
-/// `_cuadrado` engañoso pero conserva "similitud" porque eso es, en la
-/// práctica, lo que consume el resto del módulo (un score monótono, no un
-/// coseno certificado).
+/// 0.40 por defecto — `MIN_SIMILARITY_SELLADO` en `main.rs`) el 0.40
+/// equivale a un coseno real ≈0.28 (despejando la fórmula de arriba). Es una
+/// precisión de documentación, no de comportamiento: ni la fórmula ni el
+/// umbral cambian sin un held-out nuevo. El nombre conserva "similitud"
+/// porque es lo que consume el resto del módulo (un score monótono, no un
+/// coseno certificado); el parámetro es `distancia_l2` (L2 llana), no
+/// al cuadrado.
 fn similitud_desde_l2(distancia_l2: f64) -> f64 {
     1.0 - distancia_l2 / 2.0
 }
@@ -336,20 +329,20 @@ fn min_similitud_efectivo(min_similitud: Option<f64>) -> Result<f64> {
     }
 }
 
-/// Búsqueda vectorial (`exo search --type vector`, M2-06): embed de la
-/// query con el mismo modelo del indexer (jina-es/768, `Embedder` de
-/// proceso), KNN cuyo `k` lo fija la propia consulta (H29, ver
-/// `busca_vector_con_embedding`), conversión de la distancia L2 a una
-/// similitud monótona en el coseno (no un coseno: ver `similitud_desde_l2`,
-/// H28), filtro por `semantic_min_similarity` y agregación **chunk→entidad por máxima
-/// similitud por permalink** (decisión declarada del Task 3 del brief: el
-/// ground truth del eval es a nivel de nota — spec M2 §4 — así que "la nota
-/// entra si su MEJOR trozo entra" es la agregación obvia; promediar o sumar
-/// castigaría notas largas con más trozos sin motivo). `results` truncados
-/// a `limite` tras ordenar por score descendente.
+/// Búsqueda vectorial (`exo search --type vector`): embed de la query con
+/// el mismo modelo del indexer (jina-es/768, `Embedder` de proceso), KNN
+/// cuyo `k` lo fija la propia consulta (ver `busca_vector_con_embedding`),
+/// conversión de la distancia L2 a una similitud monótona en el coseno (no
+/// un coseno: ver `similitud_desde_l2`), filtro por
+/// `semantic_min_similarity` y agregación **chunk→entidad por máxima
+/// similitud por permalink**: el ground truth del eval es a nivel de nota,
+/// así que "la nota entra si su MEJOR trozo entra" es la agregación
+/// natural; promediar o sumar castigaría notas largas con más trozos sin
+/// motivo. `results` truncados a `limite` tras ordenar por score
+/// descendente.
 ///
 /// DB sin filas en `vectores` (aún no poblada, o corpus vacío tras
-/// `rebuild` sin notas) → **0 resultados, no error** (Task 3, declarado):
+/// `rebuild` sin notas) → **0 resultados, no error**:
 /// mismo contrato que FTS ("sin hits = éxito con `results: []`") — un
 /// `exo rebuild` recién corrido y una query vacía son casos operativos
 /// normales, no fallos.
@@ -367,9 +360,8 @@ pub fn busca_vector(
     busca_vector_con(&conn, query, limite, min_similitud, kb)
 }
 
-/// Cuerpo de `busca_vector` sobre una conexión YA ABIERTA (Ola 1 G Task 2,
-/// mismo motivo que `busca_con`). Mismo cuerpo que antes tenía
-/// `busca_vector`, palabra por palabra.
+/// Cuerpo de `busca_vector` sobre una conexión YA ABIERTA (mismo motivo que
+/// `busca_con`).
 fn busca_vector_con(
     conn: &rusqlite::Connection,
     query: &str,
@@ -381,8 +373,8 @@ fn busca_vector_con(
     // Mismo aviso best-effort que `busca`, sobre esta misma conexión.
     let aviso_kb_root = crate::indexer::aviso_kb_root_lectura(conn, kb);
 
-    // Campaña L Task 1: tabla `vectores` AUSENTE cuenta como 0 vectores, en
-    // vez de un `Err` duro (ver doc de `tabla_existe`/`avisos_cobertura_vector`).
+    // Tabla `vectores` AUSENTE cuenta como 0 vectores, en vez de un `Err`
+    // duro (ver doc de `tabla_existe`/`avisos_cobertura_vector`).
     let total_vectores: i64 = if tabla_existe(conn, "vectores")? {
         conn.query_row("SELECT count(*) FROM vectores", [], |r| r.get(0))
             .context("contar filas de vectores")?
@@ -427,13 +419,13 @@ fn busca_vector_con(
 /// corpus crece.
 const LOTE_PERMALINKS: usize = 500;
 
-/// Resuelve `permalink` para un conjunto concreto de rowids de `trozos`
-/// (H29): reemplaza el `SELECT id, permalink FROM trozos` completo que
-/// pagaba una tabla entera por consulta cuando el KNN solo necesitaba unas
-/// decenas de filas. `rowids` vacío ⇒ mapa vacío sin tocar la DB.
+/// Resuelve `permalink` para un conjunto concreto de rowids de `trozos`: un
+/// `SELECT id, permalink FROM trozos` completo pagaría una tabla entera por
+/// consulta cuando el KNN solo necesita unas decenas de filas. `rowids`
+/// vacío ⇒ mapa vacío sin tocar la DB.
 ///
-/// Campaña L Task 2 (backlog «Techos de escala»): trocea `rowids` en lotes
-/// de `LOTE_PERMALINKS` — sin trocear, `exo search --type vector --limit
+/// Trocea `rowids` en lotes de `LOTE_PERMALINKS`: sin trocear, `exo search
+/// --type vector --limit
 /// 5000` sobre una KB con más de 32.766 vectores totales revienta "too many
 /// SQL variables" (el bucle de `busca_vector_con_embedding` pide
 /// `k = min(total_vectores, limite·K_FACTOR_INICIAL)`, y con `--limit 5000`
@@ -505,26 +497,25 @@ fn agrega_maxp(
     mejor_por_entidad
 }
 
-/// Tamaño mínimo de la ventana KNN inicial (H29): con `limite` chico
+/// Tamaño mínimo de la ventana KNN inicial: con `limite` chico
 /// (p.ej. 1), `limite·K_FACTOR_INICIAL` sería demasiado pequeño para
 /// absorber la dispersión típica de trozos por nota.
 const K_MIN: usize = 64;
-/// Factor de la ventana inicial sobre `limite` (H29): 8 trozos candidatos
-/// por resultado pedido, calibrado contra la medida del consultor (a 95k
-/// trozos, `limite=10` con `sim≥0.35` ya resuelve en la primera ventana el
-/// grueso de las 6 queries naturales de `NOTAS-medidas.md`).
+/// Factor de la ventana inicial sobre `limite`: 8 trozos candidatos por
+/// resultado pedido. Medido a 95k trozos: `limite=10` con `sim≥0.35` ya
+/// resuelve en la primera ventana el grueso de las 6 queries naturales de
+/// `NOTAS-medidas.md`.
 const K_FACTOR_INICIAL: usize = 8;
-/// Factor de crecimiento de la ventana cuando no alcanza (H29): 4× por
+/// Factor de crecimiento de la ventana cuando no alcanza: 4× por
 /// iteración llega de la ventana inicial al tope de vec0 (4096) en como
 /// mucho 4-5 vueltas incluso para `limite` grande.
 const K_FACTOR_CRECIMIENTO: usize = 4;
 
-/// KNN cuyo `k` lo fija la propia consulta, no el tamaño del corpus (H29,
-/// hotfix del bug medido por el consultor: `busca_vector` pedía
-/// `k = COUNT(*)` siempre, y por encima de 4.096 vecinos vec0 cae al
-/// `barrido_completo` de `vectores.rs` a ~130× el costo del KNN nativo —
-/// `exo recall --query` a 5.000 notas tardaba 10,2 s, muy por encima del
-/// timeout de 5 s del hook).
+/// KNN cuyo `k` lo fija la propia consulta, no el tamaño del corpus: pedir
+/// `k = COUNT(*)` siempre superaría los 4.096 vecinos, donde vec0 cae al
+/// `barrido_completo` de `vectores.rs` a ~130× el costo del KNN nativo
+/// (medido: `exo recall --query` a 5.000 notas tardaba 10,2 s, muy por
+/// encima del timeout de 5 s del hook).
 ///
 /// **Exacto por construcción** — es el Threshold Algorithm de Fagin, Lotem
 /// y Naor (JCSS 2003) con una sola lista ordenada por distancia y
@@ -580,8 +571,8 @@ pub fn busca_vector_con_embedding(
     };
 
     let mut entidades: Vec<(String, f64)> = mejor_por_entidad.into_iter().collect();
-    // Desempate determinista por permalink ascendente (M2-09a): sin él,
-    // `sort_by` (estable) preserva el orden de iteración del `HashMap`
+    // Desempate determinista por permalink ascendente: sin él, `sort_by`
+    // (estable) preserva el orden de iteración del `HashMap`
     // de origen, que no es reproducible entre corridas.
     entidades.sort_by(|a, b| {
         b.1.partial_cmp(&a.1)
@@ -601,14 +592,14 @@ pub fn busca_vector_con_embedding(
         .collect())
 }
 
-/// Normalización BM25 por-query con anclaje β (spec fusión §4.3, D-f1):
+/// Normalización BM25 por-query con anclaje β (fusion-design §4.3):
 /// `f(e) = β · f_raw(e) / f_max(q)`, `f_max(q) = max f_raw` sobre los
 /// candidatos FTS de la query. Monótona (preserva el orden FTS) y acotada a
 /// `(0, β]` — el top-1 de la query vale exactamente β. Degenerados: lista
 /// vacía o `f_max == 0` (bm25 devolviendo 0, teóricamente posible) → canal
 /// FTS descartado entero para la query (mapa vacío, sin dividir por 0), NO
 /// un mapa con ceros — así `fusiona` los trata igual que "sin candidato FTS"
-/// (B2, helper puro testeable sin DB).
+/// (helper puro, testeable sin DB).
 fn normaliza_fts(candidatos_fts: &[(String, f64)], beta: f64) -> HashMap<String, f64> {
     let f_max = candidatos_fts
         .iter()
@@ -625,14 +616,14 @@ fn normaliza_fts(candidatos_fts: &[(String, f64)], beta: f64) -> HashMap<String,
         .collect()
 }
 
-/// Fusión por UNIÓN (spec fusión §4.4/§4.5, D-f2), clave `(entity,
-/// permalink)`: `score(e) = v + f + bonus·min(v,f)` (CombSUM, B2 2026-10-04:
-/// con FTS en OR, CombSUM dio hit@5 107/145 frente a 95/145 de CombMAX sobre
-/// el gold J, `evals/b-retrieval/fusion.py`), canal ausente = 0.
-/// Admite la entidad si aparece en CUALQUIERA de los dos mapas (gate FTS =
-/// lectura B, el gate lo realiza el término `bonus·min`, no la admisión).
+/// Fusión por UNIÓN (fusion-design §4.4/§4.5), clave `(entity,
+/// permalink)`: `score(e) = v + f + bonus·min(v,f)` (CombSUM: con FTS en
+/// OR, dio hit@5 107/145 frente a 95/145 de CombMAX sobre el gold J,
+/// `evals/b-retrieval/fusion.py`), canal ausente = 0.
+/// Admite la entidad si aparece en CUALQUIERA de los dos mapas (el gate FTS
+/// lo realiza el término `bonus·min`, no la admisión).
 /// Orden por score fusionado desc, truncado a `limite` DESPUÉS de fusionar
-/// (mismo contrato que `busca`/`busca_vector`) — helper puro (B2), sin DB.
+/// (mismo contrato que `busca`/`busca_vector`) — helper puro, sin DB.
 fn fusiona(
     v_por_entidad: &HashMap<String, f64>,
     f_por_entidad: &HashMap<String, f64>,
@@ -656,7 +647,7 @@ fn fusiona(
         })
         .collect();
 
-    // Desempate determinista por permalink ascendente (M2-09a): misma razón
+    // Desempate determinista por permalink ascendente: misma razón
     // que en `busca_vector` — el `HashSet` de claves de arriba no garantiza
     // orden reproducible entre corridas cuando el score fusionado empata.
     resultados.sort_by(|a, b| {
@@ -669,16 +660,15 @@ fn fusiona(
     resultados
 }
 
-/// Fusión hybrid FTS+vector (`exo search --type hybrid`, M2-07, spec
-/// `2026-07-17-fusion-design.md` §4). Candidatos FTS: hasta **K_c = 50**
-/// (constante de implementación, NO parámetro del sweep — §4.2, insensible
-/// mientras K_c ≫ `limite`) vía `busca()` (ya no trunca a `limite` porque se
-/// le pide K_c directamente, sin refactor necesario). Candidatos vector:
-/// también hasta K_c (con CombSUM el atajo top-`limite` de H29 ya no es
-/// exacto). Normalización BM25
-/// por-query con anclaje β (`escala_fts`) vía `normaliza_fts`; fusión por
-/// unión (D-f2) vía `fusiona`. Orden por score fusionado desc, truncado a
-/// `limite` DESPUÉS de fusionar (§4.4).
+/// Fusión hybrid FTS+vector (`exo search --type hybrid`;
+/// `docs/superpowers/specs/2026-07-17-fusion-design.md` §4). Candidatos FTS:
+/// hasta **K_c = 50** (constante de implementación, NO parámetro del sweep
+/// — §4.2, insensible mientras K_c ≫ `limite`) vía `busca()`, al que se le
+/// pide K_c directamente. Candidatos vector: también hasta K_c (con CombSUM
+/// el atajo top-`limite` del KNN por consulta ya no es exacto).
+/// Normalización BM25 por-query con anclaje β (`escala_fts`) vía
+/// `normaliza_fts`; fusión por unión vía `fusiona`. Orden por score
+/// fusionado desc, truncado a `limite` DESPUÉS de fusionar (§4.4).
 pub fn busca_hybrid(
     db_ruta: &Path,
     query: &str,
@@ -693,8 +683,8 @@ pub fn busca_hybrid(
     }
 
     let inicio = Instant::now();
-    // Ola 1 G Task 2 (backlog:524-566): UNA conexión para los dos arms y el
-    // enriquecido de rutas — antes eran tres `abre_db` distintos.
+    // UNA conexión para los dos arms y el enriquecido de rutas, no un
+    // `abre_db` por cada uno.
     let conn = abre_db(db_ruta)?;
 
     const K_C: usize = 50;
@@ -756,7 +746,7 @@ mod tests_fusion {
         pares.iter().map(|(k, s)| (k.to_string(), *s)).collect()
     }
 
-    /// Test contractual 1 (spec §7): con v, f y bonus conocidos, score exacto.
+    /// Test contractual 1 (fusion-design §7): con v, f y bonus conocidos, score exacto.
     #[test]
     fn fusion_formula_ambos_canales() {
         let v = mapa(&[("a", 0.6)]);
@@ -849,7 +839,7 @@ mod tests_fusion {
         assert_eq!(resultados[1].permalink, "b");
     }
 
-    /// M2-09a: desempate determinista por permalink ascendente cuando el
+    /// Desempate determinista por permalink ascendente cuando el
     /// score fusionado empata (2/56 queries del corpus tienen empates
     /// reales — no es hipotético). Cinco claves con score idéntico,
     /// insertadas en dos órdenes distintos: el orden de salida debe ser
@@ -881,7 +871,7 @@ mod tests_fusion {
     }
 }
 
-/// Test falsable de H29 (brief `fix-knn-k-por-consulta`): `busca_vector_con_embedding`
+/// Test falsable del KNN por consulta: `busca_vector_con_embedding`
 /// debe ser BIT A BIT idéntico a un KNN exhaustivo (`k = total_vectores`)
 /// para cualquier corpus, sin cargar el embedder real — el embedding de la
 /// query es sintético e inyectado directamente.
@@ -974,7 +964,7 @@ mod tests_knn_por_consulta {
     }
 
     /// Variante con exactamente un trozo por nota — para el caso k > 4096
-    /// (H27) sin pagar hasta 40× más inserts.
+    /// sin pagar hasta 40× más inserts.
     fn corpus_sintetico_un_trozo_por_nota(rng: &mut Rng, n_notas: usize) -> (Connection, usize) {
         let mut conn = abre_db_en_memoria().expect("db en memoria");
         crea_schema(&conn).expect("crea_schema");
@@ -999,7 +989,7 @@ mod tests_knn_por_consulta {
         (conn, n_notas)
     }
 
-    /// Oráculo: el comportamiento PRE-H29 (`k = total_vectores` siempre, sin
+    /// Oráculo: el KNN exhaustivo (`k = total_vectores` siempre, sin
     /// el bucle por-consulta) — comparte `agrega_maxp`/`permalinks_de_rowids`
     /// con la función bajo test porque esas dos NO son lo que se está
     /// verificando (la agregación MaxP ya tenía sus propios tests); lo que
@@ -1080,7 +1070,7 @@ mod tests_knn_por_consulta {
         }
     }
 
-    /// Cubre el caso k > 4096 (H27+H29): con `total_vectores` por encima del
+    /// Cubre el caso k > 4096: con `total_vectores` por encima del
     /// tope de vec0, el bucle tiene que escalar `k` hasta cruzarlo (donde
     /// `vectores::knn` cae a `barrido_completo`) y seguir siendo exacto.
     #[test]
@@ -1131,13 +1121,12 @@ mod tests_una_conexion {
     }
 
     /// Grep sobre el propio código fuente: `busca_hybrid` debe abrir la DB
-    /// UNA sola vez (backlog:524-566, "tres aperturas de la DB por
-    /// búsqueda hybrid"). No es un test de comportamiento — el
+    /// UNA sola vez. No es un test de comportamiento — el
     /// comportamiento ya lo cubren `tests_fusion` y los tests de
-    /// `tests/buscador_cli.rs` — es un gate de que el refactor no vuelve a
-    /// crecer un segundo `abre_db` dentro de la función.
+    /// `tests/buscador_cli.rs` — es un gate de que no vuelva a crecer un
+    /// segundo `abre_db` dentro de la función.
     ///
-    /// Fix de review (orquestador): el conteo de `abre_db(` NO es falsable
+    /// El conteo de `abre_db(` por sí solo NO es falsable
     /// contra la regresión real — volver a llamar a las funciones públicas
     /// `busca(db_ruta, ...)` / `busca_vector(db_ruta, ...)` (que abren su
     /// propia conexión cada una) deja el grep de `abre_db(` en verde, porque

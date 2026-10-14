@@ -9,38 +9,26 @@ use exo::{
 };
 use std::path::{Path, PathBuf};
 
-/// Defaults SELLADOS del arm hybrid (M2-07, §5.2.6 de la spec de fusión):
-/// ganadores del sweep 15+1 corridas (grid bonus{0,0.1,0.2,0.3,0.5}×
-/// β{0.6,0.8,1.0} + diagnóstica A, `evals/e1-read/reports/m2-07-impl-report.md`) —
-/// selección pre-registrada §5.2.4 (max hit@5=49/55 → 4 celdas empatadas en
-/// β=0.6 → menor bonus=0.0), confirmada nativa (§5.2.5, `--min-similarity
-/// 0.40` da 49/55 idéntico al post-hoc). Cubren SOLO el uso de `exo search
-/// --type hybrid` sin `--bonus`/`--fts-scale` explícitos; el sweep siempre
-/// pasó ambos flags, así que estos valores no afectaron su resultado. El
-/// threshold ganador (0.40) SÍ se sella aquí como constante desde el
-/// 2026-09-15 (D6, decisión 1 de Paul, Ola 1 G Task 11): el motivo original
-/// para no sellarlo — D-f3/§4.6, "el valor difiere del 0.35 de config y
-/// config es RO hasta M5a" — caducó cuando M5a-02 (config propia) cerró el
-/// 2026-08-26 (`docs/backlog.md:2117`, "M5a-02 config propia: cerrado el
-/// 2026-08-26"). Ver `MIN_SIMILARITY_SELLADO` más abajo.
+/// Defaults sellados del arm hybrid: bonus 0.0 y escala FTS 0.6, los
+/// ganadores del sweep de calibración (grid bonus{0,0.1,0.2,0.3,0.5}×
+/// β{0.6,0.8,1.0}; max hit@5=49/55, 4 celdas empatadas en β=0.6 resueltas
+/// por el menor bonus; informe en `evals/e1-read/reports/m2-07-impl-report.md`).
+/// Cubren SOLO `exo search --type hybrid` sin `--bonus`/`--fts-scale`
+/// explícitos; el sweep siempre pasó ambos flags, así que estos valores no
+/// afectaron su resultado. El umbral ganador (0.40) también está sellado:
+/// ver `MIN_SIMILARITY_SELLADO`.
 const BONUS_SELLADO: f64 = 0.0;
 const ESCALA_FTS_SELLADA: f64 = 0.6;
-/// D6 (decisión 1 de Paul, 2026-09-15): umbral de similitud —monótona en el
-/// coseno, no un coseno: 0.40 equivale a coseno ≈0.28, ver el final de este
-/// comentario (H28)— para el default nuevo de `exo search --type` (hybrid) — y, desde el mismo día,
-/// el default que `exo init` escribe en `[embeddings] min_similarity` de
-/// una config nueva (`init_cmd`, rama de creación, más abajo): una sola
-/// constante para los dos usos en vez de dos literales que antes solo
-/// coincidían en intención, nunca en código. En el camino de search se usa
-/// cuando `--min-similarity` se omite Y `--type` resolvió a Hybrid — un
-/// `--type vector` explícito sigue cayendo a `[embeddings] min_similarity`
-/// de la config (comportamiento sin cambios, `min_similitud_efectivo` en
-/// `buscador.rs`). Valor validado por el held-out de la campaña C
-/// (`evals/retrieval-heldout/verdict/c-verdict.md`). **No es un coseno
-/// exacto** (H28): la conversión distancia→similitud de
-/// `buscador::similitud_desde_l2` es monótona en el coseno pero no
-/// coincide con él en magnitud — este 0.40 sellado equivale a un coseno
-/// real ≈0.28 (ver doc de esa función para la derivación).
+/// Umbral de similitud sellado —monótona en el coseno, no un coseno: 0.40
+/// equivale a coseno ≈0.28 (ver `buscador::similitud_desde_l2`)—. Es el
+/// default de dos usos: `exo search --type hybrid` y `exo recall --query`
+/// cuando `--min-similarity` se omite, y el valor que `exo init` escribe en
+/// `[embeddings] min_similarity` de una config nueva (`init_cmd`, rama de
+/// creación): una sola constante, no dos literales que coincidan por
+/// casualidad. Un `--type vector` explícito sigue cayendo a
+/// `[embeddings] min_similarity` de la config (`min_similitud_efectivo` en
+/// `buscador.rs`). Valor validado por el held-out de
+/// `evals/retrieval-heldout/verdict/c-verdict.md`.
 const MIN_SIMILARITY_SELLADO: f64 = 0.40;
 
 #[derive(Parser)]
@@ -233,7 +221,8 @@ struct ArgsIndex {
     json: bool,
 }
 
-/// `search_type` del contrato §4.1 ("fts | vector | hybrid").
+/// `search_type` del envelope de `exo search` ("fts | vector | hybrid"); forma
+/// en `docs/superpowers/specs/2026-07-17-indexer-design.md` §4.1.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
 enum TipoBusqueda {
     Fts,
@@ -473,7 +462,7 @@ fn main() {
             // por exit code —jamás parseando `data`— y pueda reintentar con
             // `--force`. Con `--json` además emite el envelope: el exit code
             // sigue siendo el gate, el envelope es el detalle para quien lo
-            // quiera parsear (spec write §3.3).
+            // quiera parsear (`docs/superpowers/specs/2026-08-18-m4-write-design.md` §3.3).
             if let Some(rechazo) = e.downcast_ref::<exo::escritor::Rechazo>() {
                 eprintln!("rechazado: {rechazo}");
                 if json {
@@ -624,15 +613,15 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
     let destino = exo::config::ruta_config()?;
     let home = dirs::home_dir().context("sin HOME")?;
 
-    // I4 (review de rama): se comprueba ANTES de tocar nada en disco. Antes
-    // esta guarda solo vivía dentro de `escribe_config`, llamada después de
-    // volcar la plantilla (17 ficheros) y de `git init` + commit en modo
-    // creación — sin `--force` contra una config existente, el aborto llegaba
-    // tarde: KB a medio escribir + repo git en disco + exit 1, y el reintento
-    // fallaba ya por otra vía (`prepara_kb`: "no está vacía").
+    // Se comprueba ANTES de tocar nada en disco: la guarda de
+    // `escribe_config` llega tarde (tras volcar la plantilla y el `git init`
+    // + commit del modo creación), y sin `--force` contra una config
+    // existente el aborto dejaría la KB a medio escribir + repo git en disco
+    // + exit 1, con un reintento que fallaría por otra vía (`prepara_kb`:
+    // "no está vacía").
     exo::inicia::valida_config_escribible(&destino, args.force)?;
 
-    // H1: la DB que este `init` valida, indexa y graba en config.toml
+    // La DB que este `init` valida, indexa y graba en config.toml
     // (`$EXO_DB` > `~/.exo/index.db`; la regla vive en `db_de_init`).
     let exo_db = std::env::var("EXO_DB").ok();
     let db_objetivo = exo::inicia::db_de_init(exo_db.as_deref(), &home);
@@ -661,7 +650,7 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
         // un directorio LITERAL llamado `~` (el shell no expande `~` como en
         // POSIX), sale 0, y la config queda apuntando a un sitio que no es el
         // que el usuario escribió — falla ruidoso en el comando siguiente,
-        // pero ya con basura en disco (Minor, review de rama).
+        // pero ya con basura en disco.
         let kb = exo::config::expande_tilde(
             &args
                 .kb
@@ -671,7 +660,7 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
             .name
             .context("--name es obligatorio sin --from-basic-memory")?;
         // Defaults del modelo de producción: los mismos que la línea base del
-        // eval, declarados en la spec como posicionamiento (producto en español).
+        // eval (producto en español).
         // `MODELO_JINA_ES` (no un literal duplicado): `repo_hf` en lib.rs solo
         // pinea la revisión si la cadena coincide EXACTAMENTE con esa
         // constante; un literal que divergiera silenciosamente destino a
@@ -681,11 +670,9 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
             // 768 es la dimensionalidad DE ESTE modelo (MODELO_JINA_ES): si
             // se cambia uno, el otro tiene que cambiar con él.
             dims: 768,
-            // D6 ampliado (decisión de Paul, 2026-09-15, Ola 1 G Task 11):
             // MISMA constante que sella el default de `exo search --type
-            // hybrid` (cabecera de este fichero) — antes era un literal
-            // 0.35 propio, sin relación con el sweep de calibración ni con
-            // el umbral que el propio `exo search` usa por defecto.
+            // hybrid` (cabecera de este fichero): el umbral de una config
+            // nueva y el de `exo search` no pueden divergir.
             min_similarity: MIN_SIMILARITY_SELLADO,
         };
 
@@ -700,12 +687,11 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
     };
 
     // Se graba `db_objetivo`, NO el default `~/.exo/index.db`: `db_objetivo`
-    // es la DB que este `init` acaba de validar (H1) e indexa más abajo — es
-    // la efectiva. Grabar siempre el default era el bug: con `$EXO_DB` puesto,
-    // la config quedaba mintiendo sobre qué DB usa este `init` (indexaba una
-    // DB y apuntaba a otra), y un `exo config`/`exo search` posterior que
-    // solo pusiera `$EXO_CONFIG` resolvía silenciosamente al índice
-    // equivocado.
+    // es la DB que este `init` acaba de validar e indexa más abajo — es la
+    // efectiva. Grabar siempre el default haría que, con `$EXO_DB` puesto, la
+    // config mintiera sobre qué DB usa este `init` (indexaría una DB y
+    // apuntaría a otra), y un `exo config`/`exo search` posterior que solo
+    // pusiera `$EXO_CONFIG` resolvería silenciosamente al índice equivocado.
     exo::inicia::escribe_config(&destino, &kb, &nombre, &emb, &db_objetivo, args.force)?;
 
     // Índice inicial. `resuelve_db(None)` (precedencia `$EXO_DB` > `[index]
@@ -717,7 +703,7 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
     let db = resuelve_db(None)?;
     let resumen = indexa(&kb, &db)?;
 
-    // C2 (review de rama): solo en modo CREACIÓN — en ADOPCIÓN la KB es del
+    // Solo en modo CREACIÓN — en ADOPCIÓN la KB es del
     // usuario y su contenido no lo decide `init`. La lógica vive en
     // `inicia::verifica_indexado_completo` (testable sin pasar por el
     // binario); aquí solo se orquesta.
@@ -830,8 +816,8 @@ fn write_new_cmd(args: ArgsWriteNew) -> Result<()> {
     let cuerpo = lee_from(&args.from)?;
 
     // El nombre del proyecto sale de `[kb] name` de la config, EXPLÍCITO.
-    // Antes se derivaba de `kb.file_name()` contra lo que decía la spec §3.1;
-    // coincidían por suerte y el día que no, reventaba en silencio.
+    // No se deriva de `kb.file_name()`: el nombre de la carpeta y el de la KB
+    // coinciden solo por suerte, y el día que no, reventaría en silencio.
     let proyecto = exo::nombre_kb()?;
 
     // Dup-gate por solape de slug, NO por retrieval: ver `solape_slug`.
@@ -860,7 +846,7 @@ fn write_new_cmd(args: ArgsWriteNew) -> Result<()> {
     Ok(())
 }
 
-/// Walk de confirmación del gate M4 #5 (Ola 1 G Task 7): busca, DENTRO de
+/// Walk de confirmación antes de crear una bitácora: busca, DENTRO de
 /// `dir` (no recursivo — las bitácoras de `--create` viven a un nivel), un
 /// `.md` cuyo frontmatter declare exactamente `permalink`. `None` si `dir`
 /// no existe todavía (KB nueva) o si ningún fichero lo declara.
@@ -901,12 +887,10 @@ fn write_append_cmd(args: ArgsWriteAppend) -> Result<()> {
             // crearla (`log/<slug>.md`); para una nota ya existente el slug no
             // es invertible y por eso jamás se adivina.
             //
-            // M4 #6 (Ola 1 G Task 7, backlog:708-730): exige EXACTAMENTE 3
-            // segmentos. Antes, un permalink de 2 segmentos
-            // (<proyecto>/<slug>) colaba el primer segmento como <dir> vía
-            // `map_or(izq, ...)`, creando un directorio espurio
-            // (`<proyecto>/<slug>.md`) que no es ni el proyecto real ni un
-            // dir pedido por nadie.
+            // Exige EXACTAMENTE 3 segmentos: un permalink de 2
+            // (<proyecto>/<slug>) colaría el primer segmento como <dir> y
+            // crearía un directorio espurio (`<proyecto>/<slug>.md`) que no
+            // es ni el proyecto real ni un dir pedido por nadie.
             let (izq, slug_nota) = args
                 .permalink
                 .rsplit_once('/')
@@ -921,12 +905,11 @@ fn write_append_cmd(args: ArgsWriteAppend) -> Result<()> {
             let rel = format!("{dir}/{slug_nota}.md");
 
             if !kb.join(&rel).exists() {
-                // M4 #5 (Ola 1 G Task 7, backlog:708-730): walk de
-                // confirmación antes de crear. El check de arriba solo mira
-                // la ruta CANÓNICA; con índice rancio, la bitácora real
-                // puede vivir bajo OTRO nombre de fichero con el mismo
-                // permalink (renombrada a mano tras `exo index`). Crear
-                // otra encima dejaría DOS ficheros con el mismo permalink.
+                // Walk de confirmación antes de crear. El check de arriba
+                // solo mira la ruta CANÓNICA; con índice rancio, la bitácora
+                // real puede vivir bajo OTRO nombre de fichero con el mismo
+                // permalink (renombrada a mano tras `exo index`). Crear otra
+                // encima dejaría DOS ficheros con el mismo permalink.
                 if let Some(existente) = busca_permalink_en_dir(&kb, dir, &args.permalink)? {
                     anyhow::bail!(
                         "{} ya existe con este permalink bajo otro nombre: {} \
@@ -990,8 +973,8 @@ fn emite_escritura(esc: exo::escritor::Escritura, json: bool) {
 
 /// `exo recall`: resuelve `--kb`, delega en `recall_arranque`/`recall_consulta`
 /// según haya o no `--query`, aplica el cap de bytes (`renderiza`, único
-/// punto que decide qué notas entran) y emite. Exit codes (brief, "el
-/// consumidor gatea por exit code, jamás por campos de `data`"): 0 = hay
+/// punto que decide qué notas entran) y emite. Exit codes (el consumidor
+/// gatea por exit code, jamás por campos de `data`): 0 = hay
 /// bloque (aunque venga truncado); recall vacío (cero notas tras el cap) =
 /// `bail!` = exit 1, sin tabla de códigos nueva.
 fn recall_cmd(args: ArgsRecall) -> Result<()> {
@@ -1001,7 +984,7 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
     let mut refresh_s = None;
     if args.refresca {
         // El resumen va a stderr: stdout es exclusivo del envelope/bloque
-        // (contrato §4), y el hook consume stdout tal cual.
+        // (`docs/arquitectura.md` §3.8), y el hook consume stdout tal cual.
         let inicio = std::time::Instant::now();
         let resumen = exo::refresca_indice(&kb, &db)
             .context("refrescar el índice antes del recall (--refresh)")?;
@@ -1041,13 +1024,13 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
                 &db,
                 q,
                 args.limite,
-                // I2 (decisión 2 de Paul, review final de G, 2026-09-16):
-                // mismo unwrap_or que `busca_cmd` para `--type hybrid` — el
-                // sellado manda salvo flag explícito, la config ya no entra
-                // en este camino (antes caía a `min_similitud_efectivo` de
+                // Mismo unwrap_or que `busca_cmd` para `--type hybrid`: el
+                // sellado manda salvo flag explícito, la config no entra en
+                // este camino (sí entraría vía `min_similitud_efectivo` de
                 // `buscador.rs`, que resuelve `None` contra
-                // `[embeddings] min_similarity`, 0.40 por defecto: escala propia de
-                // `similitud_desde_l2`, ≈ coseno 0,28 — H28).
+                // `[embeddings] min_similarity`; el sellado vale lo mismo
+                // que el default de la config, 0.40 en la escala propia de
+                // `similitud_desde_l2`, ≈ coseno 0,28).
                 Some(args.min_similitud.unwrap_or(MIN_SIMILARITY_SELLADO)),
                 BONUS_SELLADO,
                 ESCALA_FTS_SELLADA,
@@ -1061,9 +1044,9 @@ fn recall_cmd(args: ArgsRecall) -> Result<()> {
     let mut resultado = renderiza(bruto, args.cap_bytes);
     resultado.recall.refresh_s = refresh_s;
 
-    // H2: los avisos van a stderr SIEMPRE, igual que en `busca_cmd`, y ANTES
-    // del bail de «recall vacío»: un arm vector INERTE sin hits FTS es justo
-    // el caso en que más importa verlo, y el que antes se perdía entero.
+    // Los avisos van a stderr SIEMPRE, igual que en `busca_cmd`, y ANTES del
+    // bail de «recall vacío»: un arm vector INERTE sin hits FTS es justo el
+    // caso en que más importa verlo.
     for aviso in &resultado.recall.avisos {
         eprintln!("aviso: {aviso}");
     }
@@ -1337,7 +1320,7 @@ fn lint_cmd(args: ArgsLint) -> Result<()> {
         // arriba, que a su vez porta el de emitDoctorReport en el kbx
         // original (cmd/kbx/main.go): "Waived items surface even on a clean
         // (ok:true) run: they are the human-facing audit surface for
-        // recognized exceptions (spec §10)".
+        // recognized exceptions".
         for w in &informe.waived {
             println!("waived\t{}\t{}\t{}", w.tipo, w.ruta, w.detalle);
         }
@@ -1364,9 +1347,9 @@ fn doctor_cmd(args: ArgsDoctor) -> Result<()> {
     // una fila `fail`, nunca un error que mate `doctor`—, así que se queda
     // en `None` y los checks que dependen de `kb`/`db` caen a la `Config`
     // que `analiza` carga por su cuenta, reportando `fail` si tampoco hay
-    // eso. Antes de este arreglo `doctor` ni siquiera intentaba `$EXO_KB`/
-    // `$EXO_DB`: con la env puesta, dictaminaba sobre una KB que ningún otro
-    // verbo estaba tocando (review final de rama, 2026-09-11).
+    // eso. Se intentan `$EXO_KB`/`$EXO_DB` porque, con la env puesta,
+    // `doctor` dictaminaría sobre una KB que ningún otro verbo estaría
+    // tocando.
     entorno.kb = resuelve_kb(args.kb).ok();
     entorno.db = resuelve_db(args.db).ok();
     let informe = exo::doctor::analiza(&entorno);
@@ -1581,7 +1564,7 @@ fn ratchet_cmd(args: ArgsRatchet) -> Result<()> {
 }
 
 /// `exo ratchet --seal`: escribe `.kbx-ratchet.json` con `min(sello,
-/// declarado)`. Atómico (A contrato de la Task 11): se calcula el siguiente
+/// declarado)`. Atómico: se calcula el siguiente
 /// estado y SUS violaciones de aire ANTES de tocar disco, y solo se escribe
 /// si la lista viene vacía — "o sella todo o no sella nada", porque quien
 /// está podando necesita la lista entera de infractores para hacer una

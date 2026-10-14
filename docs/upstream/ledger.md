@@ -101,9 +101,9 @@ Decisiones de Paul (2026-09-30), distintas de las Divergencias: no son "no porta
 | #2086 | orchestrate | parcial | portado | — | b78b279 |
 | #2258 | brainstorm | aplica | portado | — | 8952629 |
 | #2319 | orchestrate | parcial | propuesto | — | 001764f |
-| #2077 | orchestrate | duda | pendiente | ¿exo pasa a decidir con Ruling en el ledger los conflictos y ambigüedades del plan en vez de parar y preguntar al humano (orchestrate/SKILL.md:25-26 y :53)? Upstream solo para en 4 casos: irreversible / seguridad / efecto fuera del worktree / plan roto | — |
-| #2063 | brainstorm | duda | pendiente | ¿adoptar el router de tres caminos (spike / bounded / architectural) en brainstorm? exo tiene un solo camino (brainstorm/SKILL.md:15-30) | — |
-| #1934 | tdd | duda | pendiente | ¿añadir a tdd las refutaciones de «tests después» que upstream pliega en su tabla de racionalizaciones? tdd/SKILL.md no tiene tabla ni sección equivalente | — |
+| #2077 | orchestrate | aplica | pendiente | respondida | — |
+| #2063 | brainstorm | ya cubierto | — | cubierto por #2463: brainstorm/SKILL.md «Tamaño del trabajo» (decisión de Paul 2026-10-14) | — |
+| #1934 | tdd | aplica | pendiente | respondida | — |
 | #1934 | writing-skills | duda | pendiente | mapeo: writing-skills/SKILL.md | — |
 | #1934 | orchestrate | no aplica | — | solo elimina: exo no tiene esas secciones (Advantages / Integration) | — |
 | #1934 | debug | no aplica | — | solo elimina: exo no tiene social proof ni Real-World Impact (D2 aparte) | — |
