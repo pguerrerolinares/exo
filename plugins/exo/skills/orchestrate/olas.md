@@ -13,7 +13,7 @@ consume, directa o transitivamente, algo que produce la otra (`Interfaces`).
     sin `@Task M` o con `@Task` inexistente. Una tarea por ola.
   - `DAG: reordenado (Task i consume Task j posterior)`: consumo hacia delante
     sin ciclo; las olas ya vienen en orden topológico (desempata la numeración).
-  - `DAG: error (<ciclo>)` (olas `[]`, exit 0): ciclo o autoconsumo. Es una
+  - `DAG: error (<ciclo>)` (olas `[]`, exit 0): ciclo o autoconsumo. Es un
     defecto del plan: Ruling del pre-flight, antes de empezar (corregir el plan
     o fijar el orden). Nunca se ejecuta con error.
 - La sección `## Olas` del plan es orientativa; manda `task-dag`.
