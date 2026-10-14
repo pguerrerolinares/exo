@@ -2,7 +2,7 @@
 
 **Cuándo usar:** al despachar el reviewer de una tarea (dos verdictos: spec
 + calidad) o el review final whole-branch. Destilado de
-`subagent-driven-development/task-reviewer-prompt.md` (superpowers 6.4.2,
+`subagent-driven-development/task-reviewer-prompt.md` (superpowers 7.0.0,
 MIT © 2025 Jesse Vincent) + la guía de escalado de modelo de
 `orchestrate-personal` (paul-profile 0.5.0, propio).
 
@@ -40,7 +40,9 @@ Antes de llenar los placeholders de abajo:
 - **Review final whole-branch:** mismo template, pero `[BASE_SHA]` =
   `MERGE_BASE` (`git merge-base main HEAD`) para que el reviewer final lea
   un fichero en vez de re-derivar el diff de la rama con git, y `model` =
-  el tier top, una vez por rama.
+  el tier top, una vez por rama. Pásale además los `Review Focus` de todas
+  las tareas del plan, verbatim: son los inputs y fallos que los tests del
+  plan no ejercitan y el reviewer final comprueba uno a uno.
 
 ```
 Subagent (general-purpose):
@@ -141,6 +143,11 @@ Subagent (general-purpose):
     user" — ¿lo que hace el código es lo que un usuario razonable
     esperaría? Si no, finding; si sí, no lo marques como Extra.
 
+    **Declined to judge:** antes del veredicto, lista cada comportamiento
+    que consideraste y apartaste por quedar fuera del plan o la spec, una
+    línea con su motivo. El orquestador emite un Ruling por línea; nada de
+    lo que apartas se descarta en silencio. Lista vacía = no apartaste nada.
+
     **Rulings:** cada línea `Ruling: T<n> — …` del ledger o del report es
     un finding obligatorio: repórtala, di si el motivo se sostiene y, si
     cambia una interfaz, qué tareas posteriores la consumen.
@@ -192,8 +199,8 @@ Subagent (general-purpose):
     "sí" desnudo. Un report ajustado que cita líneas le da al controller
     todo lo que necesita.
 
-    Tu mensaje final ES el report: empieza directo con el veredicto de
-    spec compliance. Cada línea es un veredicto, un finding con file:line,
+    Tu mensaje final ES el report: empieza directo con «Declined to judge»
+    y el veredicto de spec compliance. Cada línea es un veredicto, un finding con file:line,
     o un check que corriste — sin preámbulo, sin narración de proceso, sin
     resumen de cierre.
 
@@ -215,6 +222,10 @@ Subagent (general-purpose):
     preciso ayuda al implementer a confiar en el resto del feedback.
 
     ## Output Format
+
+    ### Declined to judge
+
+    - [comportamiento apartado — motivo], o «ninguno».
 
     ### Spec Compliance
 

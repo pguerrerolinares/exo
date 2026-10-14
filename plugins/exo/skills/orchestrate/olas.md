@@ -1,6 +1,6 @@
 # Olas: mecánica
 
-Pre-flight en tabla destilado de `subagent-driven-development/SKILL.md` (superpowers 6.4.2, MIT © 2025 Jesse Vincent).
+Pre-flight en tabla destilado de `subagent-driven-development/SKILL.md` (superpowers 7.0.0, MIT © 2025 Jesse Vincent).
 
 Regla: dos tareas comparten ola si sus `Files` son disjuntos y ninguna
 consume, directa o transitivamente, algo que produce la otra (`Interfaces`).
@@ -178,6 +178,11 @@ El executor puede desviarse del contrato del plan (incluso de un test) si lo
 deja como `Ruling: T<n> — <qué cambia> — <por qué>` en su report; el
 orquestador (único escritor del ledger) lo copia allí. El reviewer lo trata como finding obligatorio. Si el Ruling cambia una interfaz, las
 tareas de olas posteriores que la consumen lo reciben en su brief.
+
+Las líneas «Declined to judge» del reviewer también son tuyas: cada una es un
+Ruling del orquestador, ledgerizado como `Final: Ruling: <comportamiento
+apartado> — <qué recibe un usuario razonable y por qué se sostiene, o por qué
+ahora es finding> — <coste si está mal>`.
 
 ## Métricas de la serie (al cerrar la rama)
 

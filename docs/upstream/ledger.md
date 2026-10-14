@@ -2,7 +2,7 @@
 
 Estado versionado del bot que porta a exo lo que cambia en obra/superpowers. Diseño: `docs/superpowers/specs/2026-09-29-upstream-sync-design.md`. Prompt del bot: `docs/upstream/sync-prompt.md`.
 
-upstream_tag: v6.4.2
+upstream_tag: v7.0.0
 
 ## Mapeo fichero → fichero
 
@@ -11,7 +11,8 @@ Rutas relativas a `skills/` de superpowers y a `plugins/exo/skills/` de exo. Las
 | upstream | exo | nota |
 |---|---|---|
 | brainstorming/SKILL.md | brainstorm/SKILL.md | destilado |
-| brainstorming/spec-document-reviewer-prompt.md | brainstorm/SKILL.md | destilado en el self-review de la spec |
+| brainstorming/spec-document-reviewer-prompt.md | brainstorm/SKILL.md | eliminado upstream en 7.0.0 (#2463); sustituido por el builder check |
+| brainstorming/builder-check-prompt.md | brainstorm/SKILL.md | propuesto: destilado en el builder check (pendiente de confirmar Paul) |
 | writing-plans/SKILL.md | plan/SKILL.md | destilado |
 | writing-plans/SKILL.md | plan/plan-template.md | cabecera de atribución (superpowers 6.4.2) |
 | subagent-driven-development/SKILL.md | orchestrate/SKILL.md | destilado; parte vive en orchestrate/olas.md |
@@ -99,9 +100,9 @@ Decisiones de Paul (2026-09-30), distintas de las Divergencias: no son "no porta
 | #1998 | orchestrate | aplica | portado | — | 54bc199 |
 | #2086 | orchestrate | parcial | portado | — | b78b279 |
 | #2258 | brainstorm | aplica | portado | — | 8952629 |
-| #2319 | orchestrate | parcial | pendiente | tope | — |
+| #2319 | orchestrate | parcial | propuesto | — | 001764f |
 | #2077 | orchestrate | aplica | pendiente | respondida | — |
-| #2063 | brainstorm | aplica | pendiente | respondida | — |
+| #2063 | brainstorm | ya cubierto | — | cubierto por #2463: brainstorm/SKILL.md «Tamaño del trabajo» (decisión de Paul 2026-10-14) | — |
 | #1934 | tdd | aplica | pendiente | respondida | — |
 | #1934 | writing-skills | duda | pendiente | mapeo: writing-skills/SKILL.md | — |
 | #1934 | orchestrate | no aplica | — | solo elimina: exo no tiene esas secciones (Advantages / Integration) | — |
@@ -136,5 +137,16 @@ Decisiones de Paul (2026-09-30), distintas de las Divergencias: no son "no porta
 | #2133 | orchestrate | ya cubierto | — | — | — |
 | #1935 | tdd | ya cubierto | — | — | — |
 | #2333 | plan | ya cubierto | — | — | — |
-| #2319 | plan | parcial | pendiente | tope | — |
+| #2319 | plan | parcial | propuesto | — | 001764f |
 | #2086 | plan | ya cubierto | — | — | — |
+| #2463 | brainstorm | parcial | propuesto | — | ec0b45a |
+| #2463 | brainstorm | duda | pendiente | ¿adoptar del rebuild 7.0.0 el primer mensaje con salida «salta las preguntas» + pregunta abierta sin ejemplos, y el playback por tramos de 200-300 palabras? Chocan con brainstorm/SKILL.md:38 (preguntas de una en una / multiple choice) y con la duda #2063. Yo adoptaría playback y pregunta abierta primero; no la salida sin gate | — |
+| #2463 | brainstorm | duda | pendiente | mapeo: brainstorming/builder-check-prompt.md (propuesta: fila de mapeo a brainstorm/SKILL.md, ya añadida en este PR; el procedimiento se portó desde SKILL.md) | — |
+| #2482 | brainstorm | aplica | pendiente | tope | — |
+| #2483 | brainstorm | aplica | pendiente | tope | — |
+| #2399 | orchestrate | aplica | propuesto | — | db0eddd |
+| #2489 | orchestrate | aplica | propuesto | — | 2331afa |
+| #2364 | brainstorm | no aplica | — | sin equivalente: brainstorming/scripts/* | — |
+| #2388 | orchestrate | no aplica | — | sin equivalente: executing-plans/scripts/task-done (D8) | — |
+| #2361 | orchestrate | no aplica | — | solo cambia un ejemplo de BASE_SHA que exo no tiene | — |
+| #2380 | debug | no aplica | — | solo cambia un ejemplo de diagnóstico que exo no tiene | — |

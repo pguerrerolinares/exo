@@ -9,7 +9,7 @@ Explora intención, requisitos y diseño en diálogo colaborativo antes de
 implementar. Termina invocando `exo:plan` — nunca código.
 
 Entendimiento compartido y gate por etapa destilados de `brainstorming/SKILL.md`
-(superpowers 6.4.2, MIT © 2025 Jesse Vincent).
+(superpowers 7.0.0, MIT © 2025 Jesse Vincent).
 
 ## Entendimiento compartido
 
@@ -48,6 +48,14 @@ repreguntar. La nota es breve; importa que sea exacta y corregible.
 - En codebases existentes: sigue los patrones actuales; mejoras targeted solo
   si afectan al trabajo — no propongas refactoring no relacionado.
 
+## Tamaño del trabajo
+
+Una vez entendida la intención, elige un tamaño y dilo en claro (el usuario
+puede cambiarlo): **cambio pequeño** ⇒ la descripción completa va en el chat;
+**proyecto** ⇒ spec escrita (abajo). Si crece a mitad de camino, para, dilo y
+sube de tamaño. El gate aplica a ambos: construir exige aprobación de la
+descripción completa.
+
 ## Gate: diseño antes de código
 
 No invoques ninguna skill de implementación, ni escribas código, ni scaffold,
@@ -67,8 +75,19 @@ exploración de solo lectura del proyecto sigue permitida.
 - Escribe la spec validada a
   `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md` (la preferencia del
   usuario sobre ubicación gana) y commitéala.
-- Self-review con ojos frescos: placeholders, consistencia interna, scope,
-  ambigüedad. Arregla inline — no hace falta re-revisar.
+- Builder check en lugar de self-review: despacha un subagente fresco que lea
+  la spec como un builder competente del dominio que no puede hablar con el
+  usuario y devuelva solo las preguntas que aún necesitaría para planificar
+  (dónde tendría que adivinar y adivinar mal importa, con por qué cambia el
+  plan; ordenadas por importancia; «nada importante» si no hay). Avisa al
+  usuario de que un reviewer la lee antes y puedes volver una vez con
+  preguntas. Clasifica cada una: **ya respondida** (por la conversación o el
+  proyecto: ponla en la spec), **menor** (un builder sensato la cierra sin
+  cambiar lo construido: decídela tú y márcala como decisión tuya) o **del
+  usuario** (solo él puede responder y cambia lo construido). Las del usuario
+  van en un solo mensaje, la más importante primero; actualiza la spec y
+  entrégala con la lista corta de decisiones tuyas. Es la única ronda de
+  preguntas del check. Sin herramienta de subagentes, léela tú como ese builder.
 - Gate de review del usuario: pídele que revise la spec escrita y espera su
   respuesta antes de seguir.
 - Estado terminal: invoca `exo:plan`. Ninguna otra skill.
