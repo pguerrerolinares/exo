@@ -5,7 +5,7 @@ description: Usa al implementar cualquier feature o bugfix, antes de escribir c�
 
 # tdd
 
-Destilado de `test-driven-development/SKILL.md` (superpowers 6.4.2, MIT © 2025 Jesse Vincent).
+Destilado de `test-driven-development/SKILL.md` (superpowers 7.0.0, MIT © 2025 Jesse Vincent).
 
 Escribe el test primero. Velo fallar. Código mínimo para pasar. Si no viste
 el test fallar, no sabes si testea lo correcto — ese es el principio.
@@ -66,6 +66,16 @@ marcar todo, no fue TDD — empieza de nuevo.
 No sabes testear ⇒ escribe la API deseada o pregunta. Test complicado ⇒
 diseño complicado, simplifica la interfaz. Todo requiere mock ⇒
 acoplamiento, inyecta dependencias.
+
+## Racionalizaciones de «tests después»
+
+| Excusa | Realidad |
+|---|---|
+| «Pruebo después» | Un test escrito después pasa a la primera y no prueba nada: puede testear lo equivocado o la implementación, y nunca lo viste cazar el bug. Test-first obliga a ver el fallo. |
+| «Tests después logran lo mismo» | Después responden «¿qué hace esto?»; antes, «¿qué debe hacer?». Sesgados por el código ya escrito, verifican lo que recuerdas, no lo que habrías descubierto. |
+| «Ya lo probé a mano» | Lo manual es ad-hoc: sin registro, sin re-ejecución al cambiar el código, casos olvidados bajo presión. «Funcionó» ≠ exhaustivo. |
+| «Borrar horas es un desperdicio» | Coste hundido: ese tiempo ya está gastado. Reescribir con TDD da confianza; conservar y añadir tests después, no. Lo que desperdicia es mantener código en el que no confías. |
+| «TDD es dogmático, ser pragmático es adaptarse» | TDD es el camino pragmático: caza bugs antes del commit y permite refactorizar sin miedo. El atajo es depurar en producción, más lento. |
 
 ## Escribir buenos tests
 
