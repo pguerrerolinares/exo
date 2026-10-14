@@ -35,8 +35,8 @@
 - **Índice**: una copia de solo lectura de `~/.exo/index.db`, igual que en
   G4a. Ningún índice vivo se toca. `exo budget` no la usa (no tiene `--db`:
   no toca el índice, solo el árbol de ficheros); `exo lint` y `kbx doctor` sí.
-- **KB**: `wisdom-paul`, el árbol real. En esta máquina, la ruta absoluta es
-  `C:/proyectos/homework/wisdom-paul` (vía Git Bash, `/c/proyectos/homework/wisdom-paul`).
+- **KB**: la KB personal, el árbol real. En esta máquina, la ruta absoluta es
+  `C:/proyectos/homework/<kb>` (vía Git Bash, `/c/proyectos/homework/<kb>`).
 
 ## Qué se compara y qué no
 
@@ -135,7 +135,7 @@ exactamente el vicio que este documento existe para cerrar.
 
 ## El corpus
 
-La KB real completa (`wisdom-paul`), no una muestra: `budget` y `lint`
+La KB real completa (la KB personal), no una muestra: `budget` y `lint`
 recorren el árbol entero por construcción, así que no hay "topics" que elegir
 como en el pre-registro de `targets` — el corpus **es** el árbol.
 
@@ -173,7 +173,7 @@ Fijado ahora, verbatim, para que no se reescriba después de ver un output:
 
 ```bash
 mkdir -p /tmp/g4b && cp ~/.exo/index.db /tmp/g4b/index.db
-KB=~/…/wisdom-paul
+KB=~/…/<kb>
 
 # `exo budget` NO tiene `--db`: no toca el índice, solo el árbol de ficheros.
 # `kbx budget` sí lo acepta (lo usa para el fallback de meta.kb_root), pero

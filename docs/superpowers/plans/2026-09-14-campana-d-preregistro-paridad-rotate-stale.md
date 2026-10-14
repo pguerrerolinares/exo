@@ -21,7 +21,7 @@
 Dos comandos, cada uno con su propia sección de criterio: `rotate`
 (§Rotate) y `stale` (§Stale). Los dos comparten referencia y montaje
 (§Referencia), y los dos se gatean sobre la misma copia de la KB.
-`history` y `diff-since` **no** se portan (decisión ya tomada por Paul,
+`history` y `diff-since` **no** se portan (decisión ya tomada por el mantenedor,
 ver el plan de campaña) y no tienen sección aquí.
 
 ## Referencia
@@ -36,7 +36,7 @@ ver el plan de campaña) y no tienen sección aquí.
 - **exo**: el binario de la rama `d-port-rotate-stale` (o la que el
   orquestador use para esta task), `cargo build --release`. Al escribir
   esto no existe.
-- **KB base (solo lectura)**: una copia de `wisdom-paul` en
+- **KB base (solo lectura)**: una copia de la KB personal en
   `/tmp/campana-d/kb-base/` (Task 2 del plan), sobre la que se leen `stale`
   y el `--dry-run` de `rotate`. Nunca se escribe ahí.
 - **Copias de trabajo desechables para `--apply`**: `rotate` **muta**
@@ -118,7 +118,7 @@ para que, si aparecen en el diff, no se racionalicen después.
 2. **Alcance de la barrida: solo `log/`, sin recursión — verbatim de kbx.**
    `runRotate` hace `os.ReadDir(filepath.Join(*kbPath, "log"))`, no
    recursivo y no toca el resto de la KB aunque haya otra nota `tier: log`
-   fuera de `log/`. El port replica esto exactamente (mandato de Paul:
+   fuera de `log/`. El port replica esto exactamente (mandato del mantenedor:
    "porta lo que kbx hace, no lo mejores de paso"). Si la KB real tiene
    alguna `tier: log` fuera de `log/`, ninguno de los dos binarios la
    rotará — no es una divergencia entre ellos, es una limitación compartida
@@ -146,19 +146,19 @@ para que, si aparecen en el diff, no se racionalicen después.
    sola regla de delimitador en todo exo, no una copia local con su propia
    tolerancia). No se espera divergencia; se declara porque es el caso que
    el review de kbx (finding 2) encontró y arregló tarde.
-6. **El `permalink` del archivo: `nombre_kb()`, no `"wisdom-paul/"`
+6. **El `permalink` del archivo: `nombre_kb()`, no `"<kb>/"`
    hardcodeado — Decisión D-4 del plan de campaña.** `apply.go:159` escribe
-   literalmente `"wisdom-paul/" + …`: kbx nació para esta KB y nunca tomó un
+   literalmente `"<kb>/" + …`: kbx nació para esta KB y nunca tomó un
    nombre de proyecto como parámetro. El port usa
    `exo::nombre_kb()` (`[kb] name` de la config), el mismo mecanismo que ya
    usan `write new`/`write append` (`escritor.rs:279`, `main.rs:752`) — exo
-   sirve cualquier KB, no solo `wisdom-paul`, y hardcodear el nombre
+   sirve cualquier KB, no solo la KB personal, y hardcodear el nombre
    reintroduciría justo el acoplamiento que la campaña B vino a limar.
    **Efecto en el gate**: el campo `permalink` dentro del frontmatter del
    archivo queda **excluido** de la comparación byte a byte estricta (se
    compara `tier`, el título reescrito, y el bloque frío verbatim; el
    `permalink` se anota pero no gatea) — en la práctica coincide igualmente
-   porque la KB de prueba es `wisdom-paul` y así se llama en
+   porque la KB de prueba es la KB personal y así se llama en
    `~/.exo/config.toml`; la Task de la gate verifica ese valor antes de
    correr, en vez de asumirlo.
 7. **`\r` en el delimitador de frontmatter**: exo lo acepta (
@@ -188,7 +188,7 @@ Dos referencias:
    se corre `exo stale --now <mismo instante> --json` contra un fixture
    equivalente construido en Rust (mismas 10 notas, mismos tiers,
    mismos `age_days`/`degree` de partida) y se compara campo a campo.
-2. **La KB real** (`wisdom-paul`, copia de solo lectura): `kbx stale --json`
+2. **La KB real** (la KB personal, copia de solo lectura): `kbx stale --json`
    contra `exo stale --json`, mismo `--now` fijo pasado explícito en los
    dos lados (nunca el reloj de pared — el gate tiene que ser repetible).
 
@@ -215,8 +215,8 @@ declarada abajo.
 ### Divergencias declaradas antes de correr nada
 
 1. **La fórmula y los pesos NO son una decisión de esta campaña.** Ya están
-   FIRMADOS por Paul (`.superpowers/fabrica/PENDIENTE-PAUL-m4-stale-formula.md`,
-   "Adjudicación de Paul", 2026-07-11): `score = age_days × tier_weight /
+   FIRMADOS por el mantenedor (`.superpowers/fabrica/PENDIENTE-PAUL-m4-stale-formula.md`,
+   "Adjudicación del mantenedor", 2026-07-11): `score = age_days × tier_weight /
    (1 + degree×0.2)`, con `core=1.5 · stable=1.0 · log=0.5 · NOTIER=0.5`
    (igual que `log`). El port copia el bloque `const` verbatim, con
    nombres en castellano (`PESO_TIER_CORE`, `PESO_TIER_STABLE`,
@@ -240,7 +240,7 @@ declarada abajo.
    función de exclusión que exo tiene, por mandato explícito del código
    (`doctor.go:31-37`: *"do not reintroduce a second copy of it"*, citado
    en `walker.rs`). Es la misma decisión A4 de G4b, aplicada aquí sin
-   reabrirla. **Impacto medido**: en `wisdom-paul` a fecha de escribir esto
+   reabrirla. **Impacto medido**: en la KB personal a fecha de escribir esto
    hay exactamente `archive/` y `docs/` como directorios excluibles, **sin
    anidar** — las dos semánticas dan el mismo resultado hoy. Si el gate
    encuentra una diferencia por esto, es una `archive/` o `docs/` anidada
@@ -278,7 +278,7 @@ mkdir -p /tmp/campana-d
 cp ~/.exo/index.db /tmp/campana-d/index.db
 KB_BASE=/tmp/campana-d/kb-base
 KBX=/tmp/campana-d/kbx   # nunca ~/.local/bin/kbx — Task 2, Step 3
-git clone --no-local ~/Documentos/proyectos/wisdom-paul "$KB_BASE"  # solo lectura desde aquí
+git clone --no-local ~/Documentos/proyectos/<kb> "$KB_BASE"  # solo lectura desde aquí
 
 # --- rotate: dry-run, los dos contra la copia de solo lectura ---
 "$KBX" rotate --kb "$KB_BASE" --json | jq -S '.data.rotations | sort_by(.note)' > /tmp/campana-d/go-rotate-dry.json
@@ -349,11 +349,11 @@ no una corrida.
 
 - Fecha: 2026-09-14.
 - Commit de exo: `e31ab2a036c37bcbf9d1d5e1fc16017dfe5af308` (binario release de
-  `/home/paul/Documentos/proyectos/exo/.worktrees/d-cutover-kbx/engine/target/release/exo`,
+  `~/Documentos/proyectos/exo/.worktrees/d-cutover-kbx/engine/target/release/exo`,
   `exo --version` → `exo 0.1.0`).
 - Commit de kbx: `fe46443` (`/tmp/campana-d/kbx`).
 - Precondición D-4 (Step 1): `~/.exo/config.toml` tiene `[kb] name =
-  "wisdom-paul"` — coincide con el nombre de la KB de prueba, así que el
+  "<kb>"` — coincide con el nombre de la KB de prueba, así que el
   `permalink` no necesitó excluirse de la comparación estricta (ver más
   abajo).
 - Control rojo-verde del instrumento (`--hot-bytes 1` en un clon vs. `kbx
@@ -379,8 +379,8 @@ no una corrida.
 - Permalink del archivo (divergencia 6): inspeccionado en
   `archive/log/agent-develop-bitacora-2026-06-26_2026-07-11.md` de los dos
   clones — idéntico byte a byte
-  (`permalink: 'wisdom-paul/archive/log/...'`) porque `[kb] name` de la
-  config real ya es `wisdom-paul`; no hizo falta excluirlo de la
+  (`permalink: '<kb>/archive/log/...'`) porque `[kb] name` de la
+  config real ya es la KB personal; no hizo falta excluirlo de la
   comparación estricta, coincidió por las buenas.
 - Disambiguación de nombre (divergencia 4): no se observó — los dos clones
   partieron del mismo commit de `kb-base` (`4bf1dc4`) y los 78 nombres de
@@ -437,12 +437,12 @@ no una corrida.
 
 - Fecha: 2026-09-14.
 - Commit de exo: `e31ab2a036c37bcbf9d1d5e1fc16017dfe5af308` (binario release
-  de `/home/paul/Documentos/proyectos/exo/.worktrees/d-cutover-kbx/engine/target/release/exo`,
+  de `~/Documentos/proyectos/exo/.worktrees/d-cutover-kbx/engine/target/release/exo`,
   `exo --version` → `exo 0.1.0`). **Desviación del plan**: el Step 2 (sabotaje
   y el `cargo build --release` del control rojo-verde) y el Step 1
   (`cargo test`) se corrieron en el worktree `d-cutover-kbx/engine` — que
   ya tenía `target/` sembrado y coincide byte a byte con `e31ab2a` — en vez
-  de en `/home/paul/Documentos/proyectos/exo/engine` (el path literal del
+  de en `~/Documentos/proyectos/exo/engine` (el path literal del
   plan, que en esta rama del repo raíz ni siquiera tiene
   `engine/src/obsolescencia.rs`, y de `d-gate-rotate-stale/engine`, que no
   tiene `target/` sembrado). Motivo: instrucción explícita del dispatch de
@@ -493,7 +493,7 @@ no una corrida.
   - Divergencia 2 (`--stale-exclude` no portado): no ejercitada — el flag
     no se pasó en ninguno de los dos lados (mismo default en los dos).
   - Divergencia 3 (exclusión por primer segmento vs. cualquier nivel): no
-    observada — `wisdom-paul` no tiene `archive/` ni `docs/` anidados hoy
+    observada — la KB personal no tiene `archive/` ni `docs/` anidados hoy
     (impacto medido en el pre-registro = 0), consistente con que las 101
     notas coinciden exactamente.
   - Divergencia 4 (`gitx::ultimo_commit` / contrato `uncommitted`): no

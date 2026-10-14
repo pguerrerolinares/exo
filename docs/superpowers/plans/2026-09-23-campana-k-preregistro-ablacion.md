@@ -136,12 +136,12 @@ brilla exo):
    padre).
 
 **Muestreo:** del pool filtrado, muestreo aleatorio estratificado con semilla
-`20260923`. Paul **no elige** tareas. Solo veta las inviables (entorno
+`20260923`. El mantenedor **no elige** tareas. Solo veta las inviables (entorno
 irreproducible, secreto, >30 min humanos) y cada veto se registra con su
 motivo.
 
 **Sin fuga del futuro:** para cada tarea, la KB del brazo es un checkout de
-`wisdom-paul` en el último commit estrictamente anterior a T, con el índice
+la KB personal en el último commit estrictamente anterior a T, con el índice
 reconstruido desde cero en un `EXO_INDEX` aislado. Una nota escrita *por* la
 sesión original (o después) resolvería la tarea desde el futuro. La Task 3
 lo comprueba tarea a tarea: ninguna nota del snapshot tiene fecha ≥ T.
@@ -154,7 +154,7 @@ lo comprueba tarea a tarea: ninguna nota del snapshot tiene fecha ≥ T.
   LLM (D1-juez) que ve **solo** el diff final y la respuesta final. Antes de
   juzgar se eliminan del transcript los bloques inyectados (`=== Recall exo`)
   y cualquier marca de brazo.
-- **Acuerdo:** Paul adjudica a ciegas una muestra aleatoria del 25 % de las
+- **Acuerdo:** el mantenedor adjudica a ciegas una muestra aleatoria del 25 % de las
   corridas juzgadas por LLM. Si κ de Cohen < 0,60, el juez se invalida y solo
   cuentan las tareas con check ejecutable.
 
@@ -231,7 +231,7 @@ inventan tareas para rellenar.
 
 ## 8. Amenazas a la validez declaradas
 
-- **Headless ≠ interactivo.** Sin Paul no hay corrección a mitad de tarea,
+- **Headless ≠ interactivo.** Sin el mantenedor no hay corrección a mitad de tarea,
   y ahí es donde la memoria evita el «ya lo decidimos». Esto sesga *contra*
   exo; se acepta.
 - **Modelo.** Si se corre con Sonnet 5 y en el día a día se usa Opus, el
@@ -253,19 +253,19 @@ inventan tareas para rellenar.
 - **Coste:** se para al alcanzar el tope de D2. Se reporta lo corrido y no se
   cuenta como resultado.
 
-## 10. Decisiones de Paul que se fijan en la congelación
+## 10. Decisiones del mantenedor que se fijan en la congelación
 
 - **D1. FIJADA (2026-09-28): brazos con Sonnet 5.5** (id exacto a verificar
   en la Task 0; si no existe, se para y se consulta, no se sustituye en
-  silencio). Juez: **Opus 5.5** (propuesto el 2026-09-28 sin objeción de
-  Paul); distinto del modelo de los brazos, como exige §5.
+  silencio). Juez: **Opus 5.5** (propuesto el 2026-09-28 sin objeción del
+  mantenedor); distinto del modelo de los brazos, como exige §5.
 - **D2. FIJADA (2026-09-28): k = 2.** Tope fijado el 2026-09-28 con la
   Task 0 (`evals/ablacion-k/task0-recon.md`), en **consumo de cuota** y no
   en USD: las corridas van con la suscripción (OAuth), así que el
   `total_cost_usd` es precio de lista y no facturación.
   - Etapa 1: tope de **240M tokens de entrada** (240 corridas × ~1M, cota
     alta estimada).
-  - Se corre en **tandas de 40 corridas**. Tras la primera, Paul revisa
+  - Se corre en **tandas de 40 corridas**. Tras la primera, el mantenedor revisa
     `/usage` y se decide si el ritmo es sostenible.
   - Si una tanda consume bastante más de lo estimado, se para y se
     recalcula antes de seguir.
@@ -312,6 +312,6 @@ Congelación en dos pasos. Ningún brazo se corre antes del paso 2.
      `evals/ablacion-k/congelacion.txt`.
    - sha256 del gold activo (tar determinista de 40 S1 + 20 S2):
      `c2d8835b74fdcd8e3ee6f9c3ff32efc3248caca5bc3aa5618d7ff9e3908c244c`.
-   - KB del snapshot: `wisdom-paul@80cba57`. Orden de la etapa 1 (240
+   - KB del snapshot: `<kb>@80cba57`. Orden de la etapa 1 (240
      corridas, semilla `20260923`): sha256 `afcd41303eb78045…`.
    - id del modelo de brazos: `claude-sonnet-5-5` (Task 0) · tope: D2 (§10)

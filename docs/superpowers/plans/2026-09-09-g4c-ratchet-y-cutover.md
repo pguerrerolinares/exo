@@ -221,7 +221,7 @@ divergencia 5.
 2. **`--no-renames`** → kbx no lo pasa. Ver A3.
 3. **"3 verbos que kbx tiene y exo no"** → son cinco (`rotate`, `stale`,
    `diff-since`, `history`, `ratchet`); tras este plan, cuatro. Ver A7.
-4. **Las 2 rutas `/home/paul/…` de `test-git-c-bash.sh`** → verificadas, siguen
+4. **Las 2 rutas de home personal de `test-git-c-bash.sh`** → verificadas, siguen
    ahí (líneas 74 y 75). No las toca este plan: son datos de un test de
    `git -C`, no del cutover. Se anotan en el backlog.
 
@@ -863,7 +863,7 @@ struct ArgsRatchet {
       invariantes" era un lapsus — son siete, uno del ratchet (A1); (c) el
       cutover es parcial: `rotate`, `stale`, `history` y `diff-since` siguen sin
       portar, y `distill` sigue necesitando el binario `kbx` por los dos
-      primeros; (d) las 2 rutas `/home/paul/…` de
+      primeros; (d) las 2 rutas de home personal de
       `plugins/exo/scripts/test-git-c-bash.sh:74-75` siguen ahí.
 - [x] Commit.
 

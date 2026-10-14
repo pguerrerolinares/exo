@@ -6,7 +6,7 @@
 > cerrada. Los steps bite-sized viven en el brief del item, no aquí.
 
 **Goal:** llevar exo de "engine que busca" a "framework que sustituye a
-basic-memory y a superpowers en el uso diario de Paul", terminando con la
+basic-memory y a superpowers en el uso diario del mantenedor", terminando con la
 desinstalación física de basic-memory (M5b).
 
 **Arquitectura:** las tres capas ya firmadas — thin (skills + hooks) → engine
@@ -22,7 +22,7 @@ flag.
 
 ## 0. Régimen de esta fase (cambia respecto a M0-M2)
 
-Decisión de Paul, 2026-08-17: **proyecto personal, cerrar ya**. Lo que se retira
+Decisión del mantenedor, 2026-08-17: **proyecto personal, cerrar ya**. Lo que se retira
 y lo que se mantiene, explícito para que ningún consultor lo reabra:
 
 **Se RETIRA:**
@@ -52,10 +52,10 @@ y lo que se mantiene, explícito para que ningún consultor lo reabra:
 - **M5b (desinstalar basic-memory) gated por M6 completo y probado.** No es
   ceremonia: sin M6, mueren en silencio el recall, los matchers
   `mcp__basic-memory__*` de los hooks y kbx/consolida.
-- **Gates de merge delegados a consultor fable** (Paul no los hace). Régimen
+- **Gates de merge delegados a consultor fable** (el mantenedor no los hace). Régimen
   intacto: consultor fresco, verificación primaria propia, mandato de disenso,
   verdict escrito al repo.
-- **Acciones destructivas o externas siguen siendo de Paul**: desinstalar
+- **Acciones destructivas o externas siguen siendo del mantenedor**: desinstalar
   basic-memory, borrar la KB, tocar el marketplace público.
 - La KB (`kb-demo`) es un repo git: todo write-path tiene rollback por git.
 
@@ -156,7 +156,7 @@ engine, y porque las 7 skills de `process` ya están escritas con paridad
 | M3-03 | Actualizar `fabrica`: hoy referencia `superpowers:subagent-driven-development` y `paul-profile:orchestrate-personal`, ambas mueren en el cutover |
 | M3-04 | Atribución MIT de superpowers en el repo, día uno |
 | M3-05 | `using-superpowers` desaparece; su sustituto es una línea de routing en `core-index` |
-| M1b-01 | Marketplace: **rename** de agent-develop (preferido por los redirects de GitHub, que mantienen el fetch y la identidad) vs repo nuevo. Decisión de Paul, es acción externa |
+| M1b-01 | Marketplace: **rename** de agent-develop (preferido por los redirects de GitHub, que mantienen el fetch y la identidad) vs repo nuevo. Decisión del mantenedor, es acción externa |
 | M1b-02 | Decidir si `workflow-lint` entra en el marketplace nuevo |
 
 **Rollback:** superpowers queda instalado-pero-apagado hasta que un ciclo de
@@ -178,7 +178,7 @@ el régimen §0).
 
 ---
 
-## Campaña 10 — M5b: desinstalación (acción de Paul)
+## Campaña 10 — M5b: desinstalación (acción del mantenedor)
 
 **Precondición dura:** M6 completo y probado. Es el único gate que sobrevive al
 régimen §0.
@@ -191,7 +191,7 @@ Checklist antes de desinstalar:
 5. exo tiene config propia (M5a-02).
 6. La KB está commiteada y pusheada en kb-demo.
 
-Entonces: desinstalar basic-memory. **Lo ejecuta Paul** — acción destructiva,
+Entonces: desinstalar basic-memory. **Lo ejecuta el mantenedor** — acción destructiva,
 línea roja no delegable.
 
 ---
@@ -200,12 +200,12 @@ línea roja no delegable.
 
 ## Campaña 11 — Bootstrap de instancia (arranque en frío del USUARIO)
 
-Abierta por Paul el 2026-08-17: *"este producto de base, el que se lo instale
+Abierta por el mantenedor el 2026-08-17: *"este producto de base, el que se lo instale
 no tendrá nada que indexar"*.
 
 **El problema**: exo es un motor de retrieval sobre una KB. Con la KB vacía no
 recupera nada, así que el día 1 no vale para nada y el usuario no llega nunca
-al día 30 en el que tendría notas. La instancia de Paul lleva 138 notas
+al día 30 en el que tendría notas. La instancia del mantenedor lleva 138 notas
 acumuladas a mano durante meses; ese privilegio no lo tiene quien lo instale.
 
 **La idea**: sembrar la KB desde lo que el usuario YA tiene en su máquina por
@@ -231,10 +231,10 @@ riesgo:
 **Dependencia**: el destilado necesita `exo write` (C7/M4). La semilla
 determinista no depende de nada y podría ir ya.
 
-**Decidido por Paul (2026-08-17)**: *"de momento es solo mío, pero en el
+**Decidido por el mantenedor (2026-08-17)**: *"de momento es solo mío, pero en el
 futuro intentaré que pueda usarlo más gente"*. Traducción operativa:
 
-- **Se construye**: la semilla determinista. Le sirve a Paul hoy (cambiar de
+- **Se construye**: la semilla determinista. Le sirve al mantenedor hoy (cambiar de
   máquina, reconstruir su instancia) y es la mitad barata del bootstrap
   futuro. Entra como item cuando C7 (M4 write) esté hecho, o antes si se hace
   escribiendo ficheros directamente.
@@ -248,7 +248,7 @@ futuro intentaré que pueda usarlo más gente"*. Traducción operativa:
   propia de exo: el nombre del proyecto pasa a ser config, con la lectura RO
   de basic-memory como fallback mientras dure el side-by-side. Los scripts de
   reflex tienen el mismo patrón (`basic-memory-recall.sh`, `a1-freeze-watch.sh`
-  con una ruta absoluta a `/home/paul/...`), y se barren en C6/M6-02 al
+  con una ruta absoluta a `~/...`), y se barren en C6/M6-02 al
   reapuntarlos.
 
 ---

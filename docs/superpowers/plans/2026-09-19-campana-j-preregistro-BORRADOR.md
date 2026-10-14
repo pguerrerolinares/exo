@@ -4,7 +4,7 @@
 > Dos desviaciones de diseño entraron **por escrito antes de que existiera el gold**
 > (`gold-j.jsonl` nace con `acuerdo.py`), como exigía la regla de reapertura de esta
 > misma cabecera: **F6** (`temperature` 0 → 1) y **F7** (`MAX_CHARS` 4.000 → 12.000),
-> ambas en §3 y ambas por decisión de Paul en sesión el 2026-09-20.
+> ambas en §3 y ambas por decisión del mantenedor en sesión el 2026-09-20.
 >
 > **Punto abierto (review, I-4):** el T0 está pendiente. La cláusula de D-J8
 > se ejerce así: el tope solo cambia si la cobertura (no nulas de las 55 con
@@ -142,7 +142,7 @@
    2026-09-19 con `pool.py` y ventana `2026-09-13 → 2026-09-20`, excluyendo
    las 55 y las 147 de C (Jaccard ≥ 0,8): **113 `prompt`** (p50 51 chars, 101
    de ≤ 200). `agent-search`: el `reflex-retrieval-log.jsonl` termina el
-   2026-08-17, pero Paul autorizó el 2026-09-19 minar
+   2026-08-17, pero el mantenedor autorizó el 2026-09-19 minar
    `~/.claude/projects/**/*.jsonl`: la extracción cruda
    de la sesión de planificación (221 líneas, `grep` sobre el JSONL) salió
    **truncada** —cortaba en la comilla escapada; 44 líneas sin texto de
@@ -164,7 +164,7 @@
 - **Unidad de análisis:** una query del gold con `expected_permalink` no
   nulo. Las nulas forman dos corpus negativos distintos (abajo).
 - **Quién etiqueta (D-J11, firmado 2026-09-19; revoca D-J1/D-J2):** nadie
-  humano. Paul ya no lee la KB: la consumen agentes, y el patrón de
+  humano. El mantenedor ya no lee la KB: la consumen agentes, y el patrón de
   relevancia que importa es la utilidad para el agente que lanzó la consulta.
   El gold lo etiquetan **dos jueces LLM ciegos e independientes, de dos
   familias distintas**, y una fila entra solo si coinciden. La fiabilidad del
@@ -183,8 +183,8 @@
 
   | `source` | qué es | quién escribe la query | juzgadas | no nulas esperadas tras acuerdo |
   |---|---|---|---|---|
-  | `prompt` | prompts reales que dispararon `recall-inject` desde el 2026-09-13 (pool entero; 113 el 2026-09-19; orden barajado con semilla `20260913:prompt`) | ya escritas (Paul, en producción) | ≈ 113 | 20–30 (C: 31 % no nulas × acuerdo ≈ 0,75); sus nulas = corpus negativo débil |
-  | `agent-search` | comandos `exo search` reales lanzados por agentes, minados de `~/.claude/projects/**/*.jsonl` con autorización de Paul y limpiados con criterio escrito (`limpia_agent_search.py`: parsea, sin marcadores de doc/plan/test, anti-fuga vs 55 + 147 de C, dedupe) | ya escritas (agentes, en producción) | 60–120 (cota; la Task 6 cuenta) | 40–70 |
+  | `prompt` | prompts reales que dispararon `recall-inject` desde el 2026-09-13 (pool entero; 113 el 2026-09-19; orden barajado con semilla `20260913:prompt`) | ya escritas (el mantenedor, en producción) | ≈ 113 | 20–30 (C: 31 % no nulas × acuerdo ≈ 0,75); sus nulas = corpus negativo débil |
+  | `agent-search` | comandos `exo search` reales lanzados por agentes, minados de `~/.claude/projects/**/*.jsonl` con autorización del mantenedor y limpiados con criterio escrito (`limpia_agent_search.py`: parsea, sin marcadores de doc/plan/test, anti-fuga vs 55 + 147 de C, dedupe) | ya escritas (agentes, en producción) | 60–120 (cota; la Task 6 cuenta) | 40–70 |
   | `hard` | paráfrasis sin palabras literales, mitad frase natural / mitad palabras clave, sobre 30 notas al azar del snapshot (semilla `20260919`, sin `archive/`) | subagente fresco que no ve las 55, ni C, ni `evals/` | 30 | 20–25 |
   | `archive` | preguntas por un hecho fechado que vive **hoy** solo en `archive/log/` (comprobado por el generador con grep en la bitácora viva), sobre 20 rotaciones al azar (semilla `20260919`) | subagente fresco | 20 | 12–16 (exige expected bajo `archive/`) |
   | `negativo` | temas **ausentes** de la KB; `expected` null por definición; ausencia comprobada **mecánicamente** (`grep -ril` de 3–5 `topic_terms` sobre el snapshot entero = 0 ficheros) **y** por los dos jueces (ambos null sobre las candidatas que un agente intentó encontrar) | subagente fresco | 40 | 0 (30–36 nulas verdaderas) |
@@ -237,7 +237,7 @@
     errores Claude–Claude): `juez.py kimi`, API OpenAI-compatible en
     `https://api.moonshot.ai/v1`, `response_format: json_schema` estricto,
     `temperature 1`, misma instrucción `juez.SISTEMA`, 3 reintentos con
-    backoff. Modelo: `kimi-k3` (elegido por Paul 2026-09-19 tras ver la lista real de `/v1/models`: k2.6, k2.7-code, k2.7-code-highspeed, k3); si no lo lista, el `kimi-k*`
+    backoff. Modelo: `kimi-k3` (elegido por el mantenedor 2026-09-19 tras ver la lista real de `/v1/models`: k2.6, k2.7-code, k2.7-code-highspeed, k3); si no lo lista, el `kimi-k*`
     de mayor versión; fijado en §10 en runtime.
   - **sonnet** solo genera (queries `hard`/`archive`/`negativo`, candidatos);
     nunca juzga.
@@ -262,7 +262,7 @@
   por haber leído el hecho: un gold etiquetado sobre media nota sesga hacia
   `null`. Se paró la corrida y se rehizo el kit con `MAX_CHARS = 12.000`,
   elegido porque coincide con el techo que el contrato de memoria de la KB
-  `wisdom-paul` fija para una nota `stable` (12.500 B) — deja de ser un
+  la KB personal fija para una nota `stable` (12.500 B) — deja de ser un
   número arbitrario y hace que la nota mediana entre entera. Con el tope
   nuevo: 175/619 cuerpos (28%) y 118/217 filas (54%) siguen con truncamiento
   — de una nota grande de verdad, no ya de la mayoría del kit por defecto.
@@ -439,7 +439,7 @@ y X falla; **NETO** = ARREGLA − ROMPE.
 
 **Regla GANA (una sola, para D-A, D-B y D-C):** `NETO ≥ 4` **y** `ARREGLA ≥
 2·ROMPE` **y** límite superior del IC95 de ΔMRR@10 (X − I) `≥ 0`. El 4 lo
-firmó Paul el 2026-09-19 (D-J4; §7: familia de tres decisiones; 3 y 5 fueron
+firmó el mantenedor el 2026-09-19 (D-J4; §7: familia de tres decisiones; 3 y 5 fueron
 las alternativas descartadas).
 
 **Camino secuencial con incumbente (una comparación por decisión, orden
@@ -576,7 +576,7 @@ así que la tasa real es menor, pero no se sabe cuánto. Decisión de diseño:
    discordantes); una etiqueta errónea de un solo juez descarta la fila. El
    riesgo direccional es el léxico (§3), y por eso tiene guard.
 
-**Confianza en las referencias** (Paul valida con papers; se dice lo que se
+**Confianza en las referencias** (el mantenedor valida con papers; se dice lo que se
 sabe): Cormack, Clarke & Büttcher SIGIR 2009 (RRF); Fox & Shaw TREC-2 1994
 (CombSUM/CombMAX); Lee SIGIR 1997; Voorhees & Buckley SIGIR 2002; Smucker et
 al. CIKM 2007; Webber et al. CIKM 2008; McNemar 1947; Wilson 1927; Efron &
@@ -610,15 +610,15 @@ que C §7).
 
 ## 8. Privacidad, exposición de datos y artefactos
 
-- **Envío a Moonshot (Kimi), autorizado explícitamente por Paul el
+- **Envío a Moonshot (Kimi), autorizado explícitamente por el mantenedor el
   2026-09-19 en sesión** (`docs/superpowers/consultas/2026-09-15-campanas/propuesta.md`
   §7; frase literal: «no me importa mandar a kimi, continua por ahí»). Por
   fila juzgada salen hacia `https://api.moonshot.ai/v1`: la query (un prompt
-  de Paul o un comando de agente) y hasta 5 notas candidatas de la KB
-  `wisdom-paul`, cada una recortada a 12.000 caracteres (F7, declarado
+  del mantenedor o un comando de agente) y hasta 5 notas candidatas de la KB
+  la KB personal, cada una recortada a 12.000 caracteres (F7, declarado
   arriba: era 4.000, rehecho el 2026-09-20). No salen etiquetas,
   rankings, nada de `evals/` ni del gold de C. La key vive en
-  `wisdom-ai-news/.env-keys` (gitignored), se lee en runtime y nunca se
+  `<repo-noticias-ia>/.env-keys` (gitignored), se lee en runtime y nunca se
   imprime ni entra en este repo.
 - **Directorio privado:** `PRIV_J=~/.local/share/exo-evals/j-heldout`
   (`chmod 700`). Contiene `gold-j.jsonl` (`chmod 444` tras congelar),
@@ -636,14 +636,14 @@ que C §7).
   query ni permalink por fila. El gold **no** va al repo ni gitignored: vive
   fuera del árbol, como en C.
 
-## 9. Decisiones de Paul (firmadas el 2026-09-19)
+## 9. Decisiones del mantenedor (firmadas el 2026-09-19)
 
 Firmadas en sesión, una a una. Fuente: `docs/superpowers/consultas/2026-09-15-campanas/propuesta.md`
 §7. Opciones descartadas y trade-offs en el plan, §«Decisiones firmadas por
-Paul 2026-09-19». Solo cambian si el review adversarial (plan, Task 5)
-objeta con cita y Paul responde `CAMBIA A`.
+el mantenedor 2026-09-19». Solo cambian si el review adversarial (plan, Task 5)
+objeta con cita y el mantenedor responde `CAMBIA A`.
 
-- `D-J1` modo de etiquetado: `REVOCADA el 2026-09-19 por D-J11` (había firmado b; ninguna hora de Paul)
+- `D-J1` modo de etiquetado: `REVOCADA el 2026-09-19 por D-J11` (había firmado b; ninguna hora del mantenedor)
 - `D-J2` tamaño del estrato `prompt`: `REVOCADA el 2026-09-19 por D-J11` (D-J11 fija el pool entero, 113 el 2026-09-19)
 - `D-J3` verificación adversarial del gold antes de congelar: `sí` — realizada por el diseño de dos jueces y por el consultor-gate de la congelación
 - `D-J4` regla GANA: `NETO ≥ 4` (`ARREGLA ≥ 2·ROMPE` y veto ΔMRR) (descartadas: 3, 5)
@@ -653,7 +653,7 @@ objeta con cita y Paul responde `CAMBIA A`.
 - `D-J8` tope df de F1: `0,25, con la cláusula de T0 intacta` (T0 puede sustituirlo una vez, con evidencia in-sample anotada como enmienda)
 - `D-J9` abstención G1: `tal cual — percentil 70 de calibración; adopta si abstiene ≥ 60 % de evaluación y ROMPE ≤ 2`
 - `D-J10` modo de relevancia: `lenient decide, strict descriptivo (D5 de C)` (descartada: strict decide)
-- `D-J11` gold agéntico: `queries reales de agentes (agent-search minado con autorización) + prompt + hard/archive/negativo generados; jueces ciegos fable y Kimi (Moonshot); entra solo con acuerdo; desacuerdos descartados, sin tercer juez; suelo κ ≥ 0,60 ∧ p_o ≥ 0,70, por debajo J PARA; envío de trozos de la KB y queries de agentes a Moonshot autorizado explícitamente` (descartadas: tercer juez opus; gold etiquetado por Paul)
+- `D-J11` gold agéntico: `queries reales de agentes (agent-search minado con autorización) + prompt + hard/archive/negativo generados; jueces ciegos fable y Kimi (Moonshot); entra solo con acuerdo; desacuerdos descartados, sin tercer juez; suelo κ ≥ 0,60 ∧ p_o ≥ 0,70, por debajo J PARA; envío de trozos de la KB y queries de agentes a Moonshot autorizado explícitamente` (descartadas: tercer juez opus; gold etiquetado por el mantenedor)
 
 ## 10. Congelación
 
@@ -664,7 +664,7 @@ objeta con cita y Paul responde `CAMBIA A`.
 - κ / p_o sin `negativo` ni candidatos vacíos: `0,780 / 0,834` (descriptivo, I-3 del review + F3 del review de rama 2026-09-20; no cambia el exit ni el suelo firmado 0,60 ∧ 0,70)
 - `sha256(gold-j.jsonl)`: `5902ebc44b22447f609ce12ac0e3f015175e0786c8836ab48c54a9af3a6cf86a` (`valida_gold.py` exit 0, `errores: 0`, con exclusión de `in-sample-55.jsonl` y del gold de C)
 - Filas: `240` · `145` · por estrato `prompt 54 · agent-search 53 · hard 30 · archive 8` · nulas `prompt 53 · negativo 40 · agent-search 2` · negativos de evaluación (impares) `20` (calibración, pares: `20`) · con acceptable `87` · no nulas «léxicamente difíciles» (solape < 0,5) `71` (agent-search 5 · archive 7 · hard 16 · prompt 43). **Suelo de `archive` ≥ 8: se cumple a ras (8), sin margen**, en el estrato peor servido por el recorte (65 % de cuerpos aún truncados a 12.000) — resultado frágil, declarado
-- Aprobación del gold: `acuerdo.py exit 0 el 2026-09-22` (suelo superado; no hay línea de Paul) · gate del pre-registro: línea `GATE: PRE-REGISTRO J CONGELADO <fecha>` del consultor fable en `.superpowers/fabrica/verdicts/j-consultor-gate.md`
+- Aprobación del gold: `acuerdo.py exit 0 el 2026-09-22` (suelo superado; no hay línea del mantenedor) · gate del pre-registro: línea `GATE: PRE-REGISTRO J CONGELADO <fecha>` del consultor fable en `.superpowers/fabrica/verdicts/j-consultor-gate.md`
 - **Precondición dura antes de la primera captura de la fase 2 (F4, review de
   rama 2026-09-20 — cierra el séptimo grado de libertad):** este §10 dice que
   «manda `metricas.decide` congelado» (§6), pero F1/S1/P1/G1 (§4) **no
@@ -733,10 +733,10 @@ objeta con cita y Paul responde `CAMBIA A`.
 - **Fuga de la key o de datos (F6, sincronizado con Global Constraints el
   2026-09-20 — el gate viejo de esta línea nacía en rojo):** si
   `LC_ALL=C git grep --untracked -cE 'sk-[A-Za-z0-9]{20,}' -- evals` da algo
-  distinto de "sin salida" (exit 1), o si `grep -c wisdom-paul <fichero>` da
+  distinto de "sin salida" (exit 1), o si `grep -c "$NOMBRE_KB" <fichero>` da
   distinto de 0 sobre cada `.md` que se vaya a commitear bajo `evals/`
   (`verdict/`, `gold-j/`) — **no** sobre este pre-registro ni sobre otros
-  ficheros de `docs/superpowers/plans/`, que sí citan `wisdom-paul` por
+  ficheros de `docs/superpowers/plans/`, que sí citan la KB personal por
   nombre y no son el fichero público cuya fuga se vigila —, el commit no se
   hace; si ya se hizo, se reescribe la rama antes de cualquier push. El
   patrón `'sk-'` a secas nacía en rojo el mismo día que se escribió (3 falsos

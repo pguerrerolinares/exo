@@ -71,7 +71,7 @@ Constraints) y no se repiten aquí salvo donde G4b las ejerce o las cambia:
 ## Adjudicaciones — las decisiones que este plan cierra
 
 A1 y A2 venían abiertas del review de la PR #2 de G4a, donde el autor declaró
-que no podía autocalificarse. Adjudicadas por Paul el 2026-09-04.
+que no podía autocalificarse. Adjudicadas por el mantenedor el 2026-09-04.
 
 ### A1 — `tier` filtra whitespace **ASCII**, no Unicode
 
@@ -378,7 +378,7 @@ Con estas ocho secciones, la estructura de
 
 ```bash
 mkdir -p /tmp/g4b && cp ~/.exo/index.db /tmp/g4b/index.db
-KB=~/…/wisdom-paul
+KB=~/…/<kb>
 
 # `exo budget` NO tiene `--db`: no toca el índice, solo el árbol de ficheros.
 # `kbx budget` sí lo acepta (lo usa para el fallback de meta.kb_root), pero

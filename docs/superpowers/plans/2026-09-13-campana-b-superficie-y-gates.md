@@ -22,7 +22,7 @@ local; `distill/SKILL.md` se parte en procedimiento + ficheros de carga bajo
 demanda (H22). (3) **docs** — gate de versiones (H16), README de producto con
 ejemplo de extremo a extremo (H6), `reports/` (H26), `tier` en docs (H18) y,
 al final, el backlog sincronizado con todo lo anterior y con CI (H13). Cinco
-decisiones son de Paul y bloquean tareas concretas: ver «Decisiones abiertas».
+decisiones son del mantenedor y bloquean tareas concretas: ver «Decisiones abiertas».
 
 **Tech Stack:** Rust 2024 (crate `exo` en `engine/`, MSRV 1.95) · `clap`
 4.6.2 derive · `regex` 1.13.1 (dependencia normal, usable desde tests) ·
@@ -69,7 +69,7 @@ Hallazgos nuevos al re-verificar, que entran en tareas existentes:
 
 Ninguna la toma la fábrica. La recomendación es eso, una recomendación.
 
-**RESUELTAS 2026-09-13 por Paul en sesión (apertura de la campaña B):**
+**RESUELTAS 2026-09-13 por el mantenedor en sesión (apertura de la campaña B):**
 D1 = **C** (híbrido declarado) · D2 = **a** (herramienta personal publicada) ·
 D3 = **a** (dos artefactos, dos versiones, un gate) · D4 = **b** (`git mv` +
 solo `main.rs:14`) · D5 = **b** (convención por ruta). Las cinco, las
@@ -98,7 +98,7 @@ español**».
 
 **Recomendación: C.** Task 2 (metavars) no depende de D1: el metavar sigue al
 nombre del flag, que ya es inglés. Task 3 escribe los textos nuevos en
-español; si Paul elige **A**, Task 3 traduce esos mismos 32 textos y los
+español; si el mantenedor elige **A**, Task 3 traduce esos mismos 32 textos y los
 `eprintln!` pasan a ser tarea nueva; si elige **B**, la localización de clap
 es un plan aparte (necesita spec), no esta campaña.
 
@@ -107,7 +107,7 @@ es un plan aparte (necesita spec), no esta campaña.
 | Opción | Frase de «para quién» | Implica |
 |---|---|---|
 | **a** Herramienta personal publicada | «exo es el sistema de trabajo de su autor, publicado tal cual (MIT). Funciona y se prueba en Linux, macOS y Windows, pero lo decide un solo usuario: sin promesa de estabilidad ni soporte.» | README honesto con el estado real; no obliga a nada más |
-| **b** Producto para terceros | «exo es para quien usa Claude Code a diario en proyectos largos y quiere que el agente recuerde entre sesiones. El CLI (`--json`, envelope v2, códigos de salida) es estable dentro de una versión mayor.» | Promesa de estabilidad; obliga a cerrar BACKLOG:Alta «"exo genérico" sigue siendo el plugin de Paul» (`Paul` en 4 ficheros del plugin, `kb-demo` en 3 hooks de producción) — **fuera de esta campaña** |
+| **b** Producto para terceros | «exo es para quien usa Claude Code a diario en proyectos largos y quiere que el agente recuerde entre sesiones. El CLI (`--json`, envelope v2, códigos de salida) es estable dentro de una versión mayor.» | Promesa de estabilidad; obliga a cerrar BACKLOG:Alta «"exo genérico" sigue siendo el plugin del mantenedor» (`Paul` en 4 ficheros del plugin, `kb-demo` en 3 hooks de producción) — **fuera de esta campaña** |
 
 **Recomendación: a**, revisable. Con (b) Task 10 cambia una frase y el
 backlog gana prioridad en el item de «exo genérico». También decide la
@@ -128,7 +128,7 @@ Hoy: `.claude-plugin/marketplace.json:4` `metadata.version` **1.0.0**;
 **Recomendación: a.** El script de Task 9 está escrito para (a); para (b)
 se sustituyen sus dos comparaciones por una sola de los tres números.
 
-### D4 — Destino de `reports/` (H26; aplazado por Paul en `docs/superpowers/plans/2026-09-10-g5b-release-doctor-instaladores.md:104-106` por ruido de diff en release) · bloquea Task 11
+### D4 — Destino de `reports/` (H26; aplazado por el mantenedor en `docs/superpowers/plans/2026-09-10-g5b-release-doctor-instaladores.md:104-106` por ruido de diff en release) · bloquea Task 11
 
 Citas por ruta a ficheros concretos (medidas con `git grep -n "reports/" -- . ':!reports'`):
 `engine/src/main.rs:14` (código vivo),
@@ -233,9 +233,9 @@ tras mergear A se mueven — ancla siempre por contenido, nunca por número.
 despachar nada):
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo log --oneline -15
-exo_bin=/home/paul/Documentos/proyectos/exo/engine/target/release/exo
-cargo build --release --manifest-path /home/paul/Documentos/proyectos/exo/engine/Cargo.toml
+git -C ~/Documentos/proyectos/exo log --oneline -15
+exo_bin=~/Documentos/proyectos/exo/engine/target/release/exo
+cargo build --release --manifest-path ~/Documentos/proyectos/exo/engine/Cargo.toml
 "$exo_bin" init --help | grep -- '--db'        # A mergeada ⇒ sale la línea de --db
 ```
 
@@ -793,7 +793,7 @@ Expected: 8 binarios en `ok` (6 + 11 + 7 + 4 + 9 + 7 + 10 + 6 tests).
 Run: `cd engine && cargo fmt --check && cargo clippy --all-targets --locked -- -D warnings && ./scripts/test-hermetico.sh`
 Expected: sin salida de fmt/clippy; `test-hermetico: OK — la suite corre sin ~/.exo/config.toml; …`
 
-Run: `git -C /home/paul/Documentos/proyectos/exo diff --stat -- engine/tests`
+Run: `git -C ~/Documentos/proyectos/exo diff --stat -- engine/tests`
 Expected: vacío.
 
 (Todo lo anterior se corrió el 2026-09-13 sobre una copia de `3c1918f` con
@@ -1087,7 +1087,7 @@ siguen parseando y ocultos).
 Falsación (no se commitea): borra el `/// Emite el resultado como envelope
 JSON en stdout.` de `ArgsInit.json`, corre el test → FAIL
 `exo init --help: opción sin descripción`; restaura con
-`git -C /home/paul/Documentos/proyectos/exo checkout -p engine/src/main.rs` o
+`git -C ~/Documentos/proyectos/exo checkout -p engine/src/main.rs` o
 deshaciendo la edición, y vuelve a verde.
 
 Run: `cd engine && cargo clippy --all-targets --locked -- -D warnings`
@@ -1105,7 +1105,7 @@ git commit -m "fix(cli): metavars iguales al flag y descripcion en todo --json (
 ### Task 3: `--help` de producto, sin jerga de campaña (H8)
 
 **Lane:** mecánica (oráculo literal abajo). **Depende de A:** sí.
-**Bloqueada por D1**: no corre hasta que Paul conteste. Con C o B se aplica
+**Bloqueada por D1**: no corre hasta que el mantenedor conteste. Con C o B se aplica
 tal cual (textos en español); con A se traducen estos mismos textos.
 **Oráculo:** `cd engine && cargo test --release --test help_producto --test flags`.
 
@@ -1531,9 +1531,9 @@ Snapshot de los guards antes de tocarlos:
 
 ```bash
 mkdir -p "$TMPDIR/viejos"
-git -C /home/paul/Documentos/proyectos/exo show HEAD:plugins/exo/scripts/git-add-all-guard.sh > "$TMPDIR/viejos/git-add-all-guard.sh"
-git -C /home/paul/Documentos/proyectos/exo show HEAD:plugins/exo/scripts/verify-before-commit.sh > "$TMPDIR/viejos/verify-before-commit.sh"
-git -C /home/paul/Documentos/proyectos/exo show HEAD:plugins/exo/scripts/_reflex-log.sh > "$TMPDIR/viejos/_reflex-log.sh"
+git -C ~/Documentos/proyectos/exo show HEAD:plugins/exo/scripts/git-add-all-guard.sh > "$TMPDIR/viejos/git-add-all-guard.sh"
+git -C ~/Documentos/proyectos/exo show HEAD:plugins/exo/scripts/verify-before-commit.sh > "$TMPDIR/viejos/verify-before-commit.sh"
+git -C ~/Documentos/proyectos/exo show HEAD:plugins/exo/scripts/_reflex-log.sh > "$TMPDIR/viejos/_reflex-log.sh"
 chmod +x "$TMPDIR"/viejos/*.sh
 ```
 
@@ -1902,7 +1902,7 @@ git commit -m "feat(plugin): orquestador limpio tambien ante la navegacion de lo
 ```
 
 Nota para la review: verificar en una sesión real (fuera de la fábrica, lo
-hace Paul) que el matcher dispara con `mcp__claude-in-chrome__navigate`. El
+hace el mantenedor) que el matcher dispara con `mcp__claude-in-chrome__navigate`. El
 test valida la regex con ERE, que para este patrón anclado equivale a la de
 JS; no prueba el despachador de Claude Code.
 
@@ -2026,7 +2026,7 @@ git update-index --chmod=-x plugins/exo/scripts/_timeout.sh
 bash scripts/test-exec-bit.sh; echo "exit=$?"     # [FAIL] … 100644 plugins/exo/scripts/_timeout.sh, exit=1
 git update-index --chmod=+x plugins/exo/scripts/_timeout.sh
 bash scripts/test-exec-bit.sh; echo "exit=$?"     # [OK] …, exit=0
-git -C /home/paul/Documentos/proyectos/exo status --short   # sin cambios de modo pendientes
+git -C ~/Documentos/proyectos/exo status --short   # sin cambios de modo pendientes
 ```
 
 (Medido el 2026-09-13 en un clon con Tasks 4-5 aplicadas: `[OK] 33`, rojo con
@@ -2287,7 +2287,7 @@ git add scripts/test-shellcheck.sh .github/workflows/ci.yml plugins/exo/scripts/
 git commit -m "ci(lint): shellcheck 0.11.0 pineado sobre el bash versionado; cada aviso arreglado o justificado (H11)"
 ```
 
-La prueba de que CI lo corre es la primera corrida del PR (la ve Paul): el
+La prueba de que CI lo corre es la primera corrida del PR (la ve el mantenedor): el
 step debe aparecer en el job `fmt + clippy` y salir verde.
 
 ---
@@ -2325,7 +2325,7 @@ Guardar como `$TMPDIR/oraculo-distill.sh`:
 #!/usr/bin/env bash
 # Oráculo de H22: el procedimiento sobrevive entero al reparto.
 set -uo pipefail
-R=/home/paul/Documentos/proyectos/exo
+R=~/Documentos/proyectos/exo
 D=plugins/exo/skills/distill
 verbos() { grep -oE '\$(EXO|KBX)_BIN [a-z-]+( --[a-z-]+)*|git -C \$KB_ROOT [a-z-]+|exo recall --[a-z-]+' | sort -u; }
 pasos()  { grep -E '^### ' | sort; }
@@ -2534,7 +2534,7 @@ git commit -m "ci: gate de versiones — plugin.json == marketplace.json y tag =
 
 Si **D3 = b** (lockstep): el script compara `plugin == market == engine` y
 sigue exigiendo tag == `v$engine`; el bump a un número común es un commit
-aparte que decide Paul. Si **D3 = c**: esta tarea se reduce al párrafo de
+aparte que decide el mantenedor. Si **D3 = c**: esta tarea se reduce al párrafo de
 `docs/instalacion.md`.
 
 ---
@@ -2576,7 +2576,7 @@ primera.
 ```bash
 #!/usr/bin/env bash
 set -uo pipefail
-cd /home/paul/Documentos/proyectos/exo || exit 1
+cd ~/Documentos/proyectos/exo || exit 1
 fallos=0
 if grep -nE '\b(M[0-9]+[ab]?|G[0-9][a-d]?|E[12]|1[ABC]|B1|D[0-9])\b' README.md; then
   echo "[FAIL] ids de hito interno en README.md"; fallos=1; fi
@@ -2691,7 +2691,7 @@ cd engine && cargo build --release && cd ..
 E="$PWD/engine/target/release/exo"
 T="$(mktemp -d)"; mkdir -p "$T/home"
 (
-  export HOME="$T/home" HF_HOME="${HF_HOME:-/home/paul/.cache/huggingface}"
+  export HOME="$T/home" HF_HOME="${HF_HOME:-~/.cache/huggingface}"
   unset EXO_DB EXO_KB EXO_CONFIG
   cd "$T"
   git config --global user.email ejemplo@exo.local && git config --global user.name ejemplo
@@ -2927,7 +2927,7 @@ git commit -m "docs(backlog): sincronizado con CI (d8aa3b6, 50aee95) y con la ca
 
 ---
 
-## Checklist externo para Paul (H25) — no son tareas de la fábrica
+## Checklist externo para el mantenedor (H25) — no son tareas de la fábrica
 
 Verificado el 2026-09-13 en solo lectura (`git ls-remote`, `gh api`): las tres
 ramas remotas están mergeadas en `main` (`git merge-base --is-ancestor` = sí),
@@ -2936,8 +2936,8 @@ sobre una KB markdown», sin topics.
 
 ```bash
 # 1. Borrar las ramas remotas ya mergeadas
-git -C /home/paul/Documentos/proyectos/exo push origin --delete g4a-targets g5a-ci revision-critica-backlog
-git -C /home/paul/Documentos/proyectos/exo fetch --prune origin
+git -C ~/Documentos/proyectos/exo push origin --delete g4a-targets g5a-ci revision-critica-backlog
+git -C ~/Documentos/proyectos/exo fetch --prune origin
 
 # 2. Que GitHub borre la rama al mergear un PR
 gh repo edit pguerrerolinares/exo --delete-branch-on-merge
@@ -2948,7 +2948,7 @@ gh repo edit pguerrerolinares/exo \
   --add-topic claude-code --add-topic ai-agents --add-topic memory --add-topic rust --add-topic sqlite
 
 # Verificación
-git -C /home/paul/Documentos/proyectos/exo ls-remote --heads origin        # solo main
+git -C ~/Documentos/proyectos/exo ls-remote --heads origin        # solo main
 gh api repos/pguerrerolinares/exo --jq '{description, delete_branch_on_merge, topics}'
 ```
 

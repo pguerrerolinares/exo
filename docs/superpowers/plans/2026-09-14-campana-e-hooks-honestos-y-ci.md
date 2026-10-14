@@ -37,7 +37,7 @@ comprobar el grafo de `needs:`; nada de Python entra al repo).
 
 ## Correcciones sobre el dictamen del consultor (verificado hoy contra el árbol real)
 
-El dictamen (`/home/paul/.claude/jobs/05ee55a9/tmp/dictamen-consultor-d-e.md`)
+El dictamen (`~/.claude/jobs/05ee55a9/tmp/dictamen-consultor-d-e.md`)
 se re-verificó línea a línea contra `campana-d-e` en `b2020f7`. Los números de
 `docs/backlog.md` citados abajo son los que tiene **ese commit ahora mismo**
 (se leyó el fichero de verdad, no se recalculó un offset): no hace falta
@@ -70,7 +70,7 @@ re-localizar nada, pero cualquier commit posterior a `b2020f7` que toque
   (fixtures deliberadas, `EXO_KB_NAME="kb-demo"` puesto por el test),
   `test-contrato-engine.sh:22` (comentario), `README.md`, y
   `distill/SKILL.md`/`chequeos.md`/`recon-first/SKILL.md` (nombran la KB real
-  del propio Paul por diseño de esas skills). Task 9 caduca SOLO la frase
+  del propio mantenedor por diseño de esas skills). Task 9 caduca SOLO la frase
   real del backlog, «`kb-demo` en 8 ficheros, tres de ellos de producción»
   (`docs/backlog.md:285`, no «dos hooks de producción» — esa es una
   redacción anterior, ya superada dentro del propio backlog) — el resto del
@@ -80,16 +80,16 @@ re-localizar nada, pero cualquier commit posterior a `b2020f7` que toque
   no solo a caducar: la Task 2 de este plan cubre exactamente su Acción
   (guards `no-engine`/`no-config`, su orden, camino feliz).
 - **Hallazgo nuevo, no citado por el dictamen**: el gate de rutas personales
-  de la Task 8, con el patrón que Paul ya fijó (`/home/<user>`, no nombres),
+  de la Task 8, con el patrón que el mantenedor ya fijó (rutas de home, no nombres),
   da un **falso positivo** en `plugins/exo/scripts/test-contrato-engine.sh:45`
   — el comentario dice `` `/c/Users/...` ``, que contiene la subcadena
   `/Users/...` aunque no sea una ruta personal real. Se reescribe en la misma
   Task 8 (es el único cambio adicional fuera de la lista original, y es
   consecuencia directa de implementar el ítem #8, no dispersión).
 - **Hallazgo nuevo**: arreglar `test-git-c-bash.sh:75-76` sustituyendo
-  `/home/paul/...` por `/home/<algo-genérico>/...` NO basta — el gate mira la
-  FORMA de la ruta (`/home/<cualquier-cosa>`), no si el nombre es real. La
-  Task 8 mueve el fixture fuera de `/home` por completo (`/opt/proyectos/...`).
+  el usuario real por uno genérico en la ruta de home NO basta — el gate mira la
+  FORMA de la ruta (cualquier home POSIX), no si el nombre es real. La
+  Task 8 mueve el fixture fuera de los homes por completo (`/opt/proyectos/...`).
 - **`inject-empty`, verificado el consumidor** (`grep -rn inject-emitted`):
   `plugins/exo/scripts/a1-gate.sh` cuenta agentes distintos con
   `inject-emitted`/`inject-failed`/`inject-skipped-depth`/`inject-abstained`
@@ -152,11 +152,11 @@ Todas verificadas hoy contra `b2020f7` (`campana-d-e`).
 - **Fuera de alcance, declarado:** todo lo de la campaña D (rotate/stale,
   paridad Go, `doctor.rs`, `kb-precommit.sh`, `distill/**`,
   `docs/arquitectura.md`, `README.md`); el check de desfase binario↔plugin en
-  `exo doctor` (fuera por decisión de Paul); `walk_kb` vs
-  `walk_kb_excluyendo` (fuera por decisión de Paul); `buscador.rs`/`trozos.rs`;
+  `exo doctor` (fuera por decisión del mantenedor); `walk_kb` vs
+  `walk_kb_excluyendo` (fuera por decisión del mantenedor); `buscador.rs`/`trozos.rs`;
   el proceso residente; la evicción de la KB; renombrar `docs/superpowers/`;
   detección de nombres propios en el gate de rutas personales (solo rutas,
-  decisión de Paul); `validate-hooks.js`/schema de `hooks.json` (sub-propuesta
+  decisión del mantenedor); `validate-hooks.js`/schema de `hooks.json` (sub-propuesta
   hermana del ítem de rutas personales, no pedida por el dictamen para E);
   detección de errores de COMPILACIÓN en `test-hermetico.sh` (seguirá sin
   casar ningún patrón de grep — el log completo + artifact de Task 6 lo hace
@@ -173,14 +173,14 @@ orden de merge importa.
 | Fichero | D | E (tarea) | Consecuencia |
 |---|---|---|---|
 | `engine/src/main.rs` | añade variantes `Rotate`/`Stale` a `enum Comando` (`39-85`) y sus dos brazos de `match` (`433-443`, `486-497`); módulos nuevos | Task 3 reescribe el cuerpo de `busca_cmd` (`932-980`), función ya existente | Zonas disjuntas del mismo fichero — sin conflicto de líneas. **Orden de merge: E primero.** Si D mergea primero, la Task 3 de E debe re-anclar su `old_string` de Edit contra el `main.rs` post-D (el cuerpo de `busca_cmd` no se mueve, pero el número de línea absoluto sí) |
-| `docs/backlog.md` | cierra `:1405-1413` (cutover), `:1381-1389` (paridad Go), abre/cierra ítems de rotate/stale | Task 9 caduca 3 ítems de Alta y cierra 8 líneas de items (Medio/Alto) | **E va primero** (orden pedido por Paul). D debe rebasar su edición del backlog sobre la versión que deja la Task 9 de E — releer el fichero antes de escribir, no asumir los números de línea de este plan |
+| `docs/backlog.md` | cierra `:1405-1413` (cutover), `:1381-1389` (paridad Go), abre/cierra ítems de rotate/stale | Task 9 caduca 3 ítems de Alta y cierra 8 líneas de items (Medio/Alto) | **E va primero** (orden pedido por el mantenedor). D debe rebasar su edición del backlog sobre la versión que deja la Task 9 de E — releer el fichero antes de escribir, no asumir los números de línea de este plan |
 | `docs/arquitectura.md`, `README.md` | los toca | E no los toca | Sin conflicto |
 | `engine/src/doctor.rs`, `plugins/exo/scripts/kb-precommit.sh`, `plugins/exo/skills/distill/**` | los toca | E no los toca | Sin conflicto |
 | `.github/workflows/ci.yml` | no lo toca | Tasks 6 y 8 (jobs distintos: `test` y `lint`) | Ambas de E, mismo fichero — **secuenciales entre sí** (no hace falta gate extra, pero el orquestador no las despache en paralelo) |
 | `.github/workflows/release.yml` | no lo toca | Task 7 | Sin conflicto con D |
 
 **Recomendación de orden de merge: E primero, D se rebasa.** Motivo (dado por
-Paul): D toca superficie más grande y con más riesgo de tener que adjudicar
+el mantenedor): D toca superficie más grande y con más riesgo de tener que adjudicar
 divergencias (paridad con Go); que D absorba el rebase es más barato que al
 revés.
 
@@ -190,7 +190,7 @@ Nueve tareas pequeñas, ocho independientes entre sí y ninguna con una
 decisión de alcance que adjudicar (todos los oráculos están escritos en este
 plan) — lane **mecánica** para las nueve. Una sola rama basta; no hay
 justificación para partir en varias como hizo B (que sí tenía D1-D5
-pendientes de Paul).
+pendientes del mantenedor).
 
 | Rama | Tareas | Orden sugerido |
 |---|---|---|
@@ -1098,7 +1098,7 @@ Expected: `test-hermetico: la suite NO corre sin ~/.exo/config.toml (exit
 bloque `--- tests que fallaron ---`, `exit=1`.
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo checkout -- engine/tests/smoke.rs
+git -C ~/Documentos/proyectos/exo checkout -- engine/tests/smoke.rs
 bash engine/scripts/test-hermetico.sh; echo "exit=$?"
 ```
 Expected: `test-hermetico: OK — …`, `exit=0`. (Este es el ciclo que YA
@@ -1221,13 +1221,13 @@ Expected: `log persistido fuera de $TMP: OK` — a diferencia del script viejo
 
 Verde:
 ```bash
-git -C /home/paul/Documentos/proyectos/exo checkout -- engine/tests/smoke.rs
+git -C ~/Documentos/proyectos/exo checkout -- engine/tests/smoke.rs
 bash engine/scripts/test-hermetico.sh; echo "exit=$?"
 rm -f /tmp/hermetico-falsacion.log
 ```
 Expected: `test-hermetico: OK — …, con --locked; …`, `exit=0`.
 
-Run: `git -C /home/paul/Documentos/proyectos/exo status --short engine/tests/smoke.rs`
+Run: `git -C ~/Documentos/proyectos/exo status --short engine/tests/smoke.rs`
 Expected: vacío — `smoke.rs` vuelve exactamente a como estaba (el
 `checkout --` del paso anterior lo garantiza; confírmalo, no lo asumas).
 
@@ -1248,7 +1248,7 @@ la re-demostración del script subyacente (Step 1). **Límite de
 verificación, declarado**: el orden real de ejecución de los jobs de
 GitHub Actions NO se puede comprobar localmente sin disparar el workflow de
 verdad (`push` de un tag o `workflow_dispatch`) — ambas son acciones de
-"release", línea roja del config de fábrica (solo Paul). Esta tarea deja el
+"release", línea roja del config de fábrica (solo el mantenedor). Esta tarea deja el
 YAML verificado por estructura y por el comportamiento ya probado del
 script que invoca; el orden de ejecución real queda para la primera release
 real posterior a este merge, fuera del alcance de un executor de esta
@@ -1366,8 +1366,8 @@ verde en el árbol, rojo en las dos falsaciones del Step 4.
 
 **Evidencia:** `docs/backlog.md:636-656` (sub-propuesta «un validador») y
 `docs/backlog.md:1415-1420` (`test-git-c-bash.sh:74-75`, hoy con
-`/home/paul/Documentos/proyectos/code-graph-go`). **Decisión de Paul, ya
-tomada, no reabrir**: el gate mira SOLO rutas (`/home/<user>`,
+una ruta de home personal, `…/Documentos/proyectos/code-graph-go`). **Decisión del mantenedor, ya
+tomada, no reabrir**: el gate mira SOLO rutas (home POSIX,
 `C:\Users\<user>`, `/Users/<user>`), no nombres propios.
 
 **Medido hoy contra el árbol real** (discovery idéntico al de
@@ -1376,8 +1376,8 @@ excluye `evals/` y `docs/`): **3 líneas** en **2 ficheros**, ninguna más —
 
 ```
 plugins/exo/scripts/test-contrato-engine.sh:45:# Rutas estilo Windows: el binario es nativo y no entiende `/c/Users/...`.
-plugins/exo/scripts/test-git-c-bash.sh:75:  "cd /home/paul/Documentos/proyectos/code-graph-go && git log --oneline -5" \
-plugins/exo/scripts/test-git-c-bash.sh:76:  "git -C /home/paul/Documentos/proyectos/code-graph-go log --oneline -5"
+plugins/exo/scripts/test-git-c-bash.sh:75:  "cd ~/Documentos/proyectos/code-graph-go && git log --oneline -5" \
+plugins/exo/scripts/test-git-c-bash.sh:76:  "git -C ~/Documentos/proyectos/code-graph-go log --oneline -5"
 ```
 
 `test-contrato-engine.sh:45` **es un falso positivo real** (no citado por el
@@ -1402,14 +1402,14 @@ Crea `scripts/test-rutas-personales.sh`:
 #!/usr/bin/env bash
 # Gate: ninguna ruta de una máquina concreta en el bash versionado.
 #
-# Decisión de Paul: SOLO rutas (/home/<user>, /Users/<user>,
-# C:\Users\<user> o su forma C:/Users/<user>), nunca nombres propios — "Paul"
+# Decisión del mantenedor: SOLO rutas (home POSIX, /Users/<user>,
+# C:\Users\<user> o su forma con barras normales), nunca nombres propios — "Paul"
 # o "kb-demo" sueltos NO cuentan, así que no hace falta tocar los fixtures de
 # test-recall-inject.sh (EXO_KB_NAME="kb-demo", etc.).
 #
 # Precedente: affaan-m/ECC (clone 5064474d4d762dc9640234a41617cccb79185cec,
 # scripts/ci/validate-no-personal-paths.js:41-42) cubre /Users/<nombre> y
-# C:\Users\<nombre> pero NO /home/<user> — justo la única ofensora real de
+# C:\Users\<nombre> pero NO el home POSIX — justo la única ofensora real de
 # este repo (test-git-c-bash.sh). Copiarlo tal cual no bastaba.
 #
 # Mismo descubrimiento que test-shellcheck.sh: índice de git, .sh + shebang
@@ -1475,8 +1475,8 @@ falsación para el rojo inicial.)
 old_string:
 ```bash
 assert_rewrite "cd && git log con flags → rewrite" \
-  "cd /home/paul/Documentos/proyectos/code-graph-go && git log --oneline -5" \
-  "git -C /home/paul/Documentos/proyectos/code-graph-go log --oneline -5"
+  "cd ~/Documentos/proyectos/code-graph-go && git log --oneline -5" \
+  "git -C ~/Documentos/proyectos/code-graph-go log --oneline -5"
 ```
 
 new_string:
@@ -1487,8 +1487,8 @@ assert_rewrite "cd && git log con flags → rewrite" \
 ```
 
 (Nota: sustituir solo el nombre de usuario por uno genérico NO basta — el
-gate mira la FORMA `/home/<lo-que-sea>`, no si el nombre es real. Por eso la
-ruta sale por completo de `/home`.)
+gate mira la FORMA de la ruta de home, no si el nombre es real. Por eso la
+ruta sale por completo de los homes.)
 
 `Edit` sobre `plugins/exo/scripts/test-contrato-engine.sh`:
 
@@ -1534,7 +1534,7 @@ Falsación 1 (reintroducir una ruta `/home`):
 ```bash
 printf '# /home/cualquiera/x\n' >> plugins/exo/scripts/_timeout.sh
 bash scripts/test-rutas-personales.sh; echo "exit=$?"   # [FAIL] ... _timeout.sh:<N>:# /home/cualquiera/x, exit=1
-git -C /home/paul/Documentos/proyectos/exo checkout -- plugins/exo/scripts/_timeout.sh
+git -C ~/Documentos/proyectos/exo checkout -- plugins/exo/scripts/_timeout.sh
 bash scripts/test-rutas-personales.sh; echo "exit=$?"   # OK de nuevo, exit=0
 ```
 
@@ -1542,9 +1542,9 @@ Falsación 2 (una ruta `C:\Users\`):
 ```bash
 printf '# C:\\Users\\cualquiera\\x\n' >> plugins/exo/scripts/_timeout.sh
 bash scripts/test-rutas-personales.sh; echo "exit=$?"   # [FAIL] ... exit=1
-git -C /home/paul/Documentos/proyectos/exo checkout -- plugins/exo/scripts/_timeout.sh
+git -C ~/Documentos/proyectos/exo checkout -- plugins/exo/scripts/_timeout.sh
 bash scripts/test-rutas-personales.sh; echo "exit=$?"   # OK de nuevo, exit=0
-git -C /home/paul/Documentos/proyectos/exo status --short plugins/exo/scripts/_timeout.sh   # vacío
+git -C ~/Documentos/proyectos/exo status --short plugins/exo/scripts/_timeout.sh   # vacío
 ```
 
 - [ ] **Step 5: Commit**
@@ -1811,7 +1811,7 @@ new_string:
   `<commit Task 8>`, 2026-09-14):** `scripts/test-rutas-personales.sh`, mismo
   descubrimiento que `test-shellcheck.sh` (índice de git, `.sh` + shebang,
   excluye `evals/`/`docs/`), corre en `ci.yml` job `lint`. Cubre exactamente
-  el patrón que Paul decidió (solo rutas: `/home/<user>`, `/Users/<user>`,
+  el patrón que el mantenedor decidió (solo rutas: home POSIX, `/Users/<user>`,
   `C:\Users\<user>`), sin detectar nombres propios. De paso arregló un falso
   positivo no anticipado por el dictamen del consultor:
   `test-contrato-engine.sh:45` mencionaba `` `/c/Users/...` `` en un
@@ -1823,11 +1823,11 @@ new_string:
 **1l. Cerrar con evidencia (mover) el ítem `test-git-c-bash.sh:74-75`**:
 
 ```
-- [x] **Las 2 rutas `/home/paul/…` de `test-git-c-bash.sh:74-75`: cerradas el
+- [x] **Las 2 rutas de home personal de `test-git-c-bash.sh:74-75`: cerradas el
   <fecha> (campaña E, Task 8, `<commit Task 8>`).**
-  Fixture movido fuera de `/home` por completo (`/opt/proyectos/…`), no solo
+  Fixture movido fuera de los homes por completo (`/opt/proyectos/…`), no solo
   anonimizado: el gate de rutas personales de Task 8 mira la FORMA
-  `/home/<lo-que-sea>`, no si el nombre es real — sustituir `paul` por un
+  de la ruta de home, no si el nombre es real — sustituir el usuario por un
   nombre genérico seguiría cayendo dentro del patrón.
   [texto histórico del ítem]
 ```
@@ -1859,8 +1859,8 @@ new_string:
     únicos usos literales de "kb-demo" que quedan son comentarios que
     EXPLICAN ese cambio, fixtures deliberadas de
     `test-recall-inject.sh` (`EXO_KB_NAME="kb-demo"` puesto por el propio
-    test) y las skills `distill`/`recon-first`, que nombran la KB real de
-    Paul por diseño. El resto del ítem (`Paul` en 5 ficheros, `kbx` como
+    test) y las skills `distill`/`recon-first`, que nombran la KB real del
+    mantenedor por diseño. El resto del ítem (`Paul` en 5 ficheros, `kbx` como
     dependencia operativa de `distill`) **sigue abierto** — fuera del
     alcance de E.
 ```

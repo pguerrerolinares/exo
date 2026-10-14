@@ -2,7 +2,7 @@
 
 > For agentic workers: ejecución con `exo:orchestrate`.
 
-**Goal:** Un bot semanal (routine cloud) que porta a exo, por PR revisado por Paul, lo que cambia en cada release de obra/superpowers, con estado versionado, watchdog que grita y un eval pre-registrado antes de programarlo.
+**Goal:** Un bot semanal (routine cloud) que porta a exo, por PR revisado por el mantenedor, lo que cambia en cada release de obra/superpowers, con estado versionado, watchdog que grita y un eval pre-registrado antes de programarlo.
 
 **Architecture:** El juicio (triage + porte) vive en un prompt versionado (`docs/upstream/sync-prompt.md`). Todo lo mecánico va en scripts bash testeados en CI: reconciliar el ledger por evidencia git, comprobar referencias entre skills, vigilar el latido y puntuar el eval. La routine y el issue de latido se crean a mano tras el merge (pasos operativos, fuera de las tareas).
 
@@ -16,13 +16,13 @@
 - Umbral del eval: 0 filas `ya cubierto` cuya verdad sea aplica/parcial, y ≥ 90% de acierto en triage, con `aplica` y `parcial` como una sola clase.
 - Nombres literales: rama `upstream-sync/<tag>`; título de PR `upstream-sync <tag>`; issue `upstream-sync: estado`; commit `port(upstream#N): <resumen>`.
 - Ledger: `upstream_tag: <tag>` en línea propia. Filas `| PR | skill | triage | estado | motivo | hash |`. `triage` ∈ {aplica, parcial, ya cubierto, no aplica, duda}; `estado` ∈ {propuesto, portado, rechazado, pendiente, —}.
-- Ninguna ruta de máquina concreta (`/home/<user>`, `/Users/<user>`, `C:\Users\<user>`) en ficheros versionados: lo vigila `scripts/test-rutas-personales.sh`.
+- Ninguna ruta de máquina concreta (home POSIX, `/Users/<user>`, `C:\Users\<user>`) en ficheros versionados: lo vigila `scripts/test-rutas-personales.sh`.
 - Scripts nuevos con bit de ejecución: lo vigila `scripts/test-exec-bit.sh`.
 - La lista de verdad del eval NO entra en el repo.
 
 ## Precondición humana (antes de la Ola 2)
 
-- [ ] **P1 — Paul fija la verdad del eval.** Revisa las 11 filas de confianza media de `upstream-sync-gold.md` (scratchpad de la sesión 2026-09-29; se mueve a una ruta fuera del repo que Paul elija). Cada choque de doctrina se resuelve como divergencia deliberada o como `aplica`. Las divergencias resultantes son input de la Task 5.
+- [ ] **P1 — el mantenedor fija la verdad del eval.** Revisa las 11 filas de confianza media de `upstream-sync-gold.md` (scratchpad de la sesión 2026-09-29; se mueve a una ruta fuera del repo que el mantenedor elija). Cada choque de doctrina se resuelve como divergencia deliberada o como `aplica`. Las divergencias resultantes son input de la Task 5.
 
 ## Olas
 
@@ -93,7 +93,7 @@
 **Verificación:** `bash scripts/test-upstream-watchdog.sh` → todas PASS.
 
 **Review Focus:**
-- `date -d` es GNU: el runner es ubuntu, pero el test tiene que correr igual en el Linux de Paul; nada de flags BSD.
+- `date -d` es GNU: el runner es ubuntu, pero el test tiene que correr igual en el Linux del mantenedor; nada de flags BSD.
 - `created_at` con `Z`.
 
 ### Task 4: puntuador del eval
@@ -163,10 +163,10 @@
 - Los steps nuevos de `ci.yml` van en `static-checks`, con el mismo patrón `run: bash scripts/…` que los existentes.
 - El watchdog no debe correr en forks: `if: github.repository == 'pguerrerolinares/exo'`.
 
-## Pasos operativos (tras el merge; Paul + sesión, no executor)
+## Pasos operativos (tras el merge; el mantenedor + sesión, no executor)
 
 1. Crear el issue `upstream-sync: estado` y fijarlo. El watchdog pasa de rojo a verde con el primer latido.
 2. Crear la routine con `/schedule`: semanal, repos adjuntos `pguerrerolinares/exo` y `obra/superpowers`, prompt "Lee y sigue docs/upstream/sync-prompt.md del repo exo."
 3. "Run now" de humo con el prompt sustituido por algo trivial: comprobar `gh pr list -R obra/superpowers`, `claude --version` en el PATH, el coste y que el clone de `obra/superpowers` trae tags (`git tag` no vacío, con `upstream_tag` dentro). Si algo falla, se corrige la spec antes de seguir.
    **Hecho (humos del 2026-09-30):** `gh` no viene (apt sin update lo instala), GraphQL da 403 (solo `gh api` REST), el clone llega sin tags (`git fetch --tags` los trae), `claude` y `jq` en el PATH; el prompt se adaptó en consecuencia (rama `upstream-sync-gh-rest`). Coste por pasada: pendiente.
-4. Primera pasada real (eval): `upstream_tag: v6.1.1`. Después, `scripts/upstream-score.sh <verdad fuera del repo> <ledger de la rama del PR>`. Si hay exit 0, Paul revisa y mergea el PR (cierre de huecos del camino A). Si hay exit 1, no se programa y se revisa el prompt.
+4. Primera pasada real (eval): `upstream_tag: v6.1.1`. Después, `scripts/upstream-score.sh <verdad fuera del repo> <ledger de la rama del PR>`. Si hay exit 0, el mantenedor revisa y mergea el PR (cierre de huecos del camino A). Si hay exit 1, no se programa y se revisa el prompt.
