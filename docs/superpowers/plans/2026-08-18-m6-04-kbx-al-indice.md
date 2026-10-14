@@ -49,11 +49,11 @@ Toda tarea los hereda. Valores verbatim de la spec y del régimen §0.
 ## Resoluciones de pre-flight
 
 1. **Dos repos, una rama en cada uno**: `m6-04` en
-   `/home/paul/Documentos/proyectos/exo` y `m6-04` en
-   `/home/paul/Documentos/proyectos/kbx`. Ninguna tarea commitea en `main`/`master`.
+   `~/Documentos/proyectos/exo` y `m6-04` en
+   `~/Documentos/proyectos/kbx`. Ninguna tarea commitea en `main`/`master`.
 2. **Ninguna tarea toca el entorno vivo.** No se instala en `~/.local/bin/`, no
    se corre contra `~/.exo/index.db` en modo escritura, no se cambian call sites
-   instalados. Todo eso está en §"Acciones de Paul" al final, como en C9.
+   instalados. Todo eso está en §"Acciones del dueño de la KB" al final, como en C9.
    Las tareas verifican contra DBs temporales y contra copias RO.
 3. **Task 1 va primero y no toca código.** El pre-registro del gate de `targets`
    caduca en cuanto alguien vea el output del binario nuevo.
@@ -69,7 +69,7 @@ mirar**. Una vez visto el output del binario nuevo ya no hay pre-registro
 posible. No hay código en esta tarea.
 
 **Files:**
-- Create: `/home/paul/Documentos/proyectos/exo/docs/superpowers/plans/2026-08-18-m6-04-preregistro-targets.md`
+- Create: `~/Documentos/proyectos/exo/docs/superpowers/plans/2026-08-18-m6-04-preregistro-targets.md`
 
 **Interfaces:**
 - Consumes: nada.
@@ -79,8 +79,8 @@ posible. No hay código en esta tarea.
 - [ ] **Step 1: Crear la rama en el repo exo**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo checkout -b m6-04
-git -C /home/paul/Documentos/proyectos/exo status -sb
+git -C ~/Documentos/proyectos/exo checkout -b m6-04
+git -C ~/Documentos/proyectos/exo status -sb
 ```
 
 Expected: `## m6-04`, árbol limpio.
@@ -140,8 +140,8 @@ está rancio en 17 de 138 notas y el valor nuevo sale de `stat`), ni `snippet`
 - [ ] **Step 3: Commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add docs/superpowers/plans/2026-08-18-m6-04-preregistro-targets.md
-git -C /home/paul/Documentos/proyectos/exo commit -m "docs(m6-04): pre-registra el gate de targets antes de tocar código"
+git -C ~/Documentos/proyectos/exo add docs/superpowers/plans/2026-08-18-m6-04-preregistro-targets.md
+git -C ~/Documentos/proyectos/exo commit -m "docs(m6-04): pre-registra el gate de targets antes de tocar código"
 ```
 
 ---
@@ -154,8 +154,8 @@ fila; en `delete` eso bloquea al escritor y el indexer del hook de Stop ya
 registró un `database is locked` real. WAL elimina la clase en ambos sentidos.
 
 **Files:**
-- Modify: `/home/paul/Documentos/proyectos/exo/engine/src/lib.rs:40-54` (`abre_db`)
-- Test: `/home/paul/Documentos/proyectos/exo/engine/tests/journal_mode.rs` (crear)
+- Modify: `~/Documentos/proyectos/exo/engine/src/lib.rs:40-54` (`abre_db`)
+- Test: `~/Documentos/proyectos/exo/engine/tests/journal_mode.rs` (crear)
 
 **Interfaces:**
 - Consumes: `exo::abre_db(ruta: &Path) -> anyhow::Result<rusqlite::Connection>`
@@ -206,7 +206,7 @@ fn wal_es_persistente_entre_aperturas() {
 - [ ] **Step 2: Correr el test y verificar que falla**
 
 ```bash
-cd /home/paul/Documentos/proyectos/exo/engine && cargo test --test journal_mode
+cd ~/Documentos/proyectos/exo/engine && cargo test --test journal_mode
 ```
 
 Expected: FAIL. `abre_db_deja_la_db_en_wal` falla con
@@ -244,7 +244,7 @@ En `engine/src/lib.rs`, dentro de `abre_db`, **después** del `busy_timeout` y
 - [ ] **Step 4: Correr los tests y verificar que pasan**
 
 ```bash
-cd /home/paul/Documentos/proyectos/exo/engine && cargo test --test journal_mode
+cd ~/Documentos/proyectos/exo/engine && cargo test --test journal_mode
 ```
 
 Expected: PASS, `test result: ok. 2 passed`.
@@ -252,7 +252,7 @@ Expected: PASS, `test result: ok. 2 passed`.
 - [ ] **Step 5: Verificar que no rompe el resto de la suite**
 
 ```bash
-cd /home/paul/Documentos/proyectos/exo/engine && cargo test
+cd ~/Documentos/proyectos/exo/engine && cargo test
 ```
 
 Expected: PASS en todos los tests. Presta atención a `tests/refresca.rs` y
@@ -261,8 +261,8 @@ Expected: PASS en todos los tests. Presta atención a `tests/refresca.rs` y
 - [ ] **Step 6: Commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add engine/src/lib.rs engine/tests/journal_mode.rs engine/Cargo.toml
-git -C /home/paul/Documentos/proyectos/exo commit -m "feat(engine): journal_mode=WAL para que kbx pueda leer sin bloquear al indexer"
+git -C ~/Documentos/proyectos/exo add engine/src/lib.rs engine/tests/journal_mode.rs engine/Cargo.toml
+git -C ~/Documentos/proyectos/exo commit -m "feat(engine): journal_mode=WAL para que kbx pueda leer sin bloquear al indexer"
 ```
 
 ---
@@ -274,10 +274,10 @@ LIMIT 1`. El índice de exo no tiene tabla `project`. Se le añade una tabla
 `meta` que registra **procedencia**: de qué KB salió este índice.
 
 **Files:**
-- Modify: `/home/paul/Documentos/proyectos/exo/engine/src/schema.rs:9-45` (`crea_schema`)
-- Modify: `/home/paul/Documentos/proyectos/exo/engine/src/indexer.rs:76-79` (`indexa`)
-- Test: `/home/paul/Documentos/proyectos/exo/engine/tests/schema.rs` (modificar)
-- Test: `/home/paul/Documentos/proyectos/exo/engine/tests/indexer.rs` (modificar)
+- Modify: `~/Documentos/proyectos/exo/engine/src/schema.rs:9-45` (`crea_schema`)
+- Modify: `~/Documentos/proyectos/exo/engine/src/indexer.rs:76-79` (`indexa`)
+- Test: `~/Documentos/proyectos/exo/engine/tests/schema.rs` (modificar)
+- Test: `~/Documentos/proyectos/exo/engine/tests/indexer.rs` (modificar)
 
 **Interfaces:**
 - Consumes: `exo::schema::crea_schema(conn: &Connection) -> anyhow::Result<()>`,
@@ -320,7 +320,7 @@ fn meta_tiene_clave_primaria_y_valor_no_nulo() {
 - [ ] **Step 2: Correr el test y verificar que falla**
 
 ```bash
-cd /home/paul/Documentos/proyectos/exo/engine && cargo test --test schema
+cd ~/Documentos/proyectos/exo/engine && cargo test --test schema
 ```
 
 Expected: FAIL. `schema_crea_todas_las_tablas` falla con
@@ -356,7 +356,7 @@ doc existente:
 - [ ] **Step 4: Correr el test de schema y verificar que pasa**
 
 ```bash
-cd /home/paul/Documentos/proyectos/exo/engine && cargo test --test schema
+cd ~/Documentos/proyectos/exo/engine && cargo test --test schema
 ```
 
 Expected: PASS.
@@ -415,7 +415,7 @@ fn indexa_dos_veces_no_duplica_kb_root() {
 - [ ] **Step 6: Correr el test y verificar que falla**
 
 ```bash
-cd /home/paul/Documentos/proyectos/exo/engine && cargo test --test indexer indexa_escribe_kb_root indexa_dos_veces
+cd ~/Documentos/proyectos/exo/engine && cargo test --test indexer indexa_escribe_kb_root indexa_dos_veces
 ```
 
 Expected: FAIL con `leer meta.kb_root: QueryReturnedNoRows`.
@@ -444,7 +444,7 @@ walk_kb(kb)?;`, añade:
 - [ ] **Step 8: Correr los tests y verificar que pasan**
 
 ```bash
-cd /home/paul/Documentos/proyectos/exo/engine && cargo test
+cd ~/Documentos/proyectos/exo/engine && cargo test
 ```
 
 Expected: PASS en toda la suite.
@@ -455,8 +455,8 @@ Expected: PASS en toda la suite.
 
 ```bash
 mkdir -p /tmp/m6-04 && cp ~/.exo/index.db /tmp/m6-04/copia.db
-cd /home/paul/Documentos/proyectos/exo/engine && cargo run --release -- index \
-  --kb /home/paul/Documentos/proyectos/kb-demo --db /tmp/m6-04/copia.db --json
+cd ~/Documentos/proyectos/exo/engine && cargo run --release -- index \
+  --kb ~/Documentos/proyectos/kb-demo --db /tmp/m6-04/copia.db --json
 python3 -c "
 import sqlite3
 c=sqlite3.connect('file:/tmp/m6-04/copia.db?mode=ro', uri=True)
@@ -466,7 +466,7 @@ print('notas   =', c.execute('SELECT COUNT(*) FROM notas').fetchone()[0])
 "
 ```
 
-Expected: `kb_root = ('/home/paul/Documentos/proyectos/kb-demo',)`,
+Expected: `kb_root = ('~/Documentos/proyectos/kb-demo',)`,
 `journal = wal`, `notas = 138` (o el número actual de notas de la KB).
 
 Este paso demuestra que la tabla es **aditiva**: la copia venía de un índice
@@ -475,8 +475,8 @@ construido sin `meta` y no ha hecho falta rebuild.
 - [ ] **Step 10: Commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add engine/src/schema.rs engine/src/indexer.rs engine/tests/schema.rs engine/tests/indexer.rs
-git -C /home/paul/Documentos/proyectos/exo commit -m "feat(engine): tabla meta con kb_root como procedencia del índice"
+git -C ~/Documentos/proyectos/exo add engine/src/schema.rs engine/src/indexer.rs engine/tests/schema.rs engine/tests/indexer.rs
+git -C ~/Documentos/proyectos/exo commit -m "feat(engine): tabla meta con kb_root como procedencia del índice"
 ```
 
 ---
@@ -488,8 +488,8 @@ tocarlo. Las tareas 5-8 van migrando sus tests a él; Task 9 retira el viejo. As
 cada tarea deja `make check` verde.
 
 **Files:**
-- Modify: `/home/paul/Documentos/proyectos/kbx/internal/fixtures/index.go`
-- Test: `/home/paul/Documentos/proyectos/kbx/internal/fixtures/index_test.go`
+- Modify: `~/Documentos/proyectos/kbx/internal/fixtures/index.go`
+- Test: `~/Documentos/proyectos/kbx/internal/fixtures/index_test.go`
 
 **Interfaces:**
 - Consumes: `fixtures.Notes []Note` (campos `ID int`, `Title`, `Permalink`,
@@ -526,8 +526,8 @@ Cada uno tiene tarea asignada; Task 9 comprueba que no queda ninguno:
 - [ ] **Step 1: Crear la rama en el repo kbx**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/kbx checkout -b m6-04
-git -C /home/paul/Documentos/proyectos/kbx status -sb
+git -C ~/Documentos/proyectos/kbx checkout -b m6-04
+git -C ~/Documentos/proyectos/kbx status -sb
 ```
 
 Expected: `## m6-04`, árbol limpio.
@@ -635,7 +635,7 @@ func TestBuildExoIndexKbRoot(t *testing.T) {
 - [ ] **Step 3: Correr el test y verificar que falla**
 
 ```bash
-cd /home/paul/Documentos/proyectos/kbx && make test
+cd ~/Documentos/proyectos/kbx && make test
 ```
 
 Expected: FAIL de compilación,
@@ -647,7 +647,7 @@ Añade al final de `internal/fixtures/index.go`:
 
 ```go
 // DDL del índice de exo, copiado VERBATIM de
-// /home/paul/Documentos/proyectos/exo/engine/src/schema.rs (M6-04 Task 3).
+// ~/Documentos/proyectos/exo/engine/src/schema.rs (M6-04 Task 3).
 // Mismo contrato que el DDL de basic-memory de arriba: estas constantes solo
 // derivan cuando deriva el índice real, y quien vigila esa deriva en
 // producción es el canary de doctor (CheckSchema), no estos tests.
@@ -825,7 +825,7 @@ func BuildExoIndexSinMeta(t *testing.T) string { return buildExo(t, false, true)
 - [ ] **Step 5: Correr el test y verificar que pasa**
 
 ```bash
-cd /home/paul/Documentos/proyectos/kbx && make test
+cd ~/Documentos/proyectos/kbx && make test
 ```
 
 Expected: PASS, incluidos los cuatro tests nuevos y **todos** los existentes (el
@@ -834,8 +834,8 @@ fixture viejo sigue intacto).
 - [ ] **Step 6: Commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/kbx add internal/fixtures/index.go internal/fixtures/index_test.go
-git -C /home/paul/Documentos/proyectos/kbx commit -m "test(fixtures): añade constructor de índice con el schema de exo"
+git -C ~/Documentos/proyectos/kbx add internal/fixtures/index.go internal/fixtures/index_test.go
+git -C ~/Documentos/proyectos/kbx commit -m "test(fixtures): añade constructor de índice con el schema de exo"
 ```
 
 ---
@@ -846,10 +846,10 @@ Las tres piezas del paquete `internal/index`: de dónde sale la raíz de la KB,
 qué DB se abre por defecto, y qué schema vigila el canary.
 
 **Files:**
-- Modify: `/home/paul/Documentos/proyectos/kbx/internal/index/db.go:28-58`
-- Modify: `/home/paul/Documentos/proyectos/kbx/internal/index/schema.go:16-27`
-- Test: `/home/paul/Documentos/proyectos/kbx/internal/index/db_test.go`
-- Test: `/home/paul/Documentos/proyectos/kbx/internal/index/schema_test.go`
+- Modify: `~/Documentos/proyectos/kbx/internal/index/db.go:28-58`
+- Modify: `~/Documentos/proyectos/kbx/internal/index/schema.go:16-27`
+- Test: `~/Documentos/proyectos/kbx/internal/index/db_test.go`
+- Test: `~/Documentos/proyectos/kbx/internal/index/schema_test.go`
 
 **Interfaces:**
 - Consumes: `fixtures.BuildExoIndex(t *testing.T) string`,
@@ -974,12 +974,12 @@ func TestCheckSchemaExoDetectaMetaAusente(t *testing.T) {
 - [ ] **Step 2: Correr los tests y verificar que fallan**
 
 ```bash
-cd /home/paul/Documentos/proyectos/kbx && make test
+cd ~/Documentos/proyectos/kbx && make test
 ```
 
 Expected: FAIL. `TestProjectPathLeeMetaKbRoot` con `no such table: project`;
 `TestResolvePathDefaultEsElIndiceDeExo` con
-`= "/home/paul/.basic-memory/memory.db", want "/home/paul/.exo/index.db"`;
+`= "~/.basic-memory/memory.db", want "~/.exo/index.db"`;
 los tres de schema con drift de `entity`/`observation`/`relation`/
 `search_index`/`project`.
 
@@ -1064,7 +1064,7 @@ var consumed = []struct {
 - [ ] **Step 5: Correr los tests y verificar el estado**
 
 ```bash
-cd /home/paul/Documentos/proyectos/kbx && make test
+cd ~/Documentos/proyectos/kbx && make test
 ```
 
 Expected: los seis tests nuevos **PASAN**. Los tests viejos que usan
@@ -1088,7 +1088,7 @@ Si `buildBareDB` queda sin usar tras el borrado, bórrala también.
 - [ ] **Step 7: Correr la suite y verificar**
 
 ```bash
-cd /home/paul/Documentos/proyectos/kbx && make check
+cd ~/Documentos/proyectos/kbx && make check
 ```
 
 Expected: `internal/index` en verde. Otros paquetes (`targets`, `stale`,
@@ -1097,8 +1097,8 @@ Expected: `internal/index` en verde. Otros paquetes (`targets`, `stale`,
 - [ ] **Step 8: Commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/kbx add internal/index/
-git -C /home/paul/Documentos/proyectos/kbx commit -m "feat(index): kbRoot desde meta, default a ~/.exo/index.db y canary sobre el schema de exo"
+git -C ~/Documentos/proyectos/kbx add internal/index/
+git -C ~/Documentos/proyectos/kbx commit -m "feat(index): kbRoot desde meta, default a ~/.exo/index.db y canary sobre el schema de exo"
 ```
 
 ---
@@ -1110,9 +1110,9 @@ saca `tier` y `size` del disco en vez del índice. **El shape JSON de salida no
 cambia**: `Candidate` conserva sus seis campos.
 
 **Files:**
-- Modify: `/home/paul/Documentos/proyectos/kbx/internal/targets/targets.go:63-145`
-- Test: `/home/paul/Documentos/proyectos/kbx/internal/targets/targets_test.go`
-- Test: `/home/paul/Documentos/proyectos/kbx/cmd/kbx/targets_test.go`
+- Modify: `~/Documentos/proyectos/kbx/internal/targets/targets.go:63-145`
+- Test: `~/Documentos/proyectos/kbx/internal/targets/targets_test.go`
+- Test: `~/Documentos/proyectos/kbx/cmd/kbx/targets_test.go`
 
 **Interfaces:**
 - Consumes: `fixtures.BuildExoIndex(t *testing.T) string`,
@@ -1129,7 +1129,7 @@ sustituye todas las llamadas a `fixtures.BuildIndex(t)` por
 `fixtures.BuildExoIndex(t)`:
 
 ```bash
-cd /home/paul/Documentos/proyectos/kbx
+cd ~/Documentos/proyectos/kbx
 sed -i 's/fixtures\.BuildIndex(t)/fixtures.BuildExoIndex(t)/g' \
   internal/targets/targets_test.go cmd/kbx/targets_test.go
 grep -c "BuildExoIndex(t)" internal/targets/targets_test.go cmd/kbx/targets_test.go
@@ -1192,7 +1192,7 @@ Añade `"os"` y `"path/filepath"` a los imports del fichero de test si faltan.
 - [ ] **Step 2: Correr los tests y verificar que fallan**
 
 ```bash
-cd /home/paul/Documentos/proyectos/kbx && make test
+cd ~/Documentos/proyectos/kbx && make test
 ```
 
 Expected: FAIL en `internal/targets` con `no such table: search_index`.
@@ -1287,7 +1287,7 @@ Añade a los imports de `targets.go`:
 - [ ] **Step 5: Correr los tests y verificar que pasan**
 
 ```bash
-cd /home/paul/Documentos/proyectos/kbx && make test
+cd ~/Documentos/proyectos/kbx && make test
 ```
 
 Expected: `internal/targets` en verde, y los tests de `targets` en `cmd/kbx`
@@ -1298,8 +1298,8 @@ sus queries aún no se han portado.
 - [ ] **Step 6: Commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/kbx add internal/targets/ cmd/kbx/targets_test.go
-git -C /home/paul/Documentos/proyectos/kbx commit -m "feat(targets): porta la query al índice de exo, con tier y size del disco"
+git -C ~/Documentos/proyectos/kbx add internal/targets/ cmd/kbx/targets_test.go
+git -C ~/Documentos/proyectos/kbx commit -m "feat(targets): porta la query al índice de exo, con tier y size del disco"
 ```
 
 ---
@@ -1310,11 +1310,11 @@ Van juntas porque comparten la semántica de grado y orfandad, y porque la
 guardia contra NULL es la misma trampa en las dos.
 
 **Files:**
-- Modify: `/home/paul/Documentos/proyectos/kbx/internal/stale/stale.go:130-147`
-- Modify: `/home/paul/Documentos/proyectos/kbx/internal/doctor/doctor.go:161-170`
-- Test: `/home/paul/Documentos/proyectos/kbx/internal/stale/stale_test.go`
-- Test: `/home/paul/Documentos/proyectos/kbx/internal/doctor/doctor_test.go`
-- Test: `/home/paul/Documentos/proyectos/kbx/cmd/kbx/stale_test.go`
+- Modify: `~/Documentos/proyectos/kbx/internal/stale/stale.go:130-147`
+- Modify: `~/Documentos/proyectos/kbx/internal/doctor/doctor.go:161-170`
+- Test: `~/Documentos/proyectos/kbx/internal/stale/stale_test.go`
+- Test: `~/Documentos/proyectos/kbx/internal/doctor/doctor_test.go`
+- Test: `~/Documentos/proyectos/kbx/cmd/kbx/stale_test.go`
 
 **Interfaces:**
 - Consumes: `fixtures.BuildExoIndex(t *testing.T) string`,
@@ -1375,7 +1375,7 @@ Firmas que usa este test, verbatim del paquete:
 - [ ] **Step 2: Migrar los tests de ambos paquetes al fixture de exo**
 
 ```bash
-cd /home/paul/Documentos/proyectos/kbx
+cd ~/Documentos/proyectos/kbx
 sed -i 's/fixtures\.BuildIndex(t)/fixtures.BuildExoIndex(t)/g' \
   internal/stale/stale_test.go internal/doctor/doctor_test.go cmd/kbx/stale_test.go
 ```
@@ -1383,7 +1383,7 @@ sed -i 's/fixtures\.BuildIndex(t)/fixtures.BuildExoIndex(t)/g' \
 - [ ] **Step 3: Correr los tests y verificar que fallan**
 
 ```bash
-cd /home/paul/Documentos/proyectos/kbx && make test
+cd ~/Documentos/proyectos/kbx && make test
 ```
 
 Expected: FAIL en `internal/stale` y `internal/doctor` con
@@ -1454,7 +1454,7 @@ Y actualiza el doc de la función, sustituyendo su bloque de comentario por:
 - [ ] **Step 6: Correr los tests y verificar que pasan**
 
 ```bash
-cd /home/paul/Documentos/proyectos/kbx && make check
+cd ~/Documentos/proyectos/kbx && make check
 ```
 
 Expected: `internal/stale` e `internal/doctor` en verde, incluido
@@ -1470,8 +1470,8 @@ comprobación no sabes si el test prueba algo.
 - [ ] **Step 8: Commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/kbx add internal/stale/ internal/doctor/
-git -C /home/paul/Documentos/proyectos/kbx commit -m "feat(stale,doctor): porta grado y orfandad a aristas, con guardia contra NOT IN/NULL"
+git -C ~/Documentos/proyectos/kbx add internal/stale/ internal/doctor/
+git -C ~/Documentos/proyectos/kbx commit -m "feat(stale,doctor): porta grado y orfandad a aristas, con guardia contra NOT IN/NULL"
 ```
 
 ---
@@ -1483,12 +1483,12 @@ entre los dos índices (set-equality sobre las 138 notas de la KB real, cero
 diferencias), así que el port es mecánico.
 
 **Files:**
-- Modify: `/home/paul/Documentos/proyectos/kbx/cmd/kbx/history.go:139`
-- Modify: `/home/paul/Documentos/proyectos/kbx/cmd/kbx/diffsince.go:180`
-- Test: `/home/paul/Documentos/proyectos/kbx/cmd/kbx/history_test.go`
-- Test: `/home/paul/Documentos/proyectos/kbx/cmd/kbx/diffsince_test.go`
-- Test: `/home/paul/Documentos/proyectos/kbx/cmd/kbx/budget_test.go`
-- Test: `/home/paul/Documentos/proyectos/kbx/cmd/kbx/main_test.go`
+- Modify: `~/Documentos/proyectos/kbx/cmd/kbx/history.go:139`
+- Modify: `~/Documentos/proyectos/kbx/cmd/kbx/diffsince.go:180`
+- Test: `~/Documentos/proyectos/kbx/cmd/kbx/history_test.go`
+- Test: `~/Documentos/proyectos/kbx/cmd/kbx/diffsince_test.go`
+- Test: `~/Documentos/proyectos/kbx/cmd/kbx/budget_test.go`
+- Test: `~/Documentos/proyectos/kbx/cmd/kbx/main_test.go`
 
 **Interfaces:**
 - Consumes: `fixtures.BuildExoIndex(t *testing.T) string`.
@@ -1502,7 +1502,7 @@ fallback de kbRoot y `main` prueba el despacho de subcomandos— pero comparten
 fixture, así que migran aquí:
 
 ```bash
-cd /home/paul/Documentos/proyectos/kbx
+cd ~/Documentos/proyectos/kbx
 sed -i 's/fixtures\.BuildIndex(t)/fixtures.BuildExoIndex(t)/g' \
   cmd/kbx/history_test.go cmd/kbx/diffsince_test.go cmd/kbx/budget_test.go cmd/kbx/main_test.go
 ```
@@ -1510,7 +1510,7 @@ sed -i 's/fixtures\.BuildIndex(t)/fixtures.BuildExoIndex(t)/g' \
 - [ ] **Step 2: Correr los tests y verificar que fallan**
 
 ```bash
-cd /home/paul/Documentos/proyectos/kbx && make test
+cd ~/Documentos/proyectos/kbx && make test
 ```
 
 Expected: FAIL en `cmd/kbx` con `no such table: entity`.
@@ -1536,14 +1536,14 @@ venir NULL. El manejo de `sql.ErrNoRows` de ambos llamadores no cambia.
 - [ ] **Step 4: Correr la suite y verificar que pasa**
 
 ```bash
-cd /home/paul/Documentos/proyectos/kbx && make check
+cd ~/Documentos/proyectos/kbx && make check
 ```
 
 Expected: **toda** la suite en verde. Comprueba que no queda ningún consumidor
 del fixture viejo fuera de `internal/fixtures/`:
 
 ```bash
-cd /home/paul/Documentos/proyectos/kbx && grep -rln "fixtures.BuildIndex(" --include='*_test.go' .
+cd ~/Documentos/proyectos/kbx && grep -rln "fixtures.BuildIndex(" --include='*_test.go' .
 ```
 
 Expected: sin salida.
@@ -1551,8 +1551,8 @@ Expected: sin salida.
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/kbx add cmd/kbx/
-git -C /home/paul/Documentos/proyectos/kbx commit -m "feat(history,diff-since): porta los lookups de permalink y ruta al índice de exo"
+git -C ~/Documentos/proyectos/kbx add cmd/kbx/
+git -C ~/Documentos/proyectos/kbx commit -m "feat(history,diff-since): porta los lookups de permalink y ruta al índice de exo"
 ```
 
 ---
@@ -1564,9 +1564,9 @@ consumidores) y **demostrar** que el port es correcto comparando contra el mundo
 viejo.
 
 **Files:**
-- Modify: `/home/paul/Documentos/proyectos/kbx/internal/fixtures/index.go`
-- Modify: `/home/paul/Documentos/proyectos/kbx/internal/fixtures/index_test.go`
-- Create: `/home/paul/Documentos/proyectos/exo/docs/superpowers/plans/2026-08-18-m6-04-gate-paridad.md`
+- Modify: `~/Documentos/proyectos/kbx/internal/fixtures/index.go`
+- Modify: `~/Documentos/proyectos/kbx/internal/fixtures/index_test.go`
+- Create: `~/Documentos/proyectos/exo/docs/superpowers/plans/2026-08-18-m6-04-gate-paridad.md`
 
 **Interfaces:**
 - Consumes: `fixtures.BuildExoIndex`, y el binario `kbx` viejo (de `master`).
@@ -1575,7 +1575,7 @@ viejo.
 - [ ] **Step 1: Comprobar que el fixture viejo no tiene consumidores**
 
 ```bash
-cd /home/paul/Documentos/proyectos/kbx && grep -rn "BuildIndex(\|BuildIndexExtraChunk(\|BuildIndexMissingColumn(" --include='*.go' .
+cd ~/Documentos/proyectos/kbx && grep -rn "BuildIndex(\|BuildIndexExtraChunk(\|BuildIndexMissingColumn(" --include='*.go' .
 ```
 
 Expected: solo hits dentro de `internal/fixtures/index.go` (las propias
@@ -1598,7 +1598,7 @@ funciones borradas.
 - [ ] **Step 3: Correr la suite**
 
 ```bash
-cd /home/paul/Documentos/proyectos/kbx && make check
+cd ~/Documentos/proyectos/kbx && make check
 ```
 
 Expected: verde. Si el compilador se queja de imports sin usar (`encoding/json`,
@@ -1610,9 +1610,9 @@ El viejo sale de `master`, sin tocar el árbol de trabajo:
 
 ```bash
 mkdir -p /tmp/m6-04
-git -C /home/paul/Documentos/proyectos/kbx worktree add /tmp/m6-04/kbx-viejo master
+git -C ~/Documentos/proyectos/kbx worktree add /tmp/m6-04/kbx-viejo master
 cd /tmp/m6-04/kbx-viejo && $HOME/.local/go/bin/go build -tags sqlite_fts5 -o /tmp/m6-04/kbx-viejo-bin ./cmd/kbx
-cd /home/paul/Documentos/proyectos/kbx && $HOME/.local/go/bin/go build -tags sqlite_fts5 -o /tmp/m6-04/kbx-nuevo-bin ./cmd/kbx
+cd ~/Documentos/proyectos/kbx && $HOME/.local/go/bin/go build -tags sqlite_fts5 -o /tmp/m6-04/kbx-nuevo-bin ./cmd/kbx
 ls -l /tmp/m6-04/kbx-viejo-bin /tmp/m6-04/kbx-nuevo-bin
 ```
 
@@ -1625,8 +1625,8 @@ Expected: los dos binarios existen.
 ```bash
 cp ~/.basic-memory/memory.db /tmp/m6-04/bm.db
 cp ~/.exo/index.db /tmp/m6-04/exo.db
-cd /home/paul/Documentos/proyectos/exo/engine && cargo run --release -- index \
-  --kb /home/paul/Documentos/proyectos/kb-demo --db /tmp/m6-04/exo.db --json
+cd ~/Documentos/proyectos/exo/engine && cargo run --release -- index \
+  --kb ~/Documentos/proyectos/kb-demo --db /tmp/m6-04/exo.db --json
 ```
 
 Expected: envelope JSON válido. La copia queda con `meta` poblada y en WAL.
@@ -1663,8 +1663,8 @@ Expected: `basic-memory: 7 | exo: 7`, ambas diferencias vacías, `GATE: PASA`.
 - [ ] **Step 7: Gate de `stale` — paridad del grado-0**
 
 ```bash
-/tmp/m6-04/kbx-viejo-bin stale --db /tmp/m6-04/bm.db --kb /home/paul/Documentos/proyectos/kb-demo --json > /tmp/m6-04/stale-viejo.json
-/tmp/m6-04/kbx-nuevo-bin stale --db /tmp/m6-04/exo.db --kb /home/paul/Documentos/proyectos/kb-demo --json > /tmp/m6-04/stale-nuevo.json
+/tmp/m6-04/kbx-viejo-bin stale --db /tmp/m6-04/bm.db --kb ~/Documentos/proyectos/kb-demo --json > /tmp/m6-04/stale-viejo.json
+/tmp/m6-04/kbx-nuevo-bin stale --db /tmp/m6-04/exo.db --kb ~/Documentos/proyectos/kb-demo --json > /tmp/m6-04/stale-nuevo.json
 python3 - <<'PY'
 import json
 def grado0(p):
@@ -1687,16 +1687,16 @@ LastCommit string, Uncommitted bool, AgeDays, Degree int, Score float}`.
 - [ ] **Step 8: Gate de `targets` — pre-registro de Task 1**
 
 Lee
-`/home/paul/Documentos/proyectos/exo/docs/superpowers/plans/2026-08-18-m6-04-preregistro-targets.md`
+`~/Documentos/proyectos/exo/docs/superpowers/plans/2026-08-18-m6-04-preregistro-targets.md`
 y aplícalo **tal como está escrito**. Para cada uno de los cinco topics:
 
 ```bash
 for t in "indexer" "reflex" "memoria" "kbx" "recall en el punto de uso"; do
   echo "=== $t ==="
-  /tmp/m6-04/kbx-viejo-bin targets "$t" --db /tmp/m6-04/bm.db --kb /home/paul/Documentos/proyectos/kb-demo --limit 5 --json \
+  /tmp/m6-04/kbx-viejo-bin targets "$t" --db /tmp/m6-04/bm.db --kb ~/Documentos/proyectos/kb-demo --limit 5 --json \
     | python3 -c "import json,sys; print('\n'.join(c['permalink'] for c in json.load(sys.stdin)['candidates']))"
   echo "--- exo ---"
-  /tmp/m6-04/kbx-nuevo-bin targets "$t" --db /tmp/m6-04/exo.db --kb /home/paul/Documentos/proyectos/kb-demo --limit 5 --json \
+  /tmp/m6-04/kbx-nuevo-bin targets "$t" --db /tmp/m6-04/exo.db --kb ~/Documentos/proyectos/kb-demo --limit 5 --json \
     | python3 -c "import json,sys; print('\n'.join(c['permalink'] for c in json.load(sys.stdin)['candidates']))"
 done
 ```
@@ -1708,7 +1708,7 @@ pasan 4 de los 5 topics. Cada ausencia se explica o es un fallo.
 - [ ] **Step 9: Escribir el informe del gate**
 
 Crea
-`/home/paul/Documentos/proyectos/exo/docs/superpowers/plans/2026-08-18-m6-04-gate-paridad.md`
+`~/Documentos/proyectos/exo/docs/superpowers/plans/2026-08-18-m6-04-gate-paridad.md`
 con: la fecha, los tres resultados (doctor con los conjuntos completos, stale
 con los conjuntos de grado-0, targets topic a topic con el conteo de overlap y
 la explicación de cada ausencia), y el veredicto global PASA/FALLA. Pega el
@@ -1717,16 +1717,16 @@ output real de los comandos, no un resumen.
 - [ ] **Step 10: Commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/kbx add internal/fixtures/
-git -C /home/paul/Documentos/proyectos/kbx commit -m "test(fixtures): retira el fixture del índice de basic-memory"
-git -C /home/paul/Documentos/proyectos/exo add docs/superpowers/plans/2026-08-18-m6-04-gate-paridad.md
-git -C /home/paul/Documentos/proyectos/exo commit -m "docs(m6-04): informe del gate de paridad del port"
+git -C ~/Documentos/proyectos/kbx add internal/fixtures/
+git -C ~/Documentos/proyectos/kbx commit -m "test(fixtures): retira el fixture del índice de basic-memory"
+git -C ~/Documentos/proyectos/exo add docs/superpowers/plans/2026-08-18-m6-04-gate-paridad.md
+git -C ~/Documentos/proyectos/exo commit -m "docs(m6-04): informe del gate de paridad del port"
 ```
 
 - [ ] **Step 11: Limpiar el worktree temporal**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/kbx worktree remove /tmp/m6-04/kbx-viejo
+git -C ~/Documentos/proyectos/kbx worktree remove /tmp/m6-04/kbx-viejo
 ```
 
 ---
@@ -1737,9 +1737,9 @@ Commit propio, con el delta esperado escrito **antes** de medirlo. Es T3 de la
 spec: aquí el cambio de números **es** el resultado, no una desviación.
 
 **Files:**
-- Modify: `/home/paul/Documentos/proyectos/kbx/internal/targets/targets.go` (`candidateQuery`)
-- Modify: `/home/paul/Documentos/proyectos/kbx/internal/stale/stale.go` (`degreeQuery`)
-- Modify: `/home/paul/Documentos/proyectos/kbx/internal/doctor/doctor.go` (`orphanFindings`)
+- Modify: `~/Documentos/proyectos/kbx/internal/targets/targets.go` (`candidateQuery`)
+- Modify: `~/Documentos/proyectos/kbx/internal/stale/stale.go` (`degreeQuery`)
+- Modify: `~/Documentos/proyectos/kbx/internal/doctor/doctor.go` (`orphanFindings`)
 - Test: los tres ficheros `_test.go` correspondientes
 
 **Interfaces:**
@@ -1780,7 +1780,7 @@ func TestSearchIncluyeTipoNoNote(t *testing.T) {
 - [ ] **Step 2: Correr el test y verificar que falla**
 
 ```bash
-cd /home/paul/Documentos/proyectos/kbx && make test
+cd ~/Documentos/proyectos/kbx && make test
 ```
 
 Expected: FAIL, `targets debe devolver también las notas cuyo tipo no es 'note'`.
@@ -1809,14 +1809,14 @@ mirrors…`) por:
 // frontmatter, so there are no assets to exclude. The old note_type='note'
 // filter was documented as excluding pdf/tex/cls/json assets but actually hid
 // 57 of 138 real markdown notes — every report/project/research/guide/spec/
-// person note, including the project distillates and Paul's own profile.
+// person note, including the project distillates and the KB owner's own profile.
 // Removed in M6-04 T3 as a deliberate scope change.
 ```
 
 - [ ] **Step 4: Correr los tests y verificar que pasan**
 
 ```bash
-cd /home/paul/Documentos/proyectos/kbx && make check
+cd ~/Documentos/proyectos/kbx && make check
 ```
 
 Expected: verde. Si algún test de `stale` o `doctor` asertaba cardinalidad con
@@ -1826,9 +1826,9 @@ el fixture (p.ej. `len(fixtures.Notes) - 2`), ahora cuenta una nota más: la fil
 - [ ] **Step 5: Medir el delta contra la KB real, con los dos números**
 
 ```bash
-/tmp/m6-04/kbx-nuevo-bin targets "memoria" --db /tmp/m6-04/exo.db --kb /home/paul/Documentos/proyectos/kb-demo --limit 200 --json \
+/tmp/m6-04/kbx-nuevo-bin targets "memoria" --db /tmp/m6-04/exo.db --kb ~/Documentos/proyectos/kb-demo --limit 200 --json \
   | python3 -c "import json,sys; print('targets ve:', len(json.load(sys.stdin)['candidates']))"
-cd /home/paul/Documentos/proyectos/kbx && $HOME/.local/go/bin/go build -tags sqlite_fts5 -o /tmp/m6-04/kbx-sinfiltro ./cmd/kbx
+cd ~/Documentos/proyectos/kbx && $HOME/.local/go/bin/go build -tags sqlite_fts5 -o /tmp/m6-04/kbx-sinfiltro ./cmd/kbx
 python3 - <<'PY'
 import sqlite3
 c = sqlite3.connect('file:/tmp/m6-04/exo.db?mode=ro', uri=True)
@@ -1850,14 +1850,14 @@ correctos y distintos**: `targets` no excluye por directorio y ve las 57;
 - [ ] **Step 6: Commit, con los dos deltas en el mensaje**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/kbx add internal/
-git -C /home/paul/Documentos/proyectos/kbx commit -F - <<'EOF'
+git -C ~/Documentos/proyectos/kbx add internal/
+git -C ~/Documentos/proyectos/kbx commit -F - <<'EOF'
 feat: quita el filtro tipo='note' — kbx pasa a ver la KB entera
 
 El filtro se documentaba como "excluir assets pdf/tex/cls/json", pero en el
 índice de exo no hay assets: el walker solo indexa .md con permalink. Lo que
 ocultaba eran 57 de 138 notas markdown reales — los 10 destilados de projects/,
-el perfil de Paul (type: person) y los 39 report de archive/sesiones.
+el perfil del dueño de la KB (type: person) y los 39 report de archive/sesiones.
 
 Delta esperado, y son DOS números distintos:
 
@@ -1873,23 +1873,23 @@ EOF
 
 ### Task 11: cutover — call sites y red de rollback
 
-Última tarea de código. Deja todo listo para que Paul haga el cambio en el
+Última tarea de código. Deja todo listo para que el dueño de la KB haga el cambio en el
 entorno vivo.
 
 **Files:**
-- Modify: `/home/paul/Documentos/proyectos/exo/plugins/reflex/skills/consolida/SKILL.md`
-- Modify: `/home/paul/Documentos/proyectos/exo/plugins/process/skills/documenta/SKILL.md` (si menciona kbx)
-- Create: `/home/paul/Documentos/proyectos/exo/docs/superpowers/runbooks/2026-08-18-m6-04-cutover.md`
+- Modify: `~/Documentos/proyectos/exo/plugins/reflex/skills/consolida/SKILL.md`
+- Modify: `~/Documentos/proyectos/exo/plugins/process/skills/documenta/SKILL.md` (si menciona kbx)
+- Create: `~/Documentos/proyectos/exo/docs/superpowers/runbooks/2026-08-18-m6-04-cutover.md`
 
 **Interfaces:**
 - Consumes: el default nuevo de `index.ResolvePath` (Task 5), el informe del
   gate (Task 9).
-- Produces: el runbook que ejecuta Paul.
+- Produces: el runbook que ejecuta el dueño de la KB.
 
 - [ ] **Step 1: Auditar los call sites**
 
 ```bash
-grep -rn "kbx " /home/paul/Documentos/proyectos/exo/plugins/ --include='*.sh' --include='*.md' | grep -v "^Binary"
+grep -rn "kbx " ~/Documentos/proyectos/exo/plugins/ --include='*.sh' --include='*.md' | grep -v "^Binary"
 ```
 
 Expected: hits en `skills/consolida/SKILL.md` (budget, diff-since, doctor,
@@ -1899,7 +1899,7 @@ rotate, stale), `scripts/kb-precommit.sh` (ratchet, rotate) y
 - [ ] **Step 2: Comprobar qué invocaciones pasan `--db` explícito**
 
 ```bash
-grep -rn "kbx .*--db" /home/paul/Documentos/proyectos/exo/plugins/ --include='*.sh' --include='*.md'
+grep -rn "kbx .*--db" ~/Documentos/proyectos/exo/plugins/ --include='*.sh' --include='*.md'
 ```
 
 Expected: **ningún hit**. Todas las invocaciones usan el default, así que el
@@ -1928,7 +1928,7 @@ significa "mis dos binarios no son de la misma época".
 Crea `docs/superpowers/runbooks/2026-08-18-m6-04-cutover.md`:
 
 ```markdown
-# M6-04 — cutover: lo que ejecuta Paul
+# M6-04 — cutover: lo que ejecuta el dueño de la KB
 
 > El código está mergeado. Lo que sigue es **entorno vivo**: instalar binarios
 > y verificar. Nada de esto lo ejecuta la fábrica.
@@ -1955,7 +1955,7 @@ instalas kbx antes, kbx se queda sin `kb_root` y todos los comandos exigen
 `--kb`.
 
 ```bash
-cd /home/paul/Documentos/proyectos/exo/engine && cargo build --release
+cd ~/Documentos/proyectos/exo/engine && cargo build --release
 cp target/release/exo ~/.local/bin/exo
 exo index --kb ~/Documentos/proyectos/kb-demo --db ~/.exo/index.db --json
 ```
@@ -1971,14 +1971,14 @@ print('journal =', c.execute('PRAGMA journal_mode').fetchone()[0])
 "
 ```
 
-Esperado: `kb_root = ('/home/paul/Documentos/proyectos/kb-demo',)` y
+Esperado: `kb_root = ('~/Documentos/proyectos/kb-demo',)` y
 `journal = wal`. Un `kb_root` vacío o `journal = delete` significa que el
 binario instalado es el viejo — es el gotcha de las 20 h de C9, repetido.
 
 ## Paso 3 — Instalar kbx
 
 ```bash
-cd /home/paul/Documentos/proyectos/kbx && make install
+cd ~/Documentos/proyectos/kbx && make install
 ```
 
 ## Paso 4 — Verificación falsable de kbx
@@ -2015,8 +2015,8 @@ que esté. M6-04 cierra uno de los dos bloqueadores, no los dos.
 - [ ] **Step 5: Verificar que la suite sigue verde**
 
 ```bash
-cd /home/paul/Documentos/proyectos/kbx && make check
-cd /home/paul/Documentos/proyectos/exo/engine && cargo test
+cd ~/Documentos/proyectos/kbx && make check
+cd ~/Documentos/proyectos/exo/engine && cargo test
 ```
 
 Expected: ambas verdes.
@@ -2024,13 +2024,13 @@ Expected: ambas verdes.
 - [ ] **Step 6: Commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add plugins/ docs/superpowers/runbooks/2026-08-18-m6-04-cutover.md
-git -C /home/paul/Documentos/proyectos/exo commit -m "docs(m6-04): runbook de cutover y nota de drift en consolida"
+git -C ~/Documentos/proyectos/exo add plugins/ docs/superpowers/runbooks/2026-08-18-m6-04-cutover.md
+git -C ~/Documentos/proyectos/exo commit -m "docs(m6-04): runbook de cutover y nota de drift en consolida"
 ```
 
 ---
 
-## Acciones de Paul (entorno vivo — ninguna tarea las ejecuta)
+## Acciones del dueño de la KB (entorno vivo — ninguna tarea las ejecuta)
 
 1. Revisar y mergear las dos ramas `m6-04` (repo exo y repo kbx).
 2. Ejecutar `docs/superpowers/runbooks/2026-08-18-m6-04-cutover.md`.

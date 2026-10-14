@@ -139,9 +139,9 @@ Evidencia en `~/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/`:
   `PRIV=~/.local/share/exo-evals/c-heldout` (`chmod 700`). Al repo, solo
   harness, agregados y sha256.
 - **Líneas rojas:** no se toca `~/.exo/index.db` (solo `exo search` de
-  lectura); no se escribe en la KB `~/Documentos/proyectos/wisdom-paul` (el
+  lectura); no se escribe en la KB personal (el
   snapshot es un `git clone` a `$PRIV`); nada de push, merge ni commit a
-  `main` (el merge es el gate de Paul); nada externo; `git add` con rutas
+  `main` (el merge es un gate del dueño de la KB); nada externo; `git add` con rutas
   explícitas, nunca `-A`; `git -C <path>`, nunca `cd <path> && git`.
 - **Pre-registro primero.** Ninguna tarea computa hit@k de un brazo sobre el
   held-out antes del commit de congelación (Task 5). Tras congelar no se afina
@@ -152,13 +152,13 @@ Evidencia en `~/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/`:
 - **Régimen de fábrica:** `.superpowers/fabrica/config.md` §ACTUALIZACIÓN
   2026-08-17 dice literal "**Sin métricas nuevas, sin pre-registros nuevos, sin
   ventanas de observación.**". Esta campaña lo contradice y **no arranca sin
-  la línea `OVERRIDE` de Paul** (D0). El config está desactualizado y este
+  la línea `OVERRIDE` del dueño de la KB** (D0). El config está desactualizado y este
   plan no lo edita.
 
 ## Decisiones abiertas (PENDIENTE-PAUL)
 
 Se fijan en la Task 0 (D0–D3) y en la Task 5 (D4–D5), antes de congelar. Cada
-una lleva una recomendación; la decisión es de Paul.
+una lleva una recomendación; la decisión es del dueño de la KB.
 
 **D0 — Levantar el régimen de cierre para C.**
 - (a) OVERRIDE solo para la campaña C. Pro: el item Alta del backlog
@@ -177,7 +177,7 @@ una lleva una recomendación; la decisión es de Paul.
 - (c) Solo `hard`, paráfrasis sintéticas sobre notas añadidas tras el
   2026-08-17. Pro: fuga temporal imposible. Contra: son sintéticas y cargan el
   sesgo del autor.
-- (d) Queries escritas por Paul. Pro: el gold más fiel. Contra: su tiempo, y
+- (d) Queries escritas por el dueño de la KB. Pro: el gold más fiel. Contra: su tiempo, y
   conoce el sistema.
 - (e) Mezcla estratificada fija a priori.
 - *Recomendación: (e) con `prompt` 50% · `agent-search` 30% · `hard` 20%,
@@ -186,7 +186,7 @@ una lleva una recomendación; la decisión es de Paul.
   inventar prompts.*
 
 **D2 — Tamaño (filas no nulas).**
-- 60: Paul revisa en ~40 min; potencia ~0,38 ante +10 pp.
+- 60: el dueño de la KB revisa en ~40 min; potencia ~0,38 ante +10 pp.
 - 100: ~1–1,5 h; potencia ~0,66 ante +10 pp; con la regla GANA, P(adoptar
   +8 pp) = 0,93.
 - 150: ~2 h; 0,85; probablemente no cabe en el pool.
@@ -228,7 +228,7 @@ una lleva una recomendación; la decisión es de Paul.
 **D6 — Default de `exo search --type` (backlog item Alta, acción (c)).**
 Fuera de producción en C: el verdict aporta A0 frente a A2 en held-out y la
 decisión se toma después, porque toca la help de `main.rs:213-216`, que es
-territorio de B. *Recomendación: la decide Paul con el verdict delante.*
+territorio de B. *Recomendación: la decide el dueño de la KB con el verdict delante.*
 
 ## Dependencias y conflictos con A y B
 
@@ -265,7 +265,7 @@ territorio de B. *Recomendación: la decide Paul con el verdict delante.*
 
 ---
 
-### Task 0: Decisiones de diseño de Paul (PENDIENTE-PAUL, gate humano)
+### Task 0: Decisiones de diseño del dueño de la KB (PENDIENTE-PAUL, gate humano)
 
 **Lane:** — (gate humano; bloquea Tasks 2–12). La Task 1 puede avanzar at-risk.
 **Oráculo:** `rg -n '^OVERRIDE .*campana-c' .superpowers/fabrica/ledger.md && rg -n '^D[0-3] ' .superpowers/fabrica/pendiente-paul.md`
@@ -281,11 +281,11 @@ territorio de B. *Recomendación: la decide Paul con el verdict delante.*
 
 Añadir a `.superpowers/fabrica/pendiente-paul.md`, copiando literal las opciones y recomendaciones de §Decisiones abiertas (D0, D1, D2, D3), con "bloquea: campaña C Tasks 2–12" y la fecha de `date -Iseconds`.
 
-- [ ] **Step 2: Esperar el veredicto de Paul**
+- [ ] **Step 2: Esperar el veredicto del dueño de la KB**
 
 No se despacha ninguna tarea 2–12 hasta que existan:
 ```
-OVERRIDE <ts> Paul: régimen de cierre levantado para campaña C (D0)
+OVERRIDE <ts> dueño-KB: régimen de cierre levantado para campaña C (D0)
 D0 <a|b>
 D1 <opción; si (e), proporción exacta prompt/agent-search/hard>
 D2 <N no nulas>
@@ -838,9 +838,9 @@ Expected: `OK` (19 tests). Si `test_wilson` falla por redondeo, NO se toca la to
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo switch -c c-retrieval-heldout
-git -C /home/paul/Documentos/proyectos/exo add evals/retrieval-heldout/harness/metricas.py evals/retrieval-heldout/harness/test_harness.py docs/superpowers/plans/2026-09-13-campana-c-retrieval-held-out.md docs/superpowers/plans/2026-09-13-campana-c-preregistro.md
-git -C /home/paul/Documentos/proyectos/exo commit -m "eval(c): plan, borrador de pre-registro y harness de metricas del held-out"
+git -C ~/Documentos/proyectos/exo switch -c c-retrieval-heldout
+git -C ~/Documentos/proyectos/exo add evals/retrieval-heldout/harness/metricas.py evals/retrieval-heldout/harness/test_harness.py docs/superpowers/plans/2026-09-13-campana-c-retrieval-held-out.md docs/superpowers/plans/2026-09-13-campana-c-preregistro.md
+git -C ~/Documentos/proyectos/exo commit -m "eval(c): plan, borrador de pre-registro y harness de metricas del held-out"
 ```
 
 ---
@@ -869,10 +869,10 @@ git -C /home/paul/Documentos/proyectos/exo commit -m "eval(c): plan, borrador de
 ```bash
 export PRIV="$HOME/.local/share/exo-evals/c-heldout"
 mkdir -p "$PRIV" && chmod 700 "$PRIV"
-git -C /home/paul/Documentos/proyectos/exo show archivo/main-pre-reescritura:evals/retrieval-fase0/eval.jsonl > "$PRIV/in-sample-55.jsonl"
+git -C ~/Documentos/proyectos/exo show archivo/main-pre-reescritura:evals/retrieval-fase0/eval.jsonl > "$PRIV/in-sample-55.jsonl"
 wc -l < "$PRIV/in-sample-55.jsonl"
 sed -n 13p "$PRIV/in-sample-55.jsonl" | python3 -c 'import sys,json; print(json.loads(sys.stdin.read())["query"])'
-printf '%s\n' '{"query":"cge evaluación head-to-head cgeo benchmark harness metodología","acceptable_permalinks":["wisdom-paul/log/cge-bitacora"]}' > "$PRIV/overlay-fila13.jsonl"
+printf '%s\n' '{"query":"cge evaluación head-to-head cgeo benchmark harness metodología","acceptable_permalinks":["<nombre-kb>/log/cge-bitacora"]}' > "$PRIV/overlay-fila13.jsonl"
 ```
 Expected: `56` y `cge evaluación head-to-head cgeo benchmark harness metodología`. Si la fila 13 no coincide, STOP (el overlay apuntaría a otra query).
 
@@ -893,7 +893,7 @@ class TestPool(unittest.TestCase):
 
     def test_query_de_comando(self):
         self.assertEqual(pl.query_de_comando('exo search --db ~/.exo/index.db --type hybrid --json "fabrica campaña"'), "fabrica campaña")
-        self.assertEqual(pl.query_de_comando('cd /home/paul && ~/.local/bin/exo search --db x --limite 4 --json "memoria v2" | jq .'), "memoria v2")
+        self.assertEqual(pl.query_de_comando('cd ~ && ~/.local/bin/exo search --db x --limite 4 --json "memoria v2" | jq .'), "memoria v2")
         self.assertEqual(pl.query_de_comando("kbx targets memoria --json"), "memoria")
         self.assertIsNone(pl.query_de_comando("cargo test --release"))
 
@@ -1184,8 +1184,8 @@ Expected: exit 0 y un JSON con `pool`, `muestra` y `descartes`. Si sale `pool in
 - [ ] **Step 7: Commit (solo código)**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add evals/retrieval-heldout/harness/pool.py evals/retrieval-heldout/harness/captura.py evals/retrieval-heldout/harness/test_harness.py
-git -C /home/paul/Documentos/proyectos/exo commit -m "eval(c): captura y pool de candidatas con filtros anti-fuga"
+git -C ~/Documentos/proyectos/exo add evals/retrieval-heldout/harness/pool.py evals/retrieval-heldout/harness/captura.py evals/retrieval-heldout/harness/test_harness.py
+git -C ~/Documentos/proyectos/exo commit -m "eval(c): captura y pool de candidatas con filtros anti-fuga"
 ```
 
 ---
@@ -1208,8 +1208,8 @@ git -C /home/paul/Documentos/proyectos/exo commit -m "eval(c): captura y pool de
 - [ ] **Step 1: Snapshot inmutable de la KB (lectura del repo de la KB, sin escribir en él)**
 
 ```bash
-S=$(git -C "$HOME/Documentos/proyectos/wisdom-paul" rev-parse HEAD)
-git clone --quiet --no-hardlinks "$HOME/Documentos/proyectos/wisdom-paul" "$PRIV/kb-snap"
+S=$(git -C "<ruta-de-la-KB>" rev-parse HEAD)
+git clone --quiet --no-hardlinks "<ruta-de-la-KB>" "$PRIV/kb-snap"
 git -C "$PRIV/kb-snap" checkout --quiet --detach "$S"
 echo "$S" > "$PRIV/kb-snap.commit"; cat "$PRIV/kb-snap.commit"
 ```
@@ -1359,7 +1359,7 @@ Lista de notas elegibles:
 git -C "$PRIV/kb-snap" log --diff-filter=A --since=2026-08-17 --name-only --format= -- '*.md' | sort -u > "$PRIV/notas-nuevas.txt"; wc -l < "$PRIV/notas-nuevas.txt"
 ```
 Despachar un subagente **sonnet** fresco con este brief literal:
-"Lee notas de `$PRIV/kb-snap/` listadas en `$PRIV/notas-nuevas.txt` (mezcla `learnings/`, `log/`, `backlog`, excluye `archive/` salvo que falten). Por cada nota elegida escribe UNA query en castellano que Paul haría para re-encontrarla SIN sus palabras clave literales ni su título. La mitad en frase natural, la otra mitad en estilo 2–5 palabras clave parafraseadas. PROHIBIDO: ejecutar `exo`, `kbx` o tools de basic-memory; leer `~/Documentos/proyectos/exo/evals/`, `reports/`, `~/.exo/`, `~/.local/share/exo-evals/` salvo `kb-snap` y `notas-nuevas.txt`. Devuelve JSONL `{"query", "source":"hard", "author_expected":"<permalink del frontmatter>"}` en `$PRIV/hard-candidatas.jsonl`, tantas como la cuota `hard` × 1,5."
+"Lee notas de `$PRIV/kb-snap/` listadas en `$PRIV/notas-nuevas.txt` (mezcla `learnings/`, `log/`, `backlog`, excluye `archive/` salvo que falten). Por cada nota elegida escribe UNA query en castellano que haría el dueño de la KB para re-encontrarla SIN sus palabras clave literales ni su título. La mitad en frase natural, la otra mitad en estilo 2–5 palabras clave parafraseadas. PROHIBIDO: ejecutar `exo`, `kbx` o tools de basic-memory; leer `~/Documentos/proyectos/exo/evals/`, `reports/`, `~/.exo/`, `~/.local/share/exo-evals/` salvo `kb-snap` y `notas-nuevas.txt`. Devuelve JSONL `{"query", "source":"hard", "author_expected":"<permalink del frontmatter>"}` en `$PRIV/hard-candidatas.jsonl`, tantas como la cuota `hard` × 1,5."
 Registrar en el review-package los comandos que corrió el subagente (del transcript): si aparece `exo `, `kbx ` o `evals/`, se descarta su salida entera y se repite con otro subagente (retries cap 2).
 
 - [ ] **Step 5: Etiquetado (etiquetador fresco, filesystem-only)**
@@ -1376,8 +1376,8 @@ Expected: exit 0; `no_nulas_por_estrato` ≥ cuotas de D1/D2; `errores: 0`. Erro
 - [ ] **Step 7: Commit (solo código)**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add evals/retrieval-heldout/harness/valida_gold.py evals/retrieval-heldout/harness/test_harness.py
-git -C /home/paul/Documentos/proyectos/exo commit -m "eval(c): validador del gold contra snapshot de la KB"
+git -C ~/Documentos/proyectos/exo add evals/retrieval-heldout/harness/valida_gold.py evals/retrieval-heldout/harness/test_harness.py
+git -C ~/Documentos/proyectos/exo commit -m "eval(c): validador del gold contra snapshot de la KB"
 ```
 
 ---
@@ -1427,16 +1427,16 @@ Los `<…>` se rellenan con los valores de `valida_gold.py` y del verdict (son s
 - [ ] **Step 4: Commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add evals/retrieval-heldout/verdict/gold-verificacion-resumen.md
-git -C /home/paul/Documentos/proyectos/exo commit -m "eval(c): resumen de la verificacion adversarial del gold"
+git -C ~/Documentos/proyectos/exo add evals/retrieval-heldout/verdict/gold-verificacion-resumen.md
+git -C ~/Documentos/proyectos/exo commit -m "eval(c): resumen de la verificacion adversarial del gold"
 ```
 
 ---
 
-### Task 5: Aprobación del gold por Paul y congelación del pre-registro (PENDIENTE-PAUL + mecánica)
+### Task 5: Aprobación del gold por el dueño de la KB y congelación del pre-registro (PENDIENTE-PAUL + mecánica)
 
 **Lane:** gate humano, y luego mecánica. **Bloquea toda medición (Tasks 6–12).**
-**Oráculo:** `git -C /home/paul/Documentos/proyectos/exo log -1 --format=%H -- docs/superpowers/plans/2026-09-13-campana-c-preregistro.md` devuelve el commit de congelación, y `sha256sum "$PRIV/gold.jsonl"` coincide con §10 del pre-registro.
+**Oráculo:** `git -C ~/Documentos/proyectos/exo log -1 --format=%H -- docs/superpowers/plans/2026-09-13-campana-c-preregistro.md` devuelve el commit de congelación, y `sha256sum "$PRIV/gold.jsonl"` coincide con §10 del pre-registro.
 **Depende de:** Task 4.
 
 **Files:**
@@ -1447,13 +1447,13 @@ git -C /home/paul/Documentos/proyectos/exo commit -m "eval(c): resumen de la ver
 - Consumes: `$PRIV/gold.jsonl`, resumen de la Task 4, decisiones D0–D3 de la Task 0.
 - Produces: pre-registro congelado (commit) con D4, D5, `S`, sha256 y recuentos; `chmod 444 $PRIV/gold.jsonl`.
 
-- [ ] **Step 1: Review-package para Paul**
+- [ ] **Step 1: Review-package para el dueño de la KB**
 
 `.superpowers/fabrica/packages/c-retrieval-heldout-gold.md` con:
 - ruta del gold privado y comando para abrirlo: `python3 -c 'import json,sys; [print(json.dumps(json.loads(l),ensure_ascii=False,indent=1)) for l in open(sys.argv[1])]' "$PRIV/gold.jsonl" | less`;
 - salida de `valida_gold.py`;
 - `gold-verificacion-resumen.md` y las 3 filas más flojas del verdict privado;
-- alcance de revisión propuesto: **todas** las nulas + todas las filas con `acceptable_permalinks` + todas las `CORREGIR` + 20 filas al azar (`python3 -c 'import json,random; f=[json.loads(l)["id"] for l in open("'"$PRIV"'/gold.jsonl")]; print(sorted(random.Random(20260913).sample(f, 20)))'`) — Paul puede ampliarlo a todo;
+- alcance de revisión propuesto: **todas** las nulas + todas las filas con `acceptable_permalinks` + todas las `CORREGIR` + 20 filas al azar (`python3 -c 'import json,random; f=[json.loads(l)["id"] for l in open("'"$PRIV"'/gold.jsonl")]; print(sorted(random.Random(20260913).sample(f, 20)))'`) — el dueño de la KB puede ampliarlo a todo;
 - D4 y D5 con opciones y recomendación, copiadas de §Decisiones abiertas.
 
 - [ ] **Step 2: Esperar el veredicto**
@@ -1475,16 +1475,16 @@ cat "$PRIV/kb-snap.commit"
 ```
 Editar el pre-registro:
 - Cabecera: sustituir `**Estado: BORRADOR hasta el commit de congelación (Task 5 del plan` … hasta el fin de ese párrafo por `**Estado: CONGELADO el <date -Iseconds>.** Inmutable desde este commit; erratas → verdict.`
-- §6: si D4 ≠ (3, 2), sustituir `NETO ≥ 3` y `ARREGLA ≥ 2·ROMPE` por los valores de Paul.
-- §9: rellenar cada `____` con la línea literal de Paul (D0–D3 de la Task 0, D4–D5 del Step 2).
+- §6: si D4 ≠ (3, 2), sustituir `NETO ≥ 3` y `ARREGLA ≥ 2·ROMPE` por los valores del dueño de la KB.
+- §9: rellenar cada `____` con la línea literal del dueño de la KB (D0–D3 de la Task 0, D4–D5 del Step 2).
 - §10: `S` = contenido de `kb-snap.commit`; binario = `pendiente: post-A (Task 6 lo anota en agregados.md, no aquí)`; `sha256` y recuentos = salida JSON de `valida_gold.py`; aprobación = ruta del package + fecha de la línea `GATE:`.
 
 - [ ] **Step 4: Commit de congelación**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add docs/superpowers/plans/2026-09-13-campana-c-preregistro.md
-git -C /home/paul/Documentos/proyectos/exo commit -m "eval(c): congela pre-registro del held-out (gold aprobado por Paul, sha256 fijado)"
-git -C /home/paul/Documentos/proyectos/exo log -1 --format='%H %cI'
+git -C ~/Documentos/proyectos/exo add docs/superpowers/plans/2026-09-13-campana-c-preregistro.md
+git -C ~/Documentos/proyectos/exo commit -m "eval(c): congela pre-registro del held-out (gold aprobado por el dueño de la KB, sha256 fijado)"
+git -C ~/Documentos/proyectos/exo log -1 --format='%H %cI'
 ```
 Expected: hash y fecha. Registrar en el ledger `preregistro_congelado: <hash>`. Desde aquí, `git diff <hash> -- docs/superpowers/plans/2026-09-13-campana-c-preregistro.md` debe salir vacío en cualquier tarea posterior.
 
@@ -1507,8 +1507,8 @@ Expected: hash y fecha. Registrar en el ledger `preregistro_congelado: <hash>`. 
 - [ ] **Step 1: Verificar que A está mergeada y la congelación intacta**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo fetch --quiet origin 2>/dev/null; git -C /home/paul/Documentos/proyectos/exo log --oneline -20 main
-git -C /home/paul/Documentos/proyectos/exo diff --stat "$(git -C /home/paul/Documentos/proyectos/exo log -1 --format=%H -- docs/superpowers/plans/2026-09-13-campana-c-preregistro.md)" -- docs/superpowers/plans/2026-09-13-campana-c-preregistro.md
+git -C ~/Documentos/proyectos/exo fetch --quiet origin 2>/dev/null; git -C ~/Documentos/proyectos/exo log --oneline -20 main
+git -C ~/Documentos/proyectos/exo diff --stat "$(git -C ~/Documentos/proyectos/exo log -1 --format=%H -- docs/superpowers/plans/2026-09-13-campana-c-preregistro.md)" -- docs/superpowers/plans/2026-09-13-campana-c-preregistro.md
 sha256sum "$PRIV/gold.jsonl"
 ```
 Expected: el merge de A visible en `main`; diff vacío; sha256 == §10. Cualquier otra cosa ⇒ STOP.
@@ -1516,12 +1516,12 @@ Expected: el merge de A visible en `main`; diff vacío; sha256 == §10. Cualquie
 - [ ] **Step 2: Compilar y congelar el binario**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo rev-parse main
-cargo build --release --locked --manifest-path /home/paul/Documentos/proyectos/exo/engine/Cargo.toml
-cp /home/paul/Documentos/proyectos/exo/engine/target/release/exo "$PRIV/exo-medicion"
+git -C ~/Documentos/proyectos/exo rev-parse main
+cargo build --release --locked --manifest-path ~/Documentos/proyectos/exo/engine/Cargo.toml
+cp ~/Documentos/proyectos/exo/engine/target/release/exo "$PRIV/exo-medicion"
 "$PRIV/exo-medicion" --version
 ```
-(Si la rama de trabajo no es `main`, compilar desde un worktree de `main`: `git -C /home/paul/Documentos/proyectos/exo worktree add .worktrees/c-medicion main` y `--manifest-path .worktrees/c-medicion/engine/Cargo.toml`.)
+(Si la rama de trabajo no es `main`, compilar desde un worktree de `main`: `git -C ~/Documentos/proyectos/exo worktree add .worktrees/c-medicion main` y `--manifest-path .worktrees/c-medicion/engine/Cargo.toml`.)
 
 - [ ] **Step 3: Rebuild del índice `base` desde el snapshot**
 
@@ -1562,8 +1562,8 @@ Si discrepa: STOP, `retries` +1 en ledger; diagnosticar (¿A cambió `K_C`, el o
 ```
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add evals/retrieval-heldout/verdict/condiciones.md
-git -C /home/paul/Documentos/proyectos/exo commit -m "eval(c): condiciones de medicion y fidelidad del indice base"
+git -C ~/Documentos/proyectos/exo add evals/retrieval-heldout/verdict/condiciones.md
+git -C ~/Documentos/proyectos/exo commit -m "eval(c): condiciones de medicion y fidelidad del indice base"
 ```
 
 ---
@@ -1585,7 +1585,7 @@ git -C /home/paul/Documentos/proyectos/exo commit -m "eval(c): condiciones de me
 - [ ] **Step 1: Worktree**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo worktree add .worktrees/c-solape -b exp/c-solape main
+git -C ~/Documentos/proyectos/exo worktree add .worktrees/c-solape -b exp/c-solape main
 ```
 (`.worktrees/` no está en `.gitignore`: no hacer `git add` de ese directorio desde el árbol principal.)
 
@@ -1616,7 +1616,7 @@ En `.worktrees/c-solape/engine/src/trozos.rs`, sustituir el test `bloque_que_exc
 ```
 (Los bloques son ASCII: el slicing por bytes `[720..]` es seguro en el test.)
 
-Run: `cargo test --release --lib trozos --manifest-path /home/paul/Documentos/proyectos/exo/.worktrees/c-solape/engine/Cargo.toml`
+Run: `cargo test --release --lib trozos --manifest-path ~/Documentos/proyectos/exo/.worktrees/c-solape/engine/Cargo.toml`
 Expected: FAIL en `bloque_que_excede_900_se_corta_con_solape_de_180` (`left: 100, right: 280`).
 
 - [ ] **Step 3: Implementación mínima**
@@ -1660,16 +1660,16 @@ fn corta_duro(bloque: &str) -> Vec<String> {
 
 - [ ] **Step 4: Verde**
 
-Run: `cargo test --release --lib trozos --manifest-path /home/paul/Documentos/proyectos/exo/.worktrees/c-solape/engine/Cargo.toml`
+Run: `cargo test --release --lib trozos --manifest-path ~/Documentos/proyectos/exo/.worktrees/c-solape/engine/Cargo.toml`
 Expected: PASS (todos los tests de `trozos`, incluido `empaquetado_junta_cuando_cabe_bajo_900`, que confirma que el empaquetado de bloques cortos no cambia).
 
 - [ ] **Step 5: Commit en la rama experimental, binario e índice**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo/.worktrees/c-solape add engine/src/trozos.rs
-git -C /home/paul/Documentos/proyectos/exo/.worktrees/c-solape commit -m "exp(c): solape de 180 chars en corta_duro (NO MERGEAR)"
-cargo build --release --locked --manifest-path /home/paul/Documentos/proyectos/exo/.worktrees/c-solape/engine/Cargo.toml
-cp /home/paul/Documentos/proyectos/exo/.worktrees/c-solape/engine/target/release/exo "$PRIV/exo-solape"
+git -C ~/Documentos/proyectos/exo/.worktrees/c-solape add engine/src/trozos.rs
+git -C ~/Documentos/proyectos/exo/.worktrees/c-solape commit -m "exp(c): solape de 180 chars en corta_duro (NO MERGEAR)"
+cargo build --release --locked --manifest-path ~/Documentos/proyectos/exo/.worktrees/c-solape/engine/Cargo.toml
+cp ~/Documentos/proyectos/exo/.worktrees/c-solape/engine/target/release/exo "$PRIV/exo-solape"
 /usr/bin/time -v "$PRIV/exo-solape" rebuild --db "$PRIV/idx-solape.db" --kb "$PRIV/kb-snap" --json > "$PRIV/rebuild-solape.json" 2> "$PRIV/rebuild-solape.time"
 grep -E 'Elapsed|Maximum resident' "$PRIV/rebuild-solape.time"
 python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["data"]["chunks_embedded"])' "$PRIV/rebuild-solape.json"
@@ -1701,7 +1701,7 @@ El ejecutor confirma en `~/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/
 - [ ] **Step 2: Worktree y test que falla**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo worktree add .worktrees/c-late -b exp/c-late main
+git -C ~/Documentos/proyectos/exo worktree add .worktrees/c-late -b exp/c-late main
 ```
 `.worktrees/c-late/engine/tests/late_chunking.rs`:
 ```rust
@@ -1716,7 +1716,7 @@ fn coseno(a: &[f32], b: &[f32]) -> f32 {
 #[test]
 fn late_da_un_vector_unitario_por_trozo_en_orden() {
     let trozos = vec![
-        "La fábrica de campañas deja a Paul fuera del critical path.".to_string(),
+        "La fábrica de campañas deja al dueño de la KB fuera del critical path.".to_string(),
         "El gate de merge es asíncrono y se registra en el package.".to_string(),
         "Receta de lentejas con chorizo.".to_string(),
     ];
@@ -1752,7 +1752,7 @@ fn late_ventana_larga_no_trunca_y_restaura_512_para_queries() {
     assert_eq!(tokens, 512);
 }
 ```
-Run: `cargo test --release --test late_chunking --manifest-path /home/paul/Documentos/proyectos/exo/.worktrees/c-late/engine/Cargo.toml`
+Run: `cargo test --release --test late_chunking --manifest-path ~/Documentos/proyectos/exo/.worktrees/c-late/engine/Cargo.toml`
 Expected: FAIL de compilación (`no function or associated item named embebe_late`, `VENTANA_LATE_TOKENS` no existe).
 
 - [ ] **Step 3: Implementación en `lib.rs`**
@@ -1891,18 +1891,18 @@ En `.worktrees/c-late/engine/src/indexer.rs`, sustituir el bloque `let recien_em
 
 - [ ] **Step 5: Verde**
 
-Run: `cargo test --release --test late_chunking --manifest-path /home/paul/Documentos/proyectos/exo/.worktrees/c-late/engine/Cargo.toml`
+Run: `cargo test --release --test late_chunking --manifest-path ~/Documentos/proyectos/exo/.worktrees/c-late/engine/Cargo.toml`
 Expected: PASS (3 tests). Si `late_con_un_solo_trozo_se_parece_al_embedding_normal` da coseno ≤ 0.9: STOP y diagnóstico (offsets o pooling mal), no se baja el umbral.
-Run: `cargo test --release --test indexer --manifest-path /home/paul/Documentos/proyectos/exo/.worktrees/c-late/engine/Cargo.toml`
+Run: `cargo test --release --test indexer --manifest-path ~/Documentos/proyectos/exo/.worktrees/c-late/engine/Cargo.toml`
 Expected: puede fallar el test de cache de embeddings (`tests/cache_embeddings.rs` no se corre aquí); `tests/indexer.rs` debe pasar — si falla, anotar cuál en el review-package: la rama es experimental y no pasa por CI.
 
 - [ ] **Step 6: Commit en la rama, binario e índice con guard de memoria**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo/.worktrees/c-late add engine/src/lib.rs engine/src/indexer.rs engine/tests/late_chunking.rs
-git -C /home/paul/Documentos/proyectos/exo/.worktrees/c-late commit -m "exp(c): late chunking por macro-ventanas de 2048 tokens (NO MERGEAR)"
-cargo build --release --locked --manifest-path /home/paul/Documentos/proyectos/exo/.worktrees/c-late/engine/Cargo.toml
-cp /home/paul/Documentos/proyectos/exo/.worktrees/c-late/engine/target/release/exo "$PRIV/exo-late"
+git -C ~/Documentos/proyectos/exo/.worktrees/c-late add engine/src/lib.rs engine/src/indexer.rs engine/tests/late_chunking.rs
+git -C ~/Documentos/proyectos/exo/.worktrees/c-late commit -m "exp(c): late chunking por macro-ventanas de 2048 tokens (NO MERGEAR)"
+cargo build --release --locked --manifest-path ~/Documentos/proyectos/exo/.worktrees/c-late/engine/Cargo.toml
+cp ~/Documentos/proyectos/exo/.worktrees/c-late/engine/target/release/exo "$PRIV/exo-late"
 BASE_S=$(python3 -c 'import re,sys; m=re.search(r"Elapsed.*: (?:(\d+):)?(\d+):(\d+(?:\.\d+)?)", open(sys.argv[1]).read()); h,mi,s=m.groups(); print(int(int(h or 0)*3600+int(mi)*60+float(s)))' "$PRIV/rebuild-base.time")
 timeout $((BASE_S*3)) /usr/bin/time -v "$PRIV/exo-late" rebuild --db "$PRIV/idx-late.db" --kb "$PRIV/kb-snap" --json > "$PRIV/rebuild-late.json" 2> "$PRIV/rebuild-late.time"; echo "rc=$?"
 grep -E 'Elapsed|Maximum resident' "$PRIV/rebuild-late.time"
@@ -1998,8 +1998,8 @@ Expected: `0` (el texto fijo de la cabecera no contiene queries).
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add evals/retrieval-heldout/verdict/agregados.md evals/retrieval-heldout/verdict/agregados-in-sample.md evals/retrieval-heldout/verdict/latencia.md
-git -C /home/paul/Documentos/proyectos/exo commit -m "eval(c): agregados held-out e in-sample, latencia"
+git -C ~/Documentos/proyectos/exo add evals/retrieval-heldout/verdict/agregados.md evals/retrieval-heldout/verdict/agregados-in-sample.md evals/retrieval-heldout/verdict/latencia.md
+git -C ~/Documentos/proyectos/exo commit -m "eval(c): agregados held-out e in-sample, latencia"
 ```
 
 ---
@@ -2034,8 +2034,8 @@ Expected: ≥4 y `0`.
 - [ ] **Step 3: Commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add evals/retrieval-heldout/verdict/c-verdict.md
-git -C /home/paul/Documentos/proyectos/exo commit -m "eval(c): verdict de la campana C (held-out pre-registrado)"
+git -C ~/Documentos/proyectos/exo add evals/retrieval-heldout/verdict/c-verdict.md
+git -C ~/Documentos/proyectos/exo commit -m "eval(c): verdict de la campana C (held-out pre-registrado)"
 ```
 
 ---
@@ -2043,7 +2043,7 @@ git -C /home/paul/Documentos/proyectos/exo commit -m "eval(c): verdict de la cam
 ### Task 11: Backlog, H24, N1 y cierre de la campaña (sin producción)
 
 **Lane:** mecánica.
-**Oráculo:** `rg -n 'campaña C|held-out' docs/backlog.md` muestra el item actualizado y `git -C /home/paul/Documentos/proyectos/exo diff --stat main -- engine/src/buscador.rs engine/src/trozos.rs` vacío en la rama de campaña.
+**Oráculo:** `rg -n 'campaña C|held-out' docs/backlog.md` muestra el item actualizado y `git -C ~/Documentos/proyectos/exo diff --stat main -- engine/src/buscador.rs engine/src/trozos.rs` vacío en la rama de campaña.
 **Depende de:** Task 10. (Si la campaña B tocó `docs/backlog.md`, rebase primero.)
 
 **Files:**
@@ -2059,7 +2059,7 @@ Añadir al final del item (tras el párrafo de «Calibración de la propia fuent
 ```markdown
   **Campaña C (2026-09-13 → <fecha verdict>), held-out pre-registrado:**
   acción (a) HECHA — gold privado de <n> queries no nulas (<estratos>),
-  aprobado por Paul, sha256 en `docs/superpowers/plans/2026-09-13-campana-c-preregistro.md` §10;
+  aprobado por el dueño de la KB, sha256 en `docs/superpowers/plans/2026-09-13-campana-c-preregistro.md` §10;
   acción (b) HECHA — `evals/retrieval-heldout/verdict/c-verdict.md` reporta
   held-out y in-sample por separado con base declarada. Resultado: R1 <GENERALIZA|NO GENERALIZA|INDETERMINADO>
   (A0 held-out <x>/<n>, Wilson [<lo>, <hi>]); R2 <…>; R3 <…>; R4 <…>.
@@ -2104,18 +2104,18 @@ Si R1 = NO GENERALIZA, añadir en `## Alta`: `- [ ] **(campaña C) La fusión se
 - [ ] **Step 4: Retirar worktrees (conservar ramas y privados)**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo worktree remove .worktrees/c-solape
-[ -d /home/paul/Documentos/proyectos/exo/.worktrees/c-late ] && git -C /home/paul/Documentos/proyectos/exo worktree remove .worktrees/c-late
-[ -d /home/paul/Documentos/proyectos/exo/.worktrees/c-medicion ] && git -C /home/paul/Documentos/proyectos/exo worktree remove .worktrees/c-medicion
-git -C /home/paul/Documentos/proyectos/exo branch --list 'exp/c-*'
+git -C ~/Documentos/proyectos/exo worktree remove .worktrees/c-solape
+[ -d ~/Documentos/proyectos/exo/.worktrees/c-late ] && git -C ~/Documentos/proyectos/exo worktree remove .worktrees/c-late
+[ -d ~/Documentos/proyectos/exo/.worktrees/c-medicion ] && git -C ~/Documentos/proyectos/exo worktree remove .worktrees/c-medicion
+git -C ~/Documentos/proyectos/exo branch --list 'exp/c-*'
 ```
 Expected: ramas `exp/c-solape` (y `exp/c-late`) siguen listadas. `$PRIV` no se borra (material de auditoría; backup fuera de alcance).
 
 - [ ] **Step 5: Commit y package**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add docs/backlog.md
-git -C /home/paul/Documentos/proyectos/exo commit -m "docs(backlog): resultado de la campana C (held-out), N1 y H24"
+git -C ~/Documentos/proyectos/exo add docs/backlog.md
+git -C ~/Documentos/proyectos/exo commit -m "docs(backlog): resultado de la campana C (held-out), N1 y H24"
 ```
 Review-package `.superpowers/fabrica/packages/c-retrieval-heldout.md` con: resumen del verdict, comandos de oráculo y salida, **nota de hand-off a la campaña B** (el README y `docs/arquitectura.md` §6 siguen presentando el 48/55 sin la cifra held-out: el cambio de texto es de B), e instrucción de merge de `c-retrieval-heldout`. Si R2 y R3 no adoptan nada, **la campaña cierra aquí** y la Task 12 se marca `no aplica`.
 
@@ -2182,7 +2182,7 @@ En `engine/src/buscador.rs`, dentro de `mod tests_fusion`, añadir:
         assert_eq!(orden, vec!["x", "y", "w"]);
     }
 ```
-Run: `cargo test --release --lib tests_fusion --manifest-path /home/paul/Documentos/proyectos/exo/engine/Cargo.toml`
+Run: `cargo test --release --lib tests_fusion --manifest-path ~/Documentos/proyectos/exo/engine/Cargo.toml`
 Expected: FAIL de compilación (`cannot find function fusiona_rrf`).
 
 - [ ] **Step A2: Implementación**
@@ -2256,10 +2256,10 @@ En `engine/tests/buscador.rs` hay que quitar los dos últimos argumentos de cada
 - [ ] **Step A3: Verde, fmt, clippy y gate hermético**
 
 ```bash
-cargo fmt --manifest-path /home/paul/Documentos/proyectos/exo/engine/Cargo.toml
-cargo clippy --all-targets --locked --manifest-path /home/paul/Documentos/proyectos/exo/engine/Cargo.toml -- -D warnings
-cargo test --release --lib tests_fusion --manifest-path /home/paul/Documentos/proyectos/exo/engine/Cargo.toml
-/home/paul/Documentos/proyectos/exo/engine/scripts/test-hermetico.sh
+cargo fmt --manifest-path ~/Documentos/proyectos/exo/engine/Cargo.toml
+cargo clippy --all-targets --locked --manifest-path ~/Documentos/proyectos/exo/engine/Cargo.toml -- -D warnings
+cargo test --release --lib tests_fusion --manifest-path ~/Documentos/proyectos/exo/engine/Cargo.toml
+~/Documentos/proyectos/exo/engine/scripts/test-hermetico.sh
 ```
 Expected: clippy sin warnings, `tests_fusion` en PASS y `test-hermetico: OK`.
 
@@ -2276,8 +2276,8 @@ En `evals/retrieval-heldout/harness/captura.py`:
 ```
 Luego:
 ```bash
-cargo build --release --locked --manifest-path /home/paul/Documentos/proyectos/exo/engine/Cargo.toml
-python3 evals/retrieval-heldout/harness/captura.py --fusion rrf --gold "$PRIV/gold.jsonl" --db "$PRIV/idx-base.db" --exo /home/paul/Documentos/proyectos/exo/engine/target/release/exo --out "$PRIV/cap-prod-rrf.jsonl"
+cargo build --release --locked --manifest-path ~/Documentos/proyectos/exo/engine/Cargo.toml
+python3 evals/retrieval-heldout/harness/captura.py --fusion rrf --gold "$PRIV/gold.jsonl" --db "$PRIV/idx-base.db" --exo ~/Documentos/proyectos/exo/engine/target/release/exo --out "$PRIV/cap-prod-rrf.jsonl"
 python3 evals/retrieval-heldout/harness/metricas.py fidelidad --captura "$PRIV/cap-prod-rrf.jsonl" --brazo rrf
 ```
 Expected: `fidelidad(rrf): 0 discrepancias de <n>`. Si hay discrepancias, la producción no es el brazo medido: STOP (retries cap 2).
@@ -2286,9 +2286,9 @@ Expected: `fidelidad(rrf): 0 discrepancias de <n>`. Si hay discrepancias, la pro
 - [ ] **Step A5: Commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo switch -c c-produccion main
-git -C /home/paul/Documentos/proyectos/exo add engine/src/buscador.rs engine/src/main.rs engine/src/recall.rs engine/tests/buscador.rs evals/retrieval-heldout/harness/captura.py
-git -C /home/paul/Documentos/proyectos/exo commit -m "feat(search): fusion hybrid por RRF k=60 (campana C, held-out pre-registrado); retira --bonus/--fts-scale"
+git -C ~/Documentos/proyectos/exo switch -c c-produccion main
+git -C ~/Documentos/proyectos/exo add engine/src/buscador.rs engine/src/main.rs engine/src/recall.rs engine/tests/buscador.rs evals/retrieval-heldout/harness/captura.py
+git -C ~/Documentos/proyectos/exo commit -m "feat(search): fusion hybrid por RRF k=60 (campana C, held-out pre-registrado); retira --bonus/--fts-scale"
 ```
 El review-package de producción tiene que declarar: **cambio de CLI incompatible** (`--bonus` y `--fts-scale` desaparecen; clap sale con 2 si se pasan); la escala de `score` del hybrid pasa a ~0,016–0,033, que es informativa y no contractual (`buscador.rs:19`); y el hand-off a B para `docs/arquitectura.md:222-223,289` y el README.
 
@@ -2297,7 +2297,7 @@ El review-package de producción tiene que declarar: **cambio de CLI incompatibl
 - [ ] **Step B1: Test que falla**
 
 En `engine/src/trozos.rs`, sustituir el test `bloque_que_excede_900_se_corta_duro_sin_solape` por los dos tests literales de la Task 7 Step 2 (`bloque_que_excede_900_se_corta_con_solape_de_180` y `corte_duro_no_emite_trozo_final_contenido_en_el_anterior`).
-Run: `cargo test --release --lib trozos --manifest-path /home/paul/Documentos/proyectos/exo/engine/Cargo.toml`
+Run: `cargo test --release --lib trozos --manifest-path ~/Documentos/proyectos/exo/engine/Cargo.toml`
 Expected: FAIL (`left: 100, right: 280`).
 
 - [ ] **Step B2: Implementación**
@@ -2307,27 +2307,27 @@ Aplicar el código literal de la Task 7 Step 3 (cabecera con `SOLAPE_CHARS` y `c
 - [ ] **Step B3: Verde y gate**
 
 ```bash
-cargo fmt --manifest-path /home/paul/Documentos/proyectos/exo/engine/Cargo.toml
-cargo clippy --all-targets --locked --manifest-path /home/paul/Documentos/proyectos/exo/engine/Cargo.toml -- -D warnings
-/home/paul/Documentos/proyectos/exo/engine/scripts/test-hermetico.sh
+cargo fmt --manifest-path ~/Documentos/proyectos/exo/engine/Cargo.toml
+cargo clippy --all-targets --locked --manifest-path ~/Documentos/proyectos/exo/engine/Cargo.toml -- -D warnings
+~/Documentos/proyectos/exo/engine/scripts/test-hermetico.sh
 ```
 Expected: `test-hermetico: OK`. Si cae un test de `tests/cache_embeddings.rs` o `tests/indexer.rs` que fijaba el número de trozos de un fixture con bloques de más de 900 caracteres, se actualiza el número esperado con el cálculo de paso 720, y el review-package lista cada test tocado con su valor viejo y nuevo.
 
 - [ ] **Step B4: Oráculo, que el índice de producción sea el índice medido**
 
 ```bash
-cargo build --release --locked --manifest-path /home/paul/Documentos/proyectos/exo/engine/Cargo.toml
-/home/paul/Documentos/proyectos/exo/engine/target/release/exo rebuild --db "$PRIV/idx-prod-solape.db" --kb "$PRIV/kb-snap" --json > "$PRIV/rebuild-prod-solape.json"
+cargo build --release --locked --manifest-path ~/Documentos/proyectos/exo/engine/Cargo.toml
+~/Documentos/proyectos/exo/engine/target/release/exo rebuild --db "$PRIV/idx-prod-solape.db" --kb "$PRIV/kb-snap" --json > "$PRIV/rebuild-prod-solape.json"
 python3 evals/retrieval-heldout/harness/captura.py --gold "$PRIV/gold.jsonl" --db "$PRIV/idx-prod-solape.db" --exo "$PRIV/exo-medicion" --out "$PRIV/cap-prod-solape.jsonl"
 python3 evals/retrieval-heldout/harness/metricas.py compara --a "$PRIV/cap-solape.jsonl" --b "$PRIV/cap-prod-solape.jsonl"
 ```
 Expected: `compara: 0 queries con capturas distintas`. La captura usa `exo-medicion` a propósito, para que solo varíe el índice.
 
-- [ ] **Step B5: Commit y paso de Paul (línea roja: índice real)**
+- [ ] **Step B5: Commit y paso del dueño de la KB (línea roja: índice real)**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add engine/src/trozos.rs
-git -C /home/paul/Documentos/proyectos/exo commit -m "feat(index): solape de 180 chars en cortes duros (campana C, held-out pre-registrado)"
+git -C ~/Documentos/proyectos/exo add engine/src/trozos.rs
+git -C ~/Documentos/proyectos/exo commit -m "feat(index): solape de 180 chars en cortes duros (campana C, held-out pre-registrado)"
 ```
 Hay que añadir a `pendiente-paul.md` y al package, literal: "Tras mergear, **`exo rebuild`** en cada máquina (Linux y W11). El indexado incremental decide por `mtime` (`engine/src/indexer.rs`) y no re-trocea las notas que no cambiaron. Sin rebuild, el índice queda mezclando trozos viejos y nuevos sin avisar, y el hook `--refresh` no lo arregla. Duración medida del rebuild con solape: `<Elapsed de rebuild-solape.time>`." La fábrica no ejecuta ese rebuild: `~/.exo/index.db` es línea roja.
 
@@ -2339,10 +2339,10 @@ Hay que añadir a `pendiente-paul.md` y al package, literal: "Tras mergear, **`e
 - **Pre-registro primero:** el documento hermano define métricas (hit@5 primaria, MRR@10 secundaria y por qué no nDCG), tamaño con potencia exacta, regla GANA con características operativas, qué pasa si nada gana y circuit breakers. La congelación por commit (Task 5) va antes de la primera captura (Task 6).
 - **Nada de afinar sobre el held-out:** los brazos y parámetros son fijos (pre-registro §4). R3 y R4 no eligen celda. El held-out queda consumido.
 - **Producción solo si pasa el gate:** la Task 12 es condicional, final y en rama propia. Late chunking nunca entra.
-- **Held-out:** fuentes, filtros anti-fuga, etiquetador filesystem-only distinto del autor, verificación adversarial y aprobación de Paul como gate que bloquea la medición (Task 5).
+- **Held-out:** fuentes, filtros anti-fuga, etiquetador filesystem-only distinto del autor, verificación adversarial y aprobación del dueño de la KB como gate que bloquea la medición (Task 5).
 - **Global Constraints** comprobados en código: `engine/Cargo.toml:4,8`, `test-hermetico.sh`, `lib.rs:167-168,255`, `envelope.rs` y `ci.yml`.
 - **Harness:** reutiliza `analyze.norm` y `replay-engine.search` sin modificarlos. Código de las Tasks 1–3 verificado en scratch el 2026-09-13: 26 tests en OK, `fidelidad` con 0 discrepancias contra el binario instalado en 3 queries (FTS de 29, 6 y 0 candidatos) e `informe` sobre fixtures sin errores.
-- **Decisiones de Paul:** D0–D6 con opciones y recomendación.
+- **Decisiones del dueño de la KB:** D0–D6 con opciones y recomendación.
 - **Lane y oráculo:** declarados en cada tarea.
 - **Dependencias con A y B:** tabla en §Dependencias.
 - **Placeholders:** los `<…>` que quedan son valores de salida de comandos de pasos anteriores (recuentos, hashes, cifras del verdict), nunca decisiones ni código.
