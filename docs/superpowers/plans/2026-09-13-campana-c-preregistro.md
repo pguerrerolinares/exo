@@ -102,9 +102,9 @@
    `log|hard`, `expected_permalink`, `notes`) solo existe en la rama local
    `archivo/main-pre-reescritura` (commit `f847ce1`). Los 32 permalinks siguen
    existiendo en la KB a 2026-09-13 (frontmatter de
-   `~/Documentos/proyectos/wisdom-paul`, HEAD `7f4aa22`).
+   `~/Documentos/proyectos/<kb>`, HEAD `7f4aa22`).
 8. **El repo es público** desde el 2026-09-02. El held-out contiene prompts
-   de Paul y consultas sobre su KB: **nada por query entra en el repo**. Solo
+   del mantenedor y consultas sobre su KB: **nada por query entra en el repo**. Solo
    se commitean agregados, el sha256 del gold y el harness (§8).
 
 ## 3. Unidad, gold y H24
@@ -131,7 +131,7 @@
 - **Overlay de la fila 13 (in-sample, solo para reportar):** un fichero
   privado de una línea,
   `{"query": "cge evaluación head-to-head cgeo benchmark harness metodología",
-  "acceptable_permalinks": ["wisdom-paul/log/cge-bitacora"]}`. Las 55 se
+  "acceptable_permalinks": ["<kb>/log/cge-bitacora"]}`. Las 55 se
   reportan con y sin overlay. `evals/retrieval-fase0/gate.md` y los números
   históricos de M0/M2 no se tocan.
 
@@ -216,7 +216,7 @@ A0 falla; **ROMPE** = A0 acierta y X falla. **NETO** = ARREGLA − ROMPE.
 `NETO ≥ 3` **y** `ARREGLA ≥ 2·ROMPE` **y** el límite superior del IC95 de
 ΔMRR@10 (X − A0) es `≥ 0`, es decir, que MRR no empeore con claridad. Los
 valores 3 y 2 son la recomendación de D4 (§9) y se sustituyen aquí, en la
-congelación, si Paul elige otros.
+congelación, si el mantenedor elige otros.
 
 - **R1 — H7 (¿generaliza el sellado?).**
   - **GENERALIZA** si A0 no pierde contra ninguno de sus componentes: en las
@@ -264,7 +264,7 @@ congelación, si Paul elige otros.
 
 **Fuentes y estratos.** Las fija D1 (§9); cada estrato se reporta aparte.
 
-- `prompt`: prompts de Paul que dispararon `recall-inject`, de 2026-08-22 a
+- `prompt`: prompts del mantenedor que dispararon `recall-inject`, de 2026-08-22 a
   2026-09-12. Se cruzan los eventos `recall-inject-emitted` y
   `recall-inject-degraded` de `~/.claude/reflex-log.jsonl` con el mensaje de
   usuario del transcript de la misma sesión. Es la distribución real del hook.
@@ -363,19 +363,19 @@ máquina, con los índices corridos consecutivamente. El p95 se calcula sobre
   recuentos) y `verdict/c-verdict.md`. Ningún texto de query ni permalink por
   fila.
 
-## 9. Decisiones de Paul que se fijan en la congelación
+## 9. Decisiones del mantenedor que se fijan en la congelación
 
 Cada línea se completa en la Task 5 con la opción elegida, literal. Opciones
 y trade-offs en el plan, §Decisiones abiertas.
 
 - `D0` régimen de cierre levantado para C: `a` (config de fábrica, bloque ACTUALIZACIÓN 2026-09-13: "Pre-registros y métricas permitidos de nuevo")
-- `D1` estratos y proporción: `pools enteros de prompt y agent-search + hard 1 por nota nueva; proporción natural, cada estrato reportado aparte` (Paul, 2026-09-13: "Todo el pool, suelo 60")
-- `D2` N de filas no nulas: `sin N fijo; suelo 60 no nulas totales` (Paul, 2026-09-13)
-- `D3` brazo late chunking: `no — solo solape; A5, late:rrf y R4 no se miden` (Paul, 2026-09-13: "No, solo solape")
-- `D4` umbrales de la regla GANA: `NETO ≥ 3`, `ARREGLA ≥ 2·ROMPE` (consultor-gate fable firmado por Paul, 2026-09-14: "D4 NETO>=3 ARREGLA>=2*ROMPE")
-- `D5` modo de relevancia para decidir: `lenient; strict como descriptivo` · overlay de la fila 13 en el reporte in-sample: `sí, reportando ambas` (firmado por Paul, 2026-09-14: "D5 lenient overlay-fila13=si")
-- `S2` citas literales de prompts dentro de notas de la KB: `i — se declara como sesgo en el verdict, sin excluir filas` (consultor: 0/92 no nulas con única señal literal; firmado por Paul, 2026-09-14: "S2 i")
-- `S4` desglose de `hard`: `i — hit@5 descriptivo por sub-tipo, sin peso en la decisión: hard-corta = ids impares c113…c147, hard-larga = ids pares c112…c146` (firmado por Paul, 2026-09-14: "S4 i")
+- `D1` estratos y proporción: `pools enteros de prompt y agent-search + hard 1 por nota nueva; proporción natural, cada estrato reportado aparte` (el mantenedor, 2026-09-13: "Todo el pool, suelo 60")
+- `D2` N de filas no nulas: `sin N fijo; suelo 60 no nulas totales` (el mantenedor, 2026-09-13)
+- `D3` brazo late chunking: `no — solo solape; A5, late:rrf y R4 no se miden` (el mantenedor, 2026-09-13: "No, solo solape")
+- `D4` umbrales de la regla GANA: `NETO ≥ 3`, `ARREGLA ≥ 2·ROMPE` (consultor-gate fable firmado por el mantenedor, 2026-09-14: "D4 NETO>=3 ARREGLA>=2*ROMPE")
+- `D5` modo de relevancia para decidir: `lenient; strict como descriptivo` · overlay de la fila 13 en el reporte in-sample: `sí, reportando ambas` (firmado por el mantenedor, 2026-09-14: "D5 lenient overlay-fila13=si")
+- `S2` citas literales de prompts dentro de notas de la KB: `i — se declara como sesgo en el verdict, sin excluir filas` (consultor: 0/92 no nulas con única señal literal; firmado por el mantenedor, 2026-09-14: "S2 i")
+- `S4` desglose de `hard`: `i — hit@5 descriptivo por sub-tipo, sin peso en la decisión: hard-corta = ids impares c113…c147, hard-larga = ids pares c112…c146` (firmado por el mantenedor, 2026-09-14: "S4 i")
 
 ## 10. Congelación
 
@@ -384,7 +384,7 @@ y trade-offs en el plan, §Decisiones abiertas.
   --release --locked`
 - `sha256(gold.jsonl)`: `614ae599c6f9d9500b66636644970fa2b009362f9eb124b008a3222376c43a75`
 - Filas: `147` totales · `92` no nulas · por estrato `prompt 22 · agent-search 34 · hard 36` (55 nulas; 44 con acceptable_permalinks)
-- Aprobación de Paul del gold: línea `GATE:` en `.superpowers/fabrica/packages/c-retrieval-heldout-gold.md` §Firma (2026-09-14; propuesta del consultor-gate en `evals/retrieval-heldout/verdict/c-gold-decisiones-verdict.md`)
+- Aprobación del mantenedor del gold: línea `GATE:` en `.superpowers/fabrica/packages/c-retrieval-heldout-gold.md` §Firma (2026-09-14; propuesta del consultor-gate en `evals/retrieval-heldout/verdict/c-gold-decisiones-verdict.md`)
 - Commit de congelación: el que introduce este bloque relleno.
 
 ## 11. Circuit breakers

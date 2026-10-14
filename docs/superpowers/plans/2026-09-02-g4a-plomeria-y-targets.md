@@ -38,7 +38,7 @@ binario Go.
   hay toolchain Go para compilar ni testear esa resolución. Por eso: se porta
   desde `fe46443`, y `no_air` se porta aparte desde el diff de `f0d0564` (eso
   cae en **G4b**, no aquí). Nada de este plan toca el repo kbx.
-- **Hallazgos ⇒ exit 3, errores ⇒ exit 1** (decisión de Paul, 2026-09-02). En
+- **Hallazgos ⇒ exit 3, errores ⇒ exit 1** (decisión del mantenedor, 2026-09-02). En
   kbx, `1` = hay hallazgos y `2` = error; en exo, `1` = error genérico y `3` =
   gate rechazado (`escritor::Rechazo`, `main.rs`). Los comandos de G4 que
   gatean (`budget`, `lint`, `ratchet`) usarán **3** para "la KB está mal" y
@@ -1458,7 +1458,7 @@ git commit -m "feat(cli): exo targets, el primer verbo del nucleo de kbx en Rust
 **Esta tarea corre en la máquina Linux, no en W11.** Medido el 2026-09-02:
 `go: command not found` en W11, así que kbx no compila donde más falta hace.
 La spec ya lo declara en vez de fingir que es reproducible. Los tests de las
-Tasks 1-5 sí corren en los tres SO; esto es la red privada de Paul.
+Tasks 1-5 sí corren en los tres SO; esto es la red privada del mantenedor.
 
 - [ ] **Step 1: Escribir el pre-registro ANTES de compilar nada**
 
@@ -1480,7 +1480,7 @@ Crea `docs/superpowers/plans/2026-09-02-g4a-preregistro-targets.md`:
 - **exo**: el binario de esta rama, `cargo build --release`.
 - **Índice**: una copia de solo lectura de `~/.exo/index.db` en `/tmp/g4a/`.
   Ningún índice vivo se toca.
-- **KB**: `wisdom-paul`, el árbol real.
+- **KB**: la KB personal, el árbol real.
 
 ## Qué se compara y qué NO
 
@@ -1537,7 +1537,7 @@ Expected: los dos binarios existen y `kbx --version` dice `fe46443`.
 
 ```bash
 mkdir -p /tmp/g4a && cp ~/.exo/index.db /tmp/g4a/index.db
-KB=~/…/wisdom-paul
+KB=~/…/<kb>
 for t in "indexer" "reflex" "memoria" "kbx" "recall en el punto de uso"; do
   kbx targets --db /tmp/g4a/index.db --kb "$KB" --limit 10 --json "$t" \
     | jq -S '.data.candidates | map({permalink, tier, size_bytes, last_commit}) | sort_by(.permalink)' \
@@ -1645,7 +1645,7 @@ Lo que ya se sabe:
   referencias a `kbx`, y su degradación es «binario ausente ⇒ commit
   permitido»), `distill/SKILL.md` (11), `document/SKILL.md` (3),
   `document/routing.md` (1), `agents/executor.md` (1). Las **13 rutas absolutas
-  `/home/paul/…`** que la spec asignaba a G4 **ya no existen**: las limpió el
+  de home personal** que la spec asignaba a G4 **ya no existen**: las limpió el
   privacy-pass B1 el 09-01. Quedan 2 en `scripts/test-git-c-bash.sh`.
 - `exo:distill` degrada de forma **anunciada** sin `rotate`: detecta la
   ausencia y lo dice en una línea visible. Aquí se relaja el patrón habitual

@@ -10,10 +10,10 @@ de `permalinks_de_rowids` bajo el límite de placeholders de SQLite, cerrar
 el gate de hooks del README que falta en `plugins/exo/README.md`, blindar
 tres gates de CI contra `cd ""` silencioso, dejar listo (sin ejecutarlo) el
 runbook de desinstalación de basic-memory (checklist C10), sincronizar
-`docs/backlog.md` con lo que el código y las decisiones de Paul del
-2026-09-19 ya cerraron, y verificar la rama entera — **para que Paul pueda
-tagear `v0.2.0` inmediatamente después de mergear esta rama** (decisión de
-Paul, 2026-09-19: el tag espera a L porque L arregla la regresión que G
+`docs/backlog.md` con lo que el código y las decisiones del mantenedor del
+2026-09-19 ya cerraron, y verificar la rama entera — **para que el mantenedor pueda
+tagear `v0.2.0` inmediatamente después de mergear esta rama** (decisión del
+mantenedor, 2026-09-19: el tag espera a L porque L arregla la regresión que G
 introdujo).
 
 **Architecture:** siete tareas sobre módulos disjuntos. Tasks 1-2 tocan
@@ -56,12 +56,12 @@ Todas verificadas hoy (2026-09-19) contra `HEAD` de `plan-campanas-i-l-j`
   `permalinks_de_rowids`, solo CÓMO las pide (en lotes en vez de un único
   `IN`) — cubierto por un test de equivalencia exacta.
 - **Nada escribe en `~/.local/bin`.** Ninguna task instala, compila-e-instala
-  ni toca el binario en uso de Paul. La Task 5 (runbook) es lectura y
+  ni toca el binario en uso del mantenedor. La Task 5 (runbook) es lectura y
   comprobaciones en seco; **no desinstala nada** — desinstalar basic-memory
-  es acción de Paul, línea roja no delegable (mismo régimen que
+  es acción del mantenedor, línea roja no delegable (mismo régimen que
   `docs/superpowers/plans/2026-08-17-cierre-exo-m2-a-m5b.md` §Campaña 10).
 - **`v0.2.0` en `Cargo.toml` ya está puesto** (campaña H). Esta campaña NO
-  sube versión — es la campaña que Paul decidió mergear ANTES de poner el
+  sube versión — es la campaña que el mantenedor decidió mergear ANTES de poner el
   tag `v0.2.0` en GitHub, no una que lo dispare.
 - **Git:** `git add <rutas explícitas>`, nunca `-A`/`.`; `git -C <path>`,
   nunca `cd <path> && git`. Nada de push ni de tocar GitHub (salvo la
@@ -808,7 +808,7 @@ cat > "$FIXTURE/plugins/exo/README.md" <<'MD'
 | b | Evt | scripts/b.sh | hace b | — |
 MD
 
-(cd "$FIXTURE" && bash /home/paul/Documentos/proyectos/exo/scripts/test-docs-vivos.sh; echo "exit=$?")
+(cd "$FIXTURE" && bash ~/Documentos/proyectos/exo/scripts/test-docs-vivos.sh; echo "exit=$?")
 ```
 
 Expected: `exit=0` con el mensaje `[OK] test-docs-vivos: ...` — **falso
@@ -903,7 +903,7 @@ exit "$FALLOS"
 - [ ] **Step 3: GREEN — el mismo fixture roto del Step 1, ahora sí lo caza**
 
 ```bash
-(cd "$FIXTURE" && bash /home/paul/Documentos/proyectos/exo/scripts/test-docs-vivos.sh; echo "exit=$?")
+(cd "$FIXTURE" && bash ~/Documentos/proyectos/exo/scripts/test-docs-vivos.sh; echo "exit=$?")
 ```
 
 Expected: `exit=1` con
@@ -916,7 +916,7 @@ Expected: `exit=1` con
 cat >> "$FIXTURE/plugins/exo/README.md" <<'MD'
 | c | Evt | scripts/c.sh | hace c | — |
 MD
-(cd "$FIXTURE" && bash /home/paul/Documentos/proyectos/exo/scripts/test-docs-vivos.sh; echo "exit=$?")
+(cd "$FIXTURE" && bash ~/Documentos/proyectos/exo/scripts/test-docs-vivos.sh; echo "exit=$?")
 rm -rf "$FIXTURE"
 ```
 
@@ -973,9 +973,9 @@ exec "$REAL_GIT" "\$@"
 EOF
 chmod +x "$FAKE/git"
 mkdir -p /tmp/no-git-here && cd /tmp/no-git-here
-PATH="$FAKE:$PATH" bash /home/paul/Documentos/proyectos/exo/scripts/test-rutas-personales.sh; echo "exit=$?"
-PATH="$FAKE:$PATH" bash /home/paul/Documentos/proyectos/exo/scripts/test-exec-bit.sh; echo "exit=$?"
-PATH="$FAKE:$PATH" bash /home/paul/Documentos/proyectos/exo/scripts/test-versiones.sh; echo "exit=$?"
+PATH="$FAKE:$PATH" bash ~/Documentos/proyectos/exo/scripts/test-rutas-personales.sh; echo "exit=$?"
+PATH="$FAKE:$PATH" bash ~/Documentos/proyectos/exo/scripts/test-exec-bit.sh; echo "exit=$?"
+PATH="$FAKE:$PATH" bash ~/Documentos/proyectos/exo/scripts/test-versiones.sh; echo "exit=$?"
 ```
 
 Salida real (ANTES del fix, HEAD de hoy):
@@ -1089,9 +1089,9 @@ fallos=0
 
 ```bash
 mkdir -p /tmp/no-git-here && cd /tmp/no-git-here
-PATH="$FAKE:$PATH" bash /home/paul/Documentos/proyectos/exo/scripts/test-rutas-personales.sh; echo "exit=$?"
-PATH="$FAKE:$PATH" bash /home/paul/Documentos/proyectos/exo/scripts/test-exec-bit.sh; echo "exit=$?"
-PATH="$FAKE:$PATH" bash /home/paul/Documentos/proyectos/exo/scripts/test-versiones.sh; echo "exit=$?"
+PATH="$FAKE:$PATH" bash ~/Documentos/proyectos/exo/scripts/test-rutas-personales.sh; echo "exit=$?"
+PATH="$FAKE:$PATH" bash ~/Documentos/proyectos/exo/scripts/test-exec-bit.sh; echo "exit=$?"
+PATH="$FAKE:$PATH" bash ~/Documentos/proyectos/exo/scripts/test-versiones.sh; echo "exit=$?"
 ```
 
 Expected (verificado hoy con la implementación de este Step, aplicada
@@ -1109,7 +1109,7 @@ Los tres siguen saliendo `1`, pero ahora el mensaje señala la causa real.
 - [ ] **Step 5: Confirmar que los tres siguen verdes contra el repo real**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo rev-parse --show-toplevel
+git -C ~/Documentos/proyectos/exo rev-parse --show-toplevel
 bash scripts/test-rutas-personales.sh
 bash scripts/test-exec-bit.sh
 bash scripts/test-versiones.sh
@@ -1131,7 +1131,7 @@ git commit -m "fix(l, cd-toplevel-guard): tres gates más no se quedan en un cd 
 ### Task 5: Runbook de M5b — desinstalar basic-memory (checklist C10), en seco
 
 **Lane:** mecánica (documental) + comprobaciones read-only. **Depende de:**
-nada. **La fábrica NO desinstala nada** — línea roja, acción de Paul.
+nada. **La fábrica NO desinstala nada** — línea roja, acción del mantenedor.
 
 **Files:**
 - Create: `docs/superpowers/runbooks/2026-09-19-m5b-desinstalar-basic-memory.md`
@@ -1140,18 +1140,18 @@ nada. **La fábrica NO desinstala nada** — línea roja, acción de Paul.
 
 **Contexto verificado hoy:**
 - El MCP `basic-memory` está registrado en `~/.claude.json` →
-  `mcpServers.basic-memory`, comando `/home/paul/.local/bin/uvx basic-memory mcp`,
+  `mcpServers.basic-memory`, comando `~/.local/bin/uvx basic-memory mcp`,
   y ya sale como **"Disabled for this project"** en `claude mcp list` para
   este repo.
-- `~/.basic-memory/config.json` → `default_project: "wisdom-paul"`, `path:
-  "/home/paul/Documentos/proyectos/wisdom-paul"` — la KB real de Paul, la
+- `~/.basic-memory/config.json` → `default_project: "<kb>"`, `path:
+  "~/Documentos/proyectos/<kb>"` — la KB real del mantenedor, la
   misma que resuelve `exo`.
 - `~/.basic-memory/` ocupa **1007 MB** en disco (su propio índice/caché de
   embeddings, independiente de la KB); `~/basic-memory/` (sin el punto) está
   **vacío** (residuo).
-- `wisdom-paul` (la KB) está limpia y sin commits sin pushear ahora mismo
-  (`git -C /home/paul/Documentos/proyectos/wisdom-paul status --porcelain`
-  vacío; `git -C ... log @{u}..HEAD` vacío) — **snapshot de hoy, Paul debe
+- La KB personal está limpia y sin commits sin pushear ahora mismo
+  (`git -C ~/Documentos/proyectos/<kb> status --porcelain`
+  vacío; `git -C ... log @{u}..HEAD` vacío) — **snapshot de hoy, el mantenedor debe
   re-verificarlo justo antes de desinstalar**, no asumir que sigue igual.
 
 - [ ] **Step 1: Escribir el runbook**
@@ -1160,17 +1160,17 @@ nada. **La fábrica NO desinstala nada** — línea roja, acción de Paul.
 # 2026-09-19 — M5b: desinstalar basic-memory (checklist C10)
 
 > Checklist de cierre de `docs/superpowers/plans/2026-08-17-cierre-exo-m2-a-m5b.md`
-> §Campaña 10 (M5b). Decisión de Paul del 2026-09-19 (#6,
+> §Campaña 10 (M5b). Decisión del mantenedor del 2026-09-19 (#6,
 > `docs/superpowers/consultas/2026-09-15-campanas/propuesta.md` §7): *"sí,
 > tras el checklist C10. La fábrica prepara y corre en seco las
 > comprobaciones automatizables (este runbook, campaña L); la desinstalación
-> la ejecuta Paul (línea roja)."* Incluye también la decisión #15 de la
+> la ejecuta el mantenedor (línea roja)."* Incluye también la decisión #15 de la
 > misma sesión (slug canónico), que cierra el punto #8 del gate M4
 > (`docs/backlog.md`, ítem «Barrer los hallazgos vivos del gate M4»,
 > ~`backlog:857-861`).
 >
 > **Qué NO hace este runbook:** no desinstala basic-memory, no borra
-> `~/.basic-memory/`, no toca `~/.claude.json`. Todo eso es de Paul,
+> `~/.basic-memory/`, no toca `~/.claude.json`. Todo eso es del mantenedor,
 > ejecutado a mano, después de leer las comprobaciones en seco de abajo y
 > decidir que el checklist está satisfecho.
 
@@ -1193,12 +1193,12 @@ nada. **La fábrica NO desinstala nada** — línea roja, acción de Paul.
    precedencia `flag > env > config > error accionable`, sin fallback a
    basic-memory salvo `exo init --from-basic-memory`, explícito).
 6. La KB está commiteada y pusheada (el plan de cierre dice "en kb-demo";
-   hoy el nombre real es `wisdom-paul`). → **Comprobación E** abajo.
+   hoy el nombre real es la KB personal). → **Comprobación E** abajo.
 
 ## Comprobación A — el hook de recall no llama a basic-memory (ni en fallback)
 
 ```bash
-cd /home/paul/Documentos/proyectos/exo
+cd ~/Documentos/proyectos/exo
 git grep -in "mcp__basic" -- plugins/ engine/
 echo "exit=$?"
 ```
@@ -1209,7 +1209,7 @@ mención viva de un tool MCP de basic-memory en plugin ni engine.
 ## Comprobación B — la única lectura de basic-memory que sobrevive es la explícita
 
 ```bash
-cd /home/paul/Documentos/proyectos/exo
+cd ~/Documentos/proyectos/exo
 grep -rn "basic-memory/config.json" engine/src/ | grep -v inicia.rs
 ```
 
@@ -1228,7 +1228,7 @@ toca esa ruta sigue siendo `engine/src/inicia.rs`, exclusiva de
 ## Comprobación C — `/document` y `/distill` no invocan tools MCP de basic-memory
 
 ```bash
-cd /home/paul/Documentos/proyectos/exo
+cd ~/Documentos/proyectos/exo
 grep -in "mcp__basic\|basic-memory" \
   plugins/exo/skills/document/SKILL.md \
   plugins/exo/skills/distill/SKILL.md \
@@ -1244,7 +1244,7 @@ vía MCP).
 ## Comprobación D — `hooks.json` sin matchers `mcp__basic-memory__*`
 
 ```bash
-cd /home/paul/Documentos/proyectos/exo
+cd ~/Documentos/proyectos/exo
 grep -n "basic-memory\|mcp__basic" plugins/exo/hooks/hooks.json
 echo "exit=$?"
 ```
@@ -1256,13 +1256,13 @@ scripts de `${CLAUDE_PLUGIN_ROOT}/scripts/`, ninguno un matcher de tool MCP.
 ## Comprobación E — la KB está commiteada y pusheada (snapshot de hoy)
 
 ```bash
-git -C /home/paul/Documentos/proyectos/wisdom-paul status --porcelain
-git -C /home/paul/Documentos/proyectos/wisdom-paul rev-parse --abbrev-ref --symbolic-full-name @{u}
-git -C /home/paul/Documentos/proyectos/wisdom-paul log @{u}..HEAD --oneline
+git -C ~/Documentos/proyectos/<kb> status --porcelain
+git -C ~/Documentos/proyectos/<kb> rev-parse --abbrev-ref --symbolic-full-name @{u}
+git -C ~/Documentos/proyectos/<kb> log @{u}..HEAD --oneline
 ```
 
 Output real de hoy: `status --porcelain` vacío (árbol limpio), upstream
-`origin/main`, `log @{u}..HEAD` vacío (nada sin pushear). **Paul: repite
+`origin/main`, `log @{u}..HEAD` vacío (nada sin pushear). **El mantenedor: repite
 esta comprobación justo antes de desinstalar** — es un snapshot del momento
 de escribir este runbook, no una garantía permanente.
 
@@ -1271,13 +1271,13 @@ de escribir este runbook, no una garantía permanente.
 `docs/backlog.md`, ítem «Barrer los hallazgos vivos del gate M4»,
 sub-ítem **#8 [baja]**: divergencia de slug medida **19/127** entre el
 generador de permalinks de `exo` y el de basic-memory (`_` conservado en
-bitácoras rotadas, CamelCase separado, `§`→`ss`). Decisión de Paul,
+bitácoras rotadas, CamelCase separado, `§`→`ss`). Decisión del mantenedor,
 2026-09-19 (#15, `propuesta.md` §7): **el slug de exo es canónico** — la
 divergencia 19/127 con basic-memory queda **aceptada por escrito**, no se
 persigue paridad. Con esto el #8 del gate M4 queda cerrado (ver Task 6,
 que marca el ítem correspondiente en `docs/backlog.md`).
 
-## Pasos manuales de Paul — desinstalación
+## Pasos manuales del mantenedor — desinstalación
 
 Ejecutar SOLO cuando las cinco comprobaciones de arriba estén en el estado
 esperado el día de la desinstalación (repetirlas, no fiarse de este
@@ -1297,7 +1297,7 @@ runbook si pasó tiempo):
    este runbook).
 4. **Limpiar el residuo vacío**: `rmdir ~/basic-memory` si sigue vacío
    (`ls -la ~/basic-memory` antes de borrar, por si alguna vez se pobló).
-5. **NO tocar** `/home/paul/Documentos/proyectos/wisdom-paul` — esa es la
+5. **NO tocar** `~/Documentos/proyectos/<kb>` — esa es la
    KB, vive fuera de basic-memory y la sigue usando `exo`.
 6. **Verificación post-desinstalación**: `claude mcp list` sin
    `basic-memory`; sesión nueva de Claude Code en el repo `exo` arranca
@@ -1309,22 +1309,22 @@ runbook si pasó tiempo):
 
 Si algo falla tras el paso 3 (p. ej. se necesita releer una nota vieja que
 solo basic-memory tenía indexada — no debería pasar, la KB en markdown
-sigue intacta en `wisdom-paul/`, pero por si el índice de basic-memory
+sigue intacta en `<kb>/`, pero por si el índice de basic-memory
 guardaba algo que el markdown no):
 
 1. Los datos NUNCA vivieron solo en `~/.basic-memory/` — es un índice
-   derivado de `wisdom-paul/` (markdown, en git). Nada se pierde al borrar
+   derivado de `<kb>/` (markdown, en git). Nada se pierde al borrar
    el índice.
 2. Para volver a tener el MCP disponible: `uvx basic-memory mcp` sigue
    funcionando sin reinstalar nada persistente (`uvx` descarga/cachea bajo
    `uv` en caliente); solo hace falta re-añadirlo con
    `claude mcp add basic-memory -- uvx basic-memory mcp` (o restaurar la
    entrada en `~/.claude.json`) y dejar que regenere su índice desde
-   `wisdom-paul/` (`basic-memory sync` o equivalente, fuera de alcance de
+   `<kb>/` (`basic-memory sync` o equivalente, fuera de alcance de
    `exo`).
 3. Si se borró `~/.basic-memory/config.json` por error: recrearlo con el
    `default_project`/`path` de hoy (documentado arriba, en "Contexto
-   verificado") es suficiente para que vuelva a apuntar a `wisdom-paul/`.
+   verificado") es suficiente para que vuelva a apuntar a `<kb>/`.
 ```
 
 - [ ] **Step 2: Verificar que las cinco comprobaciones del runbook dan
@@ -1345,7 +1345,7 @@ git commit -m "docs(l, runbook-m5b): checklist C10 en seco — basic-memory NO s
 
 ---
 
-### Task 6: `docs/backlog.md` — barrido de bookkeeping y decisiones de Paul del 2026-09-19
+### Task 6: `docs/backlog.md` — barrido de bookkeeping y decisiones del mantenedor del 2026-09-19
 
 **Lane:** documental. **Depende de:** nada (independiente del código de las
 Tasks 1-5; se hace en paralelo). **Comparte fichero con la campaña I** — ver
@@ -1464,7 +1464,7 @@ new_string:
   **(campaña F, 2026-09-15, Task 7, commit `8942969`): cerrado.** El job se
   renombró a `static-checks` / "checks estáticos"
   (`.github/workflows/ci.yml:34-35`, verificado en HEAD), con los 12
-  required checks documentados para cuando Paul activara branch protection.
+  required checks documentados para cuando el mantenedor activara branch protection.
   **Branch protection ACTIVADA el 2026-09-19** (decisión #8,
   `docs/superpowers/consultas/2026-09-15-campanas/propuesta.md` §7):
   verificado hoy con
@@ -1533,7 +1533,7 @@ new_string:
   misma palanca medida allí; (c) evaluar `defer_loading` para los tools poco
   usados, que los mantiene fuera del prefijo cacheado y solo entran cuando el
   modelo los busca.
-  **Decisión de Paul, 2026-09-19 (#7, `propuesta.md` §7): no se construye.**
+  **Decisión del mantenedor, 2026-09-19 (#7, `propuesta.md` §7): no se construye.**
   Se reabre solo si alguien lo echa de menos con un caso concreto. Cierra el
   ítem: la pregunta que planteaba (releer M5a contra el spec sin estado y
   decidir si vale la pena) queda respondida — no.
@@ -1549,7 +1549,7 @@ old_string:
   `Comando::Budget` vive en `engine/src/main.rs:68` desde G4b. La colisión
   de nombre se resolvió de hecho: `budget` = bytes de KB. Queda solo el
   nombre de un verbo de coste de tokens hipotético, decisión #3 del paquete
-  de Paul del 2026-09-15 (b/c: vive en `evals/` o no se construye hasta que
+  del mantenedor del 2026-09-15 (b/c: vive en `evals/` o no se construye hasta que
   haga falta) — fuera de alcance de F.
 ```
 
@@ -1561,9 +1561,9 @@ new_string:
   `Comando::Budget` vive en `engine/src/main.rs:68` desde G4b. La colisión
   de nombre se resolvió de hecho: `budget` = bytes de KB. Queda solo el
   nombre de un verbo de coste de tokens hipotético, decisión #3 del paquete
-  de Paul del 2026-09-15 (b/c: vive en `evals/` o no se construye hasta que
+  del mantenedor del 2026-09-15 (b/c: vive en `evals/` o no se construye hasta que
   haga falta) — fuera de alcance de F.
-  **Decisión de Paul, 2026-09-19 (#3, `propuesta.md` §7): nada hasta que
+  **Decisión del mantenedor, 2026-09-19 (#3, `propuesta.md` §7): nada hasta que
   exista `cost`.** Con la decisión #17 (no medir el coste de la inyección
   por ahora), no hay nada que nombrar todavía — `budget` = bytes de KB queda
   sellado. Ítem cerrado.
@@ -1611,7 +1611,7 @@ new_string:
   Y ojo con el diseño best-effort del sink (`|| true`, `2>/dev/null`,
   `_reflex-log.sh:4`): un log ausente es indistinguible de cero disparos, así
   que el harness debe **exigir** el fichero, no tolerar su falta.
-  **Decisión de Paul, 2026-09-19 (#17, `propuesta.md` §7): no, por ahora.**
+  **Decisión del mantenedor, 2026-09-19 (#17, `propuesta.md` §7): no, por ahora.**
   El harness de cruce (a/b/c de la acción original) no se construye hasta
   que haga falta. Ítem cerrado por decisión explícita, no por trabajo hecho.
 ```
@@ -1620,13 +1620,13 @@ new_string:
 
 old_string:
 ```
-- [ ] **Hoy el CI no bloquea nada.** Paul decidió explícitamente no proteger
+- [ ] **Hoy el CI no bloquea nada.** el mantenedor decidió explícitamente no proteger
   `main` por ahora — no hay branch protection ni required status checks.
 ```
 
 new_string:
 ```
-- [x] **Hoy el CI no bloquea nada.** Paul decidió explícitamente no proteger
+- [x] **Hoy el CI no bloquea nada.** el mantenedor decidió explícitamente no proteger
   `main` por ahora — no hay branch protection ni required status checks.
 ```
 
@@ -1642,9 +1642,9 @@ old_string:
 new_string:
 ```
   **Lo subsume G5 si adopta esa cadena.** **(2026-09-11: G5b cerró sin adoptarlo — release `v0.1.0` publicada, ver `## Cerrado con evidencia`. La marca queda huérfana: necesita dueño o campaña propia.)**
-  **Decisión de Paul, 2026-09-19 (#8, `propuesta.md` §7): ACTIVADA.**
-  Ejecutada el mismo día por el orquestador con autorización explícita de
-  Paul en sesión — verificado hoy con
+  **Decisión del mantenedor, 2026-09-19 (#8, `propuesta.md` §7): ACTIVADA.**
+  Ejecutada el mismo día por el orquestador con autorización explícita del
+  mantenedor en sesión — verificado hoy con
   `gh api repos/pguerrerolinares/exo/branches/main/protection`: los 12
   required checks de F Task 7 (verificados contra los check-runs de
   `5efe812`), `strict: false`, sin revisión obligatoria (autor único),
@@ -1692,10 +1692,10 @@ new_string:
   comenta, `hooks/ponytail-subagent.js:31-38`— pero en el bloque de arranque lo
   barato es gritar. No es item nuevo: es el criterio que le falta a la acción
   (a).
-  **Decisión de Paul, 2026-09-19 (#16, `propuesta.md` §7): se mantiene.**
+  **Decisión del mantenedor, 2026-09-19 (#16, `propuesta.md` §7): se mantiene.**
   El cap de 6.144 B no sube; la presión se resuelve con evicción editorial
   de entradas muertas de `core-index` (es índice: no se comprime) hasta
-  ≥15% de aire. Trabajo de Paul en la KB `wisdom-paul`, explícitamente NO de
+  ≥15% de aire. Trabajo del mantenedor en la KB personal, explícitamente NO de
   la fábrica. Cierra las acciones (b) y (c) por decisión, no por código.
 ```
 
@@ -1703,13 +1703,13 @@ new_string:
 
 old_string:
 ```
-Abierto: D-4 (permalink `nombre_kb()` vs literal fijo, recomendación ya aplicada en el código, formalmente pendiente de que Paul la zanje) y la acción (a) de «exo genérico» (`Paul`/`kb-demo` por nombres resueltos), fuera de alcance de D |
+Abierto: D-4 (permalink `nombre_kb()` vs literal fijo, recomendación ya aplicada en el código, formalmente pendiente de que el mantenedor la zanje) y la acción (a) de «exo genérico» (`Paul`/`kb-demo` por nombres resueltos), fuera de alcance de D |
 ```
 
 new_string:
 ```
-D-4 (permalink `nombre_kb()` vs literal fijo) **cerrado por decisión de
-Paul, 2026-09-19 (#2, `propuesta.md` §7): opción b, `nombre_kb()`** — lo que
+D-4 (permalink `nombre_kb()` vs literal fijo) **cerrado por decisión del
+mantenedor, 2026-09-19 (#2, `propuesta.md` §7): opción b, `nombre_kb()`** — lo que
 ya había en código queda formalizado; y la acción (a) de «exo genérico»
 (`Paul`/`kb-demo` por nombres resueltos) cerrada por G (ver Alta, ítem
 «exo genérico») |
@@ -1746,7 +1746,7 @@ En la cabecera de `docs/backlog.md`, justo antes del bloque `> Anterior:
 bloque que hoy dice `> Última revisión: **2026-09-16**` a `> Anterior:`.
 Sigue la MISMA estructura que ya usa el fichero (ver el bloque de G como
 plantilla): fecha, campaña, qué cierra con evidencia (los 5 ítems del
-barrido + las 6 decisiones de Paul del 2026-09-19 + Tasks 1-4 de este
+barrido + las 6 decisiones del mantenedor del 2026-09-19 + Tasks 1-4 de este
 mismo plan), y qué queda corrigiendo-sin-cerrar si aplica. Redacta este
 bloque de forma proporcional al patrón ya usado — no lo dejes en placeholder;
 usa los commits reales de las Tasks 1-4 de este plan (los que resulten de
@@ -1757,7 +1757,7 @@ Task.
 
 ```bash
 git add docs/backlog.md docs/superpowers/runbooks/2026-09-15-release-v0.2.0.md
-git commit -m "docs(l, backlog-sync): barrido de bookkeeping (5 ítems) + decisiones de Paul del 2026-09-19 (#2,#3,#7,#8,#16,#17)"
+git commit -m "docs(l, backlog-sync): barrido de bookkeeping (5 ítems) + decisiones del mantenedor del 2026-09-19 (#2,#3,#7,#8,#16,#17)"
 ```
 
 ---
@@ -1789,7 +1789,7 @@ Expected: los tres comandos exit 0. `cargo test` termina con
 - [ ] **Step 2: Gates de `scripts/`**
 
 ```bash
-cd /home/paul/Documentos/proyectos/exo
+cd ~/Documentos/proyectos/exo
 bash scripts/test-docs-vivos.sh
 bash scripts/test-rutas-personales.sh
 bash scripts/test-exec-bit.sh

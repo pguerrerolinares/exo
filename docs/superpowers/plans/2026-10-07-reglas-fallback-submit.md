@@ -31,7 +31,7 @@
 
 1. **Turno 1, cuenta personal, store vacío:** se duplica una vez (submit + compose). Aceptado el hueco inverso de un turno solo cuando `store.compose===true` y la cuenta pasa a Team (cubierto por turno >= 2).
 2. **Aviso degradado:** una vez por día (no por sesión); después de que el eval `ars` decida, pasa a solo log si es útil o a `⚠` si es placebo (seguimiento fuera de este plan).
-3. **Eval `ars`:** tarea separada, requiere OK de Paul para lanzarse (~2 USD). Se orquesta tras el mod porque necesita el seam `FORZAR`; su veredicto solo afecta a una constante (`DEGRADADO_PREFIJO`).
+3. **Eval `ars`:** tarea separada, requiere OK del mantenedor para lanzarse (~2 USD). Se orquesta tras el mod porque necesita el seam `FORZAR`; su veredicto solo afecta a una constante (`DEGRADADO_PREFIJO`).
 4. **`organizationType`:** solo pista (campo `org` del hb y clave `org` del store, que el testigo copia al log); no es gate.
 5. **Hueco de auto-compact a mitad de un turno agéntico largo (S6):** se DECLARA en la spec 2d como fuera de alcance y queda para v2 (`session.compact` + `$.session.append`).
 6. **Derivadas (el consultor no las fija; elegidas por coherencia con sus tablas):**
@@ -48,14 +48,14 @@
 - Los tests existentes `latido_ok` y `skip_no_anade` comparan el hb con `toEqual` exacto: pasan a incluir `via:"compose"`.
 - `forzar_submit` del consultor ("entrega aunque compose esté vivo") se reformula como `forzar_compose_inerte` + `forzar_entrega_submit` (ver decisión 6).
 - Un `--plugin-dir plugins/exo` completo en el eval cargaría también los hooks clásicos (recall de KB) y contaminaría el brazo: T3 monta un plugin mínimo (solo el mod).
-- El harness de evals corre en Linux (`/home/paul/...`) con claude 2.1.291; esta máquina es W11 con 2.1.292.
+- El harness de evals corre en Linux (`~/...`) con claude 2.1.291; esta máquina es W11 con 2.1.292.
 
 ## Olas
 
 [Orientativa: manda `orchestrate/scripts/task-dag`.]
 
 - Ola 1, en paralelo: T1 (mod), T2 (testigo). Ficheros disjuntos; solo comparten el contrato del hb (`via`) fijado en Global Constraints.
-- Ola 2: T3 (eval `ars`), consume el seam `FORZAR` de T1. El lanzamiento real exige OK de Paul.
+- Ola 2: T3 (eval `ars`), consume el seam `FORZAR` de T1. El lanzamiento real exige OK del mantenedor.
 - Ola 3: T4 (wiring: versión, e2e, spec 2d), consume T1-T3.
 
 ### Task 1: mod `prompt.submit` + latido tipado por canal
@@ -155,7 +155,7 @@
 - `ars_sin_claude_md_distinto`: `append` de `ars` == `claude-md.md` (sin framing en system prompt; el framing llega solo por el mod). Falla si se mide arp disfrazado.
 - `preregistro_ars_valido`: `preregistro-ars.md` contiene la línea `>=4/10 cumplen = util; <4 = placebo`, k=2, las 10 tareas, el orden barajado y la versión de claude. Falla si el umbral no está sellado antes de correr.
 
-**Verificación:** `bash evals/techo-reglas-2/test-correr-ars.sh && bash evals/techo-reglas-2/test-correr-arp.sh && bash evals/techo-reglas-2/validar-preregistro.sh` → todo `ok`/exit 0. Después, SOLO con OK de Paul: lanzar la tanda (20 corridas) con `correr-techo.sh` y `TECHO_EXP=evals/techo-reglas-2`/`TECHO_TAREAS=evals/techo-reglas-2/tareas-ars.tsv` → breakers sin saltar; adjudicar con `evaluar.py` y escribir `verdict-ars.md` con `ars` n/10, comparado con `arp` 6/10 y `a0` 0/10, y la decisión del prefijo (`ℹ` o `⚠`).
+**Verificación:** `bash evals/techo-reglas-2/test-correr-ars.sh && bash evals/techo-reglas-2/test-correr-arp.sh && bash evals/techo-reglas-2/validar-preregistro.sh` → todo `ok`/exit 0. Después, SOLO con OK del mantenedor: lanzar la tanda (20 corridas) con `correr-techo.sh` y `TECHO_EXP=evals/techo-reglas-2`/`TECHO_TAREAS=evals/techo-reglas-2/tareas-ars.tsv` → breakers sin saltar; adjudicar con `evaluar.py` y escribir `verdict-ars.md` con `ars` n/10, comparado con `arp` 6/10 y `a0` 0/10, y la decisión del prefijo (`ℹ` o `⚠`).
 
 **Review Focus:**
 - Contaminación por hooks clásicos al cargar el plugin completo (`ars_cmdline_carga_solo_el_mod`).

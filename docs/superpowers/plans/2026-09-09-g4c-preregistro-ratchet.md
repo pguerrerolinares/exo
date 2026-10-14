@@ -28,7 +28,7 @@
 - **exo**: el binario de la rama `g4c-ratchet-cutover`, `cargo build --release`,
   en el estado en que esté cuando se ejecute el gate. Al escribir esto no
   existe.
-- **KB**: `wisdom-paul`, el árbol real, en una **copia de trabajo desechable**.
+- **KB**: la KB personal, el árbol real, en una **copia de trabajo desechable**.
   Esto es distinto de G4a/G4b y no es cosmético: `ratchet` lee HEAD y el índice
   de git, y `--seal` **escribe** `.kbx-ratchet.json`. La corrida del gate se
   hace sobre `git clone` de la KB a un directorio temporal, nunca sobre el árbol
@@ -150,7 +150,7 @@ diff, no se racionalicen después como "aceptables".
 - Commit de exo: `4d047f4` (rama `d-gates`)
 - Commit de kbx: `fe46443`
 - KB: copia de trabajo desechable clonada de `/tmp/campana-d/kb-base` (a su
-  vez clon de `wisdom-paul`, `main`@`4bf1dc4`) a
+  vez clon de la KB personal, `main`@`4bf1dc4`) a
   `/tmp/campana-d/ratchet-kb.N0ib`, con `diff.renames=false` fijado como
   config del repo (Adjudicación A3). Sello de partida `.kbx-ratchet.json`
   con 11 `ceilings`, confirmado antes de correr nada — coincide con el

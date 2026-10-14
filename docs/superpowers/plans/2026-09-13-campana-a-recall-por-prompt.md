@@ -17,7 +17,7 @@ de tocar código**. Después vienen los arreglos, cada uno con TDD: el tope de
 KNN de vec0 (H27), los avisos y tiempos en `exo recall` más su log en el hook
 (H2/H3), `resuelve_destinos` sin escrituras inútiles (H4), la guarda «una DB =
 una KB» (H1), el dedupe de `separa_frontmatter` (H19) y tres piezas que
-dependen de decisiones de Paul y del bench (H17a, H5, H10). La campaña cierra
+dependen de decisiones del mantenedor y del bench (H17a, H5, H10). La campaña cierra
 con el script del criterio de reapertura (H3) y la corrida «después», que se
 juzga mecánicamente contra el pre-registro.
 
@@ -85,7 +85,7 @@ propuesto), H5 (severidad), H10 (coste en Linux) y H1 (forma del fix).
   afirma L2².
 - **H29 (NUEVO, bajo, no se planifica) — el walker entra en `.git/`.** De los
   314 `openat` de un `exo index` sin cambios, 276 caen dentro de
-  `wisdom-paul/.git/`. `walker.rs:5` solo excluye `.claude`, `.omc` y
+  `<kb>/.git/`. `walker.rs:5` solo excluye `.claude`, `.omc` y
   `.superpowers`. El escenario `s3` lo cuantifica, y el dato va al veredicto.
 
 ### Sinergias revisadas
@@ -93,7 +93,7 @@ propuesto), H5 (severidad), H10 (coste en Linux) y H1 (forma del fix).
 - **«Una sola migración de schema» (H1 + H17a): FALSA.** H1 no necesita
   cambiar el schema (ver D1, opción A). H17a tiene una variante sin schema (D2,
   opción L). Con las recomendaciones, la campaña hace **cero migraciones** y
-  kbx no se ve afectado. Si Paul elige P en D2, la columna `tier` al final de
+  kbx no se ve afectado. Si el mantenedor elige P en D2, la columna `tier` al final de
   `notas` **no dispara** el canario de kbx: `CheckSchema` solo mira que estén
   las columnas que consume (`kbx/internal/index/schema.go:52-57`, `:66-99`);
   las columnas de más las ignora.
@@ -182,7 +182,7 @@ propuesto), H5 (severidad), H10 (coste en Linux) y H1 (forma del fix).
 
 > Régimen del config (`.superpowers/fabrica/config.md` §«Ejecución de
 > gates»): cada una la intenta primero el consultor fable delegado. **D0, D1 y
-> D5 no tienen fuente escrita citable**, así que se espera que escalen a Paul.
+> D5 no tienen fuente escrita citable**, así que se espera que escalen al mantenedor.
 
 **D0 — ¿Esta campaña puede pre-registrar un bench?** *Bloquea: todas las tareas.*
 El config vigente, en su bloque «ACTUALIZACIÓN 2026-08-17 — fase de cierre
@@ -191,12 +191,12 @@ pre-registros nuevos, sin ventanas de observación.** Ningún item se selecciona
 ni se bloquea por producir un número». Esta campaña es exactamente eso: un
 pre-registro, dos puertas numéricas (C-H17a y C-H10) y una ventana de 14 días
 (la reapertura de H3). Opciones:
-(a) Paul actualiza el config, cerrando la fase de cierre ahora que M5b ya pasó;
+(a) el mantenedor actualiza el config, cerrando la fase de cierre ahora que M5b ya pasó;
 (b) `OVERRIDE` puntual en el ledger;
 (c) quitar las puertas numéricas y ejecutar H17a/H10 sin medir.
 **Recomendación: (a).** La fase de cierre terminó con la release v0.1.0, y (c)
 contradice la regla de validar contra datos.
-**RESUELTA 2026-09-13 — opción (b):** `OVERRIDE` de Paul en sesión («lanza…
+**RESUELTA 2026-09-13 — opción (b):** `OVERRIDE` del mantenedor en sesión («lanza…
 otro que empiece con la campaña A»). Vale para esta campaña; la actualización
 del config (a) sigue pendiente. D1–D5 siguen abiertas.
 
@@ -210,8 +210,8 @@ del config (a) sigue pendiente. D1–D5 siguen abiertas.
 | **B** multi-KB en una DB | Columna `kb` en `notas` (y en `trozos`/`aristas`), `UNIQUE(kb, ruta)`, `meta.kb_root` por KB, y búsqueda/recall/lint/targets acotados | Una sola DB | L. **Migración:** SQLite no altera un UNIQUE, así que hay que reconstruir la tabla o hacer `exo rebuild`. **kbx se rompe en silencio:** consulta por `ruta` sin KB (`diffsince.go:180`, `history.go:139`, `targets.go:89-97`) y no conoce la columna. Es superficie irreversible (schema), así que va al régimen de gates. **No planificado aquí:** exige un plan propio |
 | **C** `ruta` prefijada | `ruta = "<kb>/AGENTS.md"` | Sin columna nueva | Rompe kbx (abre `kb_root/ruta`), `lint` y `targets` de exo (rutas relativas a la KB). Migración igual que en B |
 
-**Recomendación: A1 ahora.** A2 si Paul tiene o prevé una segunda KB real en
-la misma máquina: en `~/Documentos/proyectos/` existe `wisdom-ai-news`, y no
+**Recomendación: A1 ahora.** A2 si el mantenedor tiene o prevé una segunda KB real en
+la misma máquina: en `~/Documentos/proyectos/` existe `<repo-noticias-ia>`, y no
 verifiqué si es una KB de exo. B y C no: pagan migración y kbx por un caso de
 uso que A2 ya cubre.
 
@@ -232,7 +232,7 @@ uso que A2 ya cubre.
   caen al fallback hasta que alguien lo corra.
 - **Nada:** si el bench no cruza la puerta.
 
-**Recomendación: L**, si la puerta se abre. P es superficie de schema: si Paul
+**Recomendación: L**, si la puerta se abre. P es superficie de schema: si el mantenedor
 la elige, hay que enmendar el plan con una tarea propia.
 
 **D3 — Logs de reflejos (H5).** *Bloquea: Task 11 (se ejecuta una sola variante).*
@@ -257,21 +257,21 @@ donde duele más. **Recomendación:** los defaults, evaluados por separado en
 cada máquina.
 
 **D5 — Medición en W11.** *Bloquea: Task 15 y la mitad W11 de la puerta C-H10
-(Task 12).* ¿La hace Paul a mano con el bloque §W11 del pre-registro? ¿Cuándo?
+(Task 12).* ¿La hace el mantenedor a mano con el bloque §W11 del pre-registro? ¿Cuándo?
 Sin ella, la puerta C-H10 se decide solo con Linux, donde casi seguro queda
-cerrada. **Recomendación:** que Paul la corra una vez antes de la Task 12. Son
+cerrada. **Recomendación:** que el mantenedor la corra una vez antes de la Task 12. Son
 dos bucles de 20 iteraciones, unos 2 minutos.
 
 **D6 — Dueño de H27 (A o C).** *No bloquea.* Se planifica en A porque el bench
 lo necesita y porque toca `vectores.rs`, no `buscador.rs`. Si C lo reclama, la
 Task 3 sale de A y la predicción P1 se mantiene.
 
-**RESUELTAS 2026-09-13 — Paul acepta las recomendaciones del plan:**
+**RESUELTAS 2026-09-13 — el mantenedor acepta las recomendaciones del plan:**
 D1 = **A1** (solo la guarda; Task 8 no se ejecuta) · D2 = **L** (moot: la
 puerta C-H17a salió CERRADA en la línea base, Task 10 no se ejecuta) · D3 =
 **T** (Task 11 variante T) · D4 = **defaults** (≥200 disparos/14 días por
 máquina; p95 `elapsed_ms + refresh_ms` > 1.500 ms o timeouts > 2%) · D5 =
-**Paul corre el bloque §W11 una vez antes de la Task 12** (12 y 15 esperan) ·
+**El mantenedor corre el bloque §W11 una vez antes de la Task 12** (12 y 15 esperan) ·
 D6 = **A**, ejecutada como hotfix aparte (PR #11, mergeado).
 
 ---
@@ -343,7 +343,7 @@ Oráculos comunes, que se citan por nombre:
 | 12 | Memo de `exo config` | H10 | mecánica | `bash plugins/exo/scripts/test-recall-inject.sh && bash plugins/exo/scripts/test-subagent-inject.sh` + O-plugin | 5, 8 si A2; puerta C-H10; D5 |
 | 13 | Criterio de reapertura | H3 | mecánica | `bash plugins/exo/scripts/test-recall-latencia.sh` + O-plugin | 5, D4 |
 | 14 | Después, veredicto y backlog | todos | mecánica | `evals/recall-coste/harness/bench.sh despues 174 1000 5000 && evals/recall-coste/harness/compara.sh baseline despues` | 3–13 que apliquen |
-| 15 | Medición W11 | H3 H10 | **manual de Paul** | bloque §W11 del pre-registro | D5 |
+| 15 | Medición W11 | H3 H10 | **manual del mantenedor** | bloque §W11 del pre-registro | D5 |
 
 Paralelizable, un worktree por item en `.worktrees/<item>`: {3, 6, 9} tras la
 2; 4 → 5 → 13 en cadena; 7 → 8. La Task 8 choca con la 5 en
@@ -2774,7 +2774,7 @@ git commit -m "perf(recall): --content --note lee el tier solo de las recientes 
 - Consumes: el formato de `_reflex-log.sh` (una línea JSON por evento: `ts`, `reflex`, `session_id`, `agent_id`, `agent_type`, `tool`, `payload`).
 - Produces (T): `exo-recall.sh` mira solo las últimas `${EXO_RECALL_COMPACT_LINEAS:-2000}` líneas.
   Produces (R): en SessionStart, rotación a `$REFLEX_LOG_FILE.1` por encima de `${REFLEX_LOG_MAX_BYTES:-5000000}` bytes. `a1-gate.sh`, `reflex-baseline.sh` y `reflex-fp-review.sh` leen `.1` y el actual.
-  Los valores 2000 y 5000000 son la propuesta de D3: si Paul fija otros, se sustituyen esos literales antes del Step 1.
+  Los valores 2000 y 5000000 son la propuesta de D3: si el mantenedor fija otros, se sustituyen esos literales antes del Step 1.
 
 **Esqueleto de `test-exo-recall.sh`:** si la Task 8 no se ejecutó (D1 = A1),
 este fichero no existe todavía. Créalo con este contenido (`chmod +x`) y
@@ -3141,7 +3141,7 @@ git commit -m "perf(hooks): exo config --json memoizado por sesión (campaña A,
 
 ### Task 13: criterio de reapertura del proceso residente
 
-**Lane:** mecánica · **Hallazgo:** H3 · **Bloqueada por:** la Task 5 (formato del payload) y D4 (umbrales). Los defaults son la propuesta del pre-registro: si Paul fija otros, sustituye `UMBRAL_P95_MS`, `UMBRAL_TIMEOUT_PCT` y `MIN_DISPAROS` **y** los números del test **y** §«Criterio de reapertura» del pre-registro, antes del Step 1.
+**Lane:** mecánica · **Hallazgo:** H3 · **Bloqueada por:** la Task 5 (formato del payload) y D4 (umbrales). Los defaults son la propuesta del pre-registro: si el mantenedor fija otros, sustituye `UMBRAL_P95_MS`, `UMBRAL_TIMEOUT_PCT` y `MIN_DISPAROS` **y** los números del test **y** §«Criterio de reapertura» del pre-registro, antes del Step 1.
 **Oráculo:** `bash plugins/exo/scripts/test-recall-latencia.sh` + O-plugin
 
 **Files:**
@@ -3391,9 +3391,9 @@ git commit -m "bench(campaña A): corrida después, veredicto contra el pre-regi
 
 ---
 
-### Task 15: medición en W11 (manual, Paul)
+### Task 15: medición en W11 (manual, el mantenedor)
 
-**Lane:** fuera de la fábrica, **tarea manual de Paul** · **Hallazgos:** H3 H10 · **Bloqueada por:** D5.
+**Lane:** fuera de la fábrica, **tarea manual del mantenedor** · **Hallazgos:** H3 H10 · **Bloqueada por:** D5.
 
 - [x] **Step 1:** en la W11, desde Git Bash, con `exo --version` a mano, correr el bloque §W11 del pre-registro tal cual.
 - [x] **Step 2:** pegar la salida completa en un comentario del ledger o en `evals/recall-coste/results/w11-<fecha>.txt`. Con eso, la Task 12 aplica C-H10 (config+jq p50 > 100 ms ⇒ puerta ABIERTA) y la Task 14 lo incorpora al veredicto.

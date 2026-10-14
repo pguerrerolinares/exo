@@ -28,7 +28,7 @@ Windows 11) · jq · marketplace `exo` en el repo `exo-plugins`.
   `verify`, `document`, `distill`, `recon-first`. Agente: `executor`.
 - **A1 (adjudicada):** `process` y `reflex` se retiran del marketplace de
   golpe, sin deprecación. `exo-plugins` es privado, así que no hay terceros:
-  solo las dos máquinas de Paul.
+  solo las dos máquinas del mantenedor.
 - **A2 (adjudicada):** `paul-profile` NO entra en el plugin `exo`, pero SÍ hay
   que repuntarlo — referencia `process:orchestrate` y `reflex:executor`, que
   mueren con A1.
@@ -305,7 +305,7 @@ name: distill
 ```
 
 Y en la `description` de `distill`, sustituir «Consolidación offline de la KB
-kb-demo» por «Consolidación offline de la KB» —el nombre de la KB de Paul
+kb-demo» por «Consolidación offline de la KB» —el nombre de la KB del mantenedor
 no pinta nada en un plugin que va a ser público—. Actualiza también sus
 triggers entrecomillados si citan `/consolida`.
 
@@ -925,12 +925,12 @@ git commit -m "docs(runbook): cutover del plugin exo verificado end-to-end"
   `kbx budget --kb … --json` responde con exit 0 en W11. Lo que no hay es
   toolchain Go (`go: command not found`), que impide *compilarlo* pero no
   *ejecutarlo* — y `distill` solo necesita ejecutarlo. La causa real son las
-  **13 rutas absolutas `/home/paul/…`** de la línea siguiente. La decisión no
+  **13 rutas absolutas de home personal** de la línea siguiente. La decisión no
   cambia (es G4, y la spec lo decide así): allí se parametrizan esas rutas y se
   reescriben los comandos a verbos `exo`, y separar los dos arreglos sobre el
   mismo fichero sería peor. El skill debe decir en voz alta lo que le falta, no
   callarse.
-- **Las 13 rutas `/home/paul/…` de `distill/SKILL.md`** se parametrizan contra
+- **Las 13 rutas de home personal de `distill/SKILL.md`** se parametrizan contra
   la config en G4, cuando se reescriban sus comandos a verbos `exo`.
 - **`schema_drift`, `budget_prose_drift` y el resto del linter de la KB** son
   G4.
