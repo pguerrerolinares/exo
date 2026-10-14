@@ -502,7 +502,7 @@ como default.
 `scripts/test-install.ps1` en ubuntu, macOS y Windows contra una release falsa
 servida por `file://`. Pero esos dos scripts viven en la raíz del repo, no en
 el plugin. Cabecera de `test-contrato-engine.sh`, sin cambios: «depende de
-estado de ESTA máquina (C:/Users/paul/.exo/index.db,
+estado de ESTA máquina (~/.exo/index.db,
 C:/proyectos/homework/kb-demo)», y `EXO_BIN` sigue apuntando por defecto a
 `engine/target/release/exo.exe`. `install-gate` es además la prueba de que el
 camino existe: el fixture reproducible que este item pide ya se ha escrito una
