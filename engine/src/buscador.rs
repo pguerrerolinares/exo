@@ -102,6 +102,17 @@ fn avisos_cobertura_vector(conn: &rusqlite::Connection) -> Result<Vec<String>> {
         ]);
     }
 
+    // Esquema a medias (`vectores` sí, `trozos` no): sin trozos no hay con qué
+    // medir cobertura, y es un estado degradado, no un error.
+    if !tabla_existe(conn, "trozos")? {
+        return Ok(vec![
+            "cobertura vectorial no verificable: la tabla `trozos` no existe \
+             (la DB nunca pasó por `exo index`/`exo rebuild`); corre \
+             `exo index` antes de fiarte del ranking."
+                .to_string(),
+        ]);
+    }
+
     let trozos: i64 = conn
         .query_row("SELECT count(*) FROM trozos", [], |f| f.get(0))
         .context("contar filas de trozos")?;
@@ -1231,5 +1242,22 @@ mod tests_permalinks_lote {
         let troceado = permalinks_de_rowids(&conn, &ids).expect("consulta troceada");
         assert_eq!(sin_trocear.len(), 650);
         assert_eq!(sin_trocear, troceado);
+    }
+}
+
+#[cfg(test)]
+mod tests_cobertura_vector {
+    use super::*;
+
+    /// `vectores` presente pero `trozos` ausente (esquema a medias): el
+    /// conteo no debe reventar con `no such table`, sino avisar.
+    #[test]
+    fn avisos_cobertura_vector_degrada_si_falta_trozos() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute("CREATE TABLE vectores (permalink TEXT)", [])
+            .unwrap();
+        let avisos = avisos_cobertura_vector(&conn).unwrap();
+        assert_eq!(avisos.len(), 1, "{avisos:?}");
+        assert!(avisos[0].contains("trozos"), "{avisos:?}");
     }
 }
