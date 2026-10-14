@@ -38,6 +38,13 @@ repreguntar. La nota es breve; importa que sea exacta y corregible.
 - Preguntas de una en una; si un tema pide más, pártelo en varias preguntas.
   Objetivo: purpose, constraints, success criteria. Prefiere multiple choice
   cuando sea posible.
+- Cómo se hace: todo proyecto descansa en elecciones de medio, herramientas y
+  recursos (plataforma, lenguaje y librerías de una app). Averigua pronto
+  cuáles quiere tomar el usuario, cuáles te delega y con qué cuenta ya. Quien
+  tiene criterio quiere hablarlo; quien cuenta contigo necesita defaults
+  sensatos, dichos en voz alta (un default que no oyó no pudo rechazarlo).
+  Con trabajo existente, construye sobre lo que ya usa. Toda elección tuya va
+  en el diseño como decisión tuya, nunca como algo acordado.
 - Propón 2-3 enfoques con trade-offs, liderando con tu recomendación y su
   porqué.
 - Presenta el diseño por secciones escaladas a su complejidad; valida cada
