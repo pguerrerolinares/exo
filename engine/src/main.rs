@@ -258,9 +258,9 @@ struct ArgsSearch {
     /// Tipo de búsqueda.
     #[arg(long, value_enum, default_value_t = TipoBusqueda::Hybrid)]
     r#type: TipoBusqueda,
-    /// Umbral del canal semántico, en la escala propia de `similitud_desde_l2`
-    /// (monótona en el coseno, NO un coseno exacto — el 0.40 sellado
-    /// equivale a un coseno real ≈0.28, H28). Precedencia por modo: en
+    /// Umbral de similitud del canal semántico: escala interna 0..1 (más alto
+    /// = más cercano; no es un coseno: 0.40 equivale a coseno ≈0.28, y dos
+    /// textos sin relación quedan en torno a 0.29). Precedencia por modo: en
     /// `--type hybrid` (default), este flag o si no el umbral sellado 0.40,
     /// sin mirar la config; en `--type vector`, este flag o si no
     /// `[embeddings] min_similarity` de la config; en `--type fts`, sin
@@ -304,12 +304,11 @@ struct ArgsRecall {
     /// por líneas enteras.
     #[arg(long, default_value_t = 2048)]
     cap_bytes: usize,
-    /// Umbral en modo consulta, en la escala propia de `similitud_desde_l2`
-    /// (monótona en el coseno, NO un coseno exacto — el 0.40 sellado
-    /// equivale a un coseno real ≈0.28, H28): este flag o si no el umbral
+    /// Umbral de similitud en modo consulta: escala interna 0..1 (más alto =
+    /// más cercano; no es un coseno: 0.40 equivale a coseno ≈0.28, y dos
+    /// textos sin relación quedan en torno a 0.29): este flag o si no el umbral
     /// sellado 0.40, sin mirar la config — misma precedencia que
-    /// `search --type hybrid` (I2, decisión 2 de Paul, review final de la
-    /// campaña G, 2026-09-16). Sin efecto en modo arranque.
+    /// `search --type hybrid`. Sin efecto en modo arranque.
     #[arg(long = "min-similarity", value_name = "MIN_SIMILARITY")]
     min_similitud: Option<f64>,
     /// Modo arranque con el CUERPO de las notas `tier: core` y la lista de
