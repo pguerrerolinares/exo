@@ -18,7 +18,9 @@ bash_versionado() {
       *.*) : ;;
       *)
         [ "$modo" = "100755" ] || continue
-        if git cat-file -p "$blob" | head -n 1 | grep -Eq '^#!.*[/ ](ba)?sh([[:space:]]|$)'; then
+        # sed -n 1p, no head -n 1: head cierra la tubería, cat-file muere
+        # por SIGPIPE y pipefail omite el script sin avisar (#65).
+        if git cat-file -p "$blob" | sed -n 1p | grep -Eq '^#!.*[/ ](ba)?sh([[:space:]]|$)'; then
           ficheros+=("$ruta")
         fi
         ;;
