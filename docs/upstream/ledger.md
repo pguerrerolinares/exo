@@ -101,9 +101,9 @@ Decisiones de Paul (2026-09-30), distintas de las Divergencias: no son "no porta
 | #2086 | orchestrate | parcial | portado | — | b78b279 |
 | #2258 | brainstorm | aplica | portado | — | 8952629 |
 | #2319 | orchestrate | parcial | propuesto | — | 001764f |
-| #2077 | orchestrate | aplica | pendiente | respondida | — |
+| #2077 | orchestrate | aplica | propuesto | — | a8d0c5b |
 | #2063 | brainstorm | ya cubierto | — | cubierto por #2463: brainstorm/SKILL.md «Tamaño del trabajo» (decisión de Paul 2026-10-14) | — |
-| #1934 | tdd | aplica | pendiente | respondida | — |
+| #1934 | tdd | aplica | propuesto | — | 719a1fd |
 | #1934 | writing-skills | duda | pendiente | mapeo: writing-skills/SKILL.md | — |
 | #1934 | orchestrate | no aplica | — | solo elimina: exo no tiene esas secciones (Advantages / Integration) | — |
 | #1934 | debug | no aplica | — | solo elimina: exo no tiene social proof ni Real-World Impact (D2 aparte) | — |
@@ -142,8 +142,8 @@ Decisiones de Paul (2026-09-30), distintas de las Divergencias: no son "no porta
 | #2463 | brainstorm | parcial | propuesto | — | ec0b45a |
 | #2463 | brainstorm | duda | pendiente | ¿adoptar del rebuild 7.0.0 el primer mensaje con salida «salta las preguntas» + pregunta abierta sin ejemplos, y el playback por tramos de 200-300 palabras? Chocan con brainstorm/SKILL.md:38 (preguntas de una en una / multiple choice) y con la duda #2063. Yo adoptaría playback y pregunta abierta primero; no la salida sin gate | — |
 | #2463 | brainstorm | duda | pendiente | mapeo: brainstorming/builder-check-prompt.md (propuesta: fila de mapeo a brainstorm/SKILL.md, ya añadida en este PR; el procedimiento se portó desde SKILL.md) | — |
-| #2482 | brainstorm | aplica | pendiente | tope | — |
-| #2483 | brainstorm | aplica | pendiente | tope | — |
+| #2482 | brainstorm | aplica | propuesto | — | 987ac71 |
+| #2483 | brainstorm | duda | pendiente | ¿portar la línea «declara la elección de cómo se hace (plataforma / lenguaje / medio) antes de empezar» en la salida «salta las preguntas»? Esa salida no existe en exo y es la duda abierta de #2463 (la otra mitad de #2483 quita un bullet que exo no tiene). Yo la portaría solo si adoptas la salida con gate | — |
 | #2399 | orchestrate | aplica | propuesto | — | db0eddd |
 | #2489 | orchestrate | aplica | propuesto | — | 2331afa |
 | #2364 | brainstorm | no aplica | — | sin equivalente: brainstorming/scripts/* | — |

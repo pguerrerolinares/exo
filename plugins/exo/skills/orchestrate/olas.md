@@ -13,9 +13,9 @@ consume, directa o transitivamente, algo que produce la otra (`Interfaces`).
     sin `@Task M` o con `@Task` inexistente. Una tarea por ola.
   - `DAG: reordenado (Task i consume Task j posterior)`: consumo hacia delante
     sin ciclo; las olas ya vienen en orden topológico (desempata la numeración).
-  - `DAG: error (<ciclo>)` (olas `[]`, exit 0): ciclo o autoconsumo. Es una
-    decisión del humano: entra en la pregunta batcheada del pre-flight, antes de
-    empezar (corregir el plan o fijar el orden). Nunca se ejecuta con error.
+  - `DAG: error (<ciclo>)` (olas `[]`, exit 0): ciclo o autoconsumo. Es un
+    defecto del plan: Ruling del pre-flight, antes de empezar (corregir el plan
+    o fijar el orden). Nunca se ejecuta con error.
 - La sección `## Olas` del plan es orientativa; manda `task-dag`.
 - Solo si el script falla: a mano con la misma regla, leyendo `Files` e
   `Interfaces`. Ambiguo o no parseable ⇒ una tarea por ola, en orden, y
@@ -28,8 +28,8 @@ limpio» sin filas no es un scan que corriste. Los pares de tareas que
 comparten fichero o interfaz los da `task-dag` (olas y avisos): cópialos, no
 los recalcules a mano. Añade solo una fila por tarea de coherencia interna:
 ¿los tests que especifica concuerdan con el código que especifica, y los
-ficheros que crea con los que toca después? Cada hallazgo entra en la pregunta
-batcheada al humano, junto a su fila.
+ficheros que crea con los que toca después? Cada hallazgo se resuelve con un Ruling
+ledgerizado, junto a su fila.
 
 ## Ejecutar una ola
 
@@ -102,12 +102,14 @@ Una ronda = un fix + una re-review acotada; **máximo 5 por tarea**:
 adjudica cada uno tú (tienes plan y contexto entre tareas):
 
 - reviewer equivocado o punto discutible ⇒ aparca: `Task N: parked — <finding>
-  — ruling: <por qué el código se queda>`;
-- real pero nada posterior depende de él ⇒ aparca igual, con ruling «real y
+  — Ruling: <por qué el código se queda>`;
+- real pero nada posterior depende de él ⇒ aparca igual, con Ruling «real y
   diferido»;
 - real y load-bearing (una tarea posterior lo usa, o revela un defecto del
-  plan) ⇒ PARA: `Task N: BLOCKED — <motivo>` y reporta al humano con el
-  finding, el texto del plan y el historial de fixes.
+  plan) ⇒ Ruling sobre el cambio mínimo que desbloquea lo dependiente:
+  `Task N: Ruling: <finding> — <qué decides y por qué>`, y viaja en el brief
+  de la tarea siguiente. Aparcarlo en silencio deja que todo lo dependiente
+  construya encima; para solo si todo camino es adivinar.
 
 Adjudicar antes del tope es pre-juzgar con otro nombre. Toda adjudicación es
 entrada de ledger: el descarte silencioso está prohibido. Cierre:
@@ -115,7 +117,8 @@ entrada de ledger: el descarte silencioso está prohibido. Cierre:
 
 Review final: si devuelve findings, UN fix con la lista completa y exactamente
 una re-review acotada del rango del fix; los residuos se adjudican como en el
-breaker. No hay segunda ola de fixes: lo load-bearing residual sube al humano.
+breaker (Ruling en lo load-bearing). No hay segunda ola de fixes: lo load-bearing
+residual llega al humano en «Rulings I made» y al terminar la rama.
 
 ## Mutación (review-package)
 
