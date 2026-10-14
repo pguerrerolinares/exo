@@ -3,7 +3,7 @@
 - **Fecha**: 2026-10-05 · **Base**: `origin/main` @ `a3fcb5f` (PR #45 incluido; el `main` local está 3 commits detrás).
 - **Método**: recon de vigencia contra el código, no contra el backlog (lección 3 de la ola 2, `config.md` bloque 2026-09-20). Fueron tres recon en paralelo: KB, specs/planes desde el 09-22, y `docs/backlog.md` + `pendiente-paul.md` + `config.md` contra el árbol.
 - **Oráculo base hoy**: `cargo test --release --locked` en `engine/` ⇒ **exit 0**, 621 passed, 0 failed, 12 ignored (~40 s). Los 15 `scripts/test-*.sh` existen; no se ejecutaron en el recon.
-- Citas: `backlog:N` = `docs/backlog.md:N` en `a3fcb5f` · `KB-exo:N` = `wisdom-paul/backlog/Backlog — exo.md:N` · `BIT:N` = `wisdom-paul/log/exo-bitacora.md:N`.
+- Citas: `backlog:N` = `docs/backlog.md:N` en `a3fcb5f` · `KB-exo:N` = `<kb>/backlog/Backlog — exo.md:N` · `BIT:N` = `<kb>/log/exo-bitacora.md:N`.
 
 ## 0. Urgente, antes que nada
 
@@ -42,7 +42,7 @@ Cada ítem se cierra en N con la evidencia citada. Ninguno abre trabajo.
 | Diagrama M0..M7 de `config.md:36-47` | M0-M4 y M6 hechos, M5a decidido no construir. Solo queda vivo M5b (D3) | backlog «M5a no se construye» |
 | Oráculos de `config.md:441-475` | `kbx doctor --kb …/kb-demo` (kb-demo no existe, kbx retirado), `make check` de kbx, `evals/retrieval-fase0/eval.jsonl` (no existe) | `ls` |
 | ALERTA del `.gitignore` en `config.md:10-15` | resuelta: la excepción `!.superpowers/fabrica/config.md` existe | `.gitignore` |
-| `pendiente-paul.md`: bloques C (D4/D5/D6), E/D (ya RESUELTAS), J (juzgado y congelado en `a936770`), L (padres cerrados), «pushear wisdom-paul» (hecho) | históricos | ledger ola 2 |
+| `pendiente-paul.md`: bloques C (D4/D5/D6), E/D (ya RESUELTAS), J (juzgado y congelado en `a936770`), L (padres cerrados), «pushear la KB personal» (hecho) | históricos | ledger ola 2 |
 | Campaña K | cerrada sin campaña L, por decisión de Paul | BIT:71, `evals/ablacion-k/verdict-etapa1.md` |
 | Worktree `.worktrees/campana-k` y ~27 ramas locales ya mergeadas | basura: ver D6 | `git branch --merged` |
 

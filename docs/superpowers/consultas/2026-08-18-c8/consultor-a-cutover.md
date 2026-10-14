@@ -45,7 +45,7 @@ sin push (`git -C exo log origin/main..main` vacío).
 
 **Se hace (b): `exo/.claude-plugin/marketplace.json` en la raíz de exo con
 `process` como source de path relativo, registrado con
-`claude plugin marketplace add /home/paul/Documentos/proyectos/exo`. No (a),
+`claude plugin marketplace add ~/Documentos/proyectos/exo`. No (a),
 no (c), no skills-dir.**
 
 Evidencia de que (b) funciona pieza a pieza, sin inventar schema:
@@ -112,7 +112,7 @@ Comparación fichero a fichero contra los dos plugins funcionando:
 | hooks/agents/scripts | hooks+scripts | hooks+agents+scripts | scripts (de orchestrate) | no — opcionales; process no declara hooks a propósito |
 | README / LICENSES | README en reflex | — | README + LICENSES/superpowers.LICENSE | no (M3-04 ya satisfecho en repo desde prep-M3, spec prep-m3 §8) |
 
-`claude plugin validate /home/paul/Documentos/proyectos/exo/plugins/process` →
+`claude plugin validate ~/Documentos/proyectos/exo/plugins/process` →
 «✔ Validation passed» (exit 0) — los componentes ya son válidos tal cual,
 incluido el `:` dentro de las descriptions.
 
@@ -185,7 +185,7 @@ contradice el «sustituto mínimo» de framework §5.2. (iii) core-index ya se
 inyecta cada arranque por el recall de reflex y lo mantiene `/consolida`
 (línea final de la propia nota); `~/.claude/CLAUDE.md` es un extracto
 regenerado desde la KB — meter ahí routing operativo del harness invierte su
-contrato («Fuente de verdad: nota [[Paul - perfil de trabajo]]»).
+contrato («Fuente de verdad: nota del perfil de trabajo del dueño de la KB»).
 
 **Texto EXACTO** (bullet final de la sección `## Doctrina compacta`): base = el
 texto propuesto en spec prep-m3 §6.1, MENOS la coletilla del contador de
@@ -267,7 +267,7 @@ comandos, ~2 minutos, y forman un único gesto atómico.
 así la línea roja «no desactives superpowers sin process listo el mismo día»
 se cumple incluso si un paso intermedio falla: no hay ventana sin skills):*
 
-5. `claude plugin marketplace add /home/paul/Documentos/proyectos/exo`
+5. `claude plugin marketplace add ~/Documentos/proyectos/exo`
 6. `claude plugin install process@exo`  (queda enabled por defecto —
    `defaultEnabled` default true, doc §marketplace schema)
 7. Verificar: `claude plugin list` muestra `process@exo` enabled.

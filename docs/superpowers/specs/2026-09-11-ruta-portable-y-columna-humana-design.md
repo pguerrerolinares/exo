@@ -60,7 +60,7 @@ real en Windows el 2026-09-11:
 | `budget --json` `.data.offenders[].path` | walker | `projects/lighthouses-bot.md` |
 | `lint --json` `.data.waived[].path` | walker | `README.md` |
 | `search --json` `.data.results[].path` | índice | `backlog\Backlog — Memoria v2.md` |
-| `recall --json` / humano | índice + `kb.join()` | `C:/proyectos/homework/wisdom-paul\backlog\….md` |
+| `recall --json` / humano | índice + `kb.join()` | `C:/proyectos/homework/<kb>\backlog\….md` |
 
 La fila de `recall` es la cara: `engine/src/recall.rs:549-551` hace
 `kb.join(&nota.ruta)` con `kb` en `/` (viene de config) y `ruta` en `\` (viene del
@@ -71,13 +71,13 @@ Y esa ruta mixta es la que `plugins/exo/scripts/recall-inject.sh` inyecta en
 
 ```
 === Recall exo (… material de la KB en C:/proyectos/homework …) ===
-- wisdom-paul\log\kbx-bitacora.md — kbx-bitacora
-- wisdom-paul\archive\log\backlog-diario-2026-07-05_2026-08-03.md — backlog-diario-…
+- <kb>\log\kbx-bitacora.md — kbx-bitacora
+- <kb>\archive\log\backlog-diario-2026-07-05_2026-08-03.md — backlog-diario-…
 ```
 
 Tres daños en dos líneas:
 
-1. La raíz común sale mal (`C:/proyectos/homework` en vez de `…/wisdom-paul`),
+1. La raíz común sale mal (`C:/proyectos/homework` en vez de `…/<kb>`),
    porque `recall-inject.sh:272-289` hace `split("/")` sobre una ruta mixta.
 2. Las rutas llevan `\`: pegadas en bash, la barra se come como escape y la ruta
    deja de existir.
@@ -85,7 +85,7 @@ Tres daños en dos líneas:
    por el mismo `split("/")`.
 
 Nadie lo había visto porque **la forma es válida** — ley 1 de
-[[Fallo silencioso — el instrumento que no grita]].
+«Fallo silencioso — el instrumento que no grita».
 
 ### 2.3 La prosa miente, y un test ya la contradecía
 
@@ -128,11 +128,11 @@ ver D0b.
 separador. Prueba, en la salida real de hoy:
 
 ```
-C:/proyectos/homework/wisdom-paul\backlog\Backlog — Memoria v2.md
+C:/proyectos/homework/<kb>\backlog\Backlog — Memoria v2.md
                                  ↑ este lo puso join, no el índice
 ```
 
-Así que D0 por sí sola deja `recall` en `…wisdom-paul\backlog/Backlog.md`: un
+Así que D0 por sí sola deja `recall` en `…<kb>\backlog/Backlog.md`: un
 `\` menos, mixta igual. Toda **emisión** de ruta absoluta concatena
 explícitamente con `/`:
 
@@ -348,11 +348,11 @@ $ exo search --type hybrid --json --limit 2 "fallo silencioso" | jq -c '.data | 
 ["elapsed_s","query","results","search_type"]
 
 $ exo search --type hybrid --limit 3 "fallo silencioso"
-wisdom-paul/backlog/backlog-memoria-v2	entity	0.6000
-wisdom-paul/log/doctrina-agentes-bitacora	entity	0.5849
+<kb>/backlog/backlog-memoria-v2	entity	0.6000
+<kb>/log/doctrina-agentes-bitacora	entity	0.5849
 
 $ exo recall --query "fallo silencioso" --limit 3
-- C:/proyectos/homework/wisdom-paul\backlog\Backlog — Memoria v2.md — Backlog — Memoria v2
+- C:/proyectos/homework/<kb>\backlog\Backlog — Memoria v2.md — Backlog — Memoria v2
 
 $ exo budget --json | jq -c '.data.offenders[0]'
 {"budget":16000,"path":"projects/lighthouses-bot.md","size_bytes":15904,"tier":"stable"}

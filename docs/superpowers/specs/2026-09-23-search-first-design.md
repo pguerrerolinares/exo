@@ -8,7 +8,7 @@
 Paul pidió ejecutar la Task 5 de la campaña I (fundir los tres guards de
 `PreToolUse:Bash`). El agente principal recibió al arrancar el `core-index`,
 que dice «Antes de trabajo sustantivo, busca contexto (exo search --type
-hybrid, exo targets)» (`wisdom-paul/core/core-index.md:17`), y del hook
+hybrid, exo targets)» (`<kb>/core/core-index.md:17`), y del hook
 `UserPromptSubmit` un top-3 automático irrelevante. No ejecutó `exo search`
 ni `exo targets`: hizo `Grep` en el repo, leyó el plan y despachó al
 ejecutor. Al preguntarle, lo reconoció como un atajo («el plan del repo ya
@@ -108,7 +108,7 @@ siempre exit 0. Se cablea en `plugins/exo/hooks/hooks.json`:
 
 ## 5. Regla del `core-index`
 
-En `wisdom-paul/core/core-index.md:17` se cambia la frase «Antes de trabajo
+En `<kb>/core/core-index.md:17` se cambia la frase «Antes de trabajo
 sustantivo, busca contexto (exo search --type hybrid, exo targets)» por una
 de la misma longitud, con disparador concreto:
 
@@ -117,7 +117,7 @@ de la misma longitud, con disparador concreto:
 > reflejo `search-first` avisa si no).
 
 `core-index` es un índice: se cambia la frase, no se comprime nada alrededor.
-Commit aparte en `wisdom-paul`, con `exo ratchet` en verde.
+Commit aparte en la KB, con `exo ratchet` en verde.
 
 ## 6. Tests
 
@@ -170,7 +170,7 @@ comentario» (§«Cuándo tocaría revisar el nunca bloquear»).
   `scripts/test-docs-vivos.sh`, `scripts/test-versiones.sh`,
   `scripts/test-exec-bit.sh`.
 - Commits: script + test; cableado + versión + docs; `docs/backlog.md` con
-  las cifras; en `wisdom-paul`, la regla (§5) y el enlace del ítem (§8).
+  las cifras; en la KB, la regla (§5) y el enlace del ítem (§8).
 
 ## 10. Fuera de alcance (YAGNI)
 

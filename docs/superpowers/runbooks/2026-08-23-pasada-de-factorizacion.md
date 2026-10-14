@@ -181,7 +181,7 @@ Reglas, todas de la doctrina ya escrita:
   qué contiene y cuándo ir. Un índice **no se destila**.
 - `desarrollo-agentico`: igual, con las hijas por género.
 - **`core-index` no cambia** más allá de lo que hizo la spec B: sigue apuntando
-  a `[[doctrina-agentes]]` y `[[desarrollo-agentico]]` como puertas únicas. Las
+  a `doctrina-agentes` y `desarrollo-agentico` como puertas únicas. Las
   hijas **no** se listan en `core-index` — ese es el punto de la madre-índice, y
   es lo que impide que la partición coma el presupuesto de 6.144 caracteres.
 

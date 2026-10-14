@@ -58,11 +58,11 @@ Script: `scratchpad/mine2.py` (no entra al repo). Universo: sesiones con al meno
 | Primer acceso a la KB en la sesión | Sesiones |
 |---|---|
 | `exo search` | **5** |
-| `grep`/`rg`/`Grep`/`Read` sobre `wisdom-paul` | **6** |
+| `grep`/`rg`/`Grep`/`Read` sobre la KB personal | **6** |
 | ninguno | 2 |
 
 Totales en esas 13: **78 greps sobre la KB frente a 23 `exo search`** (3,4:1). Los peores
-casos: `b24d2da2` (18-sep, wisdom-paul, 12 turnos): **20 greps, 0 search**; `06876e80`:
+casos: `b24d2da2` (18-sep, KB personal, 12 turnos): **20 greps, 0 search**; `06876e80`:
 6/0; `570d039f` (ai-news, 61 turnos): 1/0.
 
 Tres cosas que salen de leer los comandos, no solo de contarlos:
@@ -117,7 +117,7 @@ cada snippet a 200 B (`SNIPPET_MAX_BYTES`) y el presupuesto derivado sigue por e
 - La nota del proyecto dice que la ola 1 (PR #26) cerró D6 con `hybrid` por defecto en
   `search`; **el binario instalado es 0.1.0 y sigue en `fts`**. Mientras no se instale 0.2.0,
   cualquier literal sin `--type hybrid` degrada en silencio con forma válida (ley 1 de
-  [[Fallo silencioso]]).
+  «Fallo silencioso»).
 
 ---
 

@@ -143,7 +143,7 @@ porque el guard busca "Contrato de memoria", que sobrevive siempre).
 ```markdown
 Se inyecta al arranque (hook reflex) dentro de un bloque de **6.144 bytes**
 compartido con los punteros de actividad reciente: lo que sobra se trunca **en
-silencio** por el final. Doctrina completa: [[doctrina-agentes]].
+silencio** por el final. Doctrina completa: doctrina-agentes.
 ```
 
 280 B → 220 B, y deja de mentir. Es el mismo defecto que esta spec cura en el

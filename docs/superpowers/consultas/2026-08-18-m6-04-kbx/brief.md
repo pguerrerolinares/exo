@@ -16,9 +16,9 @@ No edites la spec, no commitees, no toques código. Solo el veredicto.
 
 ## Contexto obligatorio (léelo, no lo asumas)
 
-Repo exo: `/home/paul/Documentos/proyectos/exo` (branch `main`, limpio, C9 mergeada).
-Repo kbx: `/home/paul/Documentos/proyectos/kbx` (Go, ~10.5k LOC).
-KB viva: `/home/paul/Documentos/proyectos/kb-demo` (138 notas markdown).
+Repo exo: `~/Documentos/proyectos/exo` (branch `main`, limpio, C9 mergeada).
+Repo kbx: `~/Documentos/proyectos/kbx` (Go, ~10.5k LOC).
+KB viva: `~/Documentos/proyectos/kb-demo` (138 notas markdown).
 
 - `docs/superpowers/plans/2026-08-18-c9-m6-completo.md` §"Qué NO entra en este plan"
   — por qué salió M6-04 y qué recon ya se había hecho.
@@ -160,11 +160,11 @@ explícitamente qué decisión cae con él.**
 ## Punteros de memoria (rutas de fichero — no URIs MCP)
 
 La doctrina y el digest de memoria te los inyecta reflex al arrancar. Si necesitas más:
-- `/home/paul/Documentos/proyectos/kb-demo/projects/exo-framework-unificado-de-trabajo-agentico.md`
-- `/home/paul/Documentos/proyectos/kb-demo/projects/kbx — explorador determinista de la KB (Go).md`
-- `/home/paul/Documentos/proyectos/kb-demo/core/doctrina-agentes.md`
-- `/home/paul/Documentos/proyectos/kb-demo/log/kbx-bitacora.md`
-- `/home/paul/Documentos/proyectos/kb-demo/log/exo-bitacora.md`
+- `~/Documentos/proyectos/kb-demo/projects/exo-framework-unificado-de-trabajo-agentico.md`
+- `~/Documentos/proyectos/kb-demo/projects/kbx — explorador determinista de la KB (Go).md`
+- `~/Documentos/proyectos/kb-demo/core/doctrina-agentes.md`
+- `~/Documentos/proyectos/kb-demo/log/kbx-bitacora.md`
+- `~/Documentos/proyectos/kb-demo/log/exo-bitacora.md`
 
 ## Formato del veredicto (tu output final, markdown)
 

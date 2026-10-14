@@ -30,7 +30,7 @@ Contexto de fondo, si lo necesitas: `specs/2026-08-18-cierre-en-regimen-design.m
 §3.2/§3.4 (el encargo original), `plugins/reflex/scripts/exo-recall.sh` (el hook
 hermano y molde estético), `plugins/reflex/scripts/_reflex-log.sh`,
 `plugins/reflex/hooks/hooks.json`, `engine/src/main.rs` (flags de `exo recall`),
-`engine/src/recall.rs`. KB viva en `/home/paul/Documentos/proyectos/kb-demo`,
+`engine/src/recall.rs`. KB viva en `~/Documentos/proyectos/kb-demo`,
 índice en `~/.exo/index.db`, binario en `~/.local/bin/exo`. `sqlite3` CLI **no está
 instalado**; usa `python3 -c` con el módulo `sqlite3`.
 

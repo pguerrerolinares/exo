@@ -4,7 +4,7 @@
 Eres el consultor Fable del régimen de gates delegado del proyecto exo. Paul ha abierto GATE-HUECO-M2 hoy (2026-07-17) y ha delegado en ti las decisiones de diseño del breakdown de M2; él firma tus adjudicaciones. Tu deliverable es un veredicto escrito con una adjudicación FIRMADA por decisión (no un menú de opciones): elige, razona corto, deja el trade-off explícito.
 
 ## Contexto obligatorio (léelo, no lo asumas)
-Repo: `/home/paul/Documentos/proyectos/exo` (branch main, limpio).
+Repo: `~/Documentos/proyectos/exo` (branch main, limpio).
 - `docs/superpowers/specs/2026-07-16-framework-unificado-design.md` — spec madre. Secciones críticas: §4.2 (componentes), §4.3 (recortes v1), §4.4 (estrangulamiento E1), §4.5 (por qué Rust), §6.2 (reglas duras del indexer), §7 (roadmap, M2 = 8-15 noches), §8 (ejecución con fábrica, routing de lanes).
 - `.superpowers/fabrica/config.md` — gates y lanes. GATE-HUECO-M2 ya abierto (commit reciente). Nota: M2 NO está gateado por GATE-CALENDARIO-D, pero cualquier cosa que altere marketplace/skills/recall del agente SÍ lo está — E1 es side-by-side, sin cutover (el cutover del hook de recall es M6).
 - `evals/retrieval-fase0/` — eval set permanente (56 queries etiquetadas, ground truth a nivel de nota), `gate.md` (cómo se pre-registró el gate de M0), `verdict/m0-verdict.md` (verdict que firmó Rust y jina-es/768/threshold 0.35), `harness/` (replay.py, analyze.py, stratify.py, run-arm.sh — Python, funcionan hoy contra basic-memory CLI).

@@ -203,7 +203,7 @@ C6 quedó partida (01/02 hechos). Sus restos no se ejecutan en orden numérico:
 |---|---|---|
 | 1º | **M6-05** doctrina | Es solo texto y **hoy miente**: `core-index`, `doctrina-agentes`, el `CLAUDE.md` global de Paul y la description de `recon-first` siguen diciendo que la memoria persistente es el MCP, cuando el arranque ya lo sirve `exo recall`. Cuesta cada sesión y se arregla en media hora |
 | 2º | **M6-04** kbx al índice del engine | Riesgo cosido: `/consolida` falla-fuerte ante `schema_drift`. La lista `consumed` del schema-canary va **en el mismo commit** o el primer `/consolida` post-cutover muere |
-| 3º | **M6-03** reflex al monorepo | El gordo. Es donde se resucitan los dos guardrails desenchufados (§1.1) y donde mueren las rutas absolutas a `/home/paul/…` |
+| 3º | **M6-03** reflex al monorepo | El gordo. Es donde se resucitan los dos guardrails desenchufados (§1.1) y donde mueren las rutas absolutas a `~/…` |
 | 4º | **M6-06** recall en el punto de uso | Después de M6-03 porque toca los mismos hooks; abrirlo antes obliga a tocar reflex dos veces |
 
 ---

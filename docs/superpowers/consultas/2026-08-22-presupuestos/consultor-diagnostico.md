@@ -282,7 +282,7 @@ medición: 7 de 11 son notas de proyecto con convergencia demostrada al cierre.
 
 Para las 2 áreas genuinas, la banda + evicción no basta a largo plazo: piden
 **factorización continua** — el capítulo maduro sale a nota propia con título de
-afirmación (exactamente lo que consolida hizo ayer con [[Fallo silencioso]]), y
+afirmación (exactamente lo que consolida hizo ayer con «Fallo silencioso»), y
 el cajón queda como spine/índice. El modelo correcto de una nota-área no es
 "nota que converge" sino **bomba de dos tiempos**: lo nuevo aterriza en el spine,
 madura, y consolida lo bombea a nota propia. La banda dimensiona la cámara; la
