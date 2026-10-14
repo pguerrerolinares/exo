@@ -35,9 +35,9 @@ algo por su cuenta no se le pide más fuerte, **se le pone delante con un hook**
 
 ## Contexto obligatorio (léelo, no lo asumas)
 
-Repo exo: `/home/paul/Documentos/proyectos/exo` (branch `main`, limpio, M6-04
+Repo exo: `~/Documentos/proyectos/exo` (branch `main`, limpio, M6-04
 cerrado y cutover ejecutado el 2026-08-22).
-KB viva: `/home/paul/Documentos/proyectos/kb-demo` (~138 notas markdown).
+KB viva: `~/Documentos/proyectos/kb-demo` (~138 notas markdown).
 Índice del engine: `~/.exo/index.db`. Binario instalado: `~/.local/bin/exo`.
 `sqlite3` CLI **no está instalado**; usa `python3 -c` con el módulo `sqlite3`.
 
@@ -63,7 +63,7 @@ KB viva: `/home/paul/Documentos/proyectos/kb-demo` (~138 notas markdown).
 - `plugins/reflex/scripts/_reflex-log.sh` — el logger que ya existe (relevante a D7).
 - `engine/evals/` (o donde viva `eval.jsonl`, 56 queries) — el oráculo de retrieval
   que cualquier cambio a `prepara_query` tendría que no romper.
-- Nota de la KB `[[Fallo silencioso — el instrumento que no grita]]` — las seis leyes
+- Nota de la KB «Fallo silencioso — el instrumento que no grita» — las seis leyes
   que este hook puede violar con facilidad.
 
 ## Restricciones firmadas (NO adjudicables)

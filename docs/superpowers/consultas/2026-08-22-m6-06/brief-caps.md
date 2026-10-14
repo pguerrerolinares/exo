@@ -37,7 +37,7 @@ presupuesto — exactamente lo que la spec decía que NO debía hacer.
 | componente | bytes | % del bloque de 3 hits |
 |---|---|---|
 | snippets (×3) | 567 | 50% |
-| prefijo `/home/paul/Documentos/proyectos/kb-demo/` **repetido en cada hit** | 132 | 12% |
+| prefijo `/home/<user>/Documentos/proyectos/kb-demo/` (usuario de 4 letras) **repetido en cada hit** | 132 | 12% |
 | cabecera + footer | 132 | 12% |
 | títulos (×3) | ~99 | 9% |
 

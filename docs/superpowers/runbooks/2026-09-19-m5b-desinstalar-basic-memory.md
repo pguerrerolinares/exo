@@ -34,14 +34,14 @@
    precedencia `flag > env > config > error accionable`, sin fallback a
    basic-memory salvo `exo init --from-basic-memory`, explícito).
 6. La KB está commiteada y pusheada (el plan de cierre dice "en kb-demo";
-   hoy el nombre real es `wisdom-paul`). → **Comprobación E** abajo.
+   hoy la KB tiene otro nombre). → **Comprobación E** abajo.
    **Estado real al ejecutar esta comprobación (2026-09-20): NO
    satisfecho** — hay un commit sin pushear. Ver Comprobación E.
 
 ## Comprobación A — el hook de recall no llama a basic-memory (ni en fallback)
 
 ```bash
-cd /home/paul/Documentos/proyectos/exo
+cd ~/Documentos/proyectos/exo
 git grep -in "mcp__basic" -- plugins/ engine/
 echo "exit=$?"
 ```
@@ -53,7 +53,7 @@ engine.
 ## Comprobación B — la única lectura de basic-memory que sobrevive es la explícita
 
 ```bash
-cd /home/paul/Documentos/proyectos/exo
+cd ~/Documentos/proyectos/exo
 grep -rn "basic-memory/config.json" engine/src/ | grep -v inicia.rs
 ```
 
@@ -72,7 +72,7 @@ toca esa ruta sigue siendo `engine/src/inicia.rs`, exclusiva de
 ## Comprobación C — `/document` y `/distill` no invocan tools MCP de basic-memory
 
 ```bash
-cd /home/paul/Documentos/proyectos/exo
+cd ~/Documentos/proyectos/exo
 grep -in "mcp__basic\|basic-memory" \
   plugins/exo/skills/document/SKILL.md \
   plugins/exo/skills/distill/SKILL.md \
@@ -88,7 +88,7 @@ binario, no vía MCP).
 ## Comprobación D — `hooks.json` sin matchers `mcp__basic-memory__*`
 
 ```bash
-cd /home/paul/Documentos/proyectos/exo
+cd ~/Documentos/proyectos/exo
 grep -n "basic-memory\|mcp__basic" plugins/exo/hooks/hooks.json
 echo "exit=$?"
 ```
@@ -101,9 +101,9 @@ matcher de tool MCP.
 ## Comprobación E — la KB está commiteada y pusheada (snapshot de hoy)
 
 ```bash
-git -C /home/paul/Documentos/proyectos/wisdom-paul status --porcelain
-git -C /home/paul/Documentos/proyectos/wisdom-paul rev-parse --abbrev-ref --symbolic-full-name @{u}
-git -C /home/paul/Documentos/proyectos/wisdom-paul log @{u}..HEAD --oneline
+git -C <ruta-de-la-KB> status --porcelain
+git -C <ruta-de-la-KB> rev-parse --abbrev-ref --symbolic-full-name @{u}
+git -C <ruta-de-la-KB> log @{u}..HEAD --oneline
 ```
 
 Output real (verificado 2026-09-20): `status --porcelain` vacío (árbol
@@ -111,11 +111,11 @@ limpio), upstream `origin/main`, **`log @{u}..HEAD` NO vacío**:
 ```
 6bf57d5 docs(kb): documenta frente de tasa de re-explicación de exo
 ```
-Hay **un commit sin pushear** en `wisdom-paul`. Esto difiere del snapshot
+Hay **un commit sin pushear** en la KB. Esto difiere del snapshot
 citado en el plan (2026-09-19, donde salía vacío) — confirma que este dato
 cambia día a día y que el checklist C10 punto 6 **NO está satisfecho ahora
 mismo**. **Paul: repite esta comprobación justo antes de desinstalar** y
-haz `git -C /home/paul/Documentos/proyectos/wisdom-paul push` (o
+haz `git -C <ruta-de-la-KB> push` (o
 equivalente) si vuelve a salir un commit pendiente — no es una garantía
 permanente, es un snapshot del momento de ejecutar la comprobación.
 
@@ -144,7 +144,7 @@ distinto que el 2026-09-19):
    Medido hoy (2026-09-20, solo lectura): `mcpServers.basic-memory` no
    lleva ninguna clave `disabled` (es la config de conexión `stdio` sin
    más) — lo que existe de verdad es
-   `projects["/home/paul/Documentos/proyectos/exo"].disabledMcpServers`,
+   `projects["~/Documentos/proyectos/exo"].disabledMcpServers`,
    un array que incluye `"basic-memory"` (junto con otros servidores
    desactivados para ese proyecto). O sea: desactivado para el proyecto
    `exo` vía esa lista, pero sigue registrado globalmente en
@@ -158,7 +158,7 @@ distinto que el 2026-09-19):
    este runbook).
 4. **Limpiar el residuo vacío**: `rmdir ~/basic-memory` si sigue vacío
    (`ls -la ~/basic-memory` antes de borrar, por si alguna vez se pobló).
-5. **NO tocar** `/home/paul/Documentos/proyectos/wisdom-paul` — esa es la
+5. **NO tocar** `<ruta-de-la-KB>` — esa es la
    KB, vive fuera de basic-memory y la sigue usando `exo`.
 6. **Verificación post-desinstalación**: `claude mcp list` sin
    `basic-memory`; sesión nueva de Claude Code en el repo `exo` arranca
@@ -170,22 +170,22 @@ distinto que el 2026-09-19):
 
 Si algo falla tras el paso 3 (p. ej. se necesita releer una nota vieja que
 solo basic-memory tenía indexada — no debería pasar, la KB en markdown
-sigue intacta en `wisdom-paul/`, pero por si el índice de basic-memory
+sigue intacta en `<kb>/`, pero por si el índice de basic-memory
 guardaba algo que el markdown no):
 
 1. Los datos NUNCA vivieron solo en `~/.basic-memory/` — es un índice
-   derivado de `wisdom-paul/` (markdown, en git). Nada se pierde al borrar
+   derivado de `<kb>/` (markdown, en git). Nada se pierde al borrar
    el índice.
 2. Para volver a tener el MCP disponible: `uvx basic-memory mcp` sigue
    funcionando sin reinstalar nada persistente (`uvx` descarga/cachea bajo
    `uv` en caliente); solo hace falta re-añadirlo con
    `claude mcp add basic-memory -- uvx basic-memory mcp` (o restaurar la
    entrada en `~/.claude.json`) y dejar que regenere su índice desde
-   `wisdom-paul/` (`basic-memory sync` o equivalente, fuera de alcance de
+   `<kb>/` (`basic-memory sync` o equivalente, fuera de alcance de
    `exo`).
 3. Si se borró `~/.basic-memory/config.json` por error: recrearlo con
-   `default_project: "wisdom-paul"` y el proyecto `wisdom-paul` apuntando a
-   `path: "/home/paul/Documentos/proyectos/wisdom-paul"` (verificado hoy,
+   `default_project: "<kb>"` y el proyecto `<kb>` apuntando a
+   `path: "<ruta-de-la-KB>"` (verificado hoy,
    2026-09-20, leyendo `~/.basic-memory/config.json` en vivo — claves
-   `default_project` y `projects.wisdom-paul.path`) es suficiente para que
-   vuelva a apuntar a `wisdom-paul/`.
+   `default_project` y `projects.<kb>.path`) es suficiente para que
+   vuelva a apuntar a `<kb>/`.

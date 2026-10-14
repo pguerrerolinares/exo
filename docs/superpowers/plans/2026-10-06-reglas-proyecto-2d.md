@@ -4,7 +4,7 @@
 
 **Plan:** ~25 min, ~12 turnos, 17 KB
 
-**Goal:** que la sesión principal de Claude Code en el repo X reciba en el system prompt, con el framing sellado de #49, las reglas de `## Reglas duras` de la nota-puerta de X. Y que Paul vea cuando eso falla de forma anómala.
+**Goal:** que la sesión principal de Claude Code en el repo X reciba en el system prompt, con el framing sellado de #49, las reglas de `## Reglas duras` de la nota-puerta de X. Y que el mantenedor vea cuando eso falla de forma anómala.
 
 **Architecture:**
 - `exo rules` (engine Rust) resuelve cwd → nota → sección y devuelve `ok` o `skip` en el envelope.
@@ -86,7 +86,7 @@
 **Verificación:** `cargo test --manifest-path engine/Cargo.toml && cargo clippy --manifest-path engine/Cargo.toml --all-targets --locked -- -D warnings && cargo fmt --manifest-path engine/Cargo.toml --check` → todo verde.
 
 **Review Focus:**
-- Un cwd dentro de la propia KB (que también es un repo git) resuelve como cualquier otro repo: `sin_nota` si no hay nota `wisdom-paul`. Hay test implícito en `sin_nota`; añade uno explícito.
+- Un cwd dentro de la propia KB (que también es un repo git) resuelve como cualquier otro repo: `sin_nota` si no hay nota de la KB personal. Hay test implícito en `sin_nota`; añade uno explícito.
 - Frontmatter sin `slug`, o `slug` con comillas: usa `frontmatter::valor` y quita las comillas. Test con `slug: "foo"`.
 - Una línea `-x` sin espacio no es regla: va a `ignored_lines`.
 - Un fallo al lanzar git (binario ausente) es error del engine (exit ≠0), no `sin_git`.

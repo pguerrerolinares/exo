@@ -220,7 +220,7 @@ olvida":
   hacia notas concretas de `archive/` (no solo hacia el directorio en
   abstracto) — ver `Backlog`, `core/core-index.md`,
   `projects/kbx (Go).md`, `log/kbx-bitacora.md`, `log/agent-solve-it-bitacora.md`,
-  `log/openwisdom-bitacora.md`, entre otras.
+  `log/<otro-proyecto>-bitacora.md`, entre otras.
 - No existe un log de queries en el índice (`~/.exo/index.db` no tiene tabla
   de histórico de búsquedas), así que **no se puede medir cuántas veces se ha
   leído** cada nota archivada — solo que el mecanismo que la haría legible

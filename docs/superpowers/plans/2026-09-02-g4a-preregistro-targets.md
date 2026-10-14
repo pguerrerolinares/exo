@@ -29,7 +29,7 @@
   fichero**: kbx ya consume el esquema de exo (`notas`, `notas_fts`,
   `aristas`) desde M6-04, así que esto es paridad real, no dos índices
   parecidos.
-- **KB**: `wisdom-paul`, el árbol real.
+- **KB**: la KB personal, el árbol real.
 
 ## Qué se compara y qué no
 
@@ -109,7 +109,7 @@ Por topic, con `--limit 10` en los dos binarios:
 
 ```bash
 mkdir -p /tmp/g4a && cp ~/.exo/index.db /tmp/g4a/index.db
-KB=~/…/wisdom-paul
+KB=~/…/<kb>
 for t in "indexer" "reflex" "memoria" "kbx" "recall en el punto de uso"; do
   slug=$(echo "$t" | tr ' ' '-')
   kbx targets --db /tmp/g4a/index.db --kb "$KB" --limit 10 --json "$t" \

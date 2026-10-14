@@ -21,7 +21,7 @@
   `git diff 3c1918f -- engine/src plugins/exo/scripts` salga vacío**. Las
   Tasks 1 y 2 solo añaden `engine/examples/` y `evals/recall-coste/`, así que
   se cumple. `bench.sh` deja apuntado ese diff en `entorno.txt`.
-- **Máquina:** el Linux de Paul (12 hilos, NVMe con ext4 tanto en `/tmp`
+- **Máquina:** el Linux del mantenedor (12 hilos, NVMe con ext4 tanto en `/tmp`
   como en `~`, kernel 7.0.0-31, hyperfine 1.20.0, jq 1.7, git 2.43.0).
   `/tmp` y `~/.exo` están en el mismo disco, así que los fsync que se midan
   son de verdad.
@@ -37,7 +37,7 @@
 ## El corpus
 
 Lo genera `kb_sintetica <N> <DIR> 42`. La forma de cada nota copia la de la
-KB real `wisdom-paul`, medida el 2026-09-13 sobre una copia de su índice:
+KB personal real, medida el 2026-09-13 sobre una copia de su índice:
 
 | Medida real (2026-09-13) | Valor | Parámetro del generador |
 |---|---|---|
@@ -120,7 +120,7 @@ Son falsables. Si una no se cumple, se anota como fallida y **no se reescribe**.
 | **C-H17b** | Tras la Task 3, si el p50 de `s2` con `N=5000` menos el p50 de `s2` con `N=174` es > 250 ms, el número se entrega a la campaña C o al backlog (KNN o índice particionado). En A **no se arregla** | derivación |
 | **C-H23** | Si el p50 de `s8` con `N=5000` es > 2.000 ms, se abre un item en el backlog. En A no se arregla | derivación |
 | **C-H10** | La Task 12 **solo se ejecuta** si el p50 de `s7` en Linux es > 30 ms, o si la medición manual en W11 (§W11) da un p50 > 100 ms | puerta de la Task 12 |
-| **C-H5** | `s10` no decide nada por sí solo: sus números van a la decisión D3 de Paul | informe |
+| **C-H5** | `s10` no decide nada por sí solo: sus números van a la decisión D3 del mantenedor | informe |
 | **C-noregresión** | Tras la campaña, el p50 de `s5` y de `s3` para cada `N` queda ≤ 1,2 × el de la línea base + 2 ms. Los 2 ms absolutos cubren la resolución: `resumen.tsv` trunca a milisegundos enteros y `s5` ronda los 5 ms | FALLA de la campaña si se incumple |
 
 Los criterios los aplica `evals/recall-coste/harness/compara.sh`, que se
@@ -144,12 +144,12 @@ reason=timeout-guard`) fuera de sesiones `test*`, se cumpla una de estas dos:
 - el p95 de `elapsed_ms + refresh_ms` sobre los `emitted` es **> 1.500 ms**;
 - los timeouts suponen **> 2%** de los disparos.
 
-Los valores 1.500 ms, 2% y 200 son una **propuesta** que queda pendiente de
-Paul (D4 del plan). Si los cambia al gatear, se sustituyen aquí y en las tres
+Los valores 1.500 ms, 2% y 200 son una **propuesta** que queda pendiente del
+mantenedor (D4 del plan). Si los cambia al gatear, se sustituyen aquí y en las tres
 constantes de la Task 13 antes de ejecutarla. La ventana se evalúa **por
 máquina**: el log vive en el `$HOME` de cada una, y W11 no se mezcla con Linux.
 
-**Enmienda (2026-09-19, decisión de Paul #12, campaña I):** el criterio de
+**Enmienda (2026-09-19, decisión del mantenedor #12, campaña I):** el criterio de
 p95 pasa de `elapsed_ms + refresh_ms` (tiempo interno del engine, el que
 reporta el propio `exo recall`) a **`hook_ms`** (reloj de pared del hook
 `recall-inject.sh` entero, medido con `$EPOCHREALTIME`, sin spawn). Motivo:
@@ -174,9 +174,9 @@ justo lo que esta campaña existe para evitar. Con `hook_ms` siempre vacío,
 máquina, y el veredicto queda fijo en `INSUFICIENTE (menos de 200
 disparos)` sin importar cuánto se use el hook. **Esto es by design, no un
 hueco**: el umbral «1.500 ms p95 por SO» (decisión #12) se pensó para W11 y
-Linux — las dos plataformas de Paul con bash ≥5 real (Git Bash en W11,
+Linux — las dos plataformas del mantenedor con bash ≥5 real (Git Bash en W11,
 bash del sistema en Linux) — y nunca tuvo pensado macOS. Si alguna vez
-Paul usa macOS con el `/bin/bash` de fábrica, el criterio de reapertura de
+el mantenedor usa macOS con el `/bin/bash` de fábrica, el criterio de reapertura de
 este hook simplemente no aplica ahí; haría falta un bash ≥5 instalado
 aparte (Homebrew) para que `hook_ms` mida algo.
 
@@ -196,7 +196,7 @@ corridas — la misma brecha de ~10-14 ms. Ese tramo son 4 spawns que el
 reloj no ve: arranque de bash, el `dirname`/`pwd` que localiza el propio
 script (antes de `HOOK_START`), y el `date` + `jq` del `reflex_log` del
 evento `emitted` (después de que `hook_ms_de` ya cerró la medición). **En
-W11, a 25-60 ms por spawn** (medición de Paul,
+W11, a 25-60 ms por spawn** (medición del mantenedor,
 `evals/recall-coste/results/w11-2026-09-15.txt`), **esos mismos 4 spawns son
 100-250 ms que el instrumento nunca ve**, y el umbral de 1.500 ms p95 se
 compara contra una cifra que ya venía por debajo del coste real. No cambia
@@ -207,7 +207,7 @@ límite. Comentario correspondiente en `plugins/exo/scripts/recall-inject.sh`
 
 ## W11 (manual, sujeto a D5)
 
-El bench de arriba es solo de Linux. En la W11 de Paul, desde Git Bash, con
+El bench de arriba es solo de Linux. En la W11 del mantenedor, desde Git Bash, con
 una copia del índice y de la config de esa máquina:
 
 ```bash
@@ -238,13 +238,13 @@ real, en `scratchpad/bench/index.db`:
 
 | Qué | Comando | Resultado |
 |---|---|---|
-| `exo index` sin cambios | `exo index --db <copia> --kb wisdom-paul --json` ×4 | 12 / 20 / 19 / 21 ms |
+| `exo index` sin cambios | `exo index --db <copia> --kb <kb> --json` ×4 | 12 / 20 / 19 / 21 ms |
 | syscalls de ese index | `strace -f -c -e trace=fsync,fdatasync,pwrite64,openat` | **0 fsync**, 8 `pwrite64`, 314 `openat` (276 dentro de `.git/`) |
 | recall por prompt, flags del hook | `exo recall --query=… --min-similarity 0.40 --limit 4 --cap-bytes 4000 [--refresh] --json` | con refresh: 987–1000 ms; sin refresh: 982–1021 ms |
 | hybrid, tiempo interno | `exo search --type hybrid … --json \| jq .data.elapsed_s` | 0,943–0,966 s sobre 0,970–0,994 s de reloj |
 | suelo de proceso | `exo search --type fts … --json` | 5–8 ms (`elapsed_s` 0,004 s) |
 | config | `exo config --json` | 5–6 ms |
-| arranque del hook de SessionStart | `exo recall --content --note wisdom-paul/core/core-index --limit 10 --cap-bytes 6144` | 14–17 ms |
+| arranque del hook de SessionStart | `exo recall --content --note <kb>/core/core-index --limit 10 --cap-bytes 6144` | 14–17 ms |
 | log de reflejos | `wc`, `ls -la ~/.claude/reflex-log.jsonl` | 892.617 B, 2.174 líneas desde 2026-06-26 (~11 KB/día) |
 | jq de compactación | `jq -r 'select(.session_id=="x") \| .reflex' ~/.claude/reflex-log.jsonl` | 17–20 ms |
 | tope de KNN | programa aparte con rusqlite 0.40.1 y sqlite-vec =0.1.9, 4.100 vectores | `k=4096` ok; `k=4097` → `k value in knn query too large, provided 4097 and the limit is 4096`; barrido `vec_distance_l2` de 4.100 filas en 30 ms |

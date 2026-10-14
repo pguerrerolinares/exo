@@ -20,7 +20,7 @@ atacan las dos patas vivas de «Techos de escala» (tres conexiones de DB por
 disjuntos (`walker`, `lint`, `escritor`+`main.rs`, `lib.rs`, `trinquete`) sin
 dependencias cruzadas entre sí. Task 10 es un rename mecánico
 (`kb-demo`→`kb-test`) transversal a los tests. Task 11 es el cambio de
-superficie de D6 (decisión ya tomada por Paul), ampliado el mismo día para
+superficie de D6 (decisión ya tomada por el mantenedor), ampliado el mismo día para
 que `exo init` escriba su propio default de `[embeddings] min_similarity`
 desde la misma constante sellada, en vez de un segundo literal. Task 12
 sincroniza
@@ -83,7 +83,7 @@ Todas verificadas hoy contra `origin/main` (worktree `campana-g`).
 - **kbx ya no es referencia** (cerrado en la campaña D, `backlog:181`).
   Task 9 no depende de kbx ni de la máquina Linux para implementarse — la
   verificación cruzada contra `internal/ratchet` de kbx es un checklist
-  **opcional** de Paul (ver Task 9), nunca bloqueante.
+  **opcional** del mantenedor (ver Task 9), nunca bloqueante.
 - **Git:** `git add <rutas explícitas>`, nunca `-A`/`.`; `git -C <path>`,
   nunca `cd <path> && git`. Nada de push ni de tocar GitHub.
 - **Commits:** `<tipo>(g, <slug>): <mensaje>` — `refactor`, `perf`, `fix`,
@@ -1182,7 +1182,7 @@ git commit -m "perf(g, git-epoch): un git log por indexa en vez de uno por nota,
 ### Task 4: Unificar `walk_kb` sobre `walk_kb_excluyendo` (cambio de comportamiento declarado)
 
 **Lane:** mecánica, pero con **cambio de comportamiento declarado**
-(decisión 9 de Paul): `walk_kb` deja de ser case-sensitive con la extensión
+(decisión 9 del mantenedor): `walk_kb` deja de ser case-sensitive con la extensión
 y deja de recorrer dentro de `.git/` (276/314 `openat` medidos por H29 caían
 ahí). `doctor.rs` usa la misma función, así que hereda el cambio.
 
@@ -1207,7 +1207,7 @@ Añade a `engine/tests/walker.rs`, después de `walker_orden_determinista`:
 #[test]
 fn walk_kb_ahora_es_case_insensitive_como_walk_notas() {
     // Cambio de comportamiento declarado (Ola 1 G Task 4, backlog:821-845,
-    // decisión 9 de Paul): antes de unificar, un NOTA.MD no se indexaba
+    // decisión 9 del mantenedor): antes de unificar, un NOTA.MD no se indexaba
     // (walk_kb comparaba extensión exacta `Some("md")`); ahora sí.
     let dir = tempfile::tempdir().unwrap();
     fs::write(dir.path().join("NOTA.MD"), "x").unwrap();
@@ -1289,7 +1289,7 @@ new_string:
 /// `archive/` SE incluye (§6.2 regla 4).
 ///
 /// Unificada sobre `walk_kb_excluyendo` (Ola 1 G Task 4, backlog:821-845,
-/// decisión 9 de Paul: las dos funciones convivían con semánticas
+/// decisión 9 del mantenedor: las dos funciones convivían con semánticas
 /// distintas desde G4b — `walk_kb` no normalizaba mayúsculas y caminaba
 /// dentro de `.git/`, 276/314 `openat` medidos por H29). **Cambio de
 /// comportamiento declarado**: un `NOTA.MD` que antes no se indexaba ahora
@@ -1343,7 +1343,7 @@ al final de la sección que describe el pipeline de indexado.)
 
 ```bash
 git add engine/src/walker.rs engine/tests/walker.rs docs/arquitectura.md
-git commit -m "refactor(g, walker): unifica walk_kb sobre walk_kb_excluyendo — case-insensitive, ya no camina dentro de .git/ (decisión 9 de Paul)"
+git commit -m "refactor(g, walker): unifica walk_kb sobre walk_kb_excluyendo — case-insensitive, ya no camina dentro de .git/ (decisión 9 del mantenedor)"
 ```
 
 ---
@@ -2277,7 +2277,7 @@ git commit -m "fix(g, lib): embebe_batch valida dimension y norma de cada vector
 **Lane:** mecánica. **Depende de:** nada.
 
 **Checklist opcional, NO bloqueante** (Global Constraints: kbx ya no es
-referencia): si Paul quiere confirmar que la divergencia con
+referencia): si el mantenedor quiere confirmar que la divergencia con
 `internal/ratchet/staged.go` de kbx (`fe46443`) era accidental y no
 deliberada, puede correr `git -C ~/Documentos/proyectos/kbx show
 fe46443:internal/ratchet/staged.go` en la máquina Linux y comparar. **No
@@ -2626,10 +2626,10 @@ convertido a struct literal).
 task):
 - `engine/tests/help_producto.rs:154` — `(r"kb-demo", "nombre de la KB del
   autor")` es un patrón del gate anti-jerga que comprueba que `--help`
-  JAMÁS mencione el nombre real de la KB de Paul. Es la razón de ser de esa
+  JAMÁS mencione el nombre real de la KB del mantenedor. Es la razón de ser de esa
   línea, no una convención de fixture: renombrarla apagaría el gate.
 - `engine/tests/escritor.rs:29` — `// Pares extraídos de
-  /home/paul/Documentos/proyectos/kb-demo.` documenta de dónde salieron los
+  ~/Documentos/proyectos/kb-demo.` documenta de dónde salieron los
   pares `title`/`permalink` reales de `slug_replica_los_permalinks_reales_de_la_kb`.
   Es procedencia histórica, no un placeholder: los datos vinieron de esa
   KB con ese nombre.
@@ -2685,12 +2685,12 @@ new_string:
 
 old_string:
 ```rust
-    // Pares extraídos de /home/paul/Documentos/proyectos/kb-test.
+    // Pares extraídos de ~/Documentos/proyectos/kb-test.
 ```
 
 new_string:
 ```rust
-    // Pares extraídos de /home/paul/Documentos/proyectos/kb-demo.
+    // Pares extraídos de ~/Documentos/proyectos/kb-demo.
 ```
 
 `tests/recall_contenido.rs` (revierte el comentario de medición real):
@@ -2748,7 +2748,7 @@ git commit -m "test(g, kb-test): kb-demo -> kb-test como fixture generico en los
 
 ### Task 11: D6 — default de `exo search --type` pasa a `hybrid` + `--min-similarity 0.40`, y `exo init` alinea su propio default a la misma constante
 
-**Lane:** mecánica, superficie (decisión 1 de Paul, ya tomada; ampliada el
+**Lane:** mecánica, superficie (decisión 1 del mantenedor, ya tomada; ampliada el
 2026-09-15: el default que `exo init` escribe en `[embeddings]
 min_similarity` sube de 0.35 a **0.40**, usando la MISMA constante que sella
 el default de `--type hybrid`, no un segundo literal — ver Step 5).
@@ -2797,7 +2797,7 @@ Añade a `engine/tests/flags.rs`:
 ```rust
 #[test]
 fn el_default_de_search_type_es_hybrid_no_fts() {
-    // D6 (decisión 1 de Paul, 2026-09-15): el held-out ya decidió — A0
+    // D6 (decisión 1 del mantenedor, 2026-09-15): el held-out ya decidió — A0
     // (hybrid) gana a FTS en 41/55 filas, FTS a A0 en 0
     // (evals/retrieval-heldout/verdict/c-verdict.md). Este test comprueba
     // el `--help`: el default declarado por clap aparece ahí literal.
@@ -2841,7 +2841,7 @@ new_string:
     );
 }
 
-/// D6 ampliado (decisión de Paul, 2026-09-15, Ola 1 G Task 11): el default
+/// D6 ampliado (decisión del mantenedor, 2026-09-15, Ola 1 G Task 11): el default
 /// que `exo init` escribe en `[embeddings] min_similarity` sube de 0.35 a
 /// 0.40 — la MISMA constante `MIN_SIMILARITY_SELLADO` que ya sella el
 /// default de `exo search --type hybrid` (`flags.rs`,
@@ -2927,7 +2927,7 @@ new_string:
 /// --type hybrid` sin `--bonus`/`--fts-scale` explícitos; el sweep siempre
 /// pasó ambos flags, así que estos valores no afectaron su resultado. El
 /// threshold ganador (0.40) SÍ se sella aquí como constante desde el
-/// 2026-09-15 (D6, decisión 1 de Paul, Ola 1 G Task 11): el motivo original
+/// 2026-09-15 (D6, decisión 1 del mantenedor, Ola 1 G Task 11): el motivo original
 /// para no sellarlo — D-f3/§4.6, "el valor difiere del 0.35 de config y
 /// config es RO hasta M5a" — caducó cuando M5a-02 (config propia) cerró el
 /// 2026-08-26 (`docs/backlog.md:1945`, "M5a-02 config propia: cerrado el
@@ -2946,7 +2946,7 @@ new_string:
 ```rust
 const BONUS_SELLADO: f64 = 0.0;
 const ESCALA_FTS_SELLADA: f64 = 0.6;
-/// D6 (decisión 1 de Paul, 2026-09-15): umbral de similitud coseno para el
+/// D6 (decisión 1 del mantenedor, 2026-09-15): umbral de similitud coseno para el
 /// default nuevo de `exo search --type` (hybrid) — y, desde el mismo día,
 /// el default que `exo init` escribe en `[embeddings] min_similarity` de
 /// una config nueva (`init_cmd`, rama de creación, más abajo): una sola
@@ -3024,7 +3024,7 @@ new_string:
             // 768 es la dimensionalidad DE ESTE modelo (MODELO_JINA_ES): si
             // se cambia uno, el otro tiene que cambiar con él.
             dims: 768,
-            // D6 ampliado (decisión de Paul, 2026-09-15, Ola 1 G Task 11):
+            // D6 ampliado (decisión del mantenedor, 2026-09-15, Ola 1 G Task 11):
             // MISMA constante que sella el default de `exo search --type
             // hybrid` (cabecera de este fichero) — antes era un literal
             // 0.35 propio, sin relación con el sweep de calibración ni con
@@ -3177,7 +3177,7 @@ new_string:
 ### 3.5 Pipeline de búsqueda
 
 `exo search` tiene tres modos (`--type fts|vector|hybrid`, **default
-`hybrid` desde el 2026-09-15** — D6, decisión 1 de Paul, campaña G Task 11;
+`hybrid` desde el 2026-09-15** — D6, decisión 1 del mantenedor, campaña G Task 11;
 antes `fts`), implementados en `engine/src/buscador.rs`. Todos devuelven
 resultados **a nivel de nota** (`type: "entity"`), nunca de trozo. El modo
 calibrado y medido (48/55 hit@5 in-sample, §6; held-out 41/55 gana a FTS,
@@ -3209,7 +3209,7 @@ new_string:
   `bonus = 0.0` y `β = 0.6` (`BONUS_SELLADO`, `ESCALA_FTS_SELLADA`),
   sobreescribibles con `--bonus`/`--fts-scale`. El umbral ganador del sweep
   (0.40) **sí** está sellado como constante desde el 2026-09-15
-  (`MIN_SIMILARITY_SELLADO`, D6 — decisión 1 de Paul, campaña G Task 11): el
+  (`MIN_SIMILARITY_SELLADO`, D6 — decisión 1 del mantenedor, campaña G Task 11): el
   motivo original para no sellarlo — D-f3/§4.6, "difiere del 0.35 de config
   y config es RO hasta M5a" — caducó cuando M5a-02 (config propia) cerró el
   2026-08-26 (`docs/backlog.md:1945`). `exo init` escribe ahora ese mismo
@@ -3250,7 +3250,7 @@ Task 10.
 git add engine/src/main.rs engine/src/buscador.rs engine/src/escritor.rs \
   engine/examples/kb_sintetica.rs engine/tests/flags.rs engine/tests/inicia.rs \
   docs/arquitectura.md
-git commit -m "feat(g, search-default): D6 - exo search sin --type usa hybrid + min-similarity 0.40, exo init alinea su default a la misma constante (decision de Paul 2026-09-15)"
+git commit -m "feat(g, search-default): D6 - exo search sin --type usa hybrid + min-similarity 0.40, exo init alinea su default a la misma constante (decision del mantenedor 2026-09-15)"
 ```
 
 ---
@@ -3281,8 +3281,8 @@ new_string:
 > `<commit Task 2>`) y un `git log` por nota indexada (Task 3, commit
 > `<commit Task 3>`), con el bench sintético corregido primero para medirlas
 > de verdad (Task 1, commit `<commit Task 1>`) — `walk_kb` unificada sobre
-> `walk_kb_excluyendo` (Task 4, commit `<commit Task 4>`, decisión 9 de
-> Paul), los dos límites de `budget_prose_drift` que quedan (Task 5, commit
+> `walk_kb_excluyendo` (Task 4, commit `<commit Task 4>`, decisión 9 del
+> mantenedor), los dos límites de `budget_prose_drift` que quedan (Task 5, commit
 > `<commit Task 5>`), el `allow(too_many_arguments)` de `escribe_nueva`
 > (Task 6, commit `<commit Task 6>`), M4 #5 y #6 del gate M4 (Task 7, commit
 > `<commit Task 7>`), el assert de dimensión/norma tras `embebe_batch`
@@ -3292,7 +3292,7 @@ new_string:
 > `<commit Task 10>`) y D6 — default `hybrid` + `--min-similarity 0.40`,
 > con `exo init` alineado a la misma constante `MIN_SIMILARITY_SELLADO`
 > para su propio default de `[embeddings] min_similarity` (Task 11, commit
-> `<commit Task 11>`, decisión 1 de Paul). **Corrige con
+> `<commit Task 11>`, decisión 1 del mantenedor). **Corrige con
 > evidencia, sin cerrar por completo**: el conteo de `kb-demo` en tests
 > pasó de 8 a 11 ficheros (medido de nuevo hoy); el relato de campaña en
 > los comentarios de `buscador.rs`/`escritor.rs`/`indexer.rs`
@@ -3356,7 +3356,7 @@ new_string:
 ```
 - [x] **`walker::walk_kb` frente a `walk_kb_excluyendo`: conviven con semánticas
   distintas desde G4b.** **Cerrado el <fecha de ejecución> (campaña G, Task
-  4, commit `<commit Task 4>`, decisión 9 de Paul):** `walk_kb` delega en
+  4, commit `<commit Task 4>`, decisión 9 del mantenedor):** `walk_kb` delega en
   `walk_kb_excluyendo(raiz, &[])` — case-insensitive, no recorre `.git/`.
   Cambio de comportamiento declarado en `docs/arquitectura.md`.
 ```
@@ -3446,10 +3446,10 @@ new_string:
 
 - [ ] **Step 8: Cerrar con evidencia — `KB-exo:16` (assert de embeddings)**
 
-Este ítem vive en `wisdom-paul/backlog/Backlog — exo.md`, NO en
+Este ítem vive en `<kb>/backlog/Backlog — exo.md`, NO en
 `docs/backlog.md` de este repo — **no lo toques aquí**. Anota en el
 párrafo de cabecera (ya cubierto en el Step 1) que queda cerrado con el
-commit de la Task 8; la actualización del fichero externo, si Paul la
+commit de la Task 8; la actualización del fichero externo, si el mantenedor la
 quiere, es una acción suya fuera de esta fábrica (no está versionado en
 `exo`).
 
@@ -3499,7 +3499,7 @@ new_string:
   `kb-test` en los 11 tests + 2 comentarios de `src/{buscador,inicia}.rs`.
   **Excepciones deliberadas, no tocadas**: `help_producto.rs:154` (gate
   anti-jerga que comprueba que `--help` no mencione el nombre real de la
-  KB de Paul), `escritor.rs:29` y `recall_contenido.rs:108` (procedencia
+  KB del mantenedor), `escritor.rs:29` y `recall_contenido.rs:108` (procedencia
   histórica de datos reales), `src/lib.rs:103` (hecho histórico sobre una
   versión anterior del código). `git grep -c kb-demo -- engine` = 4 (las
   4 excepciones).
@@ -3519,7 +3519,7 @@ old_string:
 new_string:
 ```
   - [x] (c) **CERRADO el <fecha de ejecución> (campaña G, Task 11, commit
-    `<commit Task 11>`, decisión 1 de Paul, 2026-09-15).** `exo search`
+    `<commit Task 11>`, decisión 1 del mantenedor, 2026-09-15).** `exo search`
     sin `--type` usa `hybrid` con `--min-similarity 0.40`
     (`main.rs`, `ArgsSearch.r#type` default `TipoBusqueda::Hybrid`).
     Cita: `evals/retrieval-heldout/verdict/c-verdict.md` (A0 gana a FTS en
@@ -3561,7 +3561,7 @@ git commit -m "docs(g, backlog): cierra 6 items con evidencia, corrige el conteo
 las 11 filas de la tabla «Esbozo de tasks» de G están cubiertas 1:1 por las
 Tasks 1-11 de este plan, más la Task 12 de sync (patrón D/E). Los ítems
 `#8` (divergencia de slug) y `#9` (SKILL.md sin `--db`, caducado) de la
-tabla M4 del backlog **no entran**: `#8` es decisión de Paul (§5 de la
+tabla M4 del backlog **no entran**: `#8` es decisión del mantenedor (§5 de la
 propuesta, fuera de fábrica) y `#9` ya está caducado (verificado: `--db`
 existe en `ArgsWriteAppend`, `SKILL.md` está correcto) — el backlog ya lo
 documenta así, esta campaña no necesita tocarlo de nuevo.
@@ -3602,7 +3602,7 @@ de código (ver informe de cierre) se hizo ANTES de escribir cada task, así
 que no quedó ninguna afirmación de la propuesta sin verificar contra
 `origin/main` antes de convertirla en Step.
 
-**Addendum 2026-09-15 (enmienda de Task 11 — decisión de Paul, alinear el
+**Addendum 2026-09-15 (enmienda de Task 11 — decisión del mantenedor, alinear el
 default de `exo init`):** `git grep -n "0\.35"` contra `campana-g` antes de
 escribir la enmienda dio 4 ficheros de código con literales relevantes
 (`engine/src/main.rs:656`, `engine/src/buscador.rs:241`,
@@ -3629,7 +3629,7 @@ literales?") a favor de una constante — ver Step 5 de la Task 11.
 
 ---
 
-### Task 13: el engine respeta `HF_HOME` (añadida el 2026-09-16 por decisión de Paul)
+### Task 13: el engine respeta `HF_HOME` (añadida el 2026-09-16 por decisión del mantenedor)
 
 **Lane:** mecánica. **Depende de:** nada (toca `engine/src/lib.rs` y
 `engine/src/doctor.rs`; coordinar con Task 8, que también edita `lib.rs`).

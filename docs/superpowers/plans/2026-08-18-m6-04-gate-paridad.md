@@ -40,7 +40,7 @@ son evidencia de paridad de comportamiento post-Task 10.
 **Step 1 — consumidores del fixture viejo:**
 
 ```
-$ grep -rn "BuildIndex(\|BuildIndexExtraChunk(\|BuildIndexMissingColumn(" --include='*.go' /home/paul/Documentos/proyectos/kbx
+$ grep -rn "BuildIndex(\|BuildIndexExtraChunk(\|BuildIndexMissingColumn(" --include='*.go' ~/Documentos/proyectos/kbx
 internal/fixtures/index_test.go:21:	db := openRW(t, BuildIndex(t))
 internal/fixtures/index_test.go:139:	db := openRW(t, BuildIndexMissingColumn(t))
 internal/fixtures/index.go:158:func BuildIndex(t *testing.T) string {
@@ -71,10 +71,10 @@ intactos.
 **Step 3 — suite:**
 
 ```
-$ cd /home/paul/Documentos/proyectos/kbx && make check
-/home/paul/.local/go/bin/go build -tags sqlite_fts5 ./...
-/home/paul/.local/go/bin/go vet -tags sqlite_fts5 ./...
-/home/paul/.local/go/bin/go test -tags sqlite_fts5 ./...
+$ cd ~/Documentos/proyectos/kbx && make check
+~/.local/go/bin/go build -tags sqlite_fts5 ./...
+~/.local/go/bin/go vet -tags sqlite_fts5 ./...
+~/.local/go/bin/go test -tags sqlite_fts5 ./...
 ok  	github.com/pguerrerolinares/kbx/cmd/kbx	10.422s
 ok  	github.com/pguerrerolinares/kbx/internal/budget	(cached)
 ok  	github.com/pguerrerolinares/kbx/internal/doctor	5.196s
@@ -98,15 +98,15 @@ VERDE, 12/12 paquetes.
 **Step 4 — dos binarios:**
 
 ```
-$ git -C /home/paul/Documentos/proyectos/kbx worktree add /tmp/m6-04/kbx-viejo main
+$ git -C ~/Documentos/proyectos/kbx worktree add /tmp/m6-04/kbx-viejo main
 Preparando árbol de trabajo (haciendo checkout a 'main')
 HEAD está ahora en e307612 merge: kbx doctor — check budget_prose_drift (F3.4)
 
 $ cd /tmp/m6-04/kbx-viejo && go build -tags sqlite_fts5 -o /tmp/m6-04/kbx-viejo-bin ./cmd/kbx
-$ cd /home/paul/Documentos/proyectos/kbx && go build -tags sqlite_fts5 -o /tmp/m6-04/kbx-nuevo-bin ./cmd/kbx
+$ cd ~/Documentos/proyectos/kbx && go build -tags sqlite_fts5 -o /tmp/m6-04/kbx-nuevo-bin ./cmd/kbx
 $ ls -l /tmp/m6-04/kbx-viejo-bin /tmp/m6-04/kbx-nuevo-bin
--rwxrwxr-x 1 paul paul 9167928 ago 19 01:19 /tmp/m6-04/kbx-nuevo-bin
--rwxrwxr-x 1 paul paul 9163232 ago 19 01:19 /tmp/m6-04/kbx-viejo-bin
+-rwxrwxr-x 1 user user 9167928 ago 19 01:19 /tmp/m6-04/kbx-nuevo-bin
+-rwxrwxr-x 1 user user 9163232 ago 19 01:19 /tmp/m6-04/kbx-viejo-bin
 ```
 
 Los dos binarios existen.
@@ -116,10 +116,10 @@ Los dos binarios existen.
 ```
 $ cp ~/.basic-memory/memory.db /tmp/m6-04/bm.db
 $ cp ~/.exo/index.db /tmp/m6-04/exo.db
-$ cd /home/paul/Documentos/proyectos/exo/engine && cargo run --release -- index \
-  --kb /home/paul/Documentos/proyectos/kb-demo --db /tmp/m6-04/exo.db --json
+$ cd ~/Documentos/proyectos/exo/engine && cargo run --release -- index \
+  --kb ~/Documentos/proyectos/kb-demo --db /tmp/m6-04/exo.db --json
     Finished `release` profile [optimized] target(s) in 0.11s
-     Running `target/release/exo index --kb /home/paul/Documentos/proyectos/kb-demo --db /tmp/m6-04/exo.db --json`
+     Running `target/release/exo index --kb ~/Documentos/proyectos/kb-demo --db /tmp/m6-04/exo.db --json`
 {"command":"index","data":{"borradas":0,"indexadas":0,"saltadas":138,"trozos_embebidos":0,"trozos_reusados":0},"schema_version":1}
 ```
 
@@ -133,7 +133,7 @@ c = sqlite3.connect('file:/tmp/m6-04/exo.db?mode=ro', uri=True)
 print(list(c.execute('SELECT clave, valor FROM meta')))
 print('journal_mode:', c.execute('PRAGMA journal_mode').fetchone())
 "
-[('kb_root', '/home/paul/Documentos/proyectos/kb-demo')]
+[('kb_root', '~/Documentos/proyectos/kb-demo')]
 journal_mode: ('wal',)
 ```
 
@@ -180,8 +180,8 @@ dirección. Coincide exactamente con el `Expected` del brief.
 ## Step 7: Gate de `stale` — paridad del grado-0
 
 ```
-$ /tmp/m6-04/kbx-viejo-bin stale --db /tmp/m6-04/bm.db --kb /home/paul/Documentos/proyectos/kb-demo --json > /tmp/m6-04/stale-viejo.json
-$ /tmp/m6-04/kbx-nuevo-bin stale --db /tmp/m6-04/exo.db --kb /home/paul/Documentos/proyectos/kb-demo --json > /tmp/m6-04/stale-nuevo.json
+$ /tmp/m6-04/kbx-viejo-bin stale --db /tmp/m6-04/bm.db --kb ~/Documentos/proyectos/kb-demo --json > /tmp/m6-04/stale-viejo.json
+$ /tmp/m6-04/kbx-nuevo-bin stale --db /tmp/m6-04/exo.db --kb ~/Documentos/proyectos/kb-demo --json > /tmp/m6-04/stale-nuevo.json
 ```
 
 Ambos comandos salieron con exit 0 sin stderr.

@@ -23,7 +23,7 @@ el plugin a 1.3.3 y sincroniza los tres documentos declarativos (`README.md`,
 La Task 3 mide el coste en W11 (camino rápido y primera llamada con una
 transcripción real) y publica las cifras en `docs/backlog.md`, sobre un ítem
 existente que ya lleva la serie de mediciones de coste de hooks en Windows.
-La Task 4 vive en el repo `wisdom-paul` (KB, no código): cambia la frase del
+La Task 4 vive en el repo de la KB personal (KB, no código): cambia la frase del
 `core-index` a un disparador concreto y enlaza el reflejo desde el ítem
 aparcado de «Tasa de re-explicación» — commit separado, en otro repo.
 
@@ -69,11 +69,11 @@ best-effort, nunca rompe el warn-only).
 - **Git:** `git add <rutas explícitas>`, nunca `-A`/`.`; `git -C <path>`,
   nunca `cd <path> && git`. Mensajes: `feat(search-first, <área>): …` /
   `test(search-first, <área>): …` / `docs(search-first, <área>): …` para el
-  repo `exo`; `docs(kb): …` para el commit en `wisdom-paul` (convención de
+  repo `exo`; `docs(kb): …` para el commit en la KB personal (convención de
   ese repo, ver su `git log`).
 - **Commits por separado** (spec §9): (1) script + test; (2) cableado +
   versión + docs; (3) `docs/backlog.md` con las cifras medidas; (4) en
-  `wisdom-paul`, regla del core-index + enlace del ítem — repo distinto,
+  la KB personal, regla del core-index + enlace del ítem — repo distinto,
   commit distinto.
 
 ---
@@ -917,15 +917,15 @@ git commit -m "docs(search-first, backlog): cifras W11 del reflejo -- camino rá
 
 ---
 
-### Task 4 (repo `wisdom-paul`, commit separado): regla del `core-index` + enlace desde el ítem de re-explicación
+### Task 4 (repo de la KB personal, commit separado): regla del `core-index` + enlace desde el ítem de re-explicación
 
 **Depende de:** Tasks 1-3 mergeadas (el reflejo tiene que existir de verdad
 para que la frase del `core-index` y el enlace del backlog no citen algo
 que no está en el árbol).
 
 **Files:**
-- Modify: `C:/proyectos/homework/wisdom-paul/core/core-index.md`
-- Modify: `C:/proyectos/homework/wisdom-paul/backlog/Backlog — exo.md`
+- Modify: `C:/proyectos/homework/<kb>/core/core-index.md`
+- Modify: `C:/proyectos/homework/<kb>/backlog/Backlog — exo.md`
 
 **Interfaces:**
 - Consumes: nada de las tasks anteriores a nivel de código — cita al
@@ -934,7 +934,7 @@ que no está en el árbol).
 
 - [ ] **Step 1: Cambiar la frase del `core-index` (línea 17 real)**
 
-`Edit` sobre `C:/proyectos/homework/wisdom-paul/core/core-index.md`:
+`Edit` sobre `C:/proyectos/homework/<kb>/core/core-index.md`:
 
 old_string:
 ```
@@ -949,19 +949,19 @@ Antes del primer Agent/Edit/Write de la sesión, busca contexto (`exo search --t
 - [ ] **Step 2: Comprobar el trinquete**
 
 ```bash
-exo ratchet --kb "C:/proyectos/homework/wisdom-paul"
+exo ratchet --kb "C:/proyectos/homework/<kb>"
 ```
 
 Expected: exit 0 (`core-index.md` no lleva techo sellado en
 `.kbx-ratchet.json` — es un índice, exento de presupuesto por la doctrina
 del propio `core-index`: «Índices... no se destilan»). Confirmado en este
 worktree antes de tocar el fichero: `exo ratchet --kb
-"C:/proyectos/homework/wisdom-paul"` ya da exit 0 hoy (una única línea de
+"C:/proyectos/homework/<kb>"` ya da exit 0 hoy (una única línea de
 deuda informativa sobre `Paul - perfil de trabajo.md`, que no bloquea).
 
 - [ ] **Step 3: Enlazar desde el ítem aparcado de «Tasa de re-explicación»**
 
-`Edit` sobre `C:/proyectos/homework/wisdom-paul/backlog/Backlog — exo.md`:
+`Edit` sobre `C:/proyectos/homework/<kb>/backlog/Backlog — exo.md`:
 
 old_string:
 ```
@@ -978,11 +978,11 @@ new_string:
   embudo, es una sonda más barata en el mismo sitio.
 ```
 
-- [ ] **Step 4: Commit (repo `wisdom-paul`, no `exo`)**
+- [ ] **Step 4: Commit (repo de la KB personal, no `exo`)**
 
 ```bash
-git -C "C:/proyectos/homework/wisdom-paul" add "core/core-index.md" "backlog/Backlog — exo.md"
-git -C "C:/proyectos/homework/wisdom-paul" commit -m "docs(kb): search-first -- dispara concreto en core-index + enlace desde el ítem de re-explicación"
+git -C "C:/proyectos/homework/<kb>" add "core/core-index.md" "backlog/Backlog — exo.md"
+git -C "C:/proyectos/homework/<kb>" commit -m "docs(kb): search-first -- dispara concreto en core-index + enlace desde el ítem de re-explicación"
 ```
 
 ---
@@ -997,9 +997,9 @@ git -C "C:/proyectos/homework/wisdom-paul" commit -m "docs(kb): search-first -- 
   ejercitadas en los casos 2/4/10 del test. §5 (regla del core-index) →
   Task 4 Step 1-2. §6 (los 10 casos) → Task 1 Step 1, uno a uno, mismo
   orden. §7 (medición W11 + criterio 150 ms) → Task 3 Steps 1-2-2b. §8
-  (comprobación futura + enlace desde el backlog de `wisdom-paul`, "no se
+  (comprobación futura + enlace desde el backlog de la KB personal, "no se
   abre un ítem nuevo") → Task 4 Step 3, respetado literalmente (no se creó
-  ítem nuevo en `wisdom-paul`). §9 (entrega: versión, hooks.json, tablas +
+  ítem nuevo en la KB personal). §9 (entrega: versión, hooks.json, tablas +
   recuento, mención en arquitectura, los 5 gates, los 4 commits) → Task 2
   completa + Task 3/4 para los commits restantes. §10 (fuera de alcance) →
   ninguna task toca `recall-inject.sh` ni `subagent-inject.sh` ni añade un

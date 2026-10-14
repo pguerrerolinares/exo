@@ -63,7 +63,7 @@ bash (Git Bash en Windows) · PowerShell 5.1.
   comando. `analiza` devuelve `InformeDoctor`, no `Result<InformeDoctor>`.
 - **Cada check reporta el artefacto que miró** —ruta absoluta, versión,
   bytes— y **ninguno desaparece del informe**: lo que no aplica a esta
-  plataforma sale como `na` con lo que miró. Decisión de Paul (2026-09-10):
+  plataforma sale como `na` con lo que miró. Decisión del mantenedor (2026-09-10):
   *una fila ausente no se distingue de un check que nunca existió.* Es la
   lección literal de
   `docs/superpowers/runbooks/2026-08-24-integracion-equipo-trabajo-windows.md`:
@@ -74,7 +74,7 @@ bash (Git Bash en Windows) · PowerShell 5.1.
   `[ -x "$EXO" ] || { echo …; exit 0; }` — **exit 0 = commit permitido sin
   gate**. Instalar en otro punto del PATH deja el gate de la KB apagado sin
   romper nada.
-- **Dato medido el 2026-09-10 en la W11 de Paul, que CONTRADICE a la spec:**
+- **Dato medido el 2026-09-10 en la W11 del mantenedor, que CONTRADICE a la spec:**
   con solo `~/.local/bin/exo.exe` en disco, `[ -x "$HOME/.local/bin/exo" ]` en
   Git Bash da **verdadero** — msys resuelve la extensión en `stat()`. La spec
   (G5, primer bullet) afirma lo contrario. Por eso el check
@@ -102,7 +102,7 @@ bash (Git Bash en Windows) · PowerShell 5.1.
   `release.yml`, el runbook de la Task 12— nace público, así que **ninguna
   ruta de máquina de empresa ni usuario corporativo entra en ellos**.
 - **Fuera de scope, declarado en vez de disimulado:** renombrar
-  `docs/superpowers/` y sacar `reports/` de la raíz (decisión de Paul,
+  `docs/superpowers/` y sacar `reports/` de la raíz (decisión del mantenedor,
   2026-09-10: son un `git mv` ancho que ensucia el diff de una release) ·
   portar `rotate`/`stale`/`diff-since`/`history` (G4d) · los gates de paridad
   de `targets` y `ratchet`, que exigen la máquina Linux con Go · el fixture
@@ -1617,7 +1617,7 @@ git commit -m "feat(doctor): el shim pre-commit de la KB — el fallo de V6 como
 > shim, porque en esa máquina `core.symlinks=false`, y resuelve el script del
 > plugin por glob en cada commit. Un `ok` ahí es el veredicto-sin-artefacto que
 > este comando entero existe para no dar, y la spec pedía literalmente que «el
-> shim resuelve a un script existente». Decisión de Paul (2026-09-10):
+> shim resuelve a un script existente». Decisión del mantenedor (2026-09-10):
 > extender el check. El acoplamiento de `doctor` al layout del plugin es real y
 > se acepta: es justo el acoplamiento que este check vigila.
 
@@ -2779,7 +2779,7 @@ git commit -m "docs(g5b): instalar desde release, y las docs dejan de decir que 
 
 > **Esta tarea toca el mundo exterior y es irreversible en la práctica** (un
 > tag público no se retira limpiamente). No se ejecuta hasta que las Tasks
-> 1-11 estén **mergeadas en `main`** y el CI de `main` esté verde. Paul ya la
+> 1-11 estén **mergeadas en `main`** y el CI de `main` esté verde. El mantenedor ya la
 > ha autorizado (2026-09-10, «maquinaria + release real v0.1.0»); el
 > orquestador **confirma con él** antes del `git push --tags` de todos modos,
 > porque autorizar el plan no es autorizar el momento.

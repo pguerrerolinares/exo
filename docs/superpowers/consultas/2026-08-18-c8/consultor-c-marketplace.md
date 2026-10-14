@@ -82,7 +82,7 @@ De `code.claude.com/docs/en/plugin-marketplaces` (guardada en tool-results, lín
 - **Aquí disiento parcialmente del plan**: el plan/spec vendían el rename como «mantiene la identidad» (es decir, `@agent-develop` intacto, coste cero). Es verdad que dejar el name intacto costaría ~0. Pero C8 ya obliga a cirugía de `enabledPlugins` ese mismo día (M3-01: superpowers off + process on, más el install de `process`): la ventana de cambio está abierta de todos modos, el coste marginal de renovar el sufijo es ~10 minutos una única vez, y la alternativa es arrastrar `@agent-develop` para siempre en un framework que se llama exo. Es la única oportunidad barata; después vuelve a costar un remove/add completo.
 - **Coste exacto del cambio de `name`, contado** (ver §1): 5 ocurrencias en `settings.json` (las escribe el propio flujo remove/add + un ajuste manual de `enabledPlugins`), 2 ficheros de estado del harness que se regeneran solos, 2 directorios de caché/clon que se regeneran solos, y 1 script con cron (4 refs) + su test (~20 refs) **que se retiran** en vez de migrarse, porque el gate que vigilaban está cerrado por el régimen §0 (GATE-CALENDARIO-D cerrado, plan líneas 30-38) y su retirada ya estaba adjudicada como deuda de C6 (plan línea 261). Nada más: cero scripts en exo, cero hooks (usan `${CLAUDE_PLUGIN_ROOT}`), cero en la KB con efecto operativo.
 - El name `exo` es además **robusto a la absorción futura**: si un día el catálogo se muda al repo `exo` (spec §M1a), basta re-añadir el marketplace desde el repo nuevo — mismo name ⇒ «replaces the first» (doc L161) — sin tocar ids ni `enabledPlugins` nunca más.
-- **No se renombra el directorio local** `/home/paul/Documentos/proyectos/agent-develop` en C8: hay rutas de disco escritas en docs y en `fabrica/SKILL.md:11`; renombrarlo compra estética y rompe referencias. YAGNI. (Si Paul quiere, es un `mv` + `remote -v` otro día; nada del runbook depende de ello.)
+- **No se renombra el directorio local** `~/Documentos/proyectos/agent-develop` en C8: hay rutas de disco escritas en docs y en `fabrica/SKILL.md:11`; renombrarlo compra estética y rompe referencias. YAGNI. (Si Paul quiere, es un `mv` + `remote -v` otro día; nada del runbook depende de ello.)
 
 ---
 
@@ -171,10 +171,10 @@ Precondiciones (bloquean el arranque):
 
 ```bash
 # 0.1 — editar el catálogo con la foto final de §C4 (name "exo", process, versiones sincronizadas)
-#        fichero: /home/paul/Documentos/proyectos/agent-develop/.claude-plugin/marketplace.json
+#        fichero: ~/Documentos/proyectos/agent-develop/.claude-plugin/marketplace.json
 # 0.2 — commit local (NO push):
-git -C /home/paul/Documentos/proyectos/agent-develop add .claude-plugin/marketplace.json plugins/paul-profile
-git -C /home/paul/Documentos/proyectos/agent-develop commit -m "feat(marketplace): identidad exo — name exo, alta de process, sync de versiones (M1b)"
+git -C ~/Documentos/proyectos/agent-develop add .claude-plugin/marketplace.json plugins/paul-profile
+git -C ~/Documentos/proyectos/agent-develop commit -m "feat(marketplace): identidad exo — name exo, alta de process, sync de versiones (M1b)"
 ```
 
 ### Fase 1 — Rename del repo `[PAUL]`
@@ -189,12 +189,12 @@ gh repo view pguerrerolinares/exo-plugins --json name,visibility
 ### Fase 2 — Remote local y push `[PAUL]`
 
 ```bash
-git -C /home/paul/Documentos/proyectos/agent-develop remote set-url origin https://github.com/pguerrerolinares/exo-plugins.git
-git -C /home/paul/Documentos/proyectos/agent-develop push origin master
+git -C ~/Documentos/proyectos/agent-develop remote set-url origin https://github.com/pguerrerolinares/exo-plugins.git
+git -C ~/Documentos/proyectos/agent-develop push origin master
 # Verificar:
-git -C /home/paul/Documentos/proyectos/agent-develop remote -v
+git -C ~/Documentos/proyectos/agent-develop remote -v
 # Esperado: origin  https://github.com/pguerrerolinares/exo-plugins.git (fetch y push)
-git -C /home/paul/Documentos/proyectos/agent-develop log origin/master --oneline -1
+git -C ~/Documentos/proyectos/agent-develop log origin/master --oneline -1
 # Esperado: el commit de la Fase 0
 ```
 
@@ -271,9 +271,9 @@ rm -rf ~/.claude/plugins/cache/agent-develop
 # 1. Deshacer el rename (los redirects del nombre nuevo pasan a apuntar al viejo):
 gh repo rename agent-develop -R pguerrerolinares/exo-plugins --yes
 # 2. Revertir el catálogo y pushear:
-git -C /home/paul/Documentos/proyectos/agent-develop revert --no-edit HEAD
-git -C /home/paul/Documentos/proyectos/agent-develop remote set-url origin https://github.com/pguerrerolinares/agent-develop.git
-git -C /home/paul/Documentos/proyectos/agent-develop push origin master
+git -C ~/Documentos/proyectos/agent-develop revert --no-edit HEAD
+git -C ~/Documentos/proyectos/agent-develop remote set-url origin https://github.com/pguerrerolinares/agent-develop.git
+git -C ~/Documentos/proyectos/agent-develop push origin master
 # 3. Re-registrar como antes:
 claude plugin marketplace remove exo
 claude plugin marketplace add pguerrerolinares/agent-develop

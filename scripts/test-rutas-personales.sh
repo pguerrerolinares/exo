@@ -43,6 +43,9 @@ fi
 
 hallados=""
 for f in "${ficheros[@]}"; do
+  # Única excepción, por ruta exacta: test-docs-sin-local.sh nombra los
+  # patrones de identidad literales para cazarlos en docs/; el resto se escanea.
+  [ "$f" = "scripts/test-docs-sin-local.sh" ] && continue
   # `grep` distingue tres casos por exit code: 0 = hallazgo, 1 = limpio,
   # >=2 = error (fichero no legible, etc.). `if match=$(grep …)` trataba 1
   # y >=2 como el mismo "no hallazgo" — un error de lectura pasaba el gate

@@ -7,13 +7,13 @@
 **Goal:** dejar a la campaña J lista para medir sin haber medido nada: un
 diagnóstico descriptivo por fila de las 55 in-sample (T0), un pre-registro en
 borrador con brazos, regla de decisión y potencia calculada (T1), y un gold
-nuevo **100 % agéntico con fiabilidad medida** (decisión de Paul del
+nuevo **100 % agéntico con fiabilidad medida** (decisión del mantenedor del
 2026-09-19: revoca D-J1/D-J2; la KB la consumen agentes, así que el patrón de
-relevancia es la utilidad para el agente, no el juicio de Paul), etiquetado
+relevancia es la utilidad para el agente, no el juicio del mantenedor), etiquetado
 a ciegas por dos jueces de dos familias de modelo (fable y Kimi/Moonshot) y
 aceptado solo donde coinciden. La fase termina con el commit de congelación
 del pre-registro, que dispara el propio pipeline cuando el acuerdo supera el
-suelo pre-registrado, y con el gate de un consultor fable. **0 h de Paul.**
+suelo pre-registrado, y con el gate de un consultor fable. **0 h del mantenedor.**
 
 **Architecture:** todo vive bajo `evals/retrieval-heldout/` y en el directorio
 privado `$PRIV_J`; `engine/src` no se toca. El T0 cruza tres estados del mismo
@@ -34,7 +34,7 @@ decisión vive en `docs/superpowers/plans/2026-09-19-campana-j-preregistro-BORRA
   `math`, `urllib`), igual que `evals/retrieval-heldout/harness/`.
 - API Moonshot (OpenAI-compatible) en `https://api.moonshot.ai/v1` (la de
   `.ai`, no la de `.cn`); `response_format: json_schema` estricto (precedente:
-  `wisdom-ai-news/src/wisdom/llm/clients.py:143-160`, que usa el SDK `openai`;
+  `<repo-noticias-ia>/src/wisdom/llm/clients.py:143-160`, que usa el SDK `openai`;
   aquí `urllib` para no añadir dependencias a `evals/`).
 - Rust 2024, crate `exo` en `engine/` (solo `cargo build` para la captura de
   lectura; ningún cambio de código).
@@ -63,7 +63,7 @@ decisión vive en `docs/superpowers/plans/2026-09-19-campana-j-preregistro-BORRA
   notas). Números que la Task 2 reproduce con el fichero público.
 - **Pool de queries:** 113 `prompt` desde el 2026-09-13 (tras excluir las 55
   y las 147 de C). `agent-search`: el `reflex-retrieval-log.jsonl` termina el
-  2026-08-17, pero Paul autorizó minar `~/.claude/projects/**/*.jsonl`; la
+  2026-08-17, pero el mantenedor autorizó minar `~/.claude/projects/**/*.jsonl`; la
   extracción cruda está en `~/.exo/priv-j/agent-search-raw.txt` (221 líneas
   únicas, sin timestamps, mezcladas con ejemplos de docs/planes/tests: 155
   tienen forma de comando con flags, 66 llevan marcadores `*)`, `[OP`, `<qu`,
@@ -94,15 +94,15 @@ decisión vive en `docs/superpowers/plans/2026-09-19-campana-j-preregistro-BORRA
 - **Ninguna medición sobre el gold de J antes del commit de congelación
   (Task 8).** Ninguna tarea computa hit@k de ningún brazo sobre ninguna query
   del gold nuevo. El T0 usa solo las 55 in-sample (ya vistas por todos).
-- **Envío de datos a Moonshot (Kimi), autorizado explícitamente por Paul el
+- **Envío de datos a Moonshot (Kimi), autorizado explícitamente por el mantenedor el
   2026-09-19 en sesión** (`docs/superpowers/consultas/2026-09-15-campanas/propuesta.md`
   §7; frase literal: «no me importa mandar a kimi, continua por ahí»). Qué
-  sale: por fila, la query (prompt de Paul o comando de agente) y hasta 5
-  notas candidatas de la KB `wisdom-paul` recortadas a 4.000 caracteres.
+  sale: por fila, la query (prompt del mantenedor o comando de agente) y hasta 5
+  notas candidatas de la KB personal recortadas a 4.000 caracteres.
   Qué no sale: ninguna etiqueta, ningún ranking, nada de `evals/` ni del
   gold de C. Solo la Task 7 llama a la API.
 - **La key de Moonshot** está en
-  `/home/paul/Documentos/proyectos/wisdom-ai-news/.env-keys` (variable
+  `~/Documentos/proyectos/<repo-noticias-ia>/.env-keys` (variable
   `kimi_api_key`; el fichero es gitignored en ese repo). Se lee en runtime
   con `juez.py --env-keys`; **nunca** se imprime, se copia, se exporta a un
   fichero ni entra en el repo exo (público). Antes de cada commit bajo
@@ -126,9 +126,9 @@ decisión vive en `docs/superpowers/plans/2026-09-19-campana-j-preregistro-BORRA
   `PRIV_J=~/.local/share/exo-evals/j-heldout` (`chmod 700`); se lee
   `PRIV_C=~/.local/share/exo-evals/c-heldout` (in-sample y capturas de C).
   Comprobación obligatoria antes de cada commit de un `.md` bajo `verdict/` o
-  `gold-j/`: `grep -c "wisdom-paul" <fichero>` = 0.
+  `gold-j/`: `grep -c "$NOMBRE_KB" <fichero>` = 0.
 - **Líneas rojas:** no se escribe en `~/.exo/index.db` (solo `exo search`);
-  no se escribe en `~/Documentos/proyectos/wisdom-paul` (el snapshot es un
+  no se escribe en `~/Documentos/proyectos/<kb>` (el snapshot es un
   `git clone` a `$PRIV_J`); nada de push, merge ni commit a `main`; `git add`
   con rutas explícitas, nunca `-A`; `git -C <path>`, nunca `cd <path> &&
   git`. Commits terminan con las líneas de atribución de la sesión.
@@ -147,16 +147,16 @@ decisión vive en `docs/superpowers/plans/2026-09-19-campana-j-preregistro-BORRA
   cwd en la raíz del worktree.
 - **Presupuesto externo:** Kimi ≈ **$6 con `kimi-k3`** (≈ 280 llamadas ×
   ≈ 5–6 k tokens de entrada; $3 / $15 por millón, precio de lista web
-  2026-09; con `kimi-k2.6`, a $0,95 / $4,00, habrían sido ≈ $2 — Paul eligió
+  2026-09; con `kimi-k2.6`, a $0,95 / $4,00, habrían sido ≈ $2 — el mantenedor eligió
   k3 el 2026-09-19 por calidad de juez); **tope $10**, por encima STOP. Dispatches: fable
   ≈ 12 lotes de juez + 1 review + 1 consultor-gate; sonnet ≈ 1 generador +
   ≈ 5 lotes de candidatos; opus 0.
 
-## Decisiones firmadas por Paul 2026-09-19
+## Decisiones firmadas por el mantenedor 2026-09-19
 
 Fuente de las firmas: `docs/superpowers/consultas/2026-09-15-campanas/propuesta.md`
 §7 (sesión del 2026-09-19). **D-J1 y D-J2 quedaron revocadas el mismo día**
-por la decisión del gold agéntico (D-J11): Paul no etiqueta ni revisa nada.
+por la decisión del gold agéntico (D-J11): el mantenedor no etiqueta ni revisa nada.
 Las demás coinciden con la recomendación del planificador; las opciones
 descartadas se conservan como traza del trade-off. La Task 8 copia las
 firmas literales al borrador §9 (ya las lleva) y solo espera el gold y su
@@ -164,7 +164,7 @@ sha256.
 
 | decisión | firmado | descartado (traza) |
 |---|---|---|
-| D-J1 modo de etiquetado | **REVOCADA** por D-J11 (era b: agente pre-etiqueta, Paul revisa) | a, b, c: todas exigían horas de Paul |
+| D-J1 modo de etiquetado | **REVOCADA** por D-J11 (era b: agente pre-etiqueta, el mantenedor revisa) | a, b, c: todas exigían horas del mantenedor |
 | D-J2 estrato `prompt` | **REVOCADA** por D-J11 (era 113); D-J11 lo fija en el pool entero | 60 |
 | D-J3 verificación adversarial del gold | **sí** — absorbida por el diseño: dos jueces independientes + consultor-gate (Task 8 Step 4) | no |
 | D-J4 regla GANA | **NETO ≥ 4** (∧ ARREGLA ≥ 2·ROMPE ∧ veto ΔMRR) | 3 (cota familiar 0,41) · 5 (potencia +5 pp 0,42–0,55) |
@@ -174,7 +174,7 @@ sha256.
 | D-J8 tope df F1 | **0,25**, con la cláusula de T0 intacta | otro valor único |
 | D-J9 G1 | **tal cual**: p70 de calibración; adopta si abstiene ≥ 60 % de evaluación y ROMPE ≤ 2 | otros valores únicos |
 | D-J10 relevancia | **lenient decide**, strict descriptivo | strict decide |
-| **D-J11 gold agéntico** | **firmado**: queries reales de agentes (`agent-search` minado con autorización) + `prompt` + generados; jueces ciegos **fable y Kimi (Moonshot)**; entra solo con acuerdo; **desacuerdos descartados** (sin tercer juez); suelo **κ ≥ 0,60 ∧ p_o ≥ 0,70**, por debajo J PARA; envío de trozos de la KB a Moonshot autorizado | tercer juez opus para desempatar (reintroduce la correlación Claude–Claude que el diseño existe para romper); gold etiquetado por Paul (≈ 3,5–5 h) |
+| **D-J11 gold agéntico** | **firmado**: queries reales de agentes (`agent-search` minado con autorización) + `prompt` + generados; jueces ciegos **fable y Kimi (Moonshot)**; entra solo con acuerdo; **desacuerdos descartados** (sin tercer juez); suelo **κ ≥ 0,60 ∧ p_o ≥ 0,70**, por debajo J PARA; envío de trozos de la KB a Moonshot autorizado | tercer juez opus para desempatar (reintroduce la correlación Claude–Claude que el diseño existe para romper); gold etiquetado por el mantenedor (≈ 3,5–5 h) |
 
 Trade-offs que se presentaron, en pasado:
 
@@ -221,7 +221,7 @@ léxico de D-A (borrador §6); un desempate no lo haría medible. (iv) Coste:
 |---|---|---|---|
 | 1, 3, 4 (harness) | `evals/retrieval-heldout/harness/{diagnostico,valida_gold,pool,limpia_agent_search,juez,acuerdo,test_harness,test_gold_j}.py` | ninguna campaña activa toca `evals/retrieval-heldout/` (matriz de colisión de la propuesta §3: solo J) | libre |
 | 2 (captura «hoy») | ninguno de código; lee `~/.exo/index.db` | I y L tocan `plugins/` y `engine/src/main.rs`; la captura usa el binario de `main` en el momento de la Task 2 y lo anota | anotar `git rev-parse HEAD` del binario en el fichero público |
-| 6, 7 (gold) | `evals/retrieval-heldout/gold-j/`, `verdict/gold-j-acuerdo.md`, `$PRIV_J`; red hacia Moonshot (Task 7) | ninguno en el repo; la key vive en `wisdom-ai-news/.env-keys` (solo lectura) | libre |
+| 6, 7 (gold) | `evals/retrieval-heldout/gold-j/`, `verdict/gold-j-acuerdo.md`, `$PRIV_J`; red hacia Moonshot (Task 7) | ninguno en el repo; la key vive en `<repo-noticias-ia>/.env-keys` (solo lectura) | libre |
 | 5, 8 (borrador y congelación) | `docs/superpowers/plans/2026-09-19-campana-j-preregistro-BORRADOR.md` | ninguno | inmutable tras la Task 8 salvo erratas → verdict |
 | fase 2 (no en este plan) | `engine/src/buscador.rs` | L (regresión `exo search` sin `vectores`) toca `buscador.rs`/`main.rs` | fase 2 después de L mergeada y de `v0.2.0` |
 
@@ -571,8 +571,8 @@ Expected: `Ran 36 tests` … `OK`.
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo/.worktrees/campana-j-fase1 add evals/retrieval-heldout/harness/diagnostico.py evals/retrieval-heldout/harness/test_harness.py
-git -C /home/paul/Documentos/proyectos/exo/.worktrees/campana-j-fase1 commit -m "eval(j): diagnostico por fila de las 55 in-sample (T0), con tests"
+git -C ~/Documentos/proyectos/exo/.worktrees/campana-j-fase1 add evals/retrieval-heldout/harness/diagnostico.py evals/retrieval-heldout/harness/test_harness.py
+git -C ~/Documentos/proyectos/exo/.worktrees/campana-j-fase1 commit -m "eval(j): diagnostico por fila de las 55 in-sample (T0), con tests"
 ```
 
 ---
@@ -580,7 +580,7 @@ git -C /home/paul/Documentos/proyectos/exo/.worktrees/campana-j-fase1 commit -m 
 ### Task 2: Corrida del T0 — captura «hoy» de lectura y `diagnostico-55.md`
 
 **Lane:** diseño (produce el fichero público del T0 y el detalle privado).
-**Oráculo:** `evals/retrieval-heldout/verdict/diagnostico-55.md` existe, su primera línea de datos dice `hist misses 6 (49/55) · S misses 12 (43/55)`, y `grep -c "wisdom-paul" evals/retrieval-heldout/verdict/diagnostico-55.md` devuelve `0`.
+**Oráculo:** `evals/retrieval-heldout/verdict/diagnostico-55.md` existe, su primera línea de datos dice `hist misses 6 (49/55) · S misses 12 (43/55)`, y `grep -c "$NOMBRE_KB" evals/retrieval-heldout/verdict/diagnostico-55.md` devuelve `0`.
 **Depende de:** Task 1.
 
 **Files:**
@@ -598,7 +598,7 @@ export PRIV_C=~/.local/share/exo-evals/c-heldout PRIV_J=~/.local/share/exo-evals
 mkdir -p "$PRIV_J" && chmod 700 "$PRIV_J"
 ls "$PRIV_C/in-sample-55.jsonl" "$PRIV_C/cap-base-55.jsonl" "$PRIV_C/idx-base.db"
 cargo build --release --locked --manifest-path engine/Cargo.toml 2>&1 | tail -1
-git -C /home/paul/Documentos/proyectos/exo/.worktrees/campana-j-fase1 rev-parse HEAD
+git -C ~/Documentos/proyectos/exo/.worktrees/campana-j-fase1 rev-parse HEAD
 engine/target/release/exo --version
 ```
 Expected: los tres ficheros listados; `Finished`; un sha; `exo 0.1.0` (o el de `main`). Anotar el sha: es el «binario hoy».
@@ -619,10 +619,10 @@ python3 evals/retrieval-heldout/harness/diagnostico.py \
   --gold "$PRIV_C/in-sample-55.jsonl" \
   --hist evals/retrieval-fase0/results/metrics-engine-hybrid-b0.0-e0.6.md \
   --cap-s "$PRIV_C/cap-base-55.jsonl" --cap-hoy "$PRIV_J/cap-hoy-55.jsonl" \
-  --db "$PRIV_C/idx-base.db" --kb-hoy ~/Documentos/proyectos/wisdom-paul \
+  --db "$PRIV_C/idx-base.db" --kb-hoy ~/Documentos/proyectos/<kb> \
   --publico evals/retrieval-heldout/verdict/diagnostico-55.md \
   --privado "$PRIV_J/diagnostico-55-detalle.md"
-grep -c "wisdom-paul" evals/retrieval-heldout/verdict/diagnostico-55.md
+grep -c "$NOMBRE_KB" evals/retrieval-heldout/verdict/diagnostico-55.md
 sed -n 3,9p evals/retrieval-heldout/verdict/diagnostico-55.md
 ```
 Expected: stdout `{"no_nulas": 55, "miss_hist": 6, "miss_S": 12, "miss_hoy": <n>, "muertas_hoy": 0}`; `0`; las líneas de cabecera con `hit→miss 7 · miss→hit 1 · miss→miss 5` en hist→S (dry-run del 2026-09-19). `miss_hoy` es lo único desconocido: el índice de producción no es el snapshot S.
@@ -647,9 +647,9 @@ Añadir al final de `evals/retrieval-heldout/verdict/diagnostico-55.md` esta sec
 - [ ] **Step 5: Commit del público (el privado no se commitea)**
 
 ```bash
-grep -c "wisdom-paul" evals/retrieval-heldout/verdict/diagnostico-55.md
-git -C /home/paul/Documentos/proyectos/exo/.worktrees/campana-j-fase1 add evals/retrieval-heldout/verdict/diagnostico-55.md
-git -C /home/paul/Documentos/proyectos/exo/.worktrees/campana-j-fase1 commit -m "eval(j): T0 — diagnostico por fila de las 55 (hist/S/hoy), sin texto ni permalinks"
+grep -c "$NOMBRE_KB" evals/retrieval-heldout/verdict/diagnostico-55.md
+git -C ~/Documentos/proyectos/exo/.worktrees/campana-j-fase1 add evals/retrieval-heldout/verdict/diagnostico-55.md
+git -C ~/Documentos/proyectos/exo/.worktrees/campana-j-fase1 commit -m "eval(j): T0 — diagnostico por fila de las 55 (hist/S/hoy), sin texto ni permalinks"
 ```
 Expected: `0` antes del add.
 
@@ -736,7 +736,7 @@ Expected: `FAILED (failures=1, errors=1)` — FAIL `test_estratos_j` (source inv
  
 -FUENTES = {"prompt", "agent-search", "hard"}
 +# C: prompt | agent-search | hard. J añade keyword (palabras clave escritas
-+# por Paul), archive (la respuesta vive en archive/) y negativo (tema ausente
++# por el mantenedor), archive (la respuesta vive en archive/) y negativo (tema ausente
 +# de la KB: corpus negativo verdadero, expected null por definición).
 +FUENTES = {"prompt", "agent-search", "hard", "keyword", "archive", "negativo"}
  
@@ -833,8 +833,8 @@ Expected: `Ran 40 tests` … `OK` (35 si la Task 1 aún no está mergeada en la 
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo/.worktrees/campana-j-fase1 add evals/retrieval-heldout/harness/valida_gold.py evals/retrieval-heldout/harness/pool.py evals/retrieval-heldout/harness/test_harness.py
-git -C /home/paul/Documentos/proyectos/exo/.worktrees/campana-j-fase1 commit -m "eval(j): valida_gold y pool aceptan el gold de J (estratos keyword/archive/negativo, exclusiones repetibles, ventana)"
+git -C ~/Documentos/proyectos/exo/.worktrees/campana-j-fase1 add evals/retrieval-heldout/harness/valida_gold.py evals/retrieval-heldout/harness/pool.py evals/retrieval-heldout/harness/test_harness.py
+git -C ~/Documentos/proyectos/exo/.worktrees/campana-j-fase1 commit -m "eval(j): valida_gold y pool aceptan el gold de J (estratos keyword/archive/negativo, exclusiones repetibles, ventana)"
 ```
 
 ---
@@ -997,7 +997,7 @@ Expected: `ModuleNotFoundError: No module named 'acuerdo'`.
 #!/usr/bin/env python3
 """Limpieza del estrato `agent-search` del gold J (borrador §3). Entrada: un
 fichero de texto con una línea por comando `exo|kbx search|targets` minado de
-`~/.claude/projects/**/*.jsonl` (extracción autorizada por Paul el
+`~/.claude/projects/**/*.jsonl` (extracción autorizada por el mantenedor el
 2026-09-19; el minado con procedencia lo hace pool.pool_comandos).
 Criterio escrito, en este orden: (1) la línea parsea con
 pool.query_de_comando (shlex; la query es el positional); (2) ni la línea ni
@@ -1082,7 +1082,7 @@ familia de modelo). Tres funciones puras y dos con red:
   modelos(env_keys)     -> GET {BASE}/models para fijar el modelo en §10.
 La key se lee en runtime de --env-keys (variable kimi_api_key, fichero
 gitignored de otro repo) y NUNCA se imprime ni se escribe. Envío de datos a
-Moonshot autorizado por Paul el 2026-09-19 (propuesta.md §7).
+Moonshot autorizado por el mantenedor el 2026-09-19 (propuesta.md §7).
 Uso: juez.py paquetes --candidatos C --snap KB --out P.jsonl
      juez.py modelos --env-keys F
      juez.py kimi --paquetes P.jsonl --env-keys F --model M --out R.jsonl [--max N]
@@ -1481,8 +1481,8 @@ Expected: `Ran 7 tests … OK` (corridos así el 2026-09-19) y `OK` (40).
 
 ```bash
 grep -rn "kimi_api_key=" evals/retrieval-heldout/harness/*.py | grep -v 'startswith("kimi_api_key=")' ; echo "sin key literal: $?"
-git -C /home/paul/Documentos/proyectos/exo/.worktrees/campana-j-fase1 add evals/retrieval-heldout/harness/limpia_agent_search.py evals/retrieval-heldout/harness/juez.py evals/retrieval-heldout/harness/acuerdo.py evals/retrieval-heldout/harness/test_gold_j.py
-git -C /home/paul/Documentos/proyectos/exo/.worktrees/campana-j-fase1 commit -m "eval(j): pipeline de gold agentico — limpieza agent-search, juez Kimi/fable, acuerdo kappa"
+git -C ~/Documentos/proyectos/exo/.worktrees/campana-j-fase1 add evals/retrieval-heldout/harness/limpia_agent_search.py evals/retrieval-heldout/harness/juez.py evals/retrieval-heldout/harness/acuerdo.py evals/retrieval-heldout/harness/test_gold_j.py
+git -C ~/Documentos/proyectos/exo/.worktrees/campana-j-fase1 commit -m "eval(j): pipeline de gold agentico — limpieza agent-search, juez Kimi/fable, acuerdo kappa"
 ```
 Expected: el `grep` no encuentra nada (`sin key literal: 1`).
 
@@ -1499,7 +1499,7 @@ Expected: el `grep` no encuentra nada (`sin key literal: 1`).
 - Modify (gitignored): `.superpowers/fabrica/ledger.md`; `.superpowers/fabrica/pendiente-paul.md` **solo** si el revisor objeta una firma
 
 **Interfaces:**
-- Consumes: el borrador tal como está en la rama (§9 firmado); `evals/retrieval-heldout/verdict/diagnostico-55.md`; la tabla «Decisiones firmadas por Paul 2026-09-19» de este plan.
+- Consumes: el borrador tal como está en la rama (§9 firmado); `evals/retrieval-heldout/verdict/diagnostico-55.md`; la tabla «Decisiones firmadas por el mantenedor 2026-09-19» de este plan.
 - Produces: borrador revisado y commiteado; `$PRIV_J/review-preregistro.md`.
 
 - [ ] **Step 1: Review adversarial del borrador**
@@ -1516,14 +1516,14 @@ Si el T0 (Task 2, sección Lectura) propone otro tope df para F1 (cláusula de D
 
 - [ ] **Step 3: Objeciones a firmas (solo si las hay)**
 
-Si el review contiene una OBJECIÓN a una decisión firmada: no se toca §9. Se añade a `.superpowers/fabrica/pendiente-paul.md`, con `date -Iseconds`, un bloque `## Campaña J — objeción del revisor a D-Jn (bloquea: Task 8)` con la objeción literal (cita + dato) y las dos salidas posibles: `D-Jn SE MANTIENE` o `D-Jn CAMBIA A <opción>`. Paul responde con una de las dos; si cambia, la Task 8 sustituye esa línea en §9 citando la respuesta. Sin objeciones, este paso no escribe nada.
+Si el review contiene una OBJECIÓN a una decisión firmada: no se toca §9. Se añade a `.superpowers/fabrica/pendiente-paul.md`, con `date -Iseconds`, un bloque `## Campaña J — objeción del revisor a D-Jn (bloquea: Task 8)` con la objeción literal (cita + dato) y las dos salidas posibles: `D-Jn SE MANTIENE` o `D-Jn CAMBIA A <opción>`. El mantenedor responde con una de las dos; si cambia, la Task 8 sustituye esa línea en §9 citando la respuesta. Sin objeciones, este paso no escribe nada.
 
 - [ ] **Step 4: Commit del borrador**
 
 ```bash
 head -3 docs/superpowers/plans/2026-09-19-campana-j-preregistro-BORRADOR.md | grep -c "Estado: BORRADOR"
-git -C /home/paul/Documentos/proyectos/exo/.worktrees/campana-j-fase1 add docs/superpowers/plans/2026-09-19-campana-j-preregistro-BORRADOR.md
-git -C /home/paul/Documentos/proyectos/exo/.worktrees/campana-j-fase1 commit -m "docs(j): pre-registro borrador tras review adversarial (sin congelar)"
+git -C ~/Documentos/proyectos/exo/.worktrees/campana-j-fase1 add docs/superpowers/plans/2026-09-19-campana-j-preregistro-BORRADOR.md
+git -C ~/Documentos/proyectos/exo/.worktrees/campana-j-fase1 commit -m "docs(j): pre-registro borrador tras review adversarial (sin congelar)"
 ```
 Expected: `1`; commit con hash. Registrar en el ledger `preregistro_borrador: <hash>`.
 
@@ -1531,7 +1531,7 @@ Expected: `1`; commit con hash. Registrar en el ledger `preregistro_borrador: <h
 
 ### Task 6: Generación del gold — snapshot, queries por estrato, checks mecánicos, candidatos y paquetes
 
-**Lane:** diseño (construye el material que juzgan las dos familias de modelo). 0 h de Paul.
+**Lane:** diseño (construye el material que juzgan las dos familias de modelo). 0 h del mantenedor.
 **Oráculo:** `$PRIV_J/paquetes.jsonl` existe con una línea por fila de `$PRIV_J/candidatos.jsonl`; `python3 evals/retrieval-heldout/harness/valida_gold.py --gold evals/retrieval-heldout/gold-j/plantilla.jsonl --kb "$PRIV_J/kb-snap" --in-sample "$PRIV_C/in-sample-55.jsonl" --in-sample "$PRIV_C/gold.jsonl"` sale con exit 1 y **exactamente** 5 líneas de error, todas `… inexistente en el snapshot` (plantilla con permalinks `kb/…` ficticios a propósito; verificado el 2026-09-19); el recuento de `agent-search` limpio está anotado en el ledger.
 **Depende de:** Tasks 3 y 4.
 
@@ -1541,7 +1541,7 @@ Expected: `1`; commit con hash. Registrar en el ledger `preregistro_borrador: <h
 - Privado: `$PRIV_J/kb-snap/`, `$PRIV_J/kb-snap.commit`, `$PRIV_J/pool.jsonl`, `$PRIV_J/muestra-prompt.jsonl`, `$PRIV_J/agent-search.jsonl`, `$PRIV_J/notas-hard.txt`, `$PRIV_J/notas-archive.txt`, `$PRIV_J/generadas.jsonl`, `$PRIV_J/queries.jsonl`, `$PRIV_J/candidatos.jsonl`, `$PRIV_J/paquetes.jsonl`
 
 **Interfaces:**
-- Consumes: `pool.py`, `limpia_agent_search.py`, `juez.py paquetes` (Tasks 3–4); `~/.exo/priv-j/agent-search-raw.txt` (extracción autorizada por Paul; se RE-EXTRAE en el Step 3 parseando el JSON — la de 221 líneas de la sesión de planificación estaba truncada).
+- Consumes: `pool.py`, `limpia_agent_search.py`, `juez.py paquetes` (Tasks 3–4); `~/.exo/priv-j/agent-search-raw.txt` (extracción autorizada por el mantenedor; se RE-EXTRAE en el Step 3 parseando el JSON — la de 221 líneas de la sesión de planificación estaba truncada).
 - Produces: `$PRIV_J/queries.jsonl` con `{"id": "q001…", "query", "source", "topic_terms"?: [str], "author_expected"?: str}`; `$PRIV_J/candidatos.jsonl` con `{"id", "query", "source", "candidatos": [permalink ≤5]}`; `$PRIV_J/paquetes.jsonl` (salida de `juez.py paquetes`). Los ids `qNNN` son los que usan los dos jueces; `acuerdo.py` renumera a `jNNN` al construir el gold.
 
 - [ ] **Step 1: Directorio privado y snapshot inmutable de la KB (lectura; sin escribir en la KB)**
@@ -1549,8 +1549,8 @@ Expected: `1`; commit con hash. Registrar en el ledger `preregistro_borrador: <h
 ```bash
 export PRIV_C=~/.local/share/exo-evals/c-heldout PRIV_J=~/.local/share/exo-evals/j-heldout
 mkdir -p "$PRIV_J" && chmod 700 "$PRIV_J"
-S_J=$(git -C "$HOME/Documentos/proyectos/wisdom-paul" rev-parse HEAD)
-git clone --quiet --no-hardlinks "$HOME/Documentos/proyectos/wisdom-paul" "$PRIV_J/kb-snap"
+S_J=$(git -C "$HOME/Documentos/proyectos/<kb>" rev-parse HEAD)
+git clone --quiet --no-hardlinks "$HOME/Documentos/proyectos/<kb>" "$PRIV_J/kb-snap"
 git -C "$PRIV_J/kb-snap" checkout --quiet --detach "$S_J"
 echo "$S_J" > "$PRIV_J/kb-snap.commit"; cat "$PRIV_J/kb-snap.commit"
 ls "$PRIV_J/kb-snap/archive/log" | wc -l
@@ -1720,8 +1720,8 @@ Expected: `{"paquetes": <total>}`; max ≤ 5·4000 + ~600 chars; `total` ≈ 3�
 Contrato: `docs/superpowers/plans/2026-09-19-campana-j-preregistro-BORRADOR.md`
 §3 (estratos, jueces, suelo) y §11 (kill-criteria). El gold vive fuera del
 repo (`~/.local/share/exo-evals/j-heldout/gold-j.jsonl`); aquí solo el método,
-la plantilla y los recuentos. Decisión de Paul del 2026-09-19 (`propuesta.md`
-§7): la KB la consumen agentes, no Paul; el patrón de relevancia es la
+la plantilla y los recuentos. Decisión del mantenedor del 2026-09-19 (`propuesta.md`
+§7): la KB la consumen agentes, no el mantenedor; el patrón de relevancia es la
 utilidad para el agente, y el gold lo etiquetan jueces LLM de dos familias.
 
 ## Pipeline
@@ -1729,7 +1729,7 @@ utilidad para el agente, y el gold lo etiquetan jueces LLM de dos familias.
 1. **Queries** por estrato: `prompt` (prompts reales que dispararon
    `recall-inject` desde el 2026-09-13, `pool.py`), `agent-search` (comandos
    `exo search` reales de agentes, minados de los transcripts con autorización
-   de Paul y limpiados con `limpia_agent_search.py`: criterio en su docstring),
+   del mantenedor y limpiados con `limpia_agent_search.py`: criterio en su docstring),
    `hard` (paráfrasis por un agente que no vio ningún gold), `archive` (hechos
    que hoy viven solo en `archive/log/`), `negativo` (temas ausentes; ausencia
    comprobada con `grep` de `topic_terms` sobre la KB entera y, además, por
@@ -1741,7 +1741,7 @@ utilidad para el agente, y el gold lo etiquetan jueces LLM de dos familias.
    candidatos con título y primeros 4.000 caracteres; sin etiquetas, sin
    rankings, sin el otro juez): **fable** (Claude) y **Kimi** (Moonshot,
    `juez.py`, modelo fijado en el pre-registro §10). Kimi recibe trozos de la
-   KB: **envío autorizado explícitamente por Paul el 2026-09-19**.
+   KB: **envío autorizado explícitamente por el mantenedor el 2026-09-19**.
 4. **Acuerdo** (`acuerdo.py`): una fila entra solo si los dos jueces
    coinciden (estricto, o el expected de uno es aceptable para el otro). Los
    desacuerdos se descartan (sin tercer juez) y se cuentan. Suelo
@@ -1761,9 +1761,9 @@ utilidad para el agente, y el gold lo etiquetan jueces LLM de dos familias.
 - [ ] **Step 10: Commit (privado no se commitea)**
 
 ```bash
-grep -c "wisdom-paul" evals/retrieval-heldout/gold-j/README.md evals/retrieval-heldout/gold-j/plantilla.jsonl
-git -C /home/paul/Documentos/proyectos/exo/.worktrees/campana-j-fase1 add evals/retrieval-heldout/gold-j/README.md evals/retrieval-heldout/gold-j/plantilla.jsonl
-git -C /home/paul/Documentos/proyectos/exo/.worktrees/campana-j-fase1 commit -m "eval(j): gold agentico — metodo, plantilla y recuentos (sin texto de queries)"
+grep -c "$NOMBRE_KB" evals/retrieval-heldout/gold-j/README.md evals/retrieval-heldout/gold-j/plantilla.jsonl
+git -C ~/Documentos/proyectos/exo/.worktrees/campana-j-fase1 add evals/retrieval-heldout/gold-j/README.md evals/retrieval-heldout/gold-j/plantilla.jsonl
+git -C ~/Documentos/proyectos/exo/.worktrees/campana-j-fase1 commit -m "eval(j): gold agentico — metodo, plantilla y recuentos (sin texto de queries)"
 ```
 Expected: `0` y `0` antes del add.
 
@@ -1771,7 +1771,7 @@ Expected: `0` y `0` antes del add.
 
 ### Task 7: Juicio a ciegas (Kimi + fable), acuerdo, suelo y gold
 
-**Lane:** diseño (produce el gold y su medida de fiabilidad). **Aquí se envían datos a Moonshot** (autorización de Paul, 2026-09-19, `propuesta.md` §7).
+**Lane:** diseño (produce el gold y su medida de fiabilidad). **Aquí se envían datos a Moonshot** (autorización del mantenedor, 2026-09-19, `propuesta.md` §7).
 **Oráculo:** `acuerdo.py` sale con exit 0 (suelo pasa) y `valida_gold.py` sobre `$PRIV_J/gold-j.jsonl` en exit 0; o bien `acuerdo.py` sale con exit 2 y el verdict `evals/retrieval-heldout/verdict/gold-j-acuerdo.md` dice `NO PASA: J PARA` (resultado válido; la Task 8 no se despacha).
 **Depende de:** Tasks 5 y 6.
 
@@ -1781,13 +1781,13 @@ Expected: `0` y `0` antes del add.
 - Privado: `$PRIV_J/kimi-modelos.json`, `$PRIV_J/juicio-kimi.jsonl`, `$PRIV_J/juicio-fable.jsonl`, `$PRIV_J/gold-j.jsonl`, `$PRIV_J/descartes.jsonl`
 
 **Interfaces:**
-- Consumes: `$PRIV_J/paquetes.jsonl`, `$PRIV_J/candidatos.jsonl`; `juez.py`, `acuerdo.py`, `valida_gold.py`; la key en `/home/paul/Documentos/proyectos/wisdom-ai-news/.env-keys` (variable `kimi_api_key`; el fichero es gitignored en ese repo; **nunca** se copia, imprime ni entra en el repo exo).
+- Consumes: `$PRIV_J/paquetes.jsonl`, `$PRIV_J/candidatos.jsonl`; `juez.py`, `acuerdo.py`, `valida_gold.py`; la key en `~/Documentos/proyectos/<repo-noticias-ia>/.env-keys` (variable `kimi_api_key`; el fichero es gitignored en ese repo; **nunca** se copia, imprime ni entra en el repo exo).
 - Produces: `$PRIV_J/gold-j.jsonl` (schema del borrador §3, ids `j001…`), κ y p_o para §10, modelo Kimi para §10.
 
 - [ ] **Step 1: Fijar el modelo de Kimi (runtime)**
 
 ```bash
-ENV_KEYS=/home/paul/Documentos/proyectos/wisdom-ai-news/.env-keys
+ENV_KEYS=~/Documentos/proyectos/<repo-noticias-ia>/.env-keys
 python3 evals/retrieval-heldout/harness/juez.py modelos --env-keys "$ENV_KEYS" | tee "$PRIV_J/kimi-modelos.json"
 ```
 Expected: lista JSON de ids. **Regla de elección, escrita antes de ver la lista:** el modelo es `kimi-k3` si aparece; si no, el id `kimi-k2*` de mayor versión que aparezca; si no hay ninguno `kimi-k2*`, PENDIENTE-PAUL (no se elige a ojo). El id elegido va a `KIMI_MODEL` y al borrador §10 en la Task 8. Precio de lista (web, 2026-09; verificar en platform.moonshot.ai): kimi-k3 $3 / $15 por millón de tokens (entrada / salida), kimi-k2.6 $0,95 / $4,00. **Errata corregida 2026-09-20:** esta tabla tenía los precios invertidos (decía kimi-k3 $0,95/$4,00 y "K3" $3/$15); la versión correcta es la de §Global Constraints, de donde sale la estimación de ≈$6 para el job completo con k3.
@@ -1807,7 +1807,7 @@ Expected: `{"llamadas": 3, "ok": 3, "errores": [], "prompt_tokens": <n>, ...}` y
 python3 evals/retrieval-heldout/harness/juez.py kimi --paquetes "$PRIV_J/paquetes.jsonl" --env-keys "$ENV_KEYS" --model "$KIMI_MODEL" --out "$PRIV_J/juicio-kimi.jsonl" 2> "$PRIV_J/juicio-kimi.log"
 python3 evals/retrieval-heldout/harness/juez.py valida --respuestas "$PRIV_J/juicio-kimi.jsonl" --candidatos "$PRIV_J/candidatos.jsonl"
 ```
-Expected: `ok` = nº de paquetes (el script reanuda por id si se corta; reintentos 3 con backoff); `invalidas: 0`. Anotar `prompt_tokens`/`completion_tokens` y el coste (`tokens × precio`) en el ledger. Presupuesto: ≈ 280 llamadas × ≈ 5–6 k tokens ≈ 1,5 M tokens de entrada + ≈ 30 k de salida ≈ **$6 con kimi-k3** (≈ $2 con kimi-k2.6; Paul eligió k3 el 2026-09-19 por calidad de juez, ver Global Constraints); tope autorizado por este plan: **$10**; por encima, STOP. **Errata corregida 2026-09-20 (F6 del review de rama):** esta línea tenía los precios invertidos (decía "≈ $2 con kimi-k3 (≈ $6 con K3)"); precios verificados contra la web oficial de Moonshot el 2026-09-20: kimi-k3 $3/$15 por millón de tokens (entrada/salida), kimi-k2.6 $0,95/$4,00 — la versión correcta es la del Step 1 de esta Task y de Global Constraints, de donde sale la estimación de ≈$6 con k3.
+Expected: `ok` = nº de paquetes (el script reanuda por id si se corta; reintentos 3 con backoff); `invalidas: 0`. Anotar `prompt_tokens`/`completion_tokens` y el coste (`tokens × precio`) en el ledger. Presupuesto: ≈ 280 llamadas × ≈ 5–6 k tokens ≈ 1,5 M tokens de entrada + ≈ 30 k de salida ≈ **$6 con kimi-k3** (≈ $2 con kimi-k2.6; el mantenedor eligió k3 el 2026-09-19 por calidad de juez, ver Global Constraints); tope autorizado por este plan: **$10**; por encima, STOP. **Errata corregida 2026-09-20 (F6 del review de rama):** esta línea tenía los precios invertidos (decía "≈ $2 con kimi-k3 (≈ $6 con K3)"); precios verificados contra la web oficial de Moonshot el 2026-09-20: kimi-k3 $3/$15 por millón de tokens (entrada/salida), kimi-k2.6 $0,95/$4,00 — la versión correcta es la del Step 1 de esta Task y de Global Constraints, de donde sale la estimación de ≈$6 con k3.
 
 - [ ] **Step 4: fable como juez (ciego; lotes de 25 paquetes; un subagente fresco por lote)**
 
@@ -1821,7 +1821,7 @@ Después: `cat "$PRIV_J"/juicio-fable-*.jsonl > "$PRIV_J/juicio-fable.jsonl"` y 
 
 ```bash
 python3 evals/retrieval-heldout/harness/acuerdo.py --candidatos "$PRIV_J/candidatos.jsonl" --fable "$PRIV_J/juicio-fable.jsonl" --kimi "$PRIV_J/juicio-kimi.jsonl" --snap "$PRIV_J/kb-snap" --gold-out "$PRIV_J/gold-j.jsonl" --descartes-out "$PRIV_J/descartes.jsonl" --informe-out evals/retrieval-heldout/verdict/gold-j-acuerdo.md --kappa-min 0.60 --po-min 0.70; echo "exit=$?"
-grep -c "wisdom-paul" evals/retrieval-heldout/verdict/gold-j-acuerdo.md
+grep -c "$NOMBRE_KB" evals/retrieval-heldout/verdict/gold-j-acuerdo.md
 python3 evals/retrieval-heldout/harness/valida_gold.py --gold "$PRIV_J/gold-j.jsonl" --kb "$PRIV_J/kb-snap" --in-sample "$PRIV_C/in-sample-55.jsonl" --in-sample "$PRIV_C/gold.jsonl"
 ```
 Expected: JSON `{"gold": <n>, "no_nulas": <n>, "descartes": <n>, "kappa": <x>, "po": <x>, "pasa": true}` y `exit=0`; `0`; `valida_gold` exit 0 con `"errores": 0`. **Suelos del borrador §11 con el N real:** `no_nulas ≥ 60`, `nulas_por_estrato.negativo ≥ 24`, `no_nulas_por_estrato.archive ≥ 8`; los estratos con `p_o < 0,60` en la tabla del informe se marcan «flojo» (se reportan, no deciden por sí solos). Si `exit=2`: J PARA — se commitea el informe con `NO PASA`, se anota en el ledger y en el backlog (Task 8 no aplica); es un resultado.
@@ -1831,9 +1831,9 @@ Expected: JSON `{"gold": <n>, "no_nulas": <n>, "descartes": <n>, "kappa": <x>, "
 Rellenar `evals/retrieval-heldout/gold-j/README.md` §Recuentos con la salida de `acuerdo.py`, `valida_gold.py` y el JSON de coste del Step 3 (números, modelo, sin texto).
 
 ```bash
-grep -c "wisdom-paul" evals/retrieval-heldout/verdict/gold-j-acuerdo.md evals/retrieval-heldout/gold-j/README.md
-git -C /home/paul/Documentos/proyectos/exo/.worktrees/campana-j-fase1 add evals/retrieval-heldout/verdict/gold-j-acuerdo.md evals/retrieval-heldout/gold-j/README.md
-git -C /home/paul/Documentos/proyectos/exo/.worktrees/campana-j-fase1 commit -m "eval(j): gold J juzgado a ciegas por fable y Kimi — acuerdo, kappa y recuentos"
+grep -c "$NOMBRE_KB" evals/retrieval-heldout/verdict/gold-j-acuerdo.md evals/retrieval-heldout/gold-j/README.md
+git -C ~/Documentos/proyectos/exo/.worktrees/campana-j-fase1 add evals/retrieval-heldout/verdict/gold-j-acuerdo.md evals/retrieval-heldout/gold-j/README.md
+git -C ~/Documentos/proyectos/exo/.worktrees/campana-j-fase1 commit -m "eval(j): gold J juzgado a ciegas por fable y Kimi — acuerdo, kappa y recuentos"
 ```
 Expected: `0` y `0` antes del add.
 
@@ -1841,9 +1841,9 @@ Expected: `0` y `0` antes del add.
 
 ### Task 8: Congelación del pre-registro (la dispara el pipeline) y gate del consultor fable
 
-**Lane:** mecánica + consultor-gate (fable, como en C). **Cierra la fase 1; bloquea toda medición (fase 2).** Sin horas de Paul: la congelación la dispara `acuerdo.py` con exit 0 (Task 7 Step 5); el gate del pre-registro congelado lo firma un consultor fable fresco.
+**Lane:** mecánica + consultor-gate (fable, como en C). **Cierra la fase 1; bloquea toda medición (fase 2).** Sin horas del mantenedor: la congelación la dispara `acuerdo.py` con exit 0 (Task 7 Step 5); el gate del pre-registro congelado lo firma un consultor fable fresco.
 **Oráculo:** `git -C <worktree> log -1 --format=%H -- docs/superpowers/plans/2026-09-19-campana-j-preregistro-BORRADOR.md` devuelve el commit de congelación, la cabecera dice `Estado: CONGELADO`, `sha256sum "$PRIV_J/gold-j.jsonl"` coincide con §10, y `.superpowers/fabrica/verdicts/j-consultor-gate.md` termina en `GATE: PRE-REGISTRO J CONGELADO <fecha>`.
-**Depende de:** Task 7 con `pasa: true` (y, si la Task 5 registró una objeción, la respuesta de Paul).
+**Depende de:** Task 7 con `pasa: true` (y, si la Task 5 registró una objeción, la respuesta del mantenedor).
 
 **Files:**
 - Modify: `docs/superpowers/plans/2026-09-19-campana-j-preregistro-BORRADOR.md` (cabecera, §10; §9 solo si una objeción de la Task 5 cambió una firma)
@@ -1857,7 +1857,7 @@ Expected: `0` y `0` antes del add.
 - [ ] **Step 1: Validación final y sha**
 
 ```bash
-S_NOW=$(git -C "$HOME/Documentos/proyectos/wisdom-paul" rev-parse HEAD); cat "$PRIV_J/kb-snap.commit"; echo "$S_NOW"
+S_NOW=$(git -C "$HOME/Documentos/proyectos/<kb>" rev-parse HEAD); cat "$PRIV_J/kb-snap.commit"; echo "$S_NOW"
 python3 evals/retrieval-heldout/harness/valida_gold.py --gold "$PRIV_J/gold-j.jsonl" --kb "$PRIV_J/kb-snap" --in-sample "$PRIV_C/in-sample-55.jsonl" --in-sample "$PRIV_C/gold.jsonl"
 chmod 444 "$PRIV_J/gold-j.jsonl"; sha256sum "$PRIV_J/gold-j.jsonl"
 ```
@@ -1867,15 +1867,15 @@ Expected: exit 0 con `"errores": 0`; un sha256. Si la KB de hoy difiere de `S_J`
 
 Editar el borrador:
 - Cabecera: sustituir el párrafo `**Estado: BORRADOR (2026-09-19).** …` entero (hasta «antes de que exista el gold.») por `**Estado: CONGELADO el <date -Iseconds>.** Inmutable desde este commit; erratas → verdict.` Conservar las líneas `> Enmienda …` de la Task 5.
-- §9: ya lleva las firmas; solo si la Task 5 registró una objeción y Paul respondió `CAMBIA A`, sustituir esa línea y añadir `(revisada el <fecha> tras objeción del revisor: "<cita de Paul>")`. Si D-J4 cambiara así, sustituir también `NETO ≥ 4` en §6 y en §7 punto 2.
-- §10: `S_J` = `kb-snap.commit`; `sha256` y recuentos = JSON de `valida_gold.py`; `κ`, `p_o`, descartes = JSON de `acuerdo.py`; modelo Kimi = `KIMI_MODEL` con la lista de `kimi-modelos.json` y los tokens/coste del ledger; «aprobación del gold» = `acuerdo.py exit 0 el <fecha>` (no hay línea de Paul).
+- §9: ya lleva las firmas; solo si la Task 5 registró una objeción y el mantenedor respondió `CAMBIA A`, sustituir esa línea y añadir `(revisada el <fecha> tras objeción del revisor: "<cita del mantenedor>")`. Si D-J4 cambiara así, sustituir también `NETO ≥ 4` en §6 y en §7 punto 2.
+- §10: `S_J` = `kb-snap.commit`; `sha256` y recuentos = JSON de `valida_gold.py`; `κ`, `p_o`, descartes = JSON de `acuerdo.py`; modelo Kimi = `KIMI_MODEL` con la lista de `kimi-modelos.json` y los tokens/coste del ledger; «aprobación del gold» = `acuerdo.py exit 0 el <fecha>` (no hay línea del mantenedor).
 
 - [ ] **Step 3: Commit de congelación**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo/.worktrees/campana-j-fase1 add docs/superpowers/plans/2026-09-19-campana-j-preregistro-BORRADOR.md
-git -C /home/paul/Documentos/proyectos/exo/.worktrees/campana-j-fase1 commit -m "eval(j): congela pre-registro del held-out J (gold agentico, acuerdo sobre el suelo, sha256 fijado)"
-git -C /home/paul/Documentos/proyectos/exo/.worktrees/campana-j-fase1 log -1 --format='%H %cI'
+git -C ~/Documentos/proyectos/exo/.worktrees/campana-j-fase1 add docs/superpowers/plans/2026-09-19-campana-j-preregistro-BORRADOR.md
+git -C ~/Documentos/proyectos/exo/.worktrees/campana-j-fase1 commit -m "eval(j): congela pre-registro del held-out J (gold agentico, acuerdo sobre el suelo, sha256 fijado)"
+git -C ~/Documentos/proyectos/exo/.worktrees/campana-j-fase1 log -1 --format='%H %cI'
 ```
 Expected: hash y fecha. Registrar en el ledger `preregistro_congelado: <hash>`. Desde aquí `git diff <hash> -- docs/superpowers/plans/2026-09-19-campana-j-preregistro-BORRADOR.md` debe salir vacío en cualquier tarea posterior. El nombre del fichero conserva `BORRADOR` a propósito (las citas del plan y del backlog apuntan a él; la cabecera es la verdad).
 
@@ -1883,7 +1883,7 @@ Expected: hash y fecha. Registrar en el ledger `preregistro_congelado: <hash>`. 
 
 Despachar un subagente **fable** fresco (que no haya sido juez ni revisor) con este brief literal:
 
-"Eres el consultor-gate del pre-registro congelado `docs/superpowers/plans/2026-09-19-campana-j-preregistro-BORRADOR.md` (commit `<hash>`). Comprueba, con comandos y sin fiarte del ledger: (1) `git diff <hash> -- <fichero>` vacío; (2) `sha256sum ~/.local/share/exo-evals/j-heldout/gold-j.jsonl` = §10; (3) `valida_gold.py` exit 0 con los recuentos de §10; (4) re-ejecuta `acuerdo.py` con los mismos argumentos de la Task 7 a un fichero temporal y compara κ, p_o y recuentos con `evals/retrieval-heldout/verdict/gold-j-acuerdo.md` (deben coincidir); (5) abre 10 filas del gold al azar (semilla 20260919) más las 5 de menor `solape_lexico` en `notes` y, leyendo las notas en `kb-snap`, di si la etiqueta es defendible; (6) confirma que ningún fichero commiteado contiene texto de query ni permalinks por fila (`grep -c wisdom-paul` = 0 en `verdict/gold-j-acuerdo.md`, `gold-j/README.md`, `verdict/diagnostico-55.md`); (7) confirma que ningún fichero del repo contiene la key (`LC_ALL=C git grep --untracked -cE 'sk-[A-Za-z0-9]{20,}' -- evals` sin salida, exit 1). Escribe `.superpowers/fabrica/verdicts/j-consultor-gate.md` con cada comprobación, su comando y su salida, y termina con UNA línea: `GATE: PRE-REGISTRO J CONGELADO <fecha>` o `GATE: PRE-REGISTRO J RECHAZADO <motivo>`. Si RECHAZADO, no se mide nada: la fábrica corrige y repite este gate."
+"Eres el consultor-gate del pre-registro congelado `docs/superpowers/plans/2026-09-19-campana-j-preregistro-BORRADOR.md` (commit `<hash>`). Comprueba, con comandos y sin fiarte del ledger: (1) `git diff <hash> -- <fichero>` vacío; (2) `sha256sum ~/.local/share/exo-evals/j-heldout/gold-j.jsonl` = §10; (3) `valida_gold.py` exit 0 con los recuentos de §10; (4) re-ejecuta `acuerdo.py` con los mismos argumentos de la Task 7 a un fichero temporal y compara κ, p_o y recuentos con `evals/retrieval-heldout/verdict/gold-j-acuerdo.md` (deben coincidir); (5) abre 10 filas del gold al azar (semilla 20260919) más las 5 de menor `solape_lexico` en `notes` y, leyendo las notas en `kb-snap`, di si la etiqueta es defendible; (6) confirma que ningún fichero commiteado contiene texto de query ni permalinks por fila (`grep -c "$NOMBRE_KB"` = 0 en `verdict/gold-j-acuerdo.md`, `gold-j/README.md`, `verdict/diagnostico-55.md`); (7) confirma que ningún fichero del repo contiene la key (`LC_ALL=C git grep --untracked -cE 'sk-[A-Za-z0-9]{20,}' -- evals` sin salida, exit 1). Escribe `.superpowers/fabrica/verdicts/j-consultor-gate.md` con cada comprobación, su comando y su salida, y termina con UNA línea: `GATE: PRE-REGISTRO J CONGELADO <fecha>` o `GATE: PRE-REGISTRO J RECHAZADO <motivo>`. Si RECHAZADO, no se mide nada: la fábrica corrige y repite este gate."
 
 `RECHAZADO` ⇒ se corrige lo señalado (si toca el gold, el sha cambia y la congelación se rehace desde el Step 1), nuevo gate. Registrar la línea final en el ledger.
 
@@ -1891,13 +1891,13 @@ Despachar un subagente **fable** fresco (que no haya sido juez ni revisor) con e
 
 ## Lo que queda para la fase 2 (fuera de este plan; se planifica con el pre-registro congelado delante)
 
-Índice `base` sobre `S_J` con el binario post-G/L (rebuild ≈ 1,5 h, `condiciones.md` de C); capturas por query (`captura.py`); módulo `brazos.py` (FTS-AND réplica + oráculo (ii), F1 con `sqlite3`, S1, P1, G1 con calibración) y extensión de `metricas.py informe` para el camino secuencial de §6, las nulas por estrato y el guard léxico de D-A; corrida, `j-agregados.md`, `j-verdict.md` adjudicado por fable fresco con cita textual; **solo entonces** `engine/src` para el ganador (con oráculo de reproducción exacta, §11) o cierre «A0 se queda»; backlog, `arquitectura.md` §6 y D6 confirmado. La única tarea de engine independiente del verdict es D-J5 = a (renombrar `similitud_desde_l2_cuadrado` y corregir su doc, sin cambio de comportamiento), que puede ir suelta cuando Paul quiera.
+Índice `base` sobre `S_J` con el binario post-G/L (rebuild ≈ 1,5 h, `condiciones.md` de C); capturas por query (`captura.py`); módulo `brazos.py` (FTS-AND réplica + oráculo (ii), F1 con `sqlite3`, S1, P1, G1 con calibración) y extensión de `metricas.py informe` para el camino secuencial de §6, las nulas por estrato y el guard léxico de D-A; corrida, `j-agregados.md`, `j-verdict.md` adjudicado por fable fresco con cita textual; **solo entonces** `engine/src` para el ganador (con oráculo de reproducción exacta, §11) o cierre «A0 se queda»; backlog, `arquitectura.md` §6 y D6 confirmado. La única tarea de engine independiente del verdict es D-J5 = a (renombrar `similitud_desde_l2_cuadrado` y corregir su doc, sin cambio de comportamiento), que puede ir suelta cuando el mantenedor quiera.
 
 ## Self-review (checklist contra el brief)
 
 - T0 con comandos exactos y salida verificable: Tasks 1–2 (código y tests corridos en dry-run el 2026-09-19: `miss_hist 6 · miss_S 12 · hit→miss 7`). ✔
 - Pre-registro borrador con brazos, métrica primaria (hit@5 + abstención sobre negativos verdaderos), regla de decisión con potencia calculada por N (60–180) y por número de decisiones, challenge a los 8 brazos (4 decisiones en camino secuencial), kill-criteria incluido «J PARA por acuerdo insuficiente» y «si nada gana». ✔
-- Gold 100 % agéntico con fiabilidad medida (revocación de D-J1/D-J2, 2026-09-19): estratos `prompt`, `agent-search` (limpieza con criterio escrito), `hard`, `archive`, `negativo` (ausencia mecánica + jueces); dos jueces ciegos de dos familias (fable, Kimi); entrada solo por acuerdo, desacuerdos descartados; suelo κ ≥ 0,60 ∧ p_o ≥ 0,70 con referencias marcadas por confianza; sesgo léxico declarado con auditoría y guard; congelación disparada por el pipeline y gate por consultor fable; 0 h de Paul. ✔
+- Gold 100 % agéntico con fiabilidad medida (revocación de D-J1/D-J2, 2026-09-19): estratos `prompt`, `agent-search` (limpieza con criterio escrito), `hard`, `archive`, `negativo` (ausencia mecánica + jueces); dos jueces ciegos de dos familias (fable, Kimi); entrada solo por acuerdo, desacuerdos descartados; suelo κ ≥ 0,60 ∧ p_o ≥ 0,70 con referencias marcadas por confianza; sesgo léxico declarado con auditoría y guard; congelación disparada por el pipeline y gate por consultor fable; 0 h del mantenedor. ✔
 - Exposición de datos a Moonshot declarada en Global Constraints, Task 7 y borrador §8; key en runtime, nunca en el repo; `grep` de key antes de commitear y en el gate. ✔
 - #4 = c: P1 como brazo medido, D-C. #12 = b: no afecta. #13: sustituida por el gold agéntico (revocación). ✔
 - `engine/src` intocado en todas las tareas; solo `cargo build` para leer. ✔
@@ -1908,6 +1908,6 @@ Despachar un subagente **fable** fresco (que no haya sido juez ni revisor) con e
 
 Ejecutar con `exo:orchestrate`, tarea a tarea, en la rama `campana-j-fase1`.
 Tasks 1 y 3 en paralelo; 2 tras 1; 4 tras 3; 5 tras 2 (y antes de 7); 6 tras
-4; 7 tras 5 y 6; 8 tras 7 con `pasa: true`. Nada espera a Paul salvo una
+4; 7 tras 5 y 6; 8 tras 7 con `pasa: true`. Nada espera al mantenedor salvo una
 objeción del revisor (Task 5 Step 3). La fase 2 se planifica con el
 pre-registro congelado delante, nunca antes.

@@ -20,7 +20,7 @@ Evaluación D/M/T que acompaña esta foto: `agent-develop/docs/superpowers/evals
 | **/documenta** (command) | Cierre de sesión → KB: contrato de routing, search-before-write, consume `kbx targets` | `~/.claude/commands/documenta.md` | Vivo; único command suelto (todo lo demás va por plugins) |
 | **kbx** (binario Go) | Consulta determinista read-only sobre la KB: `doctor / targets / history / diff-since / budget / stale`, todo `--json` | fuente `~/Documentos/proyectos/kbx`, instalado `~/.local/bin/kbx` | Vivo; **no se migra** a exo (el envelope JSON hace el lenguaje decisión por-binario) |
 | **exo engine** (Rust) | El sustituto en construcción: FTS5 + grafo wikilinks + embeddings jina-es/768 (sqlite-vec), `exo index/rebuild/search --type fts\|vector\|hybrid` | `~/Documentos/proyectos/exo/engine/` | M2-07 sellado (hybrid 49/55 diagnóstico, config `bonus=0.0 / β=0.6 / thr=0.40`); siguiente M2-08 `exo recall` → M2-09 gate final |
-| **Identidad + doctrina** | `~/.claude/CLAUDE.md` (extracto del perfil; fuente de verdad `[[Paul - perfil de trabajo]]` en KB) + `core-index` inyectado al arranque (≤3.600 bytes) | `~/.claude/` + `kb-demo/core/` | Vivo |
+| **Identidad + doctrina** | `~/.claude/CLAUDE.md` (extracto del perfil; fuente de verdad: el perfil de trabajo del dueño, en la KB) + `core-index` inyectado al arranque (≤3.600 bytes) | `~/.claude/` + `kb-demo/core/` | Vivo |
 
 Distribución: todo lo propio viaja por el **marketplace `agent-develop`** (`/plugin marketplace add pguerrerolinares/agent-develop`); `~/.claude/skills/` y `~/.claude/agents/` están vacíos a propósito. El marketplace sigue siendo el vivo hasta M1b (post-métrica-D).
 

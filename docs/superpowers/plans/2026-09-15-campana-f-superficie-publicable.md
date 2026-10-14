@@ -22,7 +22,7 @@ estáticos nuevos (`test-docs-vivos.sh`, `test-hooks-json.sh`), cada uno
 añadido como step del job `lint`; (4) extender `test-shellcheck.sh` a los
 bloques `run: |` de los workflows; (5) que `test-hermetico.sh` distinga un
 error de COMPILACIÓN de un test que falla; (6) fijar `HF_HOME`; (7) renombrar
-el job `lint` (decisión de Paul, ya tomada) una vez que todos sus steps
+el job `lint` (decisión del mantenedor, ya tomada) una vez que todos sus steps
 nuevos están puestos, para que el nombre describa lo que el job hace
 completo; (8) la limpieza «genérico»: `Paul` → «el dueño de la KB» en los
 cinco ficheros de lógica que lo tienen, más la línea que falta en
@@ -80,7 +80,7 @@ Todas verificadas hoy (2026-09-15) contra `99ddd05` en el worktree
   `git diff --stat` que no aparece como binario o con CRLF si algo raro pasa).
 - **Git:** `git add <rutas explícitas>`, nunca `-A`/`.`; `git -C <path>`,
   nunca `cd <path> && git`. Nada de push ni de tocar GitHub. La branch
-  protection de `main` la activa Paul en GitHub, no esta campaña (ver Task 7).
+  protection de `main` la activa el mantenedor en GitHub, no esta campaña (ver Task 7).
 - **Scripts nuevos bajo `scripts/` (no `plugins/`) no exigen bit de
   ejecución**: el gate `test-exec-bit.sh` solo mira `git ls-files -s --
   plugins` (`scripts/test-exec-bit.sh:34`) — los dos scripts nuevos de este
@@ -122,10 +122,10 @@ Todas verificadas hoy (2026-09-15) contra `99ddd05` en el worktree
   su propio diseño de ledger histórico. Ver razonamiento completo en la
   Task 2.
 
-## Decisiones de Paul ya tomadas (2026-09-15), heredadas por toda tarea
+## Decisiones del mantenedor ya tomadas (2026-09-15), heredadas por toda tarea
 
 - **#8**: renombrar el job `lint` de `ci.yml` (Task 7). Branch protection la
-  activa Paul en GitHub después del merge; la Task 7 deja la lista exacta de
+  activa el mantenedor en GitHub después del merge; la Task 7 deja la lista exacta de
   los 12 required checks resultantes.
 - **#5**: identificadores de código en español, claves JSON y flags en
   inglés — se escribe en una línea en `docs/arquitectura.md` §3.8 (Task 8).
@@ -905,7 +905,7 @@ que queda abierto del ítem.
 Run:
 ```bash
 cat > /tmp/log-compile-error.txt <<'EOF'
-   Compiling exo v0.1.0 (/home/paul/exo/engine)
+   Compiling exo v0.1.0 (~/exo/engine)
 error[E0425]: cannot find function `foo` in this scope
   --> src/main.rs:10:5
    |
@@ -1137,7 +1137,7 @@ git commit -m "ci(f, cache): HF_HOME explícito y ruta de caché del modelo jina
 
 ## Task 7: renombrar el job `lint` de `ci.yml`
 
-**Lane:** mecánica (decisión ya tomada por Paul, #8 del brief). **Depende
+**Lane:** mecánica (decisión ya tomada por el mantenedor, #8 del brief). **Depende
 de:** Tasks 2, 3 (para que el job ya tenga todos sus steps nuevos antes de
 renombrarlo) y 6 (aunque Task 6 no toca este job, se ejecuta antes por orden
 del plan). **Oráculo:** `grep -n "^  lint:\|^  static-checks:" ci.yml` +
@@ -1196,10 +1196,10 @@ Expected:
 ```
 (las líneas viejas ya no aparecen).
 
-- [ ] **Step 4: lista de required checks para Paul (documentar, no
+- [ ] **Step 4: lista de required checks para el mantenedor (documentar, no
   configurar)**
 
-Esta tarea NO activa branch protection — eso lo hace Paul en GitHub después
+Esta tarea NO activa branch protection — eso lo hace el mantenedor en GitHub después
 del merge. Deja constancia exacta de los 12 checks resultantes, para copiar
 tal cual en el PR de esta campaña y en la configuración de GitHub:
 
@@ -1641,7 +1641,7 @@ Reemplaza por:
   "MSRV declarada (1.95)" · `test` → "test (ubuntu-latest/windows-latest/
   macos-latest)" ×3 · `plugin-tests` → "tests del plugin (ubuntu-latest/
   windows-latest/macos-latest)" ×3 · `install-gate` → "install gate
-  (ubuntu-latest/windows-latest/macos-latest)" ×3. Paul los activa en GitHub
+  (ubuntu-latest/windows-latest/macos-latest)" ×3. El mantenedor los activa en GitHub
   después del merge — esta campaña no toca settings del repo.**
 ```
 
@@ -1679,7 +1679,7 @@ Añade inmediatamente después:
   **(campaña F, 2026-09-15): cerrada.** `docs/arquitectura.md` §3.8 lleva
   ahora la línea que faltaba (Task 8 de F): identificadores de código en
   español (26 módulos de `engine/src/`), claves JSON y flags en inglés. Cero
-  rename de código — decisión #5 del paquete de Paul del 2026-09-15.
+  rename de código — decisión #5 del paquete del mantenedor del 2026-09-15.
 ```
 
 - [ ] **Step 10: cerrar la parte de «Nombres y ubicaciones» que toca a F
@@ -1718,7 +1718,7 @@ Localiza el ítem «`exo budget` va a colisionar de nombre» y añade al final:
   `Comando::Budget` vive en `engine/src/main.rs:68` desde G4b. La colisión
   de nombre se resolvió de hecho: `budget` = bytes de KB. Queda solo el
   nombre de un verbo de coste de tokens hipotético, decisión #3 del paquete
-  de Paul del 2026-09-15 (b/c: vive en `evals/` o no se construye hasta que
+  del mantenedor del 2026-09-15 (b/c: vive en `evals/` o no se construye hasta que
   haga falta) — fuera de alcance de F.
 ```
 
@@ -1782,13 +1782,13 @@ del párrafo:
 ```
   **(campaña F, 2026-09-15): nota para G.** `walk_kb` también la usa
   `engine/src/doctor.rs:312,451`, no citado por el ítem original — unificarla
-  (decisión #9 del paquete de Paul) afecta a `doctor`, no solo a `indexer`.
+  (decisión #9 del paquete del mantenedor) afecta a `doctor`, no solo a `indexer`.
 ```
 
 - [ ] **Step 12: item fuera de alcance — anotar por qué**
 
 `KB-exo:44` («`script_del_plugin` ordena lexicográficamente») vive en
-`Backlog — exo.md` de `wisdom-paul`, un repositorio distinto de `exo` — no en
+`Backlog — exo.md` de la KB personal, un repositorio distinto de `exo` — no en
 `docs/backlog.md` de este repo. F no lo toca (no es un fichero de este
 worktree); queda anotado aquí para que quien lea este plan no lo busque en
 `docs/backlog.md` por error.
@@ -1874,12 +1874,12 @@ durante la escritura de este plan:
    verifica y cita; corregido frente a la propuesta, que lo daba como
    pendiente.
 
-**Dudas para Paul** (ninguna bloquea la ejecución de este plan; todas son
+**Dudas para el mantenedor** (ninguna bloquea la ejecución de este plan; todas son
 para el momento de branch protection o para campañas futuras):
 
 - El nombre elegido para el job renombrado (`static-checks` / "checks
-  estáticos") es una propuesta razonable, no una cita literal de Paul —
+  estáticos") es una propuesta razonable, no una cita literal del mantenedor —
   confirmar en el PR si prefiere otro (p.ej. "gates estáticos", en línea con
   el vocabulario que usa `propuesta.md`).
-- Decisión #8 de branch protection: este plan no la activa. Cuando Paul la
+- Decisión #8 de branch protection: este plan no la activa. Cuando el mantenedor la
   active, la lista de 12 checks de la Task 7 es la que debe copiar tal cual.
