@@ -36,12 +36,12 @@ dependencias nuevas y sin cambio de features en `Cargo.toml`.**
 
 ## Estado de verificación de las afirmaciones del dictamen (2026-09-14, contra `b2020f7`)
 
-El dictamen del consultor (`/home/paul/.claude/jobs/05ee55a9/tmp/dictamen-consultor-d-e.md`)
+El dictamen del consultor (`~/.claude/jobs/05ee55a9/tmp/dictamen-consultor-d-e.md`)
 es correcto en el diagnóstico general. Tres afirmaciones puntuales, releídas
 contra el código real de hoy, **no se sostienen** y cambian el plan:
 
 - **Las dos "Important" de G4a que el brief pedía dejar abiertas YA ESTÁN
-  CERRADAS**, adjudicadas por Paul el 2026-09-04 (`docs/superpowers/plans/2026-09-04-g4b-budget-y-lint.md:73-128`,
+  CERRADAS**, adjudicadas el 2026-09-04 (`docs/superpowers/plans/2026-09-04-g4b-budget-y-lint.md:73-128`,
   decisiones A1 y A2) e implementadas desde entonces:
   - **A1 — whitespace del `tier`**: `engine/src/frontmatter.rs:54-60` usa
     `ESPACIOS_ASCII` (6 caracteres ASCII), **no** `char::is_whitespace()`.
@@ -85,7 +85,7 @@ contra el código real de hoy, **no se sostienen** y cambian el plan:
 
 Una afirmación del dictamen se **confirma** y merece nota aparte porque no
 estaba en ninguno de los documentos que cita: **el `permalink` que
-`rotate.Apply` escribe en el archivo tiene `"wisdom-paul/"` hardcodeado**
+`rotate.Apply` escribe en el archivo tiene hardcodeado el nombre de la KB personal como prefijo**
 (`apply.go:159`, `internal/rotate/apply.go` de `fe46443`). Es nuevo —nadie lo
 había mirado porque `rotate` nunca se leyó línea a línea hasta esta
 campaña— y es exactamente la clase de cosa que "cambia comportamiento
@@ -95,9 +95,8 @@ observable" que el brief pedía declarar. Ver Decisión D-4.
 
 Ninguna la toma la fábrica sin más. Por el régimen de `config.md`
 ("Ejecución de gates"), una decisión sin fuente citable la intenta primero
-el consultor delegado antes de escalar a Paul — así que "abierta" aquí
-significa "con recomendación y trade-offs escritos", no "bloqueada hasta que
-Paul conteste".
+el consultor delegado antes de escalar al dueño de la KB — así que "abierta" aquí
+significa "con recomendación y trade-offs escritos", no "bloqueada hasta que el dueño de la KB conteste".
 
 ### D-3 — Exit code de `exo rotate` cuando falla una nota individual de la barrida · no bloquea ninguna task
 
@@ -117,29 +116,29 @@ decidir qué exit code final usar en exo, donde 2 es "error de uso de clap"
 **Recomendación: a.** Es la Task 5 quien la aplica: `rotate_cmd` termina con
 `anyhow::bail!` tras imprimir cada fallo por stderr, que en `main()` cae en
 la rama genérica (exit 1). Declarada en el pre-registro (divergencia 1 de
-§Rotate). Si Paul prefiere (b), es un cambio de una función (`GateFallido`
+§Rotate). Si el dueño de la KB prefiere (b), es un cambio de una función (`GateFallido`
 en vez de `bail!`) revisable después del merge — no vale la pena bloquear
 el port por esto.
 
-### D-4 — El `permalink` que escribe `rotate` en el archivo: `"wisdom-paul/"` fijo (kbx) vs `exo::nombre_kb()` (genérico) · bloquea el Step de `construye_archivo`/`aplica` en la Task 5
+### D-4 — El `permalink` que escribe `rotate` en el archivo: `"<nombre-kb>/"` fijo (kbx) vs `exo::nombre_kb()` (genérico) · bloquea el Step de `construye_archivo`/`aplica` en la Task 5
 
-`internal/rotate/apply.go:159`: `permalink := "wisdom-paul/" + …`, literal.
+`internal/rotate/apply.go:159`: `permalink := "<nombre-kb>/" + …`, literal.
 kbx nació para esta KB concreta y nunca tomó un nombre de proyecto como
 parámetro — no hay bug que reproducir, es una constante de dominio del
 propio kbx.
 
 | Opción | Qué | A favor | En contra |
 |---|---|---|---|
-| **a — verbatim** | Hardcodear `"wisdom-paul/"` en `construye_archivo` | Paridad byte a byte sin condiciones con kbx | exo sirve **cualquier** KB (`--kb` apunta a cualquier ruta); escribiría un permalink falso en cuanto alguien use exo sobre una KB que no se llame `wisdom-paul` — exactamente el acoplamiento que el backlog («"exo genérico" sigue siendo el plugin de Paul», `docs/backlog.md:243-296`) ya tiene abierto como Alta |
+| **a — verbatim** | Hardcodear `"<nombre-kb>/"` en `construye_archivo` | Paridad byte a byte sin condiciones con kbx | exo sirve **cualquier** KB (`--kb` apunta a cualquier ruta); escribiría un permalink falso en cuanto alguien use exo sobre una KB que no se llame como el literal — exactamente el acoplamiento que el backlog («"exo genérico" sigue siendo el plugin personal», `docs/backlog.md:243-296`) ya tiene abierto como Alta |
 | **b — `exo::nombre_kb()`** | Usar `[kb] name` de la config, el mismo mecanismo que ya usan `write new`/`write append` (`engine/src/escritor.rs:279`, `engine/src/main.rs:752`) | Cero código nuevo (función ya existe y ya está probada); coherente con el resto del binario; no reintroduce el acoplamiento | El campo `permalink` del archivo deja de ser byte-idéntico a kbx en la comparación literal — hay que excluirlo del criterio estricto del gate (ya declarado en el pre-registro) |
 
 **Recomendación: b.** Ya aplicada en el código que trae la Task 5 (usa
 `exo::nombre_kb()`) y ya declarada como divergencia 6 en
-`2026-09-14-campana-d-preregistro-paridad-rotate-stale.md`. Si Paul prefiere
+`2026-09-14-campana-d-preregistro-paridad-rotate-stale.md`. Si el dueño de la KB prefiere
 (a), el cambio es una línea en `aplica` (pasar un `&str` literal en vez de
 `nombre_kb()?`) y una reversión de esa declaración — tampoco bloquea, la
 Task 5 ya trae la recomendación implementada; esto queda abierto solo para
-que quede escrito y Paul pueda vetarlo con conocimiento, no porque haga
+que quede escrito y el dueño de la KB pueda vetarlo con conocimiento, no porque haga
 falta esperar.
 
 ### Nota de documentación, no D-n — precondición "KB versionada" de A2
@@ -193,14 +192,14 @@ ejerce o las cambia:
   `engine/src/` o `engine/tests/`.
 - **Git**: `git add <rutas explícitas>`, nunca `-A`/`.`; `git -C <path>`,
   nunca `cd <path> && git`. Push, merge a `main` y borrado de ramas
-  remotas son línea roja de Paul — nunca los ejecuta la fábrica.
+  remotas son línea roja del dueño de la KB — nunca los ejecuta la fábrica.
 - **`$TMPDIR`** en los comandos de este plan es un directorio fuera del
   repo: `export TMPDIR="${TMPDIR:-$(mktemp -d)}"` al abrir la sesión del
   ejecutor. Nada de lo que va ahí se commitea.
 - **Una task bloqueada por una decisión PENDIENTE-PAUL sin recomendación
   aplicable queda `encolado`** (config de fábrica). Ninguna task de este
   plan cae en ese caso: D-3 y D-4 traen recomendación ya aplicada en el
-  código que trae su propia task, así que nada espera a Paul para avanzar.
+  código que trae su propia task, así que nada espera al dueño de la KB para avanzar.
 - **Ninguna task escribe en `~/.local/bin`.** El `kbx` de `fe46443` se
   compila a `/tmp/campana-d/kbx` (Task 2, Step 3, `go build -o`, nunca
   `make install`); las Tasks 3/4/6/8 lo invocan como `"$KBX"`. Para probar
@@ -232,7 +231,7 @@ alcance declarado.
 | `d-preregistro` | 1 | mecánica |
 | `d-gates-existentes` | 2, 3, 4 | mecánica (D-3/D-4 no aplican aquí; la única lectura es "adjudicar sin reinterpretar", ya con criterio escrito) |
 | `d-port-rotate` | 5, 6 | mecánica salvo D-3/D-4, ya resueltas con recomendación aplicada en el código de la Task 5 |
-| `d-port-stale` | 7, 8 | mecánica (fórmula ya firmada por Paul, cero decisión de producto pendiente) |
+| `d-port-stale` | 7, 8 | mecánica (fórmula ya adjudicada, cero decisión de producto pendiente) |
 | `d-cutover` | 9, 10 | mecánica |
 
 Dependencias entre ramas (no entre ficheros — dos ramas pueden abrirse en
@@ -255,7 +254,7 @@ máquina), Tasks 3, 4, 6 y 8 quedan `encolado` — declarado, no bloquea 5, 7
 ni 9.
 ```
 
-**Con Paul fuera del camino crítico**: el 80% del trabajo de ingeniería real
+**Con el dueño de la KB fuera del camino crítico**: el 80% del trabajo de ingeniería real
 (Tasks 5, 7, 9 — los dos ports y el cutover de consumidores) no depende de
 que haya Go instalado ni de ningún PENDIENTE-PAUL sin resolver. Solo las
 cuatro tasks de gate (3, 4, 6, 8) dependen de Task 2, y esa es la única que
@@ -278,20 +277,20 @@ toque `engine/src/rotacion.rs` u `engine/src/obsolescencia.rs`.
 - [ ] **Step 1: verificar que el fichero está en el árbol de trabajo y sin
   editar respecto a lo que trae la rama**
 
-  Run: `git -C /home/paul/Documentos/proyectos/exo status --porcelain -- docs/superpowers/plans/2026-09-14-campana-d-preregistro-paridad-rotate-stale.md`
+  Run: `git -C ~/Documentos/proyectos/exo status --porcelain -- docs/superpowers/plans/2026-09-14-campana-d-preregistro-paridad-rotate-stale.md`
   Expected: `?? docs/superpowers/plans/2026-09-14-campana-d-preregistro-paridad-rotate-stale.md`
   (sin trackear todavía — es la primera vez que se commitea).
 
 - [ ] **Step 2: commit, solo este fichero**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add docs/superpowers/plans/2026-09-14-campana-d-preregistro-paridad-rotate-stale.md
-git -C /home/paul/Documentos/proyectos/exo commit -m "docs(d, preregistro): congela el criterio de paridad de rotate/stale antes del port"
+git -C ~/Documentos/proyectos/exo add docs/superpowers/plans/2026-09-14-campana-d-preregistro-paridad-rotate-stale.md
+git -C ~/Documentos/proyectos/exo commit -m "docs(d, preregistro): congela el criterio de paridad de rotate/stale antes del port"
 ```
 
 - [ ] **Step 3: verificar el oráculo**
 
-  Run: `git -C /home/paul/Documentos/proyectos/exo log --oneline -1 -- docs/superpowers/plans/2026-09-14-campana-d-preregistro-paridad-rotate-stale.md`
+  Run: `git -C ~/Documentos/proyectos/exo log --oneline -1 -- docs/superpowers/plans/2026-09-14-campana-d-preregistro-paridad-rotate-stale.md`
   Expected: una línea, el commit del Step 2. Este hash es el que demuestra
   que el documento se escribió antes del código — anótalo en el ledger de la
   fábrica para que la Task 5/7 lo cite si alguien pregunta.
@@ -354,7 +353,7 @@ go version
 ```bash
 export PATH="$HOME/.local/go/bin:$PATH"
 KBX_WT="$TMPDIR/kbx-fe46443"
-git -C /home/paul/Documentos/proyectos/kbx worktree add --detach "$KBX_WT" fe46443
+git -C ~/Documentos/proyectos/kbx worktree add --detach "$KBX_WT" fe46443
 make -C "$KBX_WT" check    # build + vet + test, tag sqlite_fts5 (Makefile de kbx)
 mkdir -p /tmp/campana-d
 # NUNCA `make install`: pisa $HOME/.local/bin/kbx, fuera del repo y fuera
@@ -374,7 +373,7 @@ mkdir -p /tmp/campana-d
 
   **Al terminar, limpiar el worktree** (no es parte del repo exo, pero es
   buena higiene y evita que quede un worktree huérfano de `kbx` en disco):
-  `git -C /home/paul/Documentos/proyectos/kbx worktree remove "$KBX_WT"`
+  `git -C ~/Documentos/proyectos/kbx worktree remove "$KBX_WT"`
   — **después** de que las Tasks 3, 4, 6, 8 hayan usado el binario en
   `/tmp/campana-d/kbx` (el binario compilado sobrevive a borrar el
   worktree; solo hace falta el worktree mientras se compila).
@@ -383,18 +382,18 @@ mkdir -p /tmp/campana-d
 
 ```bash
 mkdir -p /tmp/campana-d
-git clone --no-local /home/paul/Documentos/proyectos/wisdom-paul /tmp/campana-d/kb-base
+git clone --no-local <ruta-de-la-KB> /tmp/campana-d/kb-base
 cp ~/.exo/index.db /tmp/campana-d/index.db
 grep -A1 '\[kb\]' ~/.exo/config.toml | grep name
 ```
 
   Expected: el clon completa sin error; `index.db` se copia (unos 20+ MB,
   verificado en G4a que el índice real ronda ese tamaño); la última línea
-  imprime `name = "wisdom-paul"` (o el nombre real configurado) — **anotar
+  imprime `name = "<nombre-kb>"` (o el nombre real configurado) — **anotar
   este valor**, lo usa la Task 6 para verificar la Decisión D-4 sin
   asumirlo. Nada de lo anterior debe escribir dentro de
-  `/home/paul/Documentos/proyectos/wisdom-paul` — es un clon aparte,
-  `wisdom-paul` original queda intacto.
+  la KB real (`[kb] path`) — es un clon aparte,
+  la KB original queda intacta.
 
 - [ ] **Step 5: declarar el resultado**
 
@@ -425,7 +424,7 @@ fichero queda rellenada (no un fichero nuevo — **el mismo**).
 
 - [ ] **Step 1: construir el binario exo de esta rama**
 
-  Run: `cd /home/paul/Documentos/proyectos/exo/engine && cargo build --release`
+  Run: `cd ~/Documentos/proyectos/exo/engine && cargo build --release`
   Expected: compila limpio (0 warnings con `-D warnings` si se corre
   clippy aparte; este build por sí solo no lo exige).
 
@@ -442,7 +441,7 @@ for t in "indexer" "reflex" "memoria" "kbx" "recall en el punto de uso"; do
   "$KBX" targets --db /tmp/g4a/index.db --kb "$KB" --limit 10 --json "$t" \
     | jq -S '.data.candidates | map({permalink, tier, size_bytes, last_commit}) | sort_by(.permalink)' \
     > "/tmp/g4a/go-$slug.json"
-  /home/paul/Documentos/proyectos/exo/engine/target/release/exo targets --db /tmp/g4a/index.db --kb "$KB" --limit 10 --json "$t" \
+  ~/Documentos/proyectos/exo/engine/target/release/exo targets --db /tmp/g4a/index.db --kb "$KB" --limit 10 --json "$t" \
     | jq -S '.data.candidates | map({permalink, tier, size_bytes, last_commit}) | sort_by(.permalink)' \
     > "/tmp/g4a/rs-$slug.json"
   diff -u "/tmp/g4a/go-$slug.json" "/tmp/g4a/rs-$slug.json" \
@@ -492,8 +491,8 @@ done
 - [ ] **Step 5: commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add docs/superpowers/plans/2026-09-02-g4a-preregistro-targets.md
-git -C /home/paul/Documentos/proyectos/exo commit -m "docs(d, gate-targets): registro de la corrida de paridad de targets"
+git -C ~/Documentos/proyectos/exo add docs/superpowers/plans/2026-09-02-g4a-preregistro-targets.md
+git -C ~/Documentos/proyectos/exo commit -m "docs(d, gate-targets): registro de la corrida de paridad de targets"
 ```
 
 ---
@@ -526,7 +525,7 @@ git -C "$RATCHET_KB" config diff.renames false
 
 ```bash
 export PATH="$HOME/.local/go/bin:$HOME/.local/bin:$PATH"
-EXO=/home/paul/Documentos/proyectos/exo/engine/target/release/exo
+EXO=~/Documentos/proyectos/exo/engine/target/release/exo
 KBX=/tmp/campana-d/kbx
 
 # 1. working tree
@@ -564,8 +563,8 @@ diff -u /tmp/campana-d/go-ratchet.json /tmp/campana-d/rs-ratchet.json && echo "P
 - [ ] **Step 5: commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add docs/superpowers/plans/2026-09-09-g4c-preregistro-ratchet.md
-git -C /home/paul/Documentos/proyectos/exo commit -m "docs(d, gate-ratchet): registro de la corrida de paridad de ratchet"
+git -C ~/Documentos/proyectos/exo add docs/superpowers/plans/2026-09-09-g4c-preregistro-ratchet.md
+git -C ~/Documentos/proyectos/exo commit -m "docs(d, gate-ratchet): registro de la corrida de paridad de ratchet"
 ```
 
 ---
@@ -798,8 +797,8 @@ pub mod rotacion;
 - [ ] **A4 — commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add engine/src/rotacion.rs engine/src/lib.rs
-git -C /home/paul/Documentos/proyectos/exo commit -m "feat(d, rotate): parte() — corte posicional por heading con fences ignorados"
+git -C ~/Documentos/proyectos/exo add engine/src/rotacion.rs engine/src/lib.rs
+git -C ~/Documentos/proyectos/exo commit -m "feat(d, rotate): parte() — corte posicional por heading con fences ignorados"
 ```
 
 #### Step B: nombre de archivo y documento archivado
@@ -897,7 +896,7 @@ fn reemplaza_clave(fm: &[u8], clave: &str, valor: &str) -> Vec<u8> {
 /// escape es doblar una comilla simple embebida, así que es seguro para
 /// cualquier contenido — a diferencia del estilo "plain", donde `#`, `&`,
 /// `*`, `:` o `[` cambian lo que la línea significa para un parser YAML. El
-/// título/slug de una nota los escribe Paul libremente.
+/// título/slug de una nota los escribe el usuario libremente.
 fn comilla_simple_yaml(s: &str) -> String {
     format!("'{}'", s.replace('\'', "''"))
 }
@@ -977,13 +976,13 @@ pub fn construye_archivo(
 
     #[test]
     fn construye_archivo_conserva_tier_log_y_reescribe_title_y_permalink() {
-        let fm = b"---\ntitle: agent-develop-bitacora\ntype: note\npermalink: wisdom-paul/log/agent-develop-bitacora\ntags:\n- bitacora\ntier: log\n---\n\n# agent-develop -- bitacora\n\n";
+        let fm = b"---\ntitle: agent-develop-bitacora\ntype: note\npermalink: kb-demo/log/agent-develop-bitacora\ntags:\n- bitacora\ntier: log\n---\n\n# agent-develop -- bitacora\n\n";
         let frio = b"## 2026-06-26 -- a\nx\n\n";
-        let doc = construye_archivo(fm, frio, "agent-develop-bitacora 2026-06-26_2026-07-11", "wisdom-paul/archive/log/agent-develop-bitacora-2026-06-26_2026-07-11", "");
+        let doc = construye_archivo(fm, frio, "agent-develop-bitacora 2026-06-26_2026-07-11", "kb-demo/archive/log/agent-develop-bitacora-2026-06-26_2026-07-11", "");
         let doc = String::from_utf8_lossy(&doc);
         assert!(doc.starts_with("---\n"));
         assert!(doc.contains("title: 'agent-develop-bitacora 2026-06-26_2026-07-11'\n"));
-        assert!(doc.contains("permalink: 'wisdom-paul/archive/log/agent-develop-bitacora-2026-06-26_2026-07-11'\n"));
+        assert!(doc.contains("permalink: 'kb-demo/archive/log/agent-develop-bitacora-2026-06-26_2026-07-11'\n"));
         assert!(doc.contains("tier: log\n"));
         assert!(doc.contains("## 2026-06-26"));
     }
@@ -1039,8 +1038,8 @@ pub fn construye_archivo(
 - [ ] **B3 — commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add engine/src/rotacion.rs
-git -C /home/paul/Documentos/proyectos/exo commit -m "feat(d, rotate): nombre_de_archivo() y construye_archivo() — naming y documento archivado"
+git -C ~/Documentos/proyectos/exo add engine/src/rotacion.rs
+git -C ~/Documentos/proyectos/exo commit -m "feat(d, rotate): nombre_de_archivo() y construye_archivo() — naming y documento archivado"
 ```
 
 #### Step C: `aplica` — el `Apply` completo, con escritura atómica
@@ -1056,7 +1055,7 @@ git -C /home/paul/Documentos/proyectos/exo commit -m "feat(d, rotate): nombre_de
     }
 
     fn nota_grande() -> String {
-        let mut s = String::from("---\ntitle: p-bitacora\ntype: note\npermalink: wisdom-paul/log/p-bitacora\ntier: log\n---\n\n# p -- bitacora\n\n");
+        let mut s = String::from("---\ntitle: p-bitacora\ntype: note\npermalink: kb-demo/log/p-bitacora\ntier: log\n---\n\n# p -- bitacora\n\n");
         for i in 0..10 {
             s.push_str(&format!("## 2026-0{}-01 -- entrada\n", 1 + i % 9));
             s.push_str(&"x".repeat(3000));
@@ -1071,7 +1070,7 @@ git -C /home/paul/Documentos/proyectos/exo commit -m "feat(d, rotate): nombre_de
         escribe_nota(dir.path(), "log/p-bitacora.md", &nota_grande());
         let antes = std::fs::read(dir.path().join("log/p-bitacora.md")).unwrap();
 
-        let res = aplica(dir.path(), "log/p-bitacora.md", 8000, false, "wisdom-paul").unwrap();
+        let res = aplica(dir.path(), "log/p-bitacora.md", 8000, false, "kb-demo").unwrap();
         assert!(res.rotado);
         let despues = std::fs::read(dir.path().join("log/p-bitacora.md")).unwrap();
         assert_eq!(antes, despues, "dry-run no debe modificar la nota");
@@ -1084,7 +1083,7 @@ git -C /home/paul/Documentos/proyectos/exo commit -m "feat(d, rotate): nombre_de
         let original = nota_grande();
         escribe_nota(dir.path(), "log/p-bitacora.md", &original);
 
-        let res = aplica(dir.path(), "log/p-bitacora.md", 8000, true, "wisdom-paul").unwrap();
+        let res = aplica(dir.path(), "log/p-bitacora.md", 8000, true, "kb-demo").unwrap();
         let caliente = std::fs::read(dir.path().join("log/p-bitacora.md")).unwrap();
         assert!(caliente.len() <= 8000 + 200, "nota viva demasiado grande: {}", caliente.len());
         let frio = std::fs::read(dir.path().join(res.archivo.as_ref().unwrap())).unwrap();
@@ -1100,7 +1099,7 @@ git -C /home/paul/Documentos/proyectos/exo commit -m "feat(d, rotate): nombre_de
     fn aplica_no_rota_lo_que_ya_cabe() {
         let dir = tempfile::tempdir().unwrap();
         escribe_nota(dir.path(), "log/small.md", "---\ntier: log\n---\n\n# s\n\n## 2026-01-01 -- u\nx\n");
-        let res = aplica(dir.path(), "log/small.md", 100_000, true, "wisdom-paul").unwrap();
+        let res = aplica(dir.path(), "log/small.md", 100_000, true, "kb-demo").unwrap();
         assert!(!res.rotado);
         assert!(!dir.path().join("archive/log").exists());
     }
@@ -1113,7 +1112,7 @@ git -C /home/paul/Documentos/proyectos/exo commit -m "feat(d, rotate): nombre_de
             s.push_str(&format!("## 2026-0{}-01 -- entrada\n{}\n\n", 1 + i % 9, "x".repeat(3000)));
         }
         escribe_nota(dir.path(), "log/broken.md", &s);
-        let res = aplica(dir.path(), "log/broken.md", 8000, true, "wisdom-paul");
+        let res = aplica(dir.path(), "log/broken.md", 8000, true, "kb-demo");
         assert!(res.is_err());
         assert!(!dir.path().join("archive/log").exists());
         let intacta = std::fs::read_to_string(dir.path().join("log/broken.md")).unwrap();
@@ -1135,13 +1134,13 @@ git -C /home/paul/Documentos/proyectos/exo commit -m "feat(d, rotate): nombre_de
         let original = format!("---\ntitle: x\ntier: log\n---\n\n# x -- bitacora\n\n{}", entradas(60, "x"));
         escribe_nota(dir.path(), "log/proyecto-x-bitacora.md", &original);
 
-        let r1 = aplica(dir.path(), "log/proyecto-x-bitacora.md", 8000, true, "wisdom-paul").unwrap();
+        let r1 = aplica(dir.path(), "log/proyecto-x-bitacora.md", 8000, true, "kb-demo").unwrap();
         assert!(r1.rotado);
         let caliente = std::fs::read_to_string(dir.path().join("log/proyecto-x-bitacora.md")).unwrap();
         let crecida = caliente + &entradas(40, "y");
         std::fs::write(dir.path().join("log/proyecto-x-bitacora.md"), &crecida).unwrap();
 
-        let r2 = aplica(dir.path(), "log/proyecto-x-bitacora.md", 8000, true, "wisdom-paul").unwrap();
+        let r2 = aplica(dir.path(), "log/proyecto-x-bitacora.md", 8000, true, "kb-demo").unwrap();
         assert!(r2.rotado);
         assert_ne!(r1.archivo, r2.archivo, "las dos rotaciones no deben escribir el mismo archivo");
 
@@ -1157,7 +1156,7 @@ git -C /home/paul/Documentos/proyectos/exo commit -m "feat(d, rotate): nombre_de
         let dir = tempfile::tempdir().unwrap();
         let original = nota_grande();
         escribe_nota(dir.path(), "log/p-bitacora.md", &original);
-        let res = aplica(dir.path(), "log/p-bitacora.md", 8000, true, "wisdom-paul").unwrap();
+        let res = aplica(dir.path(), "log/p-bitacora.md", 8000, true, "kb-demo").unwrap();
         assert!(res.rotado);
 
         let nota_viva = std::fs::read(dir.path().join("log/p-bitacora.md")).unwrap();
@@ -1181,7 +1180,7 @@ git -C /home/paul/Documentos/proyectos/exo commit -m "feat(d, rotate): nombre_de
     fn aplica_no_deja_temporales_huerfanos() {
         let dir = tempfile::tempdir().unwrap();
         escribe_nota(dir.path(), "log/p-bitacora.md", &nota_grande());
-        let res = aplica(dir.path(), "log/p-bitacora.md", 8000, true, "wisdom-paul").unwrap();
+        let res = aplica(dir.path(), "log/p-bitacora.md", 8000, true, "kb-demo").unwrap();
         for entrada in std::fs::read_dir(dir.path().join("log")).unwrap() {
             let nombre = entrada.unwrap().file_name();
             assert!(!nombre.to_string_lossy().contains(".tmp"), "quedo un temporal: {nombre:?}");
@@ -1223,13 +1222,13 @@ git -C /home/paul/Documentos/proyectos/exo commit -m "feat(d, rotate): nombre_de
         let original = format!("---\ntitle: x\ntier: log\n---\n\n# x -- bitacora\n\n{}", entradas(60, "x"));
         escribe_nota(dir.path(), "log/proyecto-x-bitacora.md", &original);
 
-        let r1 = aplica(dir.path(), "log/proyecto-x-bitacora.md", 8000, true, "wisdom-paul").unwrap();
+        let r1 = aplica(dir.path(), "log/proyecto-x-bitacora.md", 8000, true, "kb-demo").unwrap();
         assert!(r1.rotado);
         let caliente = std::fs::read_to_string(dir.path().join("log/proyecto-x-bitacora.md")).unwrap();
         let crecida = caliente + &entradas(40, "y");
         std::fs::write(dir.path().join("log/proyecto-x-bitacora.md"), &crecida).unwrap();
 
-        let r2 = aplica(dir.path(), "log/proyecto-x-bitacora.md", 8000, true, "wisdom-paul").unwrap();
+        let r2 = aplica(dir.path(), "log/proyecto-x-bitacora.md", 8000, true, "kb-demo").unwrap();
         assert!(r2.rotado);
 
         let nota_viva = std::fs::read_to_string(dir.path().join("log/proyecto-x-bitacora.md")).unwrap();
@@ -1524,8 +1523,8 @@ pub fn aplica(kb_root: &Path, ruta_rel: &str, presupuesto_caliente: i64, escribe
 - [ ] **C5 — commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add engine/src/rotacion.rs
-git -C /home/paul/Documentos/proyectos/exo commit -m "feat(d, rotate): aplica() — Apply completo con escritura atómica y punto fijo del presupuesto"
+git -C ~/Documentos/proyectos/exo add engine/src/rotacion.rs
+git -C ~/Documentos/proyectos/exo commit -m "feat(d, rotate): aplica() — Apply completo con escritura atómica y punto fijo del presupuesto"
 ```
 
 #### Step D: cablear `exo rotate`
@@ -1764,8 +1763,8 @@ fn rotate_cmd(args: ArgsRotate) -> Result<()> {
 - [ ] **D5 — commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add engine/src/main.rs engine/tests/rotar_cli.rs
-git -C /home/paul/Documentos/proyectos/exo commit -m "feat(d, rotate): cablea 'exo rotate' — ArgsRotate, rotate_cmd, tests de CLI"
+git -C ~/Documentos/proyectos/exo add engine/src/main.rs engine/tests/rotar_cli.rs
+git -C ~/Documentos/proyectos/exo commit -m "feat(d, rotate): cablea 'exo rotate' — ArgsRotate, rotate_cmd, tests de CLI"
 ```
 
 ---
@@ -1787,7 +1786,7 @@ rojo-verde del instrumento en verde ANTES del PASA/NO PASA real.
   `permalink` del archivo depende de `[kb] name`)
 
   Run: `grep -A1 '\[kb\]' ~/.exo/config.toml | grep name`
-  Expected: `name = "wisdom-paul"` (o el valor anotado en la Task 2, Step 4).
+  Expected: `name = "<nombre-kb>"` (o el valor anotado en la Task 2, Step 4).
   Si difiere, anotarlo — el criterio ya excluye `permalink` de la
   comparación estricta precisamente por esto (divergencia 6 del
   pre-registro), así que no bloquea, solo cambia qué valor se espera ver.
@@ -1797,7 +1796,7 @@ rojo-verde del instrumento en verde ANTES del PASA/NO PASA real.
 
 ```bash
 export PATH="$HOME/.local/go/bin:$HOME/.local/bin:$PATH"
-EXO=/home/paul/Documentos/proyectos/exo/engine/target/release/exo
+EXO=~/Documentos/proyectos/exo/engine/target/release/exo
 KBX=/tmp/campana-d/kbx
 KB_BASE=/tmp/campana-d/kb-base
 CTRL=$(mktemp -d /tmp/campana-d/ctrl-apply.XXXX)
@@ -1828,7 +1827,7 @@ rm -rf "$CTRL" "$CTRL_GO"
   "# --- rotate: …" del fichero
   `2026-09-14-campana-d-preregistro-paridad-rotate-stale.md`, sustituyendo
   `./target/release/exo` por la ruta real
-  (`/home/paul/Documentos/proyectos/exo/engine/target/release/exo`).
+  (`~/Documentos/proyectos/exo/engine/target/release/exo`).
 
 - [ ] **Step 4: adjudicar contra las 6 divergencias ya declaradas** — no se
   reinterpretan, se aplican. Prestar atención particular a la divergencia 4
@@ -1841,17 +1840,16 @@ rm -rf "$CTRL" "$CTRL_GO"
 - [ ] **Step 6: commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add docs/superpowers/plans/2026-09-14-campana-d-preregistro-paridad-rotate-stale.md
-git -C /home/paul/Documentos/proyectos/exo commit -m "docs(d, gate-rotate): registro de la corrida de paridad de rotate"
+git -C ~/Documentos/proyectos/exo add docs/superpowers/plans/2026-09-14-campana-d-preregistro-paridad-rotate-stale.md
+git -C ~/Documentos/proyectos/exo commit -m "docs(d, gate-rotate): registro de la corrida de paridad de rotate"
 ```
 
 ---
 
 ### Task 7: port de `stale` — `engine/src/obsolescencia.rs`, TDD con los 5 axiomas
 
-**Lane:** mecánica (fórmula y pesos ya FIRMADOS por Paul,
-`.superpowers/fabrica/PENDIENTE-PAUL-m4-stale-formula.md`, "Adjudicación de
-Paul" — cero decisión de producto pendiente). **Depende de:** Task 1.
+**Lane:** mecánica (fórmula y pesos ya FIRMADOS (`.superpowers/fabrica/PENDIENTE-PAUL-m4-stale-formula.md`,
+sección de adjudicación) — cero decisión de producto pendiente). **Depende de:** Task 1.
 **No depende de Task 2.** **Oráculo global:**
 `cd engine && cargo test --release --lib obsolescencia && cargo test --release --test obsolescencia_cli && cargo fmt --check && cargo clippy --all-targets --locked -- -D warnings`.
 
@@ -1887,9 +1885,9 @@ CLI: `Comando::Stale(ArgsStale)`, función `stale_cmd`.
 //! `exo stale` — urgencia de actualización de cada nota: edad de su
 //! último commit, grado en el grafo de relaciones y tier, combinados en
 //! una puntuación. Puerto de `kbx/internal/stale` (`fe46443`). La fórmula
-//! y los pesos están FIRMADOS por Paul
+//! y los pesos están FIRMADOS
 //! (`.superpowers/fabrica/PENDIENTE-PAUL-m4-stale-formula.md`,
-//! "Adjudicación de Paul", 2026-07-11) — no son una decisión de esta
+//! sección de adjudicación, 2026-07-11) — no son una decisión de esta
 //! campaña, se copian verbatim.
 
 use anyhow::{Context, Result};
@@ -2061,8 +2059,8 @@ mod tests {
 - [ ] **A3 — commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add engine/src/obsolescencia.rs engine/src/lib.rs
-git -C /home/paul/Documentos/proyectos/exo commit -m "feat(d, stale): puntua() — formula firmada, 5 axiomas"
+git -C ~/Documentos/proyectos/exo add engine/src/obsolescencia.rs engine/src/lib.rs
+git -C ~/Documentos/proyectos/exo commit -m "feat(d, stale): puntua() — formula firmada, 5 axiomas"
 ```
 
 #### Step B: ISO-8601 ↔ epoch, sin crate de fechas
@@ -2209,8 +2207,8 @@ fn edad_en_dias(ahora_epoch: i64, commit_epoch: i64) -> i64 {
 - [ ] **B3 — commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add engine/src/obsolescencia.rs
-git -C /home/paul/Documentos/proyectos/exo commit -m "feat(d, stale): ISO-8601 <-> epoch sin crate de fechas (Hinnant), edad_en_dias"
+git -C ~/Documentos/proyectos/exo add engine/src/obsolescencia.rs
+git -C ~/Documentos/proyectos/exo commit -m "feat(d, stale): ISO-8601 <-> epoch sin crate de fechas (Hinnant), edad_en_dias"
 ```
 
 #### Step C: `calcula` — degree por SQL, tier del disco, git, orden
@@ -2488,8 +2486,8 @@ pub fn calcula(conn: &rusqlite::Connection, kb: &Path, excluidos: &[&str], ahora
 - [ ] **C5 — commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add engine/src/obsolescencia.rs
-git -C /home/paul/Documentos/proyectos/exo commit -m "feat(d, stale): calcula() — degree por SQL, tier de disco, git fail-loud, orden"
+git -C ~/Documentos/proyectos/exo add engine/src/obsolescencia.rs
+git -C ~/Documentos/proyectos/exo commit -m "feat(d, stale): calcula() — degree por SQL, tier de disco, git fail-loud, orden"
 ```
 
 #### Step D: cablear `exo stale`
@@ -2690,8 +2688,8 @@ fn stale_cmd(args: ArgsStale) -> Result<()> {
 - [ ] **D5 — commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add engine/src/main.rs engine/tests/obsolescencia_cli.rs
-git -C /home/paul/Documentos/proyectos/exo commit -m "feat(d, stale): cablea 'exo stale' — ArgsStale, stale_cmd, tests de CLI"
+git -C ~/Documentos/proyectos/exo add engine/src/main.rs engine/tests/obsolescencia_cli.rs
+git -C ~/Documentos/proyectos/exo commit -m "feat(d, stale): cablea 'exo stale' — ArgsStale, stale_cmd, tests de CLI"
 ```
 
 ---
@@ -2732,23 +2730,23 @@ verde antes del PASA/NO PASA.
 
 ```bash
 export PATH="$HOME/.local/go/bin:$HOME/.local/bin:$PATH"
-EXO=/home/paul/Documentos/proyectos/exo/engine/target/release/exo
+EXO=~/Documentos/proyectos/exo/engine/target/release/exo
 NOW="2026-09-14T12:00:00+02:00"
 # Referencia real.
 "$EXO" stale --db /tmp/campana-d/index.db --kb /tmp/campana-d/kb-base --now "$NOW" --json \
   | jq -S '.data.notes | map({path, score})' > /tmp/campana-d/rs-stale-ctrl-real.json
 # Con PESO_TIER_CORE deliberadamente roto a 1.6 (edit de una línea en
 # engine/src/obsolescencia.rs, revertido justo después) y recompilado:
-sed -i 's/pub const PESO_TIER_CORE: f64 = 1.5;/pub const PESO_TIER_CORE: f64 = 1.6;/' /home/paul/Documentos/proyectos/exo/engine/src/obsolescencia.rs
-(cd /home/paul/Documentos/proyectos/exo/engine && cargo build --release)
+sed -i 's/pub const PESO_TIER_CORE: f64 = 1.5;/pub const PESO_TIER_CORE: f64 = 1.6;/' ~/Documentos/proyectos/exo/engine/src/obsolescencia.rs
+(cd ~/Documentos/proyectos/exo/engine && cargo build --release)
 "$EXO" stale --db /tmp/campana-d/index.db --kb /tmp/campana-d/kb-base --now "$NOW" --json \
   | jq -S '.data.notes | map({path, score})' > /tmp/campana-d/rs-stale-ctrl-roto.json
 diff -u /tmp/campana-d/rs-stale-ctrl-real.json /tmp/campana-d/rs-stale-ctrl-roto.json | head -10
 echo "^ tiene que mostrar diferencia en al menos las notas tier=core — si no muestra nada, el comparador no mide, PARAR"
 # Revertir el sabotaje y recompilar ANTES de seguir.
-sed -i 's/pub const PESO_TIER_CORE: f64 = 1.6;/pub const PESO_TIER_CORE: f64 = 1.5;/' /home/paul/Documentos/proyectos/exo/engine/src/obsolescencia.rs
-(cd /home/paul/Documentos/proyectos/exo/engine && cargo build --release)
-git -C /home/paul/Documentos/proyectos/exo diff --stat -- engine/src/obsolescencia.rs   # tiene que salir vacío
+sed -i 's/pub const PESO_TIER_CORE: f64 = 1.6;/pub const PESO_TIER_CORE: f64 = 1.5;/' ~/Documentos/proyectos/exo/engine/src/obsolescencia.rs
+(cd ~/Documentos/proyectos/exo/engine && cargo build --release)
+git -C ~/Documentos/proyectos/exo diff --stat -- engine/src/obsolescencia.rs   # tiene que salir vacío
 ```
 
   Expected: el `diff` del medio muestra cambios en las notas `tier: core`
@@ -2772,8 +2770,8 @@ git -C /home/paul/Documentos/proyectos/exo diff --stat -- engine/src/obsolescenc
 - [ ] **Step 6: commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add docs/superpowers/plans/2026-09-14-campana-d-preregistro-paridad-rotate-stale.md
-git -C /home/paul/Documentos/proyectos/exo commit -m "docs(d, gate-stale): registro de la corrida de paridad de stale"
+git -C ~/Documentos/proyectos/exo add docs/superpowers/plans/2026-09-14-campana-d-preregistro-paridad-rotate-stale.md
+git -C ~/Documentos/proyectos/exo commit -m "docs(d, gate-stale): registro de la corrida de paridad de stale"
 ```
 
 ---
@@ -2807,7 +2805,7 @@ con el mismo seam que usa `plugins/exo/scripts/test-contrato-engine.sh`:
 
 - `$KB_ROOT` — raíz de la KB:
   `${EXO_KB:-$(exo config --json | jq -r '.data.kb.path // empty')}`. Si sale
-  vacío, es **abstención ruidosa**: para y dile a Paul que ni `$EXO_KB` ni
+  vacío, es **abstención ruidosa**: para y díselo al usuario: ni `$EXO_KB` ni
   `exo config --json` resolvieron nada — no sigas con el procedimiento.
 - `$KBX_BIN` — binario `kbx`: `${KBX_BIN:-$(command -v kbx)}`. `kbx` es una
   herramienta externa que puede no estar instalada en esta máquina (p.ej.
@@ -2840,7 +2838,7 @@ con el mismo seam que usa `plugins/exo/scripts/test-contrato-engine.sh`:
 
 - `$KB_ROOT` — raíz de la KB:
   `${EXO_KB:-$(exo config --json | jq -r '.data.kb.path // empty')}`. Si sale
-  vacío, es **abstención ruidosa**: para y dile a Paul que ni `$EXO_KB` ni
+  vacío, es **abstención ruidosa**: para y díselo al usuario: ni `$EXO_KB` ni
   `exo config --json` resolvieron nada — no sigas con el procedimiento. La
   KB tiene que ser la raíz de un repo git: `budget`/`ratchet`/`lint`/
   `rotate`/`stale` lo exigen (`exo::gitx::es_repo_git`, decisión A2 de G4b);
@@ -3036,9 +3034,9 @@ existía solo mientras kbx y exo convivían contra el mismo schema,
   ya no tiene ningún paso que cite `kbx`:
 
 ```bash
-cargo build --release --manifest-path /home/paul/Documentos/proyectos/exo/engine/Cargo.toml
-EXO=/home/paul/Documentos/proyectos/exo/engine/target/release/exo   # por ruta, nunca copiado a ~/.local/bin
-grep -rn "KBX_BIN\|kbx " /home/paul/Documentos/proyectos/exo/plugins/exo/skills/distill/ /home/paul/Documentos/proyectos/exo/plugins/exo/scripts/kb-precommit.sh
+cargo build --release --manifest-path ~/Documentos/proyectos/exo/engine/Cargo.toml
+EXO=~/Documentos/proyectos/exo/engine/target/release/exo   # por ruta, nunca copiado a ~/.local/bin
+grep -rn "KBX_BIN\|kbx " ~/Documentos/proyectos/exo/plugins/exo/skills/distill/ ~/Documentos/proyectos/exo/plugins/exo/scripts/kb-precommit.sh
 ```
 
   Expected: sin resultados (o, si algo aparece, que sea prosa histórica
@@ -3048,8 +3046,8 @@ grep -rn "KBX_BIN\|kbx " /home/paul/Documentos/proyectos/exo/plugins/exo/skills/
 - [ ] **Step 10: commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add plugins/exo/skills/distill/SKILL.md plugins/exo/skills/distill/rotacion.md plugins/exo/skills/distill/chequeos.md plugins/exo/scripts/kb-precommit.sh docs/arquitectura.md
-git -C /home/paul/Documentos/proyectos/exo commit -m "docs(d, cutover): distill/kb-precommit.sh/arquitectura.md ya no invocan kbx"
+git -C ~/Documentos/proyectos/exo add plugins/exo/skills/distill/SKILL.md plugins/exo/skills/distill/rotacion.md plugins/exo/skills/distill/chequeos.md plugins/exo/scripts/kb-precommit.sh docs/arquitectura.md
+git -C ~/Documentos/proyectos/exo commit -m "docs(d, cutover): distill/kb-precommit.sh/arquitectura.md ya no invocan kbx"
 ```
 
 ---
@@ -3146,10 +3144,10 @@ El repo `kbx`
 ```
 
 - [ ] **Step 4: cerrar la acción (b) de "«exo genérico» sigue siendo el
-  plugin de Paul"**
+  plugin personal"**
 
   Dentro del ítem que empieza `**(revisión 2026-09-04) «exo genérico» sigue
-  siendo el plugin de Paul.**` (`docs/backlog.md:243-296`), en su bloque
+  siendo el plugin personal.**` (`docs/backlog.md:243-296`), en su bloque
   `**Acción:**` final, reemplazar:
 
 ```markdown
@@ -3180,27 +3178,27 @@ El repo `kbx`
   backlog tiene una fila de "Estado" tabular al principio del fichero
   (como la que ya existe para las campañas A/B/C, `docs/backlog.md:1-30`
   a fecha de este plan), añadir una fila para D siguiendo el mismo formato
-  — commit de referencia, qué cerró, qué queda abierto (D-4 si Paul no lo
+  — commit de referencia, qué cerró, qué queda abierto (D-4 si el dueño de la KB no lo
   ha zanjado, la acción (a) de "exo genérico").
 
 - [ ] **Step 6: commit**
 
 ```bash
-git -C /home/paul/Documentos/proyectos/exo add docs/backlog.md
-git -C /home/paul/Documentos/proyectos/exo commit -m "docs(d, backlog): cierra gates de paridad y cutover de rotate/stale, corrige la nota caducada de kbx divergido"
+git -C ~/Documentos/proyectos/exo add docs/backlog.md
+git -C ~/Documentos/proyectos/exo commit -m "docs(d, backlog): cierra gates de paridad y cutover de rotate/stale, corrige la nota caducada de kbx divergido"
 ```
 
 ---
 
 ## Residuo declarado
 
-- **La acción (a) del ítem "«exo genérico» sigue siendo el plugin de
-  Paul"** (sustituir «Paul»/`kb-demo` por nombres resueltos vía `exo
+- **La acción (a) del ítem "«exo genérico» sigue siendo el plugin
+  personal"** (sustituir «Paul»/`kb-demo` por nombres resueltos vía `exo
   config`) sigue abierta. No es de esta campaña ni de E, por lo que se sabe
   de su alcance declarado.
 - **Decisión D-4** (permalink del archivo: `nombre_kb()` vs literal
-  `"wisdom-paul"`) queda con la recomendación ya aplicada en el código,
-  pero formalmente abierta hasta que Paul la vea. Revertirla es un cambio
+  del nombre de la KB) queda con la recomendación ya aplicada en el código,
+  pero formalmente abierta hasta que el dueño de la KB la vea. Revertirla es un cambio
   de una línea en `aplica` (Task 5, Step C3).
 - **`kbx` como herramienta sigue existiendo** en
   `~/Documentos/proyectos/kbx` — este plan no lo borra ni lo deprecia como
@@ -3209,7 +3207,7 @@ git -C /home/paul/Documentos/proyectos/exo commit -m "docs(d, backlog): cierra g
   decisión de esta campaña.
 - **El gate de paridad de `budget`/`lint` (G4b) sigue con su "Registro"
   vacío** (`2026-09-04-g4b-preregistro-budget-lint.md`) — no estaba en el
-  alcance que el dictamen ni Paul pidieron para D (solo `targets` y
+  alcance que el dictamen ni el dueño de la KB pidieron para D (solo `targets` y
   `ratchet`). Queda como candidato de una futura campaña si hace falta.
 - **Si Task 2 (prerrequisitos) falla** por falta de `gcc`/toolchain C en
   esta máquina concreta, las Tasks 3, 4, 6 y 8 quedan `encolado` y el
