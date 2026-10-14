@@ -19,14 +19,18 @@ anclado en lo que quiere lograr.
 1. **Descubre la intención:** resultado buscado, para quién, cómo se ve el
    éxito. Si falta, UNA pregunta sobre propósito o uso antes de proponer
    features o enfoque: conocer el género de la app no dice por qué la quiere.
-2. **Devuélvelo por escrito:** resumen corto (resultado, restricciones,
-   criterios de éxito) separando lo dicho de tus supuestos; invita a
-   corregir e incorpora la respuesta antes de tratarlo como brief del diseño.
+2. **Devuélvelo por tramos:** cuando una parte quede clara (para qué y para
+   quién; cómo se comporta una pieza), devuélvela en unas líneas antes de
+   seguir preguntando, y alterna así hasta el final. Separa lo que dijo de
+   lo que supones: sus palabras como suyas, tus supuestos marcados como
+   tuyos (una opción elegida de un menú confirma el qué, no el porqué).
+   Cierra cada tramo preguntando qué falla o falta, e incorpora la
+   respuesta antes de tratar el conjunto como brief del diseño.
 3. **Llévalo al diseño:** conserva ese entendimiento en el diseño y contrasta
    con él cada feature y decisión técnica.
 
 Si la petición ya trae propósito y restricciones, refléjalos en vez de
-repreguntar. La nota es breve; importa que sea exacta y corregible.
+repreguntar. Cada tramo es breve; importa que sea exacta y corregible.
 
 ## Proceso
 

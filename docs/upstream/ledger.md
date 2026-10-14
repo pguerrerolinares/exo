@@ -12,7 +12,7 @@ Rutas relativas a `skills/` de superpowers y a `plugins/exo/skills/` de exo. Las
 |---|---|---|
 | brainstorming/SKILL.md | brainstorm/SKILL.md | destilado |
 | brainstorming/spec-document-reviewer-prompt.md | brainstorm/SKILL.md | eliminado upstream en 7.0.0 (#2463); sustituido por el builder check |
-| brainstorming/builder-check-prompt.md | brainstorm/SKILL.md | propuesto: destilado en el builder check (pendiente de confirmar Paul) |
+| brainstorming/builder-check-prompt.md | brainstorm/SKILL.md | destilado en el builder check |
 | writing-plans/SKILL.md | plan/SKILL.md | destilado |
 | writing-plans/SKILL.md | plan/plan-template.md | cabecera de atribución (superpowers 6.4.2) |
 | subagent-driven-development/SKILL.md | orchestrate/SKILL.md | destilado; parte vive en orchestrate/olas.md |
@@ -72,6 +72,8 @@ Un cambio upstream que choque con una de estas filas se triagea como `no aplica`
 | D8 | plan, orchestrate | Sin modo de ejecución inline; handoff único a exo:orchestrate | Orquestador limpio: el padre integra, no implementa | plugins/exo/skills/orchestrate/SKILL.md |
 | D9 | orchestrate/scripts/review-package | La sección MUTACIÓN (acotada al diff, timeout por mutante, `EXO_MUTATION_EXCLUDE`, muestreo; exo 1.5.0-1.5.2) es propia; un porte nunca la pisa, solo el resto del script | Instrumento propio del pipeline A+ | plugins/exo/skills/orchestrate/olas.md § Mutación |
 | D10 | debug | Referenciar systematic-debugging OK, depender NO | Decisión de diseño previa | — |
+| D11 | brainstorm | Sin salida «salta las preguntas» en el primer mensaje | brainstorm se invoca a propósito; lo trivial ya lo cubre «Tamaño del trabajo» (cambio pequeño en chat). Decisión de Paul 2026-10-14 | plugins/exo/skills/brainstorm/SKILL.md § Tamaño del trabajo |
+| D12 | brainstorm | Se mantiene «prefiere multiple choice»; sin regla de pregunta abierta primero ni menú solo si el usuario se atasca | Decisión de Paul 2026-10-14 | plugins/exo/skills/brainstorm/SKILL.md § Proceso |
 
 ## Decisiones de doctrina (portar)
 
@@ -140,10 +142,10 @@ Decisiones de Paul (2026-09-30), distintas de las Divergencias: no son "no porta
 | #2319 | plan | parcial | propuesto | — | 001764f |
 | #2086 | plan | ya cubierto | — | — | — |
 | #2463 | brainstorm | parcial | propuesto | — | ec0b45a |
-| #2463 | brainstorm | duda | pendiente | ¿adoptar del rebuild 7.0.0 el primer mensaje con salida «salta las preguntas» + pregunta abierta sin ejemplos, y el playback por tramos de 200-300 palabras? Chocan con brainstorm/SKILL.md:38 (preguntas de una en una / multiple choice) y con la duda #2063. Yo adoptaría playback y pregunta abierta primero; no la salida sin gate | — |
-| #2463 | brainstorm | duda | pendiente | mapeo: brainstorming/builder-check-prompt.md (propuesta: fila de mapeo a brainstorm/SKILL.md, ya añadida en este PR; el procedimiento se portó desde SKILL.md) | — |
+| #2463 | brainstorm | parcial | propuesto | — | f74f7b4 |
+| #2463 | brainstorm | ya cubierto | — | mapeo confirmado por Paul 2026-10-14: builder-check-prompt.md → brainstorm/SKILL.md | — |
 | #2482 | brainstorm | aplica | propuesto | — | 987ac71 |
-| #2483 | brainstorm | duda | pendiente | ¿portar la línea «declara la elección de cómo se hace (plataforma / lenguaje / medio) antes de empezar» en la salida «salta las preguntas»? Esa salida no existe en exo y es la duda abierta de #2463 (la otra mitad de #2483 quita un bullet que exo no tiene). Yo la portaría solo si adoptas la salida con gate | — |
+| #2483 | brainstorm | no aplica | — | D11: exo no tiene la salida «salta las preguntas»; el bullet que quita no existe en exo | — |
 | #2399 | orchestrate | aplica | propuesto | — | db0eddd |
 | #2489 | orchestrate | aplica | propuesto | — | 2331afa |
 | #2364 | brainstorm | no aplica | — | sin equivalente: brainstorming/scripts/* | — |
