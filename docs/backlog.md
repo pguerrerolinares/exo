@@ -45,7 +45,7 @@
 > `tier`» (Media, re-medido: 97 `.md`, 70.346 líneas, 92/97 bajo
 > `docs/superpowers/`); y «rutas personales y `hooks.json` sin validar en
 > CI» (Media) — los dos gates verificados verdes hoy. **Sub-ítems cerrados; los
-> dos padres, cerrados después por decisión de Paul el mismo día**: las cuatro patas +
+> dos padres, cerrados después por decisión el mismo día**: las cuatro patas +
 > la deuda nueva de «Techos de escala declarados, sin camino ni medición»
 > (Media) y los cuatro sub-hallazgos vivos del gate M4 en «Barrer los
 > hallazgos vivos del gate M4» (Media). **Lo que trajo la ola 2** (tres
@@ -76,7 +76,7 @@
 > Alta), idioma mezclado en identificadores resuelto en
 > `arquitectura.md:345-350` (ver Alta), y «nombres y ubicaciones» con
 > `reports/` ya inexistente y `docs/superpowers/` resuelto (ver Alta) — y
-> las seis decisiones de Paul del 2026-09-19
+> las seis decisiones del 2026-09-19
 > (`docs/superpowers/consultas/2026-09-15-campanas/propuesta.md` §7): #2
 > D-4 `nombre_kb()` (opción b, formaliza lo ya hecho en código, ver
 > Campaña D), #3 `budget`/`cost` sellado hasta que exista `cost` (ver
@@ -106,7 +106,7 @@
 > indexada (Task 3, commits `0098199`/`950fad5`/`50a06cc`/`c0ec949`), con el
 > bench sintético corregido primero para medirlas de verdad (Task 1,
 > commits `58656f2`/`a71e7c5`/`e2e53e0`) — `walk_kb` unificada sobre
-> `walk_kb_excluyendo` (Task 4, commit `940ea46`, decisión 9 de Paul), la
+> `walk_kb_excluyendo` (Task 4, commit `940ea46`, decisión 9), la
 > pata de agrupación de `budget_prose_drift` que quedaba (Task 5, commit
 > `2764bfe`), el `allow(too_many_arguments)` de `escribe_nueva` (Task 6,
 > commit `05ea6ed`), M4 #5 y #6 del gate M4 (Task 7, commit `f5c5956`), el
@@ -117,7 +117,7 @@
 > `--min-similarity 0.40`, con `exo init` alineado a la misma constante
 > `MIN_SIMILARITY_SELLADO` para su propio default de
 > `[embeddings] min_similarity` (Task 11, commits `003f93a`/`5eb1593`,
-> decisión 1 de Paul), y `HF_HOME` — el engine ya la respeta
+> decisión 1), y `HF_HOME` — el engine ya la respeta
 > (`ApiBuilder::from_env()`, Task 13, commits `eebfd6c`/`281328e`), con la
 > variable deliberadamente SIN fijar en los tres workflows de CI (`4119fd3`:
 > sin ella `hf-hub` ya usa la ruta que `actions/cache` cachea, y
@@ -165,7 +165,7 @@
 > Task 4, `9753441`+`2cf62e2`); la mitad que faltaba de «un rojo del job
 > `test` no se puede diagnosticar» —error de COMPILACIÓN— (Task 5, `324bbc2`
 > +`35b0069`); el job `lint` renombrado a `static-checks` con los 12 required
-> checks documentados para cuando Paul active branch protection (Task 7,
+> checks documentados para cuando se active branch protection (Task 7,
 > `8942969`); la mitad `Paul`→«el dueño de la KB» de «exo genérico» y el
 > idioma de los identificadores de código en `arquitectura.md` §3.8 (Task 8,
 > `7aba784`); y `docs/superpowers/` resuelta desde la campaña B (`2294349`),
@@ -178,7 +178,7 @@
 > los tres SO. El arreglo de verdad pasa a la Task 13 de la campaña G
 > (`3b48220` — hash pre-rebase, no ancestro de esta rama tras el rebase de G
 > sobre H+F; commit real `f519a45`, corregido en la review final de G, M6,
-> 2026-09-16, misma coletilla que `65d5a7a` en `:1063`), decisión de Paul
+> 2026-09-16, misma coletilla que `65d5a7a` en `:1063`), decisión
 > del 2026-09-16. De paso corrige con cita los
 > ítems caducados o mal registrados del `§4` de
 > `docs/superpowers/consultas/2026-09-15-campanas/propuesta.md` que le
@@ -192,7 +192,7 @@
 > PR #24** (`3fcd8bf`). Cierra con
 > evidencia: contrato `ENGINE_MIN` + helper bash (Task 1, commits
 > `edba38d`/`d5281ad`), `exo-recall.sh` detecta engine viejo — SOLO ese
-> hook, no `recall-inject.sh` (decisión de Paul en pre-flight: un `exo
+> hook, no `recall-inject.sh` (decisión en pre-flight: un `exo
 > --version` por prompt sería spawn extra, en conflicto con la latencia que
 > mide la futura campaña I) (Task 2, commit `5cee331`), check
 > `plugin_compat` en `exo doctor` (Task 3, commit `c6f910a`),
@@ -202,8 +202,8 @@
 > `71f691b`), y el retiro de los 10 alias españoles — `engine` a 0.2.0,
 > plugin a 1.2.0 (Task 7, commit `5353038`). El cap de 6.144 B del bloque de
 > arranque se mide (5.869 B, 4,5% de aire) — la decisión de mantenerlo o
-> subirlo sigue **PENDIENTE-PAUL**, no está entre las decisiones que Paul
-> aceptó el 2026-09-15 (Task 8, este commit). Fuera de esta campaña: la
+> subirlo sigue **pendiente de decisión del dueño**, no está entre las decisiones
+> aceptadas el 2026-09-15 (Task 8, este commit). Fuera de esta campaña: la
 > fusión de scripts y la reducción de spawns del hook — campaña I, después
 > de H.)
 >
@@ -267,7 +267,7 @@
 > H9, H11, H12, H13, H15, H16, H18, H20, H21, H22, H26— sincronizado además con
 > el CI que cerró fuera de campaña el 09-12/09-10. **Se mueven a `## Cerrado
 > con evidencia`**: los `test-*.sh` del plugin fuera de CI (`d8aa3b6`, job
-> `plugin-tests`) y `test-contrato-engine.sh` atado a esta máquina (`d8aa3b6`,
+> `plugin-tests`) y `test-contrato-engine.sh` atado a la máquina de desarrollo (`d8aa3b6`,
 > `scripts/test-contrato-ci.sh`); **entran nuevas** el gate de shellcheck (H11,
 > `cd3bfff`) y el gate de exec-bit ampliado a scripts sin extensión (H12,
 > `4af859b`), los dos con su ciclo rojo-verde medido. **Se cierran in situ,
@@ -289,7 +289,7 @@
 > recomienda `--db`, que `exo init` no tiene (usa `$EXO_DB`). H9, H13, H15,
 > H20, H21, H22 son código/UX sin item propio en este backlog —ejecutados
 > según el plan, sin deuda que registrar aquí—; H25 queda fuera, es checklist
-> externo de Paul, no tarea de la fábrica.)
+> externo, no tarea de la fábrica.)
 >
 > Antes: **2026-09-11** (alineación con el árbol real tras G5b, a
 > raíz de corregir el informe de la revisión crítica
@@ -317,7 +317,7 @@
 > mudo —«el bloque de arranque va al 96%» y «`inject-emitted` se emite aunque
 > no se inyecte nada»— se marcan como la **misma clase de fallo con una sola
 > forma de arreglo** (un campo del envelope, no dos avisos). Otros seis —el
-> cutover binario↔scripts, los dos de fixtures atadas a esta máquina, los dos
+> cutover binario↔scripts, los dos de fixtures atadas a la máquina de desarrollo, los dos
 > de endurecimiento del CI y el de `kb-demo` como fixture— quedan marcados
 > **«lo cierra / lo subsume G5»**, greppables por esa cadena. La comparativa
 > no añadió deuda: reordenó la que ya estaba escrita.
@@ -346,7 +346,7 @@
 > atribuye no existe en el código.
 >
 > Cuarta pasada del 09-09, esta vez de **coste de tokens** y con medición
-> propia sobre los transcripts de esta máquina (549 sesiones, 331 MB):
+> propia sobre los transcripts de la máquina de desarrollo (549 sesiones, 331 MB):
 > **cuatro items nuevos**, greppables por «pasada de coste 2026-09-09». Uno en
 > Alta —el bucle de coste de la inyección, que resulta estar a un `join` por
 > `session_id` de distancia porque `recall-inject.sh` ya loguea los bytes que
@@ -361,7 +361,7 @@
 > Antes: **2026-09-04** (revisión crítica externa del repo completo:
 > diez items nuevos marcados «(revisión 2026-09-04)», tres de ellos en Alta;
 > ninguno duplica los que ya estaban — `test-*.sh` fuera de CI,
-> `test-contrato-engine.sh` atado a esta máquina, aliases españoles y
+> `test-contrato-engine.sh` atado a la máquina de desarrollo, aliases españoles y
 > `kb-demo` en los tests del engine ya tenían entrada y se dejan como están).
 > Y antes: **2026-09-02** (G5a — CI mínimo cerrado con evidencia, deuda nueva
 > de la ola anotada).
@@ -371,25 +371,25 @@
 | | |
 |---|---|
 | **Cerradas** | C5 (M2-08+09, cierra E1 read) · C6 (M6, cutover del recall) · C7 (M4, write-path) |
-| **Pendientes** | C8 (M3+M1b, cutover de skills) → C9 (M5a, MCP + config propia — la sub-tarea de config propia ya cerró el 2026-08-26, `M5a-02`, ver `## Cerrado con evidencia`; el servidor MCP en sí sigue sin construir, ver «M5a (MCP propio) se diseñó contra un MCP…» en Baja) → C10 (M5b, desinstalar basic-memory, gated por C9 completo — **CERRADA 2026-10-05, D3 de Paul («d3, hecho»): basic-memory y kbx desinstalados** (`which kbx basic-memory` → *not found* hoy); C9 queda como M5a no se construye) (**F, 2026-09-15: C8 verificado HECHO** — 9 skills en `plugins/exo/skills/` + `plugins/exo/agents/executor.md` + `.claude-plugin/marketplace.json` sirviendo `plugins/exo/` como marketplace único; lo que queda de M1a/M1b es checklist de máquina, ver «Residuos de entorno del plan» más abajo, no trabajo de fábrica) |
+| **Pendientes** | C8 (M3+M1b, cutover de skills) → C9 (M5a, MCP + config propia — la sub-tarea de config propia ya cerró el 2026-08-26, `M5a-02`, ver `## Cerrado con evidencia`; el servidor MCP en sí sigue sin construir, ver «M5a (MCP propio) se diseñó contra un MCP…» en Baja) → C10 (M5b, desinstalar basic-memory, gated por C9 completo — **CERRADA 2026-10-05, D3 («d3, hecho»): basic-memory y kbx desinstalados** (`which kbx basic-memory` → *not found* hoy); C9 queda como M5a no se construye) (**F, 2026-09-15: C8 verificado HECHO** — 9 skills en `plugins/exo/skills/` + `plugins/exo/agents/executor.md` + `.claude-plugin/marketplace.json` sirviendo `plugins/exo/` como marketplace único; lo que queda de M1a/M1b es checklist de máquina, ver «Residuos de entorno del plan» más abajo, no trabajo de fábrica) |
 | **Medido** | engine-hybrid **48/55** hit@5 in-sample vs bm-hybrid 39/55, mismo día, paridad de corpus ∅, recall <2s (`evals/e1-read/verdict/m2-09-corrida.md`) · held-out **64/92** (campaña C, `evals/retrieval-heldout/verdict/c-verdict.md`) — no comparables entre sí: distinta fuente de queries |
 | **Tests** | 111 verdes / 0 rojos en la rama de M4, 98 en main previo (contados por el consultor del gate en esa ola; el CI que los corre solo llegó después, en G5a — 200 tests / 28 binarios). **El 2026-09-13 (cierre de campaña B), `cargo test --release --locked --no-fail-fast` en `engine/`: 478 tests verdes en 48 binarios, 2 ignorados, 0 rojos** |
 | **Release** | `v0.1.0` publicada el **2026-09-11** — tres binarios y sus tres `.sha256`, instalables por `install.sh` / `install.ps1`. Ver `## Cerrado con evidencia` |
 | **Campaña A** | ejecutada el **2026-09-13**; Task 15 (medición W11) corrida el **2026-09-15** → C-H10 CERRADA en Linux y W11, Task 12 no se ejecuta por puerta — mergeada a `main` el **2026-09-13** vía PR #13 (`ef5100b`); la Task 15/W11 entró aparte, mergeada a `main` el **2026-09-15** vía PR #22 (`6e8b85f`); veredicto en `evals/recall-coste/verdict/2026-09-campana-a.md` |
-| **Campaña B** | ejecutada el **2026-09-13**, las 13 tasks (H6, H8, H9, H11, H12, H13, H15, H16, H18, H20, H21, H22, H26) — mergeada a `main` el **2026-09-13** vía PR #14 (`219506b`); plan en `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md`; H25 queda como checklist externo de Paul |
+| **Campaña B** | ejecutada el **2026-09-13**, las 13 tasks (H6, H8, H9, H11, H12, H13, H15, H16, H18, H20, H21, H22, H26) — mergeada a `main` el **2026-09-13** vía PR #14 (`219506b`); plan en `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md`; H25 queda como checklist externo |
 | **Campaña C** | held-out pre-registrado, **sin cambio de producción** — mergeada a `main` el **2026-09-14** vía PR #16 (`cb25541`); veredicto en `evals/retrieval-heldout/verdict/c-verdict.md`. El held-out queda consumido; D6 (default de `exo search --type`) **CERRADO por la campaña G**, ver Alta |
 | **Campaña E** | 9 tasks (hooks honestos: `inject-empty`, suite de `exo-recall.sh`, `no results` en `search`; engine: mensaje de guarda parametrizado, `rust-toolchain.toml`; CI: `--locked`+log+artifact en el gate hermético, orden de `release.yml`, gate de rutas personales) — ejecutada el **2026-09-14** en la rama `e-hooks-honestos-y-ci`; mergeada a `main` el **2026-09-15** vía PR #19 (`36ef9aa`); plan en `docs/superpowers/plans/2026-09-14-campana-e-hooks-honestos-y-ci.md` |
-| **Campaña D** | cutover kbx→exo: `rotate` y `stale` portados a Rust (`engine/src/rotacion.rs`, `engine/src/obsolescencia.rs`), pre-registro de paridad congelado antes de Rust (Task 1, `7edb5d0`), cuatro gates de paridad — targets (`4d047f4`), ratchet (`ab5d59b`), rotate (`cd196ff`), stale (`f059eb1`) — los cuatro PASA, consumidores reapuntados (Task 9, `0051638`+`aa82f95`: `distill`/`kb-precommit.sh`/`arquitectura.md` ya no invocan `kbx`) — ejecutada el **2026-09-14/15** en la rama `d-cutover-kbx`, apila la campaña E (`f46cbe3`); mergeada a `main` el **2026-09-15** vía PR #20 (`0494e3d`); plan en `docs/superpowers/plans/2026-09-14-campana-d-cutover-kbx.md`. D-4 (permalink `nombre_kb()` vs literal fijo) **cerrado por decisión de
-Paul, 2026-09-19 (#2, `propuesta.md` §7): opción b, `nombre_kb()`** — lo que
+| **Campaña D** | cutover kbx→exo: `rotate` y `stale` portados a Rust (`engine/src/rotacion.rs`, `engine/src/obsolescencia.rs`), pre-registro de paridad congelado antes de Rust (Task 1, `7edb5d0`), cuatro gates de paridad — targets (`4d047f4`), ratchet (`ab5d59b`), rotate (`cd196ff`), stale (`f059eb1`) — los cuatro PASA, consumidores reapuntados (Task 9, `0051638`+`aa82f95`: `distill`/`kb-precommit.sh`/`arquitectura.md` ya no invocan `kbx`) — ejecutada el **2026-09-14/15** en la rama `d-cutover-kbx`, apila la campaña E (`f46cbe3`); mergeada a `main` el **2026-09-15** vía PR #20 (`0494e3d`); plan en `docs/superpowers/plans/2026-09-14-campana-d-cutover-kbx.md`. D-4 (permalink `nombre_kb()` vs literal fijo) **cerrado por decisión del
+2026-09-19 (#2, `propuesta.md` §7): opción b, `nombre_kb()`** — lo que
 ya había en código queda formalizado; y la acción (a) de «exo genérico»
 (`Paul`/`kb-demo` por nombres resueltos) cerrada por G (ver Alta, ítem
 «exo genérico») |
 | **Ruta portable** | grafía única de ruta (`/`) en el binario y ruta visible en la salida humana de `exo search` — apila sobre la campaña D, mergeada a `main` el **2026-09-15** vía PR #21 (`ba4b75f`); plan en `docs/superpowers/plans/2026-09-11-ruta-portable-y-columna-humana.md`, spec en `docs/superpowers/specs/2026-09-11-ruta-portable-y-columna-humana-design.md` |
-| **Campaña H** | 8 tasks (contrato `ENGINE_MIN`, `exo-recall.sh` detecta engine viejo, `exo doctor` check `plugin_compat`, `check_git_bash` sin falso `ok` de WSL, `script_del_plugin` por semver real, `kb-precommit.sh` fail-closed, retiro de los 10 alias españoles — engine 0.2.0/plugin 1.2.0, cap de 6.144 medido y PENDIENTE-PAUL) — ejecutada el **2026-09-15** en la rama `campana-h`; mergeada a `main` el **2026-09-16** vía PR #24 (`3fcd8bf`); plan en `docs/superpowers/plans/2026-09-15-campana-h-fail-closed.md` |
+| **Campaña H** | 8 tasks (contrato `ENGINE_MIN`, `exo-recall.sh` detecta engine viejo, `exo doctor` check `plugin_compat`, `check_git_bash` sin falso `ok` de WSL, `script_del_plugin` por semver real, `kb-precommit.sh` fail-closed, retiro de los 10 alias españoles — engine 0.2.0/plugin 1.2.0, cap de 6.144 medido y pendiente de decisión del dueño) — ejecutada el **2026-09-15** en la rama `campana-h`; mergeada a `main` el **2026-09-16** vía PR #24 (`3fcd8bf`); plan en `docs/superpowers/plans/2026-09-15-campana-h-fail-closed.md` |
 | **Campaña F** | 9 tasks (superficie publicable: held-out en `arquitectura.md`, gates `test-docs-vivos.sh`/`test-hooks-json.sh`, `test-shellcheck.sh` sobre `run: |` de los workflows, `test-hermetico.sh` distingue error de compilación, job `lint`→`static-checks`, `Paul`→«el dueño de la KB» + idioma de identificadores, sync de este backlog) — ejecutada el **2026-09-15** en la rama `campana-f`, **PR #25 abierto** (merge tras H); `HF_HOME` (Task 6, `4cec5b7`) se revirtió en `6e4477a` el 2026-09-16 — el engine no lo lee, arreglo diferido a la Task 13 de la campaña G; plan en `docs/superpowers/plans/2026-09-15-campana-f-superficie-publicable.md` |
 | **Campaña G** | 11 tasks del engine (bench sintético con vectores reales, `busca_hybrid` a una sola conexión, `git_epoch_de` en batch, `walk_kb` unificada, `budget_prose_drift` sin truncar, `escribe_nueva` con struct de parámetros, M4 #5/#6, assert de embeddings, `trinquete --staged` sobre el índice de git, `kb-demo`→`kb-test`, D6 default hybrid+0.40 con `exo init` alineado a la misma constante, y `HF_HOME` respetada por el engine) — sin cambio de ranking (β/bonus/umbral/fusión intactos) — ejecutada en la rama `campana-g`, **sin PR todavía**; plan en `docs/superpowers/plans/2026-09-15-campana-g-engine-deuda-diferida.md` |
 | **Ola 2** | tres frentes en paralelo, cada uno mergeado a `main` por su cuenta tras el gate del dueño — **sin PR, merge local**, push a `origin` pendiente: **A** — gold de J congelado, held-out nuevo de 240 filas / 145 no nulas, κ 0,810, p_o 0,874, pre-registro congelado en `a936770` (merge `01be694`); **B1** — los dos bugs de `evals/recall-coste/harness/bench.sh` (commits `70274a8`/`1901407`, merge `ca40d04`); **B2** — H28: vec0 devuelve L2 llana, no L2² — parte documental cerrada (commits `28dbb2f`/`d027d23`, merge `063d07c`), la conversión real queda abierta para fase 2. Deuda nueva que dejó la ola, registrada en su sitio: dos colas de H28 (Media y Baja), dos del harness de J (Media) y dos de bajo impacto (`juez.py`, `bench.sh`) — ver Media y Baja. |
-| **Ola 3** | **P** MERGEADA en `main` (`beecead`): `6a9ffcb` un revert no es portado, `1e20dd4` test de U1 cerrada (U1 = upstream #1943 portada en `5b4ca55`), `5dc8382` latido del watchdog caduca a 15 días, `190a756` el contrato declara qué revert reconoce — hallazgo: la pasada 1 puntuada dio `aciertos 30/37 (81%)`, `ya-cubierto-falsos 0`, rc=1 (<90 %); Paul activó la routine de todas formas (D0) · **O** (`o-deuda`, gate MERGED por consultor, merge vía PR pendiente de Paul) · **Q** (`q-w11`: `doctor` check `superpowers_disabled`, aviso en SessionStart, `install.ps1` con jq 1.7.1 de SHA fijado, PATH de usuario REG_EXPAND_SZ y `claude plugin disable superpowers --scope user` por defecto con opt-out — verdict B' del consultor sobre KB-exo:45 —, `hook_ms` en el README; gate MERGED por consultor con condición «PR y `install gate (windows-latest)` verde»; Windows sin ejecutar en local) · **N** (esta, `n-sync`) |
+| **Ola 3** | **P** MERGEADA en `main` (`beecead`): `6a9ffcb` un revert no es portado, `1e20dd4` test de U1 cerrada (U1 = upstream #1943 portada en `5b4ca55`), `5dc8382` latido del watchdog caduca a 15 días, `190a756` el contrato declara qué revert reconoce — hallazgo: la pasada 1 puntuada dio `aciertos 30/37 (81%)`, `ya-cubierto-falsos 0`, rc=1 (<90 %); se activó la routine de todas formas (D0) · **O** (`o-deuda`, gate MERGED por consultor, merge vía PR pendiente) · **Q** (`q-w11`: `doctor` check `superpowers_disabled`, aviso en SessionStart, `install.ps1` con jq 1.7.1 de SHA fijado, PATH de usuario REG_EXPAND_SZ y `claude plugin disable superpowers --scope user` por defecto con opt-out — verdict B' del consultor sobre KB-exo:45 —, `hook_ms` en el README; gate MERGED por consultor con condición «PR y `install gate (windows-latest)` verde»; Windows sin ejecutar en local) · **N** (esta, `n-sync`) |
 
 ---
 
@@ -409,7 +409,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   **Cerrado (campaña N, 2026-10-05): obsoleto.** `recall-inject` se borró
   (PR #35, merge `d33df4e`; barrido de comentarios y docs en `1e19bd0`): no
   queda hook por prompt al que abstener. K se cerró sin campaña L, por decisión
-  de Paul (`wisdom-paul/log/exo-bitacora.md:66-72`; veredicto en
+  (bitácora de la KB personal; veredicto en
   `evals/ablacion-k/verdict-etapa1.md`, commit `b94ed74`). La abstención por
   umbral, además, se descartó por decisión (ver el ítem «El corpus negativo casi
   entero devuelve top-5», Media).
@@ -453,7 +453,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   reportar la fila en rojo, no el número.
   **Campaña C (2026-09-13 → 2026-09-14), held-out pre-registrado:**
   acción (a) HECHA — gold privado de 92 queries no nulas (agent-search=34,
-  hard=36, prompt=22), aprobado por Paul, sha256 en
+  hard=36, prompt=22), aprobado, sha256 en
   `docs/superpowers/plans/2026-09-13-campana-c-preregistro.md` §10;
   acción (b) HECHA — `evals/retrieval-heldout/verdict/c-verdict.md` reporta
   held-out y in-sample por separado con base declarada. Resultado: R1
@@ -461,7 +461,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   **64/92 = 69,6 %**, Wilson 95 % [59,5 %, 78,0 %]); R2 se queda la fusión
   actual (RRF no gana contra A0, NETO=1 < 3); R3 se queda el troceado
   actual (solape no gana, NETO=2 < 3, cae solo por el umbral de NETO); R4
-  no medido (D3=no — Paul: «No, solo solape»). Lo que el N no podía ver
+  no medido (D3=no: «No, solo solape»). Lo que el N no podía ver
   (§3): con un N etiquetable (60–100) ningún test de significación ve
   diferencias de 5 pp entre dos fusiones sobre los mismos candidatos — el
   NETO de solape (+2,2 pp observados) se habría visto ganador el 38–50 % de
@@ -470,7 +470,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   Acción (c) (default de `exo search --type`, `main.rs:241`): **CERRADA el
   2026-09-16 por la campaña G, ver el checklist justo abajo.**
   - [x] (c) **CERRADO el 2026-09-16 (campaña G, Task 11, commits
-    `003f93a`/`5eb1593`, decisión 1 de Paul, 2026-09-15).** `exo search`
+    `003f93a`/`5eb1593`, decisión 1, 2026-09-15).** `exo search`
     sin `--type` usa `hybrid` con `--min-similarity 0.40` (`main.rs`,
     `ArgsSearch.r#type` default `TipoBusqueda::Hybrid`). Cita:
     `evals/retrieval-heldout/verdict/c-verdict.md` (A0 gana a FTS en 41/55
@@ -497,7 +497,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   la (c) no, y el item gana dos instancias nuevas.**
   - (a) **hecha**: `3673059` retiró «Sin CI» de `arquitectura.md` el 09-11 a
     las 09:49. `grep "Sin CI" docs/arquitectura.md` → vacío. La afirmación
-    hermana (suite no hermética fuera de esta máquina) sigue en `:495` y
+    hermana (suite no hermética fuera de la máquina de desarrollo) sigue en `:495` y
     sigue siendo **cierta**, así que no era deriva.
   - (b) **abierta**, y con un número más: `marketplace.json:4` `1.0.0`,
     `marketplace.json:8` y `plugin.json:4` `1.1.1` (`ae1f470`),
@@ -581,8 +581,8 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   verde (ver «Verificación» al cierre de este sync); y el check (e) sobre
   la tabla de hooks del segundo README, por la campaña L.
 
-- [x] **(revisión 2026-09-04) «exo genérico» sigue siendo el plugin de Paul
-  para Paul.** Medido el 2026-09-04 sobre `plugins/exo/`: la cadena `Paul`
+- [x] **(revisión 2026-09-04) «exo genérico» sigue siendo un plugin
+  personal.** Medido el 2026-09-04 sobre `plugins/exo/`: la cadena `Paul`
   aparece en 4 ficheros vivos del plugin (`skills/distill/SKILL.md` ×7,
   `scripts/recall-inject.sh` ×2, `scripts/git-add-all-guard.sh`,
   `scripts/kb-precommit.sh`) — **re-medido el 2026-09-13 (`git grep -c Paul
@@ -638,8 +638,8 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
     únicos usos literales de "kb-demo" que quedan son comentarios que
     EXPLICAN ese cambio, fixtures deliberadas de
     `test-recall-inject.sh` (`EXO_KB_NAME="kb-demo"` puesto por el propio
-    test) y las skills `distill`/`recon-first`, que nombran la KB real de
-    Paul por diseño. El resto del ítem (`Paul` en 5 ficheros, `kbx` como
+    test) y las skills `distill`/`recon-first`, que nombran la KB real
+    del dueño por diseño. El resto del ítem (`Paul` en 5 ficheros, `kbx` como
     dependencia operativa de `distill`) **sigue abierto** — fuera del
     alcance de E.
   **Acción:** (a) sustituir «Paul» por «el usuario»/«el dueño de la KB» y
@@ -711,17 +711,17 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   (b) pasada de `/distill` sobre `core-index` retirando entradas muertas (es
   índice: se retiran entradas, no se comprimen las vivas) — la propia entrada de
   exo está rancia, sigue diciendo «Frente: C10/M5a-02 config propia», que se
-  cerró hoy; (c) **MEDIDA, decisión PENDIENTE-PAUL (campaña H, Task 8,
+  cerró hoy; (c) **MEDIDA, decisión pendiente del dueño (campaña H, Task 8,
   este commit, 2026-09-15):** medido con el binario instalado 0.1.0 (mismo
   comando que usa `exo-recall.sh`, sin `--refresh`, solo lectura): 5.869 B
   sobre el cap de 6.144, 4,5% de aire — tabla en
   `docs/superpowers/runbooks/2026-09-15-release-v0.2.0.md`. La propuesta
   (§5, decisión 16) recomienda mantener el cap en 6.144 y resolver la
   presión con la evicción editorial de `core-index` en vez de subir el
-  número, pero esa decisión **no está entre las que Paul aceptó el
+  número, pero esa decisión **no está entre las aceptadas el
   2026-09-15** (`propuesta.md` §6) — queda con el dato real delante, sin
   cerrar por esta campaña. **Sigue abierta** también la acción (b),
-  editorial de la KB de Paul, fuera de esta campaña.
+  editorial de la KB personal, fuera de esta campaña.
   **Cruce (2026-09-09):** misma clase de fallo que «`inject-emitted` se emite
   aunque no se inyecte nada» (en `## Cerrado con evidencia`) — el instrumento
   no reporta lo que no hizo. Las dos acciones convergen en **un campo del envelope** (truncado /
@@ -753,10 +753,10 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   comenta, `hooks/ponytail-subagent.js:31-38`— pero en el bloque de arranque lo
   barato es gritar. No es item nuevo: es el criterio que le falta a la acción
   (a).
-  **Decisión de Paul, 2026-09-19 (#16, `propuesta.md` §7): se mantiene.**
+  **Decisión, 2026-09-19 (#16, `propuesta.md` §7): se mantiene.**
   El cap de 6.144 B no sube; la presión se resuelve con evicción editorial
   de entradas muertas de `core-index` (es índice: no se comprime) hasta
-  ≥15% de aire. Trabajo de Paul en la KB `wisdom-paul`, explícitamente NO de
+  ≥15% de aire. Trabajo editorial sobre la KB personal, explícitamente NO de
   la fábrica. Cierra las acciones (b) y (c) por decisión, no por código.
 
 - [x] **(pasada de coste 2026-09-09) El bucle de coste de la inyección está
@@ -774,7 +774,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   `cache_creation_input_tokens`, `cache_read_input_tokens`, `output_tokens`,
   `output_tokens_details.thinking_tokens`). **La clave del join, `session_id`,
   está en los dos lados.**
-  Medido el 2026-09-09 sobre las 60 sesiones mayores de esta máquina (549 en
+  Medido el 2026-09-09 sobre las 60 sesiones mayores de la máquina de desarrollo (549 en
   total, 331 MB, 7.920 mensajes de assistant): 2.266M tokens de input, de los
   cuales **97,7% son `cache_read`** (2.213,13M) y 2,3% `cache_creation`; hit
   rate 98,2% en `claude-opus-5`. Lectura: el coste no está en **fallar** la
@@ -791,14 +791,14 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   y reporte bytes inyectados frente a tokens por sesión; (c) decidir si eso
   vive en `evals/` o pasa a verbo del engine (ver el item de naming de
   `budget` en Media).
-  **Aviso de medición:** exo **no está instalado en esta máquina** —
+  **Aviso de medición:** exo **no está instalado en la máquina de desarrollo** —
   `~/.claude/plugins/` solo tiene `kbi@kbi-standards` habilitado y `~/.exo` no
   existe—, así que aquí no hay `reflex-log.jsonl` y **su ausencia no prueba
   nada** sobre el emisor: el cruce hay que correrlo donde exo corre de verdad.
   Y ojo con el diseño best-effort del sink (`|| true`, `2>/dev/null`,
   `_reflex-log.sh:4`): un log ausente es indistinguible de cero disparos, así
   que el harness debe **exigir** el fichero, no tolerar su falta.
-  **Decisión de Paul, 2026-09-19 (#17, `propuesta.md` §7): no, por ahora.**
+  **Decisión, 2026-09-19 (#17, `propuesta.md` §7): no, por ahora.**
   El harness de cruce (a/b/c de la acción original) no se construye hasta
   que haga falta. Ítem cerrado por decisión explícita, no por trabajo hecho.
 
@@ -881,7 +881,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   al fallback per-nota; hoy es conservador a propósito (nunca da un epoch
   incorrecto), así que no es un bug, es una oportunidad de precisión sin
   medir su beneficio real.
-  **CERRADO el 2026-09-22 por decisión de Paul** (tras la sync de la ola 2,
+  **CERRADO el 2026-09-22 por decisión** (tras la sync de la ola 2,
   que dejó todos los sub-ítems resueltos). Las cuatro patas originales y la
   deuda nueva que destapó su propia medición están cerradas, re-verificado
   hoy contra el código: KNN adaptativo (`k` de la consulta, no
@@ -961,7 +961,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   descarte queda revocado.
   **Task 6 (Linux, commit `3b19519`):** `hook_ms` p95 = **1035 ms** (N=174),
   **1069 ms** (N=1000), **1173 ms** (N=5000); p50 respectivamente 1016, 1039
-  y 1151 ms. Umbral decisión #12 (Paul, 1.500 ms p95 por SO): Linux se
+  y 1151 ms. Umbral decisión #12 (1.500 ms p95 por SO): Linux se
   cumple con margen (peor caso 1173 ms). Triple `PreToolUse:Bash`: **41 ms**
   (cota inferior; no decide). `C-noregresión` **FALLA** por
   `s5-search-fts-n174` (3→6 ms) — ruido de 3 ms en FTS, ajeno al hook y al
@@ -1118,13 +1118,13 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   **Un validador**, no una fixture por script: `affaan-m/ECC` encadena en su
   `npm test` (`package.json:472`) un
   `scripts/ci/validate-no-personal-paths.js`. Con un gate equivalente, la
-  limpieza que pide el item de Alta «"exo genérico" sigue siendo el plugin de
-  Paul» **deja de poder regresar**, y con ella cae el item de Baja de
+  limpieza que pide el item de Alta «"exo genérico" sigue siendo un plugin
+  personal» **deja de poder regresar**, y con ella cae el item de Baja de
   `kb-demo` como fixture. **Copiarlo tal cual no basta** (clone `5064474`):
   sus regex (`validate-no-personal-paths.js:41-42`) cubren `/Users/<nombre>`
-  y `C:\Users\<nombre>`, **pero no `/home/<user>`** — hay que añadirle el
+  y `C:\Users\<nombre>`, **pero no el home POSIX** — hay que añadirle el
   patrón POSIX y la lista de nombres propios, o no cazaría hoy la única
-  ofensora que queda (`test-git-c-bash.sh`, ver «Las 2 rutas `/home/paul/…`
+  ofensora que queda (`test-git-c-bash.sh`, ver «Las 2 rutas absolutas bajo el home
   de `test-git-c-bash.sh:74-75`», en `## Cerrado con evidencia`). Segundo
   robable de la misma cadena: `scripts/ci/validate-hooks.js`,
   que valida `hooks/hooks.json` contra `schemas/hooks.schema.json` con Ajv
@@ -1134,9 +1134,9 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   `8ee6640`, 2026-09-14):** `scripts/test-rutas-personales.sh`, mismo
   descubrimiento que `test-shellcheck.sh` (índice de git, `.sh` + shebang,
   excluye `evals/`/`docs/`), corre en `ci.yml` job `lint`. Cubre exactamente
-  el patrón que Paul decidió (solo rutas: `/home/<user>`, `/Users/<user>`,
+  el patrón decidido (solo rutas: el home POSIX, `/Users/<user>`,
   `C:\Users\<user>`), sin detectar nombres propios. Falso positivo conocido
-  por diseño: el gate caza por forma, así que `/home/runner`, `/Users/Shared`,
+  por diseño: el gate caza por forma, así que el HOME del runner, `/Users/Shared`,
   `C:/Users/Public` disparan; el arreglo es el que imprime el propio gate
   (variable: `$HOME`, `$RUNNER_TEMP`, `$GITHUB_WORKSPACE`), no una allowlist.
   De paso arregló un falso positivo no anticipado por el dictamen del
@@ -1156,7 +1156,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   corridas ambas en este sync: `test-rutas-personales: OK — 60 scripts sin
   rutas personales` y `[OK] test-hooks-json: eventos, type=command y
   scripts referenciados, todos 100755`. El falso positivo por forma
-  (`/home/runner`, `/Users/Shared`, `C:/Users/Public`) es aceptado por
+  (el HOME del runner, `/Users/Shared`, `C:/Users/Public`) es aceptado por
   diseño, documentado en el propio párrafo de cierre de la sub-propuesta 1.
 
 - [x] **Barrer los hallazgos vivos del gate M4** (`evals/e1-read/verdict/gate-m4.md`).
@@ -1170,13 +1170,13 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   `## Cerrado con evidencia`): el **disenso del consultor** — el prefijo de
   proyecto sale de `[kb] name` en la config propia, no de `kb.file_name()`.
   **Vivos 4 en origen; #5 y #6 cerrados por G (arriba), #9 caducado por F
-  (abajo), #8 cerrado por decisión de Paul del 2026-09-19 (abajo) — 0 vivos:**
+  (abajo), #8 cerrado por decisión del 2026-09-19 (abajo) — 0 vivos:**
   - [x] **#5 [media] CERRADO el 2026-09-16 (campaña G, Task 7, commit
     `f5c5956`):** `busca_permalink_en_dir` hace el walk de confirmación
     antes de crear con `--create`; test
     `write_append_create_no_duplica_si_el_indice_esta_rancio` en
     `engine/tests/write_create_permalink.rs`.
-  - [x] **#8 [baja] CERRADO el 2026-09-19 (decisión de Paul #15,
+  - [x] **#8 [baja] CERRADO el 2026-09-19 (decisión #15,
     `docs/superpowers/consultas/2026-09-15-campanas/propuesta.md` §7):**
     divergencia de slug medida **19/127** frente a basic-memory (`_`
     conservado en 10 bitácoras rotadas, CamelCase separado, `§`→`ss`).
@@ -1194,7 +1194,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
     existe (`engine/src/main.rs:172-176`); `document/SKILL.md:55` no menciona
     `--db` porque se resuelve por config (M5a-02) — es correcto tal cual, no
     un olvido.
-  **CERRADO el 2026-09-22 por decisión de Paul** (tras la sync de la ola 2):
+  **CERRADO el 2026-09-22 por decisión** (tras la sync de la ola 2):
   #5, #6 y #8 cerrados con commit/decisión citados arriba (`f5c5956` y los
   dos tests de `engine/tests/write_create_permalink.rs` re-verificados hoy);
   #9 caducado (nunca fue un bug real). No queda ningún hallazgo vivo del
@@ -1209,8 +1209,8 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   `RUST_BACKTRACE: 1` y el script tira esa salida igualmente. Peor: un error
   de COMPILACIÓN de la suite no casa ninguno de los tres patrones y se vería
   como una sola línea de exit. Consecuencia: un rojo exclusivo de
-  `windows-latest` o de macOS arm64 es irreproducible en la máquina del
-  autor e ilegible en el CI.
+  `windows-latest` o de macOS arm64 es irreproducible en local
+  e ilegible en el CI.
   **Ya no es una predicción por lectura de código: está medido.** La rotura
   deliberada de `fee361d` metió un `#[test]` que hace `panic!` con un mensaje
   explícito, y en la corrida `33624081143` los tres jobs `test` fallaron
@@ -1253,7 +1253,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   'failure'`; `:21` fija `RUST_BACKTRACE: 1` a nivel de workflow. Ítem
   cerrado por completo.
 
-- [x] **Hoy el CI no bloquea nada.** Paul decidió explícitamente no proteger
+- [x] **Hoy el CI no bloquea nada.** Se decidió explícitamente no proteger
   `main` por ahora — no hay branch protection ni required status checks.
   Consecuencia: un PR rojo se puede mergear igualmente, así que el CI hoy es
   una notificación, no un gate de merge. Ver la matización añadida al item
@@ -1268,7 +1268,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   "MSRV declarada (1.95)" · `test` → "test (ubuntu-latest/windows-latest/
   macos-latest)" ×3 · `plugin-tests` → "tests del plugin (ubuntu-latest/
   windows-latest/macos-latest)" ×3 · `install-gate` → "install gate
-  (ubuntu-latest/windows-latest/macos-latest)" ×3. Paul los activa en GitHub
+  (ubuntu-latest/windows-latest/macos-latest)" ×3. Se activan en GitHub
   después del merge — esta campaña no toca settings del repo.**
   **Cruce (2026-09-09):** con una cadena de release como la de `affaan-m/ECC`
   esto deja de ser una decisión suelta: su job de verificación exige que el
@@ -1279,9 +1279,9 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   `git rev-parse origin/main` y sale con `exit 1` si difieren, en el job
   `verify`, antes de cualquier paso de empaquetado.
   **Lo subsume G5 si adopta esa cadena.** **(2026-09-11: G5b cerró sin adoptarlo — release `v0.1.0` publicada, ver `## Cerrado con evidencia`. La marca queda huérfana: necesita dueño o campaña propia.)**
-  **Decisión de Paul, 2026-09-19 (#8, `propuesta.md` §7): ACTIVADA.**
-  Ejecutada el mismo día por el orquestador con autorización explícita de
-  Paul en sesión — verificado hoy con
+  **Decisión, 2026-09-19 (#8, `propuesta.md` §7): ACTIVADA.**
+  Ejecutada el mismo día por el orquestador con autorización explícita del
+  dueño en sesión — verificado hoy con
   `gh api repos/pguerrerolinares/exo/branches/main/protection`: los 12
   required checks de F Task 7 (verificados contra los check-runs de
   `5efe812`), `strict: false`, sin revisión obligatoria (autor único),
@@ -1314,7 +1314,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
     después.
     **(campaña F, 2026-09-16): NO se cierra — intentado y revertido.** La
     Task 6 de F fijó `HF_HOME` en `ci.yml`/`release.yml` (commit `4cec5b7`),
-    pero Paul lo revirtió al día siguiente (`6e4477a`, 2026-09-16): el engine
+    pero se revirtió al día siguiente (`6e4477a`, 2026-09-16): el engine
     ignora `HF_HOME` por completo. `engine/src/lib.rs:240` llama `Api::new()`
     → `ApiBuilder::new()` → `Cache::default()` (hf-hub 0.5.0, `lib.rs:202-210`:
     siempre `dirs::home_dir()/.cache/huggingface/hub`) — `Cache::from_env()`
@@ -1361,7 +1361,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
 
 - [x] **`walker::walk_kb` frente a `walk_kb_excluyendo`: conviven con semánticas
   distintas desde G4b.** **Cerrado el 2026-09-16 (campaña G, Task 4, commit
-  `940ea46`, decisión 9 de Paul):** `walk_kb` delega en
+  `940ea46`, decisión 9):** `walk_kb` delega en
   `walk_kb_excluyendo(raiz, &[])` — case-insensitive, ya no camina dentro
   de `.git/`. Cambio de comportamiento declarado en `docs/arquitectura.md`
   (recomienda `exo rebuild`). Verificado en `engine/src/walker.rs`: `walk_kb`
@@ -1520,7 +1520,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   de ejecutar cualquier evicción.
   **(campaña F, 2026-09-15): CERRADO — hecho el 2026-09-10.** `Memoria
   v2:18` («La lista de partida la midió `exo budget` … eran 20, no 19»),
-  commit `efd9abc` — **de la KB `wisdom-paul`, no de este repo** (`exo` no
+  commit `efd9abc` — **de la KB personal, no de este repo** (`exo` no
   tiene ese SHA).
   **Re-verificado (sync 2026-09-22, ola 2), con evidencia de este repo:**
   la fórmula canónica que G4b adjudicó vive hoy en
@@ -1553,9 +1553,9 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   `Comando::Budget` vive en `engine/src/main.rs:68` desde G4b. La colisión
   de nombre se resolvió de hecho: `budget` = bytes de KB. Queda solo el
   nombre de un verbo de coste de tokens hipotético, decisión #3 del paquete
-  de Paul del 2026-09-15 (b/c: vive en `evals/` o no se construye hasta que
+  del 2026-09-15 (b/c: vive en `evals/` o no se construye hasta que
   haga falta) — fuera de alcance de F.
-  **Decisión de Paul, 2026-09-19 (#3, `propuesta.md` §7): nada hasta que
+  **Decisión, 2026-09-19 (#3, `propuesta.md` §7): nada hasta que
   exista `cost`.** Con la decisión #17 (no medir el coste de la inyección
   por ahora), no hay nada que nombrar todavía — `budget` = bytes de KB queda
   sellado. Ítem cerrado.
@@ -1584,20 +1584,20 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   misma palanca medida allí; (c) evaluar `defer_loading` para los tools poco
   usados, que los mantiene fuera del prefijo cacheado y solo entran cuando el
   modelo los busca.
-  **Decisión de Paul, 2026-09-19 (#7, `propuesta.md` §7): no se construye.**
+  **Decisión, 2026-09-19 (#7, `propuesta.md` §7): no se construye.**
   Se reabre solo si alguien lo echa de menos con un caso concreto. Cierra el
   ítem: la pregunta que planteaba (releer M5a contra el spec sin estado y
   decidir si vale la pena) queda respondida — no.
 
 - [x] **(NUEVO, 2026-09-13) Proceso residente para el coste fijo del recall
-  por prompt — decisión de Paul: al backlog, no se hace ahora.** Medido por
+  por prompt — decisión: al backlog, no se hace ahora.** Medido por
   el consultor: de los ~950 ms de `exo recall --query`, ~910 ms son carga
   del modelo (`fs::read` de `model.onnx`, 641 MB, ≈190 ms + sesión ORT con
   tokenizer ≈720 ms); el arranque del proceso son 3,5 ms y el embed de la
   query 18 ms — el coste fijo es casi todo el presupuesto.
   Prototipo de proceso caliente (`caliente.rs`): 27-31 ms por prompt sobre la
   KB real, 112 ms a 95k trozos.
-  Diseño pendiente de brainstorming con Paul: transporte (TCP en localhost /
+  Diseño pendiente de brainstorming: transporte (TCP en localhost /
   socket unix / named pipe en Windows), ciclo de vida (spawn perezoso,
   muerte por inactividad ~20 min, precalentado desde el hook de arranque),
   check de versión binario/índice, fallback del hook si el proceso no
@@ -1622,7 +1622,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   criterio la use. Cambiar el umbral o la métrica es tocar el pre-registro de
   A: hay que decidirlo antes de mirar los datos de la ventana. Evidencia:
   `evals/recall-coste/results/w11-2026-09-15.txt`.
-  **(campaña I, 2026-09-19, CERRADO):** decisión de Paul #12 —
+  **(campaña I, 2026-09-19, CERRADO):** decisión #12 —
   `recall-latencia.sh` decide por `hook_ms` (reloj de pared, medido en
   `recall-inject.sh` sin spawn, `NA` en bash <5). Enmienda fechada en
   `docs/superpowers/plans/2026-09-13-campana-a-preregistro-bench.md`
@@ -1675,7 +1675,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   campaña C, que sigue consumido. Ver
   `evals/retrieval-heldout/verdict/gold-j-acuerdo.md` y
   `gold-j-erratas.md`.
-  **Cerrado (campaña N, 2026-10-05) por decisión de Paul, D2: «D2 cerrar».**
+  **Cerrado (campaña N, 2026-10-05) por decisión, D2: «D2 cerrar».**
   Se cierra declarando que el 0,40 es un umbral en la escala L2 sellada de
   `similitud_desde_l2` (≈ coseno 0,28) y **no se convierte**. Lo que quedaba con
   valor —que el código no mintiera sobre la escala— lo cubrió la parte
@@ -1768,7 +1768,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   2026-10-05).** El doc-comment declara la escala de cada número y recalcula el
   ≈0,28 como ≈0,393. El brief del orquestador había invertido ambas cifras; el
   executor siguió el criterio literal de este ítem (ledger de la ola 3).
-  **No mergeado todavía:** el merge es vía PR de Paul.
+  **No mergeado todavía:** el merge es vía PR.
 
 - [x] **(NUEVO, 2026-09-22, harness de J, media) El test de `MAX_CHARS` no
   cubre el camino real que llega al juez.** `evals/retrieval-heldout/harness/test_gold_j.py::test_paquete_y_parsea`
@@ -1826,10 +1826,10 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
     procedimiento en el cuerpo, detalle bajo demanda en ficheros aparte.
   - **H13**: este mismo commit — el backlog, re-sincronizado con CI y con
     esta campaña al cierre de la B.
-  - **H25: NO lo cierra la fábrica.** Sigue como checklist externo de Paul
+  - **H25: NO lo cierra la fábrica.** Sigue como checklist externo
     (borrar ramas remotas mergeadas, `delete-branch-on-merge`, `gh repo
     edit` con el About del README) — fuera del plan de tasks, ver la
-    sección «Checklist externo para Paul (H25)» del plan de campaña B.
+    sección de checklist externo (H25) del plan de campaña B.
 
 - [x] **(NUEVO, campaña B, 2026-09-13, H15) `trinquete::sellos_escapados_de_tier`
   lee el tier del disco también en `--staged`. CERRADO el 2026-09-16
@@ -1851,7 +1851,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   (`gitx::muestra(kb, ":./<ruta>")`) en vez de leer disco. Test
   `escapados_en_staged_lee_el_tier_del_indice_no_del_disco`. La
   verificación cruzada contra `internal/ratchet` de kbx que pedía la
-  acción original queda como checklist **opcional** de Paul (kbx ya no es
+  acción original queda como checklist **opcional** (kbx ya no es
   referencia desde la campaña D), no bloqueante — no se corrió en esta
   campaña. **Deuda nueva destapada al cerrar (campaña G, 2026-09-16):**
   `comprueba_staged` sigue haciendo un `git show` por cada nota sellada
@@ -1892,7 +1892,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   **Cerrado (campaña N, 2026-10-05) por decisión: abstención descartada.**
   «La abstención por umbral se descarta: rinde poco (23/95 nulas sin perder
   hits) y el agente decide sobre la lista L0»
-  (`wisdom-paul/log/exo-bitacora.md:114`). Además, las nulas «operativas» que
+  (bitácora de la KB personal). Además, las nulas «operativas» que
   inflaban el problema modelaban `recall-inject`, borrado en el PR #35
   (`1e19bd0`).
 
@@ -2024,7 +2024,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   push. Arreglado (placeholder `${GHA_EXPR:-}` en la extracción + `find`
   en vez de `ls`) y **verificado con el veredicto real de ShellCheck
   0.11.0**, no deducido: `docker run --rm -v "$PWD:/mnt" -w /mnt
-  koalaman/shellcheck:stable` (esta máquina no tiene el binario instalado;
+  koalaman/shellcheck:stable` (Windows 11 no tiene el binario instalado;
   no hay build de Windows). Salida real tras el fix: `test-shellcheck: OK —
   49 scripts + 4 bloques run: | de .github/workflows/ sin avisos`. De paso
   salió a la luz un SC2016 preexistente en `test-docs-vivos.sh` (backticks
@@ -2049,7 +2049,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   **(campaña F, 2026-09-15, Task 7, commit `8942969`): cerrado.** El job se
   renombró a `static-checks` / "checks estáticos"
   (`.github/workflows/ci.yml:34-35`, verificado en HEAD), con los 12
-  required checks documentados para cuando Paul activara branch protection.
+  required checks documentados para cuando se activara branch protection.
   **Branch protection ACTIVADA el 2026-09-19** (decisión #8,
   `docs/superpowers/consultas/2026-09-15-campanas/propuesta.md` §7):
   verificado hoy con
@@ -2107,7 +2107,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   razones ajenas a lo que dice medir no sostiene un item») y la acción
   accionable (README en dos frases) se hizo en `c5c5b7f`. Lo que quedaba, la
   «decisión de fondo», no tiene criterio de cierre ni evidencia que la sostenga.
-  **Criterio de N, no de Paul: reabrir si se quiere.**
+  **Criterio de N, no del dueño: reabrir si se quiere.**
 
 - [x] **(revisión 2026-09-04) Idioma mezclado sin criterio único.** Medido
   sobre `engine/src/`: identificadores y módulos en español (`buscador`,
@@ -2136,7 +2136,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   **(campaña F, 2026-09-15): cerrada.** `docs/arquitectura.md` §3.8 lleva
   ahora la línea que faltaba (Task 8 de F): identificadores de código en
   español (26 módulos de `engine/src/`), claves JSON y flags en inglés. Cero
-  rename de código — decisión #5 del paquete de Paul del 2026-09-15.
+  rename de código — decisión #5 del paquete del 2026-09-15.
 
 - [ ] → #66 · **(revisión 2026-09-04 · re-medido y ACOTADO el 2026-09-09) El relato
   de campaña en los comentarios se concentra en `main.rs` y `buscador.rs`, y
@@ -2209,7 +2209,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   (54 de 138 notas). Se decide con la corrida de C5 delante o se cierra
   declarando que se queda indexado. Llevar la decisión abierta indefinidamente es
   peor que cualquiera de las dos opciones.
-  **Cerrado (campaña N, 2026-10-05) por decisión de Paul, D4: «d4, ok».**
+  **Cerrado (campaña N, 2026-10-05) por decisión, D4: «d4, ok».**
   `archive/` se queda indexado, sin downrank. No hay evidencia nueva desde hace
   un mes y no se abre eval.
 
@@ -2380,7 +2380,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   del plan) — el bot sobre-extendió D8 (`ledger.md:54` ya manda evaluar contra
   orchestrate una regla de review independiente del modo inline). Un
   «no aplica» falso es la clase de error que **más cuesta** (la regla no se
-  porta nunca) y el gate no la cuenta. Paul activó la routine de todas formas.
+  porta nunca) y el gate no la cuenta. Se activó la routine de todas formas.
   **Acción:** añadir los no-aplica falsos al gate de la próxima pasada,
   **declarado antes de puntuar**, con verdad nueva: v6.1.1..v6.4.2 ya está
   vista y no sirve como held-out. Una pasada puntuable que nadie puntúa no es
@@ -2414,8 +2414,8 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   por este fichero.** Todo mergeado a `main` (`origin/main` `a3fcb5f`) salvo
   lo marcado; fuente: el recon de la ola 3
   (`docs/superpowers/consultas/2026-10-05-campanas/propuesta.md`) y el ledger.
-  - **Campaña K cerrada** sin campaña L, por decisión de Paul
-    (`wisdom-paul/log/exo-bitacora.md:66-72`; `evals/ablacion-k/verdict-etapa1.md`,
+  - **Campaña K cerrada** sin campaña L, por decisión
+    (bitácora de la KB personal; `evals/ablacion-k/verdict-etapa1.md`,
     `b94ed74`): R1 NO CONCLUYENTE, R2 = DAÑO disparado por 1 tarea de 20.
   - **Recorte: `recall-inject` borrado** (PR #35, merge `d33df4e`; barrido
     `1e19bd0`). Sin hook por prompt; el recall queda en `SessionStart`.
@@ -2426,7 +2426,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
     instrumentos de frentes cerrados) y **sin macOS** (PR #42 `8cd3bd4`).
   - **Engine 0.3.0** (PR #43 `603cf4a`, `59ad826`), **docs de B** (PR #44
     `ca77623`) y **`exo write` con frontmatter faltante** (PR #45 `a3fcb5f`).
-  - **`retirar-limites` enterrada** por decisión de Paul, D1 («D1 entiérrala con
+  - **`retirar-limites` enterrada** por decisión, D1 («D1 entiérrala con
     tag»): tag local anotado `archivo/retirar-limites` → `3226cfa`, **sin
     pushear**; ramas `retirar-limites` y `spec-search-por-trozo` borradas. Los
     techos por tier y el ratchet **siguen vivos**. D6 («D6 borra ramas»): 30
@@ -2441,7 +2441,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   (reconcile 12/12, score 19/19, watchdog 14/14, tras los fixes). D0 («D0 lanza P ya»): se
   lanzó antes de que el watchdog caducara (2026-10-08). **La pasada 1 no pasó el
   gate** (81 %, ver el ítem abierto «El gate de la pasada de `upstream-sync` no
-  mide los “no aplica” falsos», Baja) y Paul activó la routine de todas formas.
+  mide los “no aplica” falsos», Baja) y se activó la routine de todas formas.
 
 - [x] **(revisión 2026-09-04) `tier` no se persiste en el índice y cada
   arranque relee el frontmatter de TODAS las notas desde disco: cerrado —
@@ -2477,7 +2477,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
     2·ROMPE` sí se cumple y el IC de MRR no veta). El guard de latencia no
     llega a decidir: p95 solape 1,0258 s vs base 1,0240 s (ratio 1,002,
     dentro del 1,25× admitido). No se toca `buscador.rs` ni `trozos.rs`.
-  - **H14b (late chunking):** R4 — no medido (D3=no — Paul: «No, solo
+  - **H14b (late chunking):** R4 — no medido (D3=no: «No, solo
     solape»). No medido no es perder: sigue viable (§2.6 del pre-registro),
     sin prioridad derivada de esta campaña — **sin acción pendiente hoy**, si
     se retoma exige un held-out nuevo (el de C queda consumido, §11 del
@@ -2508,7 +2508,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
 
 - [x] **(G4c, Task 14) Gate de paridad `ratchet`+`targets`: cerrado el
   2026-09-14/15 (campaña D, Task 3 `4d047f4`, Task 4 `ab5d59b`).** Los dos
-  gates corrieron en máquina Linux, con `kbx` compilado en `fe46443` y
+  gates corrieron en Linux, con `kbx` compilado en `fe46443` y
   copia desechable de la KB real: `targets` 5/5 topics PASA (conjunto de
   permalinks, tier, `size_bytes` y `last_commit` idénticos entre `kbx
   fe46443` y `exo` de esta rama, `7edb5d0`); `ratchet` PASA — `applied`,
@@ -2749,12 +2749,12 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   fallaba con «exo@0.1.0 requires rustc 1.95» sobre `rustc 1.94.1`. La MSRV
   es correcta (la fija `libsqlite3-sys` vía `cfg_select`, ver
   `Cargo.toml:6-7`) y el CI la comprueba.
-  Lo que caducó (mitad de máquina): el 2026-09-09 esta máquina corre
+  Lo que caducó (mitad de máquina): el 2026-09-09 la máquina de desarrollo corre
   `rustc 1.98.0` / `cargo 1.98.0`, así que el fallo ya no reproduce. Se
   arregló solo, por actualización, no por acción sobre el repo.
   Lo que sigue vivo (mitad de repo): `engine/rust-toolchain.toml` no
   existe. El repo sigue sin declarar el toolchain, así que la próxima máquina
-  —o esta tras un `rustup default` distinto— repite el mismo tropiezo, y
+  —o la actual tras un `rustup default` distinto— repite el mismo tropiezo, y
   además falla **después** de resolver dependencias, que es lo que lo hacía
   caro de diagnosticar.
   Re-confirmado el 2026-09-11: `rustc 1.98.0` / `cargo 1.98.0`, toolchain
@@ -2803,17 +2803,17 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   arguably los propios legs de `build`) dependan con `needs:`, para que
   falle rápido sin gastar la matriz.
 
-- [x] **Las 2 rutas `/home/paul/…` de `test-git-c-bash.sh:74-75`: cerradas el
+- [x] **Las 2 rutas absolutas bajo el home de `test-git-c-bash.sh:74-75`: cerradas el
   2026-09-14 (campaña E, Task 8, `8ee6640`).**
   Fixture movido fuera de `/home` por completo (`/opt/proyectos/…`), no solo
   anonimizado: el gate de rutas personales de Task 8 mira la FORMA
-  `/home/<lo-que-sea>`, no si el nombre es real — sustituir `paul` por un
+  «ruta bajo el home», no si el nombre es real — sustituir el usuario por un
   nombre genérico seguiría cayendo dentro del patrón.
   **Texto original del ítem sin tocar el contenido, salvo negritas internas
   perdidas al pegar, para no perder la evidencia:**
-  (G4c, Task 14) Las 2 rutas `/home/paul/…` de
+  (G4c, Task 14) Las 2 rutas absolutas bajo el home de
   `test-git-c-bash.sh:74-75` siguen ahí. Fixtures de test hardcodeadas a
-  `/home/paul/Documentos/proyectos/code-graph-go`, verificado hoy sin
+  `~/Documentos/proyectos/code-graph-go`, verificado hoy sin
   cambios. Deuda de higiene de test-fixtures personales — ya hay un item
   hermano en Media sobre «rutas personales y `hooks.json` sin validar en
   CI» (que ya cita este mismo script) que la cierra si se adopta.
@@ -2856,8 +2856,8 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   el árbol.
 
 - [x] **Los scripts `test-*.sh` de `plugins/exo/scripts/` no entran en CI.**
-  Y `test-contrato-engine.sh` dependía del índice y la KB reales de esta
-  máquina. **Los dos cerrados el 2026-09-12 (`d8aa3b6`).**
+  Y `test-contrato-engine.sh` dependía del índice y la KB reales de la
+  máquina de desarrollo. **Los dos cerrados el 2026-09-12 (`d8aa3b6`).**
   `scripts/test-plugin.sh` descubre por glob TODOS los `test-*.sh` del
   plugin (un test nuevo entra solo, sin lista a mano), los invoca directos
   —ejerciendo también el bit de ejecución, como los llama el harness de
@@ -2867,14 +2867,14 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   10/10 antes de este commit, en rojo con `test-estilo-directo.sh` en modo
   `644` (el bug real que motivó la ola: ese test fallaba 0/2, exit 126, y el
   hook llegó roto a exo 1.1.1 porque ningún CI lo ejercía).
-  `test-contrato-engine.sh` seguía atado a rutas de esta máquina
-  (`C:/Users/paul/.exo/index.db`, `C:/proyectos/homework/kb-demo`) y se
+  `test-contrato-engine.sh` seguía atado a rutas de la máquina de desarrollo
+  (`~/.exo/index.db`, la KB `kb-demo` en un directorio local) y se
   abstenía con exit 2 fuera de ella. `scripts/test-contrato-ci.sh` monta el
   fixture que pedía —KB semilla + commit + índice vía `exo init`, con
   `EXO_CONFIG` y `EXO_DB` temporales— y le pasa `EXO_INDEX`/`EXO_KB`
   explícitos; `EXO_DB` es obligatorio: `init` graba `db = ~/.exo/index.db`
   en la config nueva aunque `EXO_CONFIG` apunte a otro sitio, y sin `EXO_DB`
-  la suite indexaba la semilla sobre el índice real de esta máquina (medido:
+  la suite indexaba la semilla sobre el índice real de la máquina de desarrollo (medido:
   pisa `meta.kb_root`). Corre como step del job `test`
   (`ci.yml:133-136`, `if: always()` para que un rojo del gate hermético no
   esconda un contrato roto detrás), que ya trae el binario de release y el
@@ -2908,7 +2908,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   `target/release` local—: diez filas de `exo doctor`, cero `fail`, búsqueda
   híbrida con resultados y el gate de la KB corriendo sin bloquear. El binario
   que había instalado era anterior a G5b y no tenía `doctor`. Queda pendiente
-  la máquina Linux, que no bloquea. Detalle completo:
+  Linux, que no bloquea. Detalle completo:
   `docs/superpowers/runbooks/2026-09-11-g5b-release-v0.1.0.md`.
 
   **Los tres fallos son la misma familia** —dos plataformas que discrepan en
@@ -2978,7 +2978,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   declarado en `Cargo.toml`; `LICENSE` en la raíz, ver el commit
   `a6a2a11`.
 
-  **Matización (2026-09-02):** este gate hoy **notifica, no bloquea**. Paul
+  **Matización (2026-09-02):** este gate hoy **notifica, no bloquea**. Se
   decidió explícitamente no proteger `main` por ahora — no hay branch
   protection ni required status checks — así que un PR rojo se puede
   mergear igualmente. Ver el nuevo item de deuda en `## Media` («hoy el CI
@@ -3185,7 +3185,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   servir nada y degrada con rastro (`reason=engine-stale`) en vez de servir
   contenido de un binario no verificado — cierra también la mitad de
   `KB-exo:44` sobre el mismo desfase. (`recall-inject.sh`, que corre en cada
-  prompt, NO lleva este check: decisión de Paul en pre-flight de H, sería un
+  prompt, NO lleva este check: decisión en pre-flight de H, sería un
   spawn extra en conflicto con la latencia que mide la futura campaña I.)
   El alias oculto de D9 (ítem de retirar aliases españoles) protegía solo
   *scripts viejos → binario nuevo*; ese ítem se cierra aparte, más abajo.
@@ -3213,7 +3213,7 @@ ya había en código queda formalizado; y la acción (a) de «exo genérico»
   (mismos diez flags, aserción invertida) en vez de borrarse sin más — así
   un alias repuesto por accidente se vería rojo de inmediato. `engine`
   0.1.0 → 0.2.0, `plugin.json`/`marketplace.json` 1.1.2 → 1.2.0.
-  `plugins/exo/ENGINE_MIN` se queda en `0.1.0` (decisión de Paul en la
+  `plugins/exo/ENGINE_MIN` se queda en `0.1.0` (decisión en la
   review final de H, 2026-09-15): declara lo que el plugin 1.2.0 necesita de
   verdad, y ningún script del plugin usa nada de engine 0.2.0 — la retirada
   de aliases rompe a llamadores externos del CLI, no al plugin. Sube cuando
