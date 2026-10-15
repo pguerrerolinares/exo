@@ -3,10 +3,10 @@
 Fecha: 2026-08-23. Origen: expediente de auditoría del sistema de presupuestos
 de la KB (`docs/superpowers/consultas/2026-08-22-presupuestos/`), **Pata B**
 (puntos 6, 7 y 8) más la poda de `perfil` de la Pata A.
-Estado: **método aprobado por Paul, pendiente de ejecutar.**
+Estado: **método aprobado por el mantenedor, pendiente de ejecutar.**
 
-**Esto es un runbook, no una spec.** Es cirugía editorial sobre las notas de
-Paul: cada movimiento es una decisión de contenido que no admite ejecución
+**Esto es un runbook, no una spec.** Es cirugía editorial sobre las notas del
+mantenedor: cada movimiento es una decisión de contenido que no admite ejecución
 desatendida. No hay plan ni orchestrate; hay pasos con puntos de aprobación.
 
 ## Precondiciones (duras, en orden)
@@ -74,7 +74,7 @@ estas notas sigan sin aire. Se saldan el día que se toquen.
 **Alcance de esta pasada**: `doctrina-agentes`, `desarrollo-agentico` y
 `perfil`. Las demás solo si el paso 0 les asigna un bloque entrante.
 
-## Paso 0 — recon (solo lectura, termina en aprobación de Paul)
+## Paso 0 — recon (solo lectura, termina en aprobación del mantenedor)
 
 Sin mover un byte, producir una **tabla bloque → destino** sobre las cuatro
 notas del mapa. Comando base:
@@ -139,7 +139,7 @@ cabeceras) y `learnings/fallo-silencioso…`.
 posibles son: *se queda en la madre-índice*, *nota nueva X*, *vecina existente
 Y*, *baja a bitácora (evicción)*.
 
-**Gate: Paul aprueba la tabla antes de que se mueva nada.** Este es el punto de
+**Gate: el mantenedor aprueba la tabla antes de que se mueva nada.** Este es el punto de
 control del runbook entero.
 
 ## Paso 1 — cirugía
@@ -245,7 +245,7 @@ evidencia, no trámite.
 ## Lo que este runbook NO promete
 
 Que el ciclo deje de morder. **No lo hará**: la tasa de reposición es la
-producción de doctrina de Paul, es exógena y nadie debe tocarla. El rebote
+producción de doctrina del mantenedor, es exógena y nadie debe tocarla. El rebote
 medido de una poda de 21,7 KB fue **+2.709 B la misma tarde**. Lo que esta
 pasada compra es forma (dos cajones convertidos en familias con puerta),
 mordiscos más baratos (aire garantizado) y que el mordisco lo pague el

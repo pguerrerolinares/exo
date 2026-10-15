@@ -1,6 +1,6 @@
 # exo genérico — spec de diseño
 
-> Diseño del trabajo que convierte exo de *framework personal de Paul* en
+> Diseño del trabajo que convierte exo de *framework personal del mantenedor* en
 > **producto instalable por terceros**, en español. Salido del brainstorm del
 > 2026-08-26. Estado: **diseñado y adjudicado, pendiente de dos decisiones
 > bloqueantes y del plan de implementación**.
@@ -139,7 +139,7 @@ de la ecuación y deja `exo-plugins` privado con `paul-profile` dentro.
 
 ### B1 — RESUELTA: reescribir con `git filter-repo --mailmap`
 
-**Decisión (Paul, 2026-08-27):** se reescribe la autoría a una única identidad,
+**Decisión (el mantenedor, 2026-08-27):** se reescribe la autoría a una única identidad,
 `Paul Guerrero <pguerrerolinares@gmail.com>`. Rechazadas: *publicar tal cual*
 (dos correos del empleador en la autoría de un repo personal público) y
 *colapsar la historia* (destruye 278 commits de audit trail, que es el
@@ -201,7 +201,7 @@ parte de la misma operación**, no como limpieza posterior.
 
 ### B2 — RESUELTA: el repo `exo` es su propio marketplace
 
-**Decisión (Paul, 2026-08-27):** se sirve el plugin desde el propio repo `exo`,
+**Decisión (el mantenedor, 2026-08-27):** se sirve el plugin desde el propio repo `exo`,
 que añade su `/.claude-plugin/marketplace.json`. `exo-plugins` **sigue
 privado**, con `paul-profile` dentro, y deja de servir `process` y `reflex`.
 Rechazada: hacer público `exo-plugins` (publicaría el harness personal, contra
@@ -229,8 +229,8 @@ Ambas están aplicadas al plan de la ola 1B (Tasks 5 y 8).
 ## Asunciones adjudicadas
 
 - **A1 — retirar `process`/`reflex` de golpe, sin deprecación. SE SOSTIENE.**
-  `exo-plugins` es privado: no hay terceros posibles, solo las dos máquinas de
-  Paul. Condición: el runbook de cutover de G2 y el repunte de las dos cachés
+  `exo-plugins` es privado: no hay terceros posibles, solo las dos máquinas del
+  mantenedor. Condición: el runbook de cutover de G2 y el repunte de las dos cachés
   instaladas (`0.16.0`, `0.17.0`).
 - **A2 — `paul-profile` fuera del plugin `exo`. SE SOSTIENE**, pero «se queda
   como está» era falso: referencia `process:orchestrate` y `reflex:executor`
@@ -327,7 +327,7 @@ Cierra el item **Alta** del backlog (M5a-02) y desbloquea M5b.
 schema_version = 1
 
 [kb]
-path = "C:/proyectos/homework/kb-demo"
+path = "C:/proyectos/kb-demo"
 name = "kb-demo"            # prefijo de permalink: EXPLÍCITO
 
 [index]
@@ -492,7 +492,7 @@ permalink y en título que el usuario lee. El placeholder `{{KB_NAME}}` es
 identificador (D7).
 
 Las 5 notas doctrinales van **reescritas**, no copiadas de `kb-demo`: sin
-nombres, sin proyectos, sin fechas de la historia de Paul. Frontmatter
+nombres, sin proyectos, sin fechas de la historia del mantenedor. Frontmatter
 `semilla: true` para que un usuario pueda barrerlas con un `grep`.
 
 **`exo init [--kb <ruta>] [--name <n>] [--from-basic-memory] [--force]`**
@@ -635,7 +635,7 @@ se puede correr**:
   tokenización. Se compara **como conjunto**, no como secuencia.
 - **`budget`, `lint` y `ratchet` sí son byte-comparables a nivel `data`**:
   tienen sorts explícitos.
-- Los tests **públicos** usan fixtures; la paridad es la red privada de Paul y
+- Los tests **públicos** usan fixtures; la paridad es la red privada del mantenedor y
   la spec lo dice en vez de prometer lo que el repo público no puede
   reproducir.
 

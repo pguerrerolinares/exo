@@ -40,7 +40,7 @@ basic-memory hay que crearlo a mano:
 
 ```json
 {
-  "projects": { "kb-demo": { "path": "C:/proyectos/homework/kb-demo" } },
+  "projects": { "kb-demo": { "path": "C:/proyectos/kb-demo" } },
   "default_project": "kb-demo",
   "semantic_embedding_model": "jinaai/jina-embeddings-v2-base-es",
   "semantic_embedding_dimensions": 768,
@@ -62,7 +62,7 @@ claude plugin uninstall superpowers@claude-plugins-official
 Compilar e instalar el engine:
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo build --release          # 33 s con las deps ya bajadas
 cp target/release/exo.exe ~/.local/bin/exo.exe
 mkdir -p ~/.exo

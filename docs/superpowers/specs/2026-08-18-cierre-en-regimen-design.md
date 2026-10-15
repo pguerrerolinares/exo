@@ -7,8 +7,8 @@
 > métricas nuevas— sigue vigente y no se reabre.
 >
 > **Estado**: las decisiones de §2 (definición de terminado) y §3.1/§3.2 (M5a-01
-> fuera, M6-06 dentro) las tomó Paul en la sesión de brainstorm del 2026-08-18.
-> **APROBADA por Paul el 2026-08-18.**
+> fuera, M6-06 dentro) las tomó el mantenedor en la sesión de brainstorm del 2026-08-18.
+> **APROBADA por el mantenedor el 2026-08-18.**
 >
 > **Revisado por consultor fable el 2026-08-18: FIRMA-CON-CAMBIOS**
 > (`consultas/2026-08-18-cierre-regimen/consultor-cierre.md`). Los siete cambios
@@ -21,7 +21,7 @@
 ## 1. Dónde estamos
 
 El goal del plan era *"llevar exo de engine que busca a framework que sustituye a
-basic-memory y a superpowers en el uso diario de Paul"*. **La mitad de
+basic-memory y a superpowers en el uso diario del mantenedor"*. **La mitad de
 superpowers está hecha** desde C8 (2026-08-18): `process@exo` sirve las 7 skills,
 superpowers queda disabled con sus cachés como rollback.
 
@@ -93,7 +93,7 @@ dentro de C9, sin campaña propia.
 
 ## 2. A dónde queremos llegar
 
-**Definición de terminado, firmada por Paul (2026-08-18): «sistema personal en
+**Definición de terminado, firmada por el mantenedor (2026-08-18): «sistema personal en
 régimen».**
 
 Significa exactamente esto:
@@ -126,7 +126,7 @@ Lo que **NO** significa, explícitamente y por YAGNI:
 **5 llamadas y cero de `recent_activity`**. Construir un servidor `rmcp` con sus
 tests para eso es el over-engineering que el régimen §0 vino a cortar.
 
-**La objeción de Paul, que es la buena, y por qué no cambia la decisión.** El
+**La objeción del mantenedor, que es la buena, y por qué no cambia la decisión.** El
 uso bajo no prueba que el MCP sobre: prueba que **el agente no consulta la
 memoria lo suficiente** —debería validar lo que sabe entre sesiones mucho más a
 menudo. Cierto, y es un problema real. Pero es de **adherencia, no de
@@ -148,7 +148,7 @@ que cita M5a-03 como su fecha de caducidad.
 
 ### 3.2 Entra M6-06 — recall en el punto de uso
 
-**Qué.** Un hook `UserPromptSubmit` que busca el prompt de Paul en la KB e
+**Qué.** Un hook `UserPromptSubmit` que busca el prompt del mantenedor en la KB e
 inyecta lo relevante antes de que el modelo empiece a pensar.
 
 **Por qué encaja.** La pieza cara ya está construida: `exo recall` tiene modo
@@ -190,7 +190,7 @@ tiene razón en los dos casos:
   bloquea. YAGNI: se retira con nota.
 - **`retrieval-logger` reabriría el régimen §0.** Su propia cabecera se declara
   instrumentación con "ventana ~2-3 semanas; retirar cuando haya señal", y §0
-  retiró métricas, ventanas y gates. Decidido por Paul (2026-08-18): **se
+  retiró métricas, ventanas y gates. Decidido por el mantenedor (2026-08-18): **se
   retira**. Si el ciclo de M6-06 necesita observabilidad, la trae su diseño — y
   será instrumentación del hook inyector, no de lecturas del modelo que ya no
   existen.
@@ -201,7 +201,7 @@ C6 quedó partida (01/02 hechos). Sus restos no se ejecutan en orden numérico:
 
 | Orden | Item | Por qué ahí |
 |---|---|---|
-| 1º | **M6-05** doctrina | Es solo texto y **hoy miente**: `core-index`, `doctrina-agentes`, el `CLAUDE.md` global de Paul y la description de `recon-first` siguen diciendo que la memoria persistente es el MCP, cuando el arranque ya lo sirve `exo recall`. Cuesta cada sesión y se arregla en media hora |
+| 1º | **M6-05** doctrina | Es solo texto y **hoy miente**: `core-index`, `doctrina-agentes`, el `CLAUDE.md` global del mantenedor y la description de `recon-first` siguen diciendo que la memoria persistente es el MCP, cuando el arranque ya lo sirve `exo recall`. Cuesta cada sesión y se arregla en media hora |
 | 2º | **M6-04** kbx al índice del engine | Riesgo cosido: `/consolida` falla-fuerte ante `schema_drift`. La lista `consumed` del schema-canary va **en el mismo commit** o el primer `/consolida` post-cutover muere |
 | 3º | **M6-03** reflex al monorepo | El gordo. Es donde se resucitan los dos guardrails desenchufados (§1.1) y donde mueren las rutas absolutas a `~/…` |
 | 4º | **M6-06** recall en el punto de uso | Después de M6-03 porque toca los mismos hooks; abrirlo antes obliga a tocar reflex dos veces |
@@ -212,7 +212,7 @@ C6 quedó partida (01/02 hechos). Sus restos no se ejecutan en orden numérico:
 
 ```
 C9 — M6 completo ──→ C10 — M5a-02 config propia ──→ C11 — M5b desinstalar
-   05 doctrina                (bloquea M5b)              (lo ejecuta Paul)
+   05 doctrina                (bloquea M5b)              (lo ejecuta el mantenedor)
    04 kbx + canary
    03 reflex al monorepo
    06 recall en el punto de uso
@@ -255,7 +255,7 @@ porque se abra C11.
 
 ### C11 — M5b: desinstalación
 
-**Lo ejecuta Paul.** Acción destructiva, línea roja no delegable. Precondición
+**Lo ejecuta el mantenedor.** Acción destructiva, línea roja no delegable. Precondición
 dura —única superviviente del régimen §0— **M6 completo y probado**. Checklist
 del plan original, sin cambios salvo los dos añadidos de §1.1:
 

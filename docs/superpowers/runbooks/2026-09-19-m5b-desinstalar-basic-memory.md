@@ -1,17 +1,17 @@
 # 2026-09-19 — M5b: desinstalar basic-memory (checklist C10)
 
 > Checklist de cierre de `docs/superpowers/plans/2026-08-17-cierre-exo-m2-a-m5b.md`
-> §Campaña 10 (M5b). Decisión de Paul del 2026-09-19 (#6,
+> §Campaña 10 (M5b). Decisión del mantenedor del 2026-09-19 (#6,
 > `docs/superpowers/consultas/2026-09-15-campanas/propuesta.md` §7): *"sí,
 > tras el checklist C10. La fábrica prepara y corre en seco las
 > comprobaciones automatizables (este runbook, campaña L); la desinstalación
-> la ejecuta Paul (línea roja)."* Incluye también la decisión #15 de la
+> la ejecuta el mantenedor (línea roja)."* Incluye también la decisión #15 de la
 > misma sesión (slug canónico), que cierra el punto #8 del gate M4
 > (`docs/backlog.md`, ítem «Barrer los hallazgos vivos del gate M4»,
 > ~`backlog:857-861`).
 >
 > **Qué NO hace este runbook:** no desinstala basic-memory, no borra
-> `~/.basic-memory/`, no toca `~/.claude.json`. Todo eso es de Paul,
+> `~/.basic-memory/`, no toca `~/.claude.json`. Todo eso es del mantenedor,
 > ejecutado a mano, después de leer las comprobaciones en seco de abajo y
 > decidir que el checklist está satisfecho.
 
@@ -114,7 +114,7 @@ limpio), upstream `origin/main`, **`log @{u}..HEAD` NO vacío**:
 Hay **un commit sin pushear** en la KB. Esto difiere del snapshot
 citado en el plan (2026-09-19, donde salía vacío) — confirma que este dato
 cambia día a día y que el checklist C10 punto 6 **NO está satisfecho ahora
-mismo**. **Paul: repite esta comprobación justo antes de desinstalar** y
+mismo**. **El mantenedor: repite esta comprobación justo antes de desinstalar** y
 haz `git -C <ruta-de-la-KB> push` (o
 equivalente) si vuelve a salir un commit pendiente — no es una garantía
 permanente, es un snapshot del momento de ejecutar la comprobación.
@@ -124,7 +124,7 @@ permanente, es un snapshot del momento de ejecutar la comprobación.
 `docs/backlog.md`, ítem «Barrer los hallazgos vivos del gate M4»,
 sub-ítem **#8 [baja]**: divergencia de slug medida **19/127** entre el
 generador de permalinks de `exo` y el de basic-memory (`_` conservado en
-bitácoras rotadas, CamelCase separado, `§`→`ss`). Decisión de Paul,
+bitácoras rotadas, CamelCase separado, `§`→`ss`). Decisión del mantenedor,
 2026-09-19 (#15, `propuesta.md` §7): **el slug de exo es canónico** — la
 divergencia 19/127 con basic-memory queda **aceptada por escrito**, no se
 persigue paridad. Con esto el #8 del gate M4 queda cerrado por esta misma
@@ -132,7 +132,7 @@ decisión — marcado en `docs/backlog.md`, sub-ítem **#8 [baja]** del ítem
 «Barrer los hallazgos vivos del gate M4» (la Task 6 de campaña L barrió
 otros cinco ítems de bookkeeping, no este).
 
-## Pasos manuales de Paul — desinstalación
+## Pasos manuales del mantenedor — desinstalación
 
 Ejecutar SOLO cuando las cinco comprobaciones de arriba estén en el estado
 esperado el día de la desinstalación (repetirlas, no fiarse de este

@@ -2,7 +2,7 @@
 
 Lo lee y sigue la routine semanal. El prompt guardado en la routine es solo: "Lee y sigue docs/upstream/sync-prompt.md del repo exo." Diseño y motivos: `docs/superpowers/specs/2026-09-29-upstream-sync-design.md`.
 
-Tienes dos repos adjuntos: `pguerrerolinares/exo` (donde trabajas) y `obra/superpowers` (solo lectura). Paul mergea; tú detectas, triageas, portas y abres PR. Nunca mergees.
+Tienes dos repos adjuntos: `pguerrerolinares/exo` (donde trabajas) y `obra/superpowers` (solo lectura). El mantenedor mergea; tú detectas, triageas, portas y abres PR. Nunca mergees.
 
 Estado: `docs/upstream/ledger.md` (léelo entero antes de empezar: `upstream_tag`, mapeo, excluidos, sin equivalente, divergencias, filas).
 
@@ -28,7 +28,7 @@ Compara el `LICENSE` de la raíz del repo adjunto `obra/superpowers`, en el tag 
 
 ## Paso 2 · Detecta
 
-1. **Retoma pendientes, antes de mirar tags.** Filas `pendiente` con motivo `tope`, `gate: …` o `respondida` (ver paso 3 para `respondida`): pórtalas primero, con el mismo tope de 5 por PR de exo, contando también lo nuevo. Su diff: `gh api repos/obra/superpowers/pulls/<N> -H 'Accept: application/vnd.github.diff'`, limitado a los ficheros mapeados. Contrástalo con el estado actual del fichero exo, como en el paso 3. La fila se actualiza en su sitio (`pendiente` → `propuesto`, con hash), sin duplicarla. Las `pendiente` por `duda` no se retoman solas: esperan la respuesta de Paul.
+1. **Retoma pendientes, antes de mirar tags.** Filas `pendiente` con motivo `tope`, `gate: …` o `respondida` (ver paso 3 para `respondida`): pórtalas primero, con el mismo tope de 5 por PR de exo, contando también lo nuevo. Su diff: `gh api repos/obra/superpowers/pulls/<N> -H 'Accept: application/vnd.github.diff'`, limitado a los ficheros mapeados. Contrástalo con el estado actual del fichero exo, como en el paso 3. La fila se actualiza en su sitio (`pendiente` → `propuesto`, con hash), sin duplicarla. Las `pendiente` por `duda` no se retoman solas: esperan la respuesta del mantenedor.
 2. En el clone de `obra/superpowers`: `git tag --sort=version:refname`, ignorando prereleases (`-rc`, `-beta`, `-alpha`…). Tags posteriores a `upstream_tag`, en ese orden. Si no hay tags nuevos y tampoco hay pendientes que retomar ni rechazos por registrar: latido y fin. Si no hay tags nuevos pero sí una de esas dos cosas, abre PR con eso (`<hasta>` es `upstream_tag`). Si hay tags, revisa hasta el más reciente (`<hasta>`); `<desde>` es `upstream_tag` (ver paso 0.2 si hay rechazos).
 3. **Contenido:** diff neto `<desde>..<hasta>` solo de los ficheros del mapeo del ledger. Es lo que hay que portar; un revert dentro del ciclo ya viene anulado.
 4. **Atribución:** PRs mergeados entre las fechas de ambos tags que tocan ficheros mapeados:
@@ -57,7 +57,7 @@ Valores de `triage`: `aplica`, `parcial`, `ya cubierto`, `no aplica`, `duda`. Le
 
 Toda fila lleva `triage` no vacío. `estado` de las filas: `—` para `no aplica` y `ya cubierto`; `propuesto` para lo que portes; `pendiente` para `duda` y para lo que caiga fuera del tope o no pase los gates. Una fila `pendiente` por tope o gate lleva su triage real (`aplica`/`parcial`), no `duda`. `motivo`: obligatorio en `pendiente` (`tope`, `gate: <causa>`, o la pregunta concreta de la duda y qué decidirías) y en `no aplica` (id de la divergencia). Nunca uses `|` dentro de `motivo` (rompe la tabla): usa `/`.
 
-**Cómo responde Paul a una `duda`.** El latido la lista con su pregunta. Paul edita la fila en `main`: pone en `triage` su decisión (`aplica`, `parcial`, `ya cubierto` o `no aplica`) y en `estado` `pendiente` con `motivo` `respondida`. En la pasada siguiente, la fila `respondida` con `aplica`/`parcial` se trata como `tope` (paso 2.1); con `ya cubierto`/`no aplica` solo pasa a `estado` `—`.
+**Cómo responde el mantenedor a una `duda`.** El latido la lista con su pregunta. El mantenedor edita la fila en `main`: pone en `triage` su decisión (`aplica`, `parcial`, `ya cubierto` o `no aplica`) y en `estado` `pendiente` con `motivo` `respondida`. En la pasada siguiente, la fila `respondida` con `aplica`/`parcial` se trata como `tope` (paso 2.1); con `ya cubierto`/`no aplica` solo pasa a `estado` `—`.
 
 ## Paso 4 · Porta
 
@@ -91,7 +91,7 @@ Push: `git push origin upstream-sync/<tag>`. Crea el PR con `gh api repos/pguerr
 - `docs/upstream/ledger.md` actualizado: filas nuevas (`propuesto` con el hash del commit, `pendiente`, `no aplica`, `ya cubierto`, `rechazado`) y `upstream_tag: <tag>` avanzado;
 - en el cuerpo: la tabla del paso 5, el informe (PRs vistos, triage por fila con sus citas, pendientes con motivo, bytes y tokens, filas de `propuesto-sin-evidencia`) y las preguntas de `duda`.
 
-Si no hay nada que portar (todo `no aplica`, `ya cubierto` o `duda` de mapeo), abre igualmente el PR solo con el ledger: avanzar `upstream_tag` es lo que evita revisar dos veces la misma ventana. `upstream_tag` solo avanza en el PR. Si Paul lo cierra sin merge, el paso 0.2 registra sus filas como `rechazado` y la ventana no se reprocesa.
+Si no hay nada que portar (todo `no aplica`, `ya cubierto` o `duda` de mapeo), abre igualmente el PR solo con el ledger: avanzar `upstream_tag` es lo que evita revisar dos veces la misma ventana. `upstream_tag` solo avanza en el PR. Si el mantenedor lo cierra sin merge, el paso 0.2 registra sus filas como `rechazado` y la ventana no se reprocesa.
 
 ## Paso 7 · Latido
 

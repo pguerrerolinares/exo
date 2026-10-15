@@ -1,4 +1,4 @@
-# C9 — despliegue: lo que ejecuta Paul
+# C9 — despliegue: lo que ejecuta el mantenedor
 
 > Campaña C9 (M6 completo parcial) cerrada y mergeada a `main`. Lo que sigue es
 > **entorno vivo**: pushes y repunte del marketplace. Nada de esto lo ejecuta la
@@ -113,7 +113,7 @@ poder trocearse, y **M5b sigue bloqueado** hasta que estén:
 - **Hooks fantasma**: `stuck-loop-pretool.sh`, `cost-pyramid` y `test-run-tracker`
   no existen, pero `plugins/reflex/README.md` y `scripts/reflex-fp-adjudicate.prompt.md`
   los listan como vivos. La `description` de `recon-first` ya se arregló (era la
-  única que el modelo lee en cada sesión). Decisión de Paul pendiente sobre el resto.
+  única que el modelo lee en cada sesión). Decisión del mantenedor pendiente sobre el resto.
 - `$EXO_KB` con espacios no se trimea en `compose-inject.sh` (el script previo
   tampoco sanitizaba `--kb`: no es regresión).
 - `skills/consolida/SKILL.md` lleva 13 rutas absolutas a `~/…`.

@@ -86,7 +86,7 @@ La campaña K (ablación pre-registrada, 09-30) no encontró efecto concluyente 
   - Se commitea **antes** de la primera corrida.
   - Las erratas posteriores van a un fichero de erratas, como en K.
 
-**Criterio (fijado por Paul):**
+**Criterio (fijado por el mantenedor):**
 - **Pasa:** ≥6/11 tareas cumplen (una tarea "cumple" si pasa su check en ≥1 de 2 réplicas) **y** 0/6 caídas en el control positivo. Entonces se abre el ciclo de la 2d.
 - **No pasa:** la sección se cierra con "las reglas no entregadas no eran entregables". Lo siguiente es revisar reglas y checks, no mecanismos.
 - En cualquier caso, **lectura por tarea**. Cada tarea que falla con la regla en contexto se clasifica a mano como conflicto regla-tarea, check roto o regla mal escrita. Es diagnóstico, no adjudicación.

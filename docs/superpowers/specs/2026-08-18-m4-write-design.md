@@ -2,7 +2,7 @@
 
 > **Régimen de esta spec:** las decisiones de diseño las adjudicaron tres
 > consultores fable independientes (contrato de escritura, forense de fallos
-> reales de la KB, barrido de dependencias de basic-memory). Paul firmó sus
+> reales de la KB, barrido de dependencias de basic-memory). El mantenedor firmó sus
 > decisiones por adelantado. Lo que sigue es la síntesis ejecutable, no una
 > propuesta a aprobar.
 
@@ -334,7 +334,7 @@ y se deja el segundo, deliberadamente:
    hace declarando "mismo contrato que `/documenta` v2" — o sea, **hereda** el
    cambio sin que haya que editarlo.
 2. **Vive en el marketplace** (`agent-develop`, plugin `reflex`). Modificarlo
-   es publicar, y publicar es acción externa reservada a Paul. Además su
+   es publicar, y publicar es acción externa reservada al mantenedor. Además su
    migración al monorepo ya tiene item propio: M6-03.
 3. Lo que sí le afectará de verdad es el cambio de fuente de datos de `kbx`
    (M6-04), no el write-path.

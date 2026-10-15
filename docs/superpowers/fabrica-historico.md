@@ -18,8 +18,8 @@
 Tras el cierre de D+E (PR #19-#22, todos mergeados el 2026-09-15), un
 consultor Fable propuso F→K en
 `docs/superpowers/consultas/2026-09-15-campanas/propuesta.md` (§6 =
-decisiones de Paul sobre el paquete de decisiones del §5). La ola 1 son las
-tres campañas que no piden nada caro a Paul: F, G y H, en tres ramas
+decisiones del mantenedor sobre el paquete de decisiones del §5). La ola 1 son las
+tres campañas que no piden nada caro al mantenedor: F, G y H, en tres ramas
 paralelas.
 
 | Orden de merge | Campaña | Plan |
@@ -31,14 +31,14 @@ paralelas.
 Orden H → F → G: la que más toca (H, primera ruptura real de compatibilidad
 binario↔plugin) absorbe el rebase primero — misma regla ya usada en D/E.
 
-**Decisiones de Paul resueltas** (`propuesta.md` §6):
+**Decisiones del mantenedor resueltas** (`propuesta.md` §6):
 - **#1 (D6, default de `exo search --type`)**: `hybrid` + `--min-similarity
   0.40` — entra en G, junto con el default de `exo init` a 0.40.
 - **#5 (idioma de identificadores de código)**: español, una línea en
   `arquitectura.md` §3.8 (identificadores en español, claves JSON/flags en
   inglés) — entra en F.
 - **#8 (branch protection)**: en dos pasos — F renombra primero el job
-  `lint` (a algo que refleje sus steps); los required checks los activa Paul
+  `lint` (a algo que refleje sus steps); los required checks los activa el mantenedor
   después, fuera de la fábrica.
 - **#9 (`walk_kb` unificado)**: unificar sobre `walk_kb_excluyendo`, cambio
   de comportamiento declarado (`.git/` deja de recorrerse, `NOTA.MD` empieza
@@ -52,7 +52,7 @@ binario↔plugin) absorbe el rebase primero — misma regla ya usada en D/E.
   `arquitectura.md` explicándolo — entra en F.
 - **Retirar los aliases españoles del CLI → `engine` 0.2.0**: entra en H, es
   la primera ruptura real de compatibilidad binario↔plugin del proyecto.
-- **Check de versión en hooks (decisión de Paul en pre-flight de H, no en la
+- **Check de versión en hooks (decisión del mantenedor en pre-flight de H, no en la
   propuesta original)**: SOLO en `exo-recall.sh` (SessionStart) y
   `exo doctor`; el hook por prompt de entonces (`UserPromptSubmit`, hoy borrado)
   NO lo llevaba, para no chocar con la latencia que medirá la futura campaña I.
@@ -94,7 +94,7 @@ binario↔plugin) absorbe el rebase primero — misma regla ya usada en D/E.
   fijar el locale explícitamente o evitar el comodín sobre no-ASCII.
 
 **Se mantienen**: el régimen de gates de §Ejecución de gates, la línea roja
-(`git push`, tag y release = SIEMPRE Paul, nunca un consultor ni un
+(`git push`, tag y release = SIEMPRE el mantenedor, nunca un consultor ni un
 executor), y la regla PENDIENTE-PAUL (una decisión sin dueño citable no se
 adjudica, queda encolada — el cap de 6.144 de H, Task 8, es un ejemplo vivo
 de esta ola).
@@ -118,22 +118,22 @@ rojo.
 | mecánica B | **I — latencia del hook en W11** | `docs/superpowers/plans/2026-09-19-campana-i-latencia-hook-w11.md` | hooks bash; la medición en W11 es PAUL-STEP |
 | diseño (secuencial, at-risk) | **J fase 1 — T0 diagnóstico + pre-registro borrador + kit de gold** | `docs/superpowers/plans/2026-09-19-campana-j-fase1-diagnostico-y-preregistro.md` + `…-campana-j-preregistro-BORRADOR.md` | evals; **no toca `engine/src`** |
 
-- **Orden de merge**: L → (tag `v0.2.0`, acción de Paul) → I → J fase 1.
+- **Orden de merge**: L → (tag `v0.2.0`, acción del mantenedor) → I → J fase 1.
   I y L comparten solo `docs/backlog.md` (re-anclado por texto).
 - **Decisiones que el plan hereda (citar §7 de la propuesta)**: #12 = b
   (`hook_ms` decide la reapertura del daemon, 1.500 ms p95 por SO) · #4 = c
-  (`archive/` como brazo penalizado en J) · #13 (gold de Paul esta semana) ·
+  (`archive/` como brazo penalizado en J) · #13 (gold del mantenedor esta semana) ·
   #15 = a (slug de exo canónico) · #6 (M5b tras C10: la fábrica prepara el
   runbook en seco, **nunca desinstala**).
-- **J no congela su pre-registro** hasta que exista el gold de Paul con su
+- **J no congela su pre-registro** hasta que exista el gold del mantenedor con su
   sha256; sin gold, J fase 1 termina en borrador + kit y para. Ningún brazo
   de J toca `engine/src` en esta fábrica.
 - **Presupuesto de fable** (reserva 8): 1 review final de rama por campaña
   (I, L, J) + 1 review adversarial del pre-registro de J; el resto queda de
-  margen para adjudicaciones. Gate de merge = Paul vía PR (patrón D+E).
+  margen para adjudicaciones. Gate de merge = el mantenedor vía PR (patrón D+E).
 - Se mantienen: ninguna task escribe en `~/.local/bin`, veto AGPL,
   permalinks jamás regenerados, línea roja de acciones destructivas o
-  externas a Paul, y la regla PENDIENTE-PAUL del bloque 2026-09-13.
+  externas al mantenedor, y la regla PENDIENTE-PAUL del bloque 2026-09-13.
 
 
 ---
@@ -141,11 +141,11 @@ rojo.
 ## ACTUALIZACIÓN 2026-09-14 — campañas D+E en la misma fábrica (histórico: la sustituye el bloque 2026-09-19)
 
 A, B y C mergeadas (PR #13, #14, #16). La siguiente fábrica ejecuta **dos
-campañas independientes**, elegidas por Paul el 2026-09-14 a partir de un
+campañas independientes**, elegidas por el mantenedor el 2026-09-14 a partir de un
 dictamen de consultor Fable. Un segundo Fable revisó los planes: 17 hallazgos,
 aplicados antes de este commit.
 
-| Orden de merge | Campaña | Plan | Decisiones de Paul (resueltas) |
+| Orden de merge | Campaña | Plan | Decisiones del mantenedor (resueltas) |
 |---|---|---|---|
 | 1 | **E — Hooks honestos e higiene de CI** | `docs/superpowers/plans/2026-09-14-campana-e-hooks-honestos-y-ci.md` | Gate de datos personales = solo rutas · check de desfase en `doctor` FUERA · `walk_kb` FUERA |
 | 2 | **D — Cutover kbx→exo: `rotate` + `stale` y paridad con Go** | `docs/superpowers/plans/2026-09-14-campana-d-cutover-kbx.md` + pre-registro `…-campana-d-preregistro-paridad-rotate-stale.md` | Alcance `rotate`+`stale` · `stale` con la fórmula de kbx tal cual (1.5/1.0/0.5/NOTIER 0.5, degree 0.2) · `history`/`diff-since` sustituidos por git en `/distill` · tras D ningún consumidor del plugin invoca `kbx` |
@@ -160,7 +160,7 @@ aplicados antes de este commit.
   declarado) y D-4 (prefijo del permalink = `nombre_kb()`, con aviso visible
   si falta config). No bloquean el critical path.
 - **Ninguna task escribe en `~/.local/bin`**: el `exo` y el `kbx` instalados
-  son el entorno vivo de Paul.
+  son el entorno vivo del mantenedor.
 - Se mantienen el régimen de gates, la línea roja y la regla PENDIENTE-PAUL
   del bloque 2026-09-13.
 
@@ -169,15 +169,15 @@ aplicados antes de este commit.
 
 ## ACTUALIZACIÓN 2026-09-13 — campañas A→B→C (histórico: la sustituye el bloque 2026-09-14)
 
-Decisión de Paul en sesión 2026-09-13: la **fase de cierre queda levantada**
+Decisión del mantenedor en sesión 2026-09-13: la **fase de cierre queda levantada**
 (v0.1.0 publicada). El roadmap ejecutable pasa a ser el de tres campañas
 salidas de la revisión multi-ángulo del 2026-09-13 (hallazgos `H1`–`H29`):
 
 | Orden | Campaña | Plan (fuente de selección de items) | Estado 2026-09-13 |
 |---|---|---|---|
 | 1 | **A — Recall por prompt: correcto, barato y medido** | `docs/superpowers/plans/2026-09-13-campana-a-recall-por-prompt.md` + pre-registro `…-campana-a-preregistro-bench.md` | Ejecutada. Task 15 (W11) corrida el 2026-09-15: C-H10 CERRADA en las dos máquinas, Task 12 no se ejecuta por puerta. Veredicto: `evals/recall-coste/verdict/2026-09-campana-a.md`. D0–D6 resueltas en el plan |
-| 2 | **B — Superficie pública y gates** | `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md` | Planificada. D1–D5 abiertas (PENDIENTE-PAUL); T1, T4, T5, T6, T8 no dependen de ellas. H25 es checklist externo de Paul, no tarea de fábrica |
-| 3 | **C — Retrieval fuera de muestra** | `docs/superpowers/plans/2026-09-13-campana-c-retrieval-held-out.md` + pre-registro `…-campana-c-preregistro.md` | Planificada. T0–T5 (diseño, harness, gold) pueden arrancar; medición y producción tras A. D1–D6 abiertas; el gold lo aprueba Paul (gate humano) |
+| 2 | **B — Superficie pública y gates** | `docs/superpowers/plans/2026-09-13-campana-b-superficie-y-gates.md` | Planificada. D1–D5 abiertas (PENDIENTE-PAUL); T1, T4, T5, T6, T8 no dependen de ellas. H25 es checklist externo del mantenedor, no tarea de fábrica |
+| 3 | **C — Retrieval fuera de muestra** | `docs/superpowers/plans/2026-09-13-campana-c-retrieval-held-out.md` + pre-registro `…-campana-c-preregistro.md` | Planificada. T0–T5 (diseño, harness, gold) pueden arrancar; medición y producción tras A. D1–D6 abiertas; el gold lo aprueba el mantenedor (gate humano) |
 
 Fuera de las campañas, ya en `main`: hotfix H27 (PR #11, KNN por encima del
 tope k=4096 de vec0) y hotfix del `k` por consulta (PR #12, exacto solo con la
@@ -194,9 +194,9 @@ fusión sellada — restricción anotada en el plan de C).
   líneas de estado a los items que toca (editar el item, no duplicar).
 - **Pendiente, no bloquea**: proceso residente para el coste fijo de ~910 ms
   de carga del modelo (item Media del backlog; requiere brainstorming con
-  Paul antes de planificar).
+  el mantenedor antes de planificar).
 - **Se mantienen** del bloque 2026-08-17: veto AGPL, permalinks jamás
-  regenerados, línea roja de acciones destructivas o externas a Paul (push a
+  regenerados, línea roja de acciones destructivas o externas al mantenedor (push a
   `main`, merges, borrado de ramas remotas, `gh repo edit`), y el gate de merge.
 
 
@@ -204,7 +204,7 @@ fusión sellada — restricción anotada en el plan de C).
 
 ## ACTUALIZACIÓN 2026-08-17 — fase de cierre (histórico: la sustituye el bloque 2026-09-13)
 
-Decisión de Paul en sesión 2026-08-17: **el proyecto se cierra hasta M5b**
+Decisión del mantenedor en sesión 2026-08-17: **el proyecto se cierra hasta M5b**
 (desinstalación de basic-memory), con régimen ligero. Plan de campañas:
 `docs/superpowers/plans/2026-08-17-cierre-exo-m2-a-m5b.md` — es la **fuente de
 selección de items** de aquí en adelante; la spec §7 sigue siendo la fuente de
@@ -232,7 +232,7 @@ hybrid sellado `bonus=0.0 / β=0.6 / thr=0.40`, 49/55 diagnóstico. Falta M2-08
 - **M7 (templates) fuera de plan** — sin consumidor, se reabre si aparece un tercero.
 - **Se mantienen** intactos: veto AGPL, permalinks jamás regenerados, gates de
   merge por consultor fable delegado, línea roja de acciones destructivas o
-  externas a Paul, y **M5b gated por M6 completo y probado** (único gate duro
+  externas al mantenedor, y **M5b gated por M6 completo y probado** (único gate duro
   que sobrevive: sin M6 mueren en silencio recall, matchers de hooks y kbx).
 
 
@@ -279,7 +279,7 @@ reconciliar contra el bloque de arriba:
      skill es superficie irreversible interna nombrada en spec §8 → pasa
      SIEMPRE por el régimen de gates (§Ejecución de gates), nunca por clase
      pre-autorizada.
-  3. **M2 — E1 read**: `GATE-HUECO-M2` ABIERTO por Paul 2026-07-17 (commit
+  3. **M2 — E1 read**: `GATE-HUECO-M2` ABIERTO por el mantenedor 2026-07-17 (commit
      `f97c0fd`). ADJUDICABLE. Fuente de items: spec
      `docs/superpowers/specs/2026-07-17-m2-e1-read-design.md` §3 (M2-01..09,
      lanes y oráculos adjudicados por consultor fable, veredicto FIRMADO en
@@ -315,19 +315,19 @@ reconciliar contra el bloque de arriba:
   condición ANTES de tocar el selector. Si no se cumple, esos items quedan
   `encolado` con nota "gate de calendario D, ver config" y el selector pasa al
   siguiente item adjudicable. Ningún consultor-gate ni override informal salta
-  esto — es un `OVERRIDE` explícito de Paul (§Overrides de Paul) si alguna vez
+  esto — es un `OVERRIDE` explícito del mantenedor (§Overrides de Paul) si alguna vez
   se decide adelantar, y dado que invalidaría un experimento pre-registrado,
   se espera que NO se pida nunca.
 
-### GATE-HUECO-M2 (ventana de calendario de Paul, spec línea 171 — no es una fecha)
+### GATE-HUECO-M2 (ventana de calendario del mantenedor, spec línea 171 — no es una fecha)
 - **Bloquea**: M2 (E1 read) completo.
 - **Condición de apertura**: NO es calculable por la fábrica — es una decisión
-  de agenda de Paul ("hueco real entre una LAN party y cge P2"). Flag físico
-  en este config: `hueco_m2_abierto: sí, 2026-07-17` (abierto por Paul en
+  de agenda del mantenedor ("hueco real entre una LAN party y cge P2"). Flag físico
+  en este config: `hueco_m2_abierto: sí, 2026-07-17` (abierto por el mantenedor en
   sesión interactiva 2026-07-17). Mientras diga `no`, la fábrica no
   empieza M2 aunque M0 esté cerrado (ya lo está) y no haya gate de calendario D
   activo para M2 (M2 no está en la lista de items D-gateados).
-- Paul abre la ventana editando esta línea a `hueco_m2_abierto: sí, <fecha>` en
+- El mantenedor abre la ventana editando esta línea a `hueco_m2_abierto: sí, <fecha>` en
   una rama de config gateada como cualquier otra, o vía `OVERRIDE` puntual si
   quiere una sola noche de adelanto sin tocar el config.
 

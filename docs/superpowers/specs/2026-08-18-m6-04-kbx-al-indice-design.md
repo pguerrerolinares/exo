@@ -1,6 +1,6 @@
 # M6-04 — kbx al índice del engine: diseño
 
-> **Régimen de esta spec:** diseño dialogado con Paul (2026-08-18), sobre recon
+> **Régimen de esta spec:** diseño dialogado con el mantenedor (2026-08-18), sobre recon
 > primario contra los dos índices vivos. Revisado por **consultor fable:
 > FIRMA-CON-CAMBIOS** (`consultas/2026-08-18-m6-04-kbx/consultor-m6-04.md`).
 > Los seis claims del recon sobrevivieron a su verificación independiente; dos

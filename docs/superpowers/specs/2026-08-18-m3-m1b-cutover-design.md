@@ -2,11 +2,11 @@
 
 > **Régimen de esta spec:** las decisiones las adjudicaron tres consultores fable
 > independientes (mecánica del cutover, barrido de dependencias, marketplace).
-> Paul firmó sus decisiones por adelantado. Donde dos verdicts colisionaron, el
+> El mantenedor firmó sus decisiones por adelantado. Donde dos verdicts colisionaron, el
 > orquestador reconcilió con evidencia verificada y lo dejó escrito (§6).
 > Esto es la síntesis ejecutable, no una propuesta a aprobar.
 
-**Goal:** que el proceso de trabajo de Paul deje de depender de `superpowers` y
+**Goal:** que el proceso de trabajo del mantenedor deje de depender de `superpowers` y
 pase a servirse de plugins propios bajo una sola identidad, `exo`. Cierra la
 campaña C8 del plan `2026-08-17-cierre-exo-m2-a-m5b.md`.
 
@@ -144,7 +144,7 @@ catálogos `exo` registrados se pisan en silencio.
 
 **Gana C.** La única justificación de A para el path local era «el único camino
 sin push», y se cae contra su propio A4: el propio A adjudica que
-`marketplace add` e `install` escriben `settings.json` y por tanto son de Paul —
+`marketplace add` e `install` escriben `settings.json` y por tanto son del mantenedor —
 que pushea e instala en el mismo gesto. El path local no ahorraba nada, y un
 catálogo único es justamente el objetivo de M1b.
 
@@ -187,10 +187,10 @@ orden del cutover.
 
 | Plan | Qué pasó | Por qué |
 |---|---|---|
-| M3-01 «mismo día: disabled + enabled» | Se parte en Fase 1 (empaquetado, orquestador) y Fase 2 (flip, Paul) | `process` no era instalable; y editar `enabledPlugins` cae en la línea roja del config §Ejecución de gates («cambios a `.claude/settings.json`»), que es de Paul |
+| M3-01 «mismo día: disabled + enabled» | Se parte en Fase 1 (empaquetado, orquestador) y Fase 2 (flip, el mantenedor) | `process` no era instalable; y editar `enabledPlugins` cae en la línea roja del config §Ejecución de gates («cambios a `.claude/settings.json`»), que es del mantenedor |
 | M3-02 «conserva el dispatch» | **Ya se cumplía**; no hubo diff | Verificado por el orquestador y confirmado por consultor independiente |
 | M3-04 «atribución día uno» | Estaba dentro del plugin; faltaba en la raíz del monorepo | Es donde la recomendó el consultor de la capa thin en su día |
 | M1b-01 «rename … mantiene la identidad» | Rename **y** cambio del `name` del catálogo a `exo` | El plan asumía coste cero por no tocar el sufijo; la ventana ya está abierta por el cutover y después vuelve a costar un remove/add completo |
 | M1b-02 «decidir si workflow-lint entra» | Entra, sin cambios | 39 usos, coste cero, y la spec ya lo había dejado fuera del monorepo |
-| §Deuda «cachés huérfanas reflex 0.6.0/0.8.0» | La lista real es mayor: reflex 0.6.0/0.8.0/0.11.0/0.12.0 y paul-profile 0.2.1 | Se barren con `claude plugin prune` en el gesto de Paul |
+| §Deuda «cachés huérfanas reflex 0.6.0/0.8.0» | La lista real es mayor: reflex 0.6.0/0.8.0/0.11.0/0.12.0 y paul-profile 0.2.1 | Se barren con `claude plugin prune` en el gesto del mantenedor |
 | §Deuda «`crontab -r` → C6» | C6 cerró sin ejecutarlo; se hereda aquí, y **no** como `crontab -r` | `-r` borra el crontab entero; el residuo es una sola línea |

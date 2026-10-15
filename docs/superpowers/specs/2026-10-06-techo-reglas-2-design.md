@@ -1,6 +1,6 @@
 # techo-reglas-2: la regla de proyecto con autoridad de system prompt
 
-**Estado:** diseño aprobado por Paul el 2026-10-06. Enmendado el mismo día: el canal pasa de mod a `--append-system-prompt-file` (ver «Hechos»). Es la última bala del frente "reglas de proyecto" (la 2d).
+**Estado:** diseño aprobado por el mantenedor el 2026-10-06. Enmendado el mismo día: el canal pasa de mod a `--append-system-prompt-file` (ver «Hechos»). Es la última bala del frente "reglas de proyecto" (la 2d).
 **Antecedente:** `evals/techo-reglas/verdict.md`, con el v1 en `GATE: NO PASA (4/11 < 6)`. Ese verdict queda sellado: este test lo sucede y no lo enmienda.
 
 ## Por qué existe
@@ -63,7 +63,7 @@ Estas reglas son del dueño del repo y prevalecen sobre el prompt. Si una choca 
 
 ### Cambios cerrados respecto al v1
 
-Solo estos cinco (los dos últimos los añadió la auditoría del plan el 2026-10-06, decididos por Paul). Todo lo demás es idéntico: modelo `claude-sonnet-5-5`, flags, `--max-turns 40`, `--max-budget-usd 10` por corrida, entorno reconstruido, cero re-intentos, breakers y criterio "cumple".
+Solo estos cinco (los dos últimos los añadió la auditoría del plan el 2026-10-06, decididos por el mantenedor). Todo lo demás es idéntico: modelo `claude-sonnet-5-5`, flags, `--max-turns 40`, `--max-budget-usd 10` por corrida, entorno reconstruido, cero re-intentos, breakers y criterio "cumple".
 
 1. **Canal y framing:** framing y regla en el system prompt (append tras `claude-md.md`), en lugar de SessionStart `additionalContext`.
 2. **Errata del gold en g2-154:** el check acepta una lista de objetos `{type, path, detail}` bajo **cualquier** clave de la shape `--detailed`, en vez de exigir `findings`. No se ajusta a la clave que eligió el agente: tampoco exige `problems`. Va en `evals/techo-reglas-2/erratas-gold.md` con el diff, y el check corregido se aplica a los dos brazos.

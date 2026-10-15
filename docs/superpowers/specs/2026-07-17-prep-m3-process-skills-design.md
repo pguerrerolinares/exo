@@ -93,7 +93,7 @@ visible (patrón ya probado en /documenta)"*.
    trigger: dice cuándo dispara, en 1-3 frases, sin imperativos a gritos. Las
    descriptions propuestas están en §5 por skill. Idioma: castellano con
    términos técnicos en inglés — el patrón ya operativo en las fuentes propias
-   (`recon-first`, `/documenta`) y el registro de trabajo de Paul.
+   (`recon-first`, `/documenta`) y el registro de trabajo del mantenedor.
 2. **Body ~30-50 líneas** `[adjudicado]`: el rango cuenta SOLO el body del
    SKILL.md destilado, sin frontmatter ni reference files. El body es router:
    los movimientos esenciales del checklist gold, enunciados como reglas de
@@ -340,7 +340,7 @@ por el consultor-gate"*.
 - **Reference files**: `routing.md` — el contrato de routing v2 destilado
   (tabla destino por tipo de pieza, reglas de frontmatter tags+tier, caveat
   de concurrencia). Los NOMBRES concretos de notas de la instancia
-  (la nota «Backlog — frentes abiertos», el perfil de trabajo del dueño de la KB) no se
+  (la nota «Backlog — frentes abiertos», el perfil de trabajo del mantenedor) no se
   hardcodean en el genérico: se resuelven vía probe contra la KB (framework
   §3: *"Framework sin nada personal"* + *"el porqué y los deltas personales
   viven en la KB"*); el reference file lleva el contrato con placeholders.
@@ -373,7 +373,7 @@ ejecutan en esta pieza** (GATE-CALENDARIO-D).
    `evals/prep-m3/no-disparos.md` en exo, append-only, una línea por evento:
    `- <fecha ISO> | <skill que debió disparar> | <contexto en una línea>`.
    Lo appendea quien detecte el no-disparo (el propio agente al notarlo, o
-   Paul). Sin hook: un hook nuevo alteraría el entorno del agente y eso está
+   el mantenedor). Sin hook: un hook nuevo alteraría el entorno del agente y eso está
    D-gateado (config: *"cualquier cambio que altere marketplace/skills/recall
    del agente"*).
 3. **Criterio pre-registrado de desinstalación** (se sella aquí, se evalúa en
