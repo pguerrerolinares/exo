@@ -4,8 +4,8 @@
   "metadata": { "pluginRoot": "./plugins" },
   "plugins": [
     { "name": "exo", "source": "./plugins/exo",
-      "description": "Framework de trabajo agéntico con memoria persistente: nueve skills de proceso, el agente executor y la capa de reflejos.",
-      "version": "1.7.7",
+      "description": "Framework de trabajo agéntico con memoria persistente: ocho skills de proceso, el agente executor y la capa de reflejos.",
+      "version": "1.8.0",
       "author": { "name": "Paul Guerrero", "email": "pguerrerolinares@gmail.com" } }
   ]
 }
