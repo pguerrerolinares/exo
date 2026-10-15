@@ -47,4 +47,4 @@ Repo: `~/Documentos/proyectos/exo` (branch main, limpio).
 - `kb-demo/backlog-frentes-abiertos` — contexto de calendario (universidad, cge P2).
 
 ## Formato del veredicto (tu output final, markdown)
-Por cada D1-D6: **Adjudicación** (una frase imperativa) · **Racional** (2-4 frases con citas) · **Trade-off aceptado** (1 frase). Al final: sección "Riesgos que el orquestador debe vigilar" (máx 5 bullets) y "Preguntas que SÍ requieren a Paul" (solo si tocan línea roja: destructivo/externo/agenda; si no hay, dilo explícitamente).
+Por cada D1-D6: **Adjudicación** (una frase imperativa) · **Racional** (2-4 frases con citas) · **Trade-off aceptado** (1 frase). Al final: sección "Riesgos que el orquestador debe vigilar" (máx 5 bullets) y "Preguntas que SÍ requieren al mantenedor" (solo si tocan línea roja: destructivo/externo/agenda; si no hay, dilo explícitamente).

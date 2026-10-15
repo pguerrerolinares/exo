@@ -177,7 +177,7 @@ La doctrina y el digest de memoria te los inyecta reflex al arrancar. Si necesit
 5. **Riesgos que el orquestador debe vigilar** (máx 5 bullets).
 6. **Disenso**: qué buscaste para objetar y qué refutaste. Si no encontraste nada que
    objetar en alguna sección, dilo explícitamente — no rellenes.
-7. **Preguntas que SÍ requieren a Paul**: solo si tocan línea roja (destructivo/externo/
+7. **Preguntas que SÍ requieren al mantenedor**: solo si tocan línea roja (destructivo/externo/
    agenda). Si no hay, dilo.
 
 Escribe tu veredicto en

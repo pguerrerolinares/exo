@@ -289,7 +289,7 @@ aceptable.
   6 queries es correcto (las localicé las 6 más el canary) y budget/ratchet/
   rotate están aún más desacoplados de la DB de lo que P1 afirma.
 
-## 7. Preguntas que SÍ requieren a Paul
+## 7. Preguntas que SÍ requieren al mantenedor
 
 Ninguna. Nada de este item toca línea roja: no hay acción destructiva (el
 cutover es un default con rollback por binario, basic-memory no se toca hasta

@@ -81,7 +81,7 @@ Ambigüedad o empate ⇒ consultor fable adjudica con este texto delante; los n�
 - **Pineo de sqlite-vec**: en M2-01, versión exacta `=x.y.z` en `Cargo.toml` y anotada en la spec del indexer; un `^` accidental es el riesgo #8 de §9 en silencio.
 - **Ratio gates/reserva**: si con reserva 8 el ratio sigue >50% tras dos noches, la señal es consolidar items (agrupar merges mecánicos adyacentes, cf. trade-off D2), no volver a inflar la reserva en caliente.
 
-## Preguntas que SÍ requieren a Paul
+## Preguntas que SÍ requieren al mantenedor
 
 No hay: ninguna adjudicación toca línea roja (nada destructivo, nada externo — los `git push` a remotos siguen siendo del mantenedor per config §Ejecución de gates — y GATE-HUECO-M2 ya lo abrió el mantenedor en sesión el 2026-07-17). Las dos decisiones más cercanas al borde quedan dentro del mandato: la subida de reserva 6→8 la delega el brief explícitamente y no toca el cap semanal, y la lectura RO de `~/.basic-memory/config.json` no modifica nada instalado.
 
