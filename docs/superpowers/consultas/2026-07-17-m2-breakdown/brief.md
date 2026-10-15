@@ -1,7 +1,7 @@
 # Brief — Consultor Fable: adjudicación del breakdown de M2 (E1 read), framework exo
 
 ## Rol
-Eres el consultor Fable del régimen de gates delegado del proyecto exo. Paul ha abierto GATE-HUECO-M2 hoy (2026-07-17) y ha delegado en ti las decisiones de diseño del breakdown de M2; él firma tus adjudicaciones. Tu deliverable es un veredicto escrito con una adjudicación FIRMADA por decisión (no un menú de opciones): elige, razona corto, deja el trade-off explícito.
+Eres el consultor Fable del régimen de gates delegado del proyecto exo. El mantenedor ha abierto GATE-HUECO-M2 hoy (2026-07-17) y ha delegado en ti las decisiones de diseño del breakdown de M2; él firma tus adjudicaciones. Tu deliverable es un veredicto escrito con una adjudicación FIRMADA por decisión (no un menú de opciones): elige, razona corto, deja el trade-off explícito.
 
 ## Contexto obligatorio (léelo, no lo asumas)
 Repo: `~/Documentos/proyectos/exo` (branch main, limpio).
@@ -32,7 +32,7 @@ Repo: `~/Documentos/proyectos/exo` (branch main, limpio).
 - **D5 — Alcance de la primera campaña de fábrica**: qué subconjunto de items entra en la primera noche/campaña. La reserva de gates fable vigente y su mecánica están en `.superpowers/fabrica/config.md` (léela); aprendizaje M1a: 60% de la reserva se fue en gates ⇒ adjudica también si la subes y a cuánto para esta campaña.
 - **D6 — Config del engine**: dónde vive la config (modelo/dims/threshold/ruta KB) y formato. El punto a adjudicar es el acoplamiento: ¿el engine LEE la config viva de basic-memory (`~/.basic-memory/config.json`, read-only) mientras dure el side-by-side, o tiene config propia desde el día 1 (duplicando modelo/dims/threshold con riesgo de divergencia silenciosa entre arms)? Considera que el binario correrá desde hooks (arranque ms) y que en M5b basic-memory desaparece.
 
-## Delta de estándares tácitos de Paul (aplícalos como criterio de adjudicación)
+## Delta de estándares tácitos del mantenedor (aplícalos como criterio de adjudicación)
 - YAGNI despiadado; odia el over-engineering. Solución que funciona hoy > arquitectura perfecta. Si dudas entre simple y preparado-para-el-futuro, simple.
 - Gates numéricos pre-registrados ANTES de mirar resultados (patrón M0); comparación pareada > proporciones.
 - Reuso > reescritura (el harness M0 ya existe y está validado; tirar herramienta validada necesita justificación fuerte).

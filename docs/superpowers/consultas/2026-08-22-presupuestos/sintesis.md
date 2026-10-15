@@ -1,8 +1,8 @@
 # Síntesis — auditoría del sistema de presupuestos de la KB
 
 Coordinador (Fable), 2026-08-22. Construida haciendo debatir a los cuatro
-autores: cinco rondas de confrontación, una ratificación (v1), un rechazo de
-Paul con datos nuevos, dos retractaciones del propio orquestador, y una segunda
+autores: cinco rondas de confrontación, una ratificación (v1), un rechazo por
+el mantenedor con datos nuevos, dos retractaciones del propio orquestador, y una segunda
 propuesta (v2) firmada por los cuatro. Todo lo afirmado es trazable a un
 informe, a una respuesta de ronda o a una medición con script; donde dos
 mediciones chocaron, se dice quién tenía razón y por qué.
@@ -10,7 +10,7 @@ mediciones chocaron, se dice quién tenía razón y por qué.
 ## Veredicto en tres líneas
 
 **El mecanismo no es un apaño; la calibración, el punto de mordida y dos
-continentes concretos sí lo son.** Y la respuesta honesta a la queja de Paul
+continentes concretos sí lo son.** Y la respuesta honesta a la queja del mantenedor
 ("consolida ya lo hemos hecho varias veces y siempre muerde") es: **tiene razón,
 y ninguna propuesta cambia eso** — la tasa de reposición es su propia producción
 de doctrina. Lo que sí se puede cambiar, y la v2 cambia: dónde aterriza esa
@@ -107,7 +107,7 @@ clavar el techo por puro engorde (+9.853 B hasta quedar a 9 B del muro) —
 
 ### 1.5 Las dos cifras del addendum, retractadas por su autor
 
-Paul rechazó la v1 con "consolida ya lo hemos realizado varias veces y siempre
+El mantenedor rechazó la v1 con "consolida ya lo hemos realizado varias veces y siempre
 muerde", y corrigió el A/B (un mes de vacaciones: parte de la calma era ausencia
 de uso — quedó cuantificado: ~4 días activos en agosto; 16 commits que tocan
 canon en la ventana actual frente a 54 del hueco natural entre consolidas
@@ -116,7 +116,7 @@ históricas). El addendum del orquestador midió el rechazo, y de él:
 - **Sobrevive lo esencial**: cuatro podas de doctrina-agentes, cuatro
   recuperaciones inmediatas — la del 3-ago repuso +2.709 B **en horas** (serie
   del día: 24.131→26.113→26.840) y la de hoy +184 B la misma mañana.
-  `/consolida` desahoga, no estabiliza. Paul tiene razón.
+  `/consolida` desahoga, no estabiliza. El mantenedor tiene razón.
 - **Se retractaron dos cifras** (error de método: filtro por prefijos de carpeta
   sobre una KB reorganizada — comparaba conjuntos distintos de ficheros): "el
   canon total no crece" es **falso** (KB entera 570.910 → 1.498.996 B, +163%) y
@@ -147,7 +147,7 @@ como veredicto, no.* El mismo disparo produjo destilación real en `/consolida`
 (`5da6c59`) y desplazamiento puro al cierre de sesión (`09a75eb`).
 
 **La venta honesta** (condición explícita de landscape y abogado): nada de esto
-cambia la tasa de reposición — esa tasa es la producción de doctrina de Paul,
+cambia la tasa de reposición — esa tasa es la producción de doctrina del mantenedor,
 exógena, y nadie debe tocarla. El bucle es un GC generacional: la alternativa al
 bucle es heap infinito (R0: notas de 89 KB) o programa parado (las vacaciones).
 La v2 decide si la pausa es stop-the-world en mitad del cierre (hoy: cinco notas
@@ -260,14 +260,14 @@ que de todos modos está pendiente (dos notas a <50 B del techo).
 
 ## 3. Ratificación
 
-### v1 (histórica — Paul la rechazó después)
+### v1 (histórica — el mantenedor la rechazó después)
 
 Los cuatro firmaron la v1 (abogado, landscape y diagnóstico SÍ a las dos fases y
 a la separada; arqueología SÍ factual salvo NO al punto del Backlog-como-
 dashboard). El voto más significativo fue el del abogado: *"empecé defendiendo
 el statu quo entero y termino firmando una propuesta que conserva sus mecanismos
 y jubila su fricción."* La v1 sigue viva dentro de la v2 como Pata A + Fase 2;
-lo que el rechazo de Paul añadió fue la Pata B, la honestidad sobre la tasa de
+lo que el rechazo del mantenedor añadió fue la Pata B, la honestidad sobre la tasa de
 reposición y el criterio por eventos.
 
 ### v2 — votos finales
@@ -321,8 +321,8 @@ independientes:
 - **"El régimen nuevo no está probado", cuantificado**: ~4 días activos en
   agosto (vacaciones); la ventana actual lleva **16 commits que tocan canon
   frente a 54** del hueco natural entre consolidas históricas — un 30% de una
-  sola pasada. R2 (pre-commit) tiene ~2 días activos de muestra. La vuelta de
-  Paul es el experimento.
+  sola pasada. R2 (pre-commit) tiene ~2 días activos de muestra. La vuelta del
+  mantenedor es el experimento.
 - **Gradiente de headings** (% del crecimiento en headings nuevos, 11-jul→hoy):
   perfil 0% · pragmatismo ~12% · desarrollo ~65% (afines) · doctrina ~80% (sin
   relación). No lo afecta la convención de fase: sigue siendo el criterio de
@@ -333,7 +333,7 @@ independientes:
 
 ---
 
-## 5. Lo que queda abierto para Paul
+## 5. Lo que queda abierto para el mantenedor
 
 0. **Un dato antes de decidir, que nadie tenía al empezar**: entre los dos
    últimos picos pre-consolida, el canon **cayó un 31,4%**. El sistema no solo

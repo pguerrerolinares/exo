@@ -390,7 +390,7 @@ retrieval con la semántica de tiers ya declarada; excluir del todo haría el
 archivo invisible a la vía automática (inyección de punteros) cuando lo superado
 marcado sigue valiendo como precedente. Downrank por defecto, exclusión no.
 
-## 11. Ronda 4 — el rechazo de Paul, y las tres preguntas del addendum
+## 11. Ronda 4 — el rechazo del mantenedor, y las tres preguntas del addendum
 
 (Sobre el mensaje cruzado: mi voto anterior ya respondía — firmé la v1 tal como
 está, banda en Fase 2, sin discrepancia. Queda confirmado y ahora superado por
@@ -401,7 +401,7 @@ esta ronda.)
 **Lo retrasa y lo abarata; no lo resuelve.** La v1 arregla el MOMENTO de la poda
 (consolida, no cierre de sesión), el CRITERIO (valor, no orden de llegada) y el
 NACIMIENTO de los techos (aire garantizado). No toca la tasa de reposición: la
-cámara se rellena al ritmo de producción de doctrina de Paul, que es exógeno, y
+cámara se rellena al ritmo de producción de doctrina del mantenedor, que es exógeno, y
 ninguna guarda debe tocarlo — reducir la producción sería el único "arreglo" peor
 que el problema. **El bucle en las notas-área es permanente mientras sigan siendo
 área.** Mi propio modelo de bomba lo decía: una bomba se llena y se vacía; eso no

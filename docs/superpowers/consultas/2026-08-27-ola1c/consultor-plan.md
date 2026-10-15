@@ -2,7 +2,7 @@
 
 - **Objeto:** `docs/superpowers/plans/2026-08-27-ola1c-hermeticidad-y-kb-semilla.md` (891 líneas, sin commitear)
 - **Consultor:** independiente, fresco (régimen de gates, spec `2026-07-16-framework-unificado-design.md:153`)
-- **Fecha:** 2026-08-27 · máquina W11 de Paul, repo `C:\proyectos\homework\exo`, branch `main` limpio (HEAD `20c4b0f`)
+- **Fecha:** 2026-08-27 · máquina W11 del mantenedor, repo `C:\proyectos\<repo>`, branch `main` limpio (HEAD `20c4b0f`)
 - **Veredicto:** **APROBADO CON CAMBIOS** (4 cambios exigidos, lista al final)
 
 ---
@@ -114,7 +114,7 @@ Task 8 Step 5 (`plan:818-832`) cablea `prepara_kb → create_dir_all → vuelca 
 git init → escribe_config → index` **incondicionalmente**, «tras resolver
 `(kb, nombre, emb)`». Pero la rama `--from-basic-memory` (`src/main.rs:378-384`,
 `src/inicia.rs:17-45`) resuelve `kb` a una **KB existente y poblada** (en esta
-máquina: `C:/proyectos/homework/kb-demo`, 100+ notas). Con el cableado del plan:
+máquina: `C:/proyectos/<repo>/kb-demo`, 100+ notas). Con el cableado del plan:
 
 - **Sin `--force`:** `prepara_kb` falla («no está vacía») → el camino de
   migración documentado deja de funcionar.
@@ -166,7 +166,7 @@ p. ej. `git show <sha-pre-Task2>:engine/tests/indexer.rs > tests/indexer.rs`
    «`exo index` inicial» del Step 5.6 abre el `~/.exo/index.db` de producción
    de esta máquina e indexa dentro los 12 ficheros de la semilla — y el
    indexer poda lo que no está bajo la KB activa (clave `borradas` del
-   envelope). Resultado: el índice real de Paul queda reducido a la semilla
+   envelope). Resultado: el índice real del mantenedor queda reducido a la semilla
    hasta el siguiente re-index, compitiendo con el hook `Stop`. Es
    exactamente la clase de efecto colateral que el propio plan prohíbe al
    prohibir mover `~/.exo/config.toml` (`plan:387-389`).
@@ -186,7 +186,7 @@ el runner hermético, `EXO_CONFIG=$TMP/no-existe.toml` viene puesto **desde
 fuera** para todo el proceso. Tras el primer test envuelto de un binario, el
 centinela desaparece para el resto de ese proceso: cualquier test futuro de ese
 binario que lea config sin el helper cae a `~/.exo/config.toml` — **verde en la
-máquina de Paul, rojo en el CI limpio de G5**. Es el modo de fallo exacto que
+máquina del mantenedor, rojo en el CI limpio de G5**. Es el modo de fallo exacto que
 esta fase existe para matar, reintroducido para tests futuros. (El defecto
 existe ya en `tests/config_cableado.rs:22-24`; el plan escribe un helper NUEVO
 y puede no heredarlo por tres líneas.)
@@ -229,8 +229,8 @@ es que el core-index real (5.355 B) ya supera él solo el límite semilla
 
 ### MENOR-5 — El barrido de fugas clean-room es débil como gate automático; y el ejecutor de Task 6 nace con contexto contaminado
 
-Los greps (`plan:476,578`) cazan 7-8 tokens. No cazan: fechas de la historia de
-Paul (la spec las prohíbe explícitamente, `spec:488-490`), los nombres de
+Los greps (`plan:476,578`) cazan 7-8 tokens. No cazan: fechas de la historia del
+mantenedor (la spec las prohíbe explícitamente, `spec:488-490`), los nombres de
 proyectos y clientes que aparecen en la KB privada (una media docena larga, no
 enumerados aquí: enumerarlos en un artefacto versionado sería la misma fuga que
 el hallazgo describe), ni anécdotas sin token. Además, el ejecutor que escriba las notas recibe por hook
@@ -240,7 +240,7 @@ un ejecutor que relea las notas origen está haciendo blacklist-destilado sin
 saberlo. Mitigaciones baratas: (a) añadir al grep un patrón de fechas
 (`20[0-9]{2}-`) y los nombres de proyectos/personas del índice de la KB; (b)
 instruir en la Task 6 que el ejecutor escriba desde los NOMBRES de los
-principios, sin abrir notas de `kb-demo`. El gate de revisión de Paul
+principios, sin abrir notas de `kb-demo`. El gate de revisión del mantenedor
 (`plan:584-586`) existe y es el backstop real: con él, el riesgo residual es
 aceptable — sin él, no. (Nota: `paul` como patrón da falso positivo con
 «paulatino/a»; falla hacia el lado seguro.)
@@ -318,7 +318,7 @@ con `semilla: true` ✓ (T6) · firma con flags, `--kb` no posicional ✓ (ya en
 BLOQUEANTE-1.
 
 **Riesgo clean-room.** Los gates automáticos solos no bastan (MENOR-5); el gate
-de revisión de Paul es el que sostiene la garantía y el plan lo hace duro («no
+de revisión del mantenedor es el que sostiene la garantía y el plan lo hace duro («no
 commitees sin su OK»). Con las dos mitigaciones baratas de MENOR-5, suficiente.
 
 **`git init` por `Command` vs `git2`.** La conclusión es correcta; el argumento,

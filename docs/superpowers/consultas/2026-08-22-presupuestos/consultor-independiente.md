@@ -108,7 +108,7 @@ la auditoría midió bytes; nadie midió pérdida de información por pasada de
 consolida.** Cuatro podas con reposición inmediata se leyeron como "el ciclo
 funciona" (cierto en volumen), pero ACE predice que cada reescritura del canon
 bajo presión de bytes tiene un coste de erosión que no deja rastro en `wc -c`.
-La queja de Paul ("consolida siempre muerde") puede tener un componente que
+La queja del mantenedor ("consolida siempre muerde") puede tener un componente que
 ningún informe recogió: no solo la frecuencia del mordisco, sino la sospecha de
 que cada mordisco *degrada* — y eso la v2 no lo mide ni lo mitiga
 explícitamente.
@@ -232,23 +232,23 @@ esta conversación entera.
 
 ## 5. La hipótesis incómoda, adjudicada
 
-*¿La insatisfacción de Paul viene de que el sistema le exige decisiones
+*¿La insatisfacción del mantenedor viene de que el sistema le exige decisiones
 editoriales que no quiere tomar, y ninguna arquitectura lo elimina?*
 
 **Parcialmente cierta, con una precisión que cambia su implicación práctica.**
 
 La parte cierta, con la aritmética delante: canon acotado + producción exógena
 ⇒ decisiones de evicción recurrentes, por construcción. Eso no lo elimina
-ninguna arquitectura — solo se elige **quién** decide (Paul / LLM / nadie),
+ninguna arquitectura — solo se elige **quién** decide (el mantenedor / LLM / nadie),
 **cuándo** (write path / offline / nunca) y **con qué criterio** (valor /
 orden de llegada / decay). "Nadie + nunca" existe y está medido: es R0. La v2
-elige LLM-con-Paul-supervisando + offline + valor, que es la mejor celda de esa
+elige LLM con supervisión del mantenedor + offline + valor, que es la mejor celda de esa
 matriz. Hasta aquí, la hipótesis se confirma: **el residuo es irreducible y la
 conversación pendiente de la síntesis (§5.1) es real** — si el bucle en sí no
 es aceptable, el ajuste es de producción o de expectativa, no de mecanismo.
 
 La precisión que falta: **la mayoría de las decisiones editoriales ya no las
-toma Paul — las toman agentes.** `/documenta` y `/consolida` ejecutan; Paul
+toma el mantenedor — las toman agentes.** `/documenta` y `/consolida` ejecutan; el mantenedor
 dispara, supervisa y paga tres costes propios: (a) la interrupción al cierre
 (la v2 la mata — es su mejor pieza), (b) la revisión del trabajo del
 compactador (irreducible mientras el gatillo y el gate sean suyos — ver §6), y
@@ -258,11 +258,11 @@ auditoría de un día con cinco agentes. Parte del "estoy hasta la polla" es
 (c), y (c) no se arregla con arquitectura: se arregla con **cierre**. La v2
 trae un criterio de reapertura por eventos (Fase 2); lo que le falta es decir
 en voz alta su contrapartida: **entre evento y evento, el tema está cerrado y
-no se relitiga por incidente.** Si Paul firma la v2, lo más valioso que compra
+no se relitiga por incidente.** Si el mantenedor firma la v2, lo más valioso que compra
 no es la guarda del 15% — es permiso para no volver a pensar en presupuestos
 hasta que una mordida en caso normal lo despierte.
 
-La frase honesta que yo le diría a Paul, y que ningún informe dice así de
+La frase honesta que yo le diría al mantenedor, y que ningún informe dice así de
 crudo: *el sistema funciona (−31,4% pico-a-pico), la fricción que odias tenía
 causa mecánica identificada (techos sellados sin aire) y fix mecánico (la
 guarda), y lo que quede después de eso no es un bug — es el precio de tener un
@@ -272,14 +272,14 @@ de curar.*
 
 ## 6. La opción que nadie puso sobre la mesa: consolida programada con gate asíncrono
 
-Todos los informes asumen que `/consolida` la dispara Paul (el SKILL.md lo
+Todos los informes asumen que `/consolida` la dispara el mantenedor (el SKILL.md lo
 dice: "Paul lo invoca al cerrar un frente o semanalmente"). El abogado defendió
 el write-path precisamente porque *"es el único punto de detección que corre
 sin que un humano decida lanzarlo"* — la cadencia de consolida depende de la
-disciplina de Paul, y el supuesto operativo 8 de la cláusula del diagnóstico lo
+disciplina del mantenedor, y el supuesto operativo 8 de la cláusula del diagnóstico lo
 admite: si la cadencia se rompe, la banda se llena y el bloqueo reaparece. El
 landscape descartó automatizarla como over-engineering, pero con el argumento
-de la ronda 1 ("hoy no duele eso") — **anterior al rechazo de Paul**, que
+de la ronda 1 ("hoy no duele eso") — **anterior al rechazo del mantenedor**, que
 demostró que lo que duele es exactamente el ciclo manual.
 
 La pieza que falta tiene precedente triple, todo ya citado en el expediente
@@ -291,25 +291,25 @@ path con gate de merge asíncrono" (la fábrica). La forma mínima:
 - Un **scheduled run semanal** de `/consolida` (el harness ya tiene scheduled
   agents; cero código nuevo en kbx/exo) que trabaja **en rama** de kb-demo
   y deja el resultado como diff para revisión.
-- **Paul conserva el gate**: revisa el diff y mergea cuando quiera — misma
+- **El mantenedor conserva el gate**: revisa el diff y mergea cuando quiera — misma
   revisión que hoy hace en caliente, movida a asíncrono. El pre-commit y el
   trinquete siguen vigilando igual (la rama pasa por el mismo gate al commitear).
 - La objeción del abogado ("un consolidador autónomo corrompe canon en
-  silencio") queda respondida por el gate: nada llega a main sin ojos de Paul,
+  silencio") queda respondida por el gate: nada llega a main sin ojos del mantenedor,
   y la skill ya trae checks de conservación (conteo de headings, regla de oro
   nada-se-borra, dry-run primero).
 - **Qué se retira a cambio** (obligación del brief): el supuesto operativo 8
-  de la cláusula (la cadencia como disciplina de Paul) desaparece, y con él
+  de la cláusula (la cadencia como disciplina del mantenedor) desaparece, y con él
   gran parte de la razón de ser de la banda de Fase 2 — si el compactador
   corre solo cada semana, el hueco que la banda cubre casi no existe. Menos
   maquinaria futura, no más.
 
 Condición de disparo, coherente con el estilo por-eventos del expediente
 (opinión mía): **no ahora**. La v2 se ejecuta tal cual ("una pasada") y se
-observa la vuelta de Paul. Si el sistema vuelve a morder *porque consolida no
+observa la vuelta del mantenedor. Si el sistema vuelve a morder *porque consolida no
 corrió a tiempo* — mordida con la banda llena y sin pasada reciente — esa es la
 evidencia de que el eslabón débil es el gatillo humano, y entonces el cron
-gana su lugar en vez de la banda. Si Paul sostiene la cadencia sin dolor, no se
+gana su lugar en vez de la banda. Si el mantenedor sostiene la cadencia sin dolor, no se
 construye. Es la misma lógica "gana su código con evidencia" que la Fase 2,
 aplicada al gatillo en vez de al gate.
 
@@ -338,10 +338,10 @@ es una pieza más: solo si la evicción a ciegas demuestra fallar.
    cerrado hasta el evento de Fase 2. Sin relitigación por incidente. Es la
    pieza que ataca el coste (c) de §5, y nadie la ha escrito.
 4. **Fase 3 condicional** (§6): si la mordida vuelve por cadencia rota de
-   consolida, scheduled run semanal en rama con merge de Paul — y la banda de
+   consolida, scheduled run semanal en rama con merge del mantenedor — y la banda de
    Fase 2 probablemente no llegue a construirse. Registrado hoy para no
    rediseñarlo en caliente.
-5. **A la pregunta de Paul** ("¿apaño o solución?"), mi respuesta de fuera:
+5. **A la pregunta del mantenedor** ("¿apaño o solución?"), mi respuesta de fuera:
    el mecanismo es solución con pedigrí doble (sistemas + editorial humano);
    el bucle no es un defecto sino el precio del bit de vigencia (§3); la parte
    de apaño era real y localizada (sellado sin aire, mordisco al cierre, dos

@@ -224,14 +224,14 @@ dicen lo mismo" o "esto ya no es verdad" es un juicio semántico. Por eso la
 literatura de 2024-2025 (§1.2) converge en que **el compactador de memoria
 semántica es un LLM corriendo offline** — Mem0 en el write path, Generative
 Agents por umbral, Letta en sleep-time. `/consolida` es exactamente eso. No
-hay una técnica de sistemas que Paul se esté perdiendo: la técnica es la que
+hay una técnica de sistemas que el mantenedor se esté perdiendo: la técnica es la que
 ya tiene.
 
 Lo que sí se está saltando el diseño actual es la **otra** mitad del patrón
 LSM: *el escritor nunca espera a la compactación*. El pre-commit que rechaza
 un `/documenta` porque `doctrina-agentes` está a 33 B del techo es un write
 stall de manual: el coste de la compactación pagado en el peor momento
-(cierre de sesión, contenido en la mano, Paul queriendo irse) por el actor
+(cierre de sesión, contenido en la mano, el mantenedor queriendo irse) por el actor
 equivocado (el escritor, no el compactador).
 
 ## 4. Productos de memoria para LLMs
@@ -256,7 +256,7 @@ equivocado (el escritor, no el compactador).
   usuario, no tengo fuente medible.)
 
 Patrón de mercado: **nadie le pide al usuario disciplina de poda**. El que la
-pide (ChatGPT al llenarse) genera exactamente la queja que Paul tiene hoy.
+pide (ChatGPT al llenarse) genera exactamente la queja que el mantenedor tiene hoy.
 
 ## 5. Síntesis: qué es aplicable y qué es over-engineering
 
@@ -312,7 +312,7 @@ Todos los sistemas maduros — Luhmann, LSM, Letta — coinciden en tres cosas:
 **el límite duro vive donde el coste es por-consulta fija** (la ficha A6, la
 ventana de contexto, el memory block), **el almacén crece libre** (90.000
 fichas, archival ilimitado), y **la compactación es trabajo del compactador,
-offline, nunca del escritor en el momento de escribir**. La KB de Paul cumple
+offline, nunca del escritor en el momento de escribir**. La KB del mantenedor cumple
 las dos primeras y viola la tercera exactamente en los dos puntos que hoy le
 mordieron.
 
@@ -565,7 +565,7 @@ demasiado gruesa; esta adjudicación la sustituye.
 | `Backlog — frentes abiertos` | 30k | **Falla de formato, no de título** | Es un dashboard operativo (14 frentes), no una nota de conocimiento — el análogo de la "projects list" que Matuschak mantiene separada de las evergreen. Su presión de tamaño viene de retener detalle que ya vive en `projects/*`. Remedio: frente = 3-5 líneas de estado + puntero, no split por concepto. |
 | `learnings/evidencia-y-divulgacion` | 10k | Falla latente, sin acción | El título lleva el "y" delator (dos conceptos declarados), pero a 8,9 KB con dos secciones limpias no hay patología. El test es tripwire: mientras no dispare, no se toca. |
 | `Paul - perfil de trabajo` | 18k | Pasa | Nota-entidad (la persona), estructura coherente, crece por refinamiento y no por acumulación. Es el análogo del bloque "human/persona" de Letta — singular y acotada por diseño. |
-| `learnings/pragmatismo-y-pivots` | 15k | Pasa | Concepto cohesionado (cómo Paul decide y descarta) con casos destilados. Coincido con el diagnóstico. |
+| `learnings/pragmatismo-y-pivots` | 15k | Pasa | Concepto cohesionado (cómo el mantenedor decide y descarta) con casos destilados. Coincido con el diagnóstico. |
 | `projects/*` (5 notas) | 14-19k | Pasan | Notas-entidad acotadas por **mortalidad**: convergen cuando el proyecto cierra (lighthouses, "entrega sellada", ya convergió de facto). No son evergreen en el sentido de Matuschak — él separa lo project-oriented — pero en una KB de trabajo son unidad legítima. Señal de vigilancia: sus secciones "Patrones reutilizables"/"Aprendizajes" son conceptos transversales atrapados en la nota-proyecto; el remedio existente (promoción a `learnings/`) es el correcto, y una nota-proyecto que crece tras el cierre del proyecto sí es patología. |
 
 Lo que valida el test: **las 9 que pasan viven sin morder; las 2 que fallan
@@ -576,12 +576,12 @@ reducida a una sola nota — `doctrina-agentes` — donde mantengo FALLA con
 evidencia estructural: headings que ya son títulos de nota, y un historial
 de split parcial que bajó su techo de 27k a 20k y funcionó.
 
-**Respuesta a la objeción §0 (esto pide disciplina editorial de Paul):** no
+**Respuesta a la objeción §0 (esto pide disciplina editorial del mantenedor):** no
 en su versión mínima. El patrón externo aplicable es el *lazy splitting* —
 análogo de la compactación lazy de LSM: nada se refactoriza por campaña; el
 test del título lo aplica **el LLM de `/consolida` únicamente cuando una
 nota dispara el tripwire**, proponiendo la partición (que en las dos que
-fallan ya está escrita: sus propios headings). Paul aprueba o rechaza el
+fallan ya está escrita: sus propios headings). El mantenedor aprueba o rechaza el
 split propuesto — la misma aprobación que hoy ya da al recorte, pero con el
 remedio que la doctrina prescribe. Cero disciplina nueva: trigger existente
 (presupuesto), ejecutor existente (`/consolida`), solo cambia el remedio
@@ -620,7 +620,7 @@ prescrito al disparar.
 
 ## 6.8 Ronda 4: re-adjudicación de pragmatismo-y-pivots, y volumen vs continente
 
-Tras el rechazo de Paul ("consolida ya lo hemos realizado varias veces y
+Tras el rechazo del mantenedor ("consolida ya lo hemos realizado varias veces y
 siempre muerde") y el addendum del orquestador (canon plano 7 semanas, 99,8%
 del crecimiento en 6 notas), el coordinador pidió tres cosas. Con arqueología
 git propia sobre `pragmatismo-y-pivots`:
@@ -648,10 +648,10 @@ de convergencia — mi §6.6 adjudicó lo primero y solo la historia muestra lo
 segundo): **el título-área es condición de susceptibilidad, no sentencia.**
 Una nota-área puede crecer sin límite; si duele o no lo decide la tasa de
 flujo del dominio que el título reclama. `pragmatismo` es área sobre un
-dominio templado (el carácter de Paul: los episodios lo *refinan*, no lo
+dominio templado (el carácter del mantenedor: los episodios lo *refinan*, no lo
 amplían — converge como el perfil). `doctrina-agentes` y
 `desarrollo-agentico` son áreas sobre el dominio más caliente de la KB —
-trabajar con agentes es lo que Paul hace todo el día, y cada sesión genera
+trabajar con agentes es lo que el mantenedor hace todo el día, y cada sesión genera
 doctrina nueva que ambos títulos reclaman. Veredicto revisado: pragmatismo
 PASA por dinámica demostrada (con la cautela de que agosto tuvo ~4 días
 activos: poca exposición), NO entra en la factorización, y queda marcada
@@ -714,7 +714,7 @@ Lo retrasa y mejora la calidad de la poda. La guarda del 15% compra 2-5
 semanas de aire por resellado; la evicción nombrada hace mejores podas; la
 semántica del mordisco evita mutilaciones. Ninguna toca la tasa de
 reposición, porque la tasa es flujo doctrinal real de un dominio vivo — un
-gate no legisla cuánto aprende Paul por día. Lo único de la v1 que ataca el
+gate no legisla cuánto aprende el mantenedor por día. Lo único de la v1 que ataca el
 bucle es el par 3+7 SI la primera aplicación se ejecuta como split
 factorizador. Mi voto SÍ se mantiene **con reorden narrativo**: la acción
 principal es la factorización de las 2 notas (3+7 fusionados y explícitos:
@@ -722,7 +722,7 @@ la próxima `/consolida` no desahoga — parte por tema con el test del
 título); guarda, evicción y semántica (1, 2, 6) pasan a "reducen fricción
 mientras tanto"; 4 y 5 quedan igual. Si la síntesis vendiera la v1 sin ese
 reorden como "resuelve el bucle", mi voto sería NO — sería vender desahogo
-como solución, que es literalmente la queja original de Paul.
+como solución, que es literalmente la queja original del mantenedor.
 
 Sobre P3 del addendum (de pasada): la unidad activa observable sin métricas
 nuevas es el número de `/documenta` que tocan canon — commits `docs(kb)` en
@@ -780,7 +780,7 @@ y el número se revisa con los casos que vengan.
 
 Dos condiciones del voto, ambas ya aceptadas en rondas previas:
 1. **Venta honesta intacta**: ninguna pata cambia la tasa de reposición —
-   la v2 gestiona el crecimiento, no legisla cuánto aprende Paul por día.
+   la v2 gestiona el crecimiento, no legisla cuánto aprende el mantenedor por día.
 2. **Semántica del mordisco** (punto 6 de la v1) intacta en ambas patas:
    la salida es evictar/partir/rotar con juicio, nunca recortar el delta.
 

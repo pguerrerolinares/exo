@@ -17,7 +17,7 @@ El mecanismo (techo por nota + trinquete + doctrina "pártela") **no es un
 apaño: tiene el A/B más limpio de toda la KB a su favor**. Lo que sí es apaño
 —y ahí concedo— es la calibración: los presupuestos nominales de tier son letra
 muerta para el canon que importa, y los techos se sellan sin headroom, lo que
-fabrica exactamente la fricción de la que Paul está harto.
+fabrica exactamente la fricción de la que el mantenedor está harto.
 
 ---
 
@@ -486,9 +486,9 @@ terminar si el proceso funcionaba.
 
 ---
 
-## 10. Ronda 4 — el rechazo de Paul, el 78×, y la defensa que queda en pie
+## 10. Ronda 4 — el rechazo del mantenedor, el 78×, y la defensa que queda en pie
 
-Paul rechazó la v1 ("consolida ya lo hemos realizado varias veces y siempre
+El mantenedor rechazó la v1 ("consolida ya lo hemos realizado varias veces y siempre
 muerde") y su corrección de vacaciones baja mi factor de contención de 180× a
 78× por día activo. Respuestas, tras re-medir:
 
@@ -508,7 +508,7 @@ nula como estadística** — 4-5 días de calendario, 1-2 activos, n=2 mordiscos
 en un mismo cierre. Todo lo que sé de R2: en su único día activo convirtió
 brecha-diferida-13-días en rotación-inmediata+IOU. Anécdota consistente con
 el diseño, no prueba. El corolario del orquestador lo firmo: el sistema lleva
-un mes sin carga; la vuelta de Paul ES el experimento.
+un mes sin carga; la vuelta del mantenedor ES el experimento.
 
 ### 10.2 Divergencia de medición con el addendum §4 — resuelta: es la fase de la sierra
 
@@ -539,7 +539,7 @@ cambia tres cosas del bucle, y solo esas: **coste por ciclo** (cirugía al
 cierre → cita con /consolida, aire garantizado al sellar), **frecuencia en el
 caso normal** (de "cada delta a nota a ras" — cinco notas a <350 B — a "cada
 2-5 semanas por nota caliente"), y **calidad de la poda** (evicción nombrada).
-No cambia la tasa de reposición. La frase honesta para Paul: *"sí, muerde;
+No cambia la tasa de reposición. La frase honesta para el mantenedor: *"sí, muerde;
 con la v1 muerde menos veces, más barato y en mejor momento — y el no-morder
 tiene dos precios medidos: notas de 89 KB o no aprender nada nuevo"*. En su
 analogía: es un GC generacional — pedir que nunca colecte es pedir heap

@@ -2,7 +2,7 @@
 
 ## Rol
 
-Eres el consultor Fable del régimen de gates delegado del proyecto exo. Paul ha
+Eres el consultor Fable del régimen de gates delegado del proyecto exo. El mantenedor ha
 abierto el brainstorm de **M6-04**, el item que la campaña C9 dejó fuera por estar
 mal dimensionado en la spec, y que **bloquea M5b** (desinstalar basic-memory).
 
@@ -10,7 +10,7 @@ Tu deliverable es un **veredicto escrito con adjudicación FIRMADA por decisión
 un menú de opciones: elige, razona corto, deja el trade-off explícito. Y antes de
 adjudicar, **verifica por tu cuenta los 6 claims de §Claims**: están sacados de un
 recon hecho hoy contra la KB viva, y si alguno cae, se lleva por delante decisiones
-que Paul ya ha tomado encima de él. Verificación primaria propia — no me creas.
+que el mantenedor ya ha tomado encima de él. Verificación primaria propia — no me creas.
 
 No edites la spec, no commitees, no toques código. Solo el veredicto.
 
@@ -78,7 +78,7 @@ KB viva: `~/Documentos/proyectos/kb-demo` (138 notas markdown).
   `destino_permalink IS NULL` (de 573). Sin la guardia `IS NOT NULL`, la query de
   huérfanas devuelve **0 en vez de 7** — verde y silenciosa.
 
-## Decisiones ya tomadas por Paul en el brainstorm (encima de este recon)
+## Decisiones ya tomadas por el mantenedor en el brainstorm (encima de este recon)
 
 No las readjudico salvo que tu verificación las tumbe. **Si un claim cae, di
 explícitamente qué decisión cae con él.**
@@ -101,7 +101,7 @@ explícitamente qué decisión cae con él.**
   solo overlap de conjunto en top-N sobre 3-5 topics, **a ojo**. ¿Firmas el gate
   asimétrico, o exiges hacer `targets` comparable de verdad (corpus congelado + overlap
   medido en vez de inspección manual)? Considera el régimen §0 ("sin métricas nuevas")
-  contra el hecho de que `targets` es el comando caliente y el único que Paul invoca a
+  contra el hecho de que `targets` es el comando caliente y el único que el mantenedor invoca a
   mano. Si exiges medición, define el umbral **antes** de que nadie lo corra.
 - **D2 — `journal_mode`.** El índice de exo está en `delete`; basic-memory en `wal`.
   kbx abre `mode=ro` y corre desde `kb-precommit.sh`, un **pre-commit hook**. Si
@@ -140,7 +140,7 @@ explícitamente qué decisión cae con él.**
   un lector concurrente vea un estado intermedio; y si alguna skill o hook depende del
   shape JSON de kbx de un modo que el port cambie.
 
-## Delta de estándares tácitos de Paul (aplícalos como criterio de adjudicación)
+## Delta de estándares tácitos del mantenedor (aplícalos como criterio de adjudicación)
 
 - **YAGNI despiadado**; odia el over-engineering. Solución que funciona hoy >
   arquitectura perfecta. Si dudas entre simple y preparado-para-el-futuro, **simple**.
@@ -151,7 +151,7 @@ explícitamente qué decisión cae con él.**
 - **Trade-offs explícitos**: en cada adjudicación, una línea de "qué pierdo eligiendo
   esto". Prefiere una respuesta con opinión a una "safe".
 - **Cuestiona y espera ser cuestionado**: si una decisión ya tomada (P1-P3) no se
-  sostiene, dilo. Paul prefiere que se lo tumben ahora a descubrirlo en ejecución.
+  sostiene, dilo. El mantenedor prefiere que se lo tumben ahora a descubrirlo en ejecución.
 - **Fallo silencioso es el enemigo**: el bug caro de C9 fue un indexer no transaccional,
   y el segundo susto un `pre-commit` roto que git trataba como ausente y dejaba commitear
   con exit 0. Prioriza detectar sobre tolerar.

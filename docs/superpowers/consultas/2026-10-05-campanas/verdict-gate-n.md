@@ -8,7 +8,7 @@
 
 Motivo en una frase: el contrato vivo (`config.md`) apunta dos veces a texto que dice haber movido al histórico y que **no está allí** (diagrama M0..M7 y las dos clases pre-autorizadas de `kbx doctor`), y §Overrides remite a dos gates de calendario que ya no están "arriba". Para una campaña cuyo único entregable es «los docs dicen la verdad», un puntero falso dentro del propio contrato es el fallo de la campaña, no un detalle. Los arreglos son literales, caben en un commit y se verifican con `grep`; los doy abajo con su comprobación.
 
-**Vía cuando se re-gatee**: docs, merge local `--no-ff` por el orquestador (`GATE-EXEC`), sin PR: no toca CI ni código, igual que C1 en la ola 2. Push = Paul.
+**Vía cuando se re-gatee**: docs, merge local `--no-ff` por el orquestador (`GATE-EXEC`), sin PR: no toca CI ni código, igual que C1 en la ola 2. Push = el mantenedor.
 
 ## Bloqueantes (arreglo exacto + verificación)
 
@@ -64,7 +64,7 @@ Verificación global del re-gate: repetir la comparación de líneas eliminadas 
 | 2 | `b3488df` podó `_hook-ms.sh`, `a1-gate.sh`, `reflex-baseline.sh`; `hooks.json` con un solo script bajo `Bash` | `git show --stat b3488df`: borra los 3 (+ sus tests, 1.108 líneas); `plugins/exo/hooks/hooks.json`: matcher `Bash` → solo `bash-guards.sh` | OK |
 | 3 | `6bcc85e` B1+B2, `buscador.rs:185-201` (` OR `), `:618` (CombSUM) | código en la rama: `prepara_query … .join(" OR ")` en 196-201; doc-comment CombSUM en 617-620 | OK en mecanismo; **C1** en denominador |
 | 4 | `exo-bitacora.md:114` «La abstención por umbral se descarta: rinde poco (23/95 nulas sin perder hits) y el agente decide sobre la lista L0» | `sed -n 114p` | OK, literal |
-| 5 | `exo-bitacora.md:71` K cerrada sin L por decisión de Paul; `b94ed74`; `evals/ablacion-k/verdict-etapa1.md` R2 DAÑO | :66 cabecera «CERRADA sin campaña L», :71 resultado, :72 decisión; commit «eval(k): verdict de la etapa 1 — R1 NO CONCLUYENTE, R2 DAÑO (una tarea)»; verdict :59 «R2 = DAÑO» | OK; **C4** (línea) |
+| 5 | `exo-bitacora.md:71` K cerrada sin L por decisión del mantenedor; `b94ed74`; `evals/ablacion-k/verdict-etapa1.md` R2 DAÑO | :66 cabecera «CERRADA sin campaña L», :71 resultado, :72 decisión; commit «eval(k): verdict de la etapa 1 — R1 NO CONCLUYENTE, R2 DAÑO (una tarea)»; verdict :59 «R2 = DAÑO» | OK; **C4** (línea) |
 | 6 | PRs #38 `308d1d5`, #39 `6d888a1`, #40 `669e518`, #41 `ceaac09`, #42 `8cd3bd4`, #43 `603cf4a`, #44 `ca77623`, #45 `a3fcb5f`; `59ad826` release 0.3.0 | `git log -1` de cada uno: número de PR y rama coinciden | OK (9/9) |
 | 7 | `o-deuda`: `789ac19` primer_trozo, `49e1a0e` kb_sintetica 0,28→0,393, `31e1d31` MAX_CHARS, `3949b2a` suite Python en static-checks, `4e315fc` prosa H28, `cbdd221` `_timeout.sh`; `0c0d2a4` verdict O | existen, mensajes coinciden; `git branch --contains 789ac19` → solo `o-deuda` (no en `main`: «pendiente de PR» es cierto); `0c0d2a4` «gate de la campaña O — MERGED por PR (consultor fable)» | OK |
 | 8 | `q-w11` `8c16960` hook_ms en README | «docs(plugin): hook_ms p95 W11 y paso de desactivar superpowers; plugin 1.5.14» | OK |
@@ -82,14 +82,14 @@ Ficheros citados por `config.md` nuevo que comprobé que existen: `evals/retriev
 
 ## Juicio del punto 3 del brief: ¿el movimiento extra retira alguna regla viva?
 
-**No.** Lo movido además de los bloques `ACTUALIZACIÓN`: (a) «Estado a fecha de redacción original» — ya rotulado «histórico» en main; (b) `GATE-CALENDARIO-D` — **CERRADO 2026-08-02** en el propio texto; (c) `GATE-HUECO-M2` — M2 (E1 read) cerró en C5, el gate no bloquea nada vivo; (d) las dos clases pre-autorizadas de `kbx doctor` — kbx desinstalado por D3, inaplicables; (e) el bullet de línea roja «un consultor NO puede adelantar GATE-CALENDARIO-D/GATE-HUECO-M2» — muere con sus gates. Lo que SÍ hizo el movimiento fue dejar huérfano el paréntesis de §Overrides (B3) y los dos punteros falsos (B1/B2). **§Ejecución de gates, §Overrides (salvo el paréntesis), §Reapertura y §Instrumentación tienen la letra intacta** respecto a main, con solo tres ediciones de nombre (`eval.jsonl`→«el eval de M0», `kb-demo`→`<kb>` ×2); la línea roja (push/tag/release/permisos = Paul) está íntegra. Como el régimen no cambia de letra, este gate y los siguientes pueden ejecutarse bajo el mismo contrato sin conflicto.
+**No.** Lo movido además de los bloques `ACTUALIZACIÓN`: (a) «Estado a fecha de redacción original» — ya rotulado «histórico» en main; (b) `GATE-CALENDARIO-D` — **CERRADO 2026-08-02** en el propio texto; (c) `GATE-HUECO-M2` — M2 (E1 read) cerró en C5, el gate no bloquea nada vivo; (d) las dos clases pre-autorizadas de `kbx doctor` — kbx desinstalado por D3, inaplicables; (e) el bullet de línea roja «un consultor NO puede adelantar GATE-CALENDARIO-D/GATE-HUECO-M2» — muere con sus gates. Lo que SÍ hizo el movimiento fue dejar huérfano el paréntesis de §Overrides (B3) y los dos punteros falsos (B1/B2). **§Ejecución de gates, §Overrides (salvo el paréntesis), §Reapertura y §Instrumentación tienen la letra intacta** respecto a main, con solo tres ediciones de nombre (`eval.jsonl`→«el eval de M0», `kb-demo`→`<kb>` ×2); la línea roja (push/tag/release/permisos = el mantenedor) está íntegra. Como el régimen no cambia de letra, este gate y los siguientes pueden ejecutarse bajo el mismo contrato sin conflicto.
 
 Lanes/Oráculos/Corpus nuevos frente a los retirados (Apéndice B): todo lo retirado es de la era M0/M1a/M2 (kbx doctor, `make check` de kbx, harness de M0, `eval.jsonl`); lo único no muerto —«skills de process: sin oráculo mecánico, checklist de paridad verificado por el consultor», «corpus write-path sin construir (spec §4.2)», «superficies irreversibles pasan por gates»— **está** en las secciones nuevas.
 
 ## Qué busqué para objetar (mandato de disenso)
 
 1. **Citas inventadas**: 22 hashes + 11 referencias fichero:línea + 4 líneas de KB. Ninguna inventada; una imprecisa de denominador (C1), una de línea (C4), una de recuento (C2).
-2. **Decisiones de Paul reescritas o ampliadas**: comparé cada D0-D7 del config y del backlog con la cita del ledger. Ninguna ampliada; D5 bien acotada. El backlog convierte D2 en cierre de H28 exactamente como el ledger (00:36:46) lo prescribe.
+2. **Decisiones del mantenedor reescritas o ampliadas**: comparé cada D0-D7 del config y del backlog con la cita del ledger. Ninguna ampliada; D5 bien acotada. El backlog convierte D2 en cierre de H28 exactamente como el ledger (00:36:46) lo prescribe.
 3. **Cierres por «criterio de N» sin dueño**: «Proceso frente a producto» (`docs/backlog.md:2104`) se cierra como «no es deuda» y lo **declara** («Criterio de N, no de Paul: reabrir si se quiere»); «Sinergias» y «Residuos de entorno» se cierran por su propio texto. La propuesta §2 (criterio escrito) los lista. Aceptable: declarado, no escondido.
 4. **Bloques resumidos en vez de movidos**: comparación línea a línea de las 364 eliminadas. Verbatim salvo B1/B2 (perdidos) y ediciones legítimas de secciones vivas.
 5. **Reglas vivas perdidas en config**: encontré la cláusula del 20 % (NB4) y los tres punteros/referencias (B1-B3). Línea roja, gates, reapertura, instrumentación: íntegros.
@@ -99,7 +99,7 @@ Lanes/Oráculos/Corpus nuevos frente a los retirados (Apéndice B): todo lo reti
 9. **Cherry-pick alterado**: diff 0.
 10. **Contradicciones internas**: cabecera del backlog contra `497898c` (C3); «tres apéndices» contra dos (B4); «621» contra 623 (NB3).
 
-Lo que salió limpio pesa más que lo que no: la sincronía del backlog es honesta y las decisiones de Paul están citadas sin inventar. Rechazo por B1-B4 porque el propio contrato afirma algo que su histórico desmiente, y ese tipo de deriva es exactamente lo que N existía para eliminar.
+Lo que salió limpio pesa más que lo que no: la sincronía del backlog es honesta y las decisiones del mantenedor están citadas sin inventar. Rechazo por B1-B4 porque el propio contrato afirma algo que su histórico desmiente, y ese tipo de deriva es exactamente lo que N existía para eliminar.
 
 ## Para el re-gate
 

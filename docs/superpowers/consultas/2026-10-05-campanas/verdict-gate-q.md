@@ -17,7 +17,7 @@ GATE: MERGED-con-condición — PR; mergear solo con «install gate (windows-lat
 ```
 
 Condición 4 del régimen: este fichero se commitea en `q-w11` ANTES del push/PR. No hay
-`GATE-EXEC` local: el merge lo ejecuta Paul al mergear el PR (línea roja: `git push` = Paul).
+`GATE-EXEC` local: el merge lo ejecuta el mantenedor al mergear el PR (línea roja: `git push` = el mantenedor).
 
 ## Citas textuales que sostienen el veredicto
 
@@ -147,7 +147,7 @@ user < project < local por "último fichero que menciona la clave". Bajo `set -u
 
 - `:45` pide aviso de SessionStart para "scope project/**managed**"; el hook cubre user/project/local
   y declara no mirar managed (`exo-recall.sh:164-167`). El package lo llama "riesgo aceptado": es
-  aceptación del executor, no de Paul. Queda como deuda citable.
+  aceptación del executor, no del mantenedor. Queda como deuda citable.
 - `:45` dice "hace `exo init`": el instalador solo lo encadena con `EXO_INIT_KB`+`EXO_INIT_NAME`
   (`install.ps1:190-199`, paridad pre-existente con `install.sh`). Parcial, no regresión de Q.
 - `install.sh` no toca superpowers (ya anotado en el verdict B'). Paridad Linux fuera de Q.
@@ -172,7 +172,7 @@ user < project < local por "último fichero que menciona la clave". Bajo `set -u
   semántica de 5.1 (enum por string, parámetro dinámico `-Type`, `[ref]`/`out`, `NativeCommandError`
   con stderr redirigido, `cmd /c` + `exit /b`, `-like` Singleline, PATHEXT para `claude.cmd`). No
   encontré ninguna que falle; lo que encontré es que la mitad no la ejecuta CI (M1).
-- **Que un test tocara el entorno real del runner o de Paul.** `:95`, `:102`, `:334`: no.
+- **Que un test tocara el entorno real del runner o del mantenedor.** `:95`, `:102`, `:334`: no.
 - **Que B' no se hubiera implementado como dictó el verdict previo.** Comparé los 7 puntos de la
   spec del verdict con `:210-258` y los casos 8-11: coinciden, incluido el desvío declarado
   ("claude ausente" imprime en vez de callar, para el caso 4).
