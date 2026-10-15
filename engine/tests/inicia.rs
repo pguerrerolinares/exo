@@ -13,10 +13,7 @@ const BM_JSON: &str = r#"{
 #[test]
 fn migra_desde_basic_memory_leyendo_el_proyecto_por_defecto() {
     let (kb, nombre, emb) = exo::inicia::desde_basic_memory(BM_JSON).expect("migrar");
-    assert_eq!(
-        kb,
-        std::path::PathBuf::from("C:/proyectos/kb-test")
-    );
+    assert_eq!(kb, std::path::PathBuf::from("C:/proyectos/kb-test"));
     // El nombre sale de `default_project`, NO de un literal "kb-test"
     // hardcodeado: ese literal era justo el acoplamiento que se viene a matar.
     assert_eq!(nombre, "kb-test");
