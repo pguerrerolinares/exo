@@ -18,7 +18,7 @@ y la nota *"Cerebro portable + capa de reflejos — design spec"* (proyecto
 `kb-demo`, engine `exo`). Gold de paridad de movimientos:
 `evals/prep-m3/gold/`.
 
-## Los nueve skills
+## Los ocho skills
 
 | Skill | Qué hace |
 |---|---|
@@ -26,11 +26,10 @@ y la nota *"Cerebro portable + capa de reflejos — design spec"* (proyecto
 | plan | De spec/requisitos a plan de tareas bite-sized con paths, código y comandos exactos para un ejecutor sin contexto. |
 | orchestrate | Ejecuta planes multi-tarea: despacha un ejecutor fresco por tarea, review en dos etapas por tarea y review final whole-branch. | Scripts propios: `task-dag` (olas desde Files/Interfaces) y `review-package` con mutación sobre el diff.
 | tdd | Test primero, verlo fallar por la razón esperada, código mínimo, verde, refactor. |
-| debug | Dos puertas: bug/test que falla, o atasco (mismo error ≥3 veces, terreno desconocido). Root cause y recon antes de computar. |
+| debug | Dos puertas: bug/test que falla, o atasco/pre-grind (mismo error ≥3 veces, terreno desconocido; absorbe el antiguo `recon-first`). Root cause y recon antes de computar. |
 | verify | Evidencia fresca del comando antes de cualquier claim de "completo" o "arreglado" — antes de commitear o aceptar el trabajo de un subagente. |
 | document | Extrae decisiones, aprendizajes y patrones de la sesión y los guarda en la KB siguiendo el contrato de routing; commit scoped al cerrar. |
 | distill | Consolidación offline de la KB (sleep-time compute manual): colapsa bitácoras en destilados, chequea presupuestos, promueve doctrina a core. |
-| recon-first | Recupera y verifica asunciones antes de computar — la puerta "mira antes de saltar" cuando estás atascado o en terreno desconocido. |
 
 ## El agente `executor`
 
@@ -132,7 +131,7 @@ Vincent — copia literal del LICENSE en `LICENSES/superpowers.LICENSE`) más
 doctrina propia. brainstorm, plan, orchestrate, tdd, debug y verify son obras
 derivadas por destilación de sus fuentes superpowers 6.1.1 + portes de
 6.2.0–6.4.2 (writing-plans, writing-good-tests, Review Focus, Rulings);
-document, distill, recon-first y la capa de reflejos son fuente propia.
+document, distill y la capa de reflejos son fuente propia.
 
 La escalera anti over-engineering del executor y el pase de over-engineering
 del review (tags `delete|stdlib|native|yagni|shrink`) derivan de
@@ -145,8 +144,7 @@ DietrichGebert — copia literal en `LICENSES/ponytail.LICENSE`).
 | plan | writing-plans | — |
 | orchestrate | subagent-driven-development, executing-plans, dispatching-parallel-agents | orchestrate-personal (cost pyramid, memory packet, blindspot pass) + reviewer-dispatch escalado al riesgo del diff + ponytail (escalera anti over-engineering, pase de review) |
 | tdd | test-driven-development + writing-good-tests (6.2.0) | — |
-| debug | systematic-debugging | recon-first (dos puertas: bug + stuck/pre-grind) |
+| debug | systematic-debugging | recon-first, retirado en 1.8.0 (dos puertas: bug + stuck/pre-grind) |
 | verify | verification-before-completion | gate de validación del padre de orchestrate-personal |
 | document | — | `~/.claude/commands/documenta.md` |
 | distill | — | sleep-time compute manual, propio |
-| recon-first | — | doctrina propia (mitad TRIGGER de `paul-profile/orchestrate-personal`) |

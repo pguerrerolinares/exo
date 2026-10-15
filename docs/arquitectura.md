@@ -36,7 +36,7 @@ embeddings que se descarga una vez.
 
 | Capa | Dónde vive | Qué es |
 |---|---|---|
-| **thin** | `plugins/exo/` | Plugin para Claude Code: 9 skills de proceso, el agente `exo:executor` y 9 hooks (los "reflejos") que invocan al engine desde shell. |
+| **thin** | `plugins/exo/` | Plugin para Claude Code: 8 skills de proceso, el agente `exo:executor` y 9 hooks (los "reflejos") que invocan al engine desde shell. |
 | **engine** | `engine/` | Binario Rust `exo`: indexación, búsqueda, recall y escritura sobre la KB. Sin servidor, sin daemon: procesos de vida corta. |
 | **thick** | la KB del usuario | Notas Markdown + frontmatter, contrato definido por `engine/kb-template/` (la semilla que `exo init` vuelca). |
 

@@ -62,7 +62,7 @@ con la consulta: una lista corta para que el agente decida qué nota abre.
 flowchart TB
     subgraph host["Claude Code (host)"]
         direction TB
-        skills["skills/<br/>exo:brainstorm · plan · orchestrate · tdd<br/>debug · verify · document · distill · recon-first"]
+        skills["skills/<br/>exo:brainstorm · plan · orchestrate · tdd<br/>debug · verify · document · distill"]
         agent["agents/<br/>exo:executor"]
         hooks["hooks/<br/>SessionStart<br/>SubagentStart · Stop · PreToolUse"]
     end
@@ -99,8 +99,8 @@ promesa**: nadie ha medido el retrieval de exo en otra lengua.
 
 ## Capa thin: el plugin `exo`
 
-`plugins/exo/` es la capa de skills. Nueve: brainstorm · plan · orchestrate ·
-tdd · debug · verify · document · distill · recon-first. Fusiona los antiguos
+`plugins/exo/` es la capa de skills. Ocho: brainstorm · plan · orchestrate ·
+tdd · debug · verify · document · distill. Fusiona los antiguos
 plugins `process` y `reflex` en uno solo — el proceso de trabajo completo más
 la capa de reflejos que lo activa en el punto de acción. Sustituye a
 `superpowers` y a `paul-profile:orchestrate-personal` en el uso diario.
