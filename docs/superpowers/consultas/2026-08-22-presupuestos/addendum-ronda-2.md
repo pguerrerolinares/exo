@@ -1,12 +1,12 @@
-# Addendum — segunda ronda: la objeción de Paul a la propuesta ratificada
+# Addendum — segunda ronda: la objeción del mantenedor a la propuesta ratificada
 
-Escrito por el orquestador tras entregarle a Paul la síntesis. **La rechazó**, con
+Escrito por el orquestador tras entregarle al mantenedor la síntesis. **La rechazó**, con
 una frase corta y un dato que ninguno de los cuatro informes había normalizado.
 Todo lo de aquí está medido por mí contra el repo de la KB; los scripts, en mi
 scratchpad. Verificadlo si os parece frágil: ya me equivoqué una vez en esta
 auditoría (la premisa del arranque) y no quiero repetirlo.
 
-## 1. La objeción de Paul, literal
+## 1. La objeción del mantenedor, literal
 
 > "pero consolida ya lo hemos realizado varias veces y siempre muerde"
 
@@ -31,12 +31,12 @@ La primera ataca el corazón de la propuesta. La segunda me corrigió a mí.
 Cuatro podas, cuatro recuperaciones inmediatas. La del 3-ago es la que decide:
 se retiraron 21 KB y en **un día activo** se habían repuesto 4,5.
 
-**Esto es lo que Paul quiere decir con "siempre muerde", y tiene razón.**
+**Esto es lo que el mantenedor quiere decir con "siempre muerde", y tiene razón.**
 `/consolida` no estabiliza: desahoga. Y el punto 2 de la Fase 1 (nombrar la
 evicción editorial) mejora la *calidad* de la poda, pero nada de lo ratificado
 cambia la *tasa de reposición*.
 
-## 3. La corrección de Paul, aplicada: el ratio del abogado se reduce a la mitad
+## 3. La corrección del mantenedor, aplicada: el ratio del abogado se reduce a la mitad
 
 Hubo un mes casi sin actividad (hueco medido de 13 días del 4 al 17 de agosto, y
 la semana 33 entera a cero; **40 días activos en total desde junio**). Al
@@ -74,7 +74,7 @@ mueven:
 
 **P1 — ¿La propuesta ratificada resuelve el bucle de §2, o solo lo retrasa?**
 Sed literales. Si la respuesta honesta es "lo retrasa unas semanas y mejora la
-calidad de la poda", decidlo: es un resultado válido y Paul puede aceptarlo
+calidad de la poda", decidlo: es un resultado válido y el mantenedor puede aceptarlo
 sabiendo lo que compra. Lo que no vale es venderlo como solución.
 
 **P2 — Con §4 sobre la mesa, ¿el problema es de volumen o de continente?**
@@ -96,7 +96,7 @@ commits a canon? Que sea observable sin métricas nuevas (régimen §0).
 
 ## 6. Nota de método
 
-Que nadie ceda por cansancio ni por complacer a Paul, que está harto y lo ha
+Que nadie ceda por cansancio ni por complacer al mantenedor, que está harto y lo ha
 dicho dos veces. Si la propuesta ratificada sigue siendo lo correcto pese a §2,
 defendedla: un "sí, muerde, y aun así esto es lo mejor que hay" bien argumentado
 es una respuesta legítima. Y si alguien cambia de posición, que sea por el dato.

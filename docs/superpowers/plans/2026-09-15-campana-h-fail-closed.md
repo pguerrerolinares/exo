@@ -79,14 +79,14 @@ plan corrige:
   toca esta campaña —cutover, `kb-precommit.sh`, aliases— describen hoy
   exactamente lo que hay en el árbol.
 
-## Decisiones de Paul ya tomadas (2026-09-15) — Global Constraints
+## Decisiones del mantenedor ya tomadas (2026-09-15) — Global Constraints
 
 Todas las siguientes son **hechos**, no propuestas a validar por este plan;
 cada tarea las hereda sin poder reabrirlas:
 
 - **#10 — el check de desfase binario↔plugin entra en H**, en `exo doctor` y
   en los hooks (`exo-recall.sh`, `recall-inject.sh`). Antes estaba fuera de
-  alcance por decisión de Paul en la campaña E (`config.md`: «check de
+  alcance por decisión del mantenedor en la campaña E (`config.md`: «check de
   desfase en `doctor` FUERA»); esa exclusión queda **derogada** por esta
   campaña.
 - **#11 — `kb-precommit.sh` sin `exo` pasa a fail-closed (`exit 1`)**, con
@@ -112,11 +112,11 @@ cada tarea las hereda sin poder reabrirlas:
   `bash` de WSL (Task 4); (ii) `script_del_plugin` ordena lexicográficamente
   en vez de por semver (Task 5, decisión: **alinear**, ver arriba).
 - **Fuera de alcance de H, va a un checklist de runbook, no a tasks
-  ejecutables** (exige máquina Linux o acciones de Paul fuera del repo):
+  ejecutables** (exige máquina Linux o acciones del mantenedor fuera del repo):
   instalar `v0.1.0`/`0.2.0` en Linux y correr `exo doctor` ahí, repuntar el
   marketplace remoto, renombrar `exo-b1-real`, el tag `v0.2.0` en sí. Van en
   el runbook que crea la Task 7.
-- **Directiva de Paul: construir antes que medir.** Ninguna tarea de este
+- **Directiva del mantenedor: construir antes que medir.** Ninguna tarea de este
   plan abre una ventana de medición nueva. La única lectura de un número
   real (Task 8, el tamaño del bloque de arranque) es una comprobación
   puntual con el instrumento que ya existe (`exo recall --content`), no un
@@ -1877,7 +1877,7 @@ Crea `docs/superpowers/runbooks/2026-09-15-release-v0.2.0.md`:
 
 > Primera ruptura real de compatibilidad binario↔plugin de exo (campaña H,
 > `docs/superpowers/plans/2026-09-15-campana-h-fail-closed.md`). Este runbook
-> es la mitad que exige una máquina o una acción de Paul fuera del repo — la
+> es la mitad que exige una máquina o una acción del mantenedor fuera del repo — la
 > mitad de fábrica (código, tests, gates) ya está mergeada cuando esto se
 > ejecuta.
 
@@ -1908,7 +1908,7 @@ en el plan de H) fallarían con `unexpected argument`. Por eso:
    no hay plugin `1.2.0` en caché) o `ok` (si ya lo hay), nunca `fail`.
 3. Solo entonces actualiza/publica el plugin `1.2.0`.
 
-## Checklist de máquina Linux (fuera de esta fábrica — Paul)
+## Checklist de máquina Linux (fuera de esta fábrica — el mantenedor)
 
 Estas acciones exigen una máquina Linux o tocar infraestructura fuera del
 repo; no son tasks ejecutables por la fábrica:
@@ -1989,14 +1989,14 @@ Medido el 2026-09-15 con el binario 0.2.0 recién compilado:
 **Decisión: PENDIENTE-PAUL.** La propuesta (§5, decisión 16) recomienda
 mantener el cap en 6.144 y resolver la presión con una evicción editorial de
 `core-index` (126 B de `Memoria v2:24`) en vez de subir el número — pero esa
-decisión **no está en la lista de decisiones que Paul aceptó el 2026-09-15**
+decisión **no está en la lista de decisiones que el mantenedor aceptó el 2026-09-15**
 (ver `docs/superpowers/consultas/2026-09-15-campanas/propuesta.md` §6: solo
 #1, #5, #8, #9, #10, #11, #14 y el retiro de aliases). Esta tabla deja el
-dato medido para que Paul decida con el número real delante, sin asumir la
+dato medido para que el mantenedor decida con el número real delante, sin asumir la
 recomendación por escribirla aquí. Acción (a) de este ítem (el truncado
 grita) ya estaba cerrada desde la campaña E (`main.rs:917-919`,
 `exo-recall.sh:89-91`); la evicción editorial de `core-index` (acción b) es
-trabajo de la KB de Paul, no de la fábrica de exo, y sigue fuera de alcance
+trabajo de la KB del mantenedor, no de la fábrica de exo, y sigue fuera de alcance
 tanto si la decisión es "subir" como si es "mantener".
 ```
 
@@ -2029,7 +2029,7 @@ new_string:
 > `<commit Task 6>`), y el retiro de los 10 alias españoles — `engine` a
 > 0.2.0, plugin a 1.2.0 (Task 7, commit `<commit Task 7>`). El cap de 6.144
 > del bloque de arranque se mide y se mantiene (Task 8, commit
-> `<commit Task 8>`, decisión de Paul 2026-09-15). Fuera de esta campaña: la
+> `<commit Task 8>`, decisión del mantenedor 2026-09-15). Fuera de esta campaña: la
 > fusión de scripts y la reducción de spawns del hook — campaña I, después
 > de H.)
 >
@@ -2134,10 +2134,10 @@ new_string:
   `docs/superpowers/runbooks/2026-09-15-release-v0.2.0.md`. La propuesta
   (§5, decisión 16) recomienda mantener el cap en 6.144 y resolver la
   presión con la evicción editorial de `core-index` en vez de subir el
-  número, pero esa decisión **no está entre las que Paul aceptó el
+  número, pero esa decisión **no está entre las que el mantenedor aceptó el
   2026-09-15** (`propuesta.md` §6) — queda con el dato real delante, sin
   cerrar por esta campaña. **Sigue abierta** también la acción (b),
-  editorial de la KB de Paul, fuera de esta campaña.
+  editorial de la KB del mantenedor, fuera de esta campaña.
 ```
 
 - [ ] **Step 4: Oráculo**
@@ -2166,7 +2166,7 @@ git commit -m "docs(h, backlog): cierra 3 items con evidencia, mide el cap 6144 
 
 ## Self-review (checklist, sin dispatch)
 
-**Cobertura** — cada afirmación de la propuesta §2 y cada decisión de Paul
+**Cobertura** — cada afirmación de la propuesta §2 y cada decisión del mantenedor
 del brief tiene tarea:
 
 - #10 (check de desfase) → Tasks 1, 2, 3.

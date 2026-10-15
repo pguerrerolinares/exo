@@ -1,20 +1,20 @@
 # Framework unificado de trabajo agéntico — design spec
 
 - **Fecha**: 2026-07-16
-- **Estado**: borrador — pendiente de review de Paul
-- **Proceso**: brainstorm + 5 consultorías adversariales Fable con verificación primaria (informes en `docs/superpowers/consultas/2026-07-16-framework/`). Toda decisión de abajo está ratificada por convergencia orquestador+consultor o firmada por Paul explícitamente.
+- **Estado**: borrador — pendiente de review del mantenedor
+- **Proceso**: brainstorm + 5 consultorías adversariales Fable con verificación primaria (informes en `docs/superpowers/consultas/2026-07-16-framework/`). Toda decisión de abajo está ratificada por convergencia orquestador+consultor o firmada por el mantenedor explícitamente.
 - **Ejecución prevista**: campañas fábrica (skill `paul-profile:fabrica`) sobre el monorepo — ver §8.
 
 ## 1. Objetivo y alcance
 
 Consolidar el proto-sistema personal (KB kb-demo + basic-memory, plugins reflex/paul-profile, CLI kbx, workflow-lint, skills superpowers, /documenta) en **un framework coherente de trabajo agéntico con memoria persistente**, atacando las 4 fricciones diagnosticadas: dispersión física, duplicación de lógica, falta de modelo mental unificado y mantenimiento costoso.
 
-- **Personal-primero**: el usuario del framework es Paul. La genericidad es una propiedad de diseño (separación framework/instancia desde el día 1), no un producto: no se construye nada cuyo único consumidor sería un tercero hipotético (excepción acotada: `templates/`, §6.6).
+- **Personal-primero**: el usuario del framework es el mantenedor. La genericidad es una propiedad de diseño (separación framework/instancia desde el día 1), no un producto: no se construye nada cuyo único consumidor sería un tercero hipotético (excepción acotada: `templates/`, §6.6).
 - **Se jubilan**: basic-memory (MCP de memoria; retrieval poco fiable + latencia CLI 3.0-3.9s/llamada fría, medida) y superpowers (absorción selectiva MIT, §5.2). Ambas por **estrangulamiento**, nunca big-bang.
 - **Se absorben al monorepo**: agent-develop (que ES el marketplace), kbx (tal cual, sin migrar), reflex (post-métrica-D), paul-profile (menos fabrica), /documenta.
 - **Quedan fuera**: workflow-lint (repo propio, referenciado por el marketplace como hoy), fabrica (plugin de instancia: workflow personal + hook propio), la KB kb-demo (repo de datos propio).
 
-## 2. Decisiones raíz (firmadas por Paul)
+## 2. Decisiones raíz (firmadas por el mantenedor)
 
 1. Consolidar lo personal primero; genérico de base, no como producto.
 2. Reemplazar basic-memory por motor propio — **gated por Fase 0** (§4.1): el diagnóstico verificado apunta a config (embedding solo-inglés `bge-small-en-v1.5` sobre KB en castellano); la Fase 0 decide urgencia y lenguaje.
@@ -40,13 +40,13 @@ THICK  la KB: markdown + YAML frontmatter (≈OKF), doctrina canónica, perfiles
 - Ningún procedimiento vive en una skill: la skill es router + reference files; el porqué y los deltas personales viven en la KB.
 - Ningún cálculo vive en shell/skill si el engine lo expone (budget, search, doctor).
 - El contrato entre capas es el **envelope JSON versionado** de kbx, promovido a contrato del sistema. Es agnóstico al lenguaje → el lenguaje es decisión por-binario, no por-sistema.
-- **Framework sin nada personal.** Instancia de Paul = kb-demo (repo aparte) + `profile.md` plano (sin schema) + plugin fabrica.
+- **Framework sin nada personal.** Instancia del mantenedor = kb-demo (repo aparte) + `profile.md` plano (sin schema) + plugin fabrica.
 
 ## 4. Engine
 
 ### 4.1 Fase 0 — diagnóstico de retrieval (M0; una tarde; SIN código de engine)
 
-1. **Eval set**: las 46 queries únicas reales de `~/.claude/reflex-retrieval-log.jsonl` + 5-10 casos duros de memoria de Paul ("busqué X y no salió Y"). Etiquetar TODAS (ground truth a nivel de nota). **Estratificación obligatoria**: replay previo contra basic-memory actual marcando qué queries devuelven hits de fila observation en el top-k; ese subgrupo debe estar representado (sin él, el gate de degradación de la gramática §6.3 sería ciego: las observations son ~65% del corpus FTS).
+1. **Eval set**: las 46 queries únicas reales de `~/.claude/reflex-retrieval-log.jsonl` + 5-10 casos duros de memoria del mantenedor ("busqué X y no salió Y"). Etiquetar TODAS (ground truth a nivel de nota). **Estratificación obligatoria**: replay previo contra basic-memory actual marcando qué queries devuelven hits de fila observation en el top-k; ese subgrupo debe estar representado (sin él, el gate de degradación de la gramática §6.3 sería ciego: las observations son ~65% del corpus FTS).
 2. **Higiene de replay** (protege el pre-registro de la métrica D y el retrieval-log): snapshot de `reflex-retrieval-log.jsonl` antes; replay **vía CLI** (`basic-memory tool search-notes`), nunca vía tools MCP (el hook retrieval-logger appendearía queries sintéticas al log del que salió el eval set); sesiones de trabajo nombradas `test-*` (el FILTER de reflex-baseline.sh las excluye); desviación documentada en el doc de pre-registro (`docs/superpowers/evals/2026-07-09-reflex-v2-baseline.md`).
 3. **Candidatos** (verificados contra fastembed 0.8.0 instalado — NO usar familia E5 ni bge-m3 aquí: E5 exige prefijos query:/passage: que ni basic-memory ni fastembed ponen; bge-m3 no está soportado):
    - Primario: `jinaai/jina-embeddings-v2-base-es` (bilingüe es-en, retrieval, sin prefijos; requiere `semantic_embedding_dimensions: 768` — el provider hardcodea 384 y sin ese campo revienta con RuntimeError).
@@ -150,7 +150,7 @@ Backfill de `type:` (11 notas) · limpieza de root files (developercv.cls, fonta
 
 ### 6.6 templates/ (M7, diferible)
 
-KB esqueleto + profile.md comentado + README. **Método clean-room (whitelist): se escribe desde cero mirando la instancia solo como referencia de forma.** Nunca "destilar quitando lo personal" (blacklist: un miss = finanzas/timeline de Paul en un repo para terceros). Sin consumidor hasta que exista un tercero; no bloquea nada.
+KB esqueleto + profile.md comentado + README. **Método clean-room (whitelist): se escribe desde cero mirando la instancia solo como referencia de forma.** Nunca "destilar quitando lo personal" (blacklist: un miss = finanzas/timeline del mantenedor en un repo para terceros). Sin consumidor hasta que exista un tercero; no bloquea nada.
 
 ## 7. Roadmap
 
@@ -172,7 +172,7 @@ M0 Fase 0 ──→ M1a repo ──→ M2 E1-read ──→ M4 E2-write ──�
 - **M3 — Cutover skills** (post-medición): §5.3.
 - **M4 — E2 write**: §4.4. Canary de kbx en el mismo commit.
 - **M5a — MCP propio** / **M5b — desinstalación** (gated por M6): §4.4-E3.
-- **M6 — guardrails**: §5.4 + cutover del hook de recall + reescritura del FALLBACK embebido + repunte de kbx al índice del engine + **cutover de doctrina**: core-index, doctrina-agentes, CLAUDE.md global de Paul y description de recon-first referencian basic-memory/superpowers por nombre — actualizarlos o quedará doctrina apuntando a un MCP muerto.
+- **M6 — guardrails**: §5.4 + cutover del hook de recall + reescritura del FALLBACK embebido + repunte de kbx al índice del engine + **cutover de doctrina**: core-index, doctrina-agentes, CLAUDE.md global del mantenedor y description de recon-first referencian basic-memory/superpowers por nombre — actualizarlos o quedará doctrina apuntando a un MCP muerto.
 - **M7 — templates**: §6.6.
 
 **Propiedad protegida**: cada milestone deja el sistema funcionando (verificada por consultoría para M0, M1a, M3, M2 re-redactado y M4; en M5 la garantiza el gate M5b←M6).
@@ -185,7 +185,7 @@ El desarrollo se ejecuta con campañas del skill `paul-profile:fabrica` sobre el
 - **Routing de lanes**: el eval set de M0 es el oráculo que permite rutear a lane mecánica gran parte de M2 (side-by-side medible por comando). Piezas de lane diseño con spec-first + gold: el indexer (paridad de permalinks/corpus como gold set), la fusión/calibración de search (eval set como gold), el write-path (corpus de casos search-before-write). Las skills de process (M3) son lane diseño con review adversarial (su "gold" es checklist de paridad de movimientos vs la skill superpowers absorbida).
 - **Kill-criteria pre-registrados por pieza** en su spec (patrón ya practicado). Los gates numéricos de esta spec (Fase 0 §4.1.4, contador de no-disparos §5.2, punto de revisión de side-by-side §4.4) son kill-criteria de primera clase.
 - **Bootstrap**: fabrica corre sobre el stack actual (superpowers + orchestrate-personal + reflex:executor) hasta el cutover M3; la actualización de fabrica es ítem de la checklist §5.3. Las campañas de M0-M2 usan el stack viejo; las de M4+ ya corren sobre process.
-- **Régimen de gates (firmado por Paul 2026-07-16): consultor Fable como adjudicador delegado.** Todo review/gate que el protocolo derivaría a Paul (incluidos `GATE:` de merge y superficies irreversibles internas: envelope, schema del índice, formato de skill) lo adjudica un **consultor Fable independiente** — Paul pre-aprueba sus decisiones. Condiciones que hacen legítima la delegación (sin ellas, el verdict es inválido y escala a Paul): (a) consultor fresco por gate, sin haber participado en la pieza que juzga; (b) verificación primaria propia obligatoria; (c) mandato explícito de disenso (convergencia complaciente = fallo); (d) verdict-artifact con cita escrito al repo (audit trail). Precedente: régimen de auditor de la campaña lighthouses. **Línea roja que NO se delega**: acciones destructivas o externas al sistema (borrado de la KB o de repos, publicación fuera, cambios de permisos) — esas siempre a Paul.
+- **Régimen de gates (firmado por el mantenedor 2026-07-16): consultor Fable como adjudicador delegado.** Todo review/gate que el protocolo derivaría al mantenedor (incluidos `GATE:` de merge y superficies irreversibles internas: envelope, schema del índice, formato de skill) lo adjudica un **consultor Fable independiente** — el mantenedor pre-aprueba sus decisiones. Condiciones que hacen legítima la delegación (sin ellas, el verdict es inválido y escala al mantenedor): (a) consultor fresco por gate, sin haber participado en la pieza que juzga; (b) verificación primaria propia obligatoria; (c) mandato explícito de disenso (convergencia complaciente = fallo); (d) verdict-artifact con cita escrito al repo (audit trail). Precedente: régimen de auditor de la campaña lighthouses. **Línea roja que NO se delega**: acciones destructivas o externas al sistema (borrado de la KB o de repos, publicación fuera, cambios de permisos) — esas siempre al mantenedor.
 
 ## 9. Riesgos top (consolidados de las 5 consultorías)
 
@@ -210,4 +210,4 @@ El desarrollo se ejecuta con campañas del skill `paul-profile:fabrica` sobre el
 ## 11. Audit trail
 
 - Informes de consultoría adversarial (verificación primaria citada en cada uno): `docs/superpowers/consultas/2026-07-16-framework/informe-consultor-{framework,engine,thin,thick,roadmap}.md`.
-- Convergencias auto-adjudicadas per doctrina (consulta adversarial y ratificación); decisiones de Paul en sesión: objetivo personal-primero, reemplazo de basic-memory (→ suavizado a gated-por-Fase-0 tras disenso del consultor #1, re-firmado), jubilación de superpowers, lenguaje abierto ("migrar de lenguaje no es bloqueante si mejora"), Fase 0 + estrangulamiento, ejecución vía fabrica.
+- Convergencias auto-adjudicadas per doctrina (consulta adversarial y ratificación); decisiones del mantenedor en sesión: objetivo personal-primero, reemplazo de basic-memory (→ suavizado a gated-por-Fase-0 tras disenso del consultor #1, re-firmado), jubilación de superpowers, lenguaje abierto ("migrar de lenguaje no es bloqueante si mejora"), Fase 0 + estrangulamiento, ejecución vía fabrica.

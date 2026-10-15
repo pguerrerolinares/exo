@@ -9,7 +9,7 @@ agent-develop (pre-monorepo de reflex), kb-demo y kbx. Scripts en scratchpad.
 
 ## 1. Veredicto en una línea
 
-**Paul tiene razón en el diagnóstico y no en la literalidad**: "siempre hemos
+**El mantenedor tiene razón en el diagnóstico y no en la literalidad**: "siempre hemos
 subido" es falso (2 subidas en 6 caps; el de A1 aguantó dos incidentes sin moverse
 y kbx solo ha bajado), pero el patrón real es peor que el que él nombra — **todos
 los caps nacidos de una medición puntual optimista han mordido en días y se han
@@ -58,7 +58,7 @@ Medido: mediana baja a ~914 B pero la cola sigue — sin presupuesto por hit,
 mecanismo** (trinquete + split en kbx; sustracción del canario y rastro en A1),
 el cap aguanta o baja. Donde el cap se fijó con **una medición puntual y ε de
 margen** (límite 5 del digest, el 1024 de M6-06), muerde en días y la reacción es
-subir o compensar. La objeción de Paul detecta el segundo régimen; el primero
+subir o compensar. La objeción del mantenedor detecta el segundo régimen; el primero
 demuestra que la casa ya sabe hacerlo bien.
 
 ## 4. ¿Aplica la doctrina del trinquete aquí?
@@ -133,7 +133,7 @@ max 1010 B. El invariante de la spec — *"el cap protege del outlier, no racion
   honesto como derivación, y es la opción de coste cero en código. Descartado
   porque paga renta perpetua de ~300 B/turno de repetición literal, deja el fit
   probabilístico (bloques de 3 notas de `archive/sesiones/` con rutas de ~100 B
-  aún pueden racionar) y contradice la doctrina traducida (§4). Si Paul prefiere
+  aún pueden racionar) y contradice la doctrina traducida (§4). Si el mantenedor prefiere
   cerrar hoy con una línea, esta es la única subida defendible — pero es peor.
 - **Acortar el snippet globalmente (200→120 B)**: ataca al componente equivocado
   primero. La mitad de la grasa no es snippet útil sino nombre repetido; con el

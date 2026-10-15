@@ -1,13 +1,13 @@
 # 2d — reglas de proyecto en el system prompt
 
-**Fecha:** 2026-10-06 · **Estado:** diseño validado por secciones en sesión, auditado por Fable (una ronda) y ajustado. Pendiente de revisión de Paul.
+**Fecha:** 2026-10-06 · **Estado:** diseño validado por secciones en sesión, auditado por Fable (una ronda) y ajustado. Pendiente de revisión del mantenedor.
 **Antecedentes:** el contorno de `2026-09-30-exo-recorte-mecanismo-design.md` («Contorno de la 2d») y el gate `evals/techo-reglas-2/verdict.md` (PASA, 6/10 frente a 0/10, PR #49). Esta spec enmienda el contorno en los puntos marcados **[enmienda]**.
 
 ## Qué resuelve
 
 - Una regla mecánica que solo vale para un repo hoy vive en la KB y no llega al agente que trabaja en ese repo.
 - El v1 (`additionalContext`) llegó a todas las corridas, pero el agente la trató como sugerencia: 4/11. El v2 (system prompt con framing de autoridad) dio 6/10 frente a 0/10.
-- **Objetivo:** que la sesión principal de Claude Code en el repo X reciba, en el system prompt y con el framing sellado de #49, las reglas de la sección `## Reglas duras` de la nota-puerta de X. Si no las recibe y eso es una anomalía, Paul lo ve.
+- **Objetivo:** que la sesión principal de Claude Code en el repo X reciba, en el system prompt y con el framing sellado de #49, las reglas de la sección `## Reglas duras` de la nota-puerta de X. Si no las recibe y eso es una anomalía, el mantenedor lo ve.
 
 ## Hechos verificados que condicionan el diseño
 

@@ -6,7 +6,8 @@
 #   - docs/backlog.md (histórico congelado): patrón estricto, cualquier
 #     /home/, wisdom-* o [[...]].
 #   - todos los .md versionados de docs/ (backlog incluido): patrón de
-#     identidad: el home del autor (Linux y Windows) o wisdom-*.
+#     identidad: el home del autor (Linux y Windows), la ruta de trabajo
+#     C:/proyectos/homework o wisdom-*.
 #
 # El resto de docs/ no usa el patrón estricto porque cita legítimamente
 # /home/ y [[: el regex del gate de rutas, fixtures de usuarios ficticios,
@@ -61,7 +62,7 @@ escanear() {
 }
 
 escanear "backlog, estricto" '/home/|wisdom-|\[\[' "$DIR/backlog.md"
-escanear "docs/, identidad" '/home/paul|wisdom-|C:/Users/paul' "${FICHEROS[@]}"
+escanear "docs/, identidad" '/home/paul|wisdom-|C:/Users/paul|C:/proyectos/homework' "${FICHEROS[@]}"
 
 if [ "$rc" -ne 0 ]; then
   echo "Arreglo: ~ o «el HOME del runner» en vez de una ruta bajo el home, el concepto en prosa en vez del nombre de la KB privada o de un wikilink." >&2

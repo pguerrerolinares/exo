@@ -10,7 +10,7 @@ Seis skills de exo (brainstorm, plan, orchestrate, tdd, debug, verify) son desti
 
 | Eje | Decisión | Descartado |
 |---|---|---|
-| Autonomía | El bot detecta, triagea, porta y abre PR; Paul mergea | Merge automático: los gates disponibles miden forma, no comportamiento de una skill en prosa |
+| Autonomía | El bot detecta, triagea, porta y abre PR; el mantenedor mergea | Merge automático: los gates disponibles miden forma, no comportamiento de una skill en prosa |
 | Reloj | Tags de release de obra/superpowers | PRs mergeados a `dev`: hay cambios sin liberar y reverts dentro del ciclo (#2214/#2335) |
 | Atribución | API de GitHub (`gh pr list --state merged` con `files`, cualquier rama base) | `git log` sobre `main`: es lineal, squash de releases; 33 de 38 commits en `skills/` sin `(#N)` |
 | Runtime | Routine cloud de Claude Code, semanal, con dos repos adjuntos: `pguerrerolinares/exo` y `obra/superpowers` | GitHub Action (API key aparte); cron local (depende de la máquina encendida) |
@@ -38,7 +38,7 @@ El ledger inicial lleva tag + mapeo + divergencias y **cero filas**.
    - Si hay un PR `upstream-sync` abierto (rama `upstream-sync/*`): latido y fin.
    - Los PRs `upstream-sync/*` cerrados sin merge cuyo rechazo aún no conste: sus filas se registran como `rechazado` (motivo = URL del PR) en el PR siguiente, y `upstream_tag` avanza igualmente para no reproponer la misma ventana.
 1. **Clone y licencia:** si `upstream_tag` no está en `git tag` del clone, `git fetch --tags`; si sigue sin estar, latido con alerta y fin (un clone sin tags no es "sin tags nuevos"). Después, `LICENSE` de upstream contra `plugins/exo/LICENSES/superpowers.LICENSE`. Si difiere: latido con alerta y fin, sin portar.
-2. **Retoma pendientes**, antes de detectar tags: las filas `pendiente` con motivo `tope`, `gate` o `respondida` se portan primero (mismo tope de 5 por PR, contando también lo nuevo), con el diff de `gh pr diff <N> -R obra/superpowers` limitado a los ficheros mapeados. Las `pendiente` por `duda` no se retoman solas: el latido las lista con su pregunta y Paul responde editando la fila en `main` (`triage` a su decisión, `estado` `pendiente`, motivo `respondida`); la pasada siguiente la trata como tope.
+2. **Retoma pendientes**, antes de detectar tags: las filas `pendiente` con motivo `tope`, `gate` o `respondida` se portan primero (mismo tope de 5 por PR, contando también lo nuevo), con el diff de `gh pr diff <N> -R obra/superpowers` limitado a los ficheros mapeados. Las `pendiente` por `duda` no se retoman solas: el latido las lista con su pregunta y el mantenedor responde editando la fila en `main` (`triage` a su decisión, `estado` `pendiente`, motivo `respondida`); la pasada siguiente la trata como tope.
 2b. **Detecta** tags posteriores a `upstream_tag`. Si no hay tags nuevos ni pendientes que retomar ni rechazos por registrar: latido y fin. Si hay:
    - Contenido: diff neto entre tags de los ficheros mapeados.
    - Atribución: PRs mergeados en la ventana de fechas de los tags que tocan ficheros mapeados. Se descartan los PRs de release dev→main: se atribuye a los PRs miembros.
@@ -47,7 +47,7 @@ El ledger inicial lleva tag + mapeo + divergencias y **cero filas**.
    - Un commit por PR upstream: `port(upstream#N): <resumen>`.
    - Cada commit actualiza la versión citada en la cabecera de atribución (`superpowers X.Y.Z`: `# Derived from superpowers …` en scripts, `(superpowers X.Y.Z, MIT ©` en markdown) de los ficheros que toca.
    - `duda` → `pendiente`, con la pregunta concreta en `motivo`.
-   - Si el PR toca `plugins/exo/`, el último commit sube el PATCH de exo en `plugin.json` y `marketplace.json` (decisión de Paul: lo hace el bot; `test-versiones.sh` y `plugin-bump-gate.sh` lo exigen). Un PR solo-ledger no sube versión.
+   - Si el PR toca `plugins/exo/`, el último commit sube el PATCH de exo en `plugin.json` y `marketplace.json` (decisión del mantenedor: lo hace el bot; `test-versiones.sh` y `plugin-bump-gate.sh` lo exigen). Un PR solo-ledger no sube versión.
 5. **Gates:**
    - `scripts/check-skill-refs.sh` y `scripts/test-plugin.sh` en verde.
    - Tabla obligatoria en el cuerpo del PR, `movimiento upstream → fichero:línea exo`, por porte.
@@ -72,9 +72,9 @@ Workflow `.github/workflows/upstream-watchdog.yml`, diario. Solo cuentan los com
 ## Primera pasada = eval pre-registrado
 
 - `upstream_tag: v6.1.1`.
-- La verdad conocida es la lista cerrada v6.1.1 → v6.4.2: 24 PRs, 37 filas (PR, skill). Vive **fuera del repo**, para que el bot no pueda leerla, y Paul fija las 11 filas de confianza media antes de correr.
+- La verdad conocida es la lista cerrada v6.1.1 → v6.4.2: 24 PRs, 37 filas (PR, skill). Vive **fuera del repo**, para que el bot no pueda leerla, y el mantenedor fija las 11 filas de confianza media antes de correr.
 - Las filas de confianza media que son choque de doctrina se deciden como divergencias del ledger inicial o como `aplica`.
-- **Umbral pre-registrado:** 0 filas `ya cubierto` que en la verdad sean aplica/parcial, y ≥ 90% de acierto en la etiqueta de triage, con `aplica` y `parcial` como una sola clase (llevan a la misma acción: portar; decisión de Paul 2026-09-30). Lo puntúa `scripts/upstream-score.sh`.
+- **Umbral pre-registrado:** 0 filas `ya cubierto` que en la verdad sean aplica/parcial, y ≥ 90% de acierto en la etiqueta de triage, con `aplica` y `parcial` como una sola clase (llevan a la misma acción: portar; decisión del mantenedor 2026-09-30). Lo puntúa `scripts/upstream-score.sh`.
 - Si pasa, ese PR es el cierre de huecos del camino A. Si no pasa, no se programa la routine y se revisa el prompt.
 
 ## Fuera de alcance

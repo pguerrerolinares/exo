@@ -140,7 +140,7 @@ Fuente: code.claude.com/docs/en/hooks (redirect actual de docs.claude.com).
 - **Exit codes**: exit 0 = ok (stdout→contexto). **Exit 2 = bloquea el
   procesamiento Y BORRA el prompt** (stderr se muestra al usuario como razón).
   Otros ≠0 = aviso no bloqueante, el prompt sigue. Ver H4: en este evento un
-  exit 2 accidental se come el prompt de Paul — hazard de primera clase.
+  exit 2 accidental se come el prompt del mantenedor — hazard de primera clase.
 - **Timeout**: default 30 s para hooks `command` en UserPromptSubmit (bajado
   del default general de 600 s), configurable por hook.
 - **Orden**: el hook corre *antes* de que el modelo procese; el bloque llega
@@ -164,7 +164,7 @@ sellados —47/56 vs 49/55— porque el índice vivo tiene 145 notas, no el snap
 del eval; la comparación AND↔OR es pareada sobre el mismo índice y eso es lo
 que soporta la conclusión.)
 
-### Dato 3 — Distribución real de los prompts de Paul
+### Dato 3 — Distribución real de los prompts del mantenedor
 
 272 prompts humanos reales desde el 01-ago (55 jsonl; filtrados
 teammate-messages, task-notifications, comandos, sidechains y meta):
@@ -286,7 +286,7 @@ brief") está redactada para subagentes. El hook la sustituye por la suya:
 ```
 
 Tres propiedades no negociables: (i) se declara **mecánico** (nadie lo pidió —
-no es una búsqueda que Paul ordenó ni parte de su prompt); (ii) se declara
+no es una búsqueda que el mantenedor ordenó ni parte de su prompt); (ii) se declara
 **material, no instrucción** (mismo espíritu que el `PARCIAL` del arranque);
 (iii) **da licencia explícita de ignorar** — con la precisión medida en C3, esa
 línea final es la mitigación de FP que el umbral no puede dar. Implementación:
@@ -362,7 +362,7 @@ sugerida en §3.2 ("umbral más alto que el de búsqueda") también queda
 invalidada: no existe ese umbral. La defensa contra FP se muda al formato
 (D1/D5) y al presupuesto (D6).
 
-**H4 — En `UserPromptSubmit`, un exit 2 accidental BORRA el prompt de Paul.**
+**H4 — En `UserPromptSubmit`, un exit 2 accidental BORRA el prompt del mantenedor.**
 Es el único evento donde un bug del script destruye input del usuario. El hook
 nuevo necesita la disciplina exit-0 *más dura* que reflex tiene, no la
 estándar: nada de `set -e`, toda tubería con `|| true`, y `exit 0`
@@ -565,14 +565,14 @@ sino por dos razones que pesan más:
 
 1. **Polaridad de fallo.** El gate léxico falla hacia ruido visible (token
    desconocido ⇒ dispara); el de longitud falla hacia silencio (corto ⇒ calla).
-   Con el ruido determinista ya aceptado por Paul, el FP está pre-pagado
+   Con el ruido determinista ya aceptado por el mantenedor, el FP está pre-pagado
    (≤1 KB + ~1 s) y el FN no tiene precio conocido — es la ley "ausencia ≠
    evidencia" aplicada al gate. Fail-open hacia ruido es la polaridad correcta
    de esta casa.
 2. **El caso que A mata es el arquetipo del criterio de cierre.** "M6-06" a
    secas es EXACTAMENTE "un prompt sobre un tema con notas" — y es el estilo
    de prompt que el propio hook va a incentivar cuando exista. Hoy casi no
-   aparece en el histórico (0 casos puros en 272; Paul siempre envuelve en
+   aparece en el histórico (0 casos puros en 272; el mantenedor siempre envuelve en
    directiva) precisamente porque hoy no sirve de nada. Un gate que castiga el
    patrón de uso que la feature invita a crear nace obsoleto.
 

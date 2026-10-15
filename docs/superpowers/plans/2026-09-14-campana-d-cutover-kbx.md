@@ -95,8 +95,8 @@ observable" que el brief pedía declarar. Ver Decisión D-4.
 
 Ninguna la toma la fábrica sin más. Por el régimen de `config.md`
 ("Ejecución de gates"), una decisión sin fuente citable la intenta primero
-el consultor delegado antes de escalar al dueño de la KB — así que "abierta" aquí
-significa "con recomendación y trade-offs escritos", no "bloqueada hasta que el dueño de la KB conteste".
+el consultor delegado antes de escalar al mantenedor — así que "abierta" aquí
+significa "con recomendación y trade-offs escritos", no "bloqueada hasta que el mantenedor conteste".
 
 ### D-3 — Exit code de `exo rotate` cuando falla una nota individual de la barrida · no bloquea ninguna task
 
@@ -116,7 +116,7 @@ decidir qué exit code final usar en exo, donde 2 es "error de uso de clap"
 **Recomendación: a.** Es la Task 5 quien la aplica: `rotate_cmd` termina con
 `anyhow::bail!` tras imprimir cada fallo por stderr, que en `main()` cae en
 la rama genérica (exit 1). Declarada en el pre-registro (divergencia 1 de
-§Rotate). Si el dueño de la KB prefiere (b), es un cambio de una función (`GateFallido`
+§Rotate). Si el mantenedor prefiere (b), es un cambio de una función (`GateFallido`
 en vez de `bail!`) revisable después del merge — no vale la pena bloquear
 el port por esto.
 
@@ -134,11 +134,11 @@ propio kbx.
 
 **Recomendación: b.** Ya aplicada en el código que trae la Task 5 (usa
 `exo::nombre_kb()`) y ya declarada como divergencia 6 en
-`2026-09-14-campana-d-preregistro-paridad-rotate-stale.md`. Si el dueño de la KB prefiere
+`2026-09-14-campana-d-preregistro-paridad-rotate-stale.md`. Si el mantenedor prefiere
 (a), el cambio es una línea en `aplica` (pasar un `&str` literal en vez de
 `nombre_kb()?`) y una reversión de esa declaración — tampoco bloquea, la
 Task 5 ya trae la recomendación implementada; esto queda abierto solo para
-que quede escrito y el dueño de la KB pueda vetarlo con conocimiento, no porque haga
+que quede escrito y el mantenedor pueda vetarlo con conocimiento, no porque haga
 falta esperar.
 
 ### Nota de documentación, no D-n — precondición "KB versionada" de A2
@@ -192,14 +192,14 @@ ejerce o las cambia:
   `engine/src/` o `engine/tests/`.
 - **Git**: `git add <rutas explícitas>`, nunca `-A`/`.`; `git -C <path>`,
   nunca `cd <path> && git`. Push, merge a `main` y borrado de ramas
-  remotas son línea roja del dueño de la KB — nunca los ejecuta la fábrica.
+  remotas son línea roja del mantenedor — nunca los ejecuta la fábrica.
 - **`$TMPDIR`** en los comandos de este plan es un directorio fuera del
   repo: `export TMPDIR="${TMPDIR:-$(mktemp -d)}"` al abrir la sesión del
   ejecutor. Nada de lo que va ahí se commitea.
 - **Una task bloqueada por una decisión PENDIENTE-PAUL sin recomendación
   aplicable queda `encolado`** (config de fábrica). Ninguna task de este
   plan cae en ese caso: D-3 y D-4 traen recomendación ya aplicada en el
-  código que trae su propia task, así que nada espera al dueño de la KB para avanzar.
+  código que trae su propia task, así que nada espera al mantenedor para avanzar.
 - **Ninguna task escribe en `~/.local/bin`.** El `kbx` de `fe46443` se
   compila a `/tmp/campana-d/kbx` (Task 2, Step 3, `go build -o`, nunca
   `make install`); las Tasks 3/4/6/8 lo invocan como `"$KBX"`. Para probar
@@ -254,7 +254,7 @@ máquina), Tasks 3, 4, 6 y 8 quedan `encolado` — declarado, no bloquea 5, 7
 ni 9.
 ```
 
-**Con el dueño de la KB fuera del camino crítico**: el 80% del trabajo de ingeniería real
+**Con el mantenedor fuera del camino crítico**: el 80% del trabajo de ingeniería real
 (Tasks 5, 7, 9 — los dos ports y el cutover de consumidores) no depende de
 que haya Go instalado ni de ningún PENDIENTE-PAUL sin resolver. Solo las
 cuatro tasks de gate (3, 4, 6, 8) dependen de Task 2, y esa es la única que
@@ -3178,7 +3178,7 @@ El repo `kbx`
   backlog tiene una fila de "Estado" tabular al principio del fichero
   (como la que ya existe para las campañas A/B/C, `docs/backlog.md:1-30`
   a fecha de este plan), añadir una fila para D siguiendo el mismo formato
-  — commit de referencia, qué cerró, qué queda abierto (D-4 si el dueño de la KB no lo
+  — commit de referencia, qué cerró, qué queda abierto (D-4 si el mantenedor no lo
   ha zanjado, la acción (a) de "exo genérico").
 
 - [ ] **Step 6: commit**
@@ -3198,7 +3198,7 @@ git -C ~/Documentos/proyectos/exo commit -m "docs(d, backlog): cierra gates de p
   de su alcance declarado.
 - **Decisión D-4** (permalink del archivo: `nombre_kb()` vs literal
   del nombre de la KB) queda con la recomendación ya aplicada en el código,
-  pero formalmente abierta hasta que el dueño de la KB la vea. Revertirla es un cambio
+  pero formalmente abierta hasta que el mantenedor la vea. Revertirla es un cambio
   de una línea en `aplica` (Task 5, Step C3).
 - **`kbx` como herramienta sigue existiendo** en
   `~/Documentos/proyectos/kbx` — este plan no lo borra ni lo deprecia como
@@ -3207,7 +3207,7 @@ git -C ~/Documentos/proyectos/exo commit -m "docs(d, backlog): cierra gates de p
   decisión de esta campaña.
 - **El gate de paridad de `budget`/`lint` (G4b) sigue con su "Registro"
   vacío** (`2026-09-04-g4b-preregistro-budget-lint.md`) — no estaba en el
-  alcance que el dictamen ni el dueño de la KB pidieron para D (solo `targets` y
+  alcance que el dictamen ni el mantenedor pidieron para D (solo `targets` y
   `ratchet`). Queda como candidato de una futura campaña si hace falta.
 - **Si Task 2 (prerrequisitos) falla** por falta de `gcc`/toolchain C en
   esta máquina concreta, las Tasks 3, 4, 6 y 8 quedan `encolado` y el

@@ -60,7 +60,7 @@ Otros hechos:
 | Team, store vacío o `compose:false` | submit | submit |
 | Cambio de cuenta personal→Team con store `compose:true` | **sin reglas** (hueco de un turno) | submit (compose no marcó) |
 
-El hueco de un turno al cambiar de cuenta es el precio de no duplicar; alternativa: entregar siempre en turno 1 y aceptar la duplicación en cuentas personales. Pregunta para Paul (§5).
+El hueco de un turno al cambiar de cuenta es el precio de no duplicar; alternativa: entregar siempre en turno 1 y aceptar la duplicación en cuentas personales. Pregunta para el mantenedor (§5).
 
 ### S3 — El testigo actual confunde «no cargó» con «cargó y la política lo saltó»; el fix propuesto («distinguir») no tiene señal hoy
 
@@ -72,7 +72,7 @@ El hueco de un turno al cambiar de cuenta es el precio de no duplicar; alternati
 
 La rama existente `HB_ST=error && SS_ST=ok → no_entrego` (`document-remind.sh:43-45`) ya atraparía `via:none` con el copy equivocado; basta leer `via` antes.
 
-Dos matices: (a) `session.start` **no** vuelve a disparar en `/clear` (d.ts: «never `/clear`»; `session.end` con `reason:'clear'`); con `/clear` cambia el `session_id`, así que el hb inicial de la nueva sesión lo tiene que escribir **el primer `prompt.submit`** si no existe, no solo `session.start`. (b) Un `hb` de `session.start` sin prompt posterior (sesión abierta y cerrada) es `via:none` legítimo; el Stop no se dispara sin turno, así que no grita. Si Paul abre, no escribe y cierra: ni Stop ni grito. Correcto.
+Dos matices: (a) `session.start` **no** vuelve a disparar en `/clear` (d.ts: «never `/clear`»; `session.end` con `reason:'clear'`); con `/clear` cambia el `session_id`, así que el hb inicial de la nueva sesión lo tiene que escribir **el primer `prompt.submit`** si no existe, no solo `session.start`. (b) Un `hb` de `session.start` sin prompt posterior (sesión abierta y cerrada) es `via:none` legítimo; el Stop no se dispara sin turno, así que no grita. Si el mantenedor abre, no escribe y cierra: ni Stop ni grito. Correcto.
 
 ### S4 — El canal degradado está sin medir; el 4/11 no es su número
 
@@ -151,7 +151,7 @@ prompt.submit:
 
 ---
 
-## 5. Preguntas abiertas para Paul
+## 5. Preguntas abiertas para el mantenedor
 
 1. **Turno 1 en cuenta personal con store vacío**: ¿duplicar una vez (submit + compose) o arriesgar el hueco de un turno al cambiar de cuenta? Recomiendo duplicar: es una vez por máquina y el framing es idéntico; el modelo ve la misma regla dos veces, no dos reglas.
 2. **Visibilidad del aviso «canal degradado»**: una vez por sesión en la máquina de trabajo es una línea en cada Stop inicial, todos los días. ¿Una vez por sesión, una vez por día (`$.store` con fecha), o solo log? Recomiendo una vez por día hasta que el eval de S4 diga si el canal vale; después, solo log.

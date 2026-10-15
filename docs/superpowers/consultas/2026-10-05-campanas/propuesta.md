@@ -15,13 +15,13 @@
 |---|---|---|---|
 | **N** | Sincronía: `docs/backlog.md`, `pendiente-paul.md` y `config.md` de fábrica dicen la verdad | mecánica (docs) | decisión D1 (techos vivos o retirados); va **la última** |
 | **O** | Deuda menor viva con criterio citable (engine, evals, CI, restos de macOS) | mecánica | ninguno; el job de CI va por PR |
-| **P** | `upstream-sync`: deuda del bot + primera pasada puntuada contra su gate | mecánica + PAUL-STEP | la corrida de la routine y su activación son de Paul |
-| **Q** | Shipeo a W11: `install.ps1` + `doctor` + aviso de superpowers + `hook_ms` publicado | mecánica, oráculo = CI Windows | la prueba en W11 y `plugin disable superpowers` son de Paul |
-| R | `retirar-limites`: integrar o enterrar | **condicional a D1** | Paul |
+| **P** | `upstream-sync`: deuda del bot + primera pasada puntuada contra su gate | mecánica + PAUL-STEP | la corrida de la routine y su activación son del mantenedor |
+| **Q** | Shipeo a W11: `install.ps1` + `doctor` + aviso de superpowers + `hook_ms` publicado | mecánica, oráculo = CI Windows | la prueba en W11 y `plugin disable superpowers` son del mantenedor |
+| R | `retirar-limites`: integrar o enterrar | **condicional a D1** | el mantenedor |
 
-**Orden**: O ∥ P ∥ Q en paralelo, con intersección de ficheros vacía salvo `plugin.json` (bump: se re-bumpea en orden de merge). Después R, si Paul la revive. **N cierra la ola** y absorbe los cierres de las demás. Mismo patrón que C1 en la ola 2: `docs/backlog.md` solo lo toca N.
+**Orden**: O ∥ P ∥ Q en paralelo, con intersección de ficheros vacía salvo `plugin.json` (bump: se re-bumpea en orden de merge). Después R, si el mantenedor la revive. **N cierra la ola** y absorbe los cierres de las demás. Mismo patrón que C1 en la ola 2: `docs/backlog.md` solo lo toca N.
 
-Por qué esta forma: la instrumentación de la ola 2 dice que **la fábrica rinde en lane mecánica y deja de ser fábrica en lane de diseño experimental**. Esa ola tuvo 11 decisiones de Paul en sesión, casi todas en el Lane A (informe de cierre de la ola 2, en el ledger). Por eso esta ola es **mecánica entera**. Lo de diseño va al §4, como pre-campaña con Paul.
+Por qué esta forma: la instrumentación de la ola 2 dice que **la fábrica rinde en lane mecánica y deja de ser fábrica en lane de diseño experimental**. Esa ola tuvo 11 decisiones del mantenedor en sesión, casi todas en el Lane A (informe de cierre de la ola 2, en el ledger). Por eso esta ola es **mecánica entera**. Lo de diseño va al §4, como pre-campaña con el mantenedor.
 
 ## 2. Obsoleto: se cierra, no se trabaja
 
@@ -43,7 +43,7 @@ Cada ítem se cierra en N con la evidencia citada. Ninguno abre trabajo.
 | Oráculos de `config.md:441-475` | `kbx doctor --kb …/kb-demo` (kb-demo no existe, kbx retirado), `make check` de kbx, `evals/retrieval-fase0/eval.jsonl` (no existe) | `ls` |
 | ALERTA del `.gitignore` en `config.md:10-15` | resuelta: la excepción `!.superpowers/fabrica/config.md` existe | `.gitignore` |
 | `pendiente-paul.md`: bloques C (D4/D5/D6), E/D (ya RESUELTAS), J (juzgado y congelado en `a936770`), L (padres cerrados), «pushear la KB personal» (hecho) | históricos | ledger ola 2 |
-| Campaña K | cerrada sin campaña L, por decisión de Paul | BIT:71, `evals/ablacion-k/verdict-etapa1.md` |
+| Campaña K | cerrada sin campaña L, por decisión del mantenedor | BIT:71, `evals/ablacion-k/verdict-etapa1.md` |
 | Worktree `.worktrees/campana-k` y ~27 ramas locales ya mergeadas | basura: ver D6 | `git branch --merged` |
 
 ## 3. Campañas
@@ -76,7 +76,7 @@ Cada ítem lleva su criterio citable del backlog:
 - **Alcance de la fábrica**:
   - (1) Deuda del bot: un revert de porte sigue marcando `portado`, y U1 (`task-brief` escribe en la raíz plana) sigue vivo (KB-exo:44). Cada uno con test en `scripts/test-upstream-reconcile.sh`.
   - (2) Dejar lista la pasada de evaluación: `scripts/upstream-score.sh` contra `verdad-v6.1.1-v6.4.2.md`.
-- **Gate escrito** (KB-exo:44): «0 ya-cubierto falsos y ≥90 %». Si pasa, se activa la routine (Paul). Si no pasa, el residuo va documentado y la routine sigue apagada.
+- **Gate escrito** (KB-exo:44): «0 ya-cubierto falsos y ≥90 %». Si pasa, se activa la routine (el mantenedor). Si no pasa, el residuo va documentado y la routine sigue apagada.
 - **PAUL-STEP**: disparar la routine (`/schedule`) para la primera pasada y activarla. Responder las 16 dudas de mapeo del issue #30, 3 de ellas ya decididas en doctrina pero sin marcar `respondida` (#2077, #2063, #1934).
 - **Duda abierta**: no sé si la pasada de evaluación puede correr en local o exige la routine en la nube. Lo resuelve el recon pre-flight de la campaña.
 
@@ -99,7 +99,7 @@ Es una rama local, nunca mergeada y ausente de la KB:
 - **Si se revive**: (1) separar search-por-trozo y re-specearlo contra B3 (lane diseño, fuera de esta ola); (2) rebase de la parte de límites, re-bump y migrar el core-index y las skills; (3) es una ruptura de contrato con la KB viva, así que va con `exo doctor` sobre una copia de la KB como oráculo.
 - **Si se entierra**: tag `archivo/retirar-limites` y borrar las dos ramas.
 
-## 4. Fuera de la fábrica: pre-campaña con Paul
+## 4. Fuera de la fábrica: pre-campaña con el mantenedor
 
 Ninguno tiene criterio de cierre escrito. Todos piden brainstorm (`exo:brainstorm`) antes de poder ser campaña.
 
@@ -109,7 +109,7 @@ Ninguno tiene criterio de cierre escrito. Todos piden brainstorm (`exo:brainstor
 - **Tasa de re-explicación**: aparcada; necesita que etiquetes 436 prompts (~40 min).
 - `search-first`: leer la tasa `ok/(ok+aviso)` en `~/.claude/reflex-log.jsonl`. Es lectura, no campaña.
 
-## 5. Decisiones para Paul
+## 5. Decisiones para el mantenedor
 
 - **D0 (antes del 10-08)**: ¿se lanza P ya para intentar activar antes de que el watchdog se ponga rojo, o se acepta el rojo?
 - **D1**: ¿se revive `retirar-limites` (campaña R) o se entierra con tag? Decide qué escribe N sobre techos y trinquete.

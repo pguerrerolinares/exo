@@ -1,6 +1,6 @@
 # Artefacto del gate de M6-06 — la lista y la normalización que produjeron los números
 
-Este fichero es el ORIGINAL que midió el gate sobre los 272 prompts reales de Paul.
+Este fichero es el ORIGINAL que midió el gate sobre los 272 prompts reales del mantenedor.
 Se commitea porque **todos los números del gate son propiedades de esta lista
 exacta**: 86% de tasa de disparo, FN topical = 0, y "los 39 que salta son ack/git
 puro". Una lista reescrita de memoria hereda los claims sin heredar el artefacto que
@@ -27,7 +27,7 @@ subirla, y no puede silenciar ningún prompt topical. El resto del gate es idén
 todos los deltas del Apéndice B; **está retirado del diseño**, no se implementa.
 
 Dependencia: `prompts_clean.jsonl` (272 prompts humanos extraídos de los .jsonl de
-sesión) NO se commitea — contiene los prompts de Paul en crudo. Para re-medir hay que
+sesión) NO se commitea — contiene los prompts del mantenedor en crudo. Para re-medir hay que
 regenerarlo con el extractor descrito en el Apéndice B.
 
 ---

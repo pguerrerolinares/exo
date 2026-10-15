@@ -3,7 +3,7 @@
 ## Por qué te llaman a ti
 
 Cuatro auditores y un coordinador han pasado un día sobre este problema. Han
-producido una propuesta (v2) ratificada por unanimidad. **Paul sigue sin estar
+producido una propuesta (v2) ratificada por unanimidad. **El mantenedor sigue sin estar
 convencido**, y ha pedido explícitamente un consultor *independiente* que
 investigue cómo se resuelve esto en la comunidad y en la literatura.
 
@@ -14,7 +14,7 @@ lo ya firmado, y un informe que valida el consenso por inercia no vale nada aqu�
 
 Pero tampoco se te pide que encuentres algo mejor a toda costa: si tras
 investigar concluyes que la v2 es lo mejor disponible y que la insatisfacción de
-Paul no tiene remedio técnico, **dilo y ahórranos el trabajo**. Es una respuesta
+El mantenedor no tiene remedio técnico, **dilo y ahórranos el trabajo**. Es una respuesta
 legítima y probablemente la más valiosa si es la verdadera.
 
 ## El problema, en su forma más despojada
@@ -26,7 +26,7 @@ canónicas con techo de bytes— se llena, y llenarse duele siempre en el mismo
 momento: al cerrar la sesión, cuando ya no hay tiempo ni ganas de decidir qué
 sobra.
 
-La pregunta de Paul, literal, dos veces: *"llevamos con ese problema casi desde
+La pregunta del mantenedor, literal, dos veces: *"llevamos con ese problema casi desde
 el inicio y se creó consolida, pero me da la sensación que es un apaño más que
 una solución"* y *"consolida ya lo hemos realizado varias veces y siempre
 muerde"*.
@@ -90,7 +90,7 @@ tiene análogo es bloquear al escritor en el write path.
    contexto, agentes que gestionan su propia memoria, "context engineering". Y
    en particular: ¿alguien ha estudiado el coste de la *fricción editorial*
    sobre el humano, que es lo que aquí duele?
-5. **La hipótesis incómoda**: que Paul esté insatisfecho no porque el sistema
+5. **La hipótesis incómoda**: que el mantenedor esté insatisfecho no porque el sistema
    funcione mal, sino porque **le pide decisiones editoriales que no quiere
    tomar**, y ninguna arquitectura elimina eso — solo lo mueve de sitio. Si es
    así, la conclusión honesta es "esto no es un problema de ingeniería" y
@@ -101,7 +101,7 @@ tiene análogo es bloquear al escritor en el write path.
 - KB personal de un solo autor. **Régimen §0: cerrar cosas, no construir
   maquinaria.** Una propuesta que exija un subsistema nuevo tiene una barra muy
   alta, y debes decir explícitamente qué se retira a cambio.
-- El mantenimiento cuesta **tiempo de Paul**. Una solución que pida más
+- El mantenimiento cuesta **tiempo del mantenedor**. Una solución que pida más
   disciplina humana no es una solución.
 - Sin métricas nuevas ni ventanas de medición.
 - Existe un **trinquete** firmado: los techos por nota solo pueden bajar. Si tu

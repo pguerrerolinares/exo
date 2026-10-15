@@ -2,7 +2,7 @@
 
 ## Rol
 
-Eres consultor Fable del régimen de gates delegado del proyecto exo. Paul ha
+Eres consultor Fable del régimen de gates delegado del proyecto exo. El mantenedor ha
 levantado una objeción de fondo a mitad de la implementación de M6-06, y quiere que
 la investigues antes de que yo aplique el parche fácil.
 
@@ -10,7 +10,7 @@ la investigues antes de que yo aplique el parche fácil.
 medición en tu scratchpad, sí. Veredicto en
 `docs/superpowers/consultas/2026-08-22-m6-06/consultor-caps.md`.
 
-## La objeción de Paul, literal
+## La objeción del mantenedor, literal
 
 > "los caps no es la primera vez que dan problema y siempre hemos subido, no es un
 > apaño esto? debe existir mejores soluciones"
@@ -56,7 +56,7 @@ acoplamiento entre dos hooks).
 
 ## Lo que quiero que investigues
 
-### 1. ¿Es un patrón sistémico? (la pregunta de Paul)
+### 1. ¿Es un patrón sistémico? (la pregunta del mantenedor)
 
 Inventaria los caps del framework y su historia real: `EXO_RECALL_CAP=6144` en
 `plugins/reflex/scripts/exo-recall.sh` (con su guard y su nota de "límite real"),
@@ -102,7 +102,7 @@ cap es su propio problema, dilo también — es una respuesta válida.
 
 1. **Cero cambios en el engine (Rust)** es la propiedad que hace M6-06 barato. Si tu
    propuesta obliga a tocarlo, dilo alto: cambia el coste del item y hay que
-   escalarlo a Paul.
+   escalarlo al mantenedor.
 2. Régimen §0: proyecto personal, cerrar ya, sin métricas nuevas ni ventanas.
 3. YAGNI: si tu arreglo es más caro que el problema, no es un arreglo.
 4. Lo ya construido de M6-06 (gate, búsqueda, composición) está cerrado y revisado;
@@ -118,7 +118,7 @@ cap es su propio problema, dilo también — es una respuesta válida.
 
 ## Formato
 
-1. Veredicto en una línea a la pregunta de Paul: ¿es un apaño sistémico, sí o no?
+1. Veredicto en una línea a la pregunta del mantenedor: ¿es un apaño sistémico, sí o no?
 2. El inventario de caps con su historia, y qué dice el patrón.
 3. Adjudicación FIRMADA de qué hacer con el cap de M6-06, con el trade-off explícito.
 4. La regla de diseño para el futuro, o el argumento de por qué no la hay.

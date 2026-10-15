@@ -1,6 +1,6 @@
 # M6-06 — Recall en el punto de uso (diseño)
 
-**Estado**: diseño aprobado por Paul (2026-08-22). Cierra el último item vivo de
+**Estado**: diseño aprobado por el mantenedor (2026-08-22). Cierra el último item vivo de
 M6 y **desbloquea M5b** (desinstalar basic-memory).
 
 **Procedencia**: el encargo viene de `2026-08-18-cierre-en-regimen-design.md` §3.2,
@@ -15,7 +15,7 @@ razonamiento que lo produjo.
 
 ## 0. Qué es, y qué NO se re-adjudica
 
-Un hook `UserPromptSubmit` que busca el prompt de Paul en la KB e inyecta punteros
+Un hook `UserPromptSubmit` que busca el prompt del mantenedor en la KB e inyecta punteros
 a lo relevante antes de que el modelo empiece a pensar. **Transporte mecánico**:
 cero decisión del modelo sobre *si buscar*.
 
@@ -37,7 +37,7 @@ en el engine.**
 ## 1. Lo que el dato cambió respecto a §3.2
 
 La spec del 18-ago proponía dos mitigaciones. **Las dos caen**, medidas contra el
-índice vivo (145 notas) y 272 prompts reales de Paul desde el 01-ago.
+índice vivo (145 notas) y 272 prompts reales del mantenedor desde el 01-ago.
 
 **Cae "FTS-only para este hook".** `prepara_query` (`buscador.rs:146`) une los
 tokens con AND implícito, así que el prompt real *"vamos con brainstorm de M6-06"*
@@ -71,7 +71,7 @@ del embedding, y ningún estadístico de esa geometría la recupera.** De paso
 explica C6: el 0.40 no está mal calibrado para esto, es que mide otra cosa —
 maximiza hit@5 (recall), no precision@3.
 
-**Consecuencia de diseño, aceptada explícitamente por Paul antes de ver el
+**Consecuencia de diseño, aceptada explícitamente por el mantenedor antes de ver el
 apéndice**: la defensa contra falsos positivos se muda del umbral al **formato y
 al presupuesto**. Cuando el hook dispara, inyecta hasta 3 punteros haya o no señal.
 El ruido es determinista y cuesta ≤1 KB.
@@ -241,7 +241,7 @@ que el cap racionara. De ahí las tres reglas:
 Tres propiedades **no negociables**, porque son la única defensa contra falsos
 positivos que este diseño tiene:
 
-1. Se declara **mecánico** — nadie lo pidió; no es una búsqueda que Paul ordenó ni
+1. Se declara **mecánico** — nadie lo pidió; no es una búsqueda que el mantenedor ordenó ni
    parte de su prompt.
 2. Se declara **material, no instrucción** — mismo espíritu que el `PARCIAL` del
    arranque.
@@ -280,7 +280,7 @@ prohíbe); es visibilidad de degradación (§3.4 la autoriza explícitamente:
 ## 3. Data flow
 
 ```
-prompt de Paul
+prompt del mantenedor
    │
    ▼
 UserPromptSubmit ──> recall-inject.sh
@@ -305,7 +305,7 @@ hookSpecificOutput.additionalContext  ──>  el modelo lo ve junto al prompt
 ## 4. Error handling y propiedades protegidas
 
 **P1 — El hook JAMÁS destruye el prompt.** En `UserPromptSubmit` un **exit 2 borra
-el prompt de Paul** (verificado en docs oficiales): es el único evento del harness
+el prompt del mantenedor** (verificado en docs oficiales): es el único evento del harness
 donde un bug del script destruye input del usuario. Exige la disciplina exit-0 *más
 dura* que la de reflex, no la estándar: **nada de `set -e`**, toda tubería con
 `|| true`, y `exit 0` incondicional al final. Cualquier ruta de fallo — binario
@@ -362,7 +362,7 @@ la instalación real:
    `<`.
 2. **P1, el test que importa**: con `EXO_BIN` apuntando a un binario que sale con 2,
    que revienta, y que escupe basura a stdout — **exit 0 en los tres casos**, y sin
-   bloque. Es el test que protege el prompt de Paul.
+   bloque. Es el test que protege el prompt del mantenedor.
    2b. **P4**: binario falso que duerme 30 s ⇒ el hook vuelve en ~5 s con
    `reason=timeout-guard` y exit 0. Testeable precisamente porque el timeout es
    suyo y no del harness.
@@ -379,7 +379,7 @@ la instalación real:
 7. **Salida y P6**: el stdout es JSON válido con
    `hookSpecificOutput.hookEventName == "UserPromptSubmit"` **y nada más** — ni una
    línea suelta antes o después. En este evento el stdout plano se inyecta como
-   contexto, así que un `echo` perdido entra en el turno de Paul.
+   contexto, así que un `echo` perdido entra en el turno del mantenedor.
 
 Y la verificación end-to-end en vivo, que es la que cierra el item: escribir `M6-06`
 a secas en una sesión real y ver llegar sus notas.
@@ -396,7 +396,7 @@ No son riesgos residuales: son costes conocidos, medidos y firmados.
   del primer token, no en medio.
 - **Ruido determinista**: cuando dispara, inyecta hasta 3 punteros haya o no señal.
   Sin umbral que separe (§1), la defensa es formato + ≤1 KB. El riesgo real no es el
-  coste en tokens sino **que Paul deje de mirarlos** y el hook se vuelva papel
+  coste en tokens sino **que el mantenedor deje de mirarlos** y el hook se vuelva papel
   pintado; si eso pasa, el dolor es la señal de reapertura.
 - **Una lista cerrada de 127 stopwords** como punto de mantenimiento nuevo.
 - **La ruta deja de ser copy-pasteable de un vistazo**: el modelo une la raíz de la
@@ -448,7 +448,7 @@ log muestra `recall-inject-emitted` en turnos sustantivos y silencio en los acks
 todas las campañas de M6. Nada más se toca, porque nada más se ha tocado.
 
 **Cola tras esto**: M6 cierra entero → **C10/M5a-02** (config propia: mata el
-hardcode `projects["kb-demo"]` de `lib.rs:71`) → **C11/M5b** (Paul desinstala
+hardcode `projects["kb-demo"]` de `lib.rs:71`) → **C11/M5b** (el mantenedor desinstala
 basic-memory).
 
 ---
@@ -456,8 +456,8 @@ basic-memory).
 ## Anexo — procedencia de los números
 
 Todos los datos de este documento salen de medición primaria del consultor Fable
-contra el índice vivo (`~/.exo/index.db`, 145 notas) y 272 prompts humanos reales de
-Paul desde el 01-ago (55 `.jsonl`, filtrados teammate-messages,
+contra el índice vivo (`~/.exo/index.db`, 145 notas) y 272 prompts humanos reales del
+mantenedor desde el 01-ago (55 `.jsonl`, filtrados teammate-messages,
 task-notifications, comandos, sidechains y meta). Detalle, método y límites
 declarados (n=30 en la muestra etiquetada a mano, etiquetas del propio consultor, un
 solo corpus) en `consultas/2026-08-22-m6-06/consultor-m6-06.md` §1, §2 y apéndices

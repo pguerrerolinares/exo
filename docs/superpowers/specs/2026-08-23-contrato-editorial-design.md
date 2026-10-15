@@ -289,7 +289,7 @@ añade la misma vigilancia para el truncado del bloque de arranque:
 
 - **Fase 2 (la banda de dos umbrales)**: condicional por eventos en el
   expediente. No se escribe doctrina de algo que aún no tiene código.
-- **Downrank de `archive/` en el retrieval**: decisión independiente de Paul,
+- **Downrank de `archive/` en el retrieval**: decisión independiente del mantenedor,
   frente propio, no entra aquí.
 - **Doctrina nueva en `doctrina-agentes` o `desarrollo-agentico`**: imposible,
   33 y 49 bytes de aire. Se difiere al runbook.

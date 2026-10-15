@@ -141,7 +141,7 @@ Evidencia en `~/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/`:
 - **Líneas rojas:** no se toca `~/.exo/index.db` (solo `exo search` de
   lectura); no se escribe en la KB personal (el
   snapshot es un `git clone` a `$PRIV`); nada de push, merge ni commit a
-  `main` (el merge es un gate del dueño de la KB); nada externo; `git add` con rutas
+  `main` (el merge es un gate del mantenedor); nada externo; `git add` con rutas
   explícitas, nunca `-A`; `git -C <path>`, nunca `cd <path> && git`.
 - **Pre-registro primero.** Ninguna tarea computa hit@k de un brazo sobre el
   held-out antes del commit de congelación (Task 5). Tras congelar no se afina
@@ -152,13 +152,13 @@ Evidencia en `~/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/`:
 - **Régimen de fábrica:** `.superpowers/fabrica/config.md` §ACTUALIZACIÓN
   2026-08-17 dice literal "**Sin métricas nuevas, sin pre-registros nuevos, sin
   ventanas de observación.**". Esta campaña lo contradice y **no arranca sin
-  la línea `OVERRIDE` del dueño de la KB** (D0). El config está desactualizado y este
+  la línea `OVERRIDE` del mantenedor** (D0). El config está desactualizado y este
   plan no lo edita.
 
 ## Decisiones abiertas (PENDIENTE-PAUL)
 
 Se fijan en la Task 0 (D0–D3) y en la Task 5 (D4–D5), antes de congelar. Cada
-una lleva una recomendación; la decisión es del dueño de la KB.
+una lleva una recomendación; la decisión es del mantenedor.
 
 **D0 — Levantar el régimen de cierre para C.**
 - (a) OVERRIDE solo para la campaña C. Pro: el item Alta del backlog
@@ -177,7 +177,7 @@ una lleva una recomendación; la decisión es del dueño de la KB.
 - (c) Solo `hard`, paráfrasis sintéticas sobre notas añadidas tras el
   2026-08-17. Pro: fuga temporal imposible. Contra: son sintéticas y cargan el
   sesgo del autor.
-- (d) Queries escritas por el dueño de la KB. Pro: el gold más fiel. Contra: su tiempo, y
+- (d) Queries escritas por el mantenedor. Pro: el gold más fiel. Contra: su tiempo, y
   conoce el sistema.
 - (e) Mezcla estratificada fija a priori.
 - *Recomendación: (e) con `prompt` 50% · `agent-search` 30% · `hard` 20%,
@@ -186,7 +186,7 @@ una lleva una recomendación; la decisión es del dueño de la KB.
   inventar prompts.*
 
 **D2 — Tamaño (filas no nulas).**
-- 60: el dueño de la KB revisa en ~40 min; potencia ~0,38 ante +10 pp.
+- 60: el mantenedor revisa en ~40 min; potencia ~0,38 ante +10 pp.
 - 100: ~1–1,5 h; potencia ~0,66 ante +10 pp; con la regla GANA, P(adoptar
   +8 pp) = 0,93.
 - 150: ~2 h; 0,85; probablemente no cabe en el pool.
@@ -228,7 +228,7 @@ una lleva una recomendación; la decisión es del dueño de la KB.
 **D6 — Default de `exo search --type` (backlog item Alta, acción (c)).**
 Fuera de producción en C: el verdict aporta A0 frente a A2 en held-out y la
 decisión se toma después, porque toca la help de `main.rs:213-216`, que es
-territorio de B. *Recomendación: la decide el dueño de la KB con el verdict delante.*
+territorio de B. *Recomendación: la decide el mantenedor con el verdict delante.*
 
 ## Dependencias y conflictos con A y B
 
@@ -265,7 +265,7 @@ territorio de B. *Recomendación: la decide el dueño de la KB con el verdict de
 
 ---
 
-### Task 0: Decisiones de diseño del dueño de la KB (PENDIENTE-PAUL, gate humano)
+### Task 0: Decisiones de diseño del mantenedor (PENDIENTE-PAUL, gate humano)
 
 **Lane:** — (gate humano; bloquea Tasks 2–12). La Task 1 puede avanzar at-risk.
 **Oráculo:** `rg -n '^OVERRIDE .*campana-c' .superpowers/fabrica/ledger.md && rg -n '^D[0-3] ' .superpowers/fabrica/pendiente-paul.md`
@@ -281,7 +281,7 @@ territorio de B. *Recomendación: la decide el dueño de la KB con el verdict de
 
 Añadir a `.superpowers/fabrica/pendiente-paul.md`, copiando literal las opciones y recomendaciones de §Decisiones abiertas (D0, D1, D2, D3), con "bloquea: campaña C Tasks 2–12" y la fecha de `date -Iseconds`.
 
-- [ ] **Step 2: Esperar el veredicto del dueño de la KB**
+- [ ] **Step 2: Esperar el veredicto del mantenedor**
 
 No se despacha ninguna tarea 2–12 hasta que existan:
 ```
@@ -1359,7 +1359,7 @@ Lista de notas elegibles:
 git -C "$PRIV/kb-snap" log --diff-filter=A --since=2026-08-17 --name-only --format= -- '*.md' | sort -u > "$PRIV/notas-nuevas.txt"; wc -l < "$PRIV/notas-nuevas.txt"
 ```
 Despachar un subagente **sonnet** fresco con este brief literal:
-"Lee notas de `$PRIV/kb-snap/` listadas en `$PRIV/notas-nuevas.txt` (mezcla `learnings/`, `log/`, `backlog`, excluye `archive/` salvo que falten). Por cada nota elegida escribe UNA query en castellano que haría el dueño de la KB para re-encontrarla SIN sus palabras clave literales ni su título. La mitad en frase natural, la otra mitad en estilo 2–5 palabras clave parafraseadas. PROHIBIDO: ejecutar `exo`, `kbx` o tools de basic-memory; leer `~/Documentos/proyectos/exo/evals/`, `reports/`, `~/.exo/`, `~/.local/share/exo-evals/` salvo `kb-snap` y `notas-nuevas.txt`. Devuelve JSONL `{"query", "source":"hard", "author_expected":"<permalink del frontmatter>"}` en `$PRIV/hard-candidatas.jsonl`, tantas como la cuota `hard` × 1,5."
+"Lee notas de `$PRIV/kb-snap/` listadas en `$PRIV/notas-nuevas.txt` (mezcla `learnings/`, `log/`, `backlog`, excluye `archive/` salvo que falten). Por cada nota elegida escribe UNA query en castellano que haría el mantenedor para re-encontrarla SIN sus palabras clave literales ni su título. La mitad en frase natural, la otra mitad en estilo 2–5 palabras clave parafraseadas. PROHIBIDO: ejecutar `exo`, `kbx` o tools de basic-memory; leer `~/Documentos/proyectos/exo/evals/`, `reports/`, `~/.exo/`, `~/.local/share/exo-evals/` salvo `kb-snap` y `notas-nuevas.txt`. Devuelve JSONL `{"query", "source":"hard", "author_expected":"<permalink del frontmatter>"}` en `$PRIV/hard-candidatas.jsonl`, tantas como la cuota `hard` × 1,5."
 Registrar en el review-package los comandos que corrió el subagente (del transcript): si aparece `exo `, `kbx ` o `evals/`, se descarta su salida entera y se repite con otro subagente (retries cap 2).
 
 - [ ] **Step 5: Etiquetado (etiquetador fresco, filesystem-only)**
@@ -1433,7 +1433,7 @@ git -C ~/Documentos/proyectos/exo commit -m "eval(c): resumen de la verificacion
 
 ---
 
-### Task 5: Aprobación del gold por el dueño de la KB y congelación del pre-registro (PENDIENTE-PAUL + mecánica)
+### Task 5: Aprobación del gold por el mantenedor y congelación del pre-registro (PENDIENTE-PAUL + mecánica)
 
 **Lane:** gate humano, y luego mecánica. **Bloquea toda medición (Tasks 6–12).**
 **Oráculo:** `git -C ~/Documentos/proyectos/exo log -1 --format=%H -- docs/superpowers/plans/2026-09-13-campana-c-preregistro.md` devuelve el commit de congelación, y `sha256sum "$PRIV/gold.jsonl"` coincide con §10 del pre-registro.
@@ -1447,13 +1447,13 @@ git -C ~/Documentos/proyectos/exo commit -m "eval(c): resumen de la verificacion
 - Consumes: `$PRIV/gold.jsonl`, resumen de la Task 4, decisiones D0–D3 de la Task 0.
 - Produces: pre-registro congelado (commit) con D4, D5, `S`, sha256 y recuentos; `chmod 444 $PRIV/gold.jsonl`.
 
-- [ ] **Step 1: Review-package para el dueño de la KB**
+- [ ] **Step 1: Review-package para el mantenedor**
 
 `.superpowers/fabrica/packages/c-retrieval-heldout-gold.md` con:
 - ruta del gold privado y comando para abrirlo: `python3 -c 'import json,sys; [print(json.dumps(json.loads(l),ensure_ascii=False,indent=1)) for l in open(sys.argv[1])]' "$PRIV/gold.jsonl" | less`;
 - salida de `valida_gold.py`;
 - `gold-verificacion-resumen.md` y las 3 filas más flojas del verdict privado;
-- alcance de revisión propuesto: **todas** las nulas + todas las filas con `acceptable_permalinks` + todas las `CORREGIR` + 20 filas al azar (`python3 -c 'import json,random; f=[json.loads(l)["id"] for l in open("'"$PRIV"'/gold.jsonl")]; print(sorted(random.Random(20260913).sample(f, 20)))'`) — el dueño de la KB puede ampliarlo a todo;
+- alcance de revisión propuesto: **todas** las nulas + todas las filas con `acceptable_permalinks` + todas las `CORREGIR` + 20 filas al azar (`python3 -c 'import json,random; f=[json.loads(l)["id"] for l in open("'"$PRIV"'/gold.jsonl")]; print(sorted(random.Random(20260913).sample(f, 20)))'`) — el mantenedor puede ampliarlo a todo;
 - D4 y D5 con opciones y recomendación, copiadas de §Decisiones abiertas.
 
 - [ ] **Step 2: Esperar el veredicto**
@@ -1475,15 +1475,15 @@ cat "$PRIV/kb-snap.commit"
 ```
 Editar el pre-registro:
 - Cabecera: sustituir `**Estado: BORRADOR hasta el commit de congelación (Task 5 del plan` … hasta el fin de ese párrafo por `**Estado: CONGELADO el <date -Iseconds>.** Inmutable desde este commit; erratas → verdict.`
-- §6: si D4 ≠ (3, 2), sustituir `NETO ≥ 3` y `ARREGLA ≥ 2·ROMPE` por los valores del dueño de la KB.
-- §9: rellenar cada `____` con la línea literal del dueño de la KB (D0–D3 de la Task 0, D4–D5 del Step 2).
+- §6: si D4 ≠ (3, 2), sustituir `NETO ≥ 3` y `ARREGLA ≥ 2·ROMPE` por los valores del mantenedor.
+- §9: rellenar cada `____` con la línea literal del mantenedor (D0–D3 de la Task 0, D4–D5 del Step 2).
 - §10: `S` = contenido de `kb-snap.commit`; binario = `pendiente: post-A (Task 6 lo anota en agregados.md, no aquí)`; `sha256` y recuentos = salida JSON de `valida_gold.py`; aprobación = ruta del package + fecha de la línea `GATE:`.
 
 - [ ] **Step 4: Commit de congelación**
 
 ```bash
 git -C ~/Documentos/proyectos/exo add docs/superpowers/plans/2026-09-13-campana-c-preregistro.md
-git -C ~/Documentos/proyectos/exo commit -m "eval(c): congela pre-registro del held-out (gold aprobado por el dueño de la KB, sha256 fijado)"
+git -C ~/Documentos/proyectos/exo commit -m "eval(c): congela pre-registro del held-out (gold aprobado por el mantenedor, sha256 fijado)"
 git -C ~/Documentos/proyectos/exo log -1 --format='%H %cI'
 ```
 Expected: hash y fecha. Registrar en el ledger `preregistro_congelado: <hash>`. Desde aquí, `git diff <hash> -- docs/superpowers/plans/2026-09-13-campana-c-preregistro.md` debe salir vacío en cualquier tarea posterior.
@@ -1716,7 +1716,7 @@ fn coseno(a: &[f32], b: &[f32]) -> f32 {
 #[test]
 fn late_da_un_vector_unitario_por_trozo_en_orden() {
     let trozos = vec![
-        "La fábrica de campañas deja al dueño de la KB fuera del critical path.".to_string(),
+        "La fábrica de campañas deja al mantenedor fuera del critical path.".to_string(),
         "El gate de merge es asíncrono y se registra en el package.".to_string(),
         "Receta de lentejas con chorizo.".to_string(),
     ];
@@ -2059,7 +2059,7 @@ Añadir al final del item (tras el párrafo de «Calibración de la propia fuent
 ```markdown
   **Campaña C (2026-09-13 → <fecha verdict>), held-out pre-registrado:**
   acción (a) HECHA — gold privado de <n> queries no nulas (<estratos>),
-  aprobado por el dueño de la KB, sha256 en `docs/superpowers/plans/2026-09-13-campana-c-preregistro.md` §10;
+  aprobado por el mantenedor, sha256 en `docs/superpowers/plans/2026-09-13-campana-c-preregistro.md` §10;
   acción (b) HECHA — `evals/retrieval-heldout/verdict/c-verdict.md` reporta
   held-out y in-sample por separado con base declarada. Resultado: R1 <GENERALIZA|NO GENERALIZA|INDETERMINADO>
   (A0 held-out <x>/<n>, Wilson [<lo>, <hi>]); R2 <…>; R3 <…>; R4 <…>.
@@ -2323,7 +2323,7 @@ python3 evals/retrieval-heldout/harness/metricas.py compara --a "$PRIV/cap-solap
 ```
 Expected: `compara: 0 queries con capturas distintas`. La captura usa `exo-medicion` a propósito, para que solo varíe el índice.
 
-- [ ] **Step B5: Commit y paso del dueño de la KB (línea roja: índice real)**
+- [ ] **Step B5: Commit y paso del mantenedor (línea roja: índice real)**
 
 ```bash
 git -C ~/Documentos/proyectos/exo add engine/src/trozos.rs
@@ -2339,10 +2339,10 @@ Hay que añadir a `pendiente-paul.md` y al package, literal: "Tras mergear, **`e
 - **Pre-registro primero:** el documento hermano define métricas (hit@5 primaria, MRR@10 secundaria y por qué no nDCG), tamaño con potencia exacta, regla GANA con características operativas, qué pasa si nada gana y circuit breakers. La congelación por commit (Task 5) va antes de la primera captura (Task 6).
 - **Nada de afinar sobre el held-out:** los brazos y parámetros son fijos (pre-registro §4). R3 y R4 no eligen celda. El held-out queda consumido.
 - **Producción solo si pasa el gate:** la Task 12 es condicional, final y en rama propia. Late chunking nunca entra.
-- **Held-out:** fuentes, filtros anti-fuga, etiquetador filesystem-only distinto del autor, verificación adversarial y aprobación del dueño de la KB como gate que bloquea la medición (Task 5).
+- **Held-out:** fuentes, filtros anti-fuga, etiquetador filesystem-only distinto del autor, verificación adversarial y aprobación del mantenedor como gate que bloquea la medición (Task 5).
 - **Global Constraints** comprobados en código: `engine/Cargo.toml:4,8`, `test-hermetico.sh`, `lib.rs:167-168,255`, `envelope.rs` y `ci.yml`.
 - **Harness:** reutiliza `analyze.norm` y `replay-engine.search` sin modificarlos. Código de las Tasks 1–3 verificado en scratch el 2026-09-13: 26 tests en OK, `fidelidad` con 0 discrepancias contra el binario instalado en 3 queries (FTS de 29, 6 y 0 candidatos) e `informe` sobre fixtures sin errores.
-- **Decisiones del dueño de la KB:** D0–D6 con opciones y recomendación.
+- **Decisiones del mantenedor:** D0–D6 con opciones y recomendación.
 - **Lane y oráculo:** declarados en cada tarea.
 - **Dependencias con A y B:** tabla en §Dependencias.
 - **Placeholders:** los `<…>` que quedan son valores de salida de comandos de pasos anteriores (recuentos, hashes, cifras del verdict), nunca decisiones ni código.

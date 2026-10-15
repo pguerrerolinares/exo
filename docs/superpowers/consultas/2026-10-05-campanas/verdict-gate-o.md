@@ -3,7 +3,7 @@
 **Veredicto: MERGED** (consultor fable fresco, 2026-10-05T01:18+02:00).
 
 **Condición de ejecución, no de contenido**: el merge va **por PR**, no por
-`merge --no-ff` local, salvo override de Paul registrado en el ledger. Ver §4.1.
+`merge --no-ff` local, salvo override del mantenedor registrado en el ledger. Ver §4.1.
 
 Régimen: `.superpowers/fabrica/config.md` §"Ejecución de gates" — cuatro
 condiciones. (1) Fresco: este dispatch no participó en ninguna fase de la rama;
@@ -144,10 +144,10 @@ así que la lección 1 no aplica». El razonamiento es plausible (yo mismo
 verifiqué que el YAML parsea y que el comando corre en local), pero es el
 orquestador reinterpretando una instrucción literal de la propuesta. Config
 §"Overrides de Paul": «Las prohibiciones y caps … ceden SOLO ante pedido directo
-de Paul en sesión. Todo override se registra en el ledger ANTES de ejecutarlo».
+del mantenedor en sesión. Todo override se registra en el ledger ANTES de ejecutarlo».
 Un consultor no puede concederlo. Por eso el veredicto es MERGED sobre el
 contenido con **condición de ejecución: por PR**, como dice la propuesta, salvo
-override de Paul en el ledger. Con branch protection activa en `main` (config,
+override del mantenedor en el ledger. Con branch protection activa en `main` (config,
 bloque 2026-09-19: «12 required checks — un merge ya no pasa con CI rojo») el PR
 es además el único camino que ejecuta el step nuevo antes de que toque `main`.
 
@@ -229,5 +229,5 @@ condición va en la línea siguiente para no romper la forma canónica):
 
 ```
 GATE: MERGED (consultor fable, 2026-10-05T01:18+02:00, verdict=docs/superpowers/consultas/2026-10-05-campanas/verdict-gate-o.md)
-Condición de ejecución (verdict §4.1): merge por PR, como manda la propuesta §2 fila O y §3 O; un merge local exige override de Paul registrado en el ledger.
+Condición de ejecución (verdict §4.1): merge por PR, como manda la propuesta §2 fila O y §3 O; un merge local exige override del mantenedor registrado en el ledger.
 ```

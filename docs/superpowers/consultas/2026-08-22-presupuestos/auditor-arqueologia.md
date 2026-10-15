@@ -141,7 +141,7 @@ día en que se declaró "amnistía" para 9 notas que llevaban semanas
 incumpliendo. La amnistía **es** una subida de techo, solo que ocurrió una
 vez, en bloque, con nombre ceremonial ("ancla de amnistía") en vez de nueve
 subidas sueltas. Desde ese ancla, es verdad que solo ha bajado (27.000→20.000
-hoy). Si la pregunta de Paul es "¿los caps se han subido alguna vez?", la
+hoy). Si la pregunta del mantenedor es "¿los caps se han subido alguna vez?", la
 respuesta correcta con los números es: **sí, en bloque, una vez, disfrazada de
 evento fundacional del propio mecanismo que ahora se cita como prueba de que
 "solo baja".**
@@ -166,7 +166,7 @@ evento fundacional del propio mecanismo que ahora se cita como prueba de que
   promoción" porque las dos notas candidatas a recibirla estaban a 33 B y 49 B
   de su techo. El propio mecanismo de presupuesto impidió que la doctrina
   *sobre* el presupuesto se guardara en el sitio que le tocaba.
-- Cita textual de Paul, recuperada de la bitácora de hoy (`log/doctrina-agentes-bitacora.md`):
+- Cita textual del mantenedor, recuperada de la bitácora de hoy (`log/doctrina-agentes-bitacora.md`):
   *"los caps no es la primera vez que dan problema y siempre hemos subido,
   ¿no es un apaño esto?"* — es la misma pregunta que motiva esta auditoría,
   formulada y parcialmente respondida ya una vez hoy, horas antes de que se
@@ -310,7 +310,7 @@ juzgar con el mismo criterio).
 **Sí, trazable a un artefacto medido, no es humo.** Fuente:
 `exo/docs/superpowers/specs/2026-08-22-m6-06-recall-punto-de-uso-design.md` y
 `exo/docs/superpowers/consultas/2026-08-22-m6-06/consultor-m6-06.md`: dataset
-de **272 prompts humanos reales de Paul desde el 01-ago** (55 archivos jsonl,
+de **272 prompts humanos reales del mantenedor desde el 01-ago** (55 archivos jsonl,
 filtrados), contra los cuales se corrió el gate léxico real. Tabla citada en
 `consultor-m6-06.md:529`: *Gate B (léxico) | 233 (86%) | 39 (14%)* — 233/272 =
 85,66%, redondeado a 86%. Es una medición empírica sobre tráfico real, con el
@@ -524,7 +524,7 @@ rondas 1 y 2: cero hooks ni corridas manuales documentadas 07-11→17-ago, y
 las dos notas con 0 B de cambio en 19 días no tuvieron ningún mecanismo que
 las hubiera frenado si alguien las hubiera tocado.
 
-## Adenda — Ronda 4 (verificación del addendum de Paul + 2 descomposiciones + P3)
+## Adenda — Ronda 4 (verificación del addendum del mantenedor + 2 descomposiciones + P3)
 
 ### 1a. Las cuatro podas — confirmadas, con una corrección de horario
 
@@ -661,7 +661,7 @@ en intención" son, por tanto, del orden de **~108 commits-que-tocan-canon**
 para calibrar el listón donde debería estar. La ventana actual (3-ago→hoy,
 19 días de calendario) lleva solo **16** — el 30% de una sola pasada
 histórica, ni de lejos las dos que pide el criterio. Esto cuantifica
-exactamente lo que dice la objeción de Paul: el sistema lleva desde el 3-ago
+exactamente lo que dice la objeción del mantenedor: el sistema lleva desde el 3-ago
 sin acumular ni una cuarta parte de la exposición real que ya vivió una vez
 entre dos consolidas normales.
 

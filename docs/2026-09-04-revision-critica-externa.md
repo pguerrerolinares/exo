@@ -1,7 +1,7 @@
 # Revisión crítica externa de exo — 2026-09-04
 
 > Informe completo de una revisión del repo hecha **sin contexto previo del
-> proyecto**, a petición de Paul («analiza este proyecto y dime qué te parece,
+> proyecto**, a petición del mantenedor («analiza este proyecto y dime qué te parece,
 > sé crítico»), por una sesión de Claude Fable 5.1 el 2026-09-04. Los diez
 > items accionables que salieron de aquí viven en `docs/backlog.md` marcados
 > «(revisión 2026-09-04)»; este documento es la **argumentación completa** que
@@ -250,7 +250,7 @@ superpowers).
 fusión de plugins, hermeticidad). El engine sí las cumple: cero código de
 producción lee basic-memory, la precedencia `flag > env > config` está
 limpia, el error de config ausente nombra el comando que la crea. El plugin
-no: sigue siendo de Paul para Paul.
+no: sigue siendo del mantenedor para el mantenedor.
 
 **Evidencia** (medida 2026-09-04, re-verificada 2026-09-11):
 
@@ -503,7 +503,7 @@ como default.
 servida por `file://`. Pero esos dos scripts viven en la raíz del repo, no en
 el plugin. Cabecera de `test-contrato-engine.sh`, sin cambios: «depende de
 estado de ESTA máquina (~/.exo/index.db,
-C:/proyectos/homework/kb-demo)», y `EXO_BIN` sigue apuntando por defecto a
+C:/proyectos/kb-demo)», y `EXO_BIN` sigue apuntando por defecto a
 `engine/target/release/exo.exe`. `install-gate` es además la prueba de que el
 camino existe: el fixture reproducible que este item pide ya se ha escrito una
 vez, para otro gate.

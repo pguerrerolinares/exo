@@ -60,7 +60,7 @@ real en Windows el 2026-09-11:
 | `budget --json` `.data.offenders[].path` | walker | `projects/lighthouses-bot.md` |
 | `lint --json` `.data.waived[].path` | walker | `README.md` |
 | `search --json` `.data.results[].path` | índice | `backlog\Backlog — Memoria v2.md` |
-| `recall --json` / humano | índice + `kb.join()` | `C:/proyectos/homework/<kb>\backlog\….md` |
+| `recall --json` / humano | índice + `kb.join()` | `C:/proyectos/<kb>\backlog\….md` |
 
 La fila de `recall` es la cara: `engine/src/recall.rs:549-551` hace
 `kb.join(&nota.ruta)` con `kb` en `/` (viene de config) y `ruta` en `\` (viene del
@@ -70,14 +70,14 @@ Y esa ruta mixta es la que `plugins/exo/scripts/recall-inject.sh` inyecta en
 **cada `UserPromptSubmit`**. Bloque real capturado el 2026-09-11:
 
 ```
-=== Recall exo (… material de la KB en C:/proyectos/homework …) ===
+=== Recall exo (… material de la KB en C:/proyectos …) ===
 - <kb>\log\kbx-bitacora.md — kbx-bitacora
 - <kb>\archive\log\backlog-diario-2026-07-05_2026-08-03.md — backlog-diario-…
 ```
 
 Tres daños en dos líneas:
 
-1. La raíz común sale mal (`C:/proyectos/homework` en vez de `…/<kb>`),
+1. La raíz común sale mal (`C:/proyectos` en vez de `…/<kb>`),
    porque `recall-inject.sh:272-289` hace `split("/")` sobre una ruta mixta.
 2. Las rutas llevan `\`: pegadas en bash, la barra se come como escape y la ruta
    deja de existir.
@@ -128,7 +128,7 @@ ver D0b.
 separador. Prueba, en la salida real de hoy:
 
 ```
-C:/proyectos/homework/<kb>\backlog\Backlog — Memoria v2.md
+C:/proyectos/<kb>\backlog\Backlog — Memoria v2.md
                                  ↑ este lo puso join, no el índice
 ```
 
@@ -352,7 +352,7 @@ $ exo search --type hybrid --limit 3 "fallo silencioso"
 <kb>/log/doctrina-agentes-bitacora	entity	0.5849
 
 $ exo recall --query "fallo silencioso" --limit 3
-- C:/proyectos/homework/<kb>\backlog\Backlog — Memoria v2.md — Backlog — Memoria v2
+- C:/proyectos/<kb>\backlog\Backlog — Memoria v2.md — Backlog — Memoria v2
 
 $ exo budget --json | jq -c '.data.offenders[0]'
 {"budget":16000,"path":"projects/lighthouses-bot.md","size_bytes":15904,"tier":"stable"}

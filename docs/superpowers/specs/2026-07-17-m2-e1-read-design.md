@@ -1,8 +1,8 @@
 # M2 — E1 read: design spec
 
-- **Fecha**: 2026-07-17 · **Estado**: firmada (adjudicaciones por consultor Fable delegado, firma de Paul)
+- **Fecha**: 2026-07-17 · **Estado**: firmada (adjudicaciones por consultor Fable delegado, firma del mantenedor)
 - **Spec madre**: `2026-07-16-framework-unificado-design.md` (§4.2 componentes, §4.4 estrangulamiento, §4.5 Rust, §6.2 reglas duras del indexer). Esta spec NO la repite: la aterriza en items ejecutables.
-- **Audit trail**: brief + veredicto completo en `docs/superpowers/consultas/2026-07-17-m2-breakdown/`. GATE-HUECO-M2 abierto por Paul en sesión 2026-07-17 (commit en `.superpowers/fabrica/config.md`).
+- **Audit trail**: brief + veredicto completo en `docs/superpowers/consultas/2026-07-17-m2-breakdown/`. GATE-HUECO-M2 abierto por el mantenedor en sesión 2026-07-17 (commit en `.superpowers/fabrica/config.md`).
 
 ## 1. Objetivo y no-objetivos
 

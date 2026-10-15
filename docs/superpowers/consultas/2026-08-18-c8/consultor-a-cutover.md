@@ -36,7 +36,7 @@ sin push (`git -C exo log origin/main..main` vacío).
 - **Desviación del brief #2**: la coletilla del «contador de no-disparos» que
   la spec prep-m3 §6.2-3 pre-registra está **retirada** por el plan
   (§Campaña 8: «Sin contador de no-disparos (retirado por el régimen §0)»).
-  Gana el plan (firmado por Paul 2026-08-17, posterior a la spec). Afecta al
+  Gana el plan (firmado por el mantenedor 2026-08-17, posterior a la spec). Afecta al
   texto de A3.
 
 ---
@@ -68,12 +68,12 @@ Evidencia de que (b) funciona pieza a pieza, sin inventar schema:
    `/plugin marketplace add ./my-marketplace`.
 3. **Sin push**: todo lo anterior es local. Es el ÚNICO camino ejecutable hoy:
    cualquier variante github necesita que `plugin.json`/`marketplace.json`
-   estén EN GitHub, y hoy no existen ni en local (y el push es de Paul).
+   estén EN GitHub, y hoy no existen ni en local (y el push es del mantenedor).
 
 Por qué NO las otras:
 
 - **(a) `process` en agent-develop apuntando al repo exo**: requiere (i) editar
-  y **pushear** agent-develop (push = Paul, config §Ejecución de gates
+  y **pushear** agent-develop (push = el mantenedor, config §Ejecución de gates
   líneas 316-318) y (ii) un plugin-source `github` de **repo privado**
   (`pguerrerolinares/exo`). Los repos privados como source funcionan con las
   credenciales git del usuario (doc: «Claude Code supports installing plugins
@@ -86,8 +86,8 @@ Por qué NO las otras:
   además avisa de auto-updates intermitentes con marketplaces privados (el
   background pull deshabilita credential helpers HTTPS). No rompe, pero es el
   camino con más incógnitas y no es ejecutable hoy. Queda como forma natural
-  POST-M1b si Paul un día publica; no prejuzga el rename (M1b-01 sigue siendo
-  decisión de Paul, plan línea 159).
+  POST-M1b si el mantenedor un día publica; no prejuzga el rename (M1b-01 sigue siendo
+  decisión del mantenedor, plan línea 159).
 - **(c) plugin por path sin marketplace**: no existe como vía de instalación —
   `claude plugin install` solo instala «from available marketplaces» (help del
   binario). Lo más cercano es `~/.claude/skills/<name>` (auto-load como
@@ -185,7 +185,7 @@ contradice el «sustituto mínimo» de framework §5.2. (iii) core-index ya se
 inyecta cada arranque por el recall de reflex y lo mantiene `/consolida`
 (línea final de la propia nota); `~/.claude/CLAUDE.md` es un extracto
 regenerado desde la KB — meter ahí routing operativo del harness invierte su
-contrato («Fuente de verdad: nota del perfil de trabajo del dueño de la KB»).
+contrato («Fuente de verdad: nota del perfil de trabajo del mantenedor»).
 
 **Texto EXACTO** (bullet final de la sección `## Doctrina compacta`): base = el
 texto propuesto en spec prep-m3 §6.1, MENOS la coletilla del contador de
@@ -219,7 +219,7 @@ Al mismo tiempo que se añade el bullet, la cabecera stale de core-index sobre
 el FALLBACK puede corregirse o dejarse — NO es condición de M3-05; queda en
 residuos.
 
-## A4 — Orden, atomicidad y quién ejecuta qué. DECISIÓN de la tensión: SÍ, editar `enabledPlugins` es línea roja ⇒ acción de Paul
+## A4 — Orden, atomicidad y quién ejecuta qué. DECISIÓN de la tensión: SÍ, editar `enabledPlugins` es línea roja ⇒ acción del mantenedor
 
 **La pregunta binaria primero.** Config
 `.superpowers/fabrica/config.md:320-321`, dentro de «Línea roja que NUNCA se
@@ -236,14 +236,14 @@ PreToolUse (perímetro de permisos del propio harness)»*. **SÍ cae dentro**:
    es exactamente mover el perímetro del harness (reflex, que ES los guards
    PreToolUse, se activa por esa misma clave).
 3. Coherencia con el resto de la clase (plan §0: «Acciones destructivas o
-   externas siguen siendo de Paul») y con la regla de cierre del propio config:
-   las líneas rojas las relaja Paul con `OVERRIDE` registrado, no un consultor
-   interpretando el paréntesis a la baja. Si Paul quiere delegar el toggle, es
+   externas siguen siendo del mantenedor») y con la regla de cierre del propio config:
+   las líneas rojas las relaja el mantenedor con `OVERRIDE` registrado, no un consultor
+   interpretando el paréntesis a la baja. Si el mantenedor quiere delegar el toggle, es
    un OVERRIDE de una línea, barato y explícito.
 
 Consecuencia: `claude plugin install/enable/disable` (escriben
 `enabledPlugins`/`installed_plugins.json`) y el `marketplace add` (registra en
-`known_marketplaces.json`/`extraKnownMarketplaces`) son **de Paul**. Son 4
+`known_marketplaces.json`/`extraKnownMarketplaces`) son **del mantenedor**. Son 4
 comandos, ~2 minutos, y forman un único gesto atómico.
 
 **Secuencia adjudicada (M3-01):**
@@ -263,7 +263,7 @@ comandos, ~2 minutos, y forman un único gesto atómico.
    → merge a main de exo. **Hasta aquí nada ha tocado el entorno vivo**: el
    marketplace no está registrado, superpowers sigue activo.
 
-*Fase 2 — Paul, el día D, en ESTE orden (process ON antes de superpowers OFF —
+*Fase 2 — el mantenedor, el día D, en ESTE orden (process ON antes de superpowers OFF —
 así la línea roja «no desactives superpowers sin process listo el mismo día»
 se cumple incluso si un paso intermedio falla: no hay ventana sin skills):*
 
@@ -276,14 +276,14 @@ se cumple incluso si un paso intermedio falla: no hay ventana sin skills):*
    M3-02 de spec §5.3 (dispatch `subagent_type: reflex:executor` en reflex-log
    — el texto está en `orchestrate/SKILL.md:14`, verificado).
 
-*Rollback (un gesto, Paul):*
+*Rollback (un gesto, el mantenedor):*
 `claude plugin enable superpowers@claude-plugins-official` +
 `claude plugin disable process@exo`, reiniciar sesión. superpowers queda
 instalado-pero-apagado ≥ un ciclo real (spec §5.3.3); se desinstala «cuando el
 ciclo cierre sin carencias» (§5.3.4) — sin contador, por el régimen §0.
 
 *Post-cutover, cada vez que se toquen las skills:* bump `version` en
-`plugin.json` + entrada del marketplace (mismo commit), y Paul (o quien él
+`plugin.json` + entrada del marketplace (mismo commit), y el mantenedor (o quien él
 autorice, ya que `marketplace update`/`plugin update` no tocan settings.json —
 solo cache y `installed_plugins.json`; adjudico que ESO no es línea roja):
 `claude plugin marketplace update exo && claude plugin update process@exo`.
@@ -307,13 +307,13 @@ solo cache y `installed_plugins.json`; adjudico que ESO no es línea roja):
   del brief, y stale-text en la propia nota.
 - **«El texto de la spec §6.1 va tal cual»**: refutada — su coletilla depende
   del contador de no-disparos que el plan C8 retira explícitamente. Contradicción
-  spec↔plan real; la resolví por cronología y firma (plan 2026-08-17, Paul).
+  spec↔plan real; la resolví por cronología y firma (plan 2026-08-17, el mantenedor).
 - **«enabledPlugins NO es línea roja»** (la lectura estrecha del paréntesis):
   la construí en serio — `enabledPlugins` no es `permissions`, y el plan llama
   al rollback «de un flag» sin asignarlo. La descarté porque la letra nombra el
   fichero completo, el único settings.json existente es el global, y estrechar
   una línea roja por interpretación es exactamente lo que el config prohíbe a
-  un consultor. El SÍ es además barato: son 4 comandos de Paul.
+  un consultor. El SÍ es además barato: son 4 comandos del mantenedor.
 - **«Hay una vía sin marketplace»**: busqué en el CLI real — `plugin install`
   solo instala desde marketplaces; skills-dir existe pero rompe la simetría del
   rollback. No hay tercera vía mejor.
@@ -324,7 +324,7 @@ solo cache y `installed_plugins.json`; adjudico que ESO no es línea roja):
    y la lista real es MAYOR que la anotada — reflex `0.6.0, 0.8.0, 0.11.0,
    0.12.0` y paul-profile `0.2.1` en `~/.claude/plugins/cache/agent-develop/`.
    Borrarlas toca `~/.claude` fuera de settings.json: no es línea roja literal,
-   pero es entorno vivo — recomiendo dejarlo en el gesto de Paul del día D
+   pero es entorno vivo — recomiendo dejarlo en el gesto del mantenedor del día D
    (`claude plugin prune` existe en el CLI para esto, help verificado).
 2. **Stale-text de core-index** sobre el FALLBACK (desviación #1): corregirlo
    es un retoque de la misma edición M3-05 o de `/consolida`; no bloquea.
@@ -333,7 +333,7 @@ solo cache y `installed_plugins.json`; adjudico que ESO no es línea roja):
    no es error, pero si algún movimiento nuevo de 6.2/6.3 duele, la doctrina
    es «se añade si duele» (framework §5.2). Informativo.
 4. **M1b-01 (rename de agent-develop) y M1b-02 (workflow-lint)**: siguen
-   siendo decisión/acción de Paul (plan línea 159, «acción externa»). Este
+   siendo decisión/acción del mantenedor (plan línea 159, «acción externa»). Este
    verdict no las prejuzga: el marketplace `exo` local convive con
    agent-develop tal cual está.
 5. Escalada NINGUNA: las cuatro preguntas cierran con fuente citable.

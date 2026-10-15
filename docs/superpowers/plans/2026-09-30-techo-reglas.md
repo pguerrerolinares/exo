@@ -139,7 +139,7 @@
 **Interfaces:**
 - Consumes: `resultado.json` @Task 4
 
-**Tests:** n/a. Es juicio: el padre o Paul, no un executor.
+**Tests:** n/a. Es juicio: el padre o el mantenedor, no un executor.
 
 **Verificación:** `verdict.md` contiene la tabla por tarea, la línea `GATE:` idéntica a la de `evaluar.py` y, para cada tarea del suelo que no cumple, una clase ∈ {`conflicto regla-tarea`, `check roto`, `regla mal escrita`, `no reconstruible`} con evidencia (fichero y línea del transcript o del `check.log`).
 

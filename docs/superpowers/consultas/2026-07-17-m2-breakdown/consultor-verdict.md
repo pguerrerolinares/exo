@@ -2,7 +2,7 @@
 
 - **Fecha**: 2026-07-17
 - **Adjudicador**: consultor Fable fresco (régimen spec §8; sin participación previa en M2)
-- **Régimen**: gates delegado — Paul delegó las decisiones de diseño del breakdown de M2 en sesión interactiva 2026-07-17 ("las preguntas que tengas las delegas a un consultor fable, yo firmo sus decisiones"). Brief con blindspot-pass haiku previo: `brief.md` (este directorio).
+- **Régimen**: gates delegado — el mantenedor delegó las decisiones de diseño del breakdown de M2 en sesión interactiva 2026-07-17 ("las preguntas que tengas las delegas a un consultor fable, yo firmo sus decisiones"). Brief con blindspot-pass haiku previo: `brief.md` (este directorio).
 - **Verificación primaria**: lectura directa de spec §4.2-4.5/§6.2/§7/§8, `.superpowers/fabrica/config.md` completo, `evals/retrieval-fase0/{gate.md, verdict/m0-verdict.md, eval.jsonl}`, `harness/{replay.py, analyze.py, stratify.py, run-arm.sh}`, `results/metrics-jina-es.md`, y `~/.basic-memory/config.json` vigente (jina-es/768/0.35 confirmados en fichero).
 
 ## D1 — Layout y nombre del binario
@@ -81,10 +81,10 @@ Ambigüedad o empate ⇒ consultor fable adjudica con este texto delante; los n�
 - **Pineo de sqlite-vec**: en M2-01, versión exacta `=x.y.z` en `Cargo.toml` y anotada en la spec del indexer; un `^` accidental es el riesgo #8 de §9 en silencio.
 - **Ratio gates/reserva**: si con reserva 8 el ratio sigue >50% tras dos noches, la señal es consolidar items (agrupar merges mecánicos adyacentes, cf. trade-off D2), no volver a inflar la reserva en caliente.
 
-## Preguntas que SÍ requieren a Paul
+## Preguntas que SÍ requieren al mantenedor
 
-No hay: ninguna adjudicación toca línea roja (nada destructivo, nada externo — los `git push` a remotos siguen siendo de Paul per config §Ejecución de gates — y GATE-HUECO-M2 ya lo abrió Paul en sesión el 2026-07-17). Las dos decisiones más cercanas al borde quedan dentro del mandato: la subida de reserva 6→8 la delega el brief explícitamente y no toca el cap semanal, y la lectura RO de `~/.basic-memory/config.json` no modifica nada instalado.
+No hay: ninguna adjudicación toca línea roja (nada destructivo, nada externo — los `git push` a remotos siguen siendo del mantenedor per config §Ejecución de gates — y GATE-HUECO-M2 ya lo abrió el mantenedor en sesión el 2026-07-17). Las dos decisiones más cercanas al borde quedan dentro del mandato: la subida de reserva 6→8 la delega el brief explícitamente y no toca el cap semanal, y la lectura RO de `~/.basic-memory/config.json` no modifica nada instalado.
 
 ---
 
-*FIRMADO por Paul en sesión 2026-07-17 ("firmo, continua") — delegación declarada en la misma sesión: "yo firmo sus decisiones".*
+*FIRMADO por el mantenedor en sesión 2026-07-17 ("firmo, continua") — delegación declarada en la misma sesión: "yo firmo sus decisiones".*
