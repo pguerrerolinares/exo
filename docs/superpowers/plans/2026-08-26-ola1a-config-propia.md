@@ -38,7 +38,7 @@ rusqlite 0.40 bundled · SQLite FTS5 + sqlite-vec 0.1.9 · Git Bash en Windows 1
   (`buscador.rs`, `busca_hybrid`, `escritor.rs`…). Por eso el renombrado usa
   `#[serde(rename)]`, patrón que ya existe en la casa
   (`buscador.rs`: `#[serde(rename = "type")] pub tipo: String`).
-- **Working dir:** `C:\proyectos\homework\exo`. Shell: Git Bash. El engine vive
+- **Working dir:** `C:\proyectos\exo`. Shell: Git Bash. El engine vive
   en `engine/`; todos los `cargo` se lanzan desde ahí.
 - **Nunca metas `cargo` en una tubería**: el exit code de una tubería es el del
   último comando. Usa `${PIPESTATUS[0]}` o no la uses. (Lección documentada:
@@ -70,7 +70,7 @@ Va primera para que todo el código posterior nazca formateado y el gate
 - [ ] **Step 1: Medir el estado de partida**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo fmt --check > /tmp/fmt-antes.txt 2>&1; echo "EXIT=$?"
 grep -c '^Diff in' /tmp/fmt-antes.txt
 ```
@@ -81,7 +81,7 @@ commit; no abortes.
 - [ ] **Step 2: Verificar que la suite está verde ANTES de tocar nada**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo test --release --no-fail-fast > /tmp/test-antes.txt 2>&1
 echo "CARGO_EXIT=$?"
 grep -E '^test result' /tmp/test-antes.txt
@@ -93,7 +93,7 @@ rojo aquí, **para y repórtalo**: no se formatea sobre una suite rota.
 - [ ] **Step 3: Aplicar el formato**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo fmt
 cargo fmt --check; echo "EXIT=$?"
 ```
@@ -103,7 +103,7 @@ Expected: `EXIT=0`.
 - [ ] **Step 4: Verificar que el formato no cambió comportamiento**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo test --release --no-fail-fast > /tmp/test-despues.txt 2>&1
 echo "CARGO_EXIT=$?"
 diff <(grep -E '^test result' /tmp/test-antes.txt) <(grep -E '^test result' /tmp/test-despues.txt)
@@ -116,7 +116,7 @@ después). `cargo fmt` no debe mover un solo test.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 git add engine/
 git commit -m "style(engine): cargo fmt — 90 diffs preexistentes, cero cambio de comportamiento"
 ```
@@ -257,7 +257,7 @@ fn acepta_barras_de_windows_en_el_path_de_la_kb() {
 schema_version = 1
 
 [kb]
-path = 'C:\proyectos\homework\kb-demo'
+path = 'C:\proyectos\kb-demo'
 name = "kb-demo"
 
 [index]
@@ -273,7 +273,7 @@ min_similarity = 0.35
     let cfg = exo::config::carga().expect("carga con backslashes");
     assert_eq!(
         cfg.kb.path,
-        std::path::PathBuf::from(r"C:\proyectos\homework\kb-demo")
+        std::path::PathBuf::from(r"C:\proyectos\kb-demo")
     );
     unsafe { std::env::remove_var("EXO_CONFIG") };
 }
@@ -295,7 +295,7 @@ fn toml_invalido_no_se_disfraza_de_clave_ausente() {
 - [ ] **Step 3: Correr los tests y verlos fallar**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo test --test config 2>&1 | tail -20
 ```
 
@@ -412,7 +412,7 @@ pub mod config;
 - [ ] **Step 5: Correr los tests y verlos pasar**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo test --test config 2>&1 | grep -E '^test result|^test '
 ```
 
@@ -421,7 +421,7 @@ Expected: `test result: ok. 6 passed; 0 failed`.
 - [ ] **Step 6: Verificar que no se rompió nada más**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo test --no-fail-fast > /tmp/t2.txt 2>&1; echo "CARGO_EXIT=$?"
 grep -E '^test result' /tmp/t2.txt
 ```
@@ -431,7 +431,7 @@ Expected: `CARGO_EXIT=0`, ninguna suite en rojo.
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 git add engine/Cargo.toml engine/Cargo.lock engine/src/config.rs engine/src/lib.rs engine/tests/config.rs
 git commit -m "feat(config): módulo de config propia con precedencia y errores accionables"
 ```
@@ -525,7 +525,7 @@ fn el_db_de_la_config_expande_tilde() {
 - [ ] **Step 2: Correr el test y verlo fallar**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo test --test config_cableado 2>&1 | grep -E '^test |panicked' | head
 ```
 
@@ -580,7 +580,7 @@ modelo de `[embeddings] model` de `~/.exo/config.toml`».
 - [ ] **Step 4: Correr el test y verlo pasar**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo test --test config_cableado 2>&1 | grep -E '^test result'
 ```
 
@@ -589,7 +589,7 @@ Expected: `test result: ok. 4 passed; 0 failed`.
 - [ ] **Step 5: Verificar que basic-memory ya no se lee en ningún camino de arranque**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 grep -rn "basic-memory/config.json" src/
 ```
 
@@ -599,7 +599,7 @@ llega en la Task 4). Si sale alguna, no está cortado el cordón.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 git add engine/src/lib.rs engine/tests/config_cableado.rs
 git commit -m "feat(config): el engine arranca con su propia config, no con la de basic-memory"
 ```
@@ -634,7 +634,7 @@ Crear `engine/tests/inicia.rs`:
 //! sobrevive en el engine, y es explícita.
 
 const BM_JSON: &str = r#"{
-  "projects": { "kb-demo": { "path": "C:/proyectos/homework/kb-demo" } },
+  "projects": { "kb-demo": { "path": "C:/proyectos/kb-demo" } },
   "default_project": "kb-demo",
   "semantic_embedding_model": "jinaai/jina-embeddings-v2-base-es",
   "semantic_embedding_dimensions": 768,
@@ -644,7 +644,7 @@ const BM_JSON: &str = r#"{
 #[test]
 fn migra_desde_basic_memory_leyendo_el_proyecto_por_defecto() {
     let (kb, nombre, emb) = exo::inicia::desde_basic_memory(BM_JSON).expect("migrar");
-    assert_eq!(kb, std::path::PathBuf::from("C:/proyectos/homework/kb-demo"));
+    assert_eq!(kb, std::path::PathBuf::from("C:/proyectos/kb-demo"));
     // El nombre sale de `default_project`, NO de un literal "kb-demo"
     // hardcodeado: ese literal era justo el acoplamiento que se viene a matar.
     assert_eq!(nombre, "kb-demo");
@@ -716,7 +716,7 @@ fn no_pisa_una_config_existente_sin_force() {
 - [ ] **Step 2: Correr los tests y verlos fallar**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo test --test inicia 2>&1 | tail -15
 ```
 
@@ -946,7 +946,7 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
 - [ ] **Step 4: Correr los tests y verlos pasar**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo test --test inicia 2>&1 | grep -E '^test result'
 ```
 
@@ -955,20 +955,20 @@ Expected: `test result: ok. 4 passed; 0 failed`.
 - [ ] **Step 5: Verificación end-to-end contra la config real de esta máquina**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo build --release
 EXO_CONFIG=/tmp/exo-init-prueba.toml ./target/release/exo.exe init --from-basic-memory --json
 cat /tmp/exo-init-prueba.toml
 ```
 
 Expected: envelope con `"command":"init"`, y un TOML con
-`name = "kb-demo"` y `path = "C:/proyectos/homework/kb-demo"`.
+`name = "kb-demo"` y `path = "C:/proyectos/kb-demo"`.
 **Mira el fichero, no el exit code.**
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 git add engine/src/inicia.rs engine/src/config.rs engine/src/lib.rs engine/src/main.rs engine/tests/inicia.rs
 git commit -m "feat(init): exo init escribe la config propia y migra desde basic-memory"
 ```
@@ -1085,7 +1085,7 @@ fn sin_config_ni_flag_el_error_dice_que_hacer() {
 - [ ] **Step 2: Correr el test y verlo fallar**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo build && cargo test --test precedencia 2>&1 | grep -E '^test |panicked' | head
 ```
 
@@ -1189,7 +1189,7 @@ lo que cierra el disenso del gate M4:
 - [ ] **Step 4: Correr el test y verlo pasar**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo build && cargo test --test precedencia 2>&1 | grep -E '^test result'
 ```
 
@@ -1198,7 +1198,7 @@ Expected: `test result: ok. 2 passed; 0 failed`.
 - [ ] **Step 5: Verificar que los scripts que pasan `--db` explícito siguen funcionando**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo build --release
 ./target/release/exo.exe search --db ~/.exo/index.db --type fts --limite 3 --json "memoria persistente" | head -c 400
 ```
@@ -1209,7 +1209,7 @@ explícito, así que el flag debe seguir ganando.
 - [ ] **Step 6: Suite completa**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo test --no-fail-fast > /tmp/t5.txt 2>&1; echo "CARGO_EXIT=$?"
 grep -E '^test result' /tmp/t5.txt
 ```
@@ -1219,7 +1219,7 @@ Expected: `CARGO_EXIT=0`.
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 git add engine/src/main.rs engine/tests/precedencia.rs
 git commit -m "feat(cli): --db y --kb caen a la config propia con precedencia flag > env > config"
 ```
@@ -1359,7 +1359,7 @@ fn las_claves_de_search_estan_en_ingles() {
 - [ ] **Step 2: Correr el test y verlo fallar**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo test --test contrato_envelope 2>&1 | grep -E '^test |panicked|assertion' | head -20
 ```
 
@@ -1437,7 +1437,7 @@ y en `Busqueda`:
 - [ ] **Step 4: Correr el test y verlo pasar**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo test --test contrato_envelope 2>&1 | grep -E '^test result'
 ```
 
@@ -1446,7 +1446,7 @@ Expected: `test result: ok. 4 passed; 0 failed`.
 - [ ] **Step 5: Ver qué tests existentes rompe (es lo esperado, no un accidente)**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo test --no-fail-fast > /tmp/t6.txt 2>&1; echo "CARGO_EXIT=$?"
 grep -E '^test result|FAILED|^failures:' /tmp/t6.txt | head -20
 ```
@@ -1459,7 +1459,7 @@ uno por uno, sin cambiar lo que miden.
 - [ ] **Step 6: Suite verde**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo test --no-fail-fast > /tmp/t6b.txt 2>&1; echo "CARGO_EXIT=$?"
 grep -E '^test result' /tmp/t6b.txt
 ```
@@ -1469,7 +1469,7 @@ Expected: `CARGO_EXIT=0`.
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 git add engine/src/envelope.rs engine/src/recall.rs engine/src/indexer.rs engine/src/buscador.rs engine/tests/
 git commit -m "feat(envelope)!: claves de data al inglés, SCHEMA_VERSION 1->2 (D8)
 
@@ -1499,7 +1499,7 @@ conteo no cuadra, hay un consumidor nuevo que este plan no vio.
 - [ ] **Step 1: Confirmar el blast radius**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 for f in plugins/reflex/scripts/recall-inject.sh plugins/reflex/scripts/test-recall-inject.sh plugins/reflex/scripts/exo-recall.sh plugins/reflex/scripts/compose-inject.sh; do
   printf "%s: %s\n" "$f" "$(grep -c 'notas\|\bruta\b\|titulo\|truncado\|indexadas\|trozos_\|avisos' "$f")"
 done
@@ -1512,7 +1512,7 @@ cuatro. Si aparece otro, añádelo a esta tarea antes de seguir.
 - [ ] **Step 2: Ver los tests de script fallar contra el binario v2**
 
 ```bash
-cd /c/proyectos/homework/exo/engine && cargo build --release && cd ..
+cd /c/proyectos/exo/engine && cargo build --release && cd ..
 bash plugins/reflex/scripts/test-recall-inject.sh; echo "EXIT=$?"
 ```
 
@@ -1557,7 +1557,7 @@ las claves `ruta:`→`path:`, `titulo:`→`title:`, `notas:`→`notes:`.
 - [ ] **Step 4: Correr las suites de script y verlas pasar**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 for t in test-recall-inject test-compose-inject test-exo-index; do
   printf "%s: " "$t"
   bash "plugins/reflex/scripts/$t.sh" >/tmp/$t.log 2>&1 && echo OK || { echo "FAIL"; tail -20 /tmp/$t.log; }
@@ -1569,7 +1569,7 @@ Expected: los tres `OK`.
 - [ ] **Step 5: Verificación end-to-end del camino real (el que importa)**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 cp engine/target/release/exo.exe ~/.local/bin/exo.exe
 echo '{"session_id":"t","source":"startup"}' \
   | bash plugins/reflex/scripts/exo-recall.sh \
@@ -1589,7 +1589,7 @@ Expected: ninguna línea nueva con `reason=no-engine` / `no-index` / `no-contrac
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 git add plugins/reflex/scripts/
 git commit -m "fix(reflex): migrar los scripts al contrato v2 del envelope"
 ```
@@ -1685,7 +1685,7 @@ min_similarity = 0.35
 - [ ] **Step 2: Correr el test y verlo fallar**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo build && cargo test --test config_cmd 2>&1 | grep -E '^test |panicked' | head
 ```
 
@@ -1752,7 +1752,7 @@ fn config_cmd(args: ArgsConfig) -> Result<()> {
 - [ ] **Step 4: Correr el test y verlo pasar**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo build && cargo test --test config_cmd 2>&1 | grep -E '^test result'
 ```
 
@@ -1791,7 +1791,7 @@ fi
 - [ ] **Step 6: Verificar que no queda ni un literal ni una lectura de basic-memory**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 grep -rn 'kb-demo' plugins/reflex/scripts/*.sh | grep -v 'test-'
 grep -rn 'basic-memory' plugins/reflex/scripts/*.sh | grep -v 'test-'
 ```
@@ -1802,9 +1802,9 @@ fixtures, y un fixture con nombre propio es legítimo.
 - [ ] **Step 7: Verificación end-to-end del arranque**
 
 ```bash
-cd /c/proyectos/homework/exo/engine && cargo build --release
+cd /c/proyectos/exo/engine && cargo build --release
 cp target/release/exo.exe ~/.local/bin/exo.exe
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 echo '{"session_id":"t","source":"startup"}' | bash plugins/reflex/scripts/exo-recall.sh \
   | jq -r '.hookSpecificOutput.additionalContext' | grep -c 'Contrato de memoria'
 ```
@@ -1815,7 +1815,7 @@ sirviendo el fallback embebido.
 - [ ] **Step 8: Suites de script y commit**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 for t in plugins/reflex/scripts/test-*.sh; do
   printf "%s: " "$(basename "$t")"; bash "$t" >/tmp/h-$(basename "$t").log 2>&1 && echo OK || { echo FAIL; tail -15 /tmp/h-$(basename "$t").log; }
 done
@@ -1931,7 +1931,7 @@ fn write_new_rechazado_con_json_emite_envelope_y_sale_3() {
 - [ ] **Step 2: Correr el test y verlo fallar**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo test --test rechazo_envelope 2>&1 | tail -15
 ```
 
@@ -2049,7 +2049,7 @@ viene a cerrar.
 - [ ] **Step 4: Correr el test y verlo pasar**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo build --release
 cargo test --release --test rechazo_envelope 2>&1 | grep -E '^test result|SKIP'
 ```
@@ -2060,7 +2060,7 @@ Expected: `test result: ok. 3 passed`. Si el tercero dice `SKIP`, corre
 - [ ] **Step 5: Actualizar la spec de write si hizo falta**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 grep -rn "dup_candidatas" docs/superpowers/specs/
 ```
 
@@ -2070,10 +2070,10 @@ Si divergen, corrige la spec en este mismo commit.
 - [ ] **Step 6: Suite completa y commit**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo test --release --no-fail-fast > /tmp/t8.txt 2>&1; echo "CARGO_EXIT=$?"
 grep -E '^test result' /tmp/t8.txt
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 git add engine/src/escritor.rs engine/src/main.rs engine/tests/rechazo_envelope.rs docs/
 git commit -m "fix(write): el rechazo del dup-gate emite envelope con --json (hallazgo #3 del gate M4)"
 ```
@@ -2238,7 +2238,7 @@ fn los_flags_ya_ingleses_no_se_han_movido() {
 - [ ] **Step 2: Correr el test y verlo fallar**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo build && cargo test --test flags 2>&1 | grep -E '^test |panicked' | head
 ```
 
@@ -2303,7 +2303,7 @@ usuario, y una ayuda que nombra un flag inexistente es peor que ninguna.
 - [ ] **Step 4: Correr el test y verlo pasar**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo build && cargo test --test flags 2>&1 | grep -E '^test result'
 ```
 
@@ -2378,7 +2378,7 @@ Y el docstring de cabecera (líneas 6-8 y 31-35), que documenta la firma.
 Verifica que nadie más llama al harness antes de dar esto por bueno:
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 grep -rn 'replay-engine' evals --include=*.sh
 ```
 
@@ -2387,7 +2387,7 @@ Expected: sin salida (`run-arm.sh` no lo invoca; el harness se corre a mano).
 - [ ] **Step 6: Barrer los doc-comments del engine que citan flags muertos**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 grep -rn -- '--limite\|--titulo\|--contenido\|--refresca\|--min-similitud\|--escala-fts\|--crea\b\|--nota\b' src/ tests/
 ```
 
@@ -2403,10 +2403,10 @@ Un `cargo test` verde aquí no prueba gran cosa: lo que puede romperse es el
 hook, que corre el binario instalado contra los scripts de disco.
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 cargo build --release
 cp target/release/exo.exe ~/.local/bin/exo.exe
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 echo '{"session_id":"t","source":"startup"}' \
   | bash plugins/reflex/scripts/exo-recall.sh \
   | jq -r '.hookSpecificOutput.additionalContext' | grep -c 'Contrato de memoria'
@@ -2416,7 +2416,7 @@ Expected: `1`. Un `0` significa que está sirviendo el fallback embebido — o
 sea, que la migración rompió el arranque y lo hizo en silencio.
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 for t in test-recall-inject test-compose-inject test-exo-index; do
   printf "%s: " "$t"
   bash "plugins/reflex/scripts/$t.sh" >/tmp/$t-flags.log 2>&1 && echo OK || { echo "FAIL"; tail -20 /tmp/$t-flags.log; }
@@ -2446,7 +2446,7 @@ Un alias sin fecha de caducidad es permanente. En `docs/backlog.md`, sección
 - [ ] **Step 9: Commit**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 git add engine/src/main.rs engine/src/lib.rs engine/src/buscador.rs engine/src/recall.rs engine/src/escritor.rs engine/tests/ plugins/ evals/retrieval-fase0/harness/replay-engine.py docs/backlog.md
 git commit -m "feat(cli)!: flags largos al inglés, con alias oculto de los españoles"
 ```
@@ -2466,7 +2466,7 @@ git commit -m "feat(cli)!: flags largos al inglés, con alias oculto de los espa
 - [ ] **Step 1: Verificar de una vez todo lo que la ola prometía**
 
 ```bash
-cd /c/proyectos/homework/exo/engine
+cd /c/proyectos/exo/engine
 echo "--- 1. cero lecturas de basic-memory fuera de la migración explícita"
 grep -rn "basic-memory" src/ | grep -v "inicia.rs" | grep -v "^src/.*://"
 echo "--- 2. cero literales kb-demo en el engine"
@@ -2476,7 +2476,7 @@ cargo test --release --no-fail-fast > /tmp/t9.txt 2>&1; echo "CARGO_EXIT=$?"
 grep -E '^test result' /tmp/t9.txt
 echo "--- 4. fmt limpio"
 cargo fmt --check; echo "FMT_EXIT=$?"
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 echo "--- 5. cero flags españoles en consumidores vivos (D9)"
 grep -rn -- '--limite\|--titulo\|--contenido\|--refresca\|--min-similitud\|--escala-fts\|--crea\b\|--nota\b' \
   plugins evals/retrieval-fase0/harness engine/src engine/tests \
@@ -2519,7 +2519,7 @@ Baja del backlog lleva dos campañas abierto; ciérralo aquí.
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 git add docs/backlog.md README.md
 git commit -m "docs: cerrar M5a-02 y el hallazgo #3 en el backlog, actualizar estado del README"
 ```

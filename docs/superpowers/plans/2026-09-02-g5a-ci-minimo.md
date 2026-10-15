@@ -38,7 +38,7 @@ MSRV · `actions/checkout@v4`, `dtolnay/rust-toolchain`, `Swatinem/rust-cache@v2
   (`Cache::from_env` / `Cache::default`, verificado en la fuente de la crate).
   Layout: `models--jinaai--jina-embeddings-v2-base-es/{blobs,refs,snapshots}`.
   **615 MB medidos** en la caché local el 2026-09-02.
-- **Decisión de Paul (2026-09-02): las 9 suites que indexan NO se marcan
+- **Decisión del mantenedor (2026-09-02): las 9 suites que indexan NO se marcan
   `#[ignore]`.** Se cachea el modelo. Un CI que no ejerce el indexer ni el
   buscador es verde sin significado — el fallo silencioso que este proyecto
   existe para no repetir. La convención `#[ignore]` de

@@ -11,7 +11,7 @@ ficheros que `exo init` vuelca para un tercero.
 **Architecture:** dos pistas **independientes** que convergen en un único
 punto. La Pista A introduce `engine/tests/common/mod.rs`, un helper que monta
 una config temporal y apunta `EXO_CONFIG` a ella bajo un candado de proceso;
-las 9 suites que hoy dependen del `$HOME` de Paul pasan a usarlo. La Pista B
+las 9 suites que hoy dependen del `$HOME` del mantenedor pasan a usarlo. La Pista B
 añade `engine/kb-template/` (contenido) y `engine/src/plantilla.rs`
 (`include_str!` fichero a fichero), y extiende `init_cmd` para volcar la
 plantilla, versionarla e indexarla.
@@ -38,7 +38,7 @@ Valores copiados verbatim de `docs/superpowers/specs/2026-08-26-exo-generico-des
   usuario lee.
 - **`{{KB_NAME}}`** es el único placeholder, y es identificador (D7).
 - Las 5 notas doctrinales van **reescritas, no copiadas de `kb-demo`**:
-  sin nombres, sin proyectos, sin fechas de la historia de Paul. Método
+  sin nombres, sin proyectos, sin fechas de la historia del mantenedor. Método
   **clean-room (whitelist)**: se escribe desde cero mirando la instancia solo
   como referencia de forma. Nunca "destilar quitando lo personal".
 - Frontmatter **`semilla: true`** en las notas de la plantilla, para que un
@@ -74,7 +74,7 @@ Pista B (G3):            T5 → T6 → T7 → T8 (1-6) ──┘
   y `engine/tests/{plantilla,plantilla_presupuesto,inicia}.rs`. El único
   fichero compartido es `engine/src/lib.rs` (T7 añade una línea) y ninguna
   tarea de la Pista A lo toca.
-- **T6 lleva gate humano** (revisión de Paul): la Pista B se para ahí hasta
+- **T6 lleva gate humano** (revisión del mantenedor): la Pista B se para ahí hasta
   que llegue el OK, y eso no bloquea a la Pista A.
 
 ## Línea base medida (2026-08-27, esta máquina)
@@ -573,8 +573,8 @@ el prefijo `{{KB_NAME}}/`.
 `AGENTS.md`: el contrato de la KB para un agente — qué significa cada carpeta,
 qué es `tier`, la regla de oro de routing (canon como delta, bitácora como
 append, nota nueva casi nunca). `README.md`: para el humano — qué es esta KB,
-cómo se indexa, cómo se busca. Ambos en español, sin una sola referencia a
-Paul, a `kb-demo` ni a proyectos concretos.
+cómo se indexa, cómo se busca. Ambos en español, sin una sola referencia al
+mantenedor, a `kb-demo` ni a proyectos concretos.
 
 - [x] **Step 3: Verificar que el placeholder es el único, y que no hay fugas**
 
@@ -603,7 +603,7 @@ grep -rniE "$PATRON" kb-template/
 
 `paul` da falso positivo con «paulatino»: falla hacia el lado seguro, que es el
 correcto aquí. El patrón de fechas (`20NN-MM`) existe porque §G3 prohíbe
-explícitamente «fechas de la historia de Paul» y ningún token las cazaba.
+explícitamente «fechas de la historia del mantenedor» y ningún token las cazaba.
 
 - [x] **Step 4: Commit**
 
@@ -618,7 +618,7 @@ git commit -m "feat(kb-template): estructura y plantillas de la KB semilla"
 
 > **Esta tarea es de juicio, no mecánica, y toca la superficie que D1 hace
 > pública.** El texto se escribe **desde cero**; `kb-demo` se mira solo
-> como referencia de forma. Antes de commitear, gate de revisión de Paul: es
+> como referencia de forma. Antes de commitear, gate de revisión del mantenedor: es
 > contenido que va a un repo para terceros y el coste de un miss no es un
 > test rojo.
 
@@ -721,7 +721,7 @@ bash scripts/fugas-semilla.sh ; echo "FUGAS_EXIT=$?"
 Expected: `EXIT=0`, los 2 tests passed, `core-index.md` ≤ 5222 B, y
 `FUGAS_EXIT=1` (sin match).
 
-- [x] **Step 5: Gate de revisión de Paul**
+- [x] **Step 5: Gate de revisión del mantenedor**
 
 Presenta las 5 notas. **No commitees sin su OK**: es la superficie pública.
 
@@ -1148,5 +1148,5 @@ git commit -m "feat(engine): exo init vuelca la KB semilla, la versiona y la ind
 | Fecha | Gate | Resultado |
 |---|---|---|
 | 2026-08-27 | Consultor independiente (régimen de gates, spec `2026-07-16`) | **APROBADO CON CAMBIOS** — 3 BLOQUEANTES, 1 MAYOR, 8 MENORES. Verdict: `docs/superpowers/consultas/2026-08-27-ola1c/consultor-plan.md` |
-| 2026-08-27 | Aplicación del verdict | Los 4 exigidos y los 8 menores aplicados; fases paralelizadas por decisión de Paul |
+| 2026-08-27 | Aplicación del verdict | Los 4 exigidos y los 8 menores aplicados; fases paralelizadas por decisión del mantenedor |
 | 2026-08-27 | Auditor de la semilla — waiver `learnings/recon-first.md` (m-3) | **Waiver concedido**: se queda con el nombre en inglés, identificador de producto (alinea con el skill publicado `exo:recon-first`). Razonamiento completo en `docs/superpowers/consultas/2026-08-27-ola1c/auditor-semilla.md` (## Resolución del gate) |

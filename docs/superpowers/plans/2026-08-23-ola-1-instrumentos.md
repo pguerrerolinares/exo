@@ -30,7 +30,7 @@ ONNX corrompe el índice sin una sola queja.
 - **Ningún cambio de comportamiento observable salvo el que la tarea declara.**
   Esto es una ola de instrumentación, no de features.
 - **Nada de subir techos ni relajar gates** para que algo pase.
-- **`git add <rutas>`, nunca `-A`.** Regla de Paul, y además el propio T2 va de eso.
+- **`git add <rutas>`, nunca `-A`.** Regla del mantenedor, y además el propio T2 va de eso.
 - **Verificación con evidencia fresca del comando**, no con "debería funcionar".
 - No tocar `BONUS_SELLADO` ni `ESCALA_FTS_SELLADA` (`engine/src/main.rs:13-26`):
   son el contrato sellado de M2-07 y no entran en esta ola.
@@ -159,8 +159,8 @@ a desinstalarlo.
       ls ~/.claude/plugins/marketplaces/exo/plugins/reflex/scripts/ | grep -E 'basic-memory|retrieval-logger|search-before-write'
       # salida esperada: vacío
       ```
-- [ ] **Si el refresco no es trivial o el origen no está claro, PARA y escala a
-      Paul.** Esto vive fuera del repo y toca la instalación real de sus plugins:
+- [ ] **Si el refresco no es trivial o el origen no está claro, PARA y escala al
+      mantenedor.** Esto vive fuera del repo y toca la instalación real de sus plugins:
       no es sitio para improvisar.
 
 **Esfuerzo:** ~30 min si es un `git pull`; escalar si no.

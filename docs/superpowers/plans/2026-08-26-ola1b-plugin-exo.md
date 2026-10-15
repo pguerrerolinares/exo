@@ -37,7 +37,7 @@ Windows 11) · jq · marketplace `exo` en el repo `exo-plugins`.
   No los medio-arregles aquí.
 - **Fuera de scope:** portar comandos de kbx (es G4), la KB semilla (G3),
   CI/release/instalador (G5).
-- **Working dir:** `C:\proyectos\homework\exo`. Shell: Git Bash.
+- **Working dir:** `C:\proyectos\exo`. Shell: Git Bash.
 - **El exit code no es evidencia.** Cada verificación de este plan mira un
   artefacto: un fichero, un log, una ruta resuelta. Nunca solo un `$?`.
 - **PRECONDICIÓN DURA: la ola 1A tiene que estar completa y commiteada.** La
@@ -49,7 +49,7 @@ Windows 11) · jq · marketplace `exo` en el repo `exo-plugins`.
   Verifícalo antes de empezar:
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 grep -rn 'kb-demo' plugins/reflex/scripts/*.sh | grep -v 'test-'
 grep -rn 'data\.notas\|has("notas")\|data\.truncado' plugins/reflex/scripts/*.sh
 ```
@@ -117,7 +117,7 @@ Anota la salida literal en el runbook: es el estado al que hay que poder volver.
 - [x] **Step 3: Comprobar que el gate de la KB funciona HOY**
 
 ```bash
-cat /c/proyectos/homework/kb-demo/.git/hooks/pre-commit
+cat /c/proyectos/kb-demo/.git/hooks/pre-commit
 ls -d "$HOME"/.claude/plugins/cache/exo/reflex/*/scripts/kb-precommit.sh
 ```
 
@@ -134,7 +134,7 @@ salida literal de los tres pasos anteriores bajo una sección `## Baseline
 - [x] **Step 5: Commit**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 git add docs/superpowers/runbooks/2026-08-26-cutover-plugin-exo.md
 git commit -m "docs(runbook): baseline falsable antes del cutover del plugin exo"
 ```
@@ -160,7 +160,7 @@ git commit -m "docs(runbook): baseline falsable antes del cutover del plugin exo
 cada script. Copiar y borrar la pierde.
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 mkdir -p plugins/exo
 git mv plugins/process/skills plugins/exo/skills
 git mv plugins/process/LICENSES plugins/exo/LICENSES
@@ -175,7 +175,7 @@ git status --short | head -40
 - [x] **Step 2: Verificar que no queda nada suelto**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 find plugins/process plugins/reflex -type f 2>/dev/null
 ```
 
@@ -203,7 +203,7 @@ Crear `plugins/exo/.claude-plugin/plugin.json`:
 - [x] **Step 4: Borrar los manifests y READMEs viejos, escribir el nuevo**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 git rm -r plugins/process plugins/reflex
 ```
 
@@ -219,7 +219,7 @@ de la licencia MIT).
 plugin, así que el contenido **no cambia**. Compruébalo:
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 jq -r '.hooks | to_entries[] | .value[] | .hooks[] | .command' plugins/exo/hooks/hooks.json \
   | sed 's|"${CLAUDE_PLUGIN_ROOT}"/||' | while read -r f; do
       [ -f "plugins/exo/$f" ] && echo "OK   $f" || echo "FALTA $f"
@@ -231,7 +231,7 @@ Expected: **nueve líneas `OK`, cero `FALTA`**.
 - [x] **Step 6: Correr las suites de script en su ubicación nueva**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 for t in plugins/exo/scripts/test-*.sh; do
   printf "%s: " "$(basename "$t")"
   bash "$t" >/tmp/$(basename "$t").log 2>&1 && echo OK || { echo FAIL; tail -15 /tmp/$(basename "$t").log; }
@@ -244,7 +244,7 @@ path, arréglala aquí.
 - [x] **Step 7: Commit**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 git add -A plugins/
 git commit -m "refactor(plugins): fusionar process y reflex en el plugin único exo 1.0.0"
 ```
@@ -269,7 +269,7 @@ git commit -m "refactor(plugins): fusionar process y reflex en el plugin único 
 - [x] **Step 1: Inventariar todas las referencias antes de mover**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 grep -rn '\bdocumenta\b\|\bconsolida\b\|/documenta\|/consolida' plugins/ docs/ README.md \
   | grep -v '^docs/superpowers/consultas/' | grep -v '^docs/superpowers/plans/2026-0[1-8]' \
   > /tmp/refs-rename.txt
@@ -284,7 +284,7 @@ hablan del pasado.
 - [x] **Step 2: Mover los directorios**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 git mv plugins/exo/skills/documenta plugins/exo/skills/document
 git mv plugins/exo/skills/consolida plugins/exo/skills/distill
 git mv plugins/exo/scripts/documenta-remind.sh plugins/exo/scripts/document-remind.sh
@@ -337,7 +337,7 @@ contexto de cada match**: «documentación» y «documentar» no son el skill.
 - [x] **Step 6: Verificar que no queda ninguna referencia viva**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 grep -rn 'process:\|reflex:\|/documenta\b\|/consolida\b' plugins/ README.md
 ```
 
@@ -352,7 +352,7 @@ Expected exactamente: `brainstorm  debug  distill  document  orchestrate  plan  
 - [x] **Step 7: Los tests de script siguen verdes**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 for t in plugins/exo/scripts/test-*.sh; do
   printf "%s: " "$(basename "$t")"
   bash "$t" >/tmp/r-$(basename "$t").log 2>&1 && echo OK || { echo FAIL; tail -15 /tmp/r-$(basename "$t").log; }
@@ -364,7 +364,7 @@ Expected: todas `OK`.
 - [x] **Step 8: Commit**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 git add -A plugins/ README.md
 git commit -m "refactor(plugins)!: documenta->document, consolida->distill
 
@@ -473,7 +473,7 @@ Con el plugin renombrado a `exo`, el glob no matchea y su rama de fallo hace
 repo del monorepo, así que ningún `grep` del monorepo lo encuentra.
 
 **Files:**
-- Modify: `C:\proyectos\homework\kb-demo\.git\hooks\pre-commit` (fuera de este repo)
+- Modify: `C:\proyectos\kb-demo\.git\hooks\pre-commit` (fuera de este repo)
 - Modify: `plugins/exo/scripts/kb-precommit.sh` (comentarios que citan la ruta vieja)
 - Modify: `docs/superpowers/runbooks/2026-08-26-cutover-plugin-exo.md`
 
@@ -496,7 +496,7 @@ sin tocar se iría por la rama `exit 0`. Anota ambas salidas en el runbook.
 El shim actual deja pasar el commit cuando no encuentra el script, con el
 argumento de que «un plugin ausente no debe convertirse en un repo bloqueado».
 Ese criterio es el que convierte un rename en un gate apagado. Sustituir el
-contenido de `C:\proyectos\homework\kb-demo\.git\hooks\pre-commit` por:
+contenido de `C:\proyectos\kb-demo\.git\hooks\pre-commit` por:
 
 ```bash
 #!/usr/bin/env bash
@@ -535,7 +535,7 @@ exec bash "$script" "$@"
 - [x] **Step 3: Verificar el shim en sus tres estados**
 
 ```bash
-HOOK=/c/proyectos/homework/kb-demo/.git/hooks/pre-commit
+HOOK=/c/proyectos/kb-demo/.git/hooks/pre-commit
 # a) con el plugin viejo instalado (estado actual): debe resolver y avisar
 bash "$HOOK" </dev/null; echo "EXIT_A=$?"
 ```
@@ -567,7 +567,7 @@ máquinas estén migradas.
 - [x] **Step 6: Commit**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 git add plugins/exo/scripts/kb-precommit.sh docs/superpowers/runbooks/2026-08-26-cutover-plugin-exo.md
 git commit -m "fix(kb-gate): el shim del pre-commit apunta a exo y falla ruidoso si no lo encuentra"
 ```
@@ -585,10 +585,10 @@ anotado en el runbook y hay que repetirlo a mano en la otra máquina (Task 8).
 > `paul`. Ver la spec, «Decisiones bloqueantes — ADJUDICADAS».
 
 **Files:**
-- Modify: `C:\proyectos\homework\exo-plugins\.claude-plugin\marketplace.json`
-- Modify: `C:\proyectos\homework\exo-plugins\plugins\paul-profile\.claude-plugin\plugin.json`
-- Modify: `C:\proyectos\homework\exo-plugins\plugins\paul-profile\skills\fabrica\SKILL.md`
-- Create: `C:\proyectos\homework\exo\.claude-plugin\marketplace.json`
+- Modify: `C:\proyectos\exo-plugins\.claude-plugin\marketplace.json`
+- Modify: `C:\proyectos\exo-plugins\plugins\paul-profile\.claude-plugin\plugin.json`
+- Modify: `C:\proyectos\exo-plugins\plugins\paul-profile\skills\fabrica\SKILL.md`
+- Create: `C:\proyectos\exo\.claude-plugin\marketplace.json`
 
 **Interfaces:**
 - Consumes: el plugin `exo` de las Tasks 2-3.
@@ -598,7 +598,7 @@ anotado en el runbook y hay que repetirlo a mano en la otra máquina (Task 8).
 - [x] **Step 1: Inventariar las referencias de paul-profile**
 
 ```bash
-cd /c/proyectos/homework/exo-plugins
+cd /c/proyectos/exo-plugins
 grep -rn 'process:\|reflex:\|process@\|reflex@' . --include=*.json --include=*.md | grep -v '^./.git/'
 ```
 
@@ -622,7 +622,7 @@ Subir `metadata.version` del marketplace de `0.2.0` a `0.3.0`.
 
 - [x] **Step 3-bis: Crear el marketplace del repo `exo`**
 
-Crear `C:\proyectos\homework\exo\.claude-plugin\marketplace.json`:
+Crear `C:\proyectos\exo\.claude-plugin\marketplace.json`:
 
 ```json
 {
@@ -646,9 +646,9 @@ no asumido.
 - [x] **Step 4: Validar los dos JSON**
 
 ```bash
-jq -e '.plugins | map(.name) | sort' /c/proyectos/homework/exo-plugins/.claude-plugin/marketplace.json
-jq -e '.name' /c/proyectos/homework/exo-plugins/.claude-plugin/marketplace.json
-jq -e '.plugins | map(.name)' /c/proyectos/homework/exo/.claude-plugin/marketplace.json
+jq -e '.plugins | map(.name) | sort' /c/proyectos/exo-plugins/.claude-plugin/marketplace.json
+jq -e '.name' /c/proyectos/exo-plugins/.claude-plugin/marketplace.json
+jq -e '.plugins | map(.name)' /c/proyectos/exo/.claude-plugin/marketplace.json
 ```
 
 Expected: `["paul-profile","workflow-lint"]` · `"paul"` · `["exo"]`. Si en el
@@ -660,11 +660,11 @@ Esta task toca **dos** repos y cada uno lleva su commit, con rutas explícitas.
 Nada de `git add -A` a ciegas: en `exo` hay trabajo de otras tasks en vuelo.
 
 ```bash
-cd /c/proyectos/homework/exo-plugins
+cd /c/proyectos/exo-plugins
 git add .claude-plugin/marketplace.json plugins/paul-profile
 git commit -m "feat(marketplace)!: retirar process y reflex, renombrar el marketplace a paul"
 
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 git add .claude-plugin/marketplace.json
 git commit -m "feat(marketplace): el repo exo sirve su propio marketplace exo@exo"
 ```
@@ -683,7 +683,7 @@ git commit -m "feat(marketplace): el repo exo sirve su propio marketplace exo@ex
 ### Task 6: Repuntar la KB — `core-index` y los skills que la citan
 
 **Files:**
-- Modify: `C:\proyectos\homework\kb-demo\core\core-index.md`
+- Modify: `C:\proyectos\kb-demo\core\core-index.md`
 - Modify: los `.md` de la KB que citen los skills viejos
 
 **Interfaces:**
@@ -695,7 +695,7 @@ git commit -m "feat(marketplace): el repo exo sirve su propio marketplace exo@ex
 - [x] **Step 1: Inventariar**
 
 ```bash
-cd /c/proyectos/homework/kb-demo
+cd /c/proyectos/kb-demo
 grep -rn 'plugin `process`\|process:\|reflex:\|/documenta\|/consolida' \
   --include=*.md . | grep -v '^./archive/' | grep -v '^./log/'
 ```
@@ -718,7 +718,7 @@ por:
 `· distill (consolidación offline)` lo engorda.
 
 ```bash
-cd /c/proyectos/homework/kb-demo
+cd /c/proyectos/kb-demo
 wc -c core/core-index.md
 grep -n 'kbx_budget_max' core/core-index.md
 ```
@@ -735,7 +735,7 @@ contexto, «documentación» no es el skill.
 - [x] **Step 5: Commit en la KB (con el gate corriendo)**
 
 ```bash
-cd /c/proyectos/homework/kb-demo
+cd /c/proyectos/kb-demo
 git add core/core-index.md
 git status --short
 git commit -m "docs(core-index): routing al plugin exo, document y distill"
@@ -780,7 +780,7 @@ vivas `docs/superpowers/` y `reports/` (que son de G5).
 - [x] **Step 4: Commit**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 git add README.md docs/
 git commit -m "docs: actualizar README, runbook de W11 y backlog al plugin exo"
 ```
@@ -799,8 +799,8 @@ git commit -m "docs: actualizar README, runbook de W11 y backlog al plugin exo"
 - [x] **Step 1: Empujar los dos repos**
 
 ```bash
-cd /c/proyectos/homework/exo && git push
-cd /c/proyectos/homework/exo-plugins && git push
+cd /c/proyectos/exo && git push
+cd /c/proyectos/exo-plugins && git push
 ```
 
 El plugin se sirve desde el repo `exo`: **hasta que esto no esté empujado,
@@ -817,8 +817,8 @@ envelope v1 contra scripts que ya hablan v2.
 
 ```bash
 cp ~/.local/bin/exo.exe ~/.local/bin/exo-v1.exe          # rollback del Step 7
-cargo build --release --manifest-path /c/proyectos/homework/exo/engine/Cargo.toml
-install -m 755 /c/proyectos/homework/exo/engine/target/release/exo.exe ~/.local/bin/exo.exe   # Linux: exo
+cargo build --release --manifest-path /c/proyectos/exo/engine/Cargo.toml
+install -m 755 /c/proyectos/exo/engine/target/release/exo.exe ~/.local/bin/exo.exe   # Linux: exo
 exo search --json probe | jq -e '.schema_version == 2' >/dev/null && echo "binario v2 OK"
 ```
 
@@ -870,7 +870,7 @@ Expected: las dos líneas `OK`, y ninguna entrada nueva de `recall-fallback` con
 
 ```bash
 ls -d "$HOME"/.claude/plugins/cache/exo/exo/*/scripts/kb-precommit.sh
-cd /c/proyectos/homework/kb-demo
+cd /c/proyectos/kb-demo
 touch core/core-index.md && git add core/core-index.md
 git commit -m "test: verificar el gate tras el cutover" --dry-run 2>&1 | head -5
 git reset
@@ -910,7 +910,7 @@ Un cutover sin rollback escrito no es un cutover, es una apuesta.
 - [x] **Step 8: Commit**
 
 ```bash
-cd /c/proyectos/homework/exo
+cd /c/proyectos/exo
 git add docs/superpowers/runbooks/2026-08-26-cutover-plugin-exo.md
 git commit -m "docs(runbook): cutover del plugin exo verificado end-to-end"
 ```
