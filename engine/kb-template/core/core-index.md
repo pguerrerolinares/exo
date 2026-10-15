@@ -42,8 +42,7 @@ compacta" importa: a cada subagente solo le llegan sus primeros 550 B.
 
 `exo:brainstorm` (diseño antes de código) · `exo:plan` (spec → plan) ·
 `exo:orchestrate` (ejecutar un plan multi-tarea) · `exo:tdd` (test primero) ·
-`exo:debug` (bug o atasco) · `exo:recon-first` (atasco o terreno
-desconocido) · `exo:verify` (antes de declarar hecho) ·
+`exo:debug` (bug, atasco o terreno desconocido) · `exo:verify` (antes de declarar hecho) ·
 `exo:document` (cierre de sesión) · `exo:distill` (consolidación). Si la
 tarea encaja con una, invócala antes de actuar. Un subagente que ejecuta una
 tarea concreta está exento.

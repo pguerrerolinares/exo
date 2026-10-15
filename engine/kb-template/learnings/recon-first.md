@@ -16,8 +16,8 @@ frecuencia esa asunción es justo lo que está mal, y ningún ajuste sobre un
 supuesto falso va a funcionar. **Retrieve > compute** para lo que no está en
 tus pesos: reintentar lo mismo a ciegas no es progreso.
 
-Lo implementan `exo:recon-first` (invocable directo cuando notas que das
-vueltas) y `exo:debug` (root cause y recon antes de proponer fixes).
+Lo implementa `exo:debug` (puerta 2, invocable directo cuando notas que das
+vueltas; puerta 1, root cause y recon antes de proponer fixes).
 
 ## La regla
 

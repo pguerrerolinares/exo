@@ -1,6 +1,6 @@
 ---
 name: debug
-description: Dos puertas — (1) ante cualquier bug, test que falla o comportamiento inesperado, antes de proponer fixes; (2) cuando estás atascado — mismo error ≥3 veces, terreno desconocido, time-box quemándose — o antes de grindear en solitario algo no familiar. Root cause y recon antes de computar.
+description: Dos puertas — (1) ante cualquier bug, test que falla o comportamiento inesperado, antes de proponer fixes; (2) cuando estás atascado — mismo error ≥3 veces, terreno desconocido, time-box quemándose — o antes de grindear en solitario algo no familiar; invócala directo cuando notes que das vueltas. Root cause y recon antes de computar.
 ---
 
 # debug
@@ -40,9 +40,11 @@ mismo error — repetir no es progreso.
 
 1. Para de reintentar; nombra explícitamente qué intentaste y por qué
    falló — si no sabes por qué, ese es el problema.
-2. Retrieve > compute: error literal a la web, docs oficiales, issues/
-   changelog si huele a cambio de versión.
-3. Lista tus supuestos y verifica el más barato primero.
+2. Retrieve > compute: error literal a la web, docs oficiales (mejor que tu
+   memoria paramétrica, que puede estar stale), issues/changelog si huele
+   a cambio de versión.
+3. Lista tus supuestos y verifica el más barato primero: un `--version`, un
+   `print` o un `ls` resuelve más atascos que otra ronda de razonamiento.
 4. Reduce el caso al mínimo aislado antes de seguir tocando el sistema
    entero.
 

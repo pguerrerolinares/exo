@@ -13,11 +13,11 @@ ok()  { echo "PASS: $1"; PASS=$((PASS+1)); }
 bad() { echo "FAIL: $1"; FAIL=$((FAIL+1)); }
 
 # refs_validas
-P="$T/validas"; mkdir -p "$P/skills/plan" "$P/skills/orchestrate" "$P/skills/recon-first"
+P="$T/validas"; mkdir -p "$P/skills/plan" "$P/skills/orchestrate" "$P/skills/debug"
 # shellcheck disable=SC2016 # los backticks son texto literal del fixture, no sustitución
-printf 'Pasa a `exo:orchestrate`.\nVer exo:recon-first, y exo:plan.\n' > "$P/skills/plan/SKILL.md"
+printf 'Pasa a `exo:orchestrate`.\nVer exo:debug, y exo:plan.\n' > "$P/skills/plan/SKILL.md"
 printf '# orchestrate\n' > "$P/skills/orchestrate/SKILL.md"
-printf '# recon\n' > "$P/skills/recon-first/SKILL.md"
+printf '# recon\n' > "$P/skills/debug/SKILL.md"
 out="$(bash "$CHECK" "$P" 2>&1)"; rc=$?
 if [ $rc -eq 0 ] && [ -z "$out" ]; then ok refs_validas; else bad "refs_validas (rc=$rc out=$out)"; fi
 

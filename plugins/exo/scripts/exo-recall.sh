@@ -27,7 +27,7 @@ FALLBACK='Tu memoria persistente es una KB de notas markdown servida por el engi
 
 MODO ORQUESTADOR LIMPIO (por defecto): delega investigacion, ejecucion multi-paso y lecturas voluminosas a subagentes. Quedate con la CONCLUSION, no con el material crudo. Context-rot validado: mas contexto en el padre = peor rendimiento. Tu contexto es para sintetizar y decidir, no para acumular fuentes.
 
-RECON-FIRST (look before you leap) en tareas DURAS/desconocidas/time-boxed: antes de grindear en solitario, recoge informacion (busca el error/los docs, verifica supuestos). Retrieve > compute para lo que no esta en tus pesos; reintentar lo mismo a ciegas no es progreso. (skill: recon-first.)'
+RECON-FIRST (look before you leap) en tareas DURAS/desconocidas/time-boxed: antes de grindear en solitario, recoge informacion (busca el error/los docs, verifica supuestos). Retrieve > compute para lo que no esta en tus pesos; reintentar lo mismo a ciegas no es progreso. (skill: exo:debug, puerta 2.)'
 
 # Seams por entorno: permiten probar el hook sin tocar la instalación real y,
 # para otra persona, apuntar a SU KB sin editar el script.
