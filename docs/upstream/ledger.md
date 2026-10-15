@@ -42,7 +42,7 @@ Ficheros upstream que no se portan nunca, ni se triagean.
 - `systematic-debugging/CREATION-LOG.md`
 - `systematic-debugging/test-pressure-1.md`, `test-pressure-2.md`, `test-pressure-3.md` (patrón `test-pressure-*.md`)
 - `systematic-debugging/find-polluter.sh`
-- `writing-skills/*`, `using-superpowers/*`, `finishing-a-development-branch/*` y `diagnosing-superpowers/*`: skills sin contraparte en exo, fuera del catálogo destilado (decisión de Paul 2026-10-14)
+- `writing-skills/*`, `using-superpowers/*`, `finishing-a-development-branch/*` y `diagnosing-superpowers/*`: skills sin contraparte en exo, fuera del catálogo destilado (decisión del mantenedor 2026-10-14)
 - `writing-plans/plan-document-reviewer-prompt.md`: eliminado upstream
 
 ## Sin equivalente en exo
@@ -64,7 +64,7 @@ Un cambio upstream que choque con una de estas filas se triagea como `no aplica`
 
 | id | skill exo | qué diverge | motivo | fuente |
 |---|---|---|---|---|
-| D1 | orchestrate | Sin skill de worktrees ni paso "asegura workspace aislado" al inicio; aislamiento por ola (worktree por tarea en olas de ≥2) + red line de main | Decisión de Paul 2026-09-30 | plugins/exo/skills/orchestrate/olas.md § Ejecutar una ola |
+| D1 | orchestrate | Sin skill de worktrees ni paso "asegura workspace aislado" al inicio; aislamiento por ola (worktree por tarea en olas de ≥2) + red line de main | Decisión del mantenedor 2026-09-30 | plugins/exo/skills/orchestrate/olas.md § Ejecutar una ola |
 | D2 | debug | La verificación del fix va en prosa en la Fase 4; sin puntero explícito a exo:verify | La regla de verificar ya vive en verify, executor.md y exo-recall.sh | plugins/exo/skills/debug/SKILL.md (Fase 4) |
 | D3 | orchestrate | Forma de porte (no estado actual): si se prohíbe despachar subagentes, el executor pierde la herramienta Agent (contrato mecánico en frontmatter); la prohibición de despachar subagentes va en prosa solo en el prompt del reviewer | Lo mecánico no depende de la prosa (Fallo silencioso, ley 3) | plugins/exo/agents/executor.md |
 | D4 | orchestrate | Sin guía de esperas acotadas ni polling de subagentes | Específico de harnesses con wait por polling; Claude Code notifica al terminar | — |
@@ -74,12 +74,12 @@ Un cambio upstream que choque con una de estas filas se triagea como `no aplica`
 | D8 | plan, orchestrate | Sin modo de ejecución inline; handoff único a exo:orchestrate | Orquestador limpio: el padre integra, no implementa | plugins/exo/skills/orchestrate/SKILL.md |
 | D9 | orchestrate/scripts/review-package | La sección MUTACIÓN (acotada al diff, timeout por mutante, `EXO_MUTATION_EXCLUDE`, muestreo; exo 1.5.0-1.5.2) es propia; un porte nunca la pisa, solo el resto del script | Instrumento propio del pipeline A+ | plugins/exo/skills/orchestrate/olas.md § Mutación |
 | D10 | debug | Referenciar systematic-debugging OK, depender NO | Decisión de diseño previa | — |
-| D11 | brainstorm | Sin salida «salta las preguntas» en el primer mensaje | brainstorm se invoca a propósito; lo trivial ya lo cubre «Tamaño del trabajo» (cambio pequeño en chat). Decisión de Paul 2026-10-14 | plugins/exo/skills/brainstorm/SKILL.md § Tamaño del trabajo |
-| D12 | brainstorm | Se mantiene «prefiere multiple choice»; sin regla de pregunta abierta primero ni menú solo si el usuario se atasca | Decisión de Paul 2026-10-14 | plugins/exo/skills/brainstorm/SKILL.md § Proceso |
+| D11 | brainstorm | Sin salida «salta las preguntas» en el primer mensaje | brainstorm se invoca a propósito; lo trivial ya lo cubre «Tamaño del trabajo» (cambio pequeño en chat). Decisión del mantenedor 2026-10-14 | plugins/exo/skills/brainstorm/SKILL.md § Tamaño del trabajo |
+| D12 | brainstorm | Se mantiene «prefiere multiple choice»; sin regla de pregunta abierta primero ni menú solo si el usuario se atasca | Decisión del mantenedor 2026-10-14 | plugins/exo/skills/brainstorm/SKILL.md § Proceso |
 
 ## Decisiones de doctrina (portar)
 
-Decisiones de Paul (2026-09-30), distintas de las Divergencias: no son "no portar", son doctrina de exo que un cambio upstream puede implementar. Un cambio que las implementa es `aplica`/`parcial`, no `duda`.
+Decisiones del mantenedor (2026-09-30), distintas de las Divergencias: no son "no portar", son doctrina de exo que un cambio upstream puede implementar. Un cambio que las implementa es `aplica`/`parcial`, no `duda`.
 
 - **Rule and continue.** Ante conflictos, ambigüedades o defectos del plan, el orquestador decide, registra `Ruling: <decisión> — <porqué> — <coste si está mal>` en el ledger y sigue. Solo para ante (1) una operación irreversible o destructiva, (2) una acción sensible de seguridad, (3) un efecto fuera del worktree que las normas mandan preguntar (merge, push a rama compartida, publicar), (4) un plan tan roto que todo camino es adivinar.
 - **Lo que el reviewer no juzgó.** El reviewer lista lo que dejó sin juzgar ("Declined to judge") y el orquestador convierte cada línea en un Ruling.
@@ -90,7 +90,7 @@ Decisiones de Paul (2026-09-30), distintas de las Divergencias: no son "no porta
 
 `triage` ∈ {aplica, parcial, ya cubierto, no aplica, duda}, siempre no vacío (una fila `pendiente` por tope lleva su triage real). `estado` ∈ {propuesto, portado, rechazado, pendiente, —}; `—` para no aplica y ya cubierto.
 
-`motivo` en `pendiente`: `tope`, `gate: <causa>`, `respondida` (Paul contestó una `duda`) o, en `duda`, la pregunta (para un fichero sin mapeo: `mapeo: <fichero upstream>`). Nunca `|` dentro de `motivo`: usa `/`.
+`motivo` en `pendiente`: `tope`, `gate: <causa>`, `respondida` (el mantenedor contestó una `duda`) o, en `duda`, la pregunta (para un fichero sin mapeo: `mapeo: <fichero upstream>`). Nunca `|` dentro de `motivo`: usa `/`.
 
 | PR | skill | triage | estado | motivo | hash |
 |---|---|---|---|---|---|

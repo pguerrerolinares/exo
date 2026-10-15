@@ -1,6 +1,6 @@
 # Foto as-is del framework — 2026-08-02
 
-Snapshot firmable del sistema agéntico completo de Paul tal y como funciona HOY.
+Snapshot firmable del sistema agéntico completo del mantenedor tal y como funciona HOY.
 No es una spec: no diseña nada nuevo. Sirve como baseline para evaluaciones
 futuras (comparar contra esta foto) y como mapa de qué pieza absorbe exo en qué
 milestone. La spec del futuro es otra: `docs/superpowers/specs/2026-07-16-framework-unificado-design.md`.

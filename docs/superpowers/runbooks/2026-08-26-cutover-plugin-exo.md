@@ -154,7 +154,7 @@ emitir.
 ### La medida
 
 ```
-$ compose-inject.sh --type exo:executor --kb /c/proyectos/homework/kb-demo
+$ compose-inject.sh --type exo:executor --kb /c/proyectos/kb-demo
 1274 bytes   (con rutas — correcto)
 
 $ compose-inject.sh --type exo:executor          # lo que hace el hook real
@@ -327,7 +327,7 @@ instalarlo**, no después:
 
 ```
 $ target/release/exo.exe config --json | jq -r .data.kb.path
-C:/proyectos/homework/kb-demo
+C:/proyectos/kb-demo
 $ target/release/exo.exe search --json probe | jq -r .schema_version
 2
 ```

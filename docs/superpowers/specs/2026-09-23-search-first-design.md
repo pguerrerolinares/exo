@@ -5,7 +5,7 @@
 
 ## 1. El incidente
 
-Paul pidió ejecutar la Task 5 de la campaña I (fundir los tres guards de
+El mantenedor pidió ejecutar la Task 5 de la campaña I (fundir los tres guards de
 `PreToolUse:Bash`). El agente principal recibió al arrancar el `core-index`,
 que dice «Antes de trabajo sustantivo, busca contexto (exo search --type
 hybrid, exo targets)» (`<kb>/core/core-index.md:17`), y del hook
@@ -31,7 +31,7 @@ especifica la task»).
   `prompt` del held-out acierta 11/22 (`backlog/Backlog — exo.md:43-55`,
   ítem aparcado «Tasa de re-explicación»).
 
-## 3. Decisiones (brainstorming con Paul)
+## 3. Decisiones (brainstorming con el mantenedor)
 
 | Pregunta | Decisión |
 |---|---|

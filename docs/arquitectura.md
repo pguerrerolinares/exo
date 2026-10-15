@@ -204,7 +204,7 @@ motivos, tal como los declara el código:
 ### 3.5 Pipeline de búsqueda
 
 `exo search` tiene tres modos (`--type fts|vector|hybrid`, **default
-`hybrid` desde el 2026-09-15** — D6, decisión 1 de Paul, campaña G Task 11;
+`hybrid` desde el 2026-09-15** — D6, decisión 1 del mantenedor, campaña G Task 11;
 antes `fts`), implementados en `engine/src/buscador.rs`. Todos devuelven
 resultados **a nivel de nota** (`type: "entity"`), nunca de trozo. El modo
 medido es el default, `--type hybrid`. Desde el 2026-10-04 (serie B, engine
@@ -218,12 +218,12 @@ son de la fusión anterior. El default usa
 se omite — ya no hace falta pasarlo a mano. `fts` a secas sigue disponible
 con `--type fts`, es el modo léxico barato, no el medido. `exo recall
 --query` usa hybrid con los mismos parámetros sellados de serie (I2, review
-final de la campaña G, decisión 2 de Paul, 2026-09-16: `recall_cmd` en
+final de la campaña G, decisión 2 del mantenedor, 2026-09-16: `recall_cmd` en
 `main.rs` resuelve `--min-similarity` omitido a `MIN_SIMILARITY_SELLADO`
 antes de llamar a `recall_consulta`, igual que `search --type hybrid` desde
 la Task 11 — **cambio de ranking** para quien tenga `[embeddings]
 min_similarity` distinto de 0.40 en su config, ya que antes `recall --query`
-sin flag caía a ese valor de config, 0.35 en la máquina de Paul; ahora la
+sin flag caía a ese valor de config, 0.35 en la máquina del mantenedor; ahora la
 config deja de mandar en este camino).
 
 Dos salidas, dos formas. La humana son cuatro columnas separadas por tab —
@@ -264,7 +264,7 @@ flowchart TD
   `bonus = 0.0` y `β = 0.6` (`BONUS_SELLADO`, `ESCALA_FTS_SELLADA`),
   sobreescribibles con `--bonus`/`--fts-scale`. El umbral ganador del sweep
   (0.40) **sí** está sellado como constante desde el 2026-09-15
-  (`MIN_SIMILARITY_SELLADO`, D6 — decisión 1 de Paul, campaña G Task 11): el
+  (`MIN_SIMILARITY_SELLADO`, D6 — decisión 1 del mantenedor, campaña G Task 11): el
   motivo original para no sellarlo — D-f3/§4.6, "difiere del 0.35 de config
   y config es RO hasta M5a" — caducó cuando M5a-02 (config propia) cerró el
   2026-08-26 (`docs/backlog.md:2117`). `exo init` escribe ahora ese mismo

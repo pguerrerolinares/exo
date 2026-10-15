@@ -1,8 +1,8 @@
-# C8 — runbook del cutover: lo que ejecuta Paul
+# C8 — runbook del cutover: lo que ejecuta el mantenedor
 
 > ## EJECUTADO el 2026-08-18. Estado: **cutover completo y verificado.**
 >
-> - **Fases 1, 2, 3, 4a, 4b, 5, 6: hechas.** El rename del repo lo ejecutó Paul;
+> - **Fases 1, 2, 3, 4a, 4b, 5, 6: hechas.** El rename del repo lo ejecutó el mantenedor;
 >   el resto, el orquestador bajo `OVERRIDE` registrado en el ledger.
 > - Verificación final en sesión fresca:
 >   `PROCESS: brainstorm, debug, documenta, orchestrate, plan, tdd, verify` ·
@@ -14,7 +14,7 @@
 >   plugins duplicados, cerrada desactivando el trío viejo acto seguido.
 > - **`git-subdir` contra un repo privado funciona**: `process@exo` bajó sus 7
 >   skills desde `pguerrerolinares/exo.git`. Era el riesgo abierto nº3 del gate.
-> - **Fase 7: hecha** en sesión nueva (2026-08-18, tarde). Paul borró
+> - **Fase 7: hecha** en sesión nueva (2026-08-18, tarde). El mantenedor borró
 >   `cache/agent-develop`; con ella se fueron las huérfanas del plan (reflex
 >   0.6.0/0.8.0/0.11.0/0.12.0 y paul-profile 0.2.1). `cache/exo` queda con una
 >   sola versión por plugin. Las de `superpowers 6.x` (6.1.1/6.2.0/6.3.0) siguen

@@ -3,7 +3,7 @@
 //! sobrevive en el engine, y es explícita.
 
 const BM_JSON: &str = r#"{
-  "projects": { "kb-test": { "path": "C:/proyectos/homework/kb-test" } },
+  "projects": { "kb-test": { "path": "C:/proyectos/kb-test" } },
   "default_project": "kb-test",
   "semantic_embedding_model": "jinaai/jina-embeddings-v2-base-es",
   "semantic_embedding_dimensions": 768,
@@ -15,7 +15,7 @@ fn migra_desde_basic_memory_leyendo_el_proyecto_por_defecto() {
     let (kb, nombre, emb) = exo::inicia::desde_basic_memory(BM_JSON).expect("migrar");
     assert_eq!(
         kb,
-        std::path::PathBuf::from("C:/proyectos/homework/kb-test")
+        std::path::PathBuf::from("C:/proyectos/kb-test")
     );
     // El nombre sale de `default_project`, NO de un literal "kb-test"
     // hardcodeado: ese literal era justo el acoplamiento que se viene a matar.
@@ -764,7 +764,7 @@ fn valida_db_para_kb_rechaza_otra_kb_sin_mencionar_un_flag_que_init_no_tiene() {
     );
 }
 
-/// D6 ampliado (decisión de Paul, 2026-09-15, Ola 1 G Task 11): el default
+/// D6 ampliado (decisión del mantenedor, 2026-09-15, Ola 1 G Task 11): el default
 /// que `exo init` escribe en `[embeddings] min_similarity` sube de 0.35 a
 /// 0.40 — la MISMA constante `MIN_SIMILARITY_SELLADO` que ya sella el
 /// default de `exo search --type hybrid` (`flags.rs`,
