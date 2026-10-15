@@ -1064,4 +1064,4 @@ exo recall --query "fallo silencioso" --limit 2
 Expected: el check en `ok`; `search` con cuatro columnas y ruta absoluta sin
 `\`; `recall` sin `\`. Y en la sesión siguiente, el bloque que inyecta
 `recall-inject.sh` en cada prompt debe traer rutas con `/` y la raíz común bien
-calculada (hoy dice `C:/proyectos/homework` en vez de `…/<kb>`).
+calculada (hoy dice `C:/proyectos` en vez de `…/<kb>`).

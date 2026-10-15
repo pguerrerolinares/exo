@@ -46,7 +46,7 @@ esta máquina Windows — ver Global Constraints).
 ## Global Constraints
 
 Todas verificadas hoy (2026-09-15) contra `99ddd05` en el worktree
-`C:/proyectos/homework/exo-wt/campana-f`.
+`C:/proyectos/exo-wt/campana-f`.
 
 - **El crate vive en `engine/`, no en la raíz.** No hay workspace. **Esta
   campaña no toca ni un byte de `engine/src/`** — Task 5 toca

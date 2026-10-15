@@ -133,7 +133,7 @@
 
 ### Task 3: eval `ars` del canal degradado
 
-> Lanzar las corridas reales cuesta ~2 USD y REQUIERE OK EXPLÍCITO DE PAUL. Construir el brazo y sus tests (sin claude) no gasta nada; el paso de lanzamiento se detiene y pregunta.
+> Lanzar las corridas reales cuesta ~2 USD y REQUIERE OK EXPLÍCITO DEL MANTENEDOR. Construir el brazo y sus tests (sin claude) no gasta nada; el paso de lanzamiento se detiene y pregunta.
 
 **Files:**
 - Modify: `evals/ablacion-k/harness/correr.sh`

@@ -16,9 +16,9 @@
 - Si alguna sesión Claude hace búsquedas MCP durante M0, debe llamarse `test-*` (el FILTER de reflex-baseline.sh excluye ese prefijo).
 - El gate numérico se commitea ANTES del primer cambio de config (pre-registro; cambiarlo después invalida el experimento).
 - Candidatos EXACTOS: `jinaai/jina-embeddings-v2-base-es` (con `semantic_embedding_dimensions: 768` — sin ese campo el provider revienta: hardcodea 384) y `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` (384, drop-in). **PROHIBIDO** usar familia E5 o bge-m3 en este experimento (E5 exige prefijos query:/passage: que el stack no pone; bge-m3 no existe en fastembed 0.8.0). Nombre HF completo en config.
-- `~/.basic-memory/config.json` se snapshotea antes de tocarlo y se restaura al estado ganador (o baseline) al cierre. Es config VIVA del sistema de Paul.
+- `~/.basic-memory/config.json` se snapshotea antes de tocarlo y se restaura al estado ganador (o baseline) al cierre. Es config VIVA del sistema del mantenedor.
 - Todo artefacto vive en `evals/retrieval-fase0/` del repo exo. Excepción: el doc de pre-registro de métrica D (`docs/superpowers/evals/2026-07-09-reflex-v2-baseline.md`) vive en agent-develop (es de reflex) — su append de desviación se commitea ALLÍ, en commit propio.
-- Gates de tareas: consultor Fable independiente con verdict-artifact commiteado (spec §8). Línea roja: nada destructivo/externo sin Paul.
+- Gates de tareas: consultor Fable independiente con verdict-artifact commiteado (spec §8). Línea roja: nada destructivo/externo sin el mantenedor.
 
 ## File Structure
 
@@ -104,9 +104,9 @@ wc -l queries.jsonl
 
 Expected: ~46 líneas (≥40; si <40, revisar el nombre del campo en el log — puede ser `.target` u otro; ajustar el filtro jq mirando una línea real con `head -1 snapshot/reflex-retrieval-log.jsonl | jq .`).
 
-- [ ] **Step 2: Autoría de 5-10 casos duros (consultor, no Paul — desviación registrada)**
+- [ ] **Step 2: Autoría de 5-10 casos duros (consultor, no el mantenedor — desviación registrada)**
 
-La spec pide casos duros "de memoria de Paul"; bajo el régimen §8 los autoriza un consultor Fable para no meter a Paul en el critical path. Despachar un subagente **fable** con este brief: "Lee 10-15 notas de kb-demo (mezcla de learnings/, projects/ y log/ — vía filesystem `~/Documentos/proyectos/kb-demo/`, NO vía MCP). Escribe 5-10 queries CONCEPTUALES en castellano que un usuario haría para re-encontrar contenido de esas notas SIN usar sus keywords/codenames literales (parafrasea la idea, no el título). Son los casos donde un embedding solo-inglés duele. Devuelve JSONL: `{\"query\": ..., \"source\": \"hard\", \"author_expected\": \"<permalink de la nota fuente>\"}`."
+La spec pide casos duros "de memoria del mantenedor"; bajo el régimen §8 los autoriza un consultor Fable para no meter al mantenedor en el critical path. Despachar un subagente **fable** con este brief: "Lee 10-15 notas de kb-demo (mezcla de learnings/, projects/ y log/ — vía filesystem `~/Documentos/proyectos/kb-demo/`, NO vía MCP). Escribe 5-10 queries CONCEPTUALES en castellano que un usuario haría para re-encontrar contenido de esas notas SIN usar sus keywords/codenames literales (parafrasea la idea, no el título). Son los casos donde un embedding solo-inglés duele. Devuelve JSONL: `{\"query\": ..., \"source\": \"hard\", \"author_expected\": \"<permalink de la nota fuente>\"}`."
 
 Append al fichero:
 
@@ -119,7 +119,7 @@ Expected: 51-56 líneas.
 
 - [ ] **Step 3: Entrada PENDIENTE-PAUL no bloqueante**
 
-Añadir al ledger de la campaña (o al informe de cierre si no hay ledger): "Paul puede aportar casos duros propios ('busqué X y no salió Y') en cualquier momento; se añaden al eval set permanente. No bloquea M0."
+Añadir al ledger de la campaña (o al informe de cierre si no hay ledger): "El mantenedor puede aportar casos duros propios ('busqué X y no salió Y') en cualquier momento; se añaden al eval set permanente. No bloquea M0."
 
 - [ ] **Step 4: Commit**
 

@@ -39,7 +39,7 @@ las cambia:
   (`6332c85`) y con el fix del sello huérfano (`0ae126d`). El checkout local de
   kbx en W11 (`ee2b27c`/`f0d0564`) **no tiene ninguno de los dos**: un port
   hecho contra él nacería con un agujero ya corregido aguas arriba. Se lee con
-  `git -C C:\proyectos\homework\kbx show fe46443:<path>`. **Nada de este plan
+  `git -C C:\proyectos\kbx show fe46443:<path>`. **Nada de este plan
   toca el repo kbx.**
 - **Hallazgos ⇒ exit 3, errores ⇒ exit 1.** Contrato de exo desde G4b. kbx usa
   `1` = hallazgos y `2` = error; es una divergencia deliberada y está declarada

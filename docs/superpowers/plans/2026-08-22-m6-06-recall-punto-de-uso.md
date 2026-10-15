@@ -4,7 +4,7 @@
 > ejecutar este plan tarea a tarea. Los pasos usan checkbox (`- [ ]`) para
 > tracking.
 
-**Goal:** Un hook `UserPromptSubmit` que busca el prompt de Paul en la KB e inyecta
+**Goal:** Un hook `UserPromptSubmit` que busca el prompt del mantenedor en la KB e inyecta
 hasta 3 punteros a notas relevantes, sin que el modelo decida nada.
 
 **Architecture:** Un único script bash (`recall-inject.sh`) en el plugin `reflex`,
@@ -25,7 +25,7 @@ Copiados verbatim de la spec (`specs/2026-08-22-m6-06-recall-punto-de-uso-design
 - **Cero cambios en el engine.** Si una tarea parece exigir tocar Rust, para y
   escala: cambia el coste del item.
 - **El hook JAMÁS destruye el prompt** (P1). En `UserPromptSubmit` un **exit 2 borra
-  el prompt de Paul**. Prohibido `set -e`; toda tubería con `|| true`; `exit 0`
+  el prompt del mantenedor**. Prohibido `set -e`; toda tubería con `|| true`; `exit 0`
   incondicional al final. Nunca `exit 2`, en ninguna rama.
 - **Nada se escapa por stdout** (P6). En este evento el stdout plano de un hook que
   sale con 0 **se inyecta como contexto**. Todo lo que no sea el JSON final va a
@@ -67,7 +67,7 @@ patrón de suite: `pass`/`fail`, `contains`/`not_contains`, `TMP` con `trap`).
 
 Al terminar esta tarea el hook existe, decide correctamente si un prompt merece
 búsqueda, y **nunca inyecta nada todavía**. Es inofensivo por construcción y ya
-protege el prompt de Paul.
+protege el prompt del mantenedor.
 
 **Files:**
 - Create: `plugins/reflex/scripts/recall-inject.sh`
@@ -212,12 +212,12 @@ Crear `plugins/reflex/scripts/recall-inject.sh`:
 
 ```bash
 #!/usr/bin/env bash
-# UserPromptSubmit hook: busca el prompt de Paul en la KB e inyecta punteros a
+# UserPromptSubmit hook: busca el prompt del mantenedor en la KB e inyecta punteros a
 # lo relevante (M6-06, "recall en el punto de uso"). Transporte mecánico: el
 # modelo no decide si buscar.
 #
 # HAZARD PROPIO DE ESTE EVENTO, y la razón de que aquí no haya `set -e`: un
-# exit 2 no degrada, BORRA el prompt de Paul. Es el único hook del harness
+# exit 2 no degrada, BORRA el prompt del mantenedor. Es el único hook del harness
 # donde un bug destruye input del usuario. Por eso: cero `set -e`, tuberías
 # con `|| true`, y `exit 0` incondicional al final.
 #
@@ -343,7 +343,7 @@ normativo (gate-artefacto.py, 127 entradas) — los números que lo justifican s
 propiedades de esa lista exacta, así que se traduce y no se reescribe.
 
 Blindaje desde el primer commit porque en este evento un exit 2 no degrada:
-borra el prompt de Paul."
+borra el prompt del mantenedor."
 ```
 
 ---
@@ -727,8 +727,8 @@ que este diseño tiene."
   Task 3).
 - Produces: nada para tareas posteriores. Es la última.
 
-**Por qué el bump va en esta tarea y no "luego"** (decisión de Paul, pre-flight del
-2026-08-22): el `reflex` que corre en las sesiones de Paul es una **copia cacheada**
+**Por qué el bump va en esta tarea y no "luego"** (decisión del mantenedor, pre-flight del
+2026-08-22): el `reflex` que corre en las sesiones del mantenedor es una **copia cacheada**
 en `~/.claude/plugins/cache/exo/reflex`, no un symlink al repo. Sin subir la versión,
 `claude plugin update` no traería el hook nuevo y el Step 4 —el criterio de cierre de
 la spec— no se podría ejecutar. El item quedaría "hecho en repo, invisible en la
@@ -787,7 +787,7 @@ pre-flight: `test-reflex-baseline.sh` **no** valida el conjunto de eventos de
 
 - [ ] **Step 5: Verificación end-to-end en vivo (la que cierra el item)**
 
-Esto lo ejecuta Paul, no el agente: requiere `claude plugin update` y una sesión
+Esto lo ejecuta el mantenedor, no el agente: requiere `claude plugin update` y una sesión
 real de Claude Code.
 
 ```bash

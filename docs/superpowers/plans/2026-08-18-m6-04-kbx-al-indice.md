@@ -53,7 +53,7 @@ Toda tarea los hereda. Valores verbatim de la spec y del régimen §0.
    `~/Documentos/proyectos/kbx`. Ninguna tarea commitea en `main`/`master`.
 2. **Ninguna tarea toca el entorno vivo.** No se instala en `~/.local/bin/`, no
    se corre contra `~/.exo/index.db` en modo escritura, no se cambian call sites
-   instalados. Todo eso está en §"Acciones del dueño de la KB" al final, como en C9.
+   instalados. Todo eso está en §"Acciones del mantenedor" al final, como en C9.
    Las tareas verifican contra DBs temporales y contra copias RO.
 3. **Task 1 va primero y no toca código.** El pre-registro del gate de `targets`
    caduca en cuanto alguien vea el output del binario nuevo.
@@ -1857,7 +1857,7 @@ feat: quita el filtro tipo='note' — kbx pasa a ver la KB entera
 El filtro se documentaba como "excluir assets pdf/tex/cls/json", pero en el
 índice de exo no hay assets: el walker solo indexa .md con permalink. Lo que
 ocultaba eran 57 de 138 notas markdown reales — los 10 destilados de projects/,
-el perfil del dueño de la KB (type: person) y los 39 report de archive/sesiones.
+el perfil del mantenedor (type: person) y los 39 report de archive/sesiones.
 
 Delta esperado, y son DOS números distintos:
 
@@ -1873,7 +1873,7 @@ EOF
 
 ### Task 11: cutover — call sites y red de rollback
 
-Última tarea de código. Deja todo listo para que el dueño de la KB haga el cambio en el
+Última tarea de código. Deja todo listo para que el mantenedor haga el cambio en el
 entorno vivo.
 
 **Files:**
@@ -1884,7 +1884,7 @@ entorno vivo.
 **Interfaces:**
 - Consumes: el default nuevo de `index.ResolvePath` (Task 5), el informe del
   gate (Task 9).
-- Produces: el runbook que ejecuta el dueño de la KB.
+- Produces: el runbook que ejecuta el mantenedor.
 
 - [ ] **Step 1: Auditar los call sites**
 
@@ -1928,7 +1928,7 @@ significa "mis dos binarios no son de la misma época".
 Crea `docs/superpowers/runbooks/2026-08-18-m6-04-cutover.md`:
 
 ```markdown
-# M6-04 — cutover: lo que ejecuta el dueño de la KB
+# M6-04 — cutover: lo que ejecuta el mantenedor
 
 > El código está mergeado. Lo que sigue es **entorno vivo**: instalar binarios
 > y verificar. Nada de esto lo ejecuta la fábrica.
@@ -2030,7 +2030,7 @@ git -C ~/Documentos/proyectos/exo commit -m "docs(m6-04): runbook de cutover y n
 
 ---
 
-## Acciones del dueño de la KB (entorno vivo — ninguna tarea las ejecuta)
+## Acciones del mantenedor (entorno vivo — ninguna tarea las ejecuta)
 
 1. Revisar y mergear las dos ramas `m6-04` (repo exo y repo kbx).
 2. Ejecutar `docs/superpowers/runbooks/2026-08-18-m6-04-cutover.md`.

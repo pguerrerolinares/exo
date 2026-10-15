@@ -153,7 +153,7 @@ propuesto), H5 (severidad), H10 (coste en Linux) y H1 (forma del fix).
   mutación que demuestra que el test muerde.
 - **Hooks del plugin (`plugins/exo/scripts/`):**
   - `recall-inject.sh` **nunca** sale con ≠0 (`recall-inject.sh:6-9`: «un
-    exit 2 no degrada, BORRA el prompt de Paul») y **solo** escribe el JSON
+    exit 2 no degrada, BORRA el prompt del mantenedor») y **solo** escribe el JSON
     final a stdout (`:11-14`).
   - Portables a macOS (commit `ec74f43`): nada de `timeout` (se usa
     `con_timeout` de `_timeout.sh`), `date -d`, `stat -c` ni `touch -d`.

@@ -7,7 +7,7 @@
 > edita). La Task 7 es **PAUL-STEP**: ningún ejecutor automático la corre — la
 > fábrica prepara el comando y el fichero de resultados, y la campaña se
 > considera "implementación completa" tras la Task 6, con la Task 8 (sync de
-> backlog) esperando a que Paul entregue el resultado de la Task 7.
+> backlog) esperando a que el mantenedor entregue el resultado de la Task 7.
 
 **Goal:** que el hook de cada prompt (`recall-inject.sh`) y de cada arranque
 de sesión (`exo-recall.sh`) paguen el motor (el binario `exo`, ≈1,1 s en W11)
@@ -18,7 +18,7 @@ solo byte del bloque que se inyecta en el contexto del agente.
 `hook_ms` (reloj de pared del hook entero, vía `$EPOCHREALTIME`, sin spawn) y
 hace que `recall-latencia.sh` decida la reapertura del daemon con ese número
 en vez de con el tiempo interno del engine — es la enmienda de la decisión
-#12 de Paul al pre-registro de la campaña A. Las Tasks 2 y 3 son el cuerpo de
+#12 del mantenedor al pre-registro de la campaña A. Las Tasks 2 y 3 son el cuerpo de
 la campaña: reescriben el parseo de `recall-inject.sh` y `exo-recall.sh`
 respectivamente para sustituir invocaciones externas (`sed`, `tr`, jq
 redundante) por expansión de parámetros de bash puro, con un golden de
@@ -28,7 +28,7 @@ evita invocar `jq` cuando el comando no contiene "git". La Task 5 (opcional,
 con criterio numérico) funde esos tres guards en un solo script si el ahorro
 de la Task 4 no basta. Las Tasks 6 y 7 leen el instrumento que ya existe
 (`evals/recall-coste/harness/bench.sh` en Linux, el bloque manual del
-pre-registro de A en W11) — la 6 la corre la fábrica, la 7 la corre Paul en
+pre-registro de A en W11) — la 6 la corre la fábrica, la 7 la corre el mantenedor en
 su máquina. La Task 8 cierra sincronizando `docs/backlog.md` con los commits
 reales y los números medidos.
 
@@ -118,7 +118,7 @@ Latencia del hook en W11», esbozo de 6 tasks) se releyó línea a línea contra
   locale, en las dos versiones: es el caso que de verdad importa para un
   gate en castellano.
 
-## Decisión de Paul firmada HOY (2026-09-19) — Global Constraints
+## Decisión del mantenedor firmada HOY (2026-09-19) — Global Constraints
 
 - **#12 — la métrica de reapertura del daemon es `hook_ms` de reloj, umbral
   1.500 ms p95 por SO.** Esto **enmienda** el pre-registro de la campaña A
@@ -194,7 +194,7 @@ Latencia del hook en W11», esbozo de 6 tasks) se releyó línea a línea contra
   que traiga el sistema — versiones distintas de shellcheck difieren en qué
   reglas activan por defecto. Si no está instalada:
   `curl -fsSL -o /tmp/sc.tar.xz https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.xz && tar -xJf /tmp/sc.tar.xz -C /tmp` y usar `/tmp/shellcheck-v0.11.0/shellcheck`.
-- **Nada escribe en `~/.local/bin`** (entorno vivo de Paul). Ninguna task
+- **Nada escribe en `~/.local/bin`** (entorno vivo del mantenedor). Ninguna task
   de esta campaña instala, copia ni sobrescribe binarios; todo el trabajo es
   edición de scripts versionados en el repo y lectura de resultados de
   benchmark hacia `evals/recall-coste/results/`.
@@ -224,7 +224,7 @@ distinto de `plugins/exo/scripts/`), `engine/src/buscador.rs` y
 | 4 | Modify: `plugins/exo/scripts/{git-c-bash,git-add-all-guard,verify-before-commit}.sh` y sus `test-*.sh` | ídem, sin colisión |
 | 5 (opcional) | Create: `plugins/exo/scripts/bash-guards.sh`, `plugins/exo/scripts/test-bash-guards.sh`. Modify: `plugins/exo/hooks/hooks.json` | `hooks.json` lo **valida** (no lo toca) el gate `scripts/test-hooks-json.sh` de la campaña F, ya mergeada. L no lo toca. Si en el momento de ejecutar la Task 5 L sigue en curso, re-verificar `git -C . log -1 --format=%H -- scripts/test-hooks-json.sh` no haya cambiado desde el inicio de la fábrica antes de tocar `hooks.json`. |
 | 6 | Create: `evals/recall-coste/results/campana-i-<fecha>/**` (vía `bench.sh`) | `evals/**` — L no lo toca |
-| 7 (PAUL-STEP) | Create (Paul, a mano): `evals/recall-coste/results/w11-<fecha>-campana-i.txt` | ídem |
+| 7 (PAUL-STEP) | Create (el mantenedor, a mano): `evals/recall-coste/results/w11-<fecha>-campana-i.txt` | ídem |
 | 8 | Modify: `docs/backlog.md` (re-anclaje por texto exacto de los dos ítems citados arriba, nunca por número de línea) | Zona **compartida** con L — toda edición usa `Edit` con `old_string` copiado literal del contenido actual, nunca offsets de línea. |
 
 **Ninguna task de esta campaña toca `engine/src/**` ni `scripts/test-*.sh`**
@@ -282,7 +282,7 @@ real):**
   separar la aritmética pura (`hook_ms_calcula`, sin guard) del envoltorio
   con guard (`hook_ms_de`) — el test llama a la pura.
 - `$EPOCHREALTIME` usa **coma** decimal bajo un locale con `LC_NUMERIC` que
-  la use (verificado en la máquina de Paul: `LC_NUMERIC=es_ES.utf8` da
+  la use (verificado en la máquina del mantenedor: `LC_NUMERIC=es_ES.utf8` da
   `1789804285,193241`, y Git Bash en Windows hereda el locale regional de
   Windows). Sin normalizar, `${ini%.*}` no encuentra ningún punto que
   cortar y devuelve la cadena ENTERA con la coma dentro; la aritmética
@@ -334,7 +334,7 @@ verifica "10.999900" "11.000100" 0
 verifica "5.000000" "5.000000" 0
 verifica "5.000000" "8.000000" 3000
 # Coma decimal: $EPOCHREALTIME bajo un locale con LC_NUMERIC que la use (p.
-# ej. es_ES.utf8, verificado real en la máquina de Paul y en la de Git Bash
+# ej. es_ES.utf8, verificado real en la máquina del mantenedor y en la de Git Bash
 # en Windows, que hereda el locale regional). Sin normalizar la coma, esto
 # devolvía un HOOK_MS del orden de 8x10^8 sin ni siquiera fallar.
 verifica "10,999900" "11,000100" 0
@@ -395,7 +395,7 @@ Crea `plugins/exo/scripts/_hook-ms.sh`:
 ```bash
 #!/usr/bin/env bash
 # Helper COMPARTIDO: hook_ms de reloj de pared para hooks bash (campaña I,
-# decisión #12 de Paul, 2026-09-19). Sin spawn: usa $EPOCHREALTIME (bash >=5)
+# decisión #12 del mantenedor, 2026-09-19). Sin spawn: usa $EPOCHREALTIME (bash >=5)
 # y aritmética entera de bash. En bash <5 (macOS con /bin/bash 3.2 -- la
 # campaña E ya pagó un bug de ese mismo bash con `${arr[@]}` tratado como
 # variable no definida bajo `set -u` cuando el array está vacío,
@@ -433,7 +433,7 @@ hook_ms_soportado() { [ "${BASH_VERSINFO[0]:-0}" -ge 5 ]; }
 #
 # Normaliza coma a punto ANTES de partir por `.`: bajo un locale con
 # LC_NUMERIC que use coma decimal (es_ES.utf8, verificado real en la máquina
-# de Paul -- y Git Bash en Windows hereda el locale regional de Windows),
+# del mantenedor -- y Git Bash en Windows hereda el locale regional de Windows),
 # $EPOCHREALTIME imprime "1789804285,193241". Sin esto, `${ini%.*}` no
 # encuentra ningún punto, devuelve la cadena ENTERA con la coma dentro, y la
 # aritmética de abajo da un número absurdo SIN fallar (medido: del orden de
@@ -501,8 +501,8 @@ new_string:
 ```bash
 set -uo pipefail
 # $EPOCHREALTIME (usado más abajo) imprime con COMA decimal bajo un locale
-# cuyo LC_NUMERIC la use (es_ES.utf8, verificado real en la máquina de
-# Paul; Git Bash en Windows hereda el locale regional de Windows) --
+# cuyo LC_NUMERIC la use (es_ES.utf8, verificado real en la máquina del
+# mantenedor; Git Bash en Windows hereda el locale regional de Windows) --
 # forzarlo a C es el mismo patrón que ya usa `recall-latencia.sh:13`.
 # `_hook-ms.sh` normaliza coma->punto también por su cuenta (cinturón y
 # tirantes), pero fijar el locale aquí es más barato que confiar solo en esa
@@ -612,7 +612,7 @@ new_string:
 # Umbrales HARDCODEADOS adrede: son pre-registro
 # (docs/superpowers/plans/2026-09-13-campana-a-preregistro-bench.md §«Criterio de reapertura».)
 #
-# ENMIENDA (2026-09-19, decisión de Paul #12, campaña I): la métrica de p95
+# ENMIENDA (2026-09-19, decisión del mantenedor #12, campaña I): la métrica de p95
 # pasa de `elapsed_ms + refresh_ms` (tiempo INTERNO del engine) a `hook_ms`
 # (reloj de PARED del hook `recall-inject.sh` entero). En W11 el shell
 # alrededor del binario cuesta tanto como el binario mismo
@@ -715,20 +715,20 @@ no depende de la versión de bash que lo ejecuta).
 
 old_string:
 ```
-Los valores 1.500 ms, 2% y 200 son una **propuesta** que queda pendiente de
-Paul (D4 del plan). Si los cambia al gatear, se sustituyen aquí y en las tres
+Los valores 1.500 ms, 2% y 200 son una **propuesta** que queda pendiente del
+mantenedor (D4 del plan). Si los cambia al gatear, se sustituyen aquí y en las tres
 constantes de la Task 13 antes de ejecutarla. La ventana se evalúa **por
 máquina**: el log vive en el `$HOME` de cada una, y W11 no se mezcla con Linux.
 ```
 
 new_string:
 ```
-Los valores 1.500 ms, 2% y 200 son una **propuesta** que queda pendiente de
-Paul (D4 del plan). Si los cambia al gatear, se sustituyen aquí y en las tres
+Los valores 1.500 ms, 2% y 200 son una **propuesta** que queda pendiente del
+mantenedor (D4 del plan). Si los cambia al gatear, se sustituyen aquí y en las tres
 constantes de la Task 13 antes de ejecutarla. La ventana se evalúa **por
 máquina**: el log vive en el `$HOME` de cada una, y W11 no se mezcla con Linux.
 
-**Enmienda (2026-09-19, decisión de Paul #12, campaña I):** el criterio de
+**Enmienda (2026-09-19, decisión del mantenedor #12, campaña I):** el criterio de
 p95 pasa de `elapsed_ms + refresh_ms` (tiempo interno del engine, el que
 reporta el propio `exo recall`) a **`hook_ms`** (reloj de pared del hook
 `recall-inject.sh` entero, medido con `$EPOCHREALTIME`, sin spawn). Motivo:
@@ -993,7 +993,7 @@ new_string:
 # sin ver: el comportamiento nuevo (equivalente a C en cualquier locale,
 # porque son sustituciones LITERALES de bytes) es el que se declara
 # NORMATIVO a partir de esta campaña — un gate cuyo criterio de disparo
-# cambiara según el locale regional de la máquina de Paul sería peor que uno
+# cambiara según el locale regional de la máquina del mantenedor sería peor que uno
 # determinista que no cubre acentos franceses/alemanes. Ver Step 2 bis.
 #
 # El ORDEN importa: primero se pliegan los acentos (deja solo ASCII), LUEGO
@@ -1798,20 +1798,20 @@ git commit -m "docs(i, medicion): lee el instrumento de A en Linux tras la campa
 
 ### Task 7 (PAUL-STEP): Leer el instrumento en W11
 
-> **Esta task la ejecuta Paul en su máquina Windows. Ningún ejecutor
+> **Esta task la ejecuta el mantenedor en su máquina Windows. Ningún ejecutor
 > automático la corre.** La fábrica prepara el comando exacto y el nombre
-> del fichero de resultados; Paul lo pega en su Git Bash, guarda la salida,
+> del fichero de resultados; el mantenedor lo pega en su Git Bash, guarda la salida,
 > y se la entrega a la sesión para que la Task 8 la cite.
 
-**Lane:** medición (Paul). **Depende de:** Tasks 1-4 (y 5, si se ejecutó)
-mergeadas e instaladas en la máquina de Paul (plugin actualizado). **Sin
+**Lane:** medición (el mantenedor). **Depende de:** Tasks 1-4 (y 5, si se ejecutó)
+mergeadas e instaladas en la máquina del mantenedor (plugin actualizado). **Sin
 oráculo automático** — es una lectura manual, igual que la Task 15 del
 pre-registro de A (`docs/superpowers/plans/2026-09-13-campana-a-preregistro-bench.md`
 §«W11»), de la que este Step reutiliza el bloque probado, con dos añadidos:
 el `hook_ms` de Task 1 (que ahora sí viaja en el log) y la medición del
 triple `PreToolUse:Bash`.
 
-**Instrucciones para Paul** (copiar y pegar tal cual en Git Bash, con el
+**Instrucciones para el mantenedor** (copiar y pegar tal cual en Git Bash, con el
 plugin de esta campaña ya instalado — `~/.claude/plugins/cache/exo/exo/<version>`
 apuntando al árbol con las Tasks 1-4 mergeadas):
 
@@ -1854,7 +1854,7 @@ rm -rf "$TMP"
 echo "Guardado en: $SALIDA -- pégalo/commitéalo y avisa a la sesión con el contenido."
 ```
 
-**Qué mirar en el resultado** (para que Paul sepa si algo salió mal antes de
+**Qué mirar en el resultado** (para que el mantenedor sepa si algo salió mal antes de
 avisar): `hook_wall_p95_ms` debería bajar sustancialmente frente al p95
 2.568 ms de `evals/recall-coste/results/w11-2026-09-15.txt` (la campaña
 existe para eso). El veredicto de `recall-latencia.sh` con solo 20 disparos
@@ -1971,7 +1971,7 @@ new_string:
   criterio la use. Cambiar el umbral o la métrica es tocar el pre-registro de
   A: hay que decidirlo antes de mirar los datos de la ventana. Evidencia:
   `evals/recall-coste/results/w11-2026-09-15.txt`.
-  **(campaña I, 2026-09-19, CERRADO):** decisión de Paul #12 —
+  **(campaña I, 2026-09-19, CERRADO):** decisión del mantenedor #12 —
   `recall-latencia.sh` decide por `hook_ms` (reloj de pared, medido en
   `recall-inject.sh` sin spawn, `NA` en bash <5). Enmienda fechada en
   `docs/superpowers/plans/2026-09-13-campana-a-preregistro-bench.md`
@@ -2026,7 +2026,7 @@ directas de `read`/`$EPOCHREALTIME`/`sed` bajo `LC_ALL=es_ES.utf8`:
    `$BASH_VERSINFO` a secas (SC2128); `# shellcheck disable=SC2034` donde
    `HOOK_MS` se asigna (la lee el llamador, no este fichero).
 2. **[Bloq]** `$EPOCHREALTIME` usa coma decimal bajo un locale con
-   `LC_NUMERIC` que la use — verificado real en la máquina de Paul y
+   `LC_NUMERIC` que la use — verificado real en la máquina del mantenedor y
    relevante porque Git Bash en Windows hereda el locale regional. Fix:
    normalización de coma en `hook_ms_calcula` + `export LC_NUMERIC=C` en
    `recall-inject.sh` (mismo patrón que `recall-latencia.sh:13`) + caso de

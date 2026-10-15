@@ -924,8 +924,8 @@ para que la frase del `core-index` y el enlace del backlog no citen algo
 que no está en el árbol).
 
 **Files:**
-- Modify: `C:/proyectos/homework/<kb>/core/core-index.md`
-- Modify: `C:/proyectos/homework/<kb>/backlog/Backlog — exo.md`
+- Modify: `C:/proyectos/<kb>/core/core-index.md`
+- Modify: `C:/proyectos/<kb>/backlog/Backlog — exo.md`
 
 **Interfaces:**
 - Consumes: nada de las tasks anteriores a nivel de código — cita al
@@ -934,7 +934,7 @@ que no está en el árbol).
 
 - [ ] **Step 1: Cambiar la frase del `core-index` (línea 17 real)**
 
-`Edit` sobre `C:/proyectos/homework/<kb>/core/core-index.md`:
+`Edit` sobre `C:/proyectos/<kb>/core/core-index.md`:
 
 old_string:
 ```
@@ -949,19 +949,19 @@ Antes del primer Agent/Edit/Write de la sesión, busca contexto (`exo search --t
 - [ ] **Step 2: Comprobar el trinquete**
 
 ```bash
-exo ratchet --kb "C:/proyectos/homework/<kb>"
+exo ratchet --kb "C:/proyectos/<kb>"
 ```
 
 Expected: exit 0 (`core-index.md` no lleva techo sellado en
 `.kbx-ratchet.json` — es un índice, exento de presupuesto por la doctrina
 del propio `core-index`: «Índices... no se destilan»). Confirmado en este
 worktree antes de tocar el fichero: `exo ratchet --kb
-"C:/proyectos/homework/<kb>"` ya da exit 0 hoy (una única línea de
+"C:/proyectos/<kb>"` ya da exit 0 hoy (una única línea de
 deuda informativa sobre `Paul - perfil de trabajo.md`, que no bloquea).
 
 - [ ] **Step 3: Enlazar desde el ítem aparcado de «Tasa de re-explicación»**
 
-`Edit` sobre `C:/proyectos/homework/<kb>/backlog/Backlog — exo.md`:
+`Edit` sobre `C:/proyectos/<kb>/backlog/Backlog — exo.md`:
 
 old_string:
 ```
@@ -981,8 +981,8 @@ new_string:
 - [ ] **Step 4: Commit (repo de la KB personal, no `exo`)**
 
 ```bash
-git -C "C:/proyectos/homework/<kb>" add "core/core-index.md" "backlog/Backlog — exo.md"
-git -C "C:/proyectos/homework/<kb>" commit -m "docs(kb): search-first -- dispara concreto en core-index + enlace desde el ítem de re-explicación"
+git -C "C:/proyectos/<kb>" add "core/core-index.md" "backlog/Backlog — exo.md"
+git -C "C:/proyectos/<kb>" commit -m "docs(kb): search-first -- dispara concreto en core-index + enlace desde el ítem de re-explicación"
 ```
 
 ---

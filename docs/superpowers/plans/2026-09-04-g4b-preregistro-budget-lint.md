@@ -36,7 +36,7 @@
   G4a. Ningún índice vivo se toca. `exo budget` no la usa (no tiene `--db`:
   no toca el índice, solo el árbol de ficheros); `exo lint` y `kbx doctor` sí.
 - **KB**: la KB personal, el árbol real. En esta máquina, la ruta absoluta es
-  `C:/proyectos/homework/<kb>` (vía Git Bash, `/c/proyectos/homework/<kb>`).
+  `C:/proyectos/<kb>` (vía Git Bash, `/c/proyectos/<kb>`).
 
 ## Qué se compara y qué no
 
