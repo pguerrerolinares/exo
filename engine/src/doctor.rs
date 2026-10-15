@@ -175,6 +175,7 @@ pub fn analiza(entorno: &Entorno) -> InformeDoctor {
         check_hook_precommit(entorno, cfg.as_ref()),
         check_plugin_compat(entorno),
         check_superpowers(entorno),
+        check_dispositivo(entorno, cfg.as_ref()),
     ])
 }
 
@@ -610,6 +611,54 @@ fn check_modelo(entorno: &Entorno, cfg: Option<&crate::config::Config>) -> Check
                 "{modelo} no está en la caché: la primera indexación se baja \
                  ~615 MB (unos minutos en frío)"
             ),
+        ),
+    }
+}
+
+/// Dónde embebió el último `exo index`/`rebuild` que llegó a embeber
+/// (`meta.dispositivo_embeddings`, lo escribe `main.rs::corre`). Solo tiene
+/// sentido en un binario con la feature `cuda`: pidió GPU y puede haber caído
+/// a CPU sin que nadie lo viera (reindexado en segundo plano). `warn`, no
+/// `fail`: en CPU el índice es correcto, solo más lento.
+fn check_dispositivo(entorno: &Entorno, cfg: Option<&crate::config::Config>) -> Check {
+    const ID: &str = "embeddings_device";
+    if !cfg!(feature = "cuda") {
+        return Check::nuevo(
+            ID,
+            Estado::Na,
+            "cpu",
+            "binario sin la feature `cuda`: los embeddings van siempre por CPU",
+        );
+    }
+    let Some(db) = db_efectiva(entorno, cfg) else {
+        return Check::nuevo(ID, Estado::Na, "(sin config)", "no se sabe qué DB mirar");
+    };
+    let registrado: Option<String> = crate::abre_db(&db).ok().and_then(|c| {
+        c.query_row(
+            "SELECT valor FROM meta WHERE clave = 'dispositivo_embeddings'",
+            [],
+            |r| r.get(0),
+        )
+        .ok()
+    });
+    match registrado.as_deref() {
+        Some("cuda") => Check::nuevo(
+            ID,
+            Estado::Ok,
+            "cuda",
+            "el último index/rebuild que embebió lo hizo en CUDA",
+        ),
+        Some(otro) => Check::nuevo(
+            ID,
+            Estado::Warn,
+            otro,
+            "binario con `cuda`, pero el último index/rebuild que embebió cayó a CPU",
+        ),
+        None => Check::nuevo(
+            ID,
+            Estado::Warn,
+            "(sin registro)",
+            "binario con `cuda` y ningún index/rebuild ha embebido aún con él — corre `exo rebuild`",
         ),
     }
 }

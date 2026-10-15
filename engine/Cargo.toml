@@ -20,6 +20,15 @@ serde_json = "1.0.150"
 sqlite-vec = "=0.1.9"
 toml = "0.8"
 yaml_serde = "0.10.4"
+# Solo con la feature `cuda`: misma versión exacta que arrastra fastembed, para
+# que el `ExecutionProviderDispatch` que se le pasa sea el mismo tipo.
+ort = { version = "=2.0.0-rc.12", default-features = false, features = ["cuda"], optional = true }
+
+[features]
+# Embeddings en GPU NVIDIA para `exo index`/`rebuild` (onnxruntime + CUDA EP).
+# Off por defecto: exige en el sistema el runtime CUDA y cuDNN 9 de la rama que
+# elija ort-sys (`ORT_CUDA_VERSION=12|13` al compilar). Ver docs/instalacion.md.
+cuda = ["dep:ort"]
 
 [dev-dependencies]
 tempfile = "3.14"

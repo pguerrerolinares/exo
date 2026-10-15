@@ -104,6 +104,40 @@ cp target/release/exo ~/.local/bin/       # Linux (o macOS, desde fuente)
 cp target/release/exo.exe ~/.local/bin/   # Windows (Git Bash); ~/.local/bin en PATH
 ```
 
+### Embeddings en GPU (opcional, NVIDIA)
+
+Con la feature `cuda`, `exo index` y `exo rebuild` embeben en la GPU.
+`exo search` y el refresco previo a un recall siguen en CPU a propósito:
+corren en hooks, embeben pocos textos y arrancar CUDA les costaría más de lo
+que ahorra. Las releases no la llevan.
+
+Requisitos en el sistema: el runtime CUDA (cudart, cuBLAS, cuFFT, cuRAND) y
+cuDNN 9 de la misma rama mayor que el binario de onnxruntime que baja ort-sys
+(12 o 13; se elige con `ORT_CUDA_VERSION`, y por defecto es 12). En WSL2 el
+driver es el de Windows: instala solo librerías (repo apt `wsl-ubuntu` de
+NVIDIA, nunca `cuda`, `cuda-drivers` ni `nvidia-driver-*`). cuDNN no está en
+ese repo: tarball del redist de NVIDIA a `/opt` y su `lib/` en `ld.so.conf.d`.
+
+Medido el 2026-10-15 (RTX 4090, WSL2, CUDA 13.2, cuDNN 9.27): `exo rebuild`
+de 4394 trozos pasa de 9 min 11 s en CPU (16 hilos) a 23 s. Los resultados
+de `search` coinciden (40 queries: mismo top-1, |Δscore| ≤ 7e-7).
+
+```bash
+ORT_CUDA_VERSION=13 cargo build --release --features cuda
+# El provider CUDA es una .so aparte que onnxruntime busca en el directorio
+# de argv[0]. Invocado como `exo` desde el PATH, eso es el cwd y no lo
+# encuentra: binario y .so a un directorio propio, y en el PATH un wrapper
+# que lo lanza por ruta absoluta.
+P=$(dirname "$(find ~/.cache/ort.pyke.io -name libonnxruntime_providers_cuda.so | head -1)")
+mkdir -p ~/.local/lib/exo
+cp target/release/exo "$P"/libonnxruntime_providers_{shared,cuda}.so ~/.local/lib/exo/
+printf '#!/bin/sh\nexec "$HOME/.local/lib/exo/exo" "$@"\n' > ~/.local/bin/exo
+chmod +x ~/.local/bin/exo
+```
+
+Si CUDA no arranca, el indexado sigue en CPU, lo dice en stderr y lo deja
+registrado: `exo doctor` lo muestra en el check `embeddings_device`.
+
 ## 4. Crear (o adoptar) una KB
 
 El engine arranca con `~/.exo/config.toml`; sin config no hay defaults

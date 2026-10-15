@@ -150,6 +150,9 @@ fn la_lista_de_checks_es_contrato_y_no_puede_encoger() {
             "plugin_compat",
             // Añadido 2026-10-05 (campaña Q): superpowers y exo a la vez.
             "superpowers_disabled",
+            // Añadido 2026-10-15: dónde embebió el último index/rebuild
+            // (`na` sin la feature `cuda`). Al final: la lista crece.
+            "embeddings_device",
         ]
     );
 }
