@@ -399,7 +399,9 @@ if ($ec11 -ne 0) {
     Write-Output "test-install: FALLO - un claude que falla tumbo la instalacion (exit $ec11)"
     Get-Content (Join-Path $tmp 'sp-fail.log')
     $fallos = 1
-} elseif (-not (Select-String -Path (Join-Path $tmp 'sp-fail.log') -Pattern 'WARNING' -Quiet)) {
+} elseif (-not (Select-String -Path (Join-Path $tmp 'sp-fail.log') -Pattern 'plugin disable .* salio con' -Quiet)) {
+    # Se busca el texto del aviso, no el prefijo: Write-Warning lo traduce con
+    # el locale (WARNING en ingles, ADVERTENCIA en espanol).
     Write-Output "test-install: FALLO - claude salio 1 y no hubo Write-Warning"
     $fallos = 1
 } else {
