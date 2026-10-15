@@ -183,19 +183,54 @@ fn subcarpeta_no_compite() {
 }
 
 #[test]
-fn ambigua() {
+fn slug_desempata_frente_a_stem() {
+    // Nota canon con slug + nota hermana partida que solo casa por stem.
+    let m = Mundo::nuevo();
+    let r = m.repo("foo");
+    m.nota(
+        "projects/foo — canon.md",
+        "---\nslug: foo\n---\n## Reglas duras\n- a\n",
+    );
+    m.nota("projects/foo — reglas android.md", "## Reglas duras\n- b\n");
+    let v = m.rules(&r);
+    assert_eq!(data(&v)["status"], "ok");
+    assert_eq!(data(&v)["note"], "projects/foo — canon.md");
+    assert_eq!(data(&v)["rules"], serde_json::json!(["a"]));
+}
+
+#[test]
+fn ambigua_por_stem() {
+    let m = Mundo::nuevo();
+    let r = m.repo("foo");
+    m.nota("projects/foo — x.md", "## Reglas duras\n- a\n");
+    m.nota("projects/foo.md", "## Reglas duras\n- b\n");
+    let v = m.rules(&r);
+    assert_eq!(data(&v)["reason"], "ambigua");
+    assert_eq!(
+        data(&v)["candidates"],
+        serde_json::json!(["projects/foo — x.md", "projects/foo.md"])
+    );
+}
+
+#[test]
+fn ambigua_por_slug() {
+    // Dos slugs iguales empatan; el stem de una tercera no entra en la lista.
     let m = Mundo::nuevo();
     let r = m.repo("foo");
     m.nota(
         "projects/x.md",
         "---\nslug: foo\n---\n## Reglas duras\n- a\n",
     );
-    m.nota("projects/foo.md", "## Reglas duras\n- b\n");
+    m.nota(
+        "projects/y.md",
+        "---\nslug: foo\n---\n## Reglas duras\n- b\n",
+    );
+    m.nota("projects/foo.md", "## Reglas duras\n- c\n");
     let v = m.rules(&r);
     assert_eq!(data(&v)["reason"], "ambigua");
     assert_eq!(
         data(&v)["candidates"],
-        serde_json::json!(["projects/foo.md", "projects/x.md"])
+        serde_json::json!(["projects/x.md", "projects/y.md"])
     );
 }
 
