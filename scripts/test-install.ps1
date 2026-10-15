@@ -399,7 +399,9 @@ if ($ec11 -ne 0) {
     Write-Output "test-install: FALLO - un claude que falla tumbo la instalacion (exit $ec11)"
     Get-Content (Join-Path $tmp 'sp-fail.log')
     $fallos = 1
-} elseif (-not (Select-String -Path (Join-Path $tmp 'sp-fail.log') -Pattern 'WARNING' -Quiet)) {
+} elseif (-not (Select-String -Path (Join-Path $tmp 'sp-fail.log') -Pattern 'plugin disable .* salio con' -Quiet)) {
+    # Se busca el texto del aviso, no el prefijo: Write-Warning lo traduce con
+    # el locale (WARNING en ingles, ADVERTENCIA en espanol).
     Write-Output "test-install: FALLO - claude salio 1 y no hubo Write-Warning"
     $fallos = 1
 } else {
@@ -473,6 +475,62 @@ if ($env:GITHUB_ACTIONS -ne 'true') {
         $env:EXO_PATH_SCOPE = 'Process'
     }
 }
+
+# --- Caso 13: el one-liner documentado, `irm <url>/install.ps1 | iex`. Los
+# demas casos usan -File, que tolera un BOM; `irm` lo entrega como U+FEFF
+# dentro del string y con ese caracter delante `[CmdletBinding()]` deja de ser
+# valido ("Atributo inesperado CmdletBinding", #53). Por eso se lee el fichero
+# como bytes -> string (conserva el U+FEFF, como irm) y se pasa a iex. Se corre
+# en cada PowerShell disponible: 5.1 y, si esta, 7.
+$bytesInstall = [System.IO.File]::ReadAllBytes($installScript)
+$sinBom = -not ($bytesInstall.Length -ge 3 -and $bytesInstall[0] -eq 0xEF -and $bytesInstall[1] -eq 0xBB -and $bytesInstall[2] -eq 0xBF)
+$soloAscii = -not ($bytesInstall | Where-Object { $_ -gt 127 })
+if (-not $sinBom -or -not $soloAscii) {
+    Write-Output "test-install: FALLO - install.ps1 debe ser ASCII puro y sin BOM (sinBom=$sinBom soloAscii=$soloAscii)"
+    $fallos = 1
+} else {
+    Write-Output "test-install: OK - install.ps1 sin BOM y ASCII"
+}
+$rel13 = Join-Path $tmp 'release-iex'
+New-Release -Dir $rel13
+$env:EXO_BASE_URL = Get-FileUrl -Dir $rel13
+$env:EXO_PATH_SCOPE = 'Process'
+$env:EXO_CLAUDE_SETTINGS = Join-Path $tmp 'no-existe-settings.json'
+$env:EXO_TEST_INSTALL_PS1 = $installScript
+$cmd13 = '$t = [System.Text.Encoding]::UTF8.GetString([System.IO.File]::ReadAllBytes($env:EXO_TEST_INSTALL_PS1)); Invoke-Expression $t'
+$dest13 = Join-Path $tmp 'bin-iex'
+$env:EXO_DIR = $dest13
+$log13 = Join-Path $tmp 'iex.log'
+$ErrorActionPreference = 'Continue'
+& $psExe -NoProfile -ExecutionPolicy Bypass -Command $cmd13 *> $log13
+$ec13 = $LASTEXITCODE
+$ErrorActionPreference = 'Stop'
+if ($ec13 -ne 0 -or -not (Test-Path (Join-Path $dest13 'exo.exe'))) {
+    Write-Output "test-install: FALLO - iex de install.ps1 en powershell.exe 5.1 (exit $ec13)"
+    Get-Content $log13
+    $fallos = 1
+} else {
+    Write-Output "test-install: OK - install.ps1 por Invoke-Expression (como irm | iex) en powershell.exe 5.1"
+}
+$env:EXO_TEST_INSTALL_PS1 = $null
+
+# pwsh 7 no sabe leer file:// con Invoke-WebRequest, asi que el caso completo
+# no cabe aqui; el fallo de #53 era de parseo y ese si se ejerce en 7.
+$pwsh13 = Get-Command pwsh -ErrorAction SilentlyContinue
+if ($pwsh13) {
+    $ps13 = '$t = [System.Text.Encoding]::UTF8.GetString([System.IO.File]::ReadAllBytes($env:EXO_TEST_INSTALL_PS1)); $e = $null; [void][System.Management.Automation.Language.Parser]::ParseInput($t, [ref]$null, [ref]$e); exit $e.Count'
+    $env:EXO_TEST_INSTALL_PS1 = $installScript
+    & $pwsh13.Source -NoProfile -Command $ps13
+    $ec13p = $LASTEXITCODE
+    $env:EXO_TEST_INSTALL_PS1 = $null
+    if ($ec13p -ne 0) {
+        Write-Output "test-install: FALLO - install.ps1 no parsea en pwsh 7 con el texto que entrega irm ($ec13p errores)"
+        $fallos = 1
+    } else {
+        Write-Output "test-install: OK - install.ps1 parsea en pwsh 7 con el texto que entrega irm"
+    }
+}
+
 $env:EXO_BASE_URL = $null
 $env:EXO_DIR = $null
 $env:EXO_JQ_BASE_URL = $null
