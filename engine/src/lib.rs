@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use rusqlite::Connection;
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, Once};
 
 pub mod aristas;
@@ -211,6 +212,9 @@ fn repo_hf(modelo: &str) -> hf_hub::Repo {
 /// del modelo", spec M2-06 Task 2). Layout interno: clase pre-autorizada.
 pub struct Embedder {
     te: fastembed::TextEmbedding,
+    /// `"cuda"`, `"cpu"` o `"cpu (CUDA falló: <motivo>)"`: dónde corre de
+    /// verdad, no dónde se pidió (ver `pide_gpu_para_embeddings`).
+    dispositivo: String,
 }
 
 impl Embedder {
@@ -240,10 +244,10 @@ impl Embedder {
     /// `buscador::similitud_desde_l2`).
     pub fn desde_config() -> Result<Self> {
         let cfg = config_embeddings()?;
-        Self::con_modelo(&cfg.modelo)
+        Self::con_modelo(&cfg.modelo, PIDE_GPU.load(Ordering::Relaxed))
     }
 
-    fn con_modelo(modelo: &str) -> Result<Self> {
+    fn con_modelo(modelo: &str, gpu: bool) -> Result<Self> {
         use fastembed::{
             InitOptionsUserDefined, Pooling, TextEmbedding, TokenizerFiles,
             UserDefinedEmbeddingModel,
@@ -283,10 +287,50 @@ impl Embedder {
         let mut modelo_custom = UserDefinedEmbeddingModel::new(onnx_file, tokenizer_files);
         modelo_custom.pooling = Some(Pooling::Mean);
 
-        let te =
-            TextEmbedding::try_new_from_user_defined(modelo_custom, InitOptionsUserDefined::new())
-                .context("inicializar fastembed con modelo custom jina-es")?;
-        Ok(Self { te })
+        let cpu = |m: UserDefinedEmbeddingModel| {
+            TextEmbedding::try_new_from_user_defined(m, InitOptionsUserDefined::new())
+                .context("inicializar fastembed con modelo custom jina-es")
+        };
+
+        #[cfg(feature = "cuda")]
+        if gpu {
+            // `error_on_failure`: el default de ort, si el EP no registra
+            // (falta libcudnn, driver viejo), es loguear y seguir en CPU sin
+            // avisar. Aquí el fallo vuelve como Err y la caída a CPU se dice
+            // en stderr y queda en `dispositivo` (de ahí a `meta` y a doctor).
+            // TF32 off: en Ampere/Ada el matmul en TF32 baja la precisión a
+            // ~1e-3 y el índice dejaría de ser comparable con las queries,
+            // que se embeben en CPU.
+            let cuda = ort::ep::CUDA::default()
+                .with_tf32(false)
+                .build()
+                .error_on_failure();
+            let opciones = InitOptionsUserDefined::new().with_execution_providers(vec![cuda]);
+            match TextEmbedding::try_new_from_user_defined(modelo_custom.clone(), opciones) {
+                Ok(te) => {
+                    eprintln!("embeddings: CUDA");
+                    return Ok(Self {
+                        te,
+                        dispositivo: "cuda".to_string(),
+                    });
+                }
+                Err(e) => {
+                    let motivo = format!("{e:#}").replace('\n', " ");
+                    eprintln!("aviso: CUDA no disponible, embebiendo en CPU: {motivo}");
+                    return Ok(Self {
+                        te: cpu(modelo_custom)?,
+                        dispositivo: format!("cpu (CUDA falló: {motivo})"),
+                    });
+                }
+            }
+        }
+        #[cfg(not(feature = "cuda"))]
+        let _ = gpu;
+
+        Ok(Self {
+            te: cpu(modelo_custom)?,
+            dispositivo: "cpu".to_string(),
+        })
     }
 
     /// Embebe un batch de textos en una sola pasada (usado por el indexer
@@ -375,12 +419,33 @@ pub fn con_embedder_de_proceso<T>(f: impl FnOnce(&mut Embedder) -> Result<T>) ->
     f(guard.as_mut().expect("embedder inicializado arriba"))
 }
 
+static PIDE_GPU: AtomicBool = AtomicBool::new(false);
+
+/// Pide CUDA para el embedder de ESTE proceso; hay que llamarla antes de que
+/// se inicialice. Solo la usan `exo index`/`rebuild`, que embeben cientos de
+/// trozos. `search` y el refresco previo a un recall siguen en CPU: corren en
+/// hooks, embeben un puñado de textos, y arrancar el EP CUDA cuesta más que
+/// lo que ahorra. Sin la feature `cuda` no tiene efecto.
+pub fn pide_gpu_para_embeddings() {
+    PIDE_GPU.store(true, Ordering::Relaxed);
+}
+
+/// Dónde corrió el embedder de este proceso (`Embedder::dispositivo`), o
+/// `None` si no llegó a inicializarse porque no había nada que embeber.
+pub fn dispositivo_embeddings() -> Option<String> {
+    EMBEDDER_PROCESO
+        .lock()
+        .ok()?
+        .as_ref()
+        .map(|e| e.dispositivo.clone())
+}
+
 /// Lee la config RO, inicializa fastembed y devuelve (embedding de la frase
 /// de prueba, dims declaradas). Conserva la firma de m2-01 para el smoke
 /// test; internamente delega en `Embedder`.
 pub fn embedder_desde_config() -> Result<(Vec<f32>, usize)> {
     let cfg = config_embeddings()?;
-    let mut embedder = Embedder::con_modelo(&cfg.modelo)?;
+    let mut embedder = Embedder::con_modelo(&cfg.modelo, false)?;
     let mut out = embedder.embebe_batch(&["el exocortex recuerda por ti".to_string()])?;
     Ok((out.pop().expect("un embedding"), cfg.dims))
 }

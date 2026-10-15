@@ -1725,7 +1725,22 @@ fn corre(nombre: &str, args: ArgsIndex, borra_antes: bool) -> Result<()> {
             .with_context(|| format!("borrar {} antes de rebuild", db.display()))?;
     }
 
+    // GPU solo en este camino (lotes grandes); ver `pide_gpu_para_embeddings`.
+    exo::pide_gpu_para_embeddings();
     let resumen = indexa(&kb, &db)?;
+    // Deja rastro de dónde embebió de verdad, para que `exo doctor` delate
+    // una caída a CPU también cuando el reindexado corre en segundo plano y
+    // nadie lee su stderr. Sin la feature `cuda` no hay nada que delatar.
+    #[cfg(feature = "cuda")]
+    if let Some(dispositivo) = exo::dispositivo_embeddings() {
+        exo::abre_db(&db)?
+            .execute(
+                "INSERT INTO meta (clave, valor) VALUES ('dispositivo_embeddings', ?1)
+                 ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor",
+                [&dispositivo],
+            )
+            .context("escribir meta.dispositivo_embeddings")?;
+    }
 
     if args.json {
         envelope::emite(nombre, serde_json::to_value(&resumen)?);
