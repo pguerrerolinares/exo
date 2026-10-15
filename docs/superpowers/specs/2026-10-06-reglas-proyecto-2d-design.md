@@ -61,7 +61,7 @@ KB: projects/<repo>.md ── ## Reglas duras (≤10 líneas «- », mecánicas)
 - el `slug` del frontmatter, o
 - el stem del fichero hasta ` — ` (o el stem entero si no lo lleva).
 
-Tiene que haber exactamente 1 candidata; si no, es skip. Las subcarpetas de familia no compiten. Sin esta regla, `pguerrero-music` saldría `ambigua` por `projects/pguerrero-music/pguerrero-music — flujo de sync a Navidrome.md`.
+**Precedencia [enmienda 2026-10-16]:** si alguna nota casa por `slug`, solo cuentan esas; las que casan solo por stem quedan fuera. El slug se declara a propósito; el stem lo hereda también la nota hermana que nace al partir el canon (`bizkaia-now — reglas de la app Android.md` dejaba a `bizkaia-now` en `ambigua`). Tras la precedencia tiene que haber exactamente 1 candidata; si no, es skip. Las subcarpetas de familia no compiten. Sin esta regla, `pguerrero-music` saldría `ambigua` por `projects/pguerrero-music/pguerrero-music — flujo de sync a Navidrome.md`.
 
 - **Sin `repo_alias` [enmienda]:** YAGNI. Los repos activos casan por slug o por stem, y el parser de frontmatter no lee listas.
 - **Consecuencia aceptada:** cge (repo `code-graph-engine`, nota-puerta en `projects/cge/`) queda en `sin_nota` hasta el primer caso real.
@@ -88,7 +88,7 @@ Tiene que haber exactamente 1 candidata; si no, es skip. Las subcarpetas de fami
 |---|---|
 | `sin_git` | cwd fuera de un repo |
 | `sin_nota` | 0 candidatas |
-| `ambigua` | ≥2 candidatas (con `candidates`) |
+| `ambigua` | ≥2 candidatas del mismo nivel (≥2 por slug, o 0 por slug y ≥2 por stem; con `candidates`) |
 | `sin_seccion` | la nota no tiene `## Reglas duras` |
 | `seccion_vacia` | la sección existe pero no tiene líneas `- ` |
 | `excede_cap` | más de 10 reglas: **no se entrega ninguna**; nunca se trunca |

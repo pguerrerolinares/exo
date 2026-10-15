@@ -51,6 +51,7 @@ con_timeout() {
       return 127
     fi
   fi
+  # shellcheck disable=SC2016 # código perl literal: sus $ no son de bash
   "$perl" -e '
     my $t = shift;
     my $pid;

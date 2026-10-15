@@ -111,22 +111,32 @@ fn sin_comillas(s: &str) -> &str {
     s
 }
 
-fn casa(clave: &str, contenido: &str, fichero: &Path) -> bool {
+/// Cómo casa una nota con la clave del repo. `Slug` gana a `Stem`: el slug se
+/// declara a propósito; el stem también lo lleva la nota hermana que nace al
+/// partir el canon (`foo — reglas android.md`).
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum Casa {
+    Stem,
+    Slug,
+}
+
+fn casa(clave: &str, contenido: &str, fichero: &Path) -> Option<Casa> {
     let clave = clave.to_lowercase();
     if let Some(slug) = crate::frontmatter::valor(contenido, "slug")
         && sin_comillas(&slug).to_lowercase() == clave
     {
-        return true;
+        return Some(Casa::Slug);
     }
     let stem = fichero
         .file_stem()
         .map(|s| s.to_string_lossy().into_owned())
         .unwrap_or_default();
     let base = stem.split(" — ").next().unwrap_or(&stem);
-    base.to_lowercase() == clave
+    (base.to_lowercase() == clave).then_some(Casa::Stem)
 }
 
 /// Candidatas ordenadas: `projects/*.md` de primer nivel que casan con `clave`.
+/// Si alguna casa por slug, solo cuentan esas; si no, las que casan por stem.
 fn candidatas(kb: &Path, clave: &str) -> Result<Vec<(String, PathBuf)>> {
     let dir = kb.join("projects");
     // KB mal apuntada ≠ repo sin nota: sin `projects/` legible todo daría
@@ -140,11 +150,17 @@ fn candidatas(kb: &Path, clave: &str) -> Result<Vec<(String, PathBuf)>> {
             continue;
         }
         let bytes = std::fs::read(&ruta).with_context(|| format!("leer {}", ruta.display()))?;
-        if casa(clave, &String::from_utf8_lossy(&bytes), &ruta) {
+        if let Some(como) = casa(clave, &String::from_utf8_lossy(&bytes), &ruta) {
             let nombre = entrada.file_name().to_string_lossy().into_owned();
-            halladas.push((format!("projects/{nombre}"), ruta));
+            halladas.push((como, format!("projects/{nombre}"), ruta));
         }
     }
+    let mejor = halladas.iter().map(|(c, ..)| *c).max();
+    let mut halladas: Vec<_> = halladas
+        .into_iter()
+        .filter(|(c, ..)| Some(*c) == mejor)
+        .map(|(_, n, r)| (n, r))
+        .collect();
     halladas.sort();
     Ok(halladas)
 }
