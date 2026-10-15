@@ -140,7 +140,7 @@ no-bloqueante 1 los corrigen.
 
 ## 7. Considerado y descartado
 
-- **Pedir un mitigador del modo de fallo social de §6** (que Paul deje de mirar
+- **Pedir un mitigador del modo de fallo social de §6** (que el mantenedor deje de mirar
   los punteros): todo lo que se me ocurrió (rotar cabeceras, marcar "hit
   fuerte/débil", contador de ignorados) o inventa señal que los datos dicen que
   no existe (scores no separan) o es métrica de eficacia disfrazada (§0). El
@@ -154,7 +154,7 @@ no-bloqueante 1 los corrigen.
   están bien cerradas. No se reabren.
 - **Exigir rotación del log**: 1-2 MB/mes no es un problema este año.
 - **Objetar el skip de prompts que empiezan por `<`** (HTML pegado a pelo):
-  el FN existe en teoría, pero Paul antepone texto casi siempre y la regla
+  el FN existe en teoría, pero el mantenedor antepone texto casi siempre y la regla
   protege de los teammate-messages (reales y grandes — esta sesión los tiene).
   Polaridad correcta, coste real ~nulo.
 

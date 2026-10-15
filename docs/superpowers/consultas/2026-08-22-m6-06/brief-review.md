@@ -6,7 +6,7 @@ Eres un consultor Fable **fresco** del régimen de gates delegado del proyecto e
 No escribiste tú el verdict que hay en este directorio: lo escribió otro consultor,
 y tu trabajo es precisamente no heredar su marco.
 
-Paul acaba de aprobar el diseño de **M6-06** (recall en el punto de uso), el último
+El mantenedor acaba de aprobar el diseño de **M6-06** (recall en el punto de uso), el último
 item vivo de M6 y **único bloqueador de M5b**. La spec está escrita y commiteada. El
 siguiente paso es `process:plan` → implementación. Tu review es la última puerta
 antes de que eso ocurra.
@@ -68,18 +68,18 @@ Si alguno cae, di qué sección de la spec se lleva por delante.
 No repitas sus argumentos: búscale las costuras. Sitios donde yo sospecho que puede
 haberlas, sin que te limites a ellos ni asumas que tengo razón:
 
-- **Prompts que pasan el gate y son enormes** (Paul pega logs, diffs, tracebacks de
+- **Prompts que pasan el gate y son enormes** (el mantenedor pega logs, diffs, tracebacks de
   varios KB). Van por argv a `exo recall --query`. ¿Límite de argv? ¿Qué embebe el
   modelo con 8 KB de traceback? ¿Cuánto tarda? ¿Trae algo útil? La spec no lo menciona.
 - **La lista cerrada de ~50 stopwords**: la spec la declara "el nuevo punto de
   mantenimiento" pero no la enumera, no dice dónde vive ni cómo normaliza (¿folding
   de acentos? ¿"sí"→"si"?). ¿Es un placeholder disfrazado de decisión?
 - **Prompts multilínea** y prompts que empiezan con texto pegado (¿empieza por `<`
-  un fragmento de HTML/XML que Paul pega? La regla 1 lo saltaría — ¿importa?).
+  un fragmento de HTML/XML que el mantenedor pega? La regla 1 lo saltaría — ¿importa?).
 - **Interacción con el resto de la cascada de hooks** y con `/compact`.
 - **P3 y el ruido del log**: dispara ~86% de los turnos y emite un evento por
   disparo. ¿Qué le pasa a `reflex-log.jsonl` en un mes? ¿Alguien lo rota?
-- **El modo de fallo social** que la propia spec admite en §6: que Paul deje de
+- **El modo de fallo social** que la propia spec admite en §6: que el mantenedor deje de
   mirar los punteros y el hook se vuelva papel pintado. ¿Hay algo barato en el
   diseño que lo retrase, sin reabrir §0?
 
@@ -97,7 +97,7 @@ haya viajado mal.
 3. Cero cambios en el engine — es la propiedad que hace este item barato. Si
    encuentras algo que **obliga** a tocar Rust, dilo alto: cambia el coste del item.
 4. YAGNI. Si tu arreglo es más caro que el problema, no es un arreglo.
-5. El hook JAMÁS destruye el prompt de Paul ni bloquea el turno.
+5. El hook JAMÁS destruye el prompt del mantenedor ni bloquea el turno.
 
 ## Formato del veredicto
 

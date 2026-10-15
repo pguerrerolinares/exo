@@ -3,7 +3,7 @@
 Este fichero lo leen los cuatro consultores de esta auditoría. Cada uno tiene
 además su propio brief con su ángulo.
 
-## La queja de Paul, literal
+## La queja del mantenedor, literal
 
 > "estoy un poco hasta la polla de los temas de presupuestos... llevamos con ese
 > problema casi desde el inicio y se creó consolida, pero me da la sensación que
@@ -13,7 +13,7 @@ Esa es la pregunta a resolver: **¿el sistema de presupuestos de la KB es una
 solución o un apaño que se ha institucionalizado?** Y si es lo segundo, ¿cuál es
 la solución?
 
-Contexto de por qué se pregunta ahora: hace unas horas Paul hizo la misma
+Contexto de por qué se pregunta ahora: hace unas horas el mantenedor hizo la misma
 objeción sobre un cap distinto (el del bloque que inyecta un hook), se auditó, y
 resultó que el problema no era el número sino el formato — el contenido repetía
 lo mismo tres veces. La sospecha es que aquí puede pasar algo parecido, pero
@@ -112,7 +112,7 @@ que mezcla temas). Pero hay que decirlas explícitamente, no darlas por supuesta
 2. **Lo que existe funciona**: el trinquete cumple su función (los techos solo
    han bajado), y `/consolida` ha hecho trabajo real. No se tira nada sin
    demostrar que sobra.
-3. **El coste del mantenimiento es de Paul**, y es tiempo suyo. Una solución que
+3. **El coste del mantenimiento es del mantenedor**, y es tiempo suyo. Una solución que
    pida más disciplina humana no es una solución.
 4. **Nada de métricas nuevas ni ventanas de medición** (régimen §0).
 5. YAGNI: si la propuesta es más cara que el problema, no es una propuesta.

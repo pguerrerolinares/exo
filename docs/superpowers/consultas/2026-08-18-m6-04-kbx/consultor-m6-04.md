@@ -294,7 +294,7 @@ aceptable.
 Ninguna. Nada de este item toca línea roja: no hay acción destructiva (el
 cutover es un default con rollback por binario, basic-memory no se toca hasta
 M5b, que sigue gated), no hay superficie externa, y las decisiones de agenda ya
-las tomó Paul en el brainstorm (P1–P3). El cambio a WAL es la única pieza que
+las tomó el mantenedor en el brainstorm (P1–P3). El cambio a WAL es la única pieza que
 toca el engine además de kbx, y entra dentro del alcance que P1 ya asume para
-`meta`; si Paul prefiere verlo como tarea propia (T0) es orden de plan, no
+`meta`; si el mantenedor prefiere verlo como tarea propia (T0) es orden de plan, no
 pregunta bloqueante.

@@ -2,7 +2,7 @@
 
 - **Fecha**: 2026-08-18
 - **Rol**: consultor independiente, adjudica (no asesora). Verificación primaria propia.
-- **Alcance**: M1b-01 (rename vs repo nuevo + nombre destino), M1b-02 (workflow-lint), foto final de `marketplace.json`, runbook de Paul, riesgos externos.
+- **Alcance**: M1b-01 (rename vs repo nuevo + nombre destino), M1b-02 (workflow-lint), foto final de `marketplace.json`, runbook del mantenedor, riesgos externos.
 - **Fuera de alcance** (otros consultores): mecánica de instalación de `process` (consultor A), barrido de dependencias de superpowers (consultor B). Donde toco sus fronteras, mi decisión queda robusta a las suyas.
 
 ## Decisiones (resumen)
@@ -78,11 +78,11 @@ De `code.claude.com/docs/en/plugin-marketplaces` (guardada en tool-results, lín
 **Adjudicado: repo `pguerrerolinares/exo-plugins`, y el campo `name` de `marketplace.json` cambia A LA VEZ a `exo`.**
 
 - `exo` a secas para el repo es imposible: `pguerrerolinares/exo` ya existe (el engine). `exo-plugins` describe lo que el repo contiene (los plugins + el catálogo), kebab-case, libre (verificado contra los 68 repos del usuario), y no colisiona con nombres reservados de Anthropic (lista verificada en la doc, L166).
-- El `name` del JSON pasa a `exo` porque es lo que Paul ve a diario: los ids `reflex@exo`, `process@exo` son la identidad del framework. No hace falta que coincida con el nombre del repo (doc L1161: son cosas distintas).
+- El `name` del JSON pasa a `exo` porque es lo que el mantenedor ve a diario: los ids `reflex@exo`, `process@exo` son la identidad del framework. No hace falta que coincida con el nombre del repo (doc L1161: son cosas distintas).
 - **Aquí disiento parcialmente del plan**: el plan/spec vendían el rename como «mantiene la identidad» (es decir, `@agent-develop` intacto, coste cero). Es verdad que dejar el name intacto costaría ~0. Pero C8 ya obliga a cirugía de `enabledPlugins` ese mismo día (M3-01: superpowers off + process on, más el install de `process`): la ventana de cambio está abierta de todos modos, el coste marginal de renovar el sufijo es ~10 minutos una única vez, y la alternativa es arrastrar `@agent-develop` para siempre en un framework que se llama exo. Es la única oportunidad barata; después vuelve a costar un remove/add completo.
 - **Coste exacto del cambio de `name`, contado** (ver §1): 5 ocurrencias en `settings.json` (las escribe el propio flujo remove/add + un ajuste manual de `enabledPlugins`), 2 ficheros de estado del harness que se regeneran solos, 2 directorios de caché/clon que se regeneran solos, y 1 script con cron (4 refs) + su test (~20 refs) **que se retiran** en vez de migrarse, porque el gate que vigilaban está cerrado por el régimen §0 (GATE-CALENDARIO-D cerrado, plan líneas 30-38) y su retirada ya estaba adjudicada como deuda de C6 (plan línea 261). Nada más: cero scripts en exo, cero hooks (usan `${CLAUDE_PLUGIN_ROOT}`), cero en la KB con efecto operativo.
 - El name `exo` es además **robusto a la absorción futura**: si un día el catálogo se muda al repo `exo` (spec §M1a), basta re-añadir el marketplace desde el repo nuevo — mismo name ⇒ «replaces the first» (doc L161) — sin tocar ids ni `enabledPlugins` nunca más.
-- **No se renombra el directorio local** `~/Documentos/proyectos/agent-develop` en C8: hay rutas de disco escritas en docs y en `fabrica/SKILL.md:11`; renombrarlo compra estética y rompe referencias. YAGNI. (Si Paul quiere, es un `mv` + `remote -v` otro día; nada del runbook depende de ello.)
+- **No se renombra el directorio local** `~/Documentos/proyectos/agent-develop` en C8: hay rutas de disco escritas en docs y en `fabrica/SKILL.md:11`; renombrarlo compra estética y rompe referencias. YAGNI. (Si el mantenedor quiere, es un `mv` + `remote -v` otro día; nada del runbook depende de ello.)
 
 ---
 
@@ -93,7 +93,7 @@ De `code.claude.com/docs/en/plugin-marketplaces` (guardada en tool-results, lín
 Datos delante:
 - Uso real: 39 usos, último 2026-07-14 (35 días). Bajo pero no muerto; está `enabled` y su skill dispara ante cualquier uso del tool Workflow.
 - Coste de mantenerlo: **una entrada JSON que ya existe y un repo público que no se toca desde junio**. Cero mantenimiento, cero auth (público — verificado).
-- Coste de sacarlo: Paul pierde el lint preflight de workflows y queda un plugin instalado-huérfano que igualmente habría que limpiar.
+- Coste de sacarlo: El mantenedor pierde el lint preflight de workflows y queda un plugin instalado-huérfano que igualmente habría que limpiar.
 - Coste de consolidarlo al monorepo: mover un repo funcional para no ganar nada. El régimen §0 (YAGNI, cerrar ya) mata esta opción, y la spec ya lo había firmado igual: «Quedan fuera: workflow-lint (repo propio, referenciado por el marketplace como hoy)» (spec línea 15).
 
 ---
@@ -177,7 +177,7 @@ git -C ~/Documentos/proyectos/agent-develop add .claude-plugin/marketplace.json 
 git -C ~/Documentos/proyectos/agent-develop commit -m "feat(marketplace): identidad exo — name exo, alta de process, sync de versiones (M1b)"
 ```
 
-### Fase 1 — Rename del repo `[PAUL]`
+### Fase 1 — Rename del repo `[MANTENEDOR]`
 
 ```bash
 gh repo rename exo-plugins -R pguerrerolinares/agent-develop --yes
@@ -186,7 +186,7 @@ gh repo view pguerrerolinares/exo-plugins --json name,visibility
 # Esperado: {"name":"exo-plugins","visibility":"PRIVATE"}
 ```
 
-### Fase 2 — Remote local y push `[PAUL]`
+### Fase 2 — Remote local y push `[MANTENEDOR]`
 
 ```bash
 git -C ~/Documentos/proyectos/agent-develop remote set-url origin https://github.com/pguerrerolinares/exo-plugins.git
@@ -198,7 +198,7 @@ git -C ~/Documentos/proyectos/agent-develop log origin/master --oneline -1
 # Esperado: el commit de la Fase 0
 ```
 
-### Fase 3 — Re-registro del marketplace `[PAUL]` (sesiones cerradas, seguido y sin pausa)
+### Fase 3 — Re-registro del marketplace `[MANTENEDOR]` (sesiones cerradas, seguido y sin pausa)
 
 ```bash
 claude plugin marketplace remove agent-develop
@@ -214,7 +214,7 @@ claude plugin install process@exo
 
 Si `marketplace remove` se niega por plugins activos: `claude plugin disable reflex@agent-develop paul-profile@agent-develop workflow-lint@agent-develop` primero y repetir.
 
-### Fase 4 — settings.json `[PAUL]` (editar `~/.claude/settings.json`)
+### Fase 4 — settings.json `[MANTENEDOR]` (editar `~/.claude/settings.json`)
 
 En `enabledPlugins`: eliminar las tres keys `*@agent-develop` y dejar (coordinado con M3-01 del consultor A):
 
@@ -235,7 +235,7 @@ En `extraKnownMarketplaces`: confirmar que la entrada vieja `agent-develop` ya n
 }
 ```
 
-### Fase 5 — Retirar el cron residual `[PAUL]`
+### Fase 5 — Retirar el cron residual `[MANTENEDOR]`
 
 ```bash
 crontab -l | grep -v "a1-freeze-watch" | crontab -
@@ -245,7 +245,7 @@ crontab -l | grep a1 ; echo "exit=$?"
 
 (Adjudicado: el gate A1 que vigilaba está cerrado por régimen §0 — GATE-CALENDARIO-D cerrado, plan líneas 30-38 — y su retirada ya era deuda declarada de C6, plan línea 261. Si se prefiriera conservarlo, habría que reescribir sus rutas `cache/agent-develop` y keys `@agent-develop`; no compensa: vigila un freeze que ya no existe.)
 
-### Fase 6 — Verificación end-to-end `[PAUL]`
+### Fase 6 — Verificación end-to-end `[MANTENEDOR]`
 
 ```bash
 ls ~/.claude/plugins/cache/exo/
@@ -258,7 +258,7 @@ claude plugin list 2>/dev/null | grep "@exo"
 
 Y una sesión de humo: arrancar `claude` en cualquier proyecto y comprobar que (a) el recall de arranque de reflex aparece, (b) las skills `process:*` están listadas, (c) no hay warning de `plugin-not-found`.
 
-### Fase 7 — Limpieza (solo tras Fase 6 verde) `[PAUL]`
+### Fase 7 — Limpieza (solo tras Fase 6 verde) `[MANTENEDOR]`
 
 ```bash
 rm -rf ~/.claude/plugins/cache/agent-develop
@@ -299,14 +299,14 @@ Mientras la Fase 7 no se haya ejecutado, la caché vieja sigue en disco: el roll
 | 6 | `marketplace remove` + `add` deja residuo o se niega con plugins enabled | Paso alternativo documentado (disable previo); Fase 4 verifica a mano `extraKnownMarketplaces` y `enabledPlugins`; Fase 6 verifica caché, clon y listado |
 | 7 | Push del catálogo con name `exo` ANTES del re-add: el registro viejo (`agent-develop`) cargaría un catálogo cuyo name no coincide | Orden del runbook: el push (Fase 2) y el re-add (Fase 3) van en la misma ventana con sesiones cerradas; la inconsistencia vive minutos y sin consumidores |
 | 8 | `process` servido desde repo privado `exo` vía git-subdir necesita credenciales | Instalación interactiva usa el helper de gh (verificado). Si el consultor A opta por copia física al marketplace, el riesgo desaparece entero |
-| 9 | Sesiones/agentes de la propia campaña C8 (worktree `.worktrees/c8-m3` activo) pisándose con el switch | El switch es la ÚLTIMA acción de C8, tras el merge del cutover M3; lo ejecuta Paul con la fábrica parada |
+| 9 | Sesiones/agentes de la propia campaña C8 (worktree `.worktrees/c8-m3` activo) pisándose con el switch | El switch es la ÚLTIMA acción de C8, tras el merge del cutover M3; lo ejecuta el mantenedor con la fábrica parada |
 
 ---
 
 ## Qué busqué para objetar (mandato de disenso)
 
 1. **Intenté refutar el rename** con dos alternativas serias: (a) repo nuevo limpio — cae por el riesgo de reflex stale en el intervalo y porque no aporta nada que el rename no dé; (b) mudar el catálogo al monorepo `exo` ya, que es lo que la spec original firmó (líneas 14-15, 169: «agent-develop se absorbe al monorepo», «M1a: crear repo, absorber historia») — encontré que **M1a nunca se ejecutó como estaba firmado** (el repo exo existe pero no absorbió ni la historia ni reflex/paul-profile, que siguen desarrollándose en agent-develop; evidencia: `fe4d2d6` ayer). Ejecutar la absorción hoy es desarrollo real en una campaña definida como cutover. La objeción queda registrada como drift spec↔realidad, no como bloqueo: el name `exo` adjudicado hace la absorción futura casi gratuita (mismo name ⇒ replace, doc L161).
-2. **Intenté refutar mi propio cambio de `name`** (la spec vendía «identidad `@agent-develop` no cambia — preferido», línea 170): la defensa del status quo es real (coste 0). La rebatí con el conteo: el coste del cambio es una ventana que C8 abre de todos modos (M3-01 toca `enabledPlugins` sí o sí) + un cron que ya estaba condenado; y el statu quo perpetúa una identidad muerta en cada id. Si Paul prefiere el coste cero absoluto, la variante degradada es: mismo runbook saltando el cambio de `name` (ids siguen `@agent-develop`, solo Fases 1-2 y el fix del `repo` en settings) — la dejo nombrada como **variante mínima**, pero NO es la adjudicada.
+2. **Intenté refutar mi propio cambio de `name`** (la spec vendía «identidad `@agent-develop` no cambia — preferido», línea 170): la defensa del status quo es real (coste 0). La rebatí con el conteo: el coste del cambio es una ventana que C8 abre de todos modos (M3-01 toca `enabledPlugins` sí o sí) + un cron que ya estaba condenado; y el statu quo perpetúa una identidad muerta en cada id. Si el mantenedor prefiere el coste cero absoluto, la variante degradada es: mismo runbook saltando el cambio de `name` (ids siguen `@agent-develop`, solo Fases 1-2 y el fix del `repo` en settings) — la dejo nombrada como **variante mínima**, pero NO es la adjudicada.
 3. **Busqué consumidores ocultos del string** con grep en exo, agent-develop, kb-demo, `~/.claude/settings.json`, `~/.claude.json`, hooks, crontab y systemd —lo único operativo fuera de la config fue el cron a1 (y su test). Busqué también procesos vivos (`pgrep`): nada corriendo.
 4. **Busqué razones para expulsar workflow-lint** (uso bajo: 39 vs 50k de reflex; último uso hace 35 días): no las hay que superen el coste-cero de mantenerlo y el coste real de sacarlo; además la spec ya lo firmó dentro. También comprobé que su repo es público (elimina el único riesgo plausible, el de auth).
 5. **Falsedades del brief**: ninguna sustantiva. Dos matices: workflow-lint es público (el brief no lo afirmaba pero convenía saberlo) y el catálogo declara reflex 0.11.0 estando 0.13.0 instalado (drift que la foto C4 corrige).

@@ -2,7 +2,7 @@
 
 ## Rol
 
-Eres el consultor Fable del régimen de gates delegado del proyecto exo. Paul ha
+Eres el consultor Fable del régimen de gates delegado del proyecto exo. El mantenedor ha
 abierto el brainstorm de **M6-06**, el último item vivo de M6 y **único bloqueador
 de M5b** (desinstalar basic-memory). El orquestador hizo un recon de una hora,
 midió cosas que rompen la mitigación que TÚ MISMO firmaste el 2026-08-18, y en vez
@@ -23,7 +23,7 @@ verdict anterior) y `consultas/2026-08-18-m6-04-kbx/consultor-m6-04.md`.
 
 ## Qué es M6-06 (ya firmado, no se re-adjudica)
 
-Un hook `UserPromptSubmit` que busca el prompt de Paul en la KB e inyecta lo
+Un hook `UserPromptSubmit` que busca el prompt del mantenedor en la KB e inyecta lo
 relevante antes de que el modelo empiece a pensar. Transporte mecánico, cero
 decisión del modelo. Criterio de cierre escrito en la spec: *"Un prompt sobre un
 tema con notas trae sus notas sin que nadie lo pida"*.
@@ -89,7 +89,7 @@ KB viva: `~/Documentos/proyectos/kb-demo` (~138 notas markdown).
 ## Claims a verificar (recon de hoy, hecho deprisa; si uno cae, di qué se lleva por delante)
 
 - **C1 — El coste de hybrid es ~1 s POR PROMPT, y FTS es gratis.** Medido en la
-  máquina de Paul contra el índice vivo:
+  máquina del mantenedor contra el índice vivo:
   `exo recall --db ~/.exo/index.db --query "…" --json` → **0,97 s** (user 0,57 + sys 0,55).
   `exo search --db ~/.exo/index.db --type fts --json "…"` → **0,005 s**.
   Confirma tu propio riesgo nº1 del 18-ago. Verifica con varias queries y en caliente.
@@ -99,7 +99,7 @@ KB viva: `~/Documentos/proyectos/kb-demo` (~138 notas markdown).
   los une con **AND implícito de FTS5**. Medido:
   - `"M6-06"` → core-index + exo-bitácora, 1 ms. Perfecto.
   - `"trinquete kbx budget"` → 1 hit, 4 ms.
-  - `"vamos con brainstorm de M6-06"` (**el prompt real de Paul de hoy**) → **0
+  - `"vamos con brainstorm de M6-06"` (**el prompt real del mantenedor de hoy**) → **0
     resultados**, 5 ms.
   Es decir: cualquier palabra de relleno mata el recall léxico entero. Si esto se
   confirma, "FTS-only" no es escribir un hook: es tocar el engine (query laxa / OR /
@@ -109,11 +109,11 @@ KB viva: `~/Documentos/proyectos/kb-demo` (~138 notas markdown).
   real de hoy fue `kb-demo/core/core-index`… que el hook de `SessionStart` **ya
   inyecta entero** en esa misma sesión. Inyectar lo ya inyectado gasta tokens en el
   sitio más caro para no aportar nada. Mide cuántos de los top-3 hybrid de prompts
-  típicos de Paul caen en `tier: core` (ya inyectado) o repiten entre turnos.
+  típicos del mantenedor caen en `tier: core` (ya inyectado) o repiten entre turnos.
 
 - **C4 — Hoy no existe ningún hook `UserPromptSubmit` en reflex.** `hooks.json` tiene
   `PreToolUse` (3 scripts en cada Bash), `SessionStart`, `Stop` (2), `SubagentStart`.
-  Verifica también si hay `UserPromptSubmit` en `~/.claude/settings.json` de Paul o en
+  Verifica también si hay `UserPromptSubmit` en `~/.claude/settings.json` del mantenedor o en
   otros plugins instalados, que competiría por el mismo turno.
 
 - **C5 — El índice va por detrás de la escritura dentro de la sesión.** `exo-index.sh`
@@ -157,7 +157,7 @@ KB viva: `~/Documentos/proyectos/kb-demo` (~138 notas markdown).
   vive? ¿lo vale?).
 
 - **D5 — Formato y encuadre del bloque.** Cómo se marca para que el modelo lo lea como
-  **material de la KB**, no como instrucción de Paul ni como resultado de una búsqueda
+  **material de la KB**, no como instrucción del mantenedor ni como resultado de una búsqueda
   que él pidió. Precedente a respetar: el `=== Recall exo (PARCIAL — no sustituye tu
   brief) ===` del arranque.
 
@@ -178,11 +178,11 @@ KB viva: `~/Documentos/proyectos/kb-demo` (~138 notas markdown).
 1. **Contrato real del hook `UserPromptSubmit` en esta versión de Claude Code**:
    formato de salida que inyecta contexto (`hookSpecificOutput.additionalContext` vs
    stdout crudo), semántica de exit codes (¿un exit 2 bloquea el prompt?), timeout, y
-   si el bloque inyectado lo ve el modelo antes o después del prompt de Paul.
+   si el bloque inyectado lo ve el modelo antes o después del prompt del mantenedor.
    Verifícalo contra documentación oficial o el propio harness — **no de memoria**.
 2. **Coste real de arreglar `prepara_query`** para tolerar prompts naturales, y si eso
    degrada las 56 queries de `eval.jsonl` (córrelas si el oráculo es ejecutable).
-3. **Distribución real de los prompts de Paul**: si puedes muestrear transcripciones
+3. **Distribución real de los prompts del mantenedor**: si puedes muestrear transcripciones
    de sesiones en `~/.claude/`, dime qué fracción son triviales (D3), qué fracción
    nombran un tema con notas (D1/D2), y con qué vocabulario — literal de la KB o
    parafraseado. Ese dato decide D2 mejor que cualquier argumento.

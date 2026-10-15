@@ -130,7 +130,7 @@ comando) es correcta pero **incompleta**, y la parte que falta cambia la forma d
 etiquetado.** El bloque *es* el resultado de una búsqueda `hybrid` sobre el prompt —la misma
 que manda el contrato— y se presenta como «Recall exo … material de la KB». Concluir «ya se
 buscó» es verdad para la query literal. Lo que el contrato quiere y el bloque no da es (a)
-**queries reformuladas** por faceta (el prompt de Paul no es una buena query: es una orden con
+**queries reformuladas** por faceta (el prompt del mantenedor no es una buena query: es una orden con
 relleno), (b) **más de tres hits**, y (c) el paso de **leer la nota**. El bloque no declara
 su alcance («una query, top-3, ≥0,40»), así que el modelo no tiene forma de saber que es un
 *teaser* y no el resultado. Por eso el pie debe decir *qué es* el bloque antes de decir *qué
@@ -146,7 +146,7 @@ el literal cuando lo tiene) dice que sí compite.
 **instrumento de medida y gatillo de escalada**, no con fe. Pero la ley 3 habla de prosa
 como *mecanismo de acoplamiento* (un router que lee una frase). Aquí la prosa es la
 *interfaz con el modelo*; no hay alternativa que no sea prosa salvo bloquear la herramienta
-(`PreToolUse deny`), y bloquear grep sobre la KB rompe casos legítimos (Paul pidiendo un grep
+(`PreToolUse deny`), y bloquear grep sobre la KB rompe casos legítimos (el mantenedor pidiendo un grep
 literal, `/document` verificando un anchor, el propio `kb-precommit`). La distinción útil es
 **prosa lejana vs. prosa en el punto de uso**, y eso sí tiene literatura (§5).
 
@@ -191,7 +191,7 @@ de FP). Se conserva, comprimida.
 - **Coste**: 4º hook sobre **cada** `Bash` (ya hay tres); un `jq` + un `grep` sobre un
   `.jsonl` que crece por turno; en W11 cada spawn son 25-60 ms (campaña A). Portabilidad
   de rutas Windows en `transcript_path`. Superficie nueva con sus tests.
-- **Falsos positivos legítimos**: Paul pide «grepea X en la KB»; `/document` buscando un
+- **Falsos positivos legítimos**: El mantenedor pide «grepea X en la KB»; `/document` buscando un
   anchor; `distill`/`kb-precommit`; un `grep` de verificación tras haber leído la nota. El
   aviso no bloquea, pero cada FP es ruido en el contexto del padre, que es justo donde el
   ruido más cuesta (doctrina de orquestador limpio).
@@ -204,7 +204,7 @@ de FP). Se conserva, comprimida.
 - Es el único mecanismo que mide **el comportamiento del modelo** en condiciones controladas,
   pero: (i) es no determinista y con una tasa base de 38% hace falta n≥10 corridas por caso
   para ver un desplazamiento a 70% con algo de potencia; (ii) cuesta tokens reales por
-  corrida; (iii) mide un prompt sintético, no las sesiones de Paul. El instrumento offline de
+  corrida; (iii) mide un prompt sintético, no las sesiones del mantenedor. El instrumento offline de
   §4 mide lo mismo sobre uso real, gratis, y ya existe el precedente (campaña A midió el
   recall por prompt desde `reflex-log`). Ver §6 para qué puede asertar exactamente la eval.
 - **Cuándo sí**: si se quiere un gate de CI que impida regresiones del pie. Hoy no hay
@@ -244,7 +244,7 @@ rojo-verde-mutación (§3, opción 1). Corre en CI en los tres SO vía `test-plu
 - **Predicción si la opción 1 funciona**: ≥70% en las siguientes 13 sesiones sustantivas y
   ratio <1,5:1. **Gatillo de escalada a la opción 3**: <60% a las 13 sesiones o a las tres
   semanas, lo que llegue antes.
-- **Confusores declarados**: cambio de modelo entre ventanas; sesiones donde Paul pide grep
+- **Confusores declarados**: cambio de modelo entre ventanas; sesiones donde el mantenedor pide grep
   explícitamente (anotarlas, no filtrarlas a mano); instalación de 0.2.0 a mitad de ventana
   (cambia el default de `--type`, anotar la fecha).
 
@@ -343,7 +343,7 @@ es la opción 3.
   (`allow|deny|ask`) con `permissionDecisionReason`; `additionalContext` en PreToolUse
   existe en versiones recientes (**a confirmar** en la doc antes de apostar el diseño de la
   opción 3 a ello; si no, el aviso no bloqueante se haría con `ask` y razón, que interrumpe a
-  Paul y no es lo que queremos).
+  El mantenedor y no es lo que queremos).
 - `transcript_path` apunta al `.jsonl` de la sesión y está al día en el momento del hook
   (**a confirmar**): es lo que hace innecesario un fichero de estado.
 - `claude plugin eval`: define casos prompt→asserts y puede asertar sobre las tool calls
@@ -363,5 +363,5 @@ es la opción 3.
 - El pie de 89 B se escribió y midió hoy (suite actual: 64/64 verde como línea base); la redacción exacta la puede afinar quien
   implemente, con la restricción dura de **≤120 B y sin perder `ignóralo si no aplica` ni
   `--type hybrid`**.
-- Si Paul instala 0.2.0 (hybrid por defecto), el `--type hybrid` del pie sobra pero no
+- Si el mantenedor instala 0.2.0 (hybrid por defecto), el `--type hybrid` del pie sobra pero no
   estorba; se deja hasta que el `--help` del binario instalado diga otra cosa.

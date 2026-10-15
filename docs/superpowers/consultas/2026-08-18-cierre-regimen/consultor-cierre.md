@@ -161,7 +161,7 @@ aquí porque afectan a la viabilidad, no solo al tuning):
 
 1. **El coste real por prompt no es ~1s "en frío": es ~1s SIEMPRE que use
    hybrid.** Cada invocación del CLI es un proceso nuevo → paga la carga del
-   runtime ONNX en cada prompt de Paul. La cache de M6-01b cachea embeddings
+   runtime ONNX en cada prompt del mantenedor. La cache de M6-01b cachea embeddings
    de trozos, no el arranque del modelo. Salidas posibles: FTS-only para este
    hook (milisegundos, sin ONNX), o un camino de query precomputado. Si el
    diseño ignora esto, M6-06 nace con una espera de un segundo por turno.
@@ -223,7 +223,7 @@ cierra el círculo.
 **H5 — `basic-memory-remind.sh` está vivo en `Stop` y predica el motor
 jubilado.** Mensaje: *"guardar decisiones y aprendizajes en basic-memory"*.
 No es un matcher muerto — dispara en cada sesión con trabajo real — es
-doctrina desactualizada inyectada a Paul al cierre. Texto y nombre del script
+doctrina desactualizada inyectada al mantenedor al cierre. Texto y nombre del script
 son de M6-05/M6-03.
 
 **H6 — El fallback de `/documenta` apunta a las tools MCP y su caducidad cita
