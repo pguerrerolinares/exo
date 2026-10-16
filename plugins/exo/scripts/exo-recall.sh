@@ -64,6 +64,7 @@ log_recall_fallback() {  # $1=reason $2=payload extra opcional
 # evento greppable con su razón, siempre best-effort.
 BASE=""
 ENGINE_VER=""
+CONFIG_KB_PATH=""  # raíz de la KB según `exo config`; EXO_KB la sobreescribe
 RULES_ENGINE=""  # ok|stale: solo con engine presente se intenta resolver reglas
 # Versión antes del check de índice: `exo rules` no usa el índice, así que las
 # reglas se resuelven con binario + versión aunque falte `index.db`.
@@ -87,7 +88,9 @@ elif [ "$RULES_ENGINE" = ok ]; then
   # `exo recall` también hace fallar `exo config`, y `no-config` mentiría
   # sobre la causa.
   CONFIG_ERR_TMP="$(mktemp)"
-  EXO_KB_NAME="${EXO_KB_NAME:-$("$EXO_BIN" config --json 2>"$CONFIG_ERR_TMP" | jq -r '.data.kb.name // empty')}"
+  CONFIG_JSON="$("$EXO_BIN" config --json 2>"$CONFIG_ERR_TMP")"
+  EXO_KB_NAME="${EXO_KB_NAME:-$(printf '%s' "$CONFIG_JSON" | jq -r '.data.kb.name // empty' 2>/dev/null)}"
+  CONFIG_KB_PATH="$(printf '%s' "$CONFIG_JSON" | jq -r '.data.kb.path // empty' 2>/dev/null)"
   if [ -z "${EXO_RECALL_NOTA:-}" ] && [ -z "$EXO_KB_NAME" ]; then
     # Sin config no hay prefijo de proyecto: la nota cae a `core/core-index`
     # pelado, que no resuelve. Degradación aceptable, pero no muda: distinta
@@ -198,6 +201,48 @@ if [ -n "$SP_KEY" ]; then
   TEXTO="${TEXTO}
 
 AVISO exo: ${SP_KEY} sigue habilitado junto a exo (skills y hooks duplicados). Desactívalo: claude plugin disable ${SP_KEY}"
+fi
+
+# --- Aviso: gate de /document pendiente (sin auto-distill que lo resuelva) ---
+# /document deja un trailer `Gate: <ruta> bytes=… limit=… routed=bitacora` cuando
+# una nota supera su presupuesto y delega la evicción a un auto-distill en rama
+# distill/auto/. Una ruta está pendiente si su commit Gate más reciente (en
+# distill/last..HEAD; sin tag, últimos 7 días) es posterior al auto-distill más
+# reciente que toca esa ruta en CUALQUIER rama (--all). Si la rama se descarta
+# sin merge deja de salir en --all y el aviso vuelve: correcto por diseño.
+# `--fixed-strings` y pathspec `:(literal)`: las rutas llevan espacios, ` — ` y
+# paréntesis. Todo git bajo timeout; cualquier fallo ⇒ sin aviso.
+avisos_gate_pendiente() {
+  local kb="${EXO_KB:-$CONFIG_KB_PATH}" gt="${EXO_GIT_TIMEOUT:-3}" rango ct ruta dct
+  [ -n "$kb" ] && [ -e "$kb/.git" ] || return 0
+  if con_timeout "$gt" git -C "$kb" rev-parse -q --verify refs/tags/distill/last >/dev/null 2>&1; then
+    rango="refs/tags/distill/last..HEAD"
+  else
+    rango="--since=7.days"
+  fi
+  # Del más nuevo al más viejo: la primera aparición de cada ruta es su gate más reciente.
+  con_timeout "$gt" git -C "$kb" log "$rango" --format='@@%ct%n%(trailers:key=Gate,valueonly=true)' 2>/dev/null \
+    | awk '
+        /^@@/ { ct = substr($0, 3); next }
+        / bytes=[0-9]+ limit=[0-9]+ routed=bitacora$/ {
+          sub(/ bytes=[0-9]+ limit=[0-9]+ routed=bitacora$/, "")
+          if (!($0 in seen)) { seen[$0] = 1; print ct "\t" $0 }
+        }' \
+    | while IFS=$'\t' read -r ct ruta; do
+        dct="$(con_timeout "$gt" git -C "$kb" log --all --fixed-strings --grep='docs(kb): auto-distill' -1 --format=%ct -- ":(literal)$ruta" 2>/dev/null)" || continue
+        if [ -z "$dct" ] || [ "$ct" -gt "$dct" ]; then
+          printf 'AVISO exo: gate pendiente en %s, sin rama distill/auto/ (corre /distill)\n' "$ruta"
+        fi
+      done
+}
+if [ "$SOURCE" != "compact" ]; then
+  . "$SCRIPT_DIR/_timeout.sh" 2>/dev/null
+  GATE_AVISOS="$(avisos_gate_pendiente 2>/dev/null)" || GATE_AVISOS=""
+  if [ -n "$GATE_AVISOS" ]; then
+    TEXTO="${TEXTO}
+
+${GATE_AVISOS}"
+  fi
 fi
 
 # --- Reglas de proyecto (2d): resuelve para el testigo de Stop y grita anomalías ---
