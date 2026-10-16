@@ -45,7 +45,7 @@ G="$(extraer "$GOLD" "skill exo" "etiqueta")" || { [ $? -eq 4 ] && exit 2; echo 
 L="$(extraer "$LEDGER" "skill" "triage")" || { [ $? -eq 4 ] && exit 2; echo "upstream-score: no hay tabla (PR | skill | triage) en $LEDGER" >&2; exit 2; }
 
 sello_ledger="$(tr -d '\r' < "$LEDGER" | awk '/^verdad_sello:/ { print $2; exit }')"
-sello_real="$(sha256sum "$GOLD" | cut -d' ' -f1)"
+sello_real="$(sha256sum < "$GOLD" | cut -d' ' -f1)"
 { [ -n "$sello_ledger" ] && [ "$sello_ledger" = "$sello_real" ]; } || { echo "upstream-score: verdad sin sellar: $LEDGER no trae verdad_sello con el sha256 de $GOLD" >&2; exit 2; }
 
 RES="$(awk -F'\t' -v umbral="$UMBRAL" '

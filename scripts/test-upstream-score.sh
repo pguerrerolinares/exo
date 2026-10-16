@@ -14,7 +14,7 @@ bad() { FAIL=$((FAIL+1)); echo "FAIL: $1"; }
 gold_head() { printf '# gold\n\n| PR | título | base | skill exo | etiqueta | evidencia | conf. |\n|---|---|---|---|---|---|---|\n'; }
 gold_row()  { printf '| %s | titulo x | dev | %s | %s | ev | alta |\n' "$1" "$2" "$3"; }
 # led_head <verdad.md>: el sello es el sha256 de los bytes de esa verdad.
-led_head()  { printf 'upstream_tag: v9.9.9\nverdad_sello: %s v0..v1\n\n| PR | skill | triage | estado | motivo | hash |\n|---|---|---|---|---|---|\n' "$(sha256sum "$1" | cut -d' ' -f1)"; }
+led_head()  { printf 'upstream_tag: v9.9.9\nverdad_sello: %s v0..v1\n\n| PR | skill | triage | estado | motivo | hash |\n|---|---|---|---|---|---|\n' "$(sha256sum < "$1" | cut -d' ' -f1)"; }
 led_row()   { printf '| %s | %s | %s | portado | m | abc123 |\n' "$1" "$2" "$3"; }
 
 # Verdad base de 20 filas: 10 aplica, 10 no aplica.
@@ -169,6 +169,17 @@ chk_sello sello_distinto_exit2 "verdad_sello: $sha_o v0..v1" 2 'verdad sin sella
 chk_sello sello_con_espacio_final_vale "verdad_sello: $sha_s v0..v1   " 0
 chk_sello sello_duplicado_usa_la_primera "verdad_sello: $sha_s v0..v1\nverdad_sello: basura" 0
 chk_sello sello_duplicado_primera_mala "verdad_sello: $sha_o v0..v1\nverdad_sello: $sha_s v0..v1" 2 'verdad sin sellar'
+
+# sello con ruta backslash (Windows): sha256sum por argumento antepone "\" al hash
+if command -v cygpath >/dev/null 2>&1; then
+  WT="$(cygpath -w "$TMP")"
+  { gold_head; gold_row '#1' tdd aplica; } > "$TMP/gb.md"
+  { led_head "$TMP/gb.md"; led_row '#1' tdd aplica; } > "$TMP/lb.md"
+  out="$(bash "$SCORE" "$WT\\gb.md" "$WT\\lb.md" 2>&1)"; rc=$?
+  if [ $rc -eq 0 ] && grep -qF 'aciertos 1/1' <<<"$out"; then ok sello_con_ruta_backslash_vale; else bad "sello_con_ruta_backslash_vale rc=$rc: $out"; fi
+else
+  ok "sello_con_ruta_backslash_vale skip (sin cygpath)"
+fi
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
