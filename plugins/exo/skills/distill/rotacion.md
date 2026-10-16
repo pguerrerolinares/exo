@@ -42,8 +42,8 @@ ya movieron bytes a `archive/log/` en esta misma corrida.
    (`archive/log/<slug>-bitacora-AAAA-MM-DD_AAAA-MM-DD.md`, o `…-parte-NN` si ninguna cabecera lleva fecha)
    debe coincidir con el mínimo y el máximo de las fechas de **sus cabeceras
    `## `** (`grep '^## ' <ruta-archivo-nuevo>`), no con fechas del cuerpo.
-   Si discrepa o la fecha es imposible (`2026-02-31`), no commitees: renombra
-   con `git mv` al rango correcto y actualiza los enlaces entrantes. Los
+   Si discrepa o la fecha es imposible (`2026-13-45`), no commitees: renombra
+   con `mv` (el archive aún no está trackeado) al rango correcto y actualiza los enlaces entrantes. Los
    archives antiguos no se renombran (los enlazan cabeceras de las bitácoras).
 3. Nada se borra, misma regla de oro que el resto de la skill. Si algo salió
    mal y hay que revertir:

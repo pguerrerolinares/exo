@@ -4,8 +4,8 @@
 `distill/auto/<slug>`. Quien corre `/document` lanza el subagente (`model:
 sonnet`, contexto limpio, síncrono, tope 10 min) y le pasa el bloque de abajo
 literal, sustituyendo `<kb>`, `<ruta>`, `<slug>`, `<techo>` y `<wt>`. `<ruta>` va
-**relativa a la raíz de la KB** (relativízala: la que dan `search` y el trailer
-`Gate:` es absoluta, del checkout principal). `<wt>` =
+**relativa a la raíz de la KB** (la `path` de `search` y el trailer `Gate:` ya
+lo son; si tienes una absoluta, relativízala). `<wt>` =
 `${TMPDIR:-/tmp}/exo-distill-auto-<slug>`, fuera de la KB.
 
 ## Brief
@@ -45,11 +45,15 @@ enteros verbatim; no resumes ni reescribes prosa.
    (solo si evictaste); (c) `exo budget --kb <wt>` sin offenders; (d) `exo lint
    --kb <wt>` limpio. Si algo falla, **no commitees**: deja el informe.
 7. Commit en tu rama, con rutas explícitas (`git -C <wt> add <ruta>
-   .distill/<slug>-moved.md`): subject `docs(kb): auto-distill <slug> —
-   <evicción|propuesta de partición>`; cuerpo con bytes antes/después y la
-   lista de bloques movidos. Después quita el worktree
+   .distill/<slug>-moved.md`, solo lo que exista): subject `docs(kb): auto-distill
+   <slug> — <evicción|propuesta de partición>`; cuerpo con una línea
+   `Nota: <ruta>` (relativa a la KB; es lo que resuelve el aviso de gate
+   pendiente), bytes antes/después y la lista de bloques movidos. Una propuesta
+   de partición sin bloques movidos no tiene nada que añadir: `git -C <wt> commit
+   --allow-empty`. Después quita el worktree
    (`git -C <kb> worktree remove --force <wt>`); la rama se queda.
-8. Tope 10 min. Si vence, o si no puedes verificar, abstención ruidosa: no
+8. Tope 10 min, best-effort (nada te corta): anota `date +%s` al arrancar y
+   abstente si pasan 600 s. Si vence, o si no puedes verificar, abstención ruidosa: no
    commitees y devuelve un informe con qué hiciste, qué falló y el estado del
    worktree. Antes de terminar quita el worktree
    (`git -C <kb> worktree remove --force <wt>`) y, como no hay commit tuyo,
@@ -61,7 +65,11 @@ enteros verbatim; no resumes ni reescribes prosa.
 
 El mantenedor, o `/distill` al revisar las ramas `distill/auto/*`, decide el
 merge. En main, tras mergear (el conflicto esperado es la línea de estado del
-canon, a mano): `exo write append --from .distill/<slug>-moved.md
-<permalink-bitacora>` (idempotente por el rechazo de cabecera duplicada) y
-borrar el sidecar. Una propuesta de partición la ejecuta el mantenedor o el
-distill manual; el auto-distill no crea notas.
+canon, a mano): `exo write append --from $KB_ROOT/.distill/<slug>-moved.md
+<permalink-bitacora>` (`--from` es relativo al cwd; idempotente por el rechazo
+de cabecera duplicada, engine ≥ 0.7.0: con uno anterior la doble aplicación
+duplica sin avisar) y borrar el sidecar. Tras el merge,
+`git -C $KB_ROOT branch -d distill/auto/<slug>`: la rama viva bloquea el
+siguiente auto-distill de la nota. Una propuesta de partición la ejecuta el
+mantenedor o el distill manual (el auto-distill no crea notas); ejecutada o
+descartada, `git -C $KB_ROOT branch -D distill/auto/<slug>`.

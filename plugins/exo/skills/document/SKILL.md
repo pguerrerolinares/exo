@@ -79,7 +79,7 @@ El cuerpo va **en un fichero** (`--from`), que escribes antes con `Write`.
 Nunca por heredoc: el escaping de comillas, backticks y `$` es la fuente de
 error más tonta y frecuente de este camino.
 
-**Los dos rechazos, y qué significan.** Salen con exit 3 (distinto de un error
+**Los tres rechazos, y qué significan.** Salen con exit 3 (distinto de un error
 real, que es 1):
 
 - *append a nota que no es `tier: log`* → estás a punto de anexar al canon.
@@ -88,6 +88,8 @@ real, que es 1):
   `--force` si de verdad es una excepción consciente: queda registrada.
 - *nota duplicada* → ya existe una canónica con slug muy parecido. Edítala en
   vez de crear otra; `--force` si de verdad es un tema nuevo.
+- *cabecera duplicada* → la `## AAAA-MM-DD — <tema>` ya está en la nota viva
+  (o es un re-append). Concreta el tema; `--force` solo si es excepción consciente.
 
 Frontmatter obligatorio en toda nota: `tags` + `tier`. `exo write new`
 **no los inventa**: `tier` solo entra si pasas `--tier`, y `tags` solo si van
@@ -108,16 +110,19 @@ Commitea SOLO los ficheros que esta invocación escribió o editó — nunca
 sigue bloqueado, reporta para commit manual — no fuerces borrando el lock.
 
 Si el gate mordió, el cuerpo del commit lleva un trailer por nota (una línea
-cada una): `Gate: <ruta> bytes=<N> limit=<techo> routed=bitacora`. Es lo que
-cuenta `git log --fixed-strings --grep='Gate: <ruta>'` (sin `--fixed-strings`
-las rutas con ` — ` y paréntesis no casan).
+cada una): `Gate: <ruta> bytes=<N> limit=<techo> routed=bitacora`. `<ruta>` va
+relativa a la raíz de la KB (la `path` de `search`); `bytes` y `limit` son enteros
+sin separador de miles (`limit=12500`). Va en el bloque final del mensaje, junto
+a la atribución (`Co-Authored-By`…). Es lo que cuenta `git log --fixed-strings
+--grep='Gate: <ruta>'` (sin `--fixed-strings` las rutas con ` — ` y paréntesis
+no casan).
 
 El pre-commit de la KB es la red, no el gate: atrapa `--no-verify` y editores
 que no pasan por `/document`. Si aun así rechaza por presupuesto, **el rechazo
 no se negocia**: no subas `kbx_budget_max`, no recortes el canon para que pase,
 no uses `--no-verify`. Revierte el delta del canon a la línea de estado, deja el
-detalle en la bitácora y deja la poda o la partición al auto-distill (paso 5) o
-a `/distill`. Un commit sin hacer se arregla en un minuto; una nota mutilada, no.
+detalle en la bitácora y deja la poda o la partición a
+`/distill`. Un commit sin hacer se arregla en un minuto; una nota mutilada, no.
 
 ## Paso 5 · Auto-distill (solo si el gate mordió)
 
@@ -126,9 +131,12 @@ Tras el commit, y solo si el gate mordió en alguna nota y no existe ya la rama
 `git -C <kb> branch --list 'distill/auto/<slug>'`): lanza un subagente
 (`model: sonnet`, contexto limpio) con el brief de `auto-distill.md` y **espéralo**
 (síncrono, tope 10 min). Nunca en segundo plano: el harness mata el process group
-al cerrar la sesión. Rama ya existente = ya lanzado, no un error: sigue. Al vencer
-el tope el subagente no commitea y deja su informe; el trailer `Gate:` ya está en
-main, así que `/distill` lo recoge.
+al cerrar la sesión. Rama ya existente = ya lanzado, no un error: sigue. El tope es best-effort: al
+vencer el subagente no commitea y deja su informe; el trailer `Gate:` ya está en
+main, así que `/distill` lo recoge. Cuando el subagente vuelva (o falle),
+comprueba `git -C <kb> log --oneline HEAD..distill/auto/<slug>`: si sale vacío no
+hubo commit ⇒ `git -C <kb> worktree remove --force <wt>` (si existe) y
+`git -C <kb> branch -D distill/auto/<slug>`, o la rama bloquearía la nota.
 
 Resumen final: qué notas se crearon o editaron, dónde quedaron, el hash del
 commit y, si hubo auto-distill, en qué rama `distill/auto/<slug>` quedó o que

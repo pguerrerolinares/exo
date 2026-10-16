@@ -60,11 +60,15 @@ dueño de la KB.
 
 - **Merge:** `git -C $KB_ROOT merge distill/auto/<slug>`. Solo cambia el canon;
   el conflicto esperado es la línea de estado, a mano. Luego aplica el sidecar
-  `.distill/<slug>-moved.md` en la bitácora con `exo write append --from`
-  (idempotente: rechaza cabeceras duplicadas), verifica que cada bloque quedó
-  literal en destino, borra el sidecar y commitea. Si el commit de la rama es
-  una **propuesta de partición**, no hay nada que mergear: ejecútala aquí con
-  el test del título (`consolidacion.md`) o descártala.
+  `$KB_ROOT/.distill/<slug>-moved.md` en la bitácora con `exo write append
+  --from` (relativo al cwd; idempotente por el rechazo de cabeceras duplicadas,
+  engine ≥ 0.7.0: con uno anterior la doble aplicación duplica sin avisar), verifica que cada bloque quedó
+  literal en destino, borra el sidecar y commitea; luego
+  `git -C $KB_ROOT branch -d distill/auto/<slug>` (si no, la rama bloquea el
+  siguiente auto-distill de la nota). Si el commit de la rama es una
+  **propuesta de partición**, no hay nada que mergear: ejecútala aquí con el
+  test del título (`consolidacion.md`) o descártala, y en ambos casos
+  `git -C $KB_ROOT branch -D distill/auto/<slug>`.
 - **Descartar:** `git -C $KB_ROOT branch -D distill/auto/<slug>` si el canon ya
   cambió tanto que la evicción no aplica. Los bloques seguirán en el canon: la
   pasada actual hace la evicción a mano.
