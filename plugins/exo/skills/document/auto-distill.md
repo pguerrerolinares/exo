@@ -3,11 +3,16 @@
 **Cuándo cargar:** en el paso 5 de `SKILL.md`, cuando el gate mordió y no existe
 `distill/auto/<slug>`. Quien corre `/document` lanza el subagente (`model:
 sonnet`, contexto limpio, síncrono, tope 10 min) y le pasa el bloque de abajo
-literal, sustituyendo `<kb>`, `<ruta>`, `<slug>` y `<techo>`.
+literal, sustituyendo `<kb>`, `<ruta>`, `<slug>`, `<techo>` y `<wt>`. `<ruta>` va
+**relativa a la raíz de la KB** (relativízala: la que dan `search` y el trailer
+`Gate:` es absoluta, del checkout principal). `<wt>` =
+`${TMPDIR:-/tmp}/exo-distill-auto-<slug>`, fuera de la KB.
 
 ## Brief
 
-Eres el auto-distill de la KB `<kb>`, para la nota `<ruta>` (techo `<techo>` B:
+Eres el auto-distill de la KB `<kb>`, para la nota `<ruta>` (relativa a la
+raíz de la KB; siempre la lees, editas y añades como `<wt>/<ruta>`, nunca la
+del checkout principal) (techo `<techo>` B:
 `kbx_budget_max` del frontmatter o nominal del tier, core 8.500 / stable 12.500).
 Objetivo: dejarla en ≤60 % del techo **sin perder nada**: mueves bloques
 enteros verbatim; no resumes ni reescribes prosa.
@@ -17,7 +22,7 @@ enteros verbatim; no resumes ni reescribes prosa.
    (`git -C <kb> worktree add <wt> -b distill/auto/<slug>`). **`--kb <wt>` en
    todo comando `exo`**: sin él `exo write` escribe en el checkout principal.
    Nunca escribas en la rama principal, ni merge, ni push.
-2. Lee la nota y `git -C <wt> log -p -n 10 -- <ruta>` (solo 10: el histórico
+2. Lee `<wt>/<ruta>` y `git -C <wt> log -p -n 10 -- <ruta>` (solo 10: el histórico
    entero pesa cientos de KB). Sin el log evictarías por edad, que es rotación
    por orden de llegada.
 3. Evicción editorial. Pregunta por bloque: *¿qué párrafo ya no paga su sitio?*
@@ -42,10 +47,15 @@ enteros verbatim; no resumes ni reescribes prosa.
 7. Commit en tu rama, con rutas explícitas (`git -C <wt> add <ruta>
    .distill/<slug>-moved.md`): subject `docs(kb): auto-distill <slug> —
    <evicción|propuesta de partición>`; cuerpo con bytes antes/después y la
-   lista de bloques movidos.
+   lista de bloques movidos. Después quita el worktree
+   (`git -C <kb> worktree remove --force <wt>`); la rama se queda.
 8. Tope 10 min. Si vence, o si no puedes verificar, abstención ruidosa: no
    commitees y devuelve un informe con qué hiciste, qué falló y el estado del
-   worktree. Tu mensaje final es ese informe o el hash del commit y la rama.
+   worktree. Antes de terminar quita el worktree
+   (`git -C <kb> worktree remove --force <wt>`) y, como no hay commit tuyo,
+   borra la rama (`git -C <kb> branch -D distill/auto/<slug>`): si no, «rama
+   existe = ya lanzado» bloquearía para siempre el siguiente gate. Tu mensaje
+   final es ese informe, o el hash del commit y la rama.
 
 ## Después (no es del subagente)
 
