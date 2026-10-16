@@ -69,6 +69,21 @@ fn dry_run_no_toca_disco_y_reporta_json() {
 }
 
 #[test]
+fn hot_bytes_por_defecto_es_40960() {
+    let dir = kb_con_bitacora(&nota_grande());
+    let salida = Command::new(bin())
+        .args(["rotate", "--json"])
+        .arg("--kb")
+        .arg(dir.path())
+        .env("EXO_CONFIG", cfg_inexistente(dir.path()))
+        .output()
+        .unwrap();
+    assert!(salida.status.success());
+    let v: serde_json::Value = serde_json::from_slice(&salida.stdout).unwrap();
+    assert_eq!(v["data"]["hot_bytes"], 40960);
+}
+
+#[test]
 fn apply_escribe_de_verdad() {
     let dir = kb_con_bitacora(&nota_grande());
     let config_path = dir.path().join("config.toml");
