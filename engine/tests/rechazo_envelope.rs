@@ -62,6 +62,20 @@ fn el_data_del_rechazo_append_a_canon_sin_tier_es_null_no_el_centinela_de_prosa(
     );
 }
 
+#[test]
+fn rechazo_cabecera_duplicada_data_y_display() {
+    let r = exo::escritor::Rechazo::CabeceraDuplicada {
+        cabeceras: vec!["## 2026-10-16 — foo".into()],
+    };
+    let v = r.data();
+    assert_eq!(v["reason"], "duplicate_header");
+    assert_eq!(v["cabeceras"][0], "## 2026-10-16 — foo");
+    assert!(v.get("candidates").is_none());
+    let txt = format!("{r}");
+    assert!(txt.contains("## 2026-10-16 — foo"), "{txt}");
+    assert!(txt.contains("--force"), "{txt}");
+}
+
 /// Título compartido por la nota-fixture (ya indexada) y por el `write new`
 /// del test: mismo título ⇒ mismo slug ⇒ Jaccard 1.0 contra el umbral 0.6 de
 /// `escritor::UMBRAL_DUP`. Determinista por construcción, no por suerte de

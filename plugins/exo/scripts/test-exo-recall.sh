@@ -345,5 +345,121 @@ if [ ! -e "$RULES_DIR/ss-sub/y" ] && [ -z "$SYSMSG" ]; then
   pass "session_id con '/': no se escribe ss (ni dentro de subdirectorios)"
 else fail "session_id con '/'" "dir=$(ls "$RULES_DIR/ss-sub")"; fi
 
+# ------------------- gate pendiente (trailer Gate: de /document) --------------
+NOTA_G='projects/a — b (c).md'
+GATE_TRAILER="Gate: $NOTA_G bytes=11000 limit=12500 routed=bitacora"
+AVISO_G="AVISO exo: gate pendiente en $NOTA_G, sin rama distill/auto/ (corre /distill)"
+ahora=$(date +%s)
+kbgit() { git -C "$KBG" -c user.name=t -c user.email=t@t "$@"; }
+kbcommit() {  # $1=segundos atrás, $2=mensaje; commit vacío con fecha fija
+  GIT_AUTHOR_DATE="$(( ahora - $1 )) +0000" GIT_COMMITTER_DATE="$(( ahora - $1 )) +0000" kbgit commit -q --allow-empty -m "$2"
+}
+gate_hook() {  # deja el additionalContext en CTX_G
+  run_hook '{"session_id":"g1"}' EXO_BIN="$STUB_FELIZ" EXO_INDEX="$TMP/index-feliz.db" ENGINE_MIN=0.1.0 EXO_KB="$KBG"
+  CTX_G="$(printf '%s' "$HOOK_OUT" | jq -r '.hookSpecificOutput.additionalContext' 2>/dev/null)"
+}
+nuevo_kb() { KBG="$TMP/kbg-$1"; git init -q -b main "$KBG"; }
+
+nuevo_kb pend
+kbcommit 5000 "docs(kb): documenta algo"
+kbcommit 4000 "$(printf 'docs(kb): nota grande\n\n%s' "$GATE_TRAILER")"
+gate_hook
+if contains "$CTX_G" "$AVISO_G" && [ "$(printf '%s\n' "$CTX_G" | grep -c 'gate pendiente')" = 1 ]; then
+  pass "gate_pendiente_avisa: ruta con espacios, em dash y paréntesis"
+else fail "gate_pendiente_avisa" "ctx='$CTX_G'"; fi
+
+# un segundo trailer de la misma ruta y otra ruta: una línea por ruta
+kbcommit 3000 "$(printf 'docs(kb): otra\n\n%s\nGate: projects/z.md bytes=9000 limit=8000 routed=bitacora' "$GATE_TRAILER")"
+gate_hook
+if [ "$(printf '%s\n' "$CTX_G" | grep -c 'gate pendiente en projects/a')" = 1 ] \
+   && contains "$CTX_G" "gate pendiente en projects/z.md,"; then
+  pass "gate_sin_duplicados: una línea por ruta aunque haya varios trailers"
+else fail "gate_sin_duplicados" "ctx='$CTX_G'"; fi
+
+# auto-distill en OTRA rama que toca la ruta, posterior ⇒ resuelto
+kbgit checkout -q -b distill/auto/x
+mkdir -p "$KBG/projects"; : > "$KBG/$NOTA_G"; kbgit add -- "$NOTA_G"
+GIT_AUTHOR_DATE="$(( ahora - 2000 )) +0000" GIT_COMMITTER_DATE="$(( ahora - 2000 )) +0000" kbgit commit -q -m "docs(kb): auto-distill a — evicción"
+kbgit checkout -q main
+gate_hook
+if ! contains "$CTX_G" "gate pendiente en projects/a" && contains "$CTX_G" "gate pendiente en projects/z.md,"; then
+  pass "gate_resuelto_por_rama_no_avisa: auto-distill en otra rama (--all) resuelve solo su ruta"
+else fail "gate_resuelto_por_rama_no_avisa" "ctx='$CTX_G'"; fi
+
+# rama descartada sin merge: deja de salir en --all ⇒ el aviso vuelve
+kbgit branch -q -D distill/auto/x
+kbgit reflog expire --expire=now --all; kbgit gc -q --prune=now 2>/dev/null
+gate_hook
+if contains "$CTX_G" "$AVISO_G"; then pass "gate_rama_descartada_vuelve_a_avisar"
+else fail "gate_rama_descartada_vuelve_a_avisar" "ctx='$CTX_G'"; fi
+
+# Gate en un párrafo y la atribución estándar en otro: %(trailers) no lo vería
+nuevo_kb atrib
+kbcommit 4000 "$(printf 'docs(kb): nota grande\n\n%s\n\nCo-Authored-By: X <x@x>\nClaude-Session: https://claude.ai/code/s' "$GATE_TRAILER")"
+gate_hook
+if contains "$CTX_G" "$AVISO_G"; then pass "gate_con_atribucion_en_otro_parrafo_avisa"
+else fail "gate_con_atribucion_en_otro_parrafo_avisa" "ctx='$CTX_G'"; fi
+
+# partición sin bloques movidos: commit vacío de auto-distill con `Nota: <ruta>` ⇒ resuelto
+nuevo_kb nota
+kbcommit 4000 "$(printf 'docs(kb): nota grande\n\n%s' "$GATE_TRAILER")"
+kbgit checkout -q -b distill/auto/n
+kbcommit 2000 "$(printf 'docs(kb): auto-distill a — propuesta de partición\n\nNota: %s' "$NOTA_G")"
+kbgit checkout -q main
+gate_hook
+if ! contains "$CTX_G" "gate pendiente"; then pass "gate_resuelto_por_nota_sin_name_only"
+else fail "gate_resuelto_por_nota_sin_name_only" "ctx='$CTX_G'"; fi
+
+# trailer anterior al tag distill/last ⇒ sin aviso
+nuevo_kb tag
+kbcommit 4000 "$(printf 'docs(kb): nota grande\n\n%s' "$GATE_TRAILER")"
+kbcommit 3000 "docs(kb): distill"
+kbgit tag distill/last
+gate_hook
+if ! contains "$CTX_G" "gate pendiente"; then pass "gate_anterior_a_distill_last_no_avisa"
+else fail "gate_anterior_a_distill_last_no_avisa" "ctx='$CTX_G'"; fi
+
+# sin tag la ventana es --since=7.days: un trailer de hace 10 días no avisa
+nuevo_kb viejo
+kbcommit $(( 10 * 86400 )) "$(printf 'docs(kb): nota grande\n\n%s' "$GATE_TRAILER")"
+gate_hook
+if ! contains "$CTX_G" "gate pendiente"; then pass "gate_sin_tag_ventana_7_dias"
+else fail "gate_sin_tag_ventana_7_dias" "ctx='$CTX_G'"; fi
+
+# auto-distill existe pero es ANTERIOR al Gate ⇒ sigue avisando
+nuevo_kb ant
+kbcommit 6000 "docs(kb): base"
+kbgit checkout -q -b distill/auto/y
+mkdir -p "$KBG/projects"; : > "$KBG/$NOTA_G"; kbgit add -- "$NOTA_G"
+GIT_AUTHOR_DATE="$(( ahora - 5000 )) +0000" GIT_COMMITTER_DATE="$(( ahora - 5000 )) +0000" kbgit commit -q -m "docs(kb): auto-distill a — evicción"
+kbgit checkout -q main
+kbcommit 4000 "$(printf 'docs(kb): nota grande\n\n%s' "$GATE_TRAILER")"
+gate_hook
+if contains "$CTX_G" "$AVISO_G"; then pass "gate_posterior_a_autodistill_sigue_avisando"
+else fail "gate_posterior_a_autodistill_sigue_avisando" "ctx='$CTX_G'"; fi
+
+# git colgado ⇒ corta por EXO_GIT_TIMEOUT: exit 0, JSON válido, sin aviso, tiempo acotado
+mkdir -p "$TMP/shim"
+printf '#!/usr/bin/env bash\nexec sleep 20\n' > "$TMP/shim/git"; chmod +x "$TMP/shim/git"
+SECS_G=$SECONDS
+printf '%s' '{"session_id":"g4"}' | env PATH="$TMP/shim:$PATH" EXO_GIT_TIMEOUT=1 EXO_BIN="$STUB_FELIZ" EXO_INDEX="$TMP/index-feliz.db" ENGINE_MIN=0.1.0 EXO_KB="$TMP/kbg-pend" "$HOOK" > "$TMP/out.txt" 2>/dev/null; RC_G=$?
+if [ "$RC_G" = 0 ] && jq -e . "$TMP/out.txt" >/dev/null 2>&1 && ! grep -q 'gate pendiente' "$TMP/out.txt" \
+   && [ $((SECONDS - SECS_G)) -lt 8 ]; then
+  pass "gate_git_colgado_corta_sin_aviso"
+else fail "gate_git_colgado_corta_sin_aviso" "rc=$RC_G t=$((SECONDS - SECS_G))s out=$(cat "$TMP/out.txt")"; fi
+
+# source=compact no repite el aviso
+run_hook '{"session_id":"g2","source":"compact"}' EXO_BIN="$STUB_FELIZ" EXO_INDEX="$TMP/index-feliz.db" ENGINE_MIN=0.1.0 EXO_KB="$TMP/kbg-pend"
+if ! contains "$(printf '%s' "$HOOK_OUT" | jq -r '.hookSpecificOutput.additionalContext')" "gate pendiente"; then
+  pass "gate_compact_no_repite"
+else fail "gate_compact_no_repite" "out='$HOOK_OUT'"; fi
+
+# KB sin .git ⇒ exit 0, JSON válido, sin aviso
+mkdir -p "$TMP/kb-sin-git"
+printf '%s' '{"session_id":"g3"}' | env EXO_BIN="$STUB_FELIZ" EXO_INDEX="$TMP/index-feliz.db" ENGINE_MIN=0.1.0 EXO_KB="$TMP/kb-sin-git" "$HOOK" > "$TMP/out.txt" 2>/dev/null; RC_G=$?
+if [ "$RC_G" = 0 ] && jq -e . "$TMP/out.txt" >/dev/null 2>&1 && ! grep -q 'gate pendiente' "$TMP/out.txt"; then
+  pass "kb_sin_git_no_rompe"
+else fail "kb_sin_git_no_rompe" "rc=$RC_G out=$(cat "$TMP/out.txt")"; fi
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

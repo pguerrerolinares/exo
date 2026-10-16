@@ -279,6 +279,97 @@ fn append_a_canon_forzado_escribe_y_queda_registrado() {
     assert!(escrito.contains("excepcion"));
 }
 
+const NOTA_LOG: &str = "---\npermalink: kb-test/log/b\ntier: log\n---\n## 2026-10-16 — foo\n- a\n";
+
+fn cabeceras_de(err: &anyhow::Error) -> Vec<String> {
+    match err.downcast_ref::<Rechazo>().expect("debe ser gate") {
+        Rechazo::CabeceraDuplicada { cabeceras } => cabeceras.clone(),
+        otro => panic!("rechazo inesperado: {otro:?}"),
+    }
+}
+
+#[test]
+fn append_rechaza_cabecera_que_ya_existe() {
+    let kb = kb_falsa();
+    let ruta = escribe_nota(&kb, "log/b.md", NOTA_LOG);
+
+    // Bloque con dos cabeceras, una sola duplicada; la repetida dentro del
+    // propio bloque no cuenta como colisión.
+    let err = escribe_append(
+        kb.path(),
+        "log/b.md",
+        "## 2026-10-16 — foo\n- x\n## nueva\n- y\n## nueva\n",
+        false,
+    )
+    .unwrap_err();
+
+    assert_eq!(cabeceras_de(&err), vec!["## 2026-10-16 — foo".to_string()]);
+    assert_eq!(std::fs::read_to_string(ruta).unwrap(), NOTA_LOG);
+}
+
+#[test]
+fn append_con_force_admite_cabecera_duplicada() {
+    let kb = kb_falsa();
+    let ruta = escribe_nota(&kb, "log/b.md", NOTA_LOG);
+
+    let esc = escribe_append(kb.path(), "log/b.md", "## 2026-10-16 — foo\n- x\n", true).unwrap();
+
+    assert!(esc.forzado);
+    assert!(std::fs::read_to_string(ruta).unwrap().contains("- x"));
+}
+
+#[test]
+fn append_con_cabecera_nueva_anexa() {
+    let kb = kb_falsa();
+    let ruta = escribe_nota(&kb, "log/b.md", NOTA_LOG);
+
+    escribe_append(kb.path(), "log/b.md", "## 2026-10-16 — bar\n- x\n", false).unwrap();
+
+    assert!(
+        std::fs::read_to_string(ruta)
+            .unwrap()
+            .contains("## 2026-10-16 — bar")
+    );
+}
+
+#[test]
+fn append_a_canon_sigue_rechazando_por_tier_primero() {
+    let kb = kb_falsa();
+    escribe_nota(
+        &kb,
+        "projects/canon.md",
+        "---\npermalink: kb-test/projects/canon\ntier: stable\n---\n## 2026-10-16 — foo\n",
+    );
+
+    let err = escribe_append(
+        kb.path(),
+        "projects/canon.md",
+        "## 2026-10-16 — foo\n",
+        false,
+    )
+    .unwrap_err();
+
+    assert!(matches!(
+        err.downcast_ref::<Rechazo>(),
+        Some(Rechazo::AppendACanon { .. })
+    ));
+}
+
+#[test]
+fn append_compara_cabecera_sin_espacio_final_ni_cr() {
+    let kb = kb_falsa();
+    escribe_nota(
+        &kb,
+        "log/b.md",
+        "---\npermalink: kb-test/log/b\ntier: log\n---\n## 2026-10-16 — foo \r\n- a\n",
+    );
+
+    let err =
+        escribe_append(kb.path(), "log/b.md", "## 2026-10-16 — foo\n- x\n", false).unwrap_err();
+
+    assert_eq!(cabeceras_de(&err), vec!["## 2026-10-16 — foo".to_string()]);
+}
+
 #[test]
 fn append_a_nota_inexistente_falla_salvo_con_crea() {
     let kb = kb_falsa();

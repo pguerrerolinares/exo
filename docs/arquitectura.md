@@ -324,7 +324,9 @@ y no indexa (lo absorbe el `--refresh` del recall siguiente).
 - `write append <permalink> --from <fichero|->`: anexa al final de una
   bitácora **sin releerla** (`O_APPEND`, solo inspecciona la cola y la
   cabecera). Rechaza si el destino no es `tier: log` — el anti-patrón medido
-  de la KB original era anexar deltas al canon. `--create` crea la bitácora si
+  de la KB original era anexar deltas al canon — y si la cabecera `## ` del
+  cuerpo ya está en la nota (re-append duplicado; también exit 3, `--force`
+  para forzar). `--create` crea la bitácora si
   no existe, con `tier: log` y `tags: [bitacora]`.
 
 Un gate rechazado no es un error: sale con **exit 3** (frente al 1 de error
@@ -346,7 +348,7 @@ Extraída del parser de clap (`engine/src/main.rs`):
 | `exo write append <permalink>` | Append a bitácora con gate de tier | `--from`, `--create`, `--force`, `--db`, `--kb`, `--json` |
 | `exo recall` | Bloque de arranque o consulta híbrida | `--query`, `--limit` (5), `--cap-bytes` (2048), `--content`, `--note`, `--refresh`, `--min-similarity` (default 0.40 en modo consulta, `MIN_SIMILARITY_SELLADO`, I2), `--db`, `--kb`, `--json` |
 | `exo targets <tema>` | Candidatas de la KB para un tema, portado de `kbx targets` | `--limit` (10), `--db`, `--kb`, `--json` |
-| `exo rotate` | Divide una bitácora `tier: log` en frío (a `archive/log/`) y caliente, portado de `kbx rotate`. Solo el nivel superior de `log/`, sin recursión | `--hot-bytes` (20480), `--apply`, `--kb`, `--json` |
+| `exo rotate` | Divide una bitácora `tier: log` en frío (a `archive/log/`) y caliente, portado de `kbx rotate`. Solo el nivel superior de `log/`, sin recursión. El archive se nombra por el rango de fechas de las cabeceras `## ` que contiene, no por fechas del cuerpo | `--hot-bytes` (40960), `--apply`, `--kb`, `--json` |
 | `exo stale` | Urgencia de actualización por nota (edad de último commit, degree, tier), portado de `kbx stale`. Solo lectura | `--now`, `--db`, `--kb`, `--json` |
 | `exo doctor` | Preflight de **entorno** (la máquina), frente a `lint`, que es de la KB. Trece checks; cada uno reporta el artefacto que miró y ninguno desaparece del informe: lo que no aplica sale como `na`. Emite el informe entero y luego gatea (exit 3 si hay algún `fail`; los `warn` no gatean) | `--json` |
 
@@ -431,7 +433,9 @@ Detalles que el diagrama no cuenta:
   memoria`, cae a un fallback de texto embebido y deja un evento greppable
   con la razón (`no-engine`, `no-index`, `engine-stale`, `no-contract`…).
   Tras una compactación de contexto, reafirma las reglas de
-  los reflejos que ya dispararon en la sesión.
+  los reflejos que ya dispararon en la sesión. Avisa también de un gate de
+  `/document` pendiente: un trailer `Gate:` (en el cuerpo del commit) sin
+  auto-distill posterior que lo resuelva.
 - **`estilo-directo.sh`** (SessionStart) inyecta una directiva de estilo de
   respuesta fija: texto estático desde `estilo-directo.md`, no depende del
   engine ni de la KB. Mismo never-block que los demás; cap ~700 B

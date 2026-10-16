@@ -936,7 +936,9 @@ fn git_epoch_por_lote_coincide_con_el_fallback_por_nota() {
     crea_nota(kb, "c.md", "kb-test/c", "Nota C", "contenido gamma");
 
     let (_guard, db) = db_temporal();
-    indexa(kb, &db).unwrap();
+    // Sin `con_config` el embedder de proceso solo existe si otro test lo
+    // inicializó antes: bajo el gate hermético el resultado dependía del orden.
+    common::con_config(kb, "kb-test", &db, || indexa(kb, &db).unwrap());
 
     let conn = exo::abre_db(&db).unwrap();
     let leer = |ruta: &str| -> Option<i64> {
