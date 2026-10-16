@@ -6,7 +6,7 @@
 # etiqueta aplica o parcial. Umbral pre-registrado: 0.
 # Sello: el ledger debe traer, en línea propia, `verdad_sello: <sha256> <desde>..<hasta>`; se cuenta
 # la primera. El sha256 es sobre los bytes de la verdad tal cual (sin normalizar CRLF) y se compara
-# con `sha256sum <verdad.md>`. Sin sello válido no se puntúa.
+# con `sha256sum < verdad.md` (por stdin: con el nombre como argumento, una ruta Windows antepone `\` al hash). Sin sello válido no se puntúa.
 # Exit 0 si no-portar-falsos = 0 y pct >= umbral; 1 si no;
 # 2 si falta tabla, fila malformada, umbral inválido, uso incorrecto o verdad sin sellar.
 set -uo pipefail
