@@ -2,8 +2,13 @@
 # Puntúa el triage del ledger contra la verdad pre-registrada.
 # Uso: upstream-score.sh <verdad.md> <ledger.md> [<umbral_pct>]   (umbral default 90)
 # Empareja por (PR, skill). aplica y parcial cuentan como una sola clase (misma acción: portar).
-# Exit 0 si ya-cubierto-falsos = 0 y pct >= umbral; 1 si no;
-# 2 si falta tabla, fila malformada, umbral inválido o uso incorrecto.
+# Clase no-portar-falsos: fila que el ledger deja sin portar (ya cubierto o no aplica) y la verdad
+# etiqueta aplica o parcial. Umbral pre-registrado: 0.
+# Sello: el ledger debe traer, en línea propia, `verdad_sello: <sha256> <desde>..<hasta>`; se cuenta
+# la primera. El sha256 es sobre los bytes de la verdad tal cual (sin normalizar CRLF) y se compara
+# con `sha256sum <verdad.md>`. Sin sello válido no se puntúa.
+# Exit 0 si no-portar-falsos = 0 y pct >= umbral; 1 si no;
+# 2 si falta tabla, fila malformada, umbral inválido, uso incorrecto o verdad sin sellar.
 set -uo pipefail
 
 [ $# -ge 2 ] || { echo "uso: $0 <verdad.md> <ledger.md> [umbral_pct]" >&2; exit 2; }
@@ -39,6 +44,10 @@ extraer() {
 G="$(extraer "$GOLD" "skill exo" "etiqueta")" || { [ $? -eq 4 ] && exit 2; echo "upstream-score: no hay tabla (PR | skill exo | etiqueta) en $GOLD" >&2; exit 2; }
 L="$(extraer "$LEDGER" "skill" "triage")" || { [ $? -eq 4 ] && exit 2; echo "upstream-score: no hay tabla (PR | skill | triage) en $LEDGER" >&2; exit 2; }
 
+sello_ledger="$(tr -d '\r' < "$LEDGER" | awk '/^verdad_sello:/ { print $2; exit }')"
+sello_real="$(sha256sum "$GOLD" | cut -d' ' -f1)"
+{ [ -n "$sello_ledger" ] && [ "$sello_ledger" = "$sello_real" ]; } || { echo "upstream-score: verdad sin sellar: $LEDGER no trae verdad_sello con el sha256 de $GOLD" >&2; exit 2; }
+
 RES="$(awk -F'\t' -v umbral="$UMBRAL" '
   function cls(e) { return (e == "aplica" || e == "parcial") ? "portar" : e }
   FNR == NR { if (NF && !(($1 SUBSEP $2) in led)) { led[$1, $2] = $3; lkeys[++nl] = $1 SUBSEP $2 } ; next }
@@ -46,7 +55,7 @@ RES="$(awk -F'\t' -v umbral="$UMBRAL" '
     k = $1 SUBSEP $2; total++; seen[k] = 1
     if (k in led) {
       if (cls(led[k]) == cls($3)) ok++
-      else if (led[k] == "ya cubierto" && ($3 == "aplica" || $3 == "parcial")) falsos[++nf] = $1 " " $2 " (verdad: " $3 ")"
+      else if ((led[k] == "ya cubierto" || led[k] == "no aplica") && ($3 == "aplica" || $3 == "parcial")) { falsos[++nf] = $1 " " $2 " (verdad: " $3 ")"; if (led[k] == "ya cubierto") yc++; else na++ }
     } else if ($3 == "revertido") ok++
     else aus++
   }
@@ -54,7 +63,7 @@ RES="$(awk -F'\t' -v umbral="$UMBRAL" '
     for (i = 1; i <= nl; i++) if (!(lkeys[i] in seen)) ext++
     pct = total ? int(ok * 100 / total) : 0
     printf "aciertos %d/%d (%d%%)\n", ok, total, pct
-    printf "ya-cubierto-falsos %d\n", nf
+    printf "no-portar-falsos %d (ya cubierto: %d, no aplica: %d)\n", nf, yc, na
     for (i = 1; i <= nf; i++) printf "  %s\n", falsos[i]
     printf "ausentes %d\n", aus
     printf "extra %d\n", ext
