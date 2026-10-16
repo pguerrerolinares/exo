@@ -14,8 +14,8 @@ placeholders entre corchetes.
 
 | Tipo de pieza | Destino | Modo |
 |---|---|---|
-| Avance de proyecto con frente activo | `[destilado canónico del proyecto]` | delta: edita el estado, no narres |
-| — el mismo avance, para historial | `[bitácora del proyecto]` | append ≤15 líneas: fecha + hechos + wikilinks al canon |
+| Avance de proyecto con frente activo | `[destilado canónico del proyecto]` | delta: el estado sustituye, no narres; con la nota ≥85 % de su techo (`wc -c`), solo la línea de estado |
+| — el mismo avance, para historial | `[bitácora del proyecto]` | append ≤15 líneas bajo cabecera única `## AAAA-MM-DD — <tema concreto>` + hechos + wikilinks al canon; el puntero del canon la cita |
 | Item de backlog que se cierra | `[nota de backlog]` | edita `[ ]`→`[x]` en UNA línea, sin duplicar el detalle |
 | Item de backlog nuevo | `[nota de backlog]` | añade `[ ]` |
 | Síntesis transversal (aplica a ≥2 proyectos) | `[nota(s) de learnings o de doctrina]` | edita o append, según cuánta doctrina ya exista |

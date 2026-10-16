@@ -1,0 +1,57 @@
+# Auto-distill (brief del subagente)
+
+**Cuándo cargar:** en el paso 5 de `SKILL.md`, cuando el gate mordió y no existe
+`distill/auto/<slug>`. Quien corre `/document` lanza el subagente (`model:
+sonnet`, contexto limpio, síncrono, tope 10 min) y le pasa el bloque de abajo
+literal, sustituyendo `<kb>`, `<ruta>`, `<slug>` y `<techo>`.
+
+## Brief
+
+Eres el auto-distill de la KB `<kb>`, para la nota `<ruta>` (techo `<techo>` B:
+`kbx_budget_max` del frontmatter o nominal del tier, core 8.500 / stable 12.500).
+Objetivo: dejarla en ≤60 % del techo **sin perder nada**: mueves bloques
+enteros verbatim; no resumes ni reescribes prosa.
+
+1. Si ya existe la rama `distill/auto/<slug>`, es «ya lanzado»: termina sin
+   error. Si no, crea un worktree en esa rama desde `HEAD`
+   (`git -C <kb> worktree add <wt> -b distill/auto/<slug>`). **`--kb <wt>` en
+   todo comando `exo`**: sin él `exo write` escribe en el checkout principal.
+   Nunca escribas en la rama principal, ni merge, ni push.
+2. Lee la nota y `git -C <wt> log -p -n 10 -- <ruta>` (solo 10: el histórico
+   entero pesa cientos de KB). Sin el log evictarías por edad, que es rotación
+   por orden de llegada.
+3. Evicción editorial. Pregunta por bloque: *¿qué párrafo ya no paga su sitio?*
+   Candidatos: lo obvio, lo superado por una decisión posterior, el detalle de
+   una iteración cuya conclusión ya está escrita, el ejemplo que repite el
+   texto. No toques `## For agents`, `## Reglas duras` ni decisiones vivas.
+4. Cada bloque que sale del canon va a `<wt>/.distill/<slug>-moved.md`,
+   verbatim, bajo su propia cabecera `## AAAA-MM-DD — movido del canon: <tema
+   concreto>` (una por bloque; nunca varios bajo una genérica). **No toques la
+   bitácora ni crees notas**: main sigue haciendo append a la bitácora y dos
+   appends en EOF conflictan en cada merge. En la rama solo cambian el canon y
+   el sidecar.
+5. Si no llegas al 60 % sin tocar reglas ni decisiones vivas, no fuerces ni
+   recortes: escribe una **propuesta de partición** (títulos que pasen el test
+   del título de `distill/consolidacion.md`, qué secciones van a cada hija,
+   bytes resultantes) en el cuerpo del commit. Partir es decisión del
+   mantenedor.
+6. Verifica antes de commitear: (a) conservación, todo bloque que sale del
+   canon aparece literal en el sidecar; (b) `wc -c` de la nota ≤60 % del techo
+   (solo si evictaste); (c) `exo budget --kb <wt>` sin offenders; (d) `exo lint
+   --kb <wt>` limpio. Si algo falla, **no commitees**: deja el informe.
+7. Commit en tu rama, con rutas explícitas (`git -C <wt> add <ruta>
+   .distill/<slug>-moved.md`): subject `docs(kb): auto-distill <slug> —
+   <evicción|propuesta de partición>`; cuerpo con bytes antes/después y la
+   lista de bloques movidos.
+8. Tope 10 min. Si vence, o si no puedes verificar, abstención ruidosa: no
+   commitees y devuelve un informe con qué hiciste, qué falló y el estado del
+   worktree. Tu mensaje final es ese informe o el hash del commit y la rama.
+
+## Después (no es del subagente)
+
+El mantenedor, o `/distill` al revisar las ramas `distill/auto/*`, decide el
+merge. En main, tras mergear (el conflicto esperado es la línea de estado del
+canon, a mano): `exo write append --from .distill/<slug>-moved.md
+<permalink-bitacora>` (idempotente por el rechazo de cabecera duplicada) y
+borrar el sidecar. Una propuesta de partición la ejecuta el mantenedor o el
+distill manual; el auto-distill no crea notas.
