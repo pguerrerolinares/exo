@@ -90,6 +90,7 @@ Push: `git push origin upstream-sync/<tag>`. Crea el PR con `gh api repos/pguerr
 - los commits `port(upstream#N)`;
 - `docs/upstream/ledger.md` actualizado: filas nuevas (`propuesto` con el hash del commit, `pendiente`, `no aplica`, `ya cubierto`, `rechazado`) y `upstream_tag: <tag>` avanzado;
 - en el cuerpo: la tabla del paso 5, el informe (PRs vistos, triage por fila con sus citas, pendientes con motivo, bytes y tokens, filas de `propuesto-sin-evidencia`) y las preguntas de `duda`.
+- el bot no edita nunca la línea `verdad_sello:` del ledger: la sella el mantenedor antes de una pasada puntuada.
 
 Si no hay nada que portar (todo `no aplica`, `ya cubierto` o `duda` de mapeo), abre igualmente el PR solo con el ledger: avanzar `upstream_tag` es lo que evita revisar dos veces la misma ventana. `upstream_tag` solo avanza en el PR. Si el mantenedor lo cierra sin merge, el paso 0.2 registra sus filas como `rechazado` y la ventana no se reprocesa.
 

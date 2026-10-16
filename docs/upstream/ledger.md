@@ -4,6 +4,8 @@ Estado versionado del bot que porta a exo lo que cambia en obra/superpowers. Dis
 
 upstream_tag: v7.0.0
 
+verdad_sello: —
+
 ## Mapeo fichero → fichero
 
 Rutas relativas a `skills/` de superpowers y a `plugins/exo/skills/` de exo. Las skills SKILL.md de exo son destilación, no copia: un cambio upstream en el SKILL.md se traduce a la prosa exo, no se pega.
@@ -135,7 +137,7 @@ Decisiones del mantenedor (2026-09-30), distintas de las Divergencias: no son "n
 | #2078 | orchestrate | no aplica | — | D6 | — |
 | #2318 | orchestrate | no aplica | — | D8 | — |
 | #2318 | plan | no aplica | — | D8 | — |
-| #2258 | plan | no aplica | — | D8 | — |
+| #2258 | plan | aplica | pendiente | respondida | — |
 | #2006 | brainstorm | no aplica | — | sin equivalente: brainstorming/visual-companion.md | — |
 | #1959 | brainstorm | no aplica | — | sin equivalente: brainstorming/visual-companion.md | — |
 | #2133 | orchestrate | ya cubierto | — | — | — |
