@@ -5,7 +5,7 @@
 
 ## Qué resuelve
 
-El contrato editorial se diseñó con un ciclo llenar→podar de ~17 días (ficha exo, 08-23 → 09-09: +2,4 KB). En octubre ese ciclo bajó de un día. Medido en la KB `wisdom-paul` (ficha bizkaia-now, commits `documenta` desde el 09-23):
+El contrato editorial se diseñó con un ciclo llenar→podar de ~17 días (ficha exo, 08-23 → 09-09: +2,4 KB). En octubre ese ciclo bajó de un día. Medido en la KB privada del mantenedor (ficha bizkaia-now, commits `documenta` desde el 09-23):
 
 - **Presión del canon.** 52 de 55 commits `documenta` dejan la ficha por encima del 85 % de su techo nominal (10.625 de 12.500 B); 38 de 55, por encima de 11.900 B. Los tamaños previos a cada distill (12.471 / 12.484 / 12.492 B) son la firma del delta recortado para caber que ya midió la spec del 08-23 (§1b).
 - **Evicción en caliente.** 19 de 56 commits `documenta` borran ≥4 líneas de la ficha: el agente poda lo que tiene delante para que el pre-commit pase. Una cabecera en `archive/` lo confiesa: «Movido del canon (para hacer sitio al cierre de la sesión de issues)».
