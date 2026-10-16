@@ -205,21 +205,24 @@ static PATRON_FECHA_ISO: LazyLock<regex::bytes::Regex> = LazyLock::new(|| {
         .expect("regex de fecha ISO")
 });
 
-/// Deriva el nombre del archivo de las fechas ISO válidas de las cabeceras
-/// `## ` del bloque frío (fuera de vallas): el cuerpo cita fechas futuras o
-/// de otras épocas que no son el rango del bloque. Sin fechas, cae a un
-/// número de secuencia (caso real: desarrollo-agentico-bitacora, 26 de 60
-/// headings sin fecha). `existentes` es cuántos archivos ya hay para este slug.
+/// Deriva el nombre del archivo de las cabeceras `## ` del bloque frío
+/// (fuera de vallas; `###` no cuenta): de cada una toma la primera fecha ISO
+/// válida (mes 1-12, día 1-31, sin calendario); el cuerpo no cuenta. Sin
+/// ninguna, cae a un número de secuencia (caso real:
+/// desarrollo-agentico-bitacora, 26 de 60 headings sin fecha).
+/// `existentes` es cuántos archivos ya hay para este slug.
 pub fn nombre_de_archivo(slug: &str, frio: &[u8], existentes: usize) -> String {
-    let mut fechas: Vec<&[u8]> = Vec::new();
-    let mut en_valla = false;
-    for (_, linea) in lineas_con_offset(frio) {
-        if linea.starts_with(b"```") {
-            en_valla = !en_valla;
-        } else if !en_valla && linea.starts_with(b"## ") {
-            fechas.extend(PATRON_FECHA_ISO.find_iter(linea).map(|m| m.as_bytes()));
-        }
-    }
+    let mut fechas: Vec<&[u8]> = offsets_de_entradas(frio)
+        .into_iter()
+        .filter_map(|off| {
+            let resto = &frio[off..];
+            let fin = resto
+                .iter()
+                .position(|&b| b == b'\n')
+                .unwrap_or(resto.len());
+            PATRON_FECHA_ISO.find(&resto[..fin]).map(|m| m.as_bytes())
+        })
+        .collect();
     if fechas.is_empty() {
         return format!("{slug}-parte-{:02}.md", existentes + 1);
     }
@@ -724,6 +727,52 @@ mod tests {
         assert_eq!(
             nombre_de_archivo("desarrollo-agentico-bitacora", frio, 2),
             "desarrollo-agentico-bitacora-parte-03.md"
+        );
+    }
+
+    #[test]
+    fn nombre_de_archivo_ignora_fechas_y_nombres_de_fichero_del_cuerpo() {
+        let frio = "## 2026-10-13 — x\nrevisión el 2026-10-21, ver gold-2026-09-24.csv\n\n";
+        assert_eq!(
+            nombre_de_archivo("slug", frio.as_bytes(), 0),
+            "slug-2026-10-13_2026-10-13.md"
+        );
+    }
+
+    #[test]
+    fn nombre_de_archivo_toma_solo_la_primera_fecha_de_la_cabecera() {
+        let frio = "## 2026-10-13 — revisar el 2026-10-21\nx\n\n";
+        assert_eq!(
+            nombre_de_archivo("slug", frio.as_bytes(), 0),
+            "slug-2026-10-13_2026-10-13.md"
+        );
+    }
+
+    #[test]
+    fn nombre_de_archivo_ignora_cabeceras_dentro_de_valla() {
+        let frio = "## 2026-10-13 — a\n```\n## 2026-01-01 — no soy cabecera\n```\n\n";
+        assert_eq!(
+            nombre_de_archivo("slug", frio.as_bytes(), 0),
+            "slug-2026-10-13_2026-10-13.md"
+        );
+    }
+
+    #[test]
+    fn nombre_de_archivo_cae_a_parte_si_el_cuerpo_cita_una_fecha_suelta() {
+        let frio = "## sin fecha\nvisto el 2026-10-21\n\n";
+        assert_eq!(
+            nombre_de_archivo("slug", frio.as_bytes(), 2),
+            "slug-parte-03.md"
+        );
+    }
+
+    #[test]
+    fn nombre_de_archivo_mixto_usa_solo_las_cabeceras_fechadas() {
+        let frio =
+            "## 2026-06-26 — a\nx\n\n## sin fecha\ncita 2026-12-31\n\n## 2026-07-11 — b\ny\n\n";
+        assert_eq!(
+            nombre_de_archivo("slug", frio.as_bytes(), 0),
+            "slug-2026-06-26_2026-07-11.md"
         );
     }
 
