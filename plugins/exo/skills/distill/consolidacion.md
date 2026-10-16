@@ -17,6 +17,17 @@
 > aire. Sin ella, podar para caber es rotación por orden de llegada: sale lo
 > viejo por viejo, no lo que sobra. Y al mover: **bloques enteros, nunca
 > re-resumir prosa** (la reescritura iterativa erosiona el detalle).
+>
+> **Objetivo: ≤60 % del techo** (`kbx_budget_max` o nominal del tier), no solo
+> salir de `no_air`. Si la evicción no llega sin tocar reglas
+> (`## For agents`, `## Reglas duras`) ni decisiones vivas, no se fuerza: se
+> parte (test del título abajo). Nunca se recorta prosa viva para llegar.
+>
+> **Cabecera única por bloque movido.** Cada bloque entra en la bitácora con su
+> propia cabecera `## AAAA-MM-DD — movido del canon: <tema>` (separador ` — `),
+> nunca varios bloques bajo una genérica: el puntero del canon cita esa
+> cabecera y una genérica deja de resolver. `exo write append` rechaza cabeceras
+> duplicadas en la nota viva.
 
 > **Test del título — ¿partir o destilar?** Mide qué fracción del crecimiento de
 > la nota desde la última pasada cayó en cabeceras **nuevas** (`git log -p` sobre
@@ -35,6 +46,13 @@
 > - **Entremedias** — juicio. Umbral revisable: se calibró con 4 puntos de datos.
 >
 > Un índice **no se destila**: cuando muerde se le retiran entradas muertas.
+
+> **Notas nuevas solo por partición**, con las mismas reglas que el auto-distill:
+> el título de cada hija pasa el test de arriba (por género o por tema), la
+> madre enlaza a las hijas en `## Relations` y cada hija a la madre (ambos
+> sentidos), la madre queda como **puerta de routing**, y `[[core-index]]` las
+> lista. Los criterios (techo, 60 %) miden la **familia** (madre + hijas), no solo
+> la madre. Ninguna otra pasada crea notas.
 
 Mismo contrato que `/document` v2: la nota canónica es el **estado vivo**, editado
 como delta (qué es verdad *ahora*); todo lo fechado/histórico (decisiones tomadas en
