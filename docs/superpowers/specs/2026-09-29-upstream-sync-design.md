@@ -74,8 +74,14 @@ Workflow `.github/workflows/upstream-watchdog.yml`, diario. Solo cuentan los com
 - `upstream_tag: v6.1.1`.
 - La verdad conocida es la lista cerrada v6.1.1 → v6.4.2: 24 PRs, 37 filas (PR, skill). Vive **fuera del repo**, para que el bot no pueda leerla, y el mantenedor fija las 11 filas de confianza media antes de correr.
 - Las filas de confianza media que son choque de doctrina se deciden como divergencias del ledger inicial o como `aplica`.
-- **Umbral pre-registrado:** 0 filas `ya cubierto` que en la verdad sean aplica/parcial, y ≥ 90% de acierto en la etiqueta de triage, con `aplica` y `parcial` como una sola clase (llevan a la misma acción: portar; decisión del mantenedor 2026-09-30). Lo puntúa `scripts/upstream-score.sh`.
+- **Umbral pre-registrado:** 0 filas `ya cubierto` o `no aplica` que en la verdad sean aplica/parcial (`no-portar-falsos`, #59), y ≥ 90% de acierto en la etiqueta de triage, con `aplica` y `parcial` como una sola clase (llevan a la misma acción: portar; decisión del mantenedor 2026-09-30). Lo puntúa `scripts/upstream-score.sh`.
 - Si pasa, ese PR es el cierre de huecos del camino A. Si no pasa, no se programa la routine y se revisa el prompt.
+
+## Pasadas puntuadas siguientes
+
+- La verdad cubre un rango de tags que el bot no ha triageado, y el mantenedor la etiqueta sin abrir el PR del bot.
+- Se guarda fuera del repo y su sello (`verdad_sello: <sha256> <desde>..<hasta>`) se commitea en `main` antes de la pasada.
+- El script se niega a puntuar sin sello (exit 2), y v6.1.1..v6.4.2 y v6.4.2..v7.0.0 ya no sirven de held-out.
 
 ## Fuera de alcance
 
