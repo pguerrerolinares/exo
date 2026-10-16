@@ -409,6 +409,28 @@ gate_hook
 if ! contains "$CTX_G" "gate pendiente"; then pass "gate_sin_tag_ventana_7_dias"
 else fail "gate_sin_tag_ventana_7_dias" "ctx='$CTX_G'"; fi
 
+# auto-distill existe pero es ANTERIOR al Gate ⇒ sigue avisando
+nuevo_kb ant
+kbcommit 6000 "docs(kb): base"
+kbgit checkout -q -b distill/auto/y
+mkdir -p "$KBG/projects"; : > "$KBG/$NOTA_G"; kbgit add -- "$NOTA_G"
+GIT_AUTHOR_DATE="$(( ahora - 5000 )) +0000" GIT_COMMITTER_DATE="$(( ahora - 5000 )) +0000" kbgit commit -q -m "docs(kb): auto-distill a — evicción"
+kbgit checkout -q main
+kbcommit 4000 "$(printf 'docs(kb): nota grande\n\n%s' "$GATE_TRAILER")"
+gate_hook
+if contains "$CTX_G" "$AVISO_G"; then pass "gate_posterior_a_autodistill_sigue_avisando"
+else fail "gate_posterior_a_autodistill_sigue_avisando" "ctx='$CTX_G'"; fi
+
+# git colgado ⇒ corta por EXO_GIT_TIMEOUT: exit 0, JSON válido, sin aviso, tiempo acotado
+mkdir -p "$TMP/shim"
+printf '#!/usr/bin/env bash\nexec sleep 20\n' > "$TMP/shim/git"; chmod +x "$TMP/shim/git"
+SECS_G=$SECONDS
+printf '%s' '{"session_id":"g4"}' | env PATH="$TMP/shim:$PATH" EXO_GIT_TIMEOUT=1 EXO_BIN="$STUB_FELIZ" EXO_INDEX="$TMP/index-feliz.db" ENGINE_MIN=0.1.0 EXO_KB="$TMP/kbg-pend" "$HOOK" > "$TMP/out.txt" 2>/dev/null; RC_G=$?
+if [ "$RC_G" = 0 ] && jq -e . "$TMP/out.txt" >/dev/null 2>&1 && ! grep -q 'gate pendiente' "$TMP/out.txt" \
+   && [ $((SECONDS - SECS_G)) -lt 8 ]; then
+  pass "gate_git_colgado_corta_sin_aviso"
+else fail "gate_git_colgado_corta_sin_aviso" "rc=$RC_G t=$((SECONDS - SECS_G))s out=$(cat "$TMP/out.txt")"; fi
+
 # source=compact no repite el aviso
 run_hook '{"session_id":"g2","source":"compact"}' EXO_BIN="$STUB_FELIZ" EXO_INDEX="$TMP/index-feliz.db" ENGINE_MIN=0.1.0 EXO_KB="$TMP/kbg-pend"
 if ! contains "$(printf '%s' "$HOOK_OUT" | jq -r '.hookSpecificOutput.additionalContext')" "gate pendiente"; then

@@ -210,30 +210,38 @@ fi
 # distill/last..HEAD; sin tag, últimos 7 días) es posterior al auto-distill más
 # reciente que toca esa ruta en CUALQUIER rama (--all). Si la rama se descarta
 # sin merge deja de salir en --all y el aviso vuelve: correcto por diseño.
-# `--fixed-strings` y pathspec `:(literal)`: las rutas llevan espacios, ` — ` y
-# paréntesis. Todo git bajo timeout; cualquier fallo ⇒ sin aviso.
+# `--fixed-strings` en el grep y rutas comparadas como texto: llevan espacios,
+# ` — ` y paréntesis. Todo git bajo timeout; cualquier fallo ⇒ sin aviso.
 avisos_gate_pendiente() {
-  local kb="${EXO_KB:-$CONFIG_KB_PATH}" gt="${EXO_GIT_TIMEOUT:-3}" rango ct ruta dct
+  local kb="${EXO_KB:-$CONFIG_KB_PATH}" gt="${EXO_GIT_TIMEOUT:-3}" rango gates dist
   [ -n "$kb" ] && [ -e "$kb/.git" ] || return 0
   if con_timeout "$gt" git -C "$kb" rev-parse -q --verify refs/tags/distill/last >/dev/null 2>&1; then
     rango="refs/tags/distill/last..HEAD"
   else
     rango="--since=7.days"
   fi
-  # Del más nuevo al más viejo: la primera aparición de cada ruta es su gate más reciente.
-  con_timeout "$gt" git -C "$kb" log "$rango" --format='@@%ct%n%(trailers:key=Gate,valueonly=true)' 2>/dev/null \
-    | awk '
-        /^@@/ { ct = substr($0, 3); next }
-        / bytes=[0-9]+ limit=[0-9]+ routed=bitacora$/ {
-          sub(/ bytes=[0-9]+ limit=[0-9]+ routed=bitacora$/, "")
-          if (!($0 in seen)) { seen[$0] = 1; print ct "\t" $0 }
-        }' \
-    | while IFS=$'\t' read -r ct ruta; do
-        dct="$(con_timeout "$gt" git -C "$kb" log --all --fixed-strings --grep='docs(kb): auto-distill' -1 --format=%ct -- ":(literal)$ruta" 2>/dev/null)" || continue
-        if [ -z "$dct" ] || [ "$ct" -gt "$dct" ]; then
-          printf 'AVISO exo: gate pendiente en %s, sin rama distill/auto/ (corre /distill)\n' "$ruta"
-        fi
-      done
+  # Número fijo de git (rev-parse + 2 log), independiente de cuántas rutas haya.
+  # Del más nuevo al más viejo: la primera aparición de cada ruta es la más reciente.
+  gates="$(con_timeout "$gt" git -C "$kb" log "$rango" --format='@@%ct%n%(trailers:key=Gate,valueonly=true)' 2>/dev/null)" || return 0
+  [ -n "$gates" ] || return 0
+  # quotePath=false: sin él git escapa el em dash de las rutas en --name-only.
+  dist="$(con_timeout "$gt" git -C "$kb" -c core.quotePath=false log --all --fixed-strings --grep='docs(kb): auto-distill' --format='@@%ct' --name-only 2>/dev/null)" || return 0
+  awk -v dist="$dist" '
+    BEGIN {
+      n = split(dist, l, "\n")
+      for (i = 1; i <= n; i++) {
+        if (l[i] ~ /^@@/) ct = substr(l[i], 3)
+        else if (l[i] != "" && !(l[i] in d)) d[l[i]] = ct
+      }
+    }
+    /^@@/ { ct = substr($0, 3); next }
+    / bytes=[0-9]+ limit=[0-9]+ routed=bitacora$/ {
+      sub(/ bytes=[0-9]+ limit=[0-9]+ routed=bitacora$/, "")
+      if ($0 in seen) next
+      seen[$0] = 1
+      if (!($0 in d) || ct + 0 > d[$0] + 0)
+        printf "AVISO exo: gate pendiente en %s, sin rama distill/auto/ (corre /distill)\n", $0
+    }' <<< "$gates"
 }
 if [ "$SOURCE" != "compact" ]; then
   . "$SCRIPT_DIR/_timeout.sh" 2>/dev/null
