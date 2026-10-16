@@ -202,14 +202,22 @@ static PATRON_FECHA_ISO: LazyLock<regex::bytes::Regex> = LazyLock::new(|| {
     regex::bytes::Regex::new(r"[0-9]{4}-[0-9]{2}-[0-9]{2}").expect("regex de fecha ISO")
 });
 
-/// Deriva el nombre del archivo de las fechas ISO del bloque frío. Sin
-/// fechas, cae a un número de secuencia (caso real:
+/// Deriva el nombre del archivo de las fechas ISO de las cabeceras `## `
+/// del bloque frío (la primera de cada una; el cuerpo no cuenta). Sin
+/// ninguna, cae a un número de secuencia (caso real:
 /// desarrollo-agentico-bitacora, 26 de 60 headings sin fecha).
 /// `existentes` es cuántos archivos ya hay para este slug.
 pub fn nombre_de_archivo(slug: &str, frio: &[u8], existentes: usize) -> String {
-    let mut fechas: Vec<&[u8]> = PATRON_FECHA_ISO
-        .find_iter(frio)
-        .map(|m| m.as_bytes())
+    let mut fechas: Vec<&[u8]> = offsets_de_entradas(frio)
+        .into_iter()
+        .filter_map(|off| {
+            let resto = &frio[off..];
+            let fin = resto
+                .iter()
+                .position(|&b| b == b'\n')
+                .unwrap_or(resto.len());
+            PATRON_FECHA_ISO.find(&resto[..fin]).map(|m| m.as_bytes())
+        })
         .collect();
     if fechas.is_empty() {
         return format!("{slug}-parte-{:02}.md", existentes + 1);
@@ -668,6 +676,52 @@ mod tests {
         assert_eq!(
             nombre_de_archivo("desarrollo-agentico-bitacora", frio, 2),
             "desarrollo-agentico-bitacora-parte-03.md"
+        );
+    }
+
+    #[test]
+    fn nombre_de_archivo_ignora_fechas_del_cuerpo() {
+        let frio = "## 2026-10-13 — x\nrevisión el 2026-10-21, ver gold-2026-09-24.csv\n\n";
+        assert_eq!(
+            nombre_de_archivo("slug", frio.as_bytes(), 0),
+            "slug-2026-10-13_2026-10-13.md"
+        );
+    }
+
+    #[test]
+    fn nombre_de_archivo_toma_solo_la_primera_fecha_de_la_cabecera() {
+        let frio = "## 2026-10-13 — revisar el 2026-10-21\nx\n\n";
+        assert_eq!(
+            nombre_de_archivo("slug", frio.as_bytes(), 0),
+            "slug-2026-10-13_2026-10-13.md"
+        );
+    }
+
+    #[test]
+    fn nombre_de_archivo_ignora_cabeceras_dentro_de_valla() {
+        let frio = "## 2026-10-13 — a\n```\n## 2026-01-01 — no soy cabecera\n```\n\n";
+        assert_eq!(
+            nombre_de_archivo("slug", frio.as_bytes(), 0),
+            "slug-2026-10-13_2026-10-13.md"
+        );
+    }
+
+    #[test]
+    fn nombre_de_archivo_cae_a_parte_si_solo_el_cuerpo_tiene_fechas() {
+        let frio = "## sin fecha\nvisto el 2026-10-21\n\n";
+        assert_eq!(
+            nombre_de_archivo("slug", frio.as_bytes(), 2),
+            "slug-parte-03.md"
+        );
+    }
+
+    #[test]
+    fn nombre_de_archivo_mixto_usa_solo_las_cabeceras_fechadas() {
+        let frio =
+            "## 2026-06-26 — a\nx\n\n## sin fecha\ncita 2026-12-31\n\n## 2026-07-11 — b\ny\n\n";
+        assert_eq!(
+            nombre_de_archivo("slug", frio.as_bytes(), 0),
+            "slug-2026-06-26_2026-07-11.md"
         );
     }
 
