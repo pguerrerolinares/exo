@@ -393,6 +393,23 @@ gate_hook
 if contains "$CTX_G" "$AVISO_G"; then pass "gate_rama_descartada_vuelve_a_avisar"
 else fail "gate_rama_descartada_vuelve_a_avisar" "ctx='$CTX_G'"; fi
 
+# Gate en un párrafo y la atribución estándar en otro: %(trailers) no lo vería
+nuevo_kb atrib
+kbcommit 4000 "$(printf 'docs(kb): nota grande\n\n%s\n\nCo-Authored-By: X <x@x>\nClaude-Session: https://claude.ai/code/s' "$GATE_TRAILER")"
+gate_hook
+if contains "$CTX_G" "$AVISO_G"; then pass "gate_con_atribucion_en_otro_parrafo_avisa"
+else fail "gate_con_atribucion_en_otro_parrafo_avisa" "ctx='$CTX_G'"; fi
+
+# partición sin bloques movidos: commit vacío de auto-distill con `Nota: <ruta>` ⇒ resuelto
+nuevo_kb nota
+kbcommit 4000 "$(printf 'docs(kb): nota grande\n\n%s' "$GATE_TRAILER")"
+kbgit checkout -q -b distill/auto/n
+kbcommit 2000 "$(printf 'docs(kb): auto-distill a — propuesta de partición\n\nNota: %s' "$NOTA_G")"
+kbgit checkout -q main
+gate_hook
+if ! contains "$CTX_G" "gate pendiente"; then pass "gate_resuelto_por_nota_sin_name_only"
+else fail "gate_resuelto_por_nota_sin_name_only" "ctx='$CTX_G'"; fi
+
 # trailer anterior al tag distill/last ⇒ sin aviso
 nuevo_kb tag
 kbcommit 4000 "$(printf 'docs(kb): nota grande\n\n%s' "$GATE_TRAILER")"

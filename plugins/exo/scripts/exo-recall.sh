@@ -210,6 +210,10 @@ fi
 # distill/last..HEAD; sin tag, últimos 7 días) es posterior al auto-distill más
 # reciente que toca esa ruta en CUALQUIER rama (--all). Si la rama se descarta
 # sin merge deja de salir en --all y el aviso vuelve: correcto por diseño.
+# El Gate se lee del cuerpo (%B), no de %(trailers): git solo parsea trailers
+# del último párrafo y la atribución (Co-Authored-By…) va en otro. Una ruta
+# también se da por resuelta por una línea `Nota: <ruta>` en un auto-distill
+# (cubre la propuesta de partición, que commitea --allow-empty sin tocar la nota).
 # `--fixed-strings` en el grep y rutas comparadas como texto: llevan espacios,
 # ` — ` y paréntesis. Todo git bajo timeout; cualquier fallo ⇒ sin aviso.
 avisos_gate_pendiente() {
@@ -222,20 +226,24 @@ avisos_gate_pendiente() {
   fi
   # Número fijo de git (rev-parse + 2 log), independiente de cuántas rutas haya.
   # Del más nuevo al más viejo: la primera aparición de cada ruta es la más reciente.
-  gates="$(con_timeout "$gt" git -C "$kb" log "$rango" --format='@@%ct%n%(trailers:key=Gate,valueonly=true)' 2>/dev/null)" || return 0
+  gates="$(con_timeout "$gt" git -C "$kb" log "$rango" --format='@@%ct%n%B' 2>/dev/null)" || return 0
   [ -n "$gates" ] || return 0
   # quotePath=false: sin él git escapa el em dash de las rutas en --name-only.
-  dist="$(con_timeout "$gt" git -C "$kb" -c core.quotePath=false log --all --fixed-strings --grep='docs(kb): auto-distill' --format='@@%ct' --name-only 2>/dev/null)" || return 0
+  dist="$(con_timeout "$gt" git -C "$kb" -c core.quotePath=false log --all --fixed-strings --grep='docs(kb): auto-distill' --format='@@%ct%n%B%n@@F' --name-only 2>/dev/null)" || return 0
   awk -v dist="$dist" '
     BEGIN {
       n = split(dist, l, "\n")
       for (i = 1; i <= n; i++) {
-        if (l[i] ~ /^@@/) ct = substr(l[i], 3)
-        else if (l[i] != "" && !(l[i] in d)) d[l[i]] = ct
+        if (l[i] ~ /^@@F$/) cuerpo = 0
+        else if (l[i] ~ /^@@[0-9]/) { ct = substr(l[i], 3); cuerpo = 1 }
+        else if (cuerpo) {
+          if (l[i] ~ /^Nota: / && !(substr(l[i], 7) in d)) d[substr(l[i], 7)] = ct
+        } else if (l[i] != "" && !(l[i] in d)) d[l[i]] = ct
       }
     }
     /^@@/ { ct = substr($0, 3); next }
-    / bytes=[0-9]+ limit=[0-9]+ routed=bitacora$/ {
+    /^Gate: .* bytes=[0-9]+ limit=[0-9]+ routed=bitacora$/ {
+      sub(/^Gate: /, "")
       sub(/ bytes=[0-9]+ limit=[0-9]+ routed=bitacora$/, "")
       if ($0 in seen) next
       seen[$0] = 1
