@@ -199,18 +199,27 @@ static PATRON_FECHA_ISO: LazyLock<regex::bytes::Regex> = LazyLock::new(|| {
     // cualquier dígito Unicode, no solo ASCII — RE2 de Go es ASCII-only, así
     // que esto iguala el comportamiento de kbx en vez de aceptar dígitos
     // (p.ej. arábigo-índicos) que una fecha ISO real nunca lleva.
-    regex::bytes::Regex::new(r"[0-9]{4}-[0-9]{2}-[0-9]{2}").expect("regex de fecha ISO")
+    // Mes 1-12 y día 1-31 sin calendario: `2026-02-31` pasa; basta con
+    // descartar lo imposible (`2026-13-45`, `0000-00-00`).
+    regex::bytes::Regex::new(r"[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])")
+        .expect("regex de fecha ISO")
 });
 
-/// Deriva el nombre del archivo de las fechas ISO del bloque frío. Sin
-/// fechas, cae a un número de secuencia (caso real:
-/// desarrollo-agentico-bitacora, 26 de 60 headings sin fecha).
-/// `existentes` es cuántos archivos ya hay para este slug.
+/// Deriva el nombre del archivo de las fechas ISO válidas de las cabeceras
+/// `## ` del bloque frío (fuera de vallas): el cuerpo cita fechas futuras o
+/// de otras épocas que no son el rango del bloque. Sin fechas, cae a un
+/// número de secuencia (caso real: desarrollo-agentico-bitacora, 26 de 60
+/// headings sin fecha). `existentes` es cuántos archivos ya hay para este slug.
 pub fn nombre_de_archivo(slug: &str, frio: &[u8], existentes: usize) -> String {
-    let mut fechas: Vec<&[u8]> = PATRON_FECHA_ISO
-        .find_iter(frio)
-        .map(|m| m.as_bytes())
-        .collect();
+    let mut fechas: Vec<&[u8]> = Vec::new();
+    let mut en_valla = false;
+    for (_, linea) in lineas_con_offset(frio) {
+        if linea.starts_with(b"```") {
+            en_valla = !en_valla;
+        } else if !en_valla && linea.starts_with(b"## ") {
+            fechas.extend(PATRON_FECHA_ISO.find_iter(linea).map(|m| m.as_bytes()));
+        }
+    }
     if fechas.is_empty() {
         return format!("{slug}-parte-{:02}.md", existentes + 1);
     }
@@ -659,6 +668,53 @@ mod tests {
         assert_eq!(
             nombre_de_archivo("agent-develop-bitacora", frio, 0),
             "agent-develop-bitacora-2026-06-26_2026-07-11.md"
+        );
+    }
+
+    #[test]
+    fn nombre_de_archivo_ignora_fechas_del_cuerpo() {
+        let frio = "## 2026-10-14 — a\n- caduca el 2026-02-31; informe el 2026-10-21\n\n## 2026-10-15 — b\nx\n\n";
+        assert_eq!(
+            nombre_de_archivo("bizkaia-now-bitacora", frio.as_bytes(), 0),
+            "bizkaia-now-bitacora-2026-10-14_2026-10-15.md"
+        );
+        let crlf = frio.replace('\n', "\r\n");
+        assert_eq!(
+            nombre_de_archivo("bizkaia-now-bitacora", crlf.as_bytes(), 0),
+            "bizkaia-now-bitacora-2026-10-14_2026-10-15.md"
+        );
+    }
+
+    #[test]
+    fn nombre_de_archivo_descarta_fechas_invalidas() {
+        let frio = b"## 2026-13-45 \xe2\x80\x94 x\n\n## 2026-10-14 \xe2\x80\x94 y\n\n";
+        assert_eq!(
+            nombre_de_archivo("s", frio, 0),
+            "s-2026-10-14_2026-10-14.md"
+        );
+    }
+
+    #[test]
+    fn nombre_de_archivo_cae_a_parte_si_solo_el_cuerpo_tiene_fechas() {
+        let frio = b"## sin fecha\ncaduca 2026-10-14\n\n";
+        assert_eq!(nombre_de_archivo("s", frio, 2), "s-parte-03.md");
+    }
+
+    #[test]
+    fn nombre_de_archivo_cuenta_fecha_en_cualquier_posicion_de_la_cabecera() {
+        let frio = "## Ola 3 (2026-10-05)\nx\n\n## 2026-10-07 — z\ny\n\n";
+        assert_eq!(
+            nombre_de_archivo("s", frio.as_bytes(), 0),
+            "s-2026-10-05_2026-10-07.md"
+        );
+    }
+
+    #[test]
+    fn nombre_de_archivo_ignora_cabeceras_en_valla_y_subcabeceras() {
+        let frio = "## 2026-10-14 — a\n```\n## 2026-01-01 — v\n```\n### 2026-12-31 — w\n\n";
+        assert_eq!(
+            nombre_de_archivo("s", frio.as_bytes(), 0),
+            "s-2026-10-14_2026-10-14.md"
         );
     }
 

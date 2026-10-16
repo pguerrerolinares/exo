@@ -435,7 +435,7 @@ struct ArgsRotate {
     #[arg(long)]
     kb: Option<PathBuf>,
     /// Presupuesto en bytes para la cola caliente que se queda en la nota.
-    #[arg(long = "hot-bytes", value_name = "HOT_BYTES", default_value_t = 20480)]
+    #[arg(long = "hot-bytes", value_name = "HOT_BYTES", default_value_t = 40960)]
     presupuesto_caliente: i64,
     /// Escribe de verdad. Sin este flag es un dry-run: nada toca disco.
     #[arg(long)]
