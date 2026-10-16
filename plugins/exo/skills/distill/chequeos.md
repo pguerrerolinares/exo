@@ -29,6 +29,22 @@ vigilancia y no declararlo te libra de ella. No bloquea (exit 0); cada línea
 trae el tamaño objetivo. Trátalas como la misma cola de trabajo que las
 `no-air-debt`: el remedio es partir canon/bitácora, no comprimir.
 
+**Cola por calor.** `no_air` mezcla frentes calientes con fichas congeladas.
+Crúzala con `$EXO_BIN stale --json` (`age_days`, días desde el último commit de
+la nota): una nota con `age_days` > 30 **no es trabajo de la pasada** — se
+anota y se deja. Ataca primero las calientes. Si la cola entera está fría,
+dilo en el resumen.
+
+**Disparador de partición.** Para cada nota caliente de la cola:
+
+    git -C $KB_ROOT log --since=7.days --fixed-strings --grep='Gate: <ruta>' --format=%h
+
+≥2 commits (trailers `Gate:` de `/document`) en 7 días, sin rama
+`distill/auto/` mergeada entre medias, indica que el auto-distill no basta:
+partición con juicio (test del título, `consolidacion.md`), no otra evicción.
+**`--fixed-strings` es obligatorio**: las rutas con ` — ` y paréntesis no
+casan como regex y el disparador calla sin avisar.
+
 Revisa `waived`: ¿siguen justificadas las excepciones reconocidas? (p.ej. un
 `kbx_orphan_ok` en una nota que recuperó relaciones desaparece de `waived` por
 sí solo).

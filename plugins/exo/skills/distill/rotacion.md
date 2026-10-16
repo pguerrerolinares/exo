@@ -3,6 +3,9 @@
 **Cuándo cargar:** en el paso 0, cuando la corrida en seco trae
 `data.rotations` no vacío.
 
+**Precondición:** `git -C $KB_ROOT status --porcelain -- log/ archive/log/`
+vacío (pathspec; es la misma del paso 0 de `SKILL.md`). Si no, para.
+
 Corre primero en seco y revisa el resultado:
 
     $EXO_BIN rotate --kb $KB_ROOT --json
@@ -23,7 +26,7 @@ commitear — **no vuelvas a correr `--apply` a ciegas**: reintentar sin
 entender el fallo puede repetir el mismo error, y las notas que sí rotaron
 ya movieron bytes a `archive/log/` en esta misma corrida.
 
-1. `git -C $KB_ROOT status --porcelain` —
+1. `git -C $KB_ROOT status --porcelain -- log/ archive/log/` —
    deben aparecer las bitácoras modificadas y los nuevos ficheros en
    `archive/log/`.
 2. Conservación: para cada bitácora tocada, compara el número de cabeceras
@@ -35,6 +38,13 @@ ya movieron bytes a `archive/log/` en esta misma corrida.
    (`grep -c '^## ' <ruta-nota-viva> <ruta-archivo-nuevo>`, sumando ambos
    conteos). Deben coincidir. Si no cuadra, hay una entrada perdida — no
    sigas, revísalo.
+2b. Nombre: el rango del nombre del archive nuevo
+   (`archive/log/<slug>-bitacora-AAAA-MM-DD_AAAA-MM-DD.md`, o `…-parte-NN` si ninguna cabecera lleva fecha)
+   debe coincidir con el mínimo y el máximo de las fechas de **sus cabeceras
+   `## `** (`grep '^## ' <ruta-archivo-nuevo>`), no con fechas del cuerpo.
+   Si discrepa o la fecha es imposible (`2026-02-31`), no commitees: renombra
+   con `git mv` al rango correcto y actualiza los enlaces entrantes. Los
+   archives antiguos no se renombran (los enlazan cabeceras de las bitácoras).
 3. Nada se borra, misma regla de oro que el resto de la skill. Si algo salió
    mal y hay que revertir:
    - Nota viva: `git -C $KB_ROOT checkout -- <ruta-de-la-nota>`
@@ -44,7 +54,7 @@ ya movieron bytes a `archive/log/` en esta misma corrida.
      sin trackear; bórralos a mano con las rutas exactas que ya listó
      `git status --porcelain` en el punto 1 (p.ej.
      `rm <ruta-nueva-en-archive-log>`).
-   - Verifica con `git -C $KB_ROOT status --porcelain`
+   - Verifica con `git -C $KB_ROOT status --porcelain -- log/ archive/log/`
      que no queda nada pendiente, y repórtalo — no continúes al paso 1 con el
      repo en ese estado.
 

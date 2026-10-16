@@ -1,20 +1,29 @@
 ---
 name: distill
-description: Consolidación offline de la KB (sleep-time compute manual): colapsa bitácoras/sesiones en destilados, chequea presupuestos por tier, promueve doctrina repetida a core y refresca core-index. Usar al cerrar un frente o semanalmente.
+description: Consolidación offline de la KB (sleep-time compute manual): colapsa bitácoras/sesiones en destilados, chequea presupuestos por tier, promueve doctrina repetida a core y refresca core-index. Usar semanalmente (y al cerrar un frente).
 ---
 
 # distill
 
 **Qué es:** el "sleep-time compute" manual de la KB kb-demo. Mientras `/document`
 escribe en caliente (al cerrar una sesión), `/distill` es mantenimiento offline —
-El dueño de la KB lo invoca al cerrar un frente o semanalmente para que la KB no crezca sin control
-ni se llene de doctrina repetida sin destilar.
+El dueño de la KB lo invoca **semanalmente** (y al cerrar un frente) para que la KB no crezca sin control
+ni se llene de doctrina repetida sin destilar. Cada pasada hace, sin excepción,
+la promoción de doctrina (paso 4) y el barrido por calor (`chequeos.md`); si no
+hay nada que promover o barrer, **dilo** en el resumen — no lo calles.
+
+**Objetivo de poda: ≤60 % del techo** de la nota (`kbx_budget_max` si existe, si
+no el nominal del tier) para toda nota que se evicte. Salir de `no_air` (85 %) no
+basta: `/document` muerde a 85 %, y podar justo ahí lo hace morder en el primer
+cierre tras la pasada. Si el 60 % no se alcanza sin tocar reglas ni decisiones
+vivas, la salida es **partición** (test del título, `consolidacion.md`); nunca se
+recorta prosa viva para llegar.
 
 **Regla de oro: nada se borra.** Todo movimiento es `git mv` o edición; si algo deja de
 vivir en su sitio original, se mueve a `archive/` o `log/`, nunca se elimina. El commit
 final es el registro de qué se movió y por qué.
 
-## Procedimiento (6 pasos)
+## Procedimiento (6 pasos, más la revisión de ramas)
 
 ### Resolución de rutas — antes de cualquier paso
 
@@ -42,10 +51,33 @@ paso de este procedimiento depende ya de `kbx`.
 Todos los comandos de las secciones siguientes usan `$KB_ROOT` y `$EXO_BIN`
 — ninguna ruta literal, y ningún `$KBX_BIN`.
 
+### Primero — ramas `distill/auto/*` pendientes
+
+Primer paso de cada pasada, antes de rotar: `git -C $KB_ROOT branch --list 'distill/auto/*'`.
+Por cada rama (la dejó el auto-distill de `/document`; formato en
+`plugins/exo/skills/document/auto-distill.md`): lee su commit y decide con el
+dueño de la KB.
+
+- **Merge:** `git -C $KB_ROOT merge distill/auto/<slug>`. Solo cambia el canon;
+  el conflicto esperado es la línea de estado, a mano. Luego aplica el sidecar
+  `.distill/<slug>-moved.md` en la bitácora con `exo write append --from`
+  (idempotente: rechaza cabeceras duplicadas), verifica que cada bloque quedó
+  literal en destino, borra el sidecar y commitea. Si el commit de la rama es
+  una **propuesta de partición**, no hay nada que mergear: ejecútala aquí con
+  el test del título (`consolidacion.md`) o descártala.
+- **Descartar:** `git -C $KB_ROOT branch -D distill/auto/<slug>` si el canon ya
+  cambió tanto que la evicción no aplica. Los bloques seguirán en el canon: la
+  pasada actual hace la evicción a mano.
+- **Nunca rehacerlas automáticamente:** quemaría una pasada por semana por
+  nota caliente.
+
+Con el árbol limpio tras esto, sigue al paso 0.
+
 ### 0. Rotación de bitácoras (antes de cualquier chequeo)
 
-**Precondición dura:** `git -C $KB_ROOT status --porcelain`
-debe salir **vacío** antes de tocar nada. Si no sale vacío, **para** y pide a
+**Precondición dura:** `git -C $KB_ROOT status --porcelain -- log/ archive/log/`
+debe salir **vacío** antes de tocar nada (pathspec, no global: un cambio ajeno
+en otra nota no invalida la rotación). Si no sale vacío, **para** y pide a
 al dueño de la KB que commitee o guarde su trabajo antes de rotar — no sigas por tu
 cuenta. El baseline de conservación del punto 2 (`git show HEAD:<ruta>`)
 asume que `HEAD` es el estado justo antes de rotar, y la reversión del punto
@@ -99,10 +131,11 @@ entrantes que apuntaban a esa sesión para que no queden rotos.
 
 ### 4. Promover doctrina repetida
 
-Si un patrón o principio aparece repetido en ≥3 bitácoras (señal de que ya no es
-anécdota sino doctrina estable), propón su promoción a `[[doctrina-agentes]]` o al
-`learning` que corresponda. No lo hagas automático — es una propuesta a revisar, no
-una escritura silenciosa.
+**Obligatorio en cada pasada.** Si un patrón o principio aparece repetido en ≥3
+bitácoras (señal de que ya no es anécdota sino doctrina estable), propón su
+promoción a `[[doctrina-agentes]]` o al `learning` que corresponda. No lo hagas
+automático — es una propuesta a revisar, no una escritura silenciosa. Si no hay
+candidatos, escribe «sin doctrina que promover» en el resumen.
 
 ### 5. Refrescar índice y commit
 
@@ -114,6 +147,9 @@ bajas de sección, nuevos punteros a bitácoras).
 > objetivo de poda. Esa lista no es un error del sello: es trabajo que falta.
 > **Nunca subas un techo para que pase** — el trinquete lo rechazará en el
 > commit de todos modos.
+
+Notas nuevas **solo por partición** (`consolidacion.md`): ninguna otra pasada
+crea notas. Si se creó alguna, `[[core-index]]` la lista y la madre queda como puerta.
 
 Luego commit scoped con las mismas reglas git del dueño de la KB:
 
