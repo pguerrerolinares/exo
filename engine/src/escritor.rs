@@ -25,6 +25,9 @@ pub enum Rechazo {
     /// esta KB: 52 `## Delta AAAA-MM-DD` anexados al canon en la historia
     /// real, causa del 100% de los incidentes caros (spec M4 §7.1).
     AppendACanon { tier: Option<String> },
+    /// El bloque a anexar trae cabeceras `## ` que la nota ya tiene: el
+    /// reintento tras un fallo parcial duplicaría la entrada de bitácora.
+    CabeceraDuplicada { cabeceras: Vec<String> },
 }
 
 impl std::fmt::Display for Rechazo {
@@ -49,6 +52,12 @@ impl std::fmt::Display for Rechazo {
                      Usa la bitácora del frente, o --force si es una excepción consciente"
                 )
             }
+            Rechazo::CabeceraDuplicada { cabeceras } => write!(
+                f,
+                "la nota ya tiene la cabecera ({}): el bloque parece ya anexado. \
+                 Repite con --force si de verdad quieres duplicarla",
+                cabeceras.join("; ")
+            ),
         }
     }
 }
@@ -71,6 +80,10 @@ impl Rechazo {
             Rechazo::AppendACanon { tier } => serde_json::json!({
                 "reason": "append_to_canon",
                 "tier": tier,
+            }),
+            Rechazo::CabeceraDuplicada { cabeceras } => serde_json::json!({
+                "reason": "duplicate_header",
+                "cabeceras": cabeceras,
             }),
         }
     }
@@ -324,8 +337,10 @@ pub fn escribe_nueva(n: &NuevaNota) -> Result<Escritura> {
 /// (`log/exo-bitacora.md` ~14 KB, el backlog ~33 KB) y `Edit` obligaría a
 /// cargarlas enteras en cada cierre de sesión.
 ///
-/// Rechaza si la nota destino no es `tier: log` (§7.1) salvo `forzar`.
-/// Para leer el `tier` toca el head del fichero, no el cuerpo entero.
+/// Rechaza salvo `forzar` si la nota destino no es `tier: log` (§7.1) o si el
+/// bloque trae una cabecera `## ` que la nota viva ya tiene (el tier manda).
+/// Para leer el `tier` toca el head del fichero; para las cabeceras recorre la
+/// nota línea a línea con `BufRead`, sin cargarla entera.
 pub fn escribe_append(kb: &Path, ruta_rel: &str, texto: &str, forzar: bool) -> Result<Escritura> {
     let ruta_abs = kb.join(ruta_rel);
     if !ruta_abs.exists() {
@@ -353,6 +368,13 @@ pub fn escribe_append(kb: &Path, ruta_rel: &str, texto: &str, forzar: bool) -> R
         return Err(Rechazo::AppendACanon { tier }.into());
     }
 
+    if !forzar {
+        let cabeceras = cabeceras_repetidas(&ruta_abs, texto)?;
+        if !cabeceras.is_empty() {
+            return Err(Rechazo::CabeceraDuplicada { cabeceras }.into());
+        }
+    }
+
     anexa(&ruta_abs, texto)?;
 
     Ok(Escritura {
@@ -365,6 +387,35 @@ pub fn escribe_append(kb: &Path, ruta_rel: &str, texto: &str, forzar: bool) -> R
         frontmatter_faltante: Vec::new(),
         forzado: forzar,
     })
+}
+
+/// Cabeceras `## ` del bloque entrante que ya existen en la nota, en orden de
+/// aparición y sin repetir. Compara sin espacio ni CR finales.
+fn cabeceras_repetidas(ruta: &Path, texto: &str) -> Result<Vec<String>> {
+    use std::io::BufRead;
+    let norm = |l: &str| l.trim_end().to_string();
+    let mut entrantes: Vec<String> = Vec::new();
+    for l in texto.lines().filter(|l| l.starts_with("## ")) {
+        let l = norm(l);
+        if !entrantes.contains(&l) {
+            entrantes.push(l);
+        }
+    }
+    if entrantes.is_empty() {
+        return Ok(Vec::new());
+    }
+    let f = std::fs::File::open(ruta).with_context(|| format!("abrir {}", ruta.display()))?;
+    let mut vistas = std::collections::HashSet::new();
+    for linea in std::io::BufReader::new(f).split(b'\n') {
+        let linea = linea.with_context(|| format!("leer {}", ruta.display()))?;
+        if linea.starts_with(b"## ") {
+            vistas.insert(norm(&String::from_utf8_lossy(&linea)));
+        }
+    }
+    Ok(entrantes
+        .into_iter()
+        .filter(|c| vistas.contains(c))
+        .collect())
 }
 
 /// Escribe con `O_APPEND` garantizando exactamente una línea en blanco de
