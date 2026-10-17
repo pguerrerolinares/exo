@@ -357,8 +357,8 @@ como forma escondida (`--limite`, `--titulo`, `--crea`, `--min-similitud`,
 `--escala-fts`, y otros cinco) ya **no existen**: se retiraron en `engine`
 0.2.0 (campaña H, commit `5353038`, 2026-09-15) — primera ruptura real de
 compatibilidad, pero para quien invoque el CLI con esos flags, no para el
-plugin: `ENGINE_MIN` sigue en `0.1.0` porque ningún script del plugin los
-usaba. El check `plugin_compat` de `exo doctor` vigila esa otra dirección —
+plugin: `ENGINE_MIN` no subió entonces porque ningún script del plugin los
+usaba (hoy está en `0.7.0`, ver §7). El check `plugin_compat` de `exo doctor` vigila esa otra dirección —
 un binario más viejo que el `ENGINE_MIN` que declara el plugin instalado —,
 no la retirada de los alias en sí.
 
@@ -611,7 +611,11 @@ viven en `docs/backlog.md`:
   `plugins/exo/ENGINE_MIN` (campaña H). Ningún otro hook lo comprueba
   —sería un spawn de `exo --version` por disparo— y `ENGINE_MIN` solo es tan
   honesto como quien lo sube cuando un script empieza a necesitar una versión
-  nueva del engine.
+  nueva del engine. Regla: se sube en el mismo PR en que un skill o script
+  pasa a depender de un comportamiento nuevo del engine. Se olvidó una vez
+  (#104): `/distill` exigía 0.7.0 para aplicar sidecars sin duplicar y el
+  fix de #95, `ENGINE_MIN` seguía en `0.5.0` y un 0.6.0 pasaba como
+  compatible.
 - **MCP propio (M5a) y desinstalación de basic-memory (M5b)**: pendientes. El
   engine ya no depende de basic-memory para funcionar (la única lectura que
   queda es la migración explícita `exo init --from-basic-memory`), pero el
