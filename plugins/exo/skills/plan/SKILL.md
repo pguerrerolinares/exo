@@ -82,5 +82,8 @@ Con ojos frescos contra la spec, checklist propio (no dispatch):
    nombre de test + aserción y comprueba que cada tarea sigue siendo
    inequívoca.
 
-Fix inline. Handoff único: `exo:orchestrate`. Al hacer el handoff, añade al
-header `Plan: <min> min, <turnos> turnos, <KB>`.
+Fix inline. Tras el self-review, enlaza el plan guardado y pide al usuario que
+lo revise y confirme que recoge lo que quiere; no hay implementación hasta esa
+confirmación. Handoff único: `exo:orchestrate` (sin elección de modo de
+ejecución). Al hacer el handoff, añade al header `Plan: <min> min, <turnos>
+turnos, <KB>`.
