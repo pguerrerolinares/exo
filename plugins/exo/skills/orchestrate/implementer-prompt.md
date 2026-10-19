@@ -78,6 +78,13 @@ Subagent (exo:executor):
     puede aportar más contexto, re-despachar con un modelo más capaz, o
     partir la tarea en piezas más pequeñas.
 
+    ## Nunca acabes el turno esperando
+
+    Un turno que acaba en «sigo esperando; aviso cuando termine» deja la ola
+    parada: nadie te despierta. Lo largo va en foreground con timeout, o en
+    background si cabe en tu turno; si no termina dentro de él, reporta
+    BLOCKED con el comando y la ruta del log.
+
     ## Antes de reportar: self-review
 
     Completeness (¿implementaste todo el spec? ¿faltó algo? ¿edge cases?),

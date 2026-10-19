@@ -52,7 +52,7 @@ verificar ni cómo commitear.
 
 ## Hooks
 
-Tabla exacta al cableado vivo de `hooks/hooks.json` (ocho comandos):
+Tabla exacta al cableado vivo de `hooks/hooks.json` (nueve comandos):
 
 | Reflejo | Evento | Fichero | Qué hace | Abstención |
 |---|---|---|---|---|
@@ -61,6 +61,7 @@ Tabla exacta al cableado vivo de `hooks/hooks.json` (ocho comandos):
 | search-first | `PreToolUse:Agent\|Task\|Edit\|Write\|NotebookEdit` | `scripts/search-first.sh` | avisa si el primer `Agent`/`Task`/`Edit`/`Write`/`NotebookEdit` de la sesión no fue precedido de `exo search`/`exo targets` en la transcripción | 1×/sesión (sentinel); exenta en subagentes (`agent_id`); sin `jq`, sin `transcript_path`/ilegible, o si el `jq` de detección falla → skip silencioso (igual crea el sentinel) |
 | exo-recall | `SessionStart` | `scripts/exo-recall.sh` | inyecta instrucción de memoria + digest 7d, servido por el engine `exo` (SQLite) | — (PUSH); degrada al fallback embebido si el engine instalado es < `ENGINE_MIN`. Añade una línea de aviso si `superpowers@*` está habilitado (settings de usuario, proyecto o local; sin spawns extra) |
 | estilo-directo | `SessionStart` | `scripts/estilo-directo.sh` | inyecta una directiva de estilo de respuesta estática (`estilo-directo.md`) | sin fichero `.md` legible, o si `jq` falla al construir el JSON |
+| sdd-wake-guard | `Stop` | `scripts/sdd-wake-guard.sh` | con un ledger SDD activo, bloquea el cierre de turno si hay tareas de fondo vivas y ningún cron: pide un `CronCreate` one-shot que siga `skills/orchestrate/despertar.md` (#111: el aviso de una tarea de un teammate idle no reinvoca a nadie) | subagentes, `stop_hook_active`, sin `jq`, ledger de más de 6 h, solo teammates, o ya hay un cron |
 | document-remind | `Stop` | `scripts/document-remind.sh` | recuerda `/document` al cerrar | 1×/sesión + umbral de transcript |
 | exo-index | `Stop` | `scripts/exo-index.sh` | reindexa la KB al cierre de sesión | best-effort, fallback logueado |
 | subagent-inject | `SubagentStart` | `scripts/subagent-inject.sh` | inyecta doctrina/contexto al arrancar un subagente | — (PUSH) |

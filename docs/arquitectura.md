@@ -409,7 +409,7 @@ flowchart TD
         SS["SessionStart"] --> ERS["exo-recall.sh"]
         SS --> EDS["estilo-directo.sh"]
         SA["SubagentStart"] --> SIS["subagent-inject.sh"]
-        ST["Stop"] --> EIS["exo-index.sh"] & DRS["document-remind.sh"]
+        ST["Stop"] --> EIS["exo-index.sh"] & DRS["document-remind.sh"] & SWG["sdd-wake-guard.sh"]
     end
 
     ERS -->|"exo recall --content --note (kb)/core/core-index --cap-bytes 6144"| ENG["binario exo"]
@@ -458,6 +458,14 @@ Detalles que el diagrama no cuenta:
   clone fresco puede tardar minutos — eso no puede vivir en SessionStart. Se
   lanza detached (con `setsid` en POSIX o `cmd start` en Windows/Git Bash)
   para sobrevivir al kill del process group del hook.
+- **`sdd-wake-guard.sh`** (Stop) cubre un hueco del harness, no de memoria:
+  el aviso de fin de una tarea de fondo lanzada por un teammate idle se
+  encola en la cola del lead y no reinvoca a nadie (#111; en bizkaia-now
+  paró una ola casi 7 h). Con un ledger SDD tocado en las últimas 6 h,
+  tareas de fondo vivas y ningún cron, bloquea el cierre de turno y pide un
+  `CronCreate` one-shot que siga `skills/orchestrate/despertar.md`. El cron
+  sobrevive a `/compact` y dispara con teammates ocupados; no sobrevive a
+  cerrar la sesión.
 - Los otros tres hooks son guardrails de disciplina, no de memoria:
   `clean-orchestrator-research.sh` (recuerda delegar la investigación web a
   subagentes; solo en el padre, 1 vez por sesión), `bash-guards.sh` (Task 5,
