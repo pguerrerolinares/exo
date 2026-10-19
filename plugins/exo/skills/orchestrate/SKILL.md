@@ -64,6 +64,12 @@ DONE → package + reviewer. DONE_WITH_CONCERNS → lee concerns antes de
 seguir. NEEDS_CONTEXT → aporta y re-despacha. BLOCKED → más contexto /
 modelo mayor / partir la tarea / Ruling sobre el plan y re-dispatch con el
 Ruling en el brief — nunca retry sin cambiar nada.
+Idle sin report y con texto de espera («sigo esperando…») = BLOCKED:
+verifica el artefacto (mtime, `git log`) y reanuda con SendMessage; nunca
+contestes «espero». El aviso de una tarea de fondo de un teammate idle no
+te despierta: antes de cerrar turno con algo vivo fuera de tus manos, arma
+un `CronCreate` one-shot a +N ≤ 20 min que siga `despertar.md` (el hook
+`sdd-wake-guard.sh` te lo exige si se te olvida).
 Reviewer (`reviewer-prompt.md`): constraints verbatim, sin directivas
 open-ended, sin re-pedir tests ya corridos, nunca pre-juzgar findings, BASE
 registrado antes del dispatch (nunca `HEAD~1`). Dos verdictos + pase de
