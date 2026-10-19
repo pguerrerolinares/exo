@@ -106,10 +106,10 @@ Decisiones del mantenedor (2026-09-30), distintas de las Divergencias: no son "n
 | #1998 | orchestrate | aplica | portado | — | 54bc199 |
 | #2086 | orchestrate | parcial | portado | — | b78b279 |
 | #2258 | brainstorm | aplica | portado | — | 8952629 |
-| #2319 | orchestrate | parcial | propuesto | — | 001764f |
-| #2077 | orchestrate | aplica | propuesto | — | a8d0c5b |
+| #2319 | orchestrate | parcial | portado | — | 001764f |
+| #2077 | orchestrate | aplica | portado | — | a8d0c5b |
 | #2063 | brainstorm | ya cubierto | — | cubierto por #2463: brainstorm/SKILL.md «Tamaño del trabajo» (decisión de Paul 2026-10-14) | — |
-| #1934 | tdd | aplica | propuesto | — | 719a1fd |
+| #1934 | tdd | aplica | portado | — | 719a1fd |
 | #1934 | writing-skills | no aplica | — | Excluidos: `writing-skills/*` (decisión de Paul 2026-10-14) | — |
 | #1934 | orchestrate | no aplica | — | solo elimina: exo no tiene esas secciones (Advantages / Integration) | — |
 | #1934 | debug | no aplica | — | solo elimina: exo no tiene social proof ni Real-World Impact (D2 aparte) | — |
@@ -137,21 +137,21 @@ Decisiones del mantenedor (2026-09-30), distintas de las Divergencias: no son "n
 | #2078 | orchestrate | no aplica | — | D6 | — |
 | #2318 | orchestrate | no aplica | — | D8 | — |
 | #2318 | plan | no aplica | — | D8 | — |
-| #2258 | plan | aplica | pendiente | respondida | — |
+| #2258 | plan | aplica | propuesto | — | 8790cf3 |
 | #2006 | brainstorm | no aplica | — | sin equivalente: brainstorming/visual-companion.md | — |
 | #1959 | brainstorm | no aplica | — | sin equivalente: brainstorming/visual-companion.md | — |
 | #2133 | orchestrate | ya cubierto | — | — | — |
 | #1935 | tdd | ya cubierto | — | — | — |
 | #2333 | plan | ya cubierto | — | — | — |
-| #2319 | plan | parcial | propuesto | — | 001764f |
+| #2319 | plan | parcial | portado | — | 001764f |
 | #2086 | plan | ya cubierto | — | — | — |
-| #2463 | brainstorm | parcial | propuesto | — | ec0b45a |
-| #2463 | brainstorm | parcial | propuesto | — | f74f7b4 |
+| #2463 | brainstorm | parcial | portado | — | f74f7b4 |
+| #2463 | brainstorm | parcial | portado | — | f74f7b4 |
 | #2463 | brainstorm | ya cubierto | — | mapeo confirmado por Paul 2026-10-14: builder-check-prompt.md → brainstorm/SKILL.md | — |
-| #2482 | brainstorm | aplica | propuesto | — | 987ac71 |
+| #2482 | brainstorm | aplica | portado | — | 987ac71 |
 | #2483 | brainstorm | no aplica | — | D11: exo no tiene la salida «salta las preguntas»; el bullet que quita no existe en exo | — |
-| #2399 | orchestrate | aplica | propuesto | — | db0eddd |
-| #2489 | orchestrate | aplica | propuesto | — | 2331afa |
+| #2399 | orchestrate | aplica | portado | — | db0eddd |
+| #2489 | orchestrate | aplica | portado | — | 2331afa |
 | #2364 | brainstorm | no aplica | — | sin equivalente: brainstorming/scripts/* | — |
 | #2388 | orchestrate | no aplica | — | sin equivalente: executing-plans/scripts/task-done (D8) | — |
 | #2361 | orchestrate | no aplica | — | solo cambia un ejemplo de BASE_SHA que exo no tiene | — |
