@@ -626,5 +626,51 @@ if [ "$RC" = 0 ] && contains "$OUT" "MUTACIÓN [android]: 8/10 (80%)" && contain
 plan_mut
 }
 
+# ---- exclusiones del diff declaradas en el plan (## Excluir de la review)
+# plan_excl LINEA... -> plan con la sección (una línea por argumento)
+plan_excl() {
+  { printf '# Plan\n\n## Excluir de la review\n\n'; printf '%s\n' "$@"; printf '\n### Task 1: x\n'; } > "$TMP/plan.md"
+}
+# shellcheck disable=SC2016 # los backticks del plan van literales
+{
+plan_excl '- `*.png`' '- `package-lock.json`'
+mkrepo exc "" src/a.txt img/logo.png package-lock.json; r=$REPO
+corre "$r" "$DSP"
+stat_sec=$(sed -n '/^## Files changed$/,/^## Diff$/p' <<<"$OUT")
+diff_sec=$(sed -n '/^## Diff$/,/^## MUTACIÓN$/p' <<<"$OUT")
+if [ "$(sed -n 2p <<<"$OUT")" = "[excluido: 2 ficheros]" ] && contains "$OUT" "- img/logo.png" && contains "$OUT" "- package-lock.json" \
+   && not_contains "$stat_sec" "logo.png" && not_contains "$stat_sec" "package-lock" \
+   && not_contains "$diff_sec" "logo.png" && not_contains "$diff_sec" "package-lock" \
+   && contains "$stat_sec" "src/a.txt" && contains "$diff_sec" "cambio src/a.txt" && contains "$OUT" "head"; then
+  pass excluir_png_y_lock
+else fail excluir_png_y_lock "$(head -12 <<<"$OUT")"; fi
+
+# sin sección: idéntico al de un plan sin exclusiones (y sin cabecera de excluido)
+: > "$TMP/plan.md"
+corre "$r" "$DSP"; sin=$OUT
+printf '# Plan\n\n### Task 1: x\n' > "$TMP/plan.md"
+corre "$r" "$DSP"
+if [ "$OUT" = "$sin" ] && not_contains "$OUT" "[excluido" && contains "$OUT" "logo.png"; then pass excluir_sin_seccion_identico; else fail excluir_sin_seccion_identico "difieren"; fi
+
+# sección sin coincidencias: tampoco cambia nada
+plan_excl '- `*.zip`'
+corre "$r" "$DSP"
+if [ "$OUT" = "$sin" ]; then pass excluir_sin_coincidencias_identico; else fail excluir_sin_coincidencias_identico "difieren"; fi
+
+# línea mal formada: aviso visible, la buena se aplica
+plan_excl 'sin guion ni backticks' '- `*.png`'
+corre "$r" "$DSP"
+if contains "$OUT" "[excluido aviso: " && contains "$OUT" "sin guion ni backticks" && contains "$OUT" "[excluido: 1 ficheros]"; then pass excluir_linea_mala_avisa; else fail excluir_linea_mala_avisa "$(head -8 <<<"$OUT")"; fi
+
+# más de 50 excluidos: lista truncada
+plan_excl '- `gen/**`'
+mkrepo excmuchos ""; r=$REPO
+mkdir -p "$r/gen"; for i in $(seq 1 55); do echo x > "$r/gen/f$i.txt"; done; echo y > "$r/keep.txt"
+git -C "$r" add -A >/dev/null; git -C "$r" commit -qm mas; HEAD=$(git -C "$r" rev-parse HEAD)
+corre "$r" "$DSP"
+if contains "$OUT" "[excluido: 55 ficheros]" && contains "$OUT" "- … (5 más)" && contains "$OUT" "keep.txt"; then pass excluir_trunca_a_50; else fail excluir_trunca_a_50 "$(head -8 <<<"$OUT")"; fi
+: > "$TMP/plan.md"
+}
+
 printf '\n%d pass, %d fail\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

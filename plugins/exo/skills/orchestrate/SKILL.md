@@ -111,8 +111,12 @@ estado completo necesario, debugging exploratorio ni estado compartido
 auto-aprobar inline. Review final limpia y sus fixes integrados ⇒ ANTES de borrar, junta TODA
 línea `Ruling:` del ledger en tu mensaje final bajo «Rulings I made» (orden
 cronológico, cada una con su coste si está mal): es lo único que lleva al
-humano las decisiones tomadas por él. Luego borra el workspace del plan
-(`rm -rf <workspace>`; el registro es git; los hermanos son de otros planes).
+humano las decisiones tomadas por él. Sácalas con `scripts/rulings-collect
+<workspace>/progress.md` (numeradas, `PR-pendiente` marcadas con ⚠) y pégalas
+también en el cuerpo del PR. Luego `scripts/sdd-workspace close PLAN`: archiva
+ledger y `final-review.md` fuera del repo, quita worktrees y ramas `task/*` ya
+integrados (sin `--force`) y borra solo el workspace de ese plan. Exit 1 =
+quedó algo sin integrar o sucio: lo dices, no lo fuerzas. Nunca `rm -rf` a mano.
 Número que no cuadra ⇒ recon antes de racionalizar.
 Backlog autónomo: secuencial, NUNCA push/deploy desatendido, salta
 decisiones del dueño explicando por qué, documenta lo que preguntarías.

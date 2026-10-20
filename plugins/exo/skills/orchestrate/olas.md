@@ -54,7 +54,8 @@ Cada hallazgo se resuelve con un Ruling ledgerizado, junto a su fila.
 ## Ejecutar una ola
 
 - Ola de 1 tarea: flujo normal.
-- Ola de ≥2: un worktree por tarea (rama propia desde el HEAD de la ola),
+- Ola de ≥2: un worktree por tarea (rama `task/<N>` desde el HEAD de la ola;
+  ese prefijo es el que limpia `sdd-workspace close`),
   preparado con `## Setup del worktree` del plan si existe, y
   todos los dispatches en UN mensaje. Cada executor commitea en su worktree.
   Pasa siempre rutas ABSOLUTAS del worktree principal para el brief y el
