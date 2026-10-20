@@ -25,7 +25,9 @@ v2 se desenchufa sin síntoma.
 
 Revisión crítica del plan + pre-flight de conflictos/mandatos-vs-rubric ⇒
 un Ruling por hallazgo ANTES de empezar (incluye todo `DAG: error`,
-`olas.md`). Recon: refs del plan
+`olas.md`). El pre-flight lleva una fila por tarea, el checker
+`puede-caer`/`no-cae` por test, la fila de recursos compartidos y copia
+`## Cierre de ola` al ledger (`olas.md`). Recon: refs del plan
 contra el código real. Si el plan nombra una Spec, léela también: es la
 autoridad de la que el plan argumenta y los conflictos internos del plan se
 resuelven contra ella; sin spec alcanzable ⇒ nota en el ledger (los Rulings

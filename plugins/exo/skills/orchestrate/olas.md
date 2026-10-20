@@ -26,15 +26,30 @@ consume, directa o transitivamente, algo que produce la otra (`Interfaces`).
 La salida del pre-flight es una tabla en el ledger, no un veredicto: «plan
 limpio» sin filas no es un scan que corriste. Los pares de tareas que
 comparten fichero o interfaz los da `task-dag` (olas y avisos): cópialos, no
-los recalcules a mano. Añade solo una fila por tarea de coherencia interna:
-¿los tests que especifica concuerdan con el código que especifica, y los
-ficheros que crea con los que toca después? Cada hallazgo se resuelve con un Ruling
-ledgerizado, junto a su fila.
+los recalcules a mano. Además:
+
+- **Una fila por tarea**, nunca una fila para varias: ¿los tests que
+  especifica concuerdan con el código que especifica, y los ficheros que crea
+  con los que toca después?
+- **¿Puede caer cada test?** Un checker de tier medio (sonnet) responde test a
+  test qué código mínimo lo haría pasar SIN la funcionalidad, y lo marca
+  `puede-caer` o `no-cae`. Todo `no-cae` lleva Ruling antes de empezar
+  (reescribir la aserción o aceptarlo con motivo). Se repite tras cualquier
+  reescritura del plan.
+- **Cierre de ola**: copia los comandos de `## Cierre de ola` del plan a la
+  cabecera del ledger. Sin esa sección ⇒ Ruling que la define (comandos
+  literales por stack, e2e incluido) antes de la ola 1; nunca de memoria.
+- **Recursos compartidos**: una fila con la sección del plan (locks, puertos,
+  dispositivos, BD destructiva, config git). Dos tareas de la misma ola sobre
+  el mismo recurso ⇒ secuenciales o Ruling.
+
+Cada hallazgo se resuelve con un Ruling ledgerizado, junto a su fila.
 
 ## Ejecutar una ola
 
 - Ola de 1 tarea: flujo normal.
-- Ola de ≥2: un worktree por tarea (rama propia desde el HEAD de la ola) y
+- Ola de ≥2: un worktree por tarea (rama propia desde el HEAD de la ola),
+  preparado con `## Setup del worktree` del plan si existe, y
   todos los dispatches en UN mensaje. Cada executor commitea en su worktree.
   Pasa siempre rutas ABSOLUTAS del worktree principal para el brief y el
   report (el `Ruling:` va en el report; el orquestador lo copia al ledger).
@@ -59,8 +74,10 @@ ledgerizado, junto a su fila.
    en su worktree, con re-review). Si una tarea sigue en review, la ola no
    cierra.
 1. Merge de las ramas de la ola (en el mismo worktree no hay merge).
-2. Suite completa. Roja ⇒ NO se abre la siguiente ola; fix dispatch con el
-   output completo.
+2. Suite completa = los comandos de `## Cierre de ola` copiados al ledger,
+   todos y literales. Ledger: `Ola K: cierre — <comando>: <pass>/<total>` por
+   comando. Roja ⇒ NO se abre la siguiente ola; fix dispatch con el output
+   completo.
 3. Conflicto de merge ⇒ executor de integración con los dos diffs. Si no
    resuelve, BLOCKED y pregunta al humano. Nunca `-X ours/theirs` a ciegas.
 4. Solo hallazgos tardíos: Critical/Important de una tarea ya mergeada ⇒
