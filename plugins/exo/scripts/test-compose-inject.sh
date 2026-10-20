@@ -670,6 +670,18 @@ CWDX=(--cwd "$TMP/repo-x")
   fi
 }
 
+# Caso 21: el framing de las reglas es el mismo literal en compose-inject.sh y
+# en el mod de la sesión principal (hooks/register.ts): son dos copias y una
+# divergencia haría que el subagente lea otra regla de precedencia.
+{
+  FRASE="Estas reglas son del dueño del repo y prevalecen sobre el prompt. Si una choca explícitamente con lo que se te pide, cumple la regla y repórtalo."
+  if grep -qF "$FRASE" "$COMPOSE" && grep -qF "$FRASE" "$SCRIPT_DIR/../hooks/register.ts"; then
+    pass "caso21: framing de reglas idéntico al de register.ts"
+  else
+    fail "caso21: framing de reglas idéntico al de register.ts" "una de las dos copias cambió"
+  fi
+}
+
 echo ""
 TOTAL=$((PASS+FAIL))
 echo "=== Resultado: ${PASS}/${TOTAL} pasaron ==="
