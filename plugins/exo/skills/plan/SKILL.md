@@ -82,6 +82,10 @@ Con ojos frescos contra la spec, checklist propio (no dispatch):
    nombre de test + aserción y comprueba que cada tarea sigue siendo
    inequívoca.
 
+Si una decisión del plan depende de un hecho de plataforma sin verificar o
+de una pregunta de diseño sin criterio, consultor con
+`../brainstorm/consultor-brief.md` antes de fijarla.
+
 Fix inline. Tras el self-review, enlaza el plan guardado y pide al usuario que
 lo revise y confirme que recoge lo que quiere; no hay implementación hasta esa
 confirmación. Handoff único: `exo:orchestrate` (sin elección de modo de

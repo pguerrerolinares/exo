@@ -51,6 +51,10 @@ repreguntar. Cada tramo es breve; importa que sea exacta y corregible.
   en el diseño como decisión tuya, nunca como algo acordado.
 - Propón 2-3 enfoques con trade-offs, liderando con tu recomendación y su
   porqué.
+- Si el usuario no tiene criterio en una pregunta de diseño (UX, a11y,
+  rendimiento, CI), despacha un consultor con `consultor-brief.md` ANTES de
+  preguntarle, y la pregunta lleva sus opciones y su condición de
+  invalidación.
 - Presenta el diseño por secciones escaladas a su complejidad; valida cada
   sección con el usuario antes de seguir a la siguiente. Cubre: arquitectura,
   componentes, data flow, error handling, testing.
@@ -99,6 +103,10 @@ exploración de solo lectura del proyecto sigue permitida.
   van en un solo mensaje, la más importante primero; actualiza la spec y
   entrégala con la lista corta de decisiones tuyas. Es la única ronda de
   preguntas del check. Sin herramienta de subagentes, léela tú como ese builder.
+- Si la spec descansa en hechos comprobables (defaults de librería, cifras,
+  límites de plataforma o de la forja), review adversarial con ejecutables
+  antes del plan: consultor fresco con `consultor-brief.md` que verifique esas
+  premisas (fuente, bytecode, recalcular) en vez de leerlas.
 - Gate de review del usuario: pídele que revise la spec escrita y espera su
   respuesta antes de seguir.
 - Estado terminal: invoca `exo:plan`. Ninguna otra skill.
