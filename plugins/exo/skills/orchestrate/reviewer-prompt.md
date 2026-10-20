@@ -241,7 +241,8 @@ Subagent (general-purpose):
     llamaría defecto (un test que no asevera nada, duplicación verbatim de
     un bloque de lógica), ESO es un finding — repórtalo como Important,
     etiquetado plan-mandated. La autoría del plan no autocalifica su
-    propio trabajo; decide el humano.
+    propio trabajo: lo adjudica el orquestador con un Ruling visible al
+    humano.
     Reconoce lo que está bien hecho en Strengths — el elogio
     preciso ayuda al implementer a confiar en el resto del feedback.
 

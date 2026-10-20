@@ -72,7 +72,8 @@ ledgerizado, junto a su fila.
 Se activa con spec ❌, cualquier Critical/Important o un ⚠️ que confirmaste
 como gap real. Antes de entrar salen dos rutas: los Minor no entran nunca
 (`Task N: minor (deferred): <una línea>` al ledger, y el final los triagea), y
-un finding plan-mandated o que choca con el texto del plan lo decide el humano.
+un finding plan-mandated o que choca con el texto del plan sale a Ruling del
+orquestador (regla única en `SKILL.md`, con `PR-pendiente` si es caro).
 
 Una ronda = un fix + una re-review acotada; **máximo 5 por tarea**:
 
@@ -115,7 +116,8 @@ Una ronda = un fix + una re-review acotada; **máximo 5 por tarea**:
   (composites, diff de goldens); un verde del test no lo cubre.
 - Tras cada ronda, ledger: `Task N: fix round R/5 (X addressed, Y open — <findings>; commits a7..b7)`.
 - El padre nunca arregla findings él mismo: su contexto queda para coordinar y
-  un fix del controller se salta la review.
+  un fix del controller se salta la review. Lo único inline es la lista
+  cerrada de `SKILL.md`.
 
 **Breaker.** Si tras la ronda 5 quedan findings abiertos, deja de despachar y
 adjudica cada uno tú (tienes plan y contexto entre tareas):
