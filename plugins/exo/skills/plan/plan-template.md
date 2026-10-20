@@ -47,6 +47,14 @@ report. Omite la sección si todo se autodetecta.]
 - `android`: `./scripts/pitest-diff.sh`
 - `web`: manual
 
+## Excluir de la review
+
+[Pathspecs que `review-package` quita del stat y del diff (generados,
+binarios, lockfiles). Sin `/`, cruzan directorios (`*.png` = cualquier png).
+Lo excluido sale listado en la cabecera del package. Omite si no hay.]
+- `*.png`
+- `app/src/generated/**`
+
 ## Recursos compartidos
 
 [Locks, puertos, dispositivos, BD destructiva, config git: qué es
@@ -102,8 +110,8 @@ que fija la spec. Si no hay, omite el campo.]
   `EXO_MUTATION_EXCLUDE`). Una línea mal formada sale como aviso en el package.
 - El encabezado es `### Task N: <nombre>` con N entero; `task-brief` extrae
   por él.
-- `## Setup del worktree`, `## Cierre de ola`, `## Mutación` y
-  `## Recursos compartidos` van en el header, antes de la primera tarea: `task-brief` extiende la
+- `## Setup del worktree`, `## Cierre de ola`, `## Mutación`,
+  `## Excluir de la review` y `## Recursos compartidos` van en el header, antes de la primera tarea: `task-brief` extiende la
   última tarea hasta el final del fichero.
 - Un plan que no cumple esto no rompe nada: `orchestrate` cae a secuencial y
   lo deja visible.
