@@ -7,7 +7,10 @@ description: Ejecuta planes de implementación multi-tarea: orquestador padre qu
 
 Orquestador padre: ejecutor fresco por tarea, contexto aislado (nunca
 hereda la sesión); el padre valida y decide, los hijos implementan.
-Narración mínima — el ledger y los resultados llevan el registro.
+Narración: un mensaje por ola (cierre con números) y uno por Ruling no
+obvio; nada por transición de tarea. Una notificación que no cambia el
+estado (duplicada, idle sin novedad) no se contesta. El ledger y los
+resultados llevan el resto.
 
 Rule and continue destilado de `subagent-driven-development/SKILL.md`
 (superpowers 7.0.0, MIT © 2025 Jesse Vincent).
@@ -79,9 +82,16 @@ Finding con premisa de librería/plataforma `[NO VERIFICADO]` ⇒ no entra en un
 MUTACIÓN sin score (`no disponible`/`parcial`) al ledger: `olas.md`. Fixes
 para Critical/Important; Minor al ledger, triaje en el final. Fix loop (máx 5 rondas por tarea,
 resume del executor, re-review acotada, breaker con adjudicación): `olas.md`.
-Plan-mandated o conflicto con el plan ⇒ Ruling del orquestador, ledgerizado
-antes de actuar (sin descartar el finding por estar mandado, sin fix contra
-el plan sin Ruling); doc/comment baratos, inline. Todo fix dispatch re-corre sus tests. Findings del final ⇒
+Plan-mandated o conflicto con el plan ⇒ lo decide el orquestador con un
+Ruling ledgerizado antes de actuar (sin descartar el finding por estar
+mandado, sin fix contra el plan sin Ruling). Si equivocarse cuesta caro,
+añade `PR-pendiente` al Ruling: sale en «Rulings I made» y en el PR para que
+lo vea el humano, sin parar la ola. Única regla de plan-mandated; `olas.md`
+remite aquí.
+Inline del padre, lista cerrada: comentario, doc, formato y rename sin
+cambio de comportamiento. Todo lo demás va a fix dispatch con re-review, o
+lleva un Ruling `inline — <qué> — <por qué no fue a dispatch>`; también tras
+la review final limpia. Todo fix dispatch re-corre sus tests. Findings del final ⇒
 UN fix subagent con la lista completa (una re-review, sin segunda ola).
 
 ## Olas
