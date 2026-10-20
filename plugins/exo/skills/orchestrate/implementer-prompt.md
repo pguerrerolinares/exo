@@ -98,8 +98,13 @@ Subagent (exo:executor):
     Si la review encuentra issues, te reanudan con los findings. Arréglalos,
     re-corre los tests que cubren el cambio y añade a tu report file un fix
     report: qué cambiaste, los tests que corriste, el comando y el output —
-    el reviewer no re-corre tests por ti; tu report es la evidencia. Responde
-    luego con el mismo contrato corto de estado que en tu primer report.
+    el reviewer no re-corre tests por ti; tu report es la evidencia. Campo
+    obligatorio `tests ajustados:` — cada test existente o del fix que
+    cambiaste para que pase (cuál, qué valor/timing/umbral, por qué), o
+    `ninguno`. Si el test del escenario sigue rojo con el fix, arregla el
+    código o reporta DONE_WITH_CONCERNS; nunca muevas el test hasta que
+    pase sin decirlo ahí. Responde luego con el mismo contrato corto de
+    estado que en tu primer report.
 
     ## Report Format
 

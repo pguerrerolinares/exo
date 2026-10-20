@@ -76,6 +76,16 @@ un finding plan-mandated o que choca con el texto del plan lo decide el humano.
 
 Una ronda = un fix + una re-review acotada; **máximo 5 por tarea**:
 
+- **Premisa antes del fix:** un finding con premisa `[NO VERIFICADO]` no entra
+  en el fix hasta que tú o un agente barato (haiku) la verifiquéis con un
+  comando: fuente o bytecode de la librería, o un test mínimo. Falsa ⇒
+  `Task N: parked — <finding> — Ruling: premisa falsa (<comando>)` al ledger
+  (no es adjudicar antes del tope: decide un comando, no tu juicio).
+  La re-review juzga «¿está atendido?», no si la premisa era verdad.
+- **Fix brief = findings + escenario de fallo reproducible** (entrada/estado →
+  salida esperada vs obtenida). Dicta el parche solo si es trivial: copiar la
+  receta del reviewer ata al executor a ella aunque el test siga rojo.
+
 - **Rondas 1-3: reanuda al executor original** con la ruta del review file y
   la lista de findings abiertos (su contexto sigue intacto). Si no puedes
   escribir a un subagente vivo, despacha uno fresco con el brief, el report
@@ -96,6 +106,13 @@ Una ronda = un fix + una re-review acotada; **máximo 5 por tarea**:
   ADDRESSED / NOT ADDRESSED y marca roturas nuevas solo en el diff del fix;
   una rotura nueva Critical/Important se suma a los abiertos; lo demás va al
   ledger como minor diferido, nunca alarga el loop. Modelo: tier bajo-medio.
+  Rondas 1-2: reanuda al mismo reviewer; reviewer fresco si la premisa de un
+  finding se discutió o es de librería/plataforma (el mismo tiende a dar por
+  bueno el arreglo de su propio error). Un `tests ajustados:` no vacío entra
+  como pregunta de la re-review, nunca como dato.
+- **Efecto visual u observable fuera del test** (UI, goldens, salida
+  renderizada): antes de aceptar el fix miras tú los artefactos antes/después
+  (composites, diff de goldens); un verde del test no lo cubre.
 - Tras cada ronda, ledger: `Task N: fix round R/5 (X addressed, Y open — <findings>; commits a7..b7)`.
 - El padre nunca arregla findings él mismo: su contexto queda para coordinar y
   un fix del controller se salta la review.

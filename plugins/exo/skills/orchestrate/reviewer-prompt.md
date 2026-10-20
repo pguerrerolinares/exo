@@ -67,7 +67,11 @@ Subagent (general-purpose):
     Lee su report: [REPORT_FILE]
 
     [Solo en re-review acotada: la review anterior está en
-    [PREV_REVIEW_FILE]; sus findings abiertos son los que verdictas.]
+    [PREV_REVIEW_FILE]; sus findings abiertos son los que verdictas.
+    Además responde siempre, con file:line: (1) ¿qué entrada que el fix no
+    contempla rompe el invariante que toca? (2) por cada línea de
+    `tests ajustados:` del fix report, ¿el ajuste esconde una regresión o
+    corrige un test mal planteado?]
 
     ## Diff bajo revisión
 
@@ -100,6 +104,13 @@ Subagent (general-purpose):
 
     Trata el report del implementer como claims sin verificar — puede
     estar incompleto o ser optimista. Verifica cada claim contra el diff.
+
+    Lo mismo vale para tus propias afirmaciones sobre una librería o la
+    plataforma (un default, un orden de eventos, qué lanza una API): leer
+    el diff no las verifica. Marca cada una `[VERIFICADO: cómo]` (fuente,
+    bytecode, test o comando que corriste) o `[NO VERIFICADO]`. Un finding
+    que descansa en una premisa `[NO VERIFICADO]` no se arregla hasta que
+    el orquestador la verifique.
     Las justificaciones de diseño ("lo dejé así por YAGNI", "lo mantuve
     simple a propósito") son claims también: el implementer calificando su
     propio trabajo. Juzga el código por sus méritos — una justificación
@@ -213,7 +224,8 @@ Subagent (general-purpose):
     - Conteo: C=<n> I=<n> M=<n>
     - Una línea por Critical e Important: severidad, título, file:line
     - En re-review acotada: una línea por finding previo, ADDRESSED |
-      NOT ADDRESSED
+      NOT ADDRESSED, y la respuesta a las preguntas fijas de la re-review
+    - Los findings con premisa `[NO VERIFICADO]`, marcados así
     - El path de [REVIEW_FILE]
 
     ## Calibración
@@ -243,8 +255,10 @@ Subagent (general-purpose):
     #### Important (Should Fix)
     #### Minor (Nice to Have)
 
-    Por cada issue: file:line, qué falla, por qué importa, cómo
-    arreglarlo (si no es obvio).
+    Por cada issue: file:line, qué falla, el escenario que lo dispara
+    (entrada o estado concreto → salida o fallo), por qué importa y, si la
+    premisa es de librería o plataforma, su marca `[VERIFICADO: cómo]` o
+    `[NO VERIFICADO]`. Propón parche solo si es trivial.
 
     ### Assessment
 
