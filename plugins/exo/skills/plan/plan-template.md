@@ -23,6 +23,25 @@ cada tarea. Destilado de `writing-plans/SKILL.md` (superpowers 6.4.2, MIT ©
 - [requisito project-wide, valores exactos verbatim de la spec, una línea
   cada uno; toda tarea los hereda]
 
+## Setup del worktree
+
+[Comandos literales que deja un worktree recién creado listo para correr
+tests (instalar dependencias, generar código). Omite la sección si no hace
+falta nada.]
+
+## Cierre de ola
+
+[Comandos literales, uno por stack, que componen la «suite completa» de
+este repo: unit, generadores, e2e. Lo que no esté aquí no se corre al cerrar
+una ola.]
+- `comando stack 1` → verde = [qué output]
+- `comando e2e` → verde = [qué output]
+
+## Recursos compartidos
+
+[Locks, puertos, dispositivos, BD destructiva, config git: qué es
+compartido entre worktrees y qué tarea lo toca. «ninguno» si no hay.]
+
 ## Olas
 
 [Orientativa: las olas reales las calcula `orchestrate/scripts/task-dag` desde
@@ -70,5 +89,8 @@ que fija la spec. Si no hay, omite el campo.]
   por firma; M entero, obligatorio en Consumes.
 - El encabezado es `### Task N: <nombre>` con N entero; `task-brief` extrae
   por él.
+- `## Setup del worktree`, `## Cierre de ola` y `## Recursos compartidos`
+  van en el header, antes de la primera tarea: `task-brief` extiende la
+  última tarea hasta el final del fichero.
 - Un plan que no cumple esto no rompe nada: `orchestrate` cae a secuencial y
   lo deja visible.

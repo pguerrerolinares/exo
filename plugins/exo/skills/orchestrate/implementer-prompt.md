@@ -35,7 +35,11 @@ Subagent (exo:executor):
        Interfaces, Tests, Verificación, Review Focus, Notas): **tú escribes el cuerpo**
        de los tests y del código, con las firmas y aserciones del brief.
     2. Escribe primero los tests del brief y velos fallar (`exo:tdd`); solo te
-       los saltas si el brief dice `Tests: n/a`.
+       los saltas si el brief dice `Tests: n/a`. RED válido = el test falla
+       en su aserción, y citas el mensaje. Un fallo de import, compilación de
+       dependencias o entorno (worktree sin instalar) no es RED: arregla el
+       entorno con el Setup del plan y vuelve a correr; si no puedes,
+       BLOCKED.
     3. Verifica que funciona.
     4. Commitea — salvo que [COMMIT_POLICY] diga que no (ola en el mismo
        worktree: no commitees, el orquestador commitea por tarea).
@@ -55,7 +59,9 @@ Subagent (exo:executor):
     commitear, no tras cada edición. Si es `no commitees`: solo los tests de
     tu tarea; la suite completa la corre el orquestador tras commitear todas
     las tareas de la ola; aquí el verde de suite lo declara el orquestador, no
-    tú. Toca solo los `Files` de tu tarea.
+    tú. Toca solo los `Files` de tu tarea. Nunca cambies estado compartido
+    entre worktrees: config git (`git config` sin `--worktree`, hooks),
+    locks, puertos o BD de otros; si la tarea lo necesita, BLOCKED.
 
     ## Cuando estás en apuros
 
