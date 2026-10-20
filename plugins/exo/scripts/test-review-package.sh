@@ -619,6 +619,10 @@ plan_mut '- `android`: `echo 3/4`' '- `web`: manual'
 mkrepo dmix web/package.json web/src/a.ts android/src/main/Foo.kt; r=$REPO
 corre "$r" "$DSP"
 if contains "$OUT" "MUTACIÓN: 3/4 (75%) — 0 superviviente(s); 1 proyecto(s) sin score" && contains "$OUT" "MUTACIÓN [web]: manual (protocolo del report)"; then pass manual_mezclado; else fail manual_mezclado "$(seccion)"; fi
+plan_mut '- `android`: `echo 08/10`'
+mkrepo doct "" android/src/main/Foo.kt; r=$REPO
+corre "$r" "$DSP"
+if [ "$RC" = 0 ] && contains "$OUT" "MUTACIÓN [android]: 8/10 (80%)" && contains "$OUT" "MUTACIÓN: 8/10 (80%)"; then pass declarado_ceros_a_la_izquierda; else fail declarado_ceros_a_la_izquierda "rc=$RC $(seccion)"; fi
 plan_mut
 }
 
