@@ -39,6 +39,12 @@ los recalcules a mano. Además:
 - **Cierre de ola**: copia los comandos de `## Cierre de ola` del plan a la
   cabecera del ledger. Sin esa sección ⇒ Ruling que la define (comandos
   literales por stack, e2e incluido) antes de la ola 1; nunca de memoria.
+- **Mutación**: una fila por stack del plan, `Mutación: <dir> → <comando> |
+  manual | autodetect (<herramienta>)`, sacada de `## Mutación` y de lo que
+  `review-package` autodetecta. Stack sin ninguna de las dos ⇒ Ruling
+  `manual`. Las tareas de un stack `manual` reciben en `[Encaje]` «mutación
+  manual: tabla en el report». Es el único sitio donde se dice que no hay
+  instrumento: no se repite por review.
 - **Recursos compartidos**: una fila con la sección del plan (locks, puertos,
   dispositivos, BD destructiva, config git). Dos tareas de la misma ola sobre
   el mismo recurso ⇒ secuenciales o Ruling.
@@ -170,6 +176,33 @@ por proyecto. Las tres herramientas mutan solo las líneas del diff: cargo con
 `fichero:inicio-fin` por hunk. Un diff que solo borra líneas da `no disponible`
 sin llamar a la herramienta; `mutmut` 3.x siempre da `no disponible` (no acota
 por CLI).
+
+**Mutación declarada en el plan** (`## Mutación`): un fichero del diff bajo
+un `<dir>` declarado va a esa declaración con cualquier extensión (gana el
+`<dir>` más largo; declaración > autodetección). El comando corre en el
+worktree temporal, en `<dir>`, bajo el mismo timeout, con `EXO_MUT_BASE`,
+`EXO_MUT_HEAD` y `EXO_MUT_FILES` (rutas relativas a `<dir>`, una por línea).
+Score = la última línea de stdout `cazados/total`, sea cual sea el exit code;
+las líneas `SUPERVIVIENTE: …` van al detalle. Sin esa línea, `no disponible
+(comando declarado: exit N, …)`; timeout, `parcial`. `manual` no ejecuta nada
+y sale `manual (protocolo del report)`. Los tests Gradle (`src/test/`,
+`src/androidTest/`) no cuentan como producción. Esquema para pitest
+(gradle-pitest-plugin), `[NO VERIFICADO]` contra un proyecto real: supone
+que el `build.gradle` lee la propiedad, p. ej.
+`targetClasses = (findProperty('pitest.targetClasses') ?: '*').split(',')`:
+
+```bash
+#!/usr/bin/env bash
+# scripts/pitest-diff.sh: muta solo las clases tocadas e imprime cazados/total
+clases=$(printf '%s\n' "$EXO_MUT_FILES" | sed -n 's#^src/main/\(java\|kotlin\)/##p' \
+  | sed 's#\.\(kt\|java\)$##; s#/#.#g' | paste -sd, -)
+[ -n "$clases" ] || { echo 0/0; exit 0; }
+./gradlew -q pitest -Ppitest.targetClasses="$clases" || true
+x=build/reports/pitest/mutations.xml
+c=$(grep -c "detected='true'" "$x"); t=$(grep -c '<mutation ' "$x")
+grep "detected='false'" "$x" | sed 's/.*<sourceFile>\([^<]*\).*<lineNumber>\([0-9]*\).*/SUPERVIVIENTE: \1:\2/'
+echo "$c/$t"
+```
 
 `EXO_MUTATION_MUTANT_TIMEOUT` (60 s por defecto; inválido avisa y usa 60) es el
 timeout por mutante y aplica SOLO a mutmut: mutmut 2.5.1 no tiene timeout

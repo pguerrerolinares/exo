@@ -22,6 +22,10 @@
 # conserva su timeout por defecto (no se pasa --timeoutMS). EXO_MUTATION_EXCLUDE=<pathspecs
 # separados por COMAS> quita ficheros del conjunto a mutar (vacío por defecto), p. ej.
 # 'alembic/versions/**,*_pb2.py'. mutmut y stryker mutan SOLO las líneas del diff.
+# El PLAN puede declarar el instrumento por directorio (sección `## Mutación`, antes de
+# la primera `### Task`): `- \`<dir>\`: \`<cmd>\`` o `- \`<dir>\`: manual`. El comando corre
+# en el worktree temporal, en <dir>, con EXO_MUT_BASE/EXO_MUT_HEAD/EXO_MUT_FILES, y su score
+# es la última línea `cazados/total` de stdout (SUPERVIVIENTE: <detalle> = superviviente).
 # EXO_MUTATION_SAMPLE=<N> (150 por defecto; 0 lo desactiva; inválido = aviso + 150) y
 # EXO_MUTATION_SEED=<s> (20260929 por defecto): SOLO mutmut 2.x. Si el diff genera más de
 # N mutantes se mide una muestra aleatoria de N (sin reemplazo, semilla fija) con IC95 de
@@ -339,16 +343,17 @@ mut_uno() {
   return 0
 }
 mut_uno_() {
-  local root=$1 dir=$2 eco=$3 segs=$4 files=$5 pd tmp raw res="" rc=0 f det="" tot="" sup="" ud sha wterr blfail=0
+  local root=$1 dir=$2 eco=$3 segs=$4 files=$5 pd tmp raw res="" rc=0 f det="" tot="" sup="" ud sha wterr blfail=0 files_rel=
   R_TEXT=""; R_DET=""; R_TOT=""; R_N=0; R_DETALLE=""; R_NOTA=""
   ud="$root"; [ "$dir" != "." ] && ud="$root/$dir"
 
   case "$eco" in
     rust)   command -v cargo-mutants >/dev/null 2>&1 || { R_TEXT="no disponible (cargo-mutants no instalado)"; return 0; } ;;
     python) command -v mutmut >/dev/null 2>&1 || { R_TEXT="no disponible (mutmut no instalado)"; return 0; } ;;
+    decl)   ;;
     js)     { command -v npx >/dev/null 2>&1 && git show "${head}:$([ "$dir" = . ] || printf '%s/' "$dir")package.json" 2>/dev/null | grep -q stryker; } || { R_TEXT="no disponible (stryker no instalado)"; return 0; } ;;
   esac
-  if [ "$eco" != python ]; then
+  if [ "$eco" != python ] && [ "$eco" != decl ]; then
     command -v jq >/dev/null 2>&1 || { R_TEXT="no disponible (jq no instalado)"; return 0; }
   fi
 
@@ -370,8 +375,39 @@ mut_uno_() {
     [ -n "$f" ] || continue
     if [ "$dir" = "." ]; then rel+=("$f"); else rel+=("${f#"$dir"/}"); fi
   done <<< "$files"
+  files_rel=$(printf '%s\n' "${rel[@]}")
 
   case "$eco" in
+    decl)
+      # Comando declarado por el plan: el score es la última línea `c/t` de stdout, sea cual
+      # sea el exit (pitest sale != 0 bajo umbral). stderr aparte: no contamina el score.
+      local bsha sc surv ns
+      bsha=$(git rev-parse "$base")
+      ( cd "$pd" && export EXO_MUT_BASE="$bsha" EXO_MUT_HEAD="$sha" EXO_MUT_FILES="$files_rel" \
+          && con_timeout "$segs" bash -c "$MUT_CMD" ) > "$raw" 2> "$tmp/err.txt" || rc=$?
+      if [ "$rc" = 124 ]; then R_TEXT="parcial (timeout ${segs}s)"; return 0; fi
+      sc=$(tr -d '\r' < "$raw" | grep -E '^[0-9]+/[0-9]+$' | tail -n 1 || true)
+      if [ -z "$sc" ]; then
+        R_TEXT="no disponible (comando declarado: exit ${rc}, sin línea cazados/total)"
+        R_DETALLE=$(mut_tail "$raw" "$tmp/err.txt")
+        return 0
+      fi
+      R_DET=$((10#${sc%/*})); R_TOT=$((10#${sc#*/}))
+      surv=$(tr -d '\r' < "$raw" | grep '^SUPERVIVIENTE: ' || true)
+      R_N=$(printf '%s' "$surv" | grep -c . || true)
+      if [ "$R_TOT" -eq 0 ]; then
+        R_DET=""; R_TOT=""; R_TEXT="no disponible (0 mutantes generados)"; return 0
+      fi
+      if [ "$R_DET" -gt "$R_TOT" ]; then
+        R_DET=""; R_TOT=""; R_TEXT="no disponible (comando declarado: score ${sc} incoherente)"; return 0
+      fi
+      R_TEXT="${R_DET}/${R_TOT} ($((R_DET * 100 / R_TOT))%) — ${R_N} superviviente(s)"
+      if [ -n "$surv" ]; then
+        ns=$(printf '%s\n' "$surv" | head -n 30 | sed 's/^/- /')
+        R_DETALLE="Supervivientes:"$'\n'"$ns"
+      fi
+      return 0
+      ;;
     rust)
       # --in-diff acota a las líneas cambiadas (el score no se diluye con código intacto).
       # Paths relativos a la RAÍZ DEL WORKSPACE (no al crate): así cargo-mutants los
@@ -502,6 +538,26 @@ mut_uno_() {
   return 0
 }
 
+# Declaraciones del plan (global DECLS, "dir<TAB>cmd" por línea).
+# mut_decl_de FICHERO -> dir declarado más largo que contiene al fichero (prefijo por
+# componente: `android` no casa con `android2/`); `.` casa con todo y es el de menor rango.
+mut_decl_de() {
+  local f=$1 d c best=""
+  while IFS=$'\t' read -r d c; do
+    [ -n "$d" ] || continue
+    if [ "$d" = "." ]; then [ -z "$best" ] && best="."; continue; fi
+    [[ "$f" == "$d"/* ]] || continue
+    if [ -z "$best" ] || [ "$best" = "." ] || [ "${#d}" -gt "${#best}" ]; then best=$d; fi
+  done <<< "$DECLS"
+  printf '%s' "$best"
+}
+mut_decl_cmd() {
+  local d c
+  while IFS=$'\t' read -r d c; do
+    [ "$d" = "$1" ] && { printf '%s' "$c"; return 0; }
+  done <<< "$DECLS"
+}
+
 mutacion() {
   local head=$1 segs root f pr keys="" files_of="" any_manifest cand=0
   if [ "${EXO_MUTATION:-1}" = "0" ]; then
@@ -528,17 +584,43 @@ mutacion() {
     [ -n "$ex" ] && excl+=(":(top,exclude)$ex")
   done
 
+  # Declaraciones del plan (`## Mutación`): DECLS = "dir<TAB>cmd|manual" por línea.
+  DECLS=""
+  # shellcheck disable=SC2016 # los backticks de la regex van literales
+  local ln insec=0 d c re='^-[[:space:]]+`([^`]+)`:[[:space:]]+(`([^`]+)`|manual)[[:space:]]*$'
+  while IFS= read -r ln || [ -n "$ln" ]; do
+    ln=${ln%$'\r'}
+    if [ "$insec" = 0 ]; then
+      [[ "$ln" =~ ^##[[:space:]]+Mutación[[:space:]]*$ ]] && insec=1
+      continue
+    fi
+    [[ "$ln" =~ ^#{1,3}[[:space:]] ]] && break
+    [[ "$ln" =~ ^[[:space:]]*$ ]] && continue
+    if [[ "$ln" =~ $re ]]; then
+      d=${BASH_REMATCH[1]}; c=${BASH_REMATCH[3]:-manual}
+      case "$d" in
+        /*|*/|./*) MUT_AVISO="${MUT_AVISO:+$MUT_AVISO; }declaración de mutación ignorada (dir debe ser relativo a la raíz y sin barra final): ${ln}"; continue ;;
+      esac
+      DECLS="${DECLS}${d}"$'\t'"${c}"$'\n'
+    else
+      MUT_AVISO="${MUT_AVISO:+$MUT_AVISO; }declaración de mutación ignorada (formato: - \`dir\`: \`cmd\` o manual): ${ln}"
+    fi
+  done < "$plan"
+
   # Ficheros de producción del diff (añadidos/modificados/renombrados), sin tests,
   # agrupados por proyecto (manifest más cercano) y ecosistema.
   while IFS= read -r f; do
     [ -n "$f" ] || continue
-    case "$f" in
-      *.rs|*.py|*.js|*.jsx|*.mjs|*.cjs|*.ts|*.tsx) ;;
-      *) continue ;;
-    esac
-    printf '%s\n' "$f" | grep -Eq '(^|/)(tests?|__tests__|testdata|fixtures)/|(^|/)test_[^/]*$|_tests?\.[^/]*$|\.(test|spec)\.[^/]*$|(^|/)(conftest\.py|tests\.rs)$' && continue
+    pr=$(mut_decl_de "$f")
+    if [ -z "$pr" ]; then
+      case "$f" in
+        *.rs|*.py|*.js|*.jsx|*.mjs|*.cjs|*.ts|*.tsx) ;;
+        *) continue ;;
+      esac
+    fi
+    printf '%s\n' "$f" | grep -Eq '(^|/)(tests?|__tests__|testdata|fixtures)/|(^|/)src/(test|androidTest)/|(^|/)test_[^/]*$|_tests?\.[^/]*$|\.(test|spec)\.[^/]*$|(^|/)(conftest\.py|tests\.rs)$' && continue
     cand=$((cand + 1))
-    pr=$(mut_proyecto_de "$f" "$head")
+    if [ -n "$pr" ]; then pr="$pr|decl"; else pr=$(mut_proyecto_de "$f" "$head"); fi
     [ -n "$pr" ] || continue
     case "
 $keys
@@ -556,7 +638,7 @@ $pr" ;;
 
   if [ "$cand" -eq 0 ]; then
     any_manifest=$(git ls-tree -r --name-only "$head" | grep -E '(^|/)(Cargo\.toml|pyproject\.toml|setup\.py|package\.json)$' | head -n 1 || true)
-    if [ -z "$any_manifest" ]; then
+    if [ -z "$any_manifest" ] && [ -z "$DECLS" ]; then
       echo "MUTACIÓN: no disponible (sin herramienta para este repo)"
     else
       echo "MUTACIÓN: no disponible (diff sin código de producción)"
@@ -568,15 +650,21 @@ $pr" ;;
   fi
 
   local -a lineas=() detalles=()
-  local sdet=0 stot=0 sn=0 nscored=0 nparcial=0 nnodisp=0 nmuestra=0 k dir eco fl nombre multi=0 nproy
+  local sdet=0 stot=0 sn=0 nscored=0 nparcial=0 nnodisp=0 nmuestra=0 nmanual=0 k dir eco fl nombre multi=0 nproy
   nproy=$(printf '%s\n' "$keys" | grep -c .)
   if [ "$nproy" -gt 1 ] || [ "${keys%%|*}" != "." ]; then multi=1; fi
   while IFS= read -r k; do
     [ -n "$k" ] || continue
     dir=${k%|*}; eco=${k#*|}
     fl=$(printf '%s' "$files_of" | awk -F'\t' -v k="$k" '$1 == k { print $2 }')
-    mut_uno "$root" "$dir" "$eco" "$segs" "$fl"
     nombre=$dir; [ "$dir" = "." ] && nombre="raíz"
+    if [ "$eco" = decl ]; then
+      MUT_CMD=$(mut_decl_cmd "$dir")
+      if [ "$MUT_CMD" = manual ]; then
+        lineas+=("MUTACIÓN [${nombre}]: manual (protocolo del report)"); nmanual=$((nmanual + 1)); continue
+      fi
+    fi
+    mut_uno "$root" "$dir" "$eco" "$segs" "$fl"
     [ -n "$R_NOTA" ] && case "$R_NOTA" in
       "muestreo no disponible"*) R_TEXT="${R_TEXT} (${R_NOTA}; corrida completa)" ;;
       *) R_TEXT="${R_TEXT} (${R_NOTA})" ;;
@@ -598,9 +686,11 @@ $pr" ;;
     echo "MUTACIÓN: ${lineas[0]#*: }"
   elif [ "$nscored" -gt 0 ]; then
     local extra=""
-    [ $((nparcial + nnodisp + nmuestra)) -gt 0 ] && extra="; $((nparcial + nnodisp + nmuestra)) proyecto(s) sin score"
+    [ $((nparcial + nnodisp + nmuestra + nmanual)) -gt 0 ] && extra="; $((nparcial + nnodisp + nmuestra + nmanual)) proyecto(s) sin score"
     [ "$nmuestra" -gt 0 ] && extra="${extra} (${nmuestra} muestreado(s), aparte)"
     echo "MUTACIÓN: ${sdet}/${stot} ($((sdet * 100 / stot))%) — ${sn} superviviente(s)${extra}"
+  elif [ "$nmanual" -eq "$nproy" ]; then
+    echo "MUTACIÓN: manual (protocolo del report)"
   elif [ "$nmuestra" -gt 0 ]; then
     echo "MUTACIÓN: muestreado (ver proyectos)"
   elif [ "$nparcial" -gt 0 ]; then

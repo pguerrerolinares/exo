@@ -37,6 +37,16 @@ una ola.]
 - `comando stack 1` → verde = [qué output]
 - `comando e2e` → verde = [qué output]
 
+## Mutación
+
+[Instrumento de mutación por directorio, para lo que `review-package` no
+autodetecta (cargo-mutants, mutmut 2.x, stryker). Un comando que imprime
+`cazados/total` en su última línea, o `manual` si el stack no tiene
+instrumento: entonces el executor declara la tabla de mutación manual en su
+report. Omite la sección si todo se autodetecta.]
+- `android`: `./scripts/pitest-diff.sh`
+- `web`: manual
+
 ## Recursos compartidos
 
 [Locks, puertos, dispositivos, BD destructiva, config git: qué es
@@ -87,10 +97,13 @@ que fija la spec. Si no hay, omite el campo.]
 - Files: `Create|Modify|Test: <path>`, un path por bullet, entre backticks.
 - Interfaces: `Produces: <firma>` y `Consumes: <firma> @Task M`, un bullet
   por firma; M entero, obligatorio en Consumes.
+- Mutación: `` - `<dir>`: `<comando>` `` o `` - `<dir>`: manual ``; `<dir>`
+  relativo a la raíz, `.` = raíz (toma cualquier extensión: acompáñalo de
+  `EXO_MUTATION_EXCLUDE`). Una línea mal formada sale como aviso en el package.
 - El encabezado es `### Task N: <nombre>` con N entero; `task-brief` extrae
   por él.
-- `## Setup del worktree`, `## Cierre de ola` y `## Recursos compartidos`
-  van en el header, antes de la primera tarea: `task-brief` extiende la
+- `## Setup del worktree`, `## Cierre de ola`, `## Mutación` y
+  `## Recursos compartidos` van en el header, antes de la primera tarea: `task-brief` extiende la
   última tarea hasta el final del fichero.
 - Un plan que no cumple esto no rompe nada: `orchestrate` cae a secuencial y
   lo deja visible.

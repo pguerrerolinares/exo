@@ -43,7 +43,12 @@ Subagent (exo:executor):
     3. Verifica que funciona.
     4. Commitea — salvo que [COMMIT_POLICY] diga que no (ola en el mismo
        worktree: no commitees, el orquestador commitea por tarea).
-    5. Self-review (ver abajo).
+    5. Self-review (ver abajo). Si [Encaje] dice «mutación manual», añade
+       al report una tabla `línea mutada → test que cae`: por cada línea
+       crítica (las de Review Focus y cada guarda o rama nueva), invierte o
+       quita la condición, corre los tests y apunta cuál cae; restaura
+       después. Una línea sin test que caiga es un hueco: arréglalo o
+       decláralo.
     6. Reporta.
 
     Si te desvías del contrato (una firma, una aserción, incluso un test
