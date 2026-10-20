@@ -587,15 +587,8 @@ mutacion() {
   # Declaraciones del plan (`## Mutación`): DECLS = "dir<TAB>cmd|manual" por línea.
   DECLS=""
   # shellcheck disable=SC2016 # los backticks de la regex van literales
-  local ln insec=0 d c re='^-[[:space:]]+`([^`]+)`:[[:space:]]+(`([^`]+)`|manual)[[:space:]]*$'
-  while IFS= read -r ln || [ -n "$ln" ]; do
-    ln=${ln%$'\r'}
-    if [ "$insec" = 0 ]; then
-      [[ "$ln" =~ ^##[[:space:]]+Mutación[[:space:]]*$ ]] && insec=1
-      continue
-    fi
-    [[ "$ln" =~ ^#{1,3}[[:space:]] ]] && break
-    [[ "$ln" =~ ^[[:space:]]*$ ]] && continue
+  local ln d c re='^-[[:space:]]+`([^`]+)`:[[:space:]]+(`([^`]+)`|manual)[[:space:]]*$'
+  while IFS= read -r ln; do
     if [[ "$ln" =~ $re ]]; then
       d=${BASH_REMATCH[1]}; c=${BASH_REMATCH[3]:-manual}
       case "$d" in
@@ -605,7 +598,7 @@ mutacion() {
     else
       MUT_AVISO="${MUT_AVISO:+$MUT_AVISO; }declaración de mutación ignorada (formato: - \`dir\`: \`cmd\` o manual): ${ln}"
     fi
-  done < "$plan"
+  done < <(plan_seccion Mutación)
 
   # Ficheros de producción del diff (añadidos/modificados/renombrados), sin tests,
   # agrupados por proyecto (manifest más cercano) y ecosistema.
@@ -703,6 +696,49 @@ $pr" ;;
   return 0
 }
 
+# plan_seccion NOMBRE -> líneas no vacías de la sección `## NOMBRE` del plan,
+# hasta la siguiente cabecera de nivel 1-3.
+plan_seccion() {
+  local ln insec=0 re="^##[[:space:]]+$1[[:space:]]*\$"
+  while IFS= read -r ln || [ -n "$ln" ]; do
+    ln=${ln%$'\r'}
+    if [ "$insec" = 0 ]; then
+      [[ "$ln" =~ $re ]] && insec=1
+      continue
+    fi
+    [[ "$ln" =~ ^#{1,3}[[:space:]] ]] && break
+    [[ "$ln" =~ ^[[:space:]]*$ ]] && continue
+    printf '%s\n' "$ln"
+  done < "$plan"
+}
+
+# Exclusiones del diff (`## Excluir de la review`): EXCL_SPECS (pathspecs git),
+# EXCL_HEAD (cabecera con los ficheros excluidos, vacía si no hay) y EXCL_AVISO.
+EXCL_SPECS=(); EXCL_HEAD=""; EXCL_AVISO=""
+excluir_del_plan() {
+  local ln all kept gone n
+  # shellcheck disable=SC2016 # los backticks de la regex van literales
+  local re='^-[[:space:]]+`([^`]+)`[[:space:]]*$'
+  while IFS= read -r ln; do
+    if [[ "$ln" =~ $re ]]; then
+      ln=${BASH_REMATCH[1]}
+      # Con glob, `*` no cruza `/`: sin barra se comporta como gitignore (cualquier profundidad).
+      case "$ln" in */*) ;; *) ln="**/$ln" ;; esac
+      EXCL_SPECS+=(":(top,exclude,glob)$ln")
+    else
+      EXCL_AVISO="${EXCL_AVISO:+$EXCL_AVISO; }línea ignorada (formato: - \`pathspec\`): ${ln}"
+    fi
+  done < <(plan_seccion "Excluir de la review")
+  [ "${#EXCL_SPECS[@]}" -gt 0 ] || return 0
+  all=$(git -c core.quotepath=off diff --name-only "${base}..${head}" -- ':(top)')
+  kept=$(git -c core.quotepath=off diff --name-only "${base}..${head}" -- ':(top)' "${EXCL_SPECS[@]}")
+  gone=$(printf '%s\n' "$all" | grep -vxF -f <(printf '%s\n' "$kept") | grep -v '^$' || true)
+  [ -n "$gone" ] || return 0
+  n=$(printf '%s\n' "$gone" | wc -l | tr -d ' ')
+  EXCL_HEAD="[excluido: ${n} ficheros]"$'\n'"$(printf '%s\n' "$gone" | head -n 50 | sed 's/^/- /')"
+  [ "$n" -le 50 ] || EXCL_HEAD="${EXCL_HEAD}"$'\n'"- … ($((n - 50)) más)"
+}
+
 # _timeout.sh vive en plugins/exo/scripts (tres niveles por encima de este script).
 _ts="$(cd "$(dirname "$0")" && pwd)/../../../scripts/_timeout.sh"
 # shellcheck source=/dev/null
@@ -714,15 +750,18 @@ trap 'exit 130' INT
 
 {
   echo "# Review package: ${base}..${head}"
+  excluir_del_plan
+  [ -z "$EXCL_HEAD" ] || printf '%s\n' "$EXCL_HEAD"
+  [ -z "$EXCL_AVISO" ] || echo "[excluido aviso: ${EXCL_AVISO}]"
   echo
   echo "## Commits"
   git log --oneline "${base}..${head}"
   echo
   echo "## Files changed"
-  git diff --stat "${base}..${head}"
+  git diff --stat "${base}..${head}" ${EXCL_SPECS[@]+-- ":(top)" "${EXCL_SPECS[@]}"}
   echo
   echo "## Diff"
-  git diff -U10 "${base}..${head}"
+  git diff -U10 "${base}..${head}" ${EXCL_SPECS[@]+-- ":(top)" "${EXCL_SPECS[@]}"}
   echo
   echo "## MUTACIÓN"
   mutacion "$head" || echo "MUTACIÓN: no disponible (error interno)"

@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Recoge los `Ruling:` del ledger de una orquestación para el cierre: una línea
+# numerada por ruling (en orden), con ⚠ los que llevan PR-pendiente, y un
+# resumen en la primera línea. Ignora bloques ``` fenced.
+#
+# Usage: rulings-collect LEDGER
+set -euo pipefail
+
+if [ $# -ne 1 ]; then
+  echo "usage: rulings-collect LEDGER" >&2
+  exit 2
+fi
+[ -f "$1" ] || { echo "no such ledger: $1" >&2; exit 2; }
+
+awk '
+  /^[[:space:]]*```/ { fence = !fence; next }
+  fence || index($0, "Ruling:") == 0 { next }
+  {
+    n++
+    sub(/^[[:space:]]+/, "")
+    mark = ""
+    if (index($0, "PR-pendiente")) { p++; mark = "⚠ " }
+    lines[n] = n ". " mark $0
+  }
+  END {
+    if (n == 0) { print "Rulings: 0"; exit }
+    printf "Rulings: %d (%d PR-pendiente)\n", n, p
+    for (i = 1; i <= n; i++) print lines[i]
+  }
+' "$1"

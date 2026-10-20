@@ -29,15 +29,37 @@
 # Single source of truth for the workspace location, so task-brief and
 # review-package cannot drift to different directories.
 #
+# `close` cierra la orquestación del plan: archiva progress.md/final-review.md fuera
+# del repo, limpia los worktrees y ramas de tarea ya integrados en HEAD y borra el
+# workspace de ESTE plan (nunca .superpowers/sdd/ entero ni sus hermanos). Sin --force:
+# lo sucio o sin integrar se queda y el exit es 1.
+#
 # Usage: sdd-workspace PLAN_FILE
+#        sdd-workspace close PLAN_FILE [--archive DIR] [--prefix PREFIJO]
 set -euo pipefail
 
-if [ $# -ne 1 ]; then
-  echo "usage: sdd-workspace PLAN_FILE" >&2
-  exit 2
+close=0
+if [ "${1:-}" = close ]; then
+  close=1; shift
+  archive="${EXO_SDD_ARCHIVE:-$HOME/.local/share/exo/sdd-archive}"; archive_set=0
+  prefix=task/
+  plan=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --archive) [ $# -ge 2 ] || { echo "--archive necesita DIR" >&2; exit 2; }; archive=$2; archive_set=1; shift 2 ;;
+      --prefix)  [ $# -ge 2 ] || { echo "--prefix necesita PREFIJO" >&2; exit 2; }; prefix=$2; shift 2 ;;
+      *) [ -z "$plan" ] || { echo "usage: sdd-workspace close PLAN_FILE [--archive DIR] [--prefix PREFIJO]" >&2; exit 2; }
+         plan=$1; shift ;;
+    esac
+  done
+  [ -n "$plan" ] || { echo "usage: sdd-workspace close PLAN_FILE [--archive DIR] [--prefix PREFIJO]" >&2; exit 2; }
+else
+  if [ $# -ne 1 ]; then
+    echo "usage: sdd-workspace PLAN_FILE" >&2
+    exit 2
+  fi
+  plan=$1
 fi
-
-plan=$1
 [ -f "$plan" ] || { echo "no such plan file: $plan" >&2; exit 2; }
 
 slug=$(basename "$plan" .md)
@@ -64,7 +86,10 @@ esac
 # marker must name this plan; a missing marker means a new workspace or a
 # pre-marker legacy one, and either way the plan claims it by writing one.
 owns() {
-  if [ -e "$1/plan-path" ]; then
+  if [ "$close" = 1 ]; then
+    [ -d "$1" ] || { echo "sin workspace para el plan: $plan" >&2; exit 2; }
+    [ ! -e "$1/plan-path" ] || [ "$(cat "$1/plan-path")" = "$plan_id" ]
+  elif [ -e "$1/plan-path" ]; then
     [ "$(cat "$1/plan-path")" = "$plan_id" ]
   else
     mkdir -p "$1"
@@ -81,6 +106,74 @@ if ! owns "$dir"; then
     while ! owns "$base/$slug-$parent-$n"; do n=$((n + 1)); done
     dir="$base/$slug-$parent-$n"
   fi
+fi
+
+if [ "$close" = 1 ]; then
+  slug=$(basename "$dir")
+  pending=0
+
+  common=$(CDPATH='' cd -- "$(git rev-parse --git-common-dir)" && pwd -P)
+  repo_name=$(basename "$(dirname "$common")")
+  [ "$archive_set" = 1 ] || archive="$archive/$repo_name"
+
+  archived_ok=1
+  # archivar SRC SUFIJO -> copia sin sobrescribir nunca (-2, -3…) y verifica el byte a byte
+  archivar() {
+    local dest n=1 stem day
+    day=$(date +%F); stem="$archive/$slug-$day-$2"
+    dest="$stem.md"
+    while [ -e "$dest" ]; do n=$((n + 1)); dest="$stem-$n.md"; done
+    if mkdir -p "$archive" && cp "$1" "$dest" && cmp -s "$1" "$dest"; then
+      echo "archivado: $(CDPATH='' cd -- "$archive" && pwd -P)/$(basename "$dest")"
+    else
+      echo "no archivado: $1" >&2; archived_ok=0
+    fi
+  }
+  if [ -f "$dir/progress.md" ]; then
+    archivar "$dir/progress.md" progress
+    [ ! -f "$dir/final-review.md" ] || archivar "$dir/final-review.md" final-review
+  else
+    echo "sin ledger que archivar"
+  fi
+
+  cur=$(git symbolic-ref -q --short HEAD || true)
+  declare -A wt_of=()
+  wpath=""
+  while IFS= read -r l; do
+    case "$l" in
+      "worktree "*) wpath=${l#worktree } ;;
+      "branch refs/heads/"*) wt_of["${l#branch refs/heads/}"]=$wpath ;;
+    esac
+  done < <(git worktree list --porcelain)
+
+  while IFS= read -r br; do
+    [ -n "$br" ] && [ "$br" != "$cur" ] || continue
+    if ! git merge-base --is-ancestor "$br" HEAD; then
+      echo "sin integrar (se queda): $br"; pending=1; continue
+    fi
+    wp=${wt_of[$br]:-}
+    if [ -n "$wp" ]; then
+      if err=$(git worktree remove "$wp" 2>&1); then
+        echo "worktree eliminado: $wp ($br)"
+      else
+        echo "no eliminado: $wp ($(printf '%s\n' "$err" | head -n 1))"; pending=1; continue
+      fi
+    fi
+    if err=$(git branch -d "$br" 2>&1); then
+      echo "rama borrada: $br"
+    else
+      echo "no eliminado: $br ($(printf '%s\n' "$err" | head -n 1))"; pending=1
+    fi
+  done < <(git for-each-ref --format='%(refname:short)' "refs/heads/${prefix}*")
+  git worktree prune
+
+  if [ "$archived_ok" = 1 ]; then
+    rm -rf -- "$dir"
+    echo "workspace borrado: $dir"
+  else
+    echo "workspace conservado (archivado fallido): $dir"; pending=1
+  fi
+  exit "$pending"
 fi
 
 # Create-only: a repo may commit its own .gitignore here (e.g. to version
