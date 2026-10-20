@@ -28,27 +28,40 @@ enteros verbatim; no resumes ni reescribes prosa.
 3. Evicción editorial. Pregunta por bloque: *¿qué párrafo ya no paga su sitio?*
    Candidatos: lo obvio, lo superado por una decisión posterior, el detalle de
    una iteración cuya conclusión ya está escrita, el ejemplo que repite el
-   texto. No toques `## For agents`, `## Reglas duras` ni decisiones vivas.
+   texto. No toques `## For agents` ni `## Reglas duras`. La edad no es motivo:
+   un bloque de hace meses puede llevar la decisión que sigue mandando.
+   **Test de salida, con cita literal o el bloque se queda:**
+   - *cerrado*: su propio texto lo declara terminado sin nada pendiente
+     («CERRADA», «MERGEADA», «descartado», «sustituido por»), o
+   - *superado*: otra línea del canon o de la bitácora lo sustituye; cítala.
+
+   Sin ninguna de las dos, se queda, y más aún si lleva una marca de decisión o
+   regla (`Decidido`, `decisión`, `regla`, `nunca`, `siempre`, `CUARENTENA`) o
+   describe un mecanismo en marcha (routine, hook, watchdog, cron, ledger,
+   instalación local). Un bloque que mezcla lo cerrado con una decisión viva
+   no se parte: se queda entero.
 4. Cada bloque que sale del canon va a `<wt>/.distill/<slug>-moved.md`,
    verbatim, bajo su propia cabecera `## AAAA-MM-DD — movido del canon: <tema
    concreto>` (una por bloque; nunca varios bajo una genérica). **No toques la
    bitácora ni crees notas**: main sigue haciendo append a la bitácora y dos
    appends en EOF conflictan en cada merge. En la rama solo cambian el canon y
    el sidecar.
-5. Si no llegas al 60 % sin tocar reglas ni decisiones vivas, no fuerces ni
-   recortes: escribe una **propuesta de partición** (títulos que pasen el test
-   del título de `distill/consolidacion.md`, qué secciones van a cada hija,
-   bytes resultantes) en el cuerpo del commit. Partir es decisión del
+5. Mueve TODO lo que pase el test de salida, llegues o no al 60 %. Si con eso
+   no llegas, no fuerces ni recortes: añade además una **propuesta de
+   partición** (títulos que pasen el test del título de
+   `distill/consolidacion.md`, qué secciones van a cada hija, bytes
+   resultantes) en el cuerpo del mismo commit. Partir es decisión del
    mantenedor.
 6. Verifica antes de commitear: (a) conservación, todo bloque que sale del
    canon aparece literal en el sidecar; (b) `wc -c` de la nota ≤60 % del techo
-   (solo si evictaste); (c) `exo budget --kb <wt>` sin offenders; (d) `exo lint
+   (solo si llegaste; si no, que la propuesta de partición esté en el cuerpo); (c) `exo budget --kb <wt>` sin offenders; (d) `exo lint
    --kb <wt>` limpio. Si algo falla, **no commitees**: deja el informe.
 7. Commit en tu rama, con rutas explícitas (`git -C <wt> add <ruta>
    .distill/<slug>-moved.md`, solo lo que exista): subject `docs(kb): auto-distill
-   <slug> — <evicción|propuesta de partición>`; cuerpo con una línea
+   <slug> — <evicción|propuesta de partición|evicción + partición>`; cuerpo con una línea
    `Nota: <ruta>` (relativa a la KB; es lo que resuelve el aviso de gate
-   pendiente), bytes antes/después y la lista de bloques movidos. Una propuesta
+   pendiente), bytes antes/después y una línea por bloque movido:
+   `Movido: <tema> — cerrado|superado: «<cita literal>»`. Una propuesta
    de partición sin bloques movidos no tiene nada que añadir: `git -C <wt> commit
    --allow-empty`. Después quita el worktree
    (`git -C <kb> worktree remove --force <wt>`); la rama se queda.

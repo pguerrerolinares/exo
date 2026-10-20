@@ -56,7 +56,9 @@ Todos los comandos de las secciones siguientes usan `$KB_ROOT` y `$EXO_BIN`
 Primer paso de cada pasada, antes de rotar: `git -C $KB_ROOT branch --list 'distill/auto/*'`.
 Por cada rama (la dejó el auto-distill de `/document`; formato en
 `plugins/exo/skills/document/auto-distill.md`): lee su commit y decide con el
-dueño de la KB.
+dueño de la KB. Cada bloque movido trae su línea `Movido: … — cerrado|superado:
+«<cita>»`; un bloque sin cita, o cuya cita no lo cierra de verdad, vuelve al
+canon antes del merge.
 
 - **Merge:** `git -C $KB_ROOT merge distill/auto/<slug>`. Solo cambia el canon;
   el conflicto esperado es la línea de estado, a mano. Luego aplica el sidecar
