@@ -76,12 +76,13 @@ un finding plan-mandated o que choca con el texto del plan lo decide el humano.
 
 Una ronda = un fix + una re-review acotada; **máximo 5 por tarea**:
 
-- **Rondas 1-3: reanuda al executor original** con los findings verbatim (su
-  contexto sigue intacto). Si no puedes escribir a un subagente vivo, despacha
-  uno fresco con el brief, el report file y los findings: el report file es la
-  memoria persistente en ambos casos.
+- **Rondas 1-3: reanuda al executor original** con la ruta del review file y
+  la lista de findings abiertos (su contexto sigue intacto). Si no puedes
+  escribir a un subagente vivo, despacha uno fresco con el brief, el report
+  file y el review file: el report file es la memoria persistente en ambos
+  casos.
 - **Rondas 4-5: executor fresco en un modelo mayor** que el atascado, con
-  brief, report file, findings abiertos y «un executor previo lo intentó [N]
+  brief, report file, review file con los findings abiertos y «un executor previo lo intentó [N]
   veces; ahora es tuyo, lee el report file para ver qué se probó». Tres
   resumes sin converger suelen significar que no ve su propio problema.
 - **Toda ronda:** el fix re-corre los tests que cubren lo enmendado, añade su
@@ -89,8 +90,9 @@ Una ronda = un fix + una re-review acotada; **máximo 5 por tarea**:
   re-review confirma tests cubridores + comando + output. Nombra los tests en
   el mensaje del fix: un arreglo de una línea no necesita la suite entera.
 - **Re-review acotada:** `scripts/review-package PLAN FIX_BASE HEAD` (FIX_BASE =
-  head que vio la review anterior) y `reviewer-prompt.md` con la lista de
-  findings, brief, report y el path del package. Verdicta cada finding
+  head que vio la review anterior) y `reviewer-prompt.md` con brief, report, el
+  path del package, `[PREV_REVIEW_FILE]` = review anterior y `[REVIEW_FILE]` =
+  `task-N-review-rR.md`. Verdicta cada finding
   ADDRESSED / NOT ADDRESSED y marca roturas nuevas solo en el diff del fix;
   una rotura nueva Critical/Important se suma a los abiertos; lo demás va al
   ledger como minor diferido, nunca alarga el loop. Modelo: tier bajo-medio.
@@ -115,7 +117,7 @@ Adjudicar antes del tope es pre-juzgar con otro nombre. Toda adjudicación es
 entrada de ledger: el descarte silencioso está prohibido. Cierre:
 `Task N: complete (commits …, <K> parked)` tras un breaker.
 
-Review final: si devuelve findings, UN fix con la lista completa y exactamente
+Review final: si devuelve findings, UN fix con `final-review.md` entero y exactamente
 una re-review acotada del rango del fix; los residuos se adjudican como en el
 breaker (Ruling en lo load-bearing). No hay segunda ola de fixes: lo load-bearing
 residual llega al humano en «Rulings I made» y al terminar la rama.

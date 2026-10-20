@@ -66,6 +66,9 @@ Subagent (general-purpose):
 
     Lee su report: [REPORT_FILE]
 
+    [Solo en re-review acotada: la review anterior está en
+    [PREV_REVIEW_FILE]; sus findings abiertos son los que verdictas.]
+
     ## Diff bajo revisión
 
     Base: [BASE_SHA] · Head: [HEAD_SHA] · Fichero: [DIFF_FILE]
@@ -81,7 +84,8 @@ Subagent (general-purpose):
     correcto ahí).
 
     Tu review es read-only sobre este checkout: no mutes working tree,
-    index, HEAD ni branch state de ninguna forma.
+    index, HEAD ni branch state de ninguna forma. La única escritura
+    permitida es tu report en [REVIEW_FILE] (workspace SDD, fuera de git).
 
     ## No despaches subagentes
 
@@ -143,7 +147,7 @@ Subagent (general-purpose):
     user" — ¿lo que hace el código es lo que un usuario razonable
     esperaría? Si no, finding; si sí, no lo marques como Extra.
 
-    **Declined to judge:** antes del veredicto, lista cada comportamiento
+    **Declined to judge:** lista cada comportamiento
     que consideraste y apartaste por quedar fuera del plan o la spec, una
     línea con su motivo. El orquestador emite un Ruling por línea; nada de
     lo que apartas se descarta en silencio. Lista vacía = no apartaste nada.
@@ -196,13 +200,21 @@ Subagent (general-purpose):
 
     Tu report debe apuntar a evidencia: referencia file:line para cada
     finding y para cualquier check que de otro modo responderías con un
-    "sí" desnudo. Un report ajustado que cita líneas le da al controller
-    todo lo que necesita.
+    "sí" desnudo.
 
-    Tu mensaje final ES el report: empieza directo con «Declined to judge»
-    y el veredicto de spec compliance. Cada línea es un veredicto, un finding con file:line,
-    o un check que corriste — sin preámbulo, sin narración de proceso, sin
+    Escribe el report completo en [REVIEW_FILE], con el Output Format de
+    abajo. Cada línea es un veredicto, un finding con file:line o un
+    check que corriste — sin preámbulo, sin narración de proceso, sin
     resumen de cierre.
+
+    Tu mensaje final NO es el report (la notificación al orquestador se
+    trunca): menos de 15 líneas, sin nada más que esto:
+    - Spec: ✅ | ❌ · Task quality: Approved | Needs fixes
+    - Conteo: C=<n> I=<n> M=<n>
+    - Una línea por Critical e Important: severidad, título, file:line
+    - En re-review acotada: una línea por finding previo, ADDRESSED |
+      NOT ADDRESSED
+    - El path de [REVIEW_FILE]
 
     ## Calibración
 
@@ -218,30 +230,12 @@ Subagent (general-purpose):
     un bloque de lógica), ESO es un finding — repórtalo como Important,
     etiquetado plan-mandated. La autoría del plan no autocalifica su
     propio trabajo; decide el humano.
-    Reconoce lo que está bien hecho antes de listar issues — el elogio
+    Reconoce lo que está bien hecho en Strengths — el elogio
     preciso ayuda al implementer a confiar en el resto del feedback.
 
     ## Output Format
 
-    ### Declined to judge
-
-    - [comportamiento apartado — motivo], o «ninguno».
-
-    ### Spec Compliance
-
-    - ✅ Spec compliant | ❌ Issues found: [qué falta/sobra/está mal
-      entendido, con referencias file:line]
-    - ⚠️ Cannot verify from diff: [requirements que no pudiste verificar
-      solo con el diff, y qué debería chequear el controller — repórtalo
-      junto al veredicto ✅/❌ de todo lo que sí pudiste verificar]
-
-    ### Over-engineering
-
-    - `<tag>` file:line — qué sobra (una línea por hallazgo)
-    - net: -N lines possible
-
-    ### Strengths
-    [¿Qué está bien hecho? Sé específico.]
+    Lo accionable primero: el orquestador lee de arriba abajo.
 
     ### Issues
 
@@ -257,6 +251,26 @@ Subagent (general-purpose):
     **Task quality:** [Approved | Needs fixes]
 
     **Reasoning:** [1-2 frases de assessment técnico]
+
+    ### Spec Compliance
+
+    - ✅ Spec compliant | ❌ Issues found: [qué falta/sobra/está mal
+      entendido, con referencias file:line]
+    - ⚠️ Cannot verify from diff: [requirements que no pudiste verificar
+      solo con el diff, y qué debería chequear el controller — repórtalo
+      junto al veredicto ✅/❌ de todo lo que sí pudiste verificar]
+
+    ### Declined to judge
+
+    - [comportamiento apartado — motivo], o «ninguno».
+
+    ### Over-engineering
+
+    - `<tag>` file:line — qué sobra (una línea por hallazgo)
+    - net: -N lines possible
+
+    ### Strengths
+    [¿Qué está bien hecho? Sé específico.]
 ```
 
 **Placeholders:**
@@ -270,6 +284,12 @@ Subagent (general-purpose):
   de proceso — esas ya están en este template).
 - `[REPORT_FILE]` — REQUIRED: el fichero donde el implementer escribió su
   report detallado.
+- `[REVIEW_FILE]` — REQUIRED: junto al report (`task-N-report.md` →
+  `task-N-review.md`); en la re-review de la ronda R, `task-N-review-rR.md`;
+  en el review final, `final-review.md`. En modo worktree por tarea, ruta
+  ABSOLUTA del worktree principal.
+- `[PREV_REVIEW_FILE]` — solo en re-review acotada: el `[REVIEW_FILE]` de
+  la review anterior (la inicial o la ronda previa).
 - `[BASE_SHA]` / `[HEAD_SHA]` — commit antes/después de esta tarea.
 - `[DIFF_FILE]` — REQUIRED: el path que imprime `scripts/review-package
   PLAN_FILE BASE HEAD` (el package nunca entra en el contexto del controller).
