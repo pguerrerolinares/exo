@@ -21,7 +21,9 @@
 > **Objetivo: ≤60 % del techo** (`kbx_budget_max` o nominal del tier), no solo
 > salir de `no_air`. Si la evicción no llega sin tocar reglas
 > (`## For agents`, `## Reglas duras`) ni decisiones vivas, no se fuerza: se
-> parte (test del título abajo). Nunca se recorta prosa viva para llegar.
+> parte (test del título abajo). Viva = no pasa el test de salida de
+> `document/auto-distill.md` (paso 3): sale solo lo *cerrado* por su propio
+> texto o lo *superado*, con la cita; la edad nunca es motivo. Nunca se recorta prosa viva para llegar.
 >
 > **Cabecera única por bloque movido.** Cada bloque entra en la bitácora con su
 > propia cabecera `## AAAA-MM-DD — movido del canon: <tema>` (separador ` — `),
