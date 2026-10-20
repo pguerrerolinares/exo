@@ -207,6 +207,34 @@ EOF
   fi
 }
 
+# =========================================================================
+# Caso 8 (#116): el cwd del payload llega a `exo rules --cwd` y las reglas
+# duras del repo entran en el additionalContext del subagente.
+# =========================================================================
+{
+  LOG8="$TMP/log8.jsonl"
+  FAKEBIN8="$TMP/fakebin8"
+  ARGS8="$TMP/args8"
+  mkdir -p "$FAKEBIN8"
+  cat > "$FAKEBIN8/exo" <<FAKE
+#!/usr/bin/env bash
+[ "\$1" = rules ] || exit 1
+printf '%s\n' "\$*" > "$ARGS8"
+echo '{"schema_version":2,"command":"rules","data":{"status":"ok","repo":"r","rules":["REGLA-PAYLOAD"]}}'
+FAKE
+  chmod +x "$FAKEBIN8/exo"
+  PAYLOAD8='{"session_id":"test-sid","agent_id":"aR1","agent_type":"exo:executor","hook_event_name":"SubagentStart","cwd":"/tmp/repo-y"}'
+  OUT8="$(printf '%s' "$PAYLOAD8" | REFLEX_LOG_FILE="$LOG8" REFLEX_PROJECTS_DIR="$NO_PROJECTS" EXO_KB='' REFLEX_CANARY_FILE="$TMP/no-canary" PATH="$FAKEBIN8:$PATH" "$ADAPTER")"
+  CTX8="$(printf '%s' "$OUT8" | jq -r '.hookSpecificOutput.additionalContext // empty' 2>/dev/null)"
+  if contains "$CTX8" "## Reglas duras del proyecto" && contains "$CTX8" "- REGLA-PAYLOAD" \
+     && contains "$(cat "$ARGS8" 2>/dev/null)" "--cwd /tmp/repo-y" \
+     && ! jq -r '.reflex' "$LOG8" 2>/dev/null | grep -q 'inject-empty'; then
+    pass "caso8: cwd del payload ⇒ exo rules --cwd ⇒ reglas en additionalContext"
+  else
+    fail "caso8: cwd del payload ⇒ exo rules --cwd ⇒ reglas en additionalContext" "ctx='$CTX8' args=$(cat "$ARGS8" 2>/dev/null)"
+  fi
+}
+
 echo ""
 TOTAL=$((PASS+FAIL))
 echo "=== Resultado: ${PASS}/${TOTAL} pasaron ==="

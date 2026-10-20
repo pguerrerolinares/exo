@@ -70,6 +70,7 @@ contestes «espero». El aviso de una tarea de fondo de un teammate idle no
 te despierta: antes de cerrar turno con algo vivo fuera de tus manos, arma
 un `CronCreate` one-shot a +N ≤ 20 min que siga `despertar.md` (el hook
 `sdd-wake-guard.sh` te lo exige si se te olvida).
+Las `## Reglas duras` del repo llegan inyectadas (SubagentStart) a `exo:executor`, `general-purpose` y `claude`: no las copies al brief; sí a otros tipos.
 Reviewer (`reviewer-prompt.md`): constraints verbatim, sin directivas
 open-ended, sin re-pedir tests ya corridos, nunca pre-juzgar findings, BASE
 registrado antes del dispatch (nunca `HEAD~1`). Dos verdictos + pase de

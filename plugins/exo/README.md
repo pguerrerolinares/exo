@@ -64,7 +64,7 @@ Tabla exacta al cableado vivo de `hooks/hooks.json` (nueve comandos):
 | sdd-wake-guard | `Stop` | `scripts/sdd-wake-guard.sh` | con un ledger SDD activo, bloquea el cierre de turno si hay tareas de fondo vivas y ningún cron: pide un `CronCreate` one-shot que siga `skills/orchestrate/despertar.md` (#111: el aviso de una tarea de un teammate idle no reinvoca a nadie) | subagentes, `stop_hook_active`, sin `jq`, ledger de más de 6 h, solo teammates, o ya hay un cron |
 | document-remind | `Stop` | `scripts/document-remind.sh` | recuerda `/document` al cerrar | 1×/sesión + umbral de transcript |
 | exo-index | `Stop` | `scripts/exo-index.sh` | reindexa la KB al cierre de sesión | best-effort, fallback logueado |
-| subagent-inject | `SubagentStart` | `scripts/subagent-inject.sh` | inyecta doctrina/contexto al arrancar un subagente | — (PUSH) |
+| subagent-inject | `SubagentStart` | `scripts/subagent-inject.sh` | inyecta doctrina/contexto al arrancar un subagente; a `exo:executor`, `general-purpose` y `claude`, también las reglas duras del repo (`exo rules`) | — (PUSH) |
 
 Nota: el README anterior de `reflex` documentaba también `cost-pyramid` y
 `stuck-loop` como reflejos independientes. Ninguno de los dos está cableado
