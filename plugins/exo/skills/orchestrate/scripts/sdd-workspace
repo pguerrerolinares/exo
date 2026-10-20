@@ -53,6 +53,10 @@ if [ "${1:-}" = close ]; then
     esac
   done
   [ -n "$plan" ] || { echo "usage: sdd-workspace close PLAN_FILE [--archive DIR] [--prefix PREFIJO]" >&2; exit 2; }
+  # Un prefijo vacío o con glob casaría ramas ajenas (main incluida) y close las borraría.
+  case "$prefix" in
+    ""|*[\*\?\[]*) echo "--prefix inválido (no vacío, sin * ? [): '$prefix'" >&2; exit 2 ;;
+  esac
 else
   if [ $# -ne 1 ]; then
     echo "usage: sdd-workspace PLAN_FILE" >&2
@@ -131,10 +135,10 @@ if [ "$close" = 1 ]; then
   }
   if [ -f "$dir/progress.md" ]; then
     archivar "$dir/progress.md" progress
-    [ ! -f "$dir/final-review.md" ] || archivar "$dir/final-review.md" final-review
   else
     echo "sin ledger que archivar"
   fi
+  [ ! -f "$dir/final-review.md" ] || archivar "$dir/final-review.md" final-review
 
   cur=$(git symbolic-ref -q --short HEAD || true)
   declare -A wt_of=()

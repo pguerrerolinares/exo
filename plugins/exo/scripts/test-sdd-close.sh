@@ -107,5 +107,20 @@ if [ "$RC" = 0 ] && [ -f "$TMP/def/c6f/plan-$(date +%F)-progress.md" ]; then pas
 mkrepo c7; got=$(cd "$REPO" && "$SW" docs/plan.md)
 if [ "$got" = "$WS" ] && [ "$(basename "$got")" = plan ]; then pass uso_clasico_intacto; else fail uso_clasico_intacto "$got"; fi
 
+# 8. --prefix vacío o con glob: exit 2 sin tocar nada (main integrado en HEAD no puede caer)
+mkrepo c8; git -C "$REPO" switch -q -c feat/z; wt t1 integrada
+for pf in "" "*"; do
+  [ -d "$WS" ] || mkws
+  close --prefix "$pf"
+  if [ "$RC" = 2 ] && [ -n "$(git -C "$REPO" branch --list main)" ] && [ -n "$(git -C "$REPO" branch --list task/t1)" ] \
+     && [ -d "$TMP/$RN wt t1" ] && [ -d "$WS" ] && [ ! -e "$ARCH" ]; then
+    pass "close_prefix_peligroso_rechazado[$pf]"; else fail "close_prefix_peligroso_rechazado[$pf]" "rc=$RC $OUT"; fi
+done
+
+# 9. final-review.md sin progress.md: se archiva igual y el workspace se borra
+mkrepo c9; rm "$WS/progress.md"; close
+if [ "$RC" = 0 ] && [ -f "$ARCH/plan-$(date +%F)-final-review.md" ] && [ ! -e "$WS" ] && contains "$OUT" "sin ledger que archivar"; then
+  pass close_final_review_sin_progress; else fail close_final_review_sin_progress "rc=$RC $OUT"; fi
+
 printf '\n%d pass, %d fail\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
