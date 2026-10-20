@@ -35,8 +35,8 @@ Antes de llenar los placeholders de abajo:
   nunca `HEAD~1`** (trunca tareas multi-commit). Genera el package con
   `scripts/review-package PLAN_FILE BASE HEAD` y pasa el path que imprime como
   `[DIFF_FILE]`. El package trae la sección `MUTACIÓN:` (valores
-  `<score> + supervivientes` | `no disponible (<motivo>)` | `parcial
-  (<motivo>)`).
+  `<score> + supervivientes` | `manual (protocolo del report)` |
+  `no disponible (<motivo>)` | `parcial (<motivo>)`).
 - **Review final whole-branch:** mismo template, pero `[BASE_SHA]` =
   `MERGE_BASE` (`git merge-base main HEAD`) para que el reviewer final lea
   un fichero en vez de re-derivar el diff de la rama con git, y `model` =
@@ -179,8 +179,12 @@ Subagent (general-purpose):
     monorepo, sus líneas `MUTACIÓN [<dir>]:`). Con `<score> + supervivientes`,
     cada superviviente es un finding: Important si el mutante cambia lógica
     de la tarea, Minor si es un borde. Con `parcial (<motivo>)`, lo que no
-    cubrió es ⚠️ "cannot verify: mutación". Con `no disponible (<motivo>)` o
-    sin sección: ⚠️ "cannot verify: mutación", nunca ✅.
+    cubrió es ⚠️ "cannot verify: mutación". Con `manual` (o el brief dice
+    «mutación manual»): protocolo manual, sin ⚠️ — comprueba la tabla
+    `línea mutada → test que cae` del report contra el diff; una línea
+    crítica (Review Focus, guarda o rama nueva) sin fila, o con fila que el
+    diff contradice, es Important. Con `no disponible (<motivo>)` o sin
+    sección y sin tabla en el report: ⚠️ "cannot verify: mutación", nunca ✅.
 
     **Comentarios:** la proporción de líneas de comentario del diff no
     supera la del fichero que toca, y cada comentario contiene un porqué

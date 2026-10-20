@@ -28,7 +28,8 @@ usuario sobre ubicación gana).
 
 Header: Goal (1 frase), Architecture (2-3 frases), Tech Stack, `Spec: <ruta>`,
 `## Cierre de ola` (comandos literales por stack: es la definición de «suite
-completa»), `## Recursos compartidos` y, si hace falta, `## Setup del worktree`
+completa»), `## Mutación` (instrumento o `manual` por stack que no se
+autodetecta), `## Recursos compartidos` y, si hace falta, `## Setup del worktree`
 y Global Constraints con valores exactos copiados verbatim de la spec; toda
 tarea los hereda. Sección "Olas" (abajo). Pointer "For agentic workers": la
 skill de ejecución es `exo:orchestrate`.
