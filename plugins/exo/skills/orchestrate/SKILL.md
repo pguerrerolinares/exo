@@ -74,6 +74,7 @@ Reviewer (`reviewer-prompt.md`): constraints verbatim, sin directivas
 open-ended, sin re-pedir tests ya corridos, nunca pre-juzgar findings, BASE
 registrado antes del dispatch (nunca `HEAD~1`). Dos verdictos + pase de
 over-engineering por tarea; final con `MERGE_BASE`. El reviewer escribe el report en `task-N-review.md` y devuelve <15 líneas (veredictos, C/I/M, Critical/Important con file:line, ruta). Los ⚠️ "cannot verify" y las líneas «Declined to judge» las resuelve el orquestador (Ruling, `olas.md`); el final recibe los `Review Focus` del plan.
+Finding con premisa de librería/plataforma `[NO VERIFICADO]` ⇒ no entra en un fix sin un comando que la verifique (tú o un haiku); fix brief = escenario reproducible, no la receta (`olas.md`).
 MUTACIÓN sin score (`no disponible`/`parcial`) al ledger: `olas.md`. Fixes
 para Critical/Important; Minor al ledger, triaje en el final. Fix loop (máx 5 rondas por tarea,
 resume del executor, re-review acotada, breaker con adjudicación): `olas.md`.
