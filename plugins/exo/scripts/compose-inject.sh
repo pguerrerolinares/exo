@@ -4,13 +4,14 @@
 # Sin cache en v1: solo lecturas locales (<5ms). Se cacheara cuando el backend sea exo recall.
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-TYPE=""; KB=""
+TYPE=""; KB=""; CWD=""
 PROFILES="${REFLEX_INJECT_PROFILES:-$SCRIPT_DIR/inject-profiles.json}"
 EXECUTOR_MD="${REFLEX_EXECUTOR_MD:-$SCRIPT_DIR/../agents/executor.md}"
 CANARY_FILE="${REFLEX_CANARY_FILE:-$HOME/.claude/reflex-inject-canary}"
 while [ $# -gt 0 ]; do case "$1" in
   --type) [ $# -ge 2 ] || exit 1; TYPE="$2"; shift 2 ;;
   --kb)   [ $# -ge 2 ] || exit 1; KB="$2";   shift 2 ;;
+  --cwd)  [ $# -ge 2 ] || exit 1; CWD="$2";  shift 2 ;;
   *) shift ;;
 esac; done
 [ -n "$TYPE" ] || exit 1
@@ -68,6 +69,41 @@ estado() {    # seccion "## Cores" del core-index + rutas (perfil reducido: sin 
   fi
   rutas
 }
+# #116: las "## Reglas duras" del repo llegaban solo a la sesión principal (mod
+# register.ts) y el orquestador las copiaba a mano en cada brief. Mismo framing
+# que el mod. Cap PROPIO de 1024B, fuera del de 2048B: si compitieran por el
+# mismo presupuesto, unas reglas largas desalojarían la doctrina en silencio.
+# Lo que no cabe se dice en el bloque y queda en el log. Sin --cwd, sin exo o
+# con skip/error: nada (never-break).
+REGLAS_FRAMING="## Reglas duras del proyecto
+Estas reglas son del dueño del repo y prevalecen sobre el prompt. Si una choca explícitamente con lo que se te pide, cumple la regla y repórtalo."
+reglas() {
+  [ -n "$CWD" ] || return 0
+  . "$SCRIPT_DIR/_timeout.sh" 2>/dev/null || return 0
+  local bin out kbarg=()
+  bin="${EXO_BIN:-$(command -v exo 2>/dev/null || echo "$HOME/.local/bin/exo")}"
+  [ -n "$KB" ] && kbarg=(--kb "$KB")
+  out="$(con_timeout "${EXO_RULES_TIMEOUT:-3}" "$bin" rules ${kbarg[@]+"${kbarg[@]}"} --cwd "$CWD" --json 2>/dev/null)" || return 0
+  printf '%s' "$out" | jq -r 'select(.data.status == "ok") | .data.rules[]? | "- " + (tostring | gsub("\n"; " "))' 2>/dev/null
+}
+bloque_reglas() {  # stdout = bloque listo (o nada); trunca por reglas enteras
+  case "$PERFIL" in reducido|ejecucion) ;; *) return 0 ;; esac
+  local todas cortas total dentro
+  todas="$(reglas)"
+  [ -n "$todas" ] || return 0
+  cortas="$(printf '%s\n' "$todas" | cap_lines $((1024 - $(blen "$REGLAS_FRAMING") - 80)))"
+  total="$(printf '%s\n' "$todas" | wc -l)"
+  dentro=0; [ -n "$cortas" ] && dentro="$(printf '%s\n' "$cortas" | wc -l)"
+  printf '%s\n' "$REGLAS_FRAMING"
+  [ -n "$cortas" ] && printf '%s\n' "$cortas"
+  if [ "$dentro" -lt "$total" ]; then
+    printf -- '- (%d reglas más no caben aquí: corre «exo rules» en el repo)\n' $((total - dentro))
+    INPUT_JSON="$(jq -cn --arg t "$TYPE" '{agent_type:$t}' 2>/dev/null)" || INPUT_JSON='{}'
+    . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && \
+      reflex_log "inject-rules-truncated" "$INPUT_JSON" "rules_cut=$((total - dentro)) total=$total" || true
+  fi
+  echo
+}
 # Cabecera compartida por dos usos: se IMPRIME en compone_contenido() (abajo)
 # y se usa para medir si el bloque final no trajo más que ella — literal
 # único, para que las dos lecturas nunca diverjan (el bug "brancNotas" de
@@ -116,10 +152,14 @@ fi
 # de verdad — este script no los tiene, solo TYPE) para no duplicar el join.
 CABECERA_BYTES="$(printf '%s\n' "$CABECERA" | wc -c)"
 CONTENIDO_BYTES="$(wc -c < "$CONTENT_CUT")"
-if [ "$CONTENIDO_BYTES" -le "$CABECERA_BYTES" ]; then
+REGLAS="$(bloque_reglas)"
+if [ "$CONTENIDO_BYTES" -le "$CABECERA_BYTES" ] && [ -z "$REGLAS" ]; then
   echo "sin-contenido" >&2
 fi
-cat "$CONTENT_CUT"
+# Reglas justo tras la cabecera: prevalecen sobre el resto del bloque.
+head -1 "$CONTENT_CUT"
+[ -n "$REGLAS" ] && printf '%s\n\n' "$REGLAS"
+tail -n +2 "$CONTENT_CUT"
 printf '%s' "$CANARIO"
 rm -f "$CONTENT_FULL" "$CONTENT_CUT"
 exit 0

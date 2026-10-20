@@ -569,6 +569,119 @@ chmod +x "$FAKE_EXO_DIR/exo"
   fi
 }
 
+# =========================================================================
+# Casos 16-20 (#116): reglas duras del repo vía `exo rules --cwd`. Un `exo`
+# fake responde a `rules` según $FAKE_RULES_MODE y apunta sus args para
+# comprobar que el --cwd llega; a cualquier otro subcomando, config.
+# =========================================================================
+FAKE_RULES_DIR="$TMP/fake-exo-rules"
+RULES_ARGS="$TMP/rules-args"
+mkdir -p "$FAKE_RULES_DIR"
+cat > "$FAKE_RULES_DIR/exo" <<FAKE
+#!/usr/bin/env bash
+if [ "\$1" = rules ]; then
+  printf '%s\n' "\$*" > "$RULES_ARGS"
+  case "\${FAKE_RULES_MODE:-ok}" in
+    ok)    echo '{"schema_version":2,"command":"rules","data":{"status":"ok","repo":"r","rules":["REGLA-UNO nunca cd && git","REGLA-DOS fija la TZ"]}}' ;;
+    largo) jq -cn '{schema_version:2,command:"rules",data:{status:"ok",repo:"r",rules:[range(40)|"REGLA-\(.) " + ("x"*60)]}}' ;;
+    skip)  echo '{"schema_version":2,"command":"rules","data":{"status":"skip","reason":"sin_repo"}}' ;;
+    error) echo boom >&2; exit 2 ;;
+  esac
+  exit 0
+fi
+echo '{"schema_version":2,"command":"config","data":{"kb":{"path":"$KB_HOME","name":"kb-home"}}}'
+FAKE
+chmod +x "$FAKE_RULES_DIR/exo"
+reglas_run() {  # reglas_run <type> [modo] [args extra...] — compose con el fake
+  local t="$1" modo="${2:-ok}"; shift; [ $# -gt 0 ] && shift
+  FAKE_RULES_MODE="$modo" EXO_BIN="$FAKE_RULES_DIR/exo" EXO_KB="$KB_ENV" \
+    REFLEX_EXECUTOR_MD="$EXEC_MD" REFLEX_CANARY_FILE="$NO_CANARY" \
+    "$COMPOSE" --type "$t" "$@" 2>/dev/null
+}
+CWDX=(--cwd "$TMP/repo-x")
+
+# Caso 16: ejecucion ⇒ framing + reglas justo tras la cabecera, antes de la
+# doctrina, y el --cwd llega a `exo rules`.
+{
+  rm -f "$RULES_ARGS"
+  OUT16="$(reglas_run general-purpose ok "${CWDX[@]}")"; EC16=$?
+  L2="$(printf '%s\n' "$OUT16" | sed -n 2p)"
+  if [ $EC16 -eq 0 ] && [ "$L2" = "## Reglas duras del proyecto" ] \
+     && contains "$OUT16" "- REGLA-UNO nunca cd && git" && contains "$OUT16" "- REGLA-DOS fija la TZ" \
+     && contains "$(cat "$RULES_ARGS" 2>/dev/null)" "--cwd $TMP/repo-x" \
+     && contains "$OUT16" "$KB_ENV/core/otra-nota-env.md"; then
+    pass "caso16: ejecucion ⇒ reglas tras la cabecera, --cwd propagado, resto intacto"
+  else
+    fail "caso16: ejecucion ⇒ reglas tras la cabecera, --cwd propagado, resto intacto" "ec=$EC16 l2=$L2 out=$OUT16"
+  fi
+}
+
+# Caso 17: reducido (exo:executor) también las recibe; divergente y doctrina no.
+{
+  OUT17A="$(reglas_run exo:executor ok "${CWDX[@]}")"
+  OUT17B="$(reglas_run Explore ok "${CWDX[@]}")"
+  OUT17C="$(reglas_run tipo-desconocido ok "${CWDX[@]}")"
+  if contains "$OUT17A" "REGLA-UNO" && not_contains "$OUT17B" "Reglas duras" && not_contains "$OUT17C" "Reglas duras"; then
+    pass "caso17: reglas en reducido; no en divergente ni doctrina"
+  else
+    fail "caso17: reglas en reducido; no en divergente ni doctrina" "a=$OUT17A b=$OUT17B c=$OUT17C"
+  fi
+}
+
+# Caso 18: skip o error de `exo rules` ⇒ sin sección, el resto se entrega.
+{
+  OUT18A="$(reglas_run general-purpose skip "${CWDX[@]}")"; EC18A=$?
+  OUT18B="$(reglas_run general-purpose error "${CWDX[@]}")"; EC18B=$?
+  if [ $EC18A -eq 0 ] && [ $EC18B -eq 0 ] \
+     && not_contains "$OUT18A" "Reglas duras" && not_contains "$OUT18B" "Reglas duras" \
+     && contains "$OUT18A" "$KB_ENV/core/otra-nota-env.md" && contains "$OUT18B" "$KB_ENV/core/otra-nota-env.md"; then
+    pass "caso18: skip/error ⇒ sin sección de reglas, resto entregado"
+  else
+    fail "caso18: skip/error ⇒ sin sección de reglas, resto entregado" "a=$OUT18A b=$OUT18B"
+  fi
+}
+
+# Caso 19: reglas que no caben ⇒ cap propio de 1024B por reglas enteras, aviso
+# con cuántas faltan, evento inject-rules-truncated, y nada del resto se pierde
+# (el cap de reglas no come del de 2048B).
+{
+  : > "$REFLEX_LOG_FILE"
+  OUT19="$(reglas_run general-purpose largo "${CWDX[@]}")"
+  OUT19_SIN="$(reglas_run general-purpose skip "${CWDX[@]}")"
+  SECC="$(printf '%s\n' "$OUT19" | awk '/^## Reglas duras/{p=1} p&&/^$/{exit} p')"
+  SB="$(printf '%s\n' "$SECC" | wc -c)"
+  if [ "$SB" -le 1024 ] && contains "$SECC" "reglas más no caben aquí" \
+     && grep -q 'inject-rules-truncated' "$REFLEX_LOG_FILE" \
+     && contains "$OUT19" "$(printf '%s\n' "$OUT19_SIN" | tail -n +2)"; then
+    pass "caso19: reglas largas ⇒ cap 1024B, aviso, evento, resto intacto"
+  else
+    fail "caso19: reglas largas ⇒ cap 1024B, aviso, evento, resto intacto" "sb=$SB secc=$SECC"
+  fi
+}
+
+# Caso 20: sin --cwd ⇒ no se llama a `exo rules` (compat con invocaciones viejas).
+{
+  rm -f "$RULES_ARGS"
+  OUT20="$(reglas_run general-purpose ok)"
+  if [ ! -e "$RULES_ARGS" ] && not_contains "$OUT20" "Reglas duras"; then
+    pass "caso20: sin --cwd ⇒ sin consulta de reglas"
+  else
+    fail "caso20: sin --cwd ⇒ sin consulta de reglas" "out=$OUT20"
+  fi
+}
+
+# Caso 21: el framing de las reglas es el mismo literal en compose-inject.sh y
+# en el mod de la sesión principal (hooks/register.ts): son dos copias y una
+# divergencia haría que el subagente lea otra regla de precedencia.
+{
+  FRASE="Estas reglas son del dueño del repo y prevalecen sobre el prompt. Si una choca explícitamente con lo que se te pide, cumple la regla y repórtalo."
+  if grep -qF "$FRASE" "$COMPOSE" && grep -qF "$FRASE" "$SCRIPT_DIR/../hooks/register.ts"; then
+    pass "caso21: framing de reglas idéntico al de register.ts"
+  else
+    fail "caso21: framing de reglas idéntico al de register.ts" "una de las dos copias cambió"
+  fi
+}
+
 echo ""
 TOTAL=$((PASS+FAIL))
 echo "=== Resultado: ${PASS}/${TOTAL} pasaron ==="

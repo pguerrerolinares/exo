@@ -32,6 +32,9 @@ if [ -n "$SID" ] && [ -n "$AID" ]; then
 fi
 KB_ARGS=()
 [ -n "${REFLEX_INJECT_KB:-}" ] && KB_ARGS=(--kb "$REFLEX_INJECT_KB")
+# #116: el cwd del payload resuelve el repo cuyas reglas duras se inyectan.
+CWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)" || CWD=""
+KB_ARGS+=(--cwd "${CWD:-$PWD}")
 JSON=""
 # Si mktemp falla (disco lleno, /tmp no escribible, etc.) el hook sigue
 # inyectando igual que antes de F3.2: stderr de compose-inject.sh se pierde

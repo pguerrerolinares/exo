@@ -452,6 +452,9 @@ Detalles que el diagrama no cuenta:
   `exo:executor` → `reducido`, `general-purpose`/`claude` → `ejecucion`,
   `Explore`/`Plan` → `divergente`, resto → `doctrina`), mezclando la doctrina
   de `executor.md`, secciones del core-index y rutas reales de la KB.
+  En `reducido` y `ejecucion` el bloque abre con las `## Reglas duras` del
+  repo del `cwd` del payload (`exo rules`), con cap propio de 1024 B: lo que
+  no cabe se avisa en el bloque y en `inject-rules-truncated` (#116).
   Subagentes de profundidad > 1 no reciben inyección.
 - **`exo-index.sh`** (Stop) reindexa al **cierre**, no al arranque: sin
   cambios cuesta ~25 ms, pero con cambios carga el runtime ONNX, y tras un
