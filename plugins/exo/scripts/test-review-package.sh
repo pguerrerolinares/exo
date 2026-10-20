@@ -538,5 +538,89 @@ mkrepo nowtp setup.py src/m.py; r=$REPO
 corre "$r" "$(stubs_para nowtp mutmut)" STUB_MUTMUT=2 STUB_MODE=nowhatthepatch
 if contains "$OUT" "MUTACIÓN: no disponible (mutmut sin whatthepatch: pip install 'mutmut[patch]')"; then pass mutmut_sin_whatthepatch; else fail mutmut_sin_whatthepatch "$(seccion)"; fi
 
+# ---- mutación declarada en el plan (## Mutación): el instrumento lo elige el plan, por directorio
+# plan_mut LINEA... -> plan con la sección (una línea por argumento); `plan_mut` sin args lo vacía
+plan_mut() {
+  : > "$TMP/plan.md"
+  [ $# -gt 0 ] || return 0
+  { printf '# Plan\n\n## Mutación\n\n'; printf '%s\n' "$@"; printf '\n### Task 1: x\n'; } > "$TMP/plan.md"
+}
+DSP=$(stubs_para decl)
+# shellcheck disable=SC2016 # los backticks del plan van literales
+{
+
+plan_mut '- `android`: `echo 3/4`'
+mkrepo dkt "" android/src/main/Foo.kt; r=$REPO
+corre "$r" "$DSP"
+if contains "$OUT" "MUTACIÓN [android]: 3/4 (75%)"; then pass declarado_kotlin_da_score; else fail declarado_kotlin_da_score "$(seccion)"; fi
+
+rm -f "$TMP/envout"
+plan_mut '- `android`: `echo "$EXO_MUT_FILES" > '"$TMP"'/envout; echo "$EXO_MUT_HEAD" >> '"$TMP"'/envout; echo "$EXO_MUT_BASE" >> '"$TMP"'/envout; pwd >> '"$TMP"'/envout; echo 1/1`'
+mkrepo denv "" android/src/main/Foo.kt; r=$REPO
+corre "$r" "$DSP"
+if [ -f "$TMP/envout" ] && contains "$(cat "$TMP/envout")" "src/main/Foo.kt" && not_contains "$(cat "$TMP/envout")" "android/src" \
+   && contains "$(cat "$TMP/envout")" "$HEAD" && contains "$(cat "$TMP/envout")" "$BASE" \
+   && not_contains "$(sed -n 4p "$TMP/envout")" "$r"; then pass declarado_recibe_entorno; else fail declarado_recibe_entorno "$(cat "$TMP/envout" 2>/dev/null) :: $(seccion)"; fi
+
+plan_mut '- `android`: `echo 2/5; exit 1`'
+mkrepo dex "" android/src/main/Foo.kt; r=$REPO
+corre "$r" "$DSP"
+if contains "$OUT" "2/5 (40%)"; then pass declarado_exit_no_cero_con_score; else fail declarado_exit_no_cero_con_score "$(seccion)"; fi
+
+plan_mut '- `android`: `echo hola`'
+mkrepo dsl "" android/src/main/Foo.kt; r=$REPO
+corre "$r" "$DSP"
+if contains "$OUT" "no disponible (comando declarado: exit 0, sin línea cazados/total)" && contains "$(seccion)" "hola"; then pass declarado_sin_linea; else fail declarado_sin_linea "$(seccion)"; fi
+
+plan_mut '- `android`: `printf "SUPERVIVIENTE: Foo.kt:3 negate\n1/2\n"`'
+mkrepo dsv "" android/src/main/Foo.kt; r=$REPO
+corre "$r" "$DSP"
+if contains "$OUT" "1/2 (50%) — 1 superviviente" && contains "$OUT" "SUPERVIVIENTE: Foo.kt:3 negate"; then pass declarado_supervivientes; else fail declarado_supervivientes "$(seccion)"; fi
+
+plan_mut '- `android`: `sleep 5; echo 1/1`'
+mkrepo dtm "" android/src/main/Foo.kt; r=$REPO
+corre "$r" "$DSP" EXO_MUTATION_TIMEOUT=1
+if contains "$OUT" "parcial (timeout 1s)"; then pass declarado_timeout; else fail declarado_timeout "$(seccion)"; fi
+
+plan_mut '- `web`: manual'
+mkrepo dman web/package.json web/src/a.ts; r=$REPO
+corre "$r" "$DSP"
+if contains "$OUT" "MUTACIÓN: manual (protocolo del report)" && [ ! -s "$LOG" ]; then pass manual_declarado; else fail manual_declarado "$(seccion)"; fi
+
+plan_mut '- android: gradle'
+mkrepo dbad "" android/src/main/Foo.kt; r=$REPO
+corre "$r" "$DSP"
+if contains "$OUT" "MUTACIÓN aviso:" && contains "$(seccion)" "android: gradle"; then pass declaracion_mala_avisa; else fail declaracion_mala_avisa "$(seccion)"; fi
+
+rm -f "$TMP/ran"
+plan_mut '- `android`: `touch '"$TMP"'/ran; echo 1/1`'
+mkrepo dgt "" android/src/test/FooTest.kt android/src/androidTest/BarTest.kt; r=$REPO
+corre "$r" "$DSP"
+if [ ! -e "$TMP/ran" ] && contains "$OUT" "MUTACIÓN: no disponible (diff sin código de producción)"; then pass test_gradle_no_es_produccion; else fail test_gradle_no_es_produccion "$(seccion)"; fi
+
+# prefijo exacto: android2/ no casa con `android`; el más largo gana; `.` declara la raíz; espacios en el dir
+plan_mut '- `android`: `echo 1/1`'
+mkrepo dpre "" android2/src/main/Foo.kt; r=$REPO
+corre "$r" "$DSP"
+if contains "$OUT" "MUTACIÓN: no disponible (diff sin código de producción)"; then pass declarado_prefijo_exacto; else fail declarado_prefijo_exacto "$(seccion)"; fi
+
+plan_mut '- `.`: `echo 1/2`' '- `android`: `echo 3/4`'
+mkrepo dlong "" android/src/main/Foo.kt app/Bar.kt; r=$REPO
+corre "$r" "$DSP"
+if contains "$OUT" "MUTACIÓN [android]: 3/4" && contains "$OUT" "MUTACIÓN [raíz]: 1/2" && contains "$OUT" "MUTACIÓN: 4/6 (66%)"; then pass declarado_mas_largo_gana; else fail declarado_mas_largo_gana "$(seccion)"; fi
+
+plan_mut '- `mi app`: `echo 5/5`'
+mkrepo dsp "" "mi app/src/main/Foo.kt"; r=$REPO
+corre "$r" "$DSP"
+if contains "$OUT" "MUTACIÓN [mi app]: 5/5 (100%)"; then pass declarado_dir_con_espacios; else fail declarado_dir_con_espacios "$(seccion)"; fi
+
+# manual mezclado con un score: manual no suma al score
+plan_mut '- `android`: `echo 3/4`' '- `web`: manual'
+mkrepo dmix web/package.json web/src/a.ts android/src/main/Foo.kt; r=$REPO
+corre "$r" "$DSP"
+if contains "$OUT" "MUTACIÓN: 3/4 (75%) — 0 superviviente(s); 1 proyecto(s) sin score" && contains "$OUT" "MUTACIÓN [web]: manual (protocolo del report)"; then pass manual_mezclado; else fail manual_mezclado "$(seccion)"; fi
+plan_mut
+}
+
 printf '\n%d pass, %d fail\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
