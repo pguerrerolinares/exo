@@ -22,7 +22,7 @@ y la nota *"Cerebro portable + capa de reflejos — design spec"* (proyecto
 
 | Skill | Qué hace |
 |---|---|
-| brainstorm | Explora intención, requisitos y diseño en diálogo antes de implementar; termina en spec escrita y aprobada. |
+| brainstorm | Explora intención, requisitos y diseño en diálogo antes de implementar; termina en spec escrita y aprobada. Trae la plantilla de consultor de campo (`consultor-brief.md`), que usan también plan y la review adversarial de spec. |
 | plan | De spec/requisitos a plan de tareas bite-sized con paths, código y comandos exactos para un ejecutor sin contexto. |
 | orchestrate | Ejecuta planes multi-tarea: despacha un ejecutor fresco por tarea, review en dos etapas por tarea y review final whole-branch. | Scripts propios: `task-dag` (olas desde Files/Interfaces) y `review-package` con mutación sobre el diff.
 | tdd | Test primero, verlo fallar por la razón esperada, código mínimo, verde, refactor. |
