@@ -109,8 +109,8 @@ if [ "$got" = "$WS" ] && [ "$(basename "$got")" = plan ]; then pass uso_clasico_
 
 # 8. --prefix vacío o con glob: exit 2 sin tocar nada (main integrado en HEAD no puede caer)
 mkrepo c8; git -C "$REPO" switch -q -c feat/z; wt t1 integrada
-for pf in "" "*"; do
-  [ -d "$WS" ] || mkws
+for pf in "" "*" m ma mai main task; do
+  rm -rf "$ARCH"; [ -d "$WS" ] || mkws
   close --prefix "$pf"
   if [ "$RC" = 2 ] && [ -n "$(git -C "$REPO" branch --list main)" ] && [ -n "$(git -C "$REPO" branch --list task/t1)" ] \
      && [ -d "$TMP/$RN wt t1" ] && [ -d "$WS" ] && [ ! -e "$ARCH" ]; then

@@ -53,9 +53,9 @@ if [ "${1:-}" = close ]; then
     esac
   done
   [ -n "$plan" ] || { echo "usage: sdd-workspace close PLAN_FILE [--archive DIR] [--prefix PREFIJO]" >&2; exit 2; }
-  # Un prefijo vacío o con glob casaría ramas ajenas (main incluida) y close las borraría.
+  # Solo un espacio de nombres (`algo/`): un prefijo suelto (`m`) casaría main y close la borraría.
   case "$prefix" in
-    ""|*[\*\?\[]*) echo "--prefix inválido (no vacío, sin * ? [): '$prefix'" >&2; exit 2 ;;
+    ""|/|*[\*\?\[]*|*[!/]) echo "--prefix inválido (debe acabar en /, no ser solo /, sin * ? [): '$prefix'" >&2; exit 2 ;;
   esac
 else
   if [ $# -ne 1 ]; then
@@ -141,6 +141,8 @@ if [ "$close" = 1 ]; then
   [ ! -f "$dir/final-review.md" ] || archivar "$dir/final-review.md" final-review
 
   cur=$(git symbolic-ref -q --short HEAD || true)
+  default_br=$(git symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null || true)
+  default_br=${default_br#origin/}
   declare -A wt_of=()
   wpath=""
   while IFS= read -r l; do
@@ -152,6 +154,8 @@ if [ "$close" = 1 ]; then
 
   while IFS= read -r br; do
     [ -n "$br" ] && [ "$br" != "$cur" ] || continue
+    # Cinturón: aunque el prefijo case `main/`-algo raro, la rama por defecto nunca se toca.
+    case "$br" in main|master|"$default_br") continue ;; esac
     if ! git merge-base --is-ancestor "$br" HEAD; then
       echo "sin integrar (se queda): $br"; pending=1; continue
     fi
