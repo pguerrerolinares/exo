@@ -98,7 +98,9 @@ UN fix subagent con la lista completa (una re-review, sin segunda ola).
 
 ## Olas
 
-Calcula con `scripts/task-dag PLAN` (a mano solo si falla); `avisos` ⇒
+Antes del pre-flight corre `scripts/task-dag --lint PLAN`: exit 4 bloquea
+(el plan vuelve a `exo:plan`). Calcula con `scripts/task-dag PLAN` (a mano solo
+con exit 2); `avisos` ⇒
 ledger. Ola de ≥2 ⇒ un worktree por tarea, todos los dispatches en un
 mensaje; resto en `olas.md`. Ambiguo ⇒ secuencial. No paralelices ante fallos relacionados,
 estado completo necesario, debugging exploratorio ni estado compartido
