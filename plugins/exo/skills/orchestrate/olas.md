@@ -89,6 +89,8 @@ Cada hallazgo se resuelve con un Ruling ledgerizado, junto a su fila.
    ⇒ NO se abre la siguiente ola; fix dispatch con el output completo y
    `wave-close` otra vez (manda el último resumen). `task-brief` se niega (exit 4)
    a emitir una tarea de la ola K+1 sin `Ola K: cierre — verde`.
+   Ese output, literal, más los Rulings de la ola, es el único mensaje de la
+   ola al humano; no lo reescribas ni añadas estado por tarea.
 3. Conflicto de merge ⇒ executor de integración con los dos diffs. Si no
    resuelve, BLOCKED y pregunta al humano. Nunca `-X ours/theirs` a ciegas.
 4. Solo hallazgos tardíos: Critical/Important de una tarea ya mergeada ⇒

@@ -7,10 +7,11 @@ description: Ejecuta planes de implementación multi-tarea: orquestador padre qu
 
 Orquestador padre: ejecutor fresco por tarea, contexto aislado (nunca
 hereda la sesión); el padre valida y decide, los hijos implementan.
-Narración: un mensaje por ola (cierre con números) y uno por Ruling no
-obvio; nada por transición de tarea. Una notificación que no cambia el
-estado (duplicada, idle sin novedad) no se contesta. El ledger y los
-resultados llevan el resto.
+Narración: el mensaje de ola es la salida literal de `wave-close` más los
+Rulings de la ola; nada por transición de tarea. Cualquier otro cierre de turno
+con el ledger vivo, una línea. Una notificación que no cambia el estado
+(duplicada, idle sin novedad) no se contesta. El ledger y los resultados llevan
+el resto.
 
 Rule and continue destilado de `subagent-driven-development/SKILL.md`
 (superpowers 7.0.0, MIT © 2025 Jesse Vincent).
