@@ -28,6 +28,16 @@ pub enum Rechazo {
     /// El bloque a anexar trae cabeceras `## ` que la nota ya tiene: el
     /// reintento tras un fallo parcial duplicaría la entrada de bitácora.
     CabeceraDuplicada { cabeceras: Vec<String> },
+    /// El bloque supera `MAX_LINEAS_APPEND` líneas no vacías: una entrada de
+    /// bitácora son hechos y wikilinks, no una re-narración (document/SKILL.md).
+    CuerpoLargo { lineas: usize },
+    /// Cabecera `## ` que no es `## AAAA-MM-DD — <tema>`, o cuyo tema es solo
+    /// una etiqueta genérica (`generica`). El puntero del canon cita la
+    /// cabecera: sin tema grepeable deja de resolver.
+    CabeceraInvalida {
+        cabeceras: Vec<String>,
+        generica: bool,
+    },
 }
 
 impl std::fmt::Display for Rechazo {
@@ -58,6 +68,25 @@ impl std::fmt::Display for Rechazo {
                  Repite con --force si de verdad quieres duplicarla",
                 cabeceras.join("; ")
             ),
+            Rechazo::CuerpoLargo { lineas } => write!(
+                f,
+                "el bloque tiene {lineas} líneas (máx. {MAX_LINEAS_APPEND}): una entrada de \
+                 bitácora son hechos y wikilinks, sin re-narrar. Acórtala, o --force si es una excepción consciente"
+            ),
+            Rechazo::CabeceraInvalida {
+                cabeceras,
+                generica,
+            } => write!(
+                f,
+                "cabecera {} ({}): usa `## AAAA-MM-DD — <tema concreto>`. \
+                 Concreta el tema, o --force si es una excepción consciente",
+                if *generica {
+                    "con etiqueta genérica"
+                } else {
+                    "fuera de formato"
+                },
+                cabeceras.join("; ")
+            ),
         }
     }
 }
@@ -83,6 +112,18 @@ impl Rechazo {
             }),
             Rechazo::CabeceraDuplicada { cabeceras } => serde_json::json!({
                 "reason": "duplicate_header",
+                "cabeceras": cabeceras,
+            }),
+            Rechazo::CuerpoLargo { lineas } => serde_json::json!({
+                "reason": "body_too_long",
+                "lines": lineas,
+                "max": MAX_LINEAS_APPEND,
+            }),
+            Rechazo::CabeceraInvalida {
+                cabeceras,
+                generica,
+            } => serde_json::json!({
+                "reason": if *generica { "generic_header" } else { "bad_header" },
                 "cabeceras": cabeceras,
             }),
         }
@@ -337,8 +378,10 @@ pub fn escribe_nueva(n: &NuevaNota) -> Result<Escritura> {
 /// (`log/exo-bitacora.md` ~14 KB, el backlog ~33 KB) y `Edit` obligaría a
 /// cargarlas enteras en cada cierre de sesión.
 ///
-/// Rechaza salvo `forzar` si la nota destino no es `tier: log` (§7.1) o si el
-/// bloque trae una cabecera `## ` que la nota viva ya tiene (el tier manda).
+/// Rechaza salvo `forzar` si la nota destino no es `tier: log` (§7.1), si el
+/// bloque excede el tope de líneas o trae cabeceras mal formadas o genéricas
+/// (`valida_formato_append`), o si trae una cabecera `## ` que la nota viva ya
+/// tiene (el tier manda).
 /// Para leer el `tier` toca el head del fichero; para las cabeceras recorre la
 /// nota línea a línea con `BufRead`, sin cargarla entera.
 pub fn escribe_append(kb: &Path, ruta_rel: &str, texto: &str, forzar: bool) -> Result<Escritura> {
@@ -369,6 +412,7 @@ pub fn escribe_append(kb: &Path, ruta_rel: &str, texto: &str, forzar: bool) -> R
     }
 
     if !forzar {
+        valida_formato_append(texto)?;
         let cabeceras = cabeceras_repetidas(&ruta_abs, texto)?;
         if !cabeceras.is_empty() {
             return Err(Rechazo::CabeceraDuplicada { cabeceras }.into());
@@ -387,6 +431,91 @@ pub fn escribe_append(kb: &Path, ruta_rel: &str, texto: &str, forzar: bool) -> R
         frontmatter_faltante: Vec::new(),
         forzado: forzar,
     })
+}
+
+/// Tope de líneas no vacías por append (document/SKILL.md: «append ≤15 líneas»).
+const MAX_LINEAS_APPEND: usize = 15;
+
+/// Etiquetas que por sí solas no identifican una entrada (document/SKILL.md).
+const ETIQUETAS_GENERICAS: &[&str] = &[
+    "canon",
+    "delta",
+    "detalle",
+    "distill",
+    "sesión",
+    "sesion",
+    "movido del canon",
+];
+
+/// Prefijo de los bloques que `distill` y `auto-distill` vuelcan desde el
+/// sidecar `-moved.md`: verbatim del canon, de longitud arbitraria.
+const PREFIJO_MOVIDO: &str = "movido del canon:";
+
+/// `Some(tema)` si la línea es `## AAAA-MM-DD — <tema>` con tema no vacío.
+fn tema_de_cabecera(linea: &str) -> Option<&str> {
+    let resto = linea.strip_prefix("## ")?;
+    let (fecha, tema) = resto.split_once(" — ")?;
+    let b = fecha.as_bytes();
+    let fecha_ok = b.len() == 10
+        && b.iter().enumerate().all(|(i, c)| {
+            if i == 4 || i == 7 {
+                *c == b'-'
+            } else {
+                c.is_ascii_digit()
+            }
+        });
+    let tema = tema.trim();
+    (fecha_ok && !tema.is_empty()).then_some(tema)
+}
+
+/// Gate de forma del append: tope de líneas y cabeceras `## AAAA-MM-DD — tema`
+/// sin etiqueta genérica. Los bloques movidos (todas las cabeceras con
+/// `movido del canon: <tema>`) no tienen tope de líneas.
+fn valida_formato_append(texto: &str) -> Result<()> {
+    let mut malas = Vec::new();
+    let mut genericas = Vec::new();
+    let mut hay_cabeceras = false;
+    let mut todas_movidas = true;
+    for l in texto.lines().filter(|l| l.starts_with("## ")) {
+        let l = l.trim_end();
+        hay_cabeceras = true;
+        match tema_de_cabecera(l) {
+            None if !malas.iter().any(|m| m == l) => malas.push(l.to_string()),
+            None => {}
+            Some(tema) => {
+                let tema_min = tema.to_lowercase();
+                let etiqueta = tema_min.trim_end_matches(['.', ':', ';']).trim();
+                if ETIQUETAS_GENERICAS.contains(&etiqueta) {
+                    genericas.push(l.to_string());
+                }
+                if !tema_min.starts_with(PREFIJO_MOVIDO) {
+                    todas_movidas = false;
+                }
+            }
+        }
+        if tema_de_cabecera(l).is_none() {
+            todas_movidas = false;
+        }
+    }
+    if !malas.is_empty() {
+        return Err(Rechazo::CabeceraInvalida {
+            cabeceras: malas,
+            generica: false,
+        }
+        .into());
+    }
+    if !genericas.is_empty() {
+        return Err(Rechazo::CabeceraInvalida {
+            cabeceras: genericas,
+            generica: true,
+        }
+        .into());
+    }
+    let lineas = texto.lines().filter(|l| !l.trim().is_empty()).count();
+    if lineas > MAX_LINEAS_APPEND && !(hay_cabeceras && todas_movidas) {
+        return Err(Rechazo::CuerpoLargo { lineas }.into());
+    }
+    Ok(())
 }
 
 /// Cabeceras `## ` del bloque entrante que ya existen en la nota, en orden de
