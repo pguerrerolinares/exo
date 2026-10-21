@@ -204,6 +204,7 @@ if printf '%s' "$CMD" | grep -Eq "$PATRON_VBD" \
 
     if [ -n "$CODE_FILES" ]; then
       SHOULD_WARN=1
+      STALE_PREFIX=""
       if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
         TR_RE1='(^|[&|;[:space:]]+)(pytest|jest|vitest|tox|rspec|phpunit)([[:space:]]|$)'
         TR_RE2='(^|[&|;[:space:]]+)(npm[[:space:]]+(test|run[[:space:]]+test)|yarn[[:space:]]+test|pnpm[[:space:]]+test|bun[[:space:]]+test|cargo[[:space:]]+test|go[[:space:]]+test|make[[:space:]]+test|mvn[[:space:]]+test|gradle[[:space:]]+test|dotnet[[:space:]]+test)([[:space:]]|$)'
@@ -212,27 +213,35 @@ if printf '%s' "$CMD" | grep -Eq "$PATRON_VBD" \
           | jq -rs --arg re1 "$TR_RE1" --arg re2 "$TR_RE2" '
               [ .[] | select(type=="object")
                 | .message.content[]?
-                | select(.type=="tool_use" and .name=="Bash")
-                | {id: .id, cmd: (.input.command // "")}
+                | select(.type=="tool_use")
+                | {id: .id, name: .name, cmd: (.input.command // "")}
               ] as $uses
               | ( [ .[] | select(type=="object")
                     | .message.content[]?
                     | select(.type=="tool_result")
                     | {key: .tool_use_id, value: (.is_error // false)}
                   ] | from_entries ) as $errmap
-              | ( [ $uses[] | select((.cmd | test($re1)) or (.cmd | test($re2))) ] | last ) as $tr
-              | if $tr == null then "warn"
-                else (if $errmap[$tr.id] == false then "green" else "warn" end)
+              | ( [ range(0; $uses | length) as $i
+                    | $uses[$i]
+                    | select(.name=="Bash" and ((.cmd | test($re1)) or (.cmd | test($re2))))
+                    | $i ] | last ) as $ti
+              | if $ti == null then "warn"
+                elif $errmap[$uses[$ti].id] != false then "warn"
+                elif ( $uses[$ti + 1:] | any(.name=="Edit" or .name=="Write" or .name=="NotebookEdit") ) then "stale"
+                else "green"
                 end
             ' 2>/dev/null)" || RESULT="warn"
 
         [ "$RESULT" = "green" ] && SHOULD_WARN=0
+        # stale: el verde no describe el arbol que se commitea (Edit/Write
+        # posterior). Mismo reflejo, payload prefijado para separarlo de warn.
+        [ "$RESULT" = "stale" ] && STALE_PREFIX="stale "
       fi
 
       if [ "$SHOULD_WARN" -eq 1 ]; then
         PAYLOAD="${CMD:0:120}"
         . "$SCRIPT_DIR/_truncate-payload.sh" 2>/dev/null && payload_truncado "$CMD" "$PATRON_VBD"
-        . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && reflex_log "verify-before-done" "$INPUT" "$PAYLOAD" || true
+        . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && reflex_log "verify-before-done" "$INPUT" "${STALE_PREFIX}${PAYLOAD}" || true
       fi
     fi
   fi

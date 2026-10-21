@@ -605,6 +605,67 @@ assert_vbd_silent() {
 rm -rf "$TMPDIR_BASE" 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
+# Sección C2: verde seguido de Edit/Write es stale (#107)
+# ---------------------------------------------------------------------------
+echo ""
+echo "--- Sección C2: verify-before-done stale (#107) ---"
+TMPDIR_BASE="/tmp/claude-test-bashguards-stale-$$"
+mkdir -p "$TMPDIR_BASE"
+TMP_REPOS=()
+
+transcript_edit() {
+  printf '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"%s","name":"%s","input":{"file_path":"foo.py"}}]}}\n' "$1" "$2"
+}
+
+run_stale_case() {
+  local n="$1" T="${TMPDIR_BASE}/$1.jsonl"
+  REPO="$(make_repo "$n" "foo.py:print('hi')")"
+  PAYLOAD="$(make_payload_full "$REPO" "$T" "git commit -m fix")"
+  BEFORE="$(wc -l < "$REFLEX_LOG_FILE" 2>/dev/null || echo 0)"
+  OUTPUT="$(printf '%s' "$PAYLOAD" | bash "$HOOK" 2>/dev/null)"
+  AFTER="$(wc -l < "$REFLEX_LOG_FILE" 2>/dev/null || echo 0)"
+}
+
+# verde -> Edit -> commit: dispara, payload marcado stale
+{
+  T="${TMPDIR_BASE}/s1.jsonl"
+  { transcript_tool_use "t1" "pytest"; transcript_tool_result "t1" "false"; transcript_edit "e1" "Edit"; } > "$T"
+  run_stale_case s1
+  assert_vbd_logged "stale1: verde → Edit → commit → dispara" "$BEFORE" "$AFTER" "$OUTPUT"
+  if tail -1 "$REFLEX_LOG_FILE" | jq -e 'select(.payload|startswith("stale "))' >/dev/null 2>&1; then
+    printf '[PASS] stale1b: payload marcado stale\n'; PASS=$((PASS+1))
+  else
+    printf '[FAIL] stale1b: payload sin marca stale\n'; FAIL=$((FAIL+1))
+  fi
+}
+
+# verde -> Write y verde -> NotebookEdit tambien
+for tool in Write NotebookEdit; do
+  T="${TMPDIR_BASE}/s_${tool}.jsonl"
+  { transcript_tool_use "t1" "pytest"; transcript_tool_result "t1" "false"; transcript_edit "e1" "$tool"; } > "$T"
+  run_stale_case "s_${tool}"
+  assert_vbd_logged "stale: verde → ${tool} → commit → dispara" "$BEFORE" "$AFTER" "$OUTPUT"
+done
+
+# verde -> commit sin edicion: silencio
+{
+  T="${TMPDIR_BASE}/s2.jsonl"
+  { transcript_edit "e0" "Edit"; transcript_tool_use "t1" "pytest"; transcript_tool_result "t1" "false"; } > "$T"
+  run_stale_case s2
+  assert_vbd_silent "stale2: Edit → verde → commit → silencio" "$BEFORE" "$AFTER" "$OUTPUT"
+}
+
+# verde -> commit sin ninguna edicion: silencio
+{
+  T="${TMPDIR_BASE}/s3.jsonl"
+  { transcript_tool_use "t1" "pytest"; transcript_tool_result "t1" "false"; } > "$T"
+  run_stale_case s3
+  assert_vbd_silent "stale3: verde → commit sin edicion → silencio" "$BEFORE" "$AFTER" "$OUTPUT"
+}
+
+rm -rf "$TMPDIR_BASE" 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
 # Sección D: pre-filtro y extracción ÚNICOS (solo tiene sentido con el
 # script fundido -- antes eran tres pre-filtros/extracciones idénticos,
 # uno por script).
