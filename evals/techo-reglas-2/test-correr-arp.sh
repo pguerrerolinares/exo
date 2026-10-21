@@ -75,6 +75,12 @@ if grep -qxF "deny=Read(/$P/kb/**)" "$O/cmdline.txt" && grep -qxF "deny=Grep(/$P
 if grep -qxF "append=$O/sysprompt.md" "$O/cmdline.txt" && grep -qxF "append=$P/claude-md.md" "$A0/cmdline.txt"; then
   ok arp_cmdline_usa_sysprompt; else ko arp_cmdline_usa_sysprompt; fi
 
+# corrida_real_registra_append: sin K_ENSAYO, con `claude` falso, cmdline.txt deja el append usado
+mkdir -p "$T/bin"; printf '#!/bin/sh\nexit 0\n' > "$T/bin/claude"; chmod +x "$T/bin/claude"
+( unset K_ENSAYO; PATH="$T/bin:$PATH" bash "$CORRER" "$tarea" arp 2 >/dev/null 2>&1 ); R="$K_ROOT/corridas/tt/arp-r2"
+if grep -qxF "append=$R/sysprompt.md" "$R/cmdline.txt" 2>/dev/null; then ok corrida_real_registra_append
+else ko corrida_real_registra_append; fi
+
 # fugas_arp_sin_hooks
 F="$T/fug"; mkdir -p "$F"
 hook='{"type":"system","subtype":"hook_started","hook_event":"SessionStart"}'

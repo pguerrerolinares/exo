@@ -68,6 +68,42 @@ else
   echo "kb-precommit: no pude materializar el index; presupuestos no verificados" >&2
 fi
 
+# --- Frontmatter: tier (siempre) y tags (solo notas nuevas) --------------------
+# `exo lint` no sirve aquí: no mira tags ni wikilinks, exige el índice y juzga
+# el working tree, no el index. Se lee el frontmatter de lo staged con
+# `git show :ruta`. En notas modificadas la falta de tags solo avisa: hay notas
+# históricas sin tags y bloquearlas frenaría cualquier edición.
+fm_campos() { # stdin: nota; imprime "tier" y/o "tags" si están presentes y válidos
+  awk '
+    NR == 1 { if ($0 != "---") exit; next }
+    /^---[ \t]*$/ { exit }
+    /^tier:[ \t]*(core|stable|log)[ \t]*$/ { print "tier" }
+    /^tags:/ {
+      v = $0; sub(/^tags:[ \t]*/, "", v)
+      if (v != "" && v !~ /^\[[ \t]*\]$/) print "tags"
+      else entags = 1
+      next
+    }
+    entags && /^[ \t]*-[ \t]*[^ \t]/ { print "tags"; entags = 0; next }
+    entags && !/^[ \t]/ { entags = 0 }
+  '
+}
+while IFS= read -r -d '' estado && IFS= read -r -d '' ruta; do
+  case "$ruta" in *.md) ;; *) continue ;; esac
+  case "$ruta" in docs/*|README.md|AGENTS.md) continue ;; esac
+  campos="$(git -C "$KB" show ":$ruta" 2>/dev/null | fm_campos)"
+  case "$campos" in *tier*) ;; *) echo "$ruta: falta tier" >&2; fail=1 ;; esac
+  case "$campos" in
+    *tags*) ;;
+    *)
+      if [ "$estado" = "A" ]; then
+        echo "$ruta: falta tags" >&2; fail=1
+      else
+        echo "kb-precommit: aviso: $ruta no declara tags" >&2
+      fi ;;
+  esac
+done < <(git -C "$KB" diff --cached --name-status -z --diff-filter=AM)
+
 [ "$fail" -eq 0 ] && exit 0
 
 cat >&2 <<'EOF'

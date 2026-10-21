@@ -32,12 +32,15 @@ FAIL=0
 
 # Payload PreToolUse con command (+ description/timeout opcionales para el
 # caso de preservación de git-c). Saltos de línea reales -> \n literal.
+# cwd por defecto bajo /tmp: zero-residuo NO deniega ahí (repo desechable),
+# así que las secciones que miden log/payload de `git add -A` siguen siendo
+# log-only; la Sección F fija PAYLOAD_CWD a un repo "real" para el deny.
 make_payload() {
   local cmd="$1"
   local cmd_escaped
   cmd_escaped="$(printf '%s' "$cmd" | sed 's/\\/\\\\/g; s/"/\\"/g' | awk 'NR>1{printf "\\n"} {printf "%s", $0}')"
-  printf '{"session_id":"test-sid","tool_name":"Bash","tool_input":{"command":"%s","description":"desc-original","timeout":5000},"hook_event_name":"PreToolUse"}' \
-    "$cmd_escaped"
+  printf '{"session_id":"test-sid","cwd":"%s","tool_name":"Bash","tool_input":{"command":"%s","description":"desc-original","timeout":5000},"hook_event_name":"PreToolUse"}' \
+    "${PAYLOAD_CWD:-/tmp/bash-guards-test}" "$cmd_escaped"
 }
 
 # Payload PreToolUse con cwd y transcript_path opcionales (para verify-before-done).
@@ -153,7 +156,7 @@ assert_rewrite "path relativo simple (sin ..) → rewrite" \
 }
 
 assert_log_only "git push (mutante, fuera de allowlist) → log-only" "cd /repo && git push" "git-c"
-assert_log_only "git add (mutante) → log-only" "cd /repo && git add -A" "git-c"
+assert_log_only "git add (mutante) → log-only" "cd /tmp/repo && git add -A" "git-c"
 assert_log_only "git branch (bare puede crear) → log-only" "cd /repo && git branch foo" "git-c"
 assert_log_only "pipe en REST → log-only" "cd /repo && git log --oneline | head -5" "git-c"
 assert_log_only "chain extra tras git → log-only" "cd /repo && git status && echo done" "git-c"
@@ -208,7 +211,7 @@ assert_silent "sin git → silencio" "ls -la /repo"
 echo ""
 echo "--- Sección B: casos de git-add-all-guard.sh (rama 2) ---"
 
-assert_log_only "git add -A → nudge"                "git add -A" "zero-residuo"
+assert_log_only "git add -A (cwd /tmp) → nudge"       "git add -A" "zero-residuo"
 assert_log_only "git add --all → nudge"             "git add --all" "zero-residuo"
 assert_log_only "git add . → nudge"                 "git add ." "zero-residuo"
 assert_log_only "git -C /tmp/x add -A → nudge (fix)" "git -C /tmp/x add -A" "zero-residuo"
@@ -281,7 +284,7 @@ assert_silent   "git add foo.txt bar.py → no nudge" "git add foo.txt bar.py"
 # caso match sin techo (path de 3000 chars tras -C)
 {
   PATH_LARGO="$(head -c 3000 < /dev/zero | tr '\0' 'x')"
-  CMD="git -C ${PATH_LARGO} add -A"
+  CMD="git -C /tmp/${PATH_LARGO} add -A"
   : > "$REFLEX_LOG_FILE"
   make_payload "$CMD" | bash "$HOOK" >/dev/null 2>&1
   PAYLOAD="$(tail -1 "$REFLEX_LOG_FILE" | jq -r 'select(.reflex=="zero-residuo") | .payload' 2>/dev/null)"
@@ -800,6 +803,135 @@ mkdir -p "$TMPDIR_E"
 }
 
 rm -rf "$TMPDIR_E" 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
+# Sección F: zero-residuo pasa de log a deny (#133)
+# deny solo para `git [-C x] add (-A|--all|.)` en posición de comando, sin
+# pathspec y fuera de /tmp; el resto sigue en log ("zero-residuo").
+# ---------------------------------------------------------------------------
+echo ""
+echo "--- Sección F: zero-residuo deny (#133) ---"
+
+REPO_REAL="/opt/proyectos/x"
+
+# payload con agent_id opcional (para el back-off por agente)
+make_payload_agent() {
+  local cwd="$1" agent="$2" cmd="$3"
+  jq -nc --arg c "$cmd" --arg cwd "$cwd" --arg a "$agent" \
+    '{session_id:"test-sid",cwd:$cwd,tool_name:"Bash",tool_input:{command:$c},hook_event_name:"PreToolUse"}
+     + (if $a=="" then {} else {agent_id:$a,agent_type:"general-purpose"} end)'
+}
+
+assert_deny() {
+  local name="$1" cmd="$2" cwd="${3:-$REPO_REAL}"
+  local output decision reason reflexes
+  : > "$REFLEX_LOG_FILE"
+  output="$(make_payload_agent "$cwd" "" "$cmd" | bash "$HOOK" 2>/dev/null)"
+  decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision // empty' 2>/dev/null)"
+  reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason // empty' 2>/dev/null)"
+  reflexes="$(jq -r '.reflex' "$REFLEX_LOG_FILE" 2>/dev/null | tr '\n' ',')"
+  if [ "$decision" = "deny" ] && printf '%s' "$reason" | grep -q 'rutas explícitas' \
+     && [ "$reflexes" = "zero-residuo-deny," ]; then
+    printf '[PASS] %s\n' "$name"; PASS=$((PASS+1))
+  else
+    printf '[FAIL] %s — esperaba deny+razón+log zero-residuo-deny, obtuve decision=«%s» reflexes=«%s» out=%s\n' "$name" "$decision" "$reflexes" "$output"
+    FAIL=$((FAIL+1))
+  fi
+}
+
+# no deniega (stdout vacío) y loguea el reflejo dado como única línea
+# (reflex "*": solo exige stdout vacío, para comandos que ni casan el PATRON)
+assert_no_deny() {
+  local name="$1" cmd="$2" cwd="${3:-$REPO_REAL}" reflex="${4:-zero-residuo}"
+  local output reflexes
+  : > "$REFLEX_LOG_FILE"
+  output="$(make_payload_agent "$cwd" "" "$cmd" | bash "$HOOK" 2>/dev/null)"
+  reflexes="$(jq -r '.reflex' "$REFLEX_LOG_FILE" 2>/dev/null | tr '\n' ',')"
+  if [ -z "$output" ] && { [ "$reflex" = "*" ] || [ "$reflexes" = "${reflex}," ]; }; then
+    printf '[PASS] %s\n' "$name"; PASS=$((PASS+1))
+  else
+    printf '[FAIL] %s — esperaba stdout vacío y log «%s,», obtuve reflexes=«%s» out=%s\n' "$name" "$reflex" "$reflexes" "$output"
+    FAIL=$((FAIL+1))
+  fi
+}
+
+# sin pathspec => deny
+assert_deny "F1 git add -A → deny"                    "git add -A"
+assert_deny "F1 git add --all → deny"                 "git add --all"
+assert_deny "F1 git add . → deny"                     "git add ."
+# shellcheck disable=SC2016 # el $ literal es el comando bajo prueba
+assert_deny "F1 git -C \$R add -A && commit → deny"   'R=/opt/proyectos/x; git -C $R add -A && git -C $R commit -q -m x'
+assert_deny "F1 add -A tras heredoc → deny"           "$(printf "cat > f <<'EOF'\nhola\nEOF\ngit add -A")"
+assert_deny "F1 add -A con flag y redirección → deny" "git add -A -v 2>&1 | tail -1"
+
+# con pathspec => log
+assert_no_deny "F2 add -A web android tests → log"        "git -C \$W add -A web android tests"
+assert_no_deny "F2 add -A -- . ':!.claude' → log"         "git add -A -- . ':!.claude'"
+assert_no_deny "F2 add -A . → log"                        "git add -A ."
+assert_no_deny "F2 add . src → log"                       "git add . src"
+
+# cwd o -C bajo /tmp => log
+assert_no_deny "F3 cwd /tmp/x → log"                      "git add -A" "/tmp/x"
+assert_no_deny "F3 cwd scratchpad de Claude → log"        "git add ." "/tmp/claude-1000/foo/scratchpad"
+assert_no_deny "F3 git -C /tmp/repo add -A → log"         "git -C /tmp/repo add -A"
+assert_no_deny "F3 cd /tmp/dbg && git add . → log"        "cd /tmp/dbg && git add ." "$REPO_REAL" "git-c,zero-residuo"
+assert_no_deny "F3 cd /tmp && cd dbg (relativo) && git add . → log" "cd /tmp && mkdir -p dbg && cd dbg && git add ." "$REPO_REAL" "git-c,zero-residuo"
+# shellcheck disable=SC2016 # el $ literal es el comando bajo prueba
+assert_no_deny "F3 S=/tmp/x; cd \$S/g && git add -A → log"  'S=/tmp/x; mkdir -p $S/g; cd $S/g && git add -A' "$REPO_REAL" "git-c,zero-residuo"
+assert_deny    "F3 /tmpfoo no es /tmp → deny"             "git add -A" "/tmpfoo/x"
+
+# FP del matcher: no está en posición de comando => nunca deny
+assert_no_deny "F4 rutas explícitas + prosa en heredoc → log, sin deny" \
+  "$(printf "cat > n.md <<'EOF'\nusa git add -A solo con pathspec\nEOF\ngit add a.txt b.txt")"
+assert_no_deny "F4 echo 'git add -A' → sin deny"           'echo "no hagas git add -A y sigue"' "$REPO_REAL" '*'
+assert_no_deny "F4 comentario # git add -A → log, sin deny" "git add a.txt # antes era git add -A"
+assert_no_deny "F4 grep 'git add .' → log, sin deny"      "grep -rn 'git add .' docs/" "$REPO_REAL" '*'
+
+# deny y verify-before-done en el mismo comando: un solo JSON, deny
+{
+  : > "$REFLEX_LOG_FILE"
+  OUTPUT="$(make_payload_agent "$REPO_REAL" "" "git add -A && git commit -m y" | bash "$HOOK" 2>/dev/null)"
+  N="$(printf '%s' "$OUTPUT" | jq -s 'length' 2>/dev/null)"
+  D="$(printf '%s' "$OUTPUT" | jq -r '.hookSpecificOutput.permissionDecision' 2>/dev/null)"
+  if [ "$N" = "1" ] && [ "$D" = "deny" ]; then
+    printf '[PASS] F5 add -A && commit → un solo JSON, deny\n'; PASS=$((PASS+1))
+  else
+    printf '[FAIL] F5 add -A && commit → n=%s decision=%s out=%s\n' "$N" "$D" "$OUTPUT"; FAIL=$((FAIL+1))
+  fi
+}
+
+# back-off: 3 denies consecutivos del mismo agent_id en la sesión => vuelve a log
+{
+  : > "$REFLEX_LOG_FILE"
+  R=()
+  for i in 1 2 3 4; do
+    O="$(make_payload_agent "$REPO_REAL" "agA" "git add -A" | bash "$HOOK" 2>/dev/null)"
+    D="$(printf '%s' "$O" | jq -r '.hookSpecificOutput.permissionDecision // empty' 2>/dev/null)"
+    R+=("${D:--}")
+  done
+  OTRO="$(make_payload_agent "$REPO_REAL" "agB" "git add -A" | bash "$HOOK" 2>/dev/null | jq -r '.hookSpecificOutput.permissionDecision // "-"')"
+  REFLEXES="$(jq -r '.reflex' "$REFLEX_LOG_FILE" | tr '\n' ',')"
+  if [ "${R[*]}" = "deny deny deny -" ] && [ "$OTRO" = "deny" ] \
+     && [ "$REFLEXES" = "zero-residuo-deny,zero-residuo-deny,zero-residuo-deny,zero-residuo-backoff,zero-residuo-deny," ]; then
+    printf '[PASS] F6 back-off: 3 denies seguidos del mismo agente → 4º a log; otro agente sigue en deny\n'; PASS=$((PASS+1))
+  else
+    printf '[FAIL] F6 back-off: decisiones=«%s» otro=«%s» reflexes=«%s»\n' "${R[*]}" "$OTRO" "$REFLEXES"; FAIL=$((FAIL+1))
+  fi
+}
+
+# un add con pathspec (el agente corrigió) rompe la racha
+{
+  : > "$REFLEX_LOG_FILE"
+  for c in "git add -A" "git add -A" "git add -A src" "git add -A"; do
+    O="$(make_payload_agent "$REPO_REAL" "agA" "$c" | bash "$HOOK" 2>/dev/null)"
+  done
+  D="$(printf '%s' "$O" | jq -r '.hookSpecificOutput.permissionDecision // "-"')"
+  if [ "$D" = "deny" ]; then
+    printf '[PASS] F7 un add con pathspec entre medias rompe la racha → vuelve a deny\n'; PASS=$((PASS+1))
+  else
+    printf '[FAIL] F7 racha no rota: decisión=%s\n' "$D"; FAIL=$((FAIL+1))
+  fi
+}
 
 echo ""
 TOTAL=$((PASS+FAIL))

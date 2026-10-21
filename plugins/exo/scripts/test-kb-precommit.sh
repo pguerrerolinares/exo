@@ -114,5 +114,50 @@ else
   fail "gate real rechaza (ratchet) ⇒ exit 1, mensaje QUÉ HACER (sin cambios)" "rc=$RC3 out=$OUT3"
 fi
 
+# ------------------- frontmatter staged: tier (siempre) y tags (solo en A) --
+# Repo aparte por caso; el stub ok deja pasar ratchet/budget, así que lo único
+# que puede dar rojo es el chequeo de frontmatter.
+caso_fm() { # $1=nombre $2=rc esperado $3=fragmento esperado en salida ("" = ninguno) $4=prep (función)
+  local kb="$TMP/fm-$1"
+  mkdir -p "$kb"
+  git -C "$kb" init -q
+  git -C "$kb" -c user.email=t@t.local -c user.name=t commit -q --allow-empty -m init
+  "$4" "$kb"
+  local out rc
+  out="$(cd "$kb" && EXO_BIN="$STUB" "$HOOK" 2>&1)"; rc=$?
+  if [ "$rc" -eq "$2" ] && { [ -z "$3" ] || contains "$out" "$3"; }; then
+    pass "frontmatter: $1"
+  else
+    fail "frontmatter: $1" "rc=$rc out=$out"
+  fi
+}
+nota() { printf -- '---\n%s\n---\ncuerpo\n' "$2" > "$1"; }
+prep_a_sin_tier() { nota "$1/n.md" 'tags: [x]'; git -C "$1" add n.md; }
+prep_a_sin_tags() { nota "$1/n.md" 'tier: stable'; git -C "$1" add n.md; }
+prep_a_tags_vacio() { nota "$1/n.md" $'tier: stable\ntags: []'; git -C "$1" add n.md; }
+prep_a_ok() { nota "$1/n.md" $'tier: stable\ntags: [x]'; git -C "$1" add n.md; }
+prep_a_docs() { mkdir -p "$1/docs"; printf 'sin frontmatter\n' > "$1/docs/x.md"; printf 'x\n' > "$1/README.md"; git -C "$1" add docs/x.md README.md; }
+prep_a_tier_bloque() { nota "$1/n.md" $'tier: log\ntags:\n  - x'; git -C "$1" add n.md; }
+prep_m_sin_tags() {
+  nota "$1/n.md" 'tier: stable'
+  git -C "$1" add n.md
+  git -C "$1" -c user.email=t@t.local -c user.name=t commit -q -m base --no-verify
+  printf 'más\n' >> "$1/n.md"; git -C "$1" add n.md
+}
+prep_m_sin_tier() {
+  nota "$1/n.md" 'tags: [x]'
+  git -C "$1" add n.md
+  git -C "$1" -c user.email=t@t.local -c user.name=t commit -q -m base --no-verify
+  printf 'más\n' >> "$1/n.md"; git -C "$1" add n.md
+}
+caso_fm "nota nueva sin tier ⇒ exit 1, 'falta tier'" 1 "n.md: falta tier" prep_a_sin_tier
+caso_fm "nota nueva sin tags ⇒ exit 1, 'falta tags'" 1 "n.md: falta tags" prep_a_sin_tags
+caso_fm "nota nueva con tags vacío ⇒ exit 1" 1 "n.md: falta tags" prep_a_tags_vacio
+caso_fm "nota modificada sin tier ⇒ exit 1" 1 "n.md: falta tier" prep_m_sin_tier
+caso_fm "nota modificada sin tags ⇒ exit 0 + aviso" 0 "aviso" prep_m_sin_tags
+caso_fm "nota correcta ⇒ exit 0" 0 "" prep_a_ok
+caso_fm "tags en lista YAML de bloque ⇒ exit 0" 0 "" prep_a_tier_bloque
+caso_fm "docs/ y README.md exentos ⇒ exit 0" 0 "" prep_a_docs
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
