@@ -16,14 +16,75 @@
 # el orquestador lo convierte en pregunta del pre-flight.
 # Paths: se quita el sufijo :N / :N-M; uno que acaba en / solapa con todo lo
 # que empiece por él. Exit 2 solo por error de uso.
+#
+# Usage: task-dag --lint PLAN_FILE
+# Comprueba el contrato del plan (header y campos por tarea). Stdout: una línea
+# `fichero:línea — falta X` por hueco. Exit 4 con huecos, 0 sin ellos. El 4 es
+# distinto del 2 (uso) para que un lint rojo no se esquive "calculando a mano".
 set -euo pipefail
 
+lint=0
+if [ "${1:-}" = "--lint" ]; then lint=1; shift; fi
 if [ $# -ne 1 ]; then
-  echo "usage: task-dag PLAN_FILE" >&2
+  echo "usage: task-dag [--lint] PLAN_FILE" >&2
   exit 2
 fi
 plan=$1
 [ -f "$plan" ] || { echo "no such plan file: $plan" >&2; exit 2; }
+
+if [ "$lint" = 1 ]; then
+  set +e
+  awk -v F="$plan" '
+    function hueco(l, m) { print F ":" l " — falta " m; bad = 1 }
+    function cierra_tarea() {
+      if (!task) return
+      if (!tl) hueco(tline, "**Tests:** en Task " tid)
+      else if (!tok) hueco(tl, "ítem o `n/a — <motivo>` en **Tests:** de Task " tid)
+    }
+    /^```/ { infence = !infence; next }
+    infence { next }
+    $0 ~ /(^|[^A-Za-z])(TBD|TODO)([^A-Za-z]|$)/ || tolower($0) ~ /handle edge cases|add error handling/ {
+      hueco(NR, "resolver marcador de relleno (TBD/TODO/handle edge cases/add error handling)")
+    }
+    /^#+[ \t]+Task[ \t]+[0-9]+/ {
+      cierra_tarea()
+      task = 1; tline = NR; tl = 0; tok = 0; intests = 0; sec = ""
+      tid = $0; sub(/^#+[ \t]+Task[ \t]+/, "", tid); match(tid, /^[0-9]+/); tid = substr(tid, 1, RLENGTH)
+      next
+    }
+    /^#+[ \t]/ {
+      intests = 0; sec = ""
+      if (!task) {
+        if ($0 ~ /^## Cierre de ola[ \t]*$/) { sec = "cierre"; cl = NR; hascierre = 1 }
+        else if ($0 ~ /^## Mutación[ \t]*$/) hasmut = 1
+        else if ($0 ~ /^## Recursos compartidos[ \t]*$/) hasrec = 1
+      }
+      next
+    }
+    !task && /^\*\*Spec:\*\*/ { hasspec = 1 }
+    !task && sec == "cierre" && /`[^`]+`/ { cmd = 1 }
+    !task { next }
+    /^\*\*Tests(:)?\*\*/ {
+      tl = NR; intests = 1
+      r = $0; sub(/^\*\*Tests(:)?\*\*[ \t]*/, "", r)
+      if (r ~ /^n\/a[ \t]*[—–:.,-][ \t]*[^ \t]/) { tok = 1; intests = 0 }
+      next
+    }
+    /^\*\*[^*]+(:)?\*\*/ { intests = 0; next }
+    intests && /^[ \t]*([-*]|[0-9]+\.)[ \t]+[^ \t]/ { tok = 1 }
+    END {
+      cierra_tarea()
+      if (!hascierre) hueco(1, "## Cierre de ola")
+      else if (!cmd) hueco(cl, "al menos un comando entre backticks en ## Cierre de ola")
+      if (!hasmut) hueco(1, "## Mutación")
+      if (!hasrec) hueco(1, "## Recursos compartidos")
+      if (!hasspec) hueco(1, "**Spec:** en el header")
+      if (!task) hueco(1, "tareas (### Task N: ...)")
+      exit bad ? 4 : 0
+    }
+  ' "$plan"
+  exit $?
+fi
 
 awk '
   /^```/ { infence = !infence; next }
