@@ -33,9 +33,12 @@
 # del repo, limpia los worktrees y ramas de tarea ya integrados en HEAD y borra el
 # workspace de ESTE plan (nunca .superpowers/sdd/ entero ni sus hermanos). Sin --force:
 # lo sucio o sin integrar se queda y el exit es 1.
+# Antes de tocar nada exige el CI del PR de la rama actual en verde (`gh pr checks`): un
+# CI que falla tras el close ya no tiene ledger donde registrar el fix y su Ruling. Sin PR,
+# sin gh, pendiente o rojo => exit 1; `--no-ci MOTIVO` lo salta y lo deja en el ledger.
 #
 # Usage: sdd-workspace PLAN_FILE
-#        sdd-workspace close PLAN_FILE [--archive DIR] [--prefix PREFIJO]
+#        sdd-workspace close PLAN_FILE [--archive DIR] [--prefix PREFIJO] [--no-ci MOTIVO]
 set -euo pipefail
 
 close=0
@@ -43,16 +46,18 @@ if [ "${1:-}" = close ]; then
   close=1; shift
   archive="${EXO_SDD_ARCHIVE:-$HOME/.local/share/exo/sdd-archive}"; archive_set=0
   prefix=task/
+  no_ci=""
   plan=""
   while [ $# -gt 0 ]; do
     case "$1" in
       --archive) [ $# -ge 2 ] || { echo "--archive necesita DIR" >&2; exit 2; }; archive=$2; archive_set=1; shift 2 ;;
       --prefix)  [ $# -ge 2 ] || { echo "--prefix necesita PREFIJO" >&2; exit 2; }; prefix=$2; shift 2 ;;
-      *) [ -z "$plan" ] || { echo "usage: sdd-workspace close PLAN_FILE [--archive DIR] [--prefix PREFIJO]" >&2; exit 2; }
+      --no-ci)   [ $# -ge 2 ] && [ -n "$2" ] || { echo "--no-ci necesita MOTIVO" >&2; exit 2; }; no_ci=$2; shift 2 ;;
+      *) [ -z "$plan" ] || { echo "usage: sdd-workspace close PLAN_FILE [--archive DIR] [--prefix PREFIJO] [--no-ci MOTIVO]" >&2; exit 2; }
          plan=$1; shift ;;
     esac
   done
-  [ -n "$plan" ] || { echo "usage: sdd-workspace close PLAN_FILE [--archive DIR] [--prefix PREFIJO]" >&2; exit 2; }
+  [ -n "$plan" ] || { echo "usage: sdd-workspace close PLAN_FILE [--archive DIR] [--prefix PREFIJO] [--no-ci MOTIVO]" >&2; exit 2; }
   # Solo un espacio de nombres (`algo/`): un prefijo suelto (`m`) casaría main y close la borraría.
   case "$prefix" in
     ""|/|*[\*\?\[]*|*[!/]) echo "--prefix inválido (debe acabar en /, no ser solo /, sin * ? [): '$prefix'" >&2; exit 2 ;;
@@ -115,6 +120,21 @@ fi
 if [ "$close" = 1 ]; then
   slug=$(basename "$dir")
   pending=0
+
+  if [ -n "$no_ci" ]; then
+    [ ! -f "$dir/progress.md" ] || printf 'close: --no-ci (%s)\n' "$no_ci" >> "$dir/progress.md"
+  else
+    ci_br=$(git symbolic-ref -q --short HEAD || true)
+    # Vacío (sin checks) también bloquea: un repo sin CI lo declara con --no-ci, no por silencio.
+    if [ -n "$ci_br" ] && command -v gh >/dev/null 2>&1 \
+       && ci_states=$(gh pr checks "$ci_br" --json state --jq '.[].state' 2>/dev/null) \
+       && [ -n "$ci_states" ] && ! printf '%s\n' "$ci_states" | grep -qvxE 'SUCCESS|SKIPPED|NEUTRAL'; then
+      :
+    else
+      echo "CI no verde: fix dispatch con el ledger vivo (sin PR/gh/checks, pendiente o rojo en '${ci_br:-HEAD desacoplado}'; --no-ci MOTIVO solo si no hay CI)" >&2
+      exit 1
+    fi
+  fi
 
   common=$(CDPATH='' cd -- "$(git rev-parse --git-common-dir)" && pwd -P)
   repo_name=$(basename "$(dirname "$common")")

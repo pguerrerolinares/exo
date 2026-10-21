@@ -41,15 +41,24 @@
 #   la UNICA rama que se salta condicionalmente es 1b, que en el codigo
 #   original tampoco se alcanza si 1a ya reescribio y salio con exit 0.
 #
+#   EXCEPCION desde #133: la rama 2 (zero-residuo) pasa a decidir `deny` para
+#   `git add -A/--all/.` sin pathspec en posicion de comando y fuera de /tmp
+#   (con pathspec, bajo /tmp o con la vuelta atras activa sigue en log). Es la
+#   UNICA rama que puede emitir `permissionDecision:"deny"`. Regla: deny
+#   primero, rewrite despues, un solo objeto en stdout; si hay deny, el
+#   rewrite NO se emite (y el `allow` de 1a no podria convivir con un
+#   `deny` en el mismo hookSpecificOutput). Por la nota estructural de abajo,
+#   rewrite y rama 2 no coinciden en un mismo comando, asi que hoy la regla
+#   es precaucion y no un caso real.
+#
 #   Regla general (documentada por si una rama futura vuelve a emitir
 #   `additionalContext`, aunque hoy sea codigo muerto): varios
 #   `additionalContext` no vacios se concatenan (separados por una linea en
 #   blanco) en un unico `hookSpecificOutput.additionalContext`, que convive
 #   en el MISMO objeto con el `permissionDecision:"allow"` + `updatedInput`
 #   del rewrite si lo hay -- son campos independientes de un solo
-#   `hookSpecificOutput`. Si alguna rama decidiera `deny`/`ask` (hoy
-#   ninguna lo hace: las tres son warn-only, "NUNCA bloquea"), esa decision
-#   primaria sobre el `allow` del rewrite y el rewrite NO se aplicaria.
+#   `hookSpecificOutput`. Un `deny`/`ask` como decision primaria prima sobre
+#   el `allow` del rewrite y el rewrite NO se aplicaria.
 #
 #   Nota estructural (por que no hay caso real de "rewrite + log de otra
 #   rama" en el mismo comando, verificado por construccion): el rewrite de
@@ -175,13 +184,48 @@ if [ "$GITC_REWROTE" -eq 0 ]; then
 fi
 
 # =============================================================
-# Rama 2: zero-residuo -- de git-add-all-guard.sh (log-only)
+# Rama 2: zero-residuo -- de git-add-all-guard.sh (log; deny desde #133)
 # =============================================================
+# PATRON_ZR sigue siendo el que LOGUEA (mide, ruido incluido). El deny (#133)
+# exige ademas el matcher estricto de _zero-residuo-clasifica.sh: `add
+# (-A|--all|.)` en posicion de comando, sin pathspec, y fuera de /tmp (repo
+# desechable). Con pathspec, bajo /tmp o fuera de posicion de comando se queda
+# en log "zero-residuo", como antes.
 PATRON_ZR='git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?add[[:space:]]+(-A|--all|\.)([[:space:]]|$)'
+DENY_JSON=""
 if printf '%s' "$CMD" | grep -Eq "$PATRON_ZR"; then
+  ZR_ID="zero-residuo"
+  . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null || true
+  if . "$SCRIPT_DIR/_zero-residuo-clasifica.sh" 2>/dev/null; then
+    while IFS= read -r ZR_DIR; do
+      case "$ZR_DIR" in '$'*|'~'*) ZR_DIR="" ;; esac
+      case "${ZR_DIR:-$CWD}" in
+        /tmp|/tmp/*) ;;
+        *) ZR_ID="zero-residuo-deny" ;;
+      esac
+    done < <(zr_deny_dirs "$CMD")
+  fi
+  # Vuelta atras: >=3 denies/backoffs seguidos del mismo agent_id en la
+  # sesion (el agente da vueltas) => log. Un "zero-residuo" plano en medio
+  # (add con pathspec, /tmp) rompe la racha.
+  if [ "$ZR_ID" = "zero-residuo-deny" ]; then
+    ZR_AID="$(printf '%s' "$INPUT" | jq -r '.agent_id // ""' 2>/dev/null)"
+    ZR_RACHA="$(tail -n 500 "${REFLEX_LOG_FILE:-/dev/null}" 2>/dev/null | jq -rs --arg s "$SID" --arg a "$ZR_AID" '
+        [ .[] | select(type=="object" and .session_id==$s and .agent_id==$a
+                       and (.reflex | IN("zero-residuo","zero-residuo-deny","zero-residuo-backoff"))) ]
+        | reverse | (map(.reflex != "zero-residuo") | index(false)) // length' 2>/dev/null)" || ZR_RACHA=0
+    if [ "${ZR_RACHA:-0}" -ge 3 ] 2>/dev/null; then
+      ZR_ID="zero-residuo-backoff"
+    else
+      DENY_JSON="$(jq -nc '{hookSpecificOutput:{hookEventName:"PreToolUse",
+          permissionDecision:"deny",
+          permissionDecisionReason:"Reflejo zero-residuo: `git add -A`/`--all`/`.` sin pathspec arrastra residuo (ficheros ajenos o a medias). Usa rutas explícitas: `git add <ruta> ...`."}}' 2>/dev/null)" || DENY_JSON=""
+      [ -z "$DENY_JSON" ] && ZR_ID="zero-residuo"
+    fi
+  fi
   PAYLOAD="${CMD:0:120}"
   . "$SCRIPT_DIR/_truncate-payload.sh" 2>/dev/null && payload_truncado "$CMD" "$PATRON_ZR"
-  . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && reflex_log "zero-residuo" "$INPUT" "$PAYLOAD" || true
+  . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && reflex_log "$ZR_ID" "$INPUT" "$PAYLOAD" || true
 fi
 
 # =============================================================
@@ -204,6 +248,7 @@ if printf '%s' "$CMD" | grep -Eq "$PATRON_VBD" \
 
     if [ -n "$CODE_FILES" ]; then
       SHOULD_WARN=1
+      STALE_PREFIX=""
       if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
         TR_RE1='(^|[&|;[:space:]]+)(pytest|jest|vitest|tox|rspec|phpunit)([[:space:]]|$)'
         TR_RE2='(^|[&|;[:space:]]+)(npm[[:space:]]+(test|run[[:space:]]+test)|yarn[[:space:]]+test|pnpm[[:space:]]+test|bun[[:space:]]+test|cargo[[:space:]]+test|go[[:space:]]+test|make[[:space:]]+test|mvn[[:space:]]+test|gradle[[:space:]]+test|dotnet[[:space:]]+test)([[:space:]]|$)'
@@ -212,35 +257,45 @@ if printf '%s' "$CMD" | grep -Eq "$PATRON_VBD" \
           | jq -rs --arg re1 "$TR_RE1" --arg re2 "$TR_RE2" '
               [ .[] | select(type=="object")
                 | .message.content[]?
-                | select(.type=="tool_use" and .name=="Bash")
-                | {id: .id, cmd: (.input.command // "")}
+                | select(.type=="tool_use")
+                | {id: .id, name: .name, cmd: (.input.command // "")}
               ] as $uses
               | ( [ .[] | select(type=="object")
                     | .message.content[]?
                     | select(.type=="tool_result")
                     | {key: .tool_use_id, value: (.is_error // false)}
                   ] | from_entries ) as $errmap
-              | ( [ $uses[] | select((.cmd | test($re1)) or (.cmd | test($re2))) ] | last ) as $tr
-              | if $tr == null then "warn"
-                else (if $errmap[$tr.id] == false then "green" else "warn" end)
+              | ( [ range(0; $uses | length) as $i
+                    | $uses[$i]
+                    | select(.name=="Bash" and ((.cmd | test($re1)) or (.cmd | test($re2))))
+                    | $i ] | last ) as $ti
+              | if $ti == null then "warn"
+                elif $errmap[$uses[$ti].id] != false then "warn"
+                elif ( $uses[$ti + 1:] | any(.name=="Edit" or .name=="Write" or .name=="NotebookEdit") ) then "stale"
+                else "green"
                 end
             ' 2>/dev/null)" || RESULT="warn"
 
         [ "$RESULT" = "green" ] && SHOULD_WARN=0
+        # stale: el verde no describe el arbol que se commitea (Edit/Write
+        # posterior). Mismo reflejo, payload prefijado para separarlo de warn.
+        [ "$RESULT" = "stale" ] && STALE_PREFIX="stale "
       fi
 
       if [ "$SHOULD_WARN" -eq 1 ]; then
         PAYLOAD="${CMD:0:120}"
         . "$SCRIPT_DIR/_truncate-payload.sh" 2>/dev/null && payload_truncado "$CMD" "$PATRON_VBD"
-        . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && reflex_log "verify-before-done" "$INPUT" "$PAYLOAD" || true
+        . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && reflex_log "verify-before-done" "$INPUT" "${STALE_PREFIX}${PAYLOAD}" || true
       fi
     fi
   fi
 fi
 
-# ---- Emision fusionada: el rewrite (si lo hay) es lo UNICO que va a
-# stdout -- ver REGLA DE FUSION arriba. ----
-if [ -n "$REWRITE_JSON" ]; then
+# ---- Emision fusionada: un solo objeto en stdout; el deny de zero-residuo
+# gana al rewrite -- ver REGLA DE FUSION arriba. ----
+if [ -n "$DENY_JSON" ]; then
+  printf '%s' "$DENY_JSON"
+elif [ -n "$REWRITE_JSON" ]; then
   printf '%s' "$REWRITE_JSON"
 fi
 exit 0

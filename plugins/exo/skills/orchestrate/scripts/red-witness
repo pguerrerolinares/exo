@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Corre un comando y deja constancia de su RED en <toplevel>/.superpowers/sdd/red.log:
+# `RED: <cmd> exit=N` + las últimas 20 líneas de salida. Sale con el exit real del
+# comando, así que se usa en el sitio del runner sin cambiar el flujo TDD.
+#
+# Por qué: «RED: citado en el report» es prosa que el modelo puede recitar sin
+# haber corrido nada (#136). El log lo escribe el wrapper, no el executor, y
+# `red-gate.sh` lo contrasta al entregar. Sin pipe a propósito: `cmd | tail`
+# esconde el exit de `cmd` (sin pipefail devuelve el de tail).
+#
+# Usage: red-witness <cmd…>
+set -uo pipefail
+
+if [ $# -eq 0 ]; then
+  echo "usage: red-witness <cmd…>" >&2
+  exit 2
+fi
+
+TOP="$(git rev-parse --show-toplevel 2>/dev/null)" || TOP="$PWD"
+LOG="$TOP/.superpowers/sdd/red.log"
+OUT="$(mktemp)"
+trap 'rm -f "$OUT"' EXIT
+
+"$@" >"$OUT" 2>&1
+RC=$?
+cat "$OUT"
+
+mkdir -p "$(dirname "$LOG")" 2>/dev/null || true
+{
+  printf 'RED: %s exit=%d\n' "$*" "$RC"
+  tail -n 20 "$OUT"
+} >>"$LOG" 2>/dev/null || true
+
+exit "$RC"
