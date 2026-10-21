@@ -484,6 +484,37 @@ pub fn indice_rancio(
     Ok(hallazgos)
 }
 
+/// Aristas cuyo destino no resolvió (`destino_permalink IS NULL`), con origen
+/// dentro del scope. `resuelve_destinos` las deja a NULL a propósito (§6.2
+/// regla 6: indexar tolera el link roto); este check es el único que las saca.
+/// `archive/` queda fuera por `excluidos`: ahí viven los links históricos que
+/// ya no se arreglan.
+///
+/// Lee el índice, no el disco: un índice desfasado lo cubre `index_stale`.
+pub fn links_rotos(conn: &rusqlite::Connection, excluidos: &[&str]) -> Result<Vec<Hallazgo>> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT n.ruta, a.destino_texto
+             FROM aristas a JOIN notas n ON n.permalink = a.origen
+             WHERE a.destino_permalink IS NULL
+             ORDER BY n.ruta, a.destino_texto",
+        )
+        .context("preparar la query de links rotos")?;
+    let filas = stmt
+        .query_map([], |f| Ok((f.get::<_, String>(0)?, f.get::<_, String>(1)?)))
+        .context("consultar links rotos")?;
+    let mut hallazgos = Vec::new();
+    for fila in filas {
+        let (ruta, texto) = fila.context("leer fila de link roto")?;
+        let ruta = ruta.replace('\\', "/");
+        if excluida(&ruta, excluidos) {
+            continue;
+        }
+        hallazgos.push(Hallazgo::nuevo("broken_link", ruta, format!("[[{texto}]]")));
+    }
+    Ok(hallazgos)
+}
+
 /// El informe completo de `lint`: `ok` es cierto solo si `hallazgos` está
 /// vacío (los `waived` no gatean, por definición). Clave JSON `findings` en
 /// vez de `hallazgos`: el consumidor es el envelope, en inglés, igual que el
@@ -496,9 +527,9 @@ pub struct InformeLint {
     pub waived: Vec<Hallazgo>,
 }
 
-/// El pipeline de los siete checks, en orden fijo:
+/// El pipeline de los ocho checks, en orden fijo:
 /// `duplicate_dir → orphan → bad_frontmatter → root_file → budget_exceeded →
-/// budget_prose_drift → index_stale`. `schema_drift` no está y no vuelve (A7);
+/// budget_prose_drift → index_stale → broken_link`. `schema_drift` no está y no vuelve (A7);
 /// `index_stale` sí es nuevo frente a kbx (divergencia 8 del pre-registro): es
 /// el único de los siete que compara el índice contra el disco en vez de leer
 /// solo uno de los dos.
@@ -524,6 +555,7 @@ pub fn analiza(
     waived.extend(w);
     hallazgos.extend(deriva_de_prosa(kb, &rutas, presupuestos, excluidos)?);
     hallazgos.extend(indice_rancio(conn, kb, &rutas)?);
+    hallazgos.extend(links_rotos(conn, excluidos)?);
 
     Ok(InformeLint {
         ok: hallazgos.is_empty(),

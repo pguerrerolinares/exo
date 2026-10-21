@@ -38,7 +38,7 @@ fn indexa(conn: &rusqlite::Connection, ruta: &str) {
 fn da_arista_real(conn: &rusqlite::Connection, ruta: &str) {
     conn.execute(
         "INSERT INTO aristas (origen, destino_texto, destino_permalink)
-         VALUES (?1, 'destino', NULL)",
+         VALUES (?1, 'destino', ?1)",
         rusqlite::params![format!("kb/{ruta}")],
     )
     .unwrap();
