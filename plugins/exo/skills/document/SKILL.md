@@ -20,7 +20,8 @@ aprendizajes técnicos durables, patrones recurrentes. Descarta lo efímero
 Probe del engine antes de rutear: `exo search --type hybrid --limit 5 "<topic>"`
 da por candidata `permalink`, `type`, `score` y **la ruta absoluta**, en cuatro
 columnas separadas por tab y sin jq de por medio. Elige "nota X, sección Y" y lee
-SOLO la ganadora antes de escribir. La ruta es imprescindible: el permalink NO es
+SOLO la ganadora antes de escribir, con `Read` sobre esa ruta (`Edit` lo exige);
+no con grep/sed/cat en Bash, que no cuentan como lectura. La ruta es imprescindible: el permalink NO es
 invertible (el slug come acentos, espacios y em-dashes), así que sin ella no
 puedes localizar el fichero. Alternativa con score y el fragmento que casa con
 la query, misma búsqueda híbrida: `exo recall --query "<topic>" --limit 5`.
@@ -72,12 +73,20 @@ contexto:
 puntero del canon cita esa cabecera: `[[<slug>-bitacora]], AAAA-MM-DD «<tema
 concreto>»`, y por eso el tema debe ser grepeable y único. Prohibidas las
 etiquetas genéricas («movido del canon», «delta», «detalle», «distill») sin tema
-detrás. `exo write append` rechaza (exit 3) una cabecera ya presente en la nota
-viva; concreta el tema, no uses `--force` salvo excepción consciente.
+detrás. `exo write append` rechaza (exit 3) un bloque de más de 15 líneas no
+vacías, una cabecera fuera de formato o con etiqueta genérica sola (canon,
+delta, detalle, distill, sesión, «movido del canon») y una cabecera ya presente
+en la nota viva; concreta el tema, no uses `--force` salvo excepción consciente.
+Los bloques `movido del canon: <tema>` del sidecar de distill no tienen tope de
+líneas.
 
 El cuerpo va **en un fichero** (`--from`), que escribes antes con `Write`.
 Nunca por heredoc: el escaping de comillas, backticks y `$` es la fuente de
 error más tonta y frecuente de este camino.
+
+Si `Edit` falla con "File has not been read yet", haz `Read` de la ruta y
+reintenta. Nunca escribas la nota canónica con heredoc, `python3` ni `sed -i`:
+eludes la lectura que protege el texto exacto.
 
 **Los tres rechazos, y qué significan.** Salen con exit 3 (distinto de un error
 real, que es 1):

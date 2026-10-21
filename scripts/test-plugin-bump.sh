@@ -18,13 +18,14 @@ fallos=0
 ok()  { echo "test-plugin-bump: OK — $1"; }
 mal() { echo "test-plugin-bump: FALLO — $1" >&2; fallos=1; }
 
-# fixture <nombre> -> repo con un commit base: plugin 1.0.0 y un script.
+# fixture <nombre> [version] -> repo con un commit base: plugin en `version`
+# (1.0.0 por defecto) y un script.
 # Deja $REPO y $BASE (el sha del commit base).
 fixture() {
   REPO="$TMP/$1"
   mkdir -p "$REPO/plugins/exo/.claude-plugin" "$REPO/plugins/exo/scripts" "$REPO/scripts"
   cp "$GATE" "$REPO/scripts/"
-  printf '{\n  "name": "exo",\n  "version": "1.0.0"\n}\n' > "$REPO/plugins/exo/.claude-plugin/plugin.json"
+  printf '{\n  "name": "exo",\n  "version": "%s"\n}\n' "${2:-1.0.0}" > "$REPO/plugins/exo/.claude-plugin/plugin.json"
   printf 'echo viejo\n' > "$REPO/plugins/exo/scripts/algo.sh"
   printf 'nada que ver\n' > "$REPO/otro.txt"
   git -C "$REPO" init -q
@@ -106,5 +107,37 @@ else
   ok "BASE que no resuelve a un commit ⇒ abstención explícita, exit 0"
 fi
 
+# bump <version> -> cambia el script del plugin y fija `version`.
+bump() {
+  printf 'echo nuevo\n' > "$REPO/plugins/exo/scripts/algo.sh"
+  printf '{\n  "name": "exo",\n  "version": "%s"\n}\n' "$1" > "$REPO/plugins/exo/.claude-plugin/plugin.json"
+  git -C "$REPO" add plugins/exo/scripts/algo.sh plugins/exo/.claude-plugin/plugin.json
+  git -C "$REPO" commit -qm "cambia el plugin y deja version en $1"
+}
+
+# --- Caso 6: la versión baja -> rojo. Con PRs paralelos, un merge fuera de
+# orden deja en main un número menor que el ya publicado, y el marketplace
+# (que sirve por número) no vería el contenido nuevo.
+fixture version-baja 1.2.0
+bump 1.1.0
+corre "$REPO" "$BASE"
+if [ "$rc" -eq 0 ]; then
+  mal "versión menor: salió 0 — un downgrade esconde el contenido nuevo"
+elif ! grep -q "1.2.0" "$TMP/out.log" || ! grep -q "1.1.0" "$TMP/out.log"; then
+  mal "versión menor: el error no dice las dos versiones"; cat "$TMP/out.log" >&2
+else
+  ok "version baja ⇒ rojo, diciendo las dos versiones"
+fi
+
+# --- Caso 7: 1.9.0 -> 1.10.0 -> verde. Orden de versión, no lexicográfico.
+fixture version-decimas 1.9.0
+bump 1.10.0
+corre "$REPO" "$BASE"
+if [ "$rc" -ne 0 ]; then
+  mal "1.9.0 → 1.10.0: esperaba 0, hubo $rc"; cat "$TMP/out.log" >&2
+else
+  ok "1.9.0 → 1.10.0 ⇒ verde (orden de versión, no lexicográfico)"
+fi
+
 [ "$fallos" -eq 0 ] || { echo "test-plugin-bump: hay fallos" >&2; exit 1; }
-echo "test-plugin-bump: OK — los cinco casos"
+echo "test-plugin-bump: OK — los siete casos"

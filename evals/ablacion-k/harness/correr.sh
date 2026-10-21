@@ -14,7 +14,7 @@
 #          requiere K_REGLA_FILE y K_FRAMING_FILE (techo-reglas-2)
 #   ars    a0 exacto (claude-md.md sin framing) + solo el mod register.ts por --plugin-dir con EXO_RULES_FORZAR_SUBMIT=1:
 #          entrega la regla por prompt.submit (canal degradado); un shim `exo` le sirve la regla de K_REGLA_FILE
-# K_ENSAYO=1: genera settings.json y cmdline.txt (deny, PATH) y sale sin lanzar claude.
+# cmdline.txt (deny, PATH, append) se escribe siempre. K_ENSAYO=1: sale tras generarlo, sin lanzar claude.
 set -uo pipefail
 tarea=$1; brazo=$2; rep=$3
 H="$(cd "$(dirname "$0")" && pwd)"
@@ -94,12 +94,13 @@ if [ -f "$tarea/meta.json" ]; then
   extra_env+=(VIRTUAL_ENV="$venv" PYTHONPATH="$O/work/src:$O/work")
   [ "$s2repo" = django-oscar ] && extra_env+=(DATABASE_ENGINE=django.db.backends.sqlite3 DATABASE_NAME=:memory:)
 fi
+# cmdline.txt también en corridas reales: es el único rastro del canal (append) que usó la corrida.
+{ printf 'PATH=%s\n' "$ruta"; printf 'deny=%s\n' "${deny[@]}"; printf 'append=%s\n' "$append"
+  # plugin-dir y env se derivan de los arrays que de verdad se pasan a claude
+  [ ${#plugin_args[@]} -gt 0 ] && printf 'plugin-dir=%s\n' "${plugin_args[1]}"
+  [ ${#extra_env[@]} -gt 0 ] && printf 'env=%s\n' "${extra_env[@]}"; } > "$O/cmdline.txt"
 if [ "${K_ENSAYO:-0}" = 1 ]; then
-  echo "correr.sh: modo ensayo, no se lanza claude" >&2
-  { printf 'PATH=%s\n' "$ruta"; printf 'deny=%s\n' "${deny[@]}"; printf 'append=%s\n' "$append"
-    # plugin-dir y env se derivan de los arrays que de verdad se pasan a claude
-    [ ${#plugin_args[@]} -gt 0 ] && printf 'plugin-dir=%s\n' "${plugin_args[1]}"
-    [ ${#extra_env[@]} -gt 0 ] && printf 'env=%s\n' "${extra_env[@]}"; } > "$O/cmdline.txt"; exit 0
+  echo "correr.sh: modo ensayo, no se lanza claude" >&2; exit 0
 fi
 prompt=$(jq -r .prompt "$t_json")
 cd "$O/work" || exit 3; t0=$(date +%s)
