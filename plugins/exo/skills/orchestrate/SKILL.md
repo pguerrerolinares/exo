@@ -7,10 +7,11 @@ description: Ejecuta planes de implementación multi-tarea: orquestador padre qu
 
 Orquestador padre: ejecutor fresco por tarea, contexto aislado (nunca
 hereda la sesión); el padre valida y decide, los hijos implementan.
-Narración: un mensaje por ola (cierre con números) y uno por Ruling no
-obvio; nada por transición de tarea. Una notificación que no cambia el
-estado (duplicada, idle sin novedad) no se contesta. El ledger y los
-resultados llevan el resto.
+Narración: el mensaje de ola es la salida literal de `wave-close` más los
+Rulings de la ola; nada por transición de tarea. Cualquier otro cierre de turno
+con el ledger vivo, una línea. Una notificación que no cambia el estado
+(duplicada, idle sin novedad) no se contesta. El ledger y los resultados llevan
+el resto.
 
 Rule and continue destilado de `subagent-driven-development/SKILL.md`
 (superpowers 7.0.0, MIT © 2025 Jesse Vincent).
@@ -115,7 +116,8 @@ línea `Ruling:` del ledger en tu mensaje final bajo «Rulings I made» (orden
 cronológico, cada una con su coste si está mal): es lo único que lleva al
 humano las decisiones tomadas por él. Sácalas con `scripts/rulings-collect
 <workspace>/progress.md` (numeradas, `PR-pendiente` marcadas con ⚠) y pégalas
-también en el cuerpo del PR. Luego `scripts/sdd-workspace close PLAN` (se niega con exit 1 si el CI del PR de la
+también en el cuerpo del PR. Luego `scripts/sdd-workspace close PLAN` (se niega con exit 1 si la última ola no
+tiene `Ola K: cierre — verde` de `wave-close` (`olas.md`), y también si el CI del PR de la
 rama no está verde: un CI rojo o pendiente es hallazgo tardío con el ledger vivo,
 fix dispatch + re-review; `--no-ci MOTIVO` solo si no hay PR ni CI, y queda en el ledger): archiva
 ledger y `final-review.md` fuera del repo, quita worktrees y ramas `task/*` ya

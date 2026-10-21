@@ -37,12 +37,26 @@
 # CI que falla tras el close ya no tiene ledger donde registrar el fix y su Ruling. Sin PR,
 # sin gh, pendiente o rojo => exit 1; `--no-ci MOTIVO` lo salta y lo deja en el ledger.
 #
+# Antes de eso exige que la última ola del plan (task-dag) tenga su cierre en verde en el
+# ledger (`Ola K: cierre — verde`, escrito por wave-close); no hay --force ni --no-ci que lo salte.
+#
+# `wave-close PLAN K` cierra la ola K por script: ejecuta CADA comando de `## Cierre de ola`
+# del ledger (`bash -c` en la raíz del repo, sin pipe: el exit es el del comando), anexa
+# `Ola K: cierre — <cmd>: exit=N (<última línea>)` por comando y la línea resumen
+# `Ola K: cierre — verde (n/n) @<sha>` o `— ROJO (m/n)`. Exit = nº de comandos rojos; sin
+# sección o sin comandos => 1. task-brief niega el brief de la ola K+1 sin ese `verde`.
+#
 # Usage: sdd-workspace PLAN_FILE
+#        sdd-workspace wave-close PLAN_FILE K
 #        sdd-workspace close PLAN_FILE [--archive DIR] [--prefix PREFIJO] [--no-ci MOTIVO]
 set -euo pipefail
 
-close=0
-if [ "${1:-}" = close ]; then
+close=0; wc=0
+if [ "${1:-}" = wave-close ]; then
+  [ $# -eq 3 ] || { echo "usage: sdd-workspace wave-close PLAN_FILE K" >&2; exit 2; }
+  wc=1; plan=$2; wave=$3
+  case "$wave" in ""|*[!0-9]*|0*) echo "K inválida (entero >= 1): '$wave'" >&2; exit 2 ;; esac
+elif [ "${1:-}" = close ]; then
   close=1; shift
   archive="${EXO_SDD_ARCHIVE:-$HOME/.local/share/exo/sdd-archive}"; archive_set=0
   prefix=task/
@@ -95,7 +109,7 @@ esac
 # marker must name this plan; a missing marker means a new workspace or a
 # pre-marker legacy one, and either way the plan claims it by writing one.
 owns() {
-  if [ "$close" = 1 ]; then
+  if [ "$close" = 1 ] || [ "$wc" = 1 ]; then
     [ -d "$1" ] || { echo "sin workspace para el plan: $plan" >&2; exit 2; }
     [ ! -e "$1/plan-path" ] || [ "$(cat "$1/plan-path")" = "$plan_id" ]
   elif [ -e "$1/plan-path" ]; then
@@ -117,9 +131,46 @@ if ! owns "$dir"; then
   fi
 fi
 
+if [ "$wc" = 1 ]; then
+  ledger="$dir/progress.md"
+  cmds=()
+  if [ -f "$ledger" ]; then
+    while IFS= read -r c; do cmds+=("$c"); done < <(awk '
+      /^## / { insec = ($0 ~ /^## Cierre de ola[ \t]*$/); next }
+      insec && /^[ \t]*[-*][ \t]/ && match($0, /`[^`]+`/) { print substr($0, RSTART + 1, RLENGTH - 2) }
+    ' "$ledger")
+  fi
+  [ "${#cmds[@]}" -gt 0 ] || { echo "sin comandos en '## Cierre de ola' del ledger ($ledger)" >&2; exit 1; }
+  red=0
+  for c in "${cmds[@]}"; do
+    rc=0; o=$(cd -- "$root" && bash -c "$c" </dev/null 2>&1) || rc=$?
+    last=$(printf '%s\n' "$o" | awk 'NF { l = $0 } END { print substr(l, 1, 120) }')
+    [ "$rc" = 0 ] || red=$((red + 1))
+    printf 'Ola %s: cierre — %s: exit=%s (%s)\n' "$wave" "$c" "$rc" "$last" | tee -a "$ledger"
+  done
+  sha=$(git -C "$root" rev-parse --short HEAD 2>/dev/null || echo sin-commit)
+  if [ "$red" = 0 ]; then
+    printf 'Ola %s: cierre — verde (%s/%s) @%s\n' "$wave" "${#cmds[@]}" "${#cmds[@]}" "$sha" | tee -a "$ledger"
+  else
+    printf 'Ola %s: cierre — ROJO (%s/%s) @%s\n' "$wave" "$red" "${#cmds[@]}" "$sha" | tee -a "$ledger"
+  fi
+  exit "$red"
+fi
+
 if [ "$close" = 1 ]; then
   slug=$(basename "$dir")
   pending=0
+
+  # Última ola del plan sin cierre verde (el último resumen de esa ola manda): hallazgo con el ledger vivo.
+  nwaves=$("$(dirname "$0")/task-dag" "$plan" | awk '{ s = $0; sub(/^\{"olas": \[/, "", s); sub(/\], "avisos".*/, "", s); n = (s == "") ? 0 : gsub(/\], \[/, "&", s) + 1; print n }')
+  if [ "$nwaves" -gt 0 ]; then
+    last=$(awk -v k="$nwaves" 'index($0, "Ola " k ": cierre — ") == 1 && ($0 ~ /cierre — (verde|ROJO) /) { l = $0 } END { print l }' "$dir/progress.md" 2>/dev/null || true)
+    case "$last" in
+      *"cierre — verde "*) ;;
+      *) echo "Ola $nwaves sin cierre verde: corre 'sdd-workspace wave-close $plan $nwaves' antes de cerrar (fix dispatch con el ledger vivo si sale rojo)" >&2
+         exit 1 ;;
+    esac
+  fi
 
   if [ -n "$no_ci" ]; then
     [ ! -f "$dir/progress.md" ] || printf 'close: --no-ci (%s)\n' "$no_ci" >> "$dir/progress.md"
