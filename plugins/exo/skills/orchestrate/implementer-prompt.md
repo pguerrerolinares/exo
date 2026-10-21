@@ -35,8 +35,10 @@ Subagent (exo:executor):
        Interfaces, Tests, Verificación, Review Focus, Notas): **tú escribes el cuerpo**
        de los tests y del código, con las firmas y aserciones del brief.
     2. Escribe primero los tests del brief y velos fallar (`exo:tdd`); solo te
-       los saltas si el brief dice `Tests: n/a`. RED válido = el test falla
-       en su aserción, y citas el mensaje. Un fallo de import, compilación de
+       los saltas si el brief dice `Tests: n/a`. Corre el RED con
+       `red-witness <cmd>` (`[SCRIPTS]/red-witness`; sin pipe: deja el
+       resultado en `.superpowers/sdd/red.log` y sale con el exit real).
+       RED válido = el test falla en su aserción, y citas el mensaje. Un fallo de import, compilación de
        dependencias o entorno (worktree sin instalar) no es RED: arregla el
        entorno con el Setup del plan y vuelve a correr; si no puedes,
        BLOCKED.
@@ -130,6 +132,8 @@ Subagent (exo:executor):
     - **Status:** DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
     - Commits creados (SHA corto + subject), o "sin commit (política)"
     - Rulings, si los hay
+    - `RED: red.log` (el RED corrió con red-witness) o `RED: n/a` (brief con
+      `Tests: n/a`)
     - Resumen de test en una línea (p.ej. "14/14 passing, output pristine")
     - Tus concerns, si los hay
     - El path del report file
@@ -146,6 +150,8 @@ Subagent (exo:executor):
 **Placeholders:**
 - `[BRIEF_FILE]` — REQUIRED: `scripts/task-brief PLAN_FILE N` imprime el
   path (el mismo fichero que luego lee el reviewer).
+- `[SCRIPTS]` — ruta absoluta de `skills/orchestrate/scripts/` del plugin
+  (donde vive `red-witness`).
 - `[REPORT_FILE]` — REQUIRED: nombrado tras el brief (`task-N-brief.md` →
   `task-N-report.md`).
 - `[directorio]` — working directory de la tarea (en una ola de ≥2 con

@@ -84,7 +84,7 @@ fn un_indice_al_dia_no_dice_nada() {
     // Error del brief: `kb_y_conn` indexa "a.md" sin ninguna arista, y con la
     // nota YA en el índice `huerfanas` (el otro check que lee `notas`) la
     // marca huérfana — el informe salía sucio por un motivo ajeno a
-    // `index_stale`. Se le da una arista real para que este test pruebe
+    // `index_stale`. Se le da una arista real y resuelta (si no, sale `broken_link`) para que este test pruebe
     // solo lo que dice probar: un índice al día no dispara `index_stale`.
     let dir = tempfile::tempdir().unwrap();
     fs::write(dir.path().join("a.md"), "---\ntier: log\n---\n# x\n").unwrap();
@@ -98,7 +98,7 @@ fn un_indice_al_dia_no_dice_nada() {
     .unwrap();
     conn.execute(
         "INSERT INTO aristas (origen, destino_texto, destino_permalink)
-         VALUES ('kb/a.md', 'destino', NULL)",
+         VALUES ('kb/a.md', 'destino', 'kb/a.md')",
         [],
     )
     .unwrap();

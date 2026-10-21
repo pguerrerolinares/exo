@@ -89,7 +89,12 @@ Si una decisión del plan depende de un hecho de plataforma sin verificar o
 de una pregunta de diseño sin criterio, consultor con
 `../brainstorm/consultor-brief.md` antes de fijarla.
 
-Fix inline. Tras el self-review, enlaza el plan guardado y pide al usuario que
+Fix inline. Antes de pedir confirmación corre
+`../orchestrate/scripts/task-dag --lint <plan>`: exit 4 lista `fichero:línea —
+falta X` (header sin `## Cierre de ola` con comando, `## Mutación`,
+`## Recursos compartidos` o `**Spec:**`; tarea sin `**Tests:**` con ítem o
+`n/a — <motivo>`; `TBD`/`TODO`/«handle edge cases»/«add error handling»).
+Corrige hasta exit 0. Tras el self-review, enlaza el plan guardado y pide al usuario que
 lo revise y confirme que recoge lo que quiere; no hay implementación hasta esa
 confirmación. Handoff único: `exo:orchestrate` (sin elección de modo de
 ejecución). Al hacer el handoff, añade al header `Plan: <min> min, <turnos>

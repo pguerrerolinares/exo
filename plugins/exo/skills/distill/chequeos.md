@@ -68,6 +68,11 @@ solo mientras kbx y exo convivían contra el mismo schema,
   alimentan la limpieza (WS4 del spec Fase 2): `duplicate_dir`, `orphan`,
   `bad_frontmatter`, `root_file`. No los muevas a ciegas — cada `git mv` lo
   gatea el dueño de la KB.
+  `broken_link` (`detail: [[texto]]`) es un wikilink sin resolver desde una nota
+  fuera de `archive/`: el texto no coincide con ningún `title` ni `permalink`
+  exacto. Arréglalo en el origen reusando el title exacto del destino; si el
+  destino no existe, quita el link. Lee el índice: si dudas de que esté al día,
+  corre antes `$EXO_BIN index`.
 - **Priorización:** corre `$EXO_BIN stale --json`
   (`{data:{notes:[{path,tier,age_days,degree,score,...}]}}`, orden descendente
   por `score`). Úsalo para decidir QUÉ notas atacar primero en los pasos 2 y 4,

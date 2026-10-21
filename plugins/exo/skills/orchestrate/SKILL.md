@@ -99,7 +99,9 @@ UN fix subagent con la lista completa (una re-review, sin segunda ola).
 
 ## Olas
 
-Calcula con `scripts/task-dag PLAN` (a mano solo si falla); `avisos` ⇒
+Antes del pre-flight corre `scripts/task-dag --lint PLAN`: exit 4 bloquea
+(el plan vuelve a `exo:plan`). Calcula con `scripts/task-dag PLAN` (a mano solo
+con exit 2); `avisos` ⇒
 ledger. Ola de ≥2 ⇒ un worktree por tarea, todos los dispatches en un
 mensaje; resto en `olas.md`. Ambiguo ⇒ secuencial. No paralelices ante fallos relacionados,
 estado completo necesario, debugging exploratorio ni estado compartido
@@ -122,6 +124,10 @@ ledger y `final-review.md` fuera del repo, quita worktrees y ramas `task/*` ya
 integrados (sin `--force`) y borra solo el workspace de ese plan. Exit 1 =
 quedó algo sin integrar o sucio: lo dices, no lo fuerzas. Nunca `rm -rf` a mano.
 Número que no cuadra ⇒ recon antes de racionalizar.
+Gates humanos visibles. PR con review o fix en vuelo ⇒ su primer renglón es
+«no mergees #N: falta X». Checkpoint humano = capturas con ruta, 2-3
+opciones, tu recomendación y una pregunta cerrada. Pregunta pendiente: se
+hace una vez y queda como `Pendiente humano:` en el ledger; no se repite.
 Backlog autónomo: secuencial, NUNCA push/deploy desatendido, salta
 decisiones del dueño explicando por qué, documenta lo que preguntarías.
 Red lines: nunca main/master sin consentimiento explícito; nunca

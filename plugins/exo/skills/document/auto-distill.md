@@ -51,7 +51,8 @@ enteros verbatim; no resumes ni reescribes prosa.
    partición** (títulos que pasen el test del título de
    `distill/consolidacion.md`, qué secciones van a cada hija, bytes
    resultantes) en el cuerpo del mismo commit. Partir es decisión del
-   mantenedor.
+   mantenedor. Subir el techo (`kbx_budget_max`) no es alternativa y no la
+   propongas: sin llegar al 60 %, la única salida es la partición.
 6. Verifica antes de commitear: (a) conservación, todo bloque que sale del
    canon aparece literal en el sidecar; (b) `wc -c` de la nota ≤60 % del techo
    (solo si llegaste; si no, que la propuesta de partición esté en el cuerpo); (c) `exo budget --kb <wt>` sin offenders; (d) `exo lint

@@ -1283,8 +1283,8 @@ fn budget_cmd(args: ArgsBudget) -> Result<()> {
     Ok(())
 }
 
-/// `exo lint`: los siete checks de deriva de la KB. A diferencia de `budget`
-/// sí necesita `--db`: `orphan` e `index_stale` leen `notas`. Misma DB
+/// `exo lint`: los ocho checks de deriva de la KB. A diferencia de `budget`
+/// sí necesita `--db`: `orphan`, `index_stale` y `broken_link` leen el índice. Misma DB
 /// inexistente = error real (exit 1, no exit 3): el binario no puede
 /// trabajar, que es distinto de "la KB está mal" (`index_stale` sí es exit 3).
 fn lint_cmd(args: ArgsLint) -> Result<()> {
