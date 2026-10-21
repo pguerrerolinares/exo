@@ -122,6 +122,10 @@ ledger y `final-review.md` fuera del repo, quita worktrees y ramas `task/*` ya
 integrados (sin `--force`) y borra solo el workspace de ese plan. Exit 1 =
 quedó algo sin integrar o sucio: lo dices, no lo fuerzas. Nunca `rm -rf` a mano.
 Número que no cuadra ⇒ recon antes de racionalizar.
+Gates humanos visibles. PR con review o fix en vuelo ⇒ su primer renglón es
+«no mergees #N: falta X». Checkpoint humano = capturas con ruta, 2-3
+opciones, tu recomendación y una pregunta cerrada. Pregunta pendiente: se
+hace una vez y queda como `Pendiente humano:` en el ledger; no se repite.
 Backlog autónomo: secuencial, NUNCA push/deploy desatendido, salta
 decisiones del dueño explicando por qué, documenta lo que preguntarías.
 Red lines: nunca main/master sin consentimiento explícito; nunca
