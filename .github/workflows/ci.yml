@@ -110,6 +110,9 @@ jobs:
       - name: El chequeador de referencias es falsable
         if: always()
         run: bash scripts/test-check-skill-refs.sh
+      - name: El gate de prosa-CLI es falsable (exo falso)
+        if: always()
+        run: bash scripts/test-check-prosa-cli.sh
       - name: upstream-sync — la reconciliación del ledger es falsable
         if: always()
         run: bash scripts/test-upstream-reconcile.sh
@@ -260,6 +263,11 @@ jobs:
         if: always()
         shell: bash
         run: ./scripts/test-contrato-ci.sh
+      # Subcomandos y flags de `exo` citados en la prosa del plugin contra
+      # `--help` del binario debug que `test-contrato-ci.sh` acaba de compilar.
+      - name: La prosa del plugin solo cita subcomandos y flags que existen
+        if: always()
+        run: bash scripts/check-prosa-cli.sh
 
   plugin-tests:
     name: tests del plugin (${{ matrix.os }})
