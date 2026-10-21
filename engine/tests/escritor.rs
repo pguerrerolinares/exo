@@ -222,7 +222,7 @@ fn append_a_bitacora_no_relee_ni_reescribe_el_cuerpo() {
     let esc = escribe_append(
         kb.path(),
         "log/x-bitacora.md",
-        "## 2026-08-18\n\nentrada nueva\n",
+        "## 2026-08-18 — entrada nueva\n\nentrada nueva\n",
         false,
     )
     .unwrap();
@@ -230,7 +230,7 @@ fn append_a_bitacora_no_relee_ni_reescribe_el_cuerpo() {
     assert!(!esc.creada);
     let escrito = std::fs::read_to_string(kb.path().join("log/x-bitacora.md")).unwrap();
     assert!(escrito.contains("entrada vieja"), "no pierde lo anterior");
-    assert!(escrito.ends_with("## 2026-08-18\n\nentrada nueva\n"));
+    assert!(escrito.ends_with("## 2026-08-18 — entrada nueva\n\nentrada nueva\n"));
     assert!(
         escrito.contains("entrada vieja\n\n## 2026-08-18"),
         "separa con línea en blanco: {escrito:?}"
@@ -298,7 +298,7 @@ fn append_rechaza_cabecera_que_ya_existe() {
     let err = escribe_append(
         kb.path(),
         "log/b.md",
-        "## 2026-10-16 — foo\n- x\n## nueva\n- y\n## nueva\n",
+        "## 2026-10-16 — foo\n- x\n## 2026-10-16 — nueva\n- y\n## 2026-10-16 — nueva\n",
         false,
     )
     .unwrap_err();
@@ -534,4 +534,143 @@ fn el_absolute_path_de_write_no_lleva_barra_invertida() {
     let a = exo::escritor::escribe_append(kb, "log/alpha.md", "\nmás cuerpo\n", false).unwrap();
     assert!(!a.ruta_abs.contains('\\'), "absolute_path: {}", a.ruta_abs);
     assert!(!a.ruta_rel.contains('\\'), "relative_path: {}", a.ruta_rel);
+}
+
+// ------------------------------------------------- gate de formato (#135)
+
+const LOG_VACIO: &str = "---\npermalink: kb-test/log/b\ntier: log\n---\n";
+
+fn rechazo_de(err: &anyhow::Error) -> &Rechazo {
+    err.downcast_ref::<Rechazo>().expect("debe ser gate")
+}
+
+#[test]
+fn append_de_mas_de_15_lineas_se_rechaza_sin_escribir() {
+    let kb = kb_falsa();
+    let ruta = escribe_nota(&kb, "log/b.md", LOG_VACIO);
+    // Cabecera + 15 hechos = 16 líneas no vacías.
+    let cuerpo = format!("## 2026-10-20 — tema\n{}", "- hecho\n".repeat(15));
+
+    let err = escribe_append(kb.path(), "log/b.md", &cuerpo, false).unwrap_err();
+
+    assert!(matches!(
+        rechazo_de(&err),
+        Rechazo::CuerpoLargo { lineas: 16 }
+    ));
+    assert_eq!(std::fs::read_to_string(ruta).unwrap(), LOG_VACIO);
+}
+
+#[test]
+fn append_de_exactamente_15_lineas_pasa() {
+    let kb = kb_falsa();
+    escribe_nota(&kb, "log/b.md", LOG_VACIO);
+    let cuerpo = format!("## 2026-10-20 — tema\n{}", "- hecho\n".repeat(14));
+
+    escribe_append(kb.path(), "log/b.md", &cuerpo, false).unwrap();
+}
+
+#[test]
+fn append_con_cabecera_fuera_de_formato_se_rechaza() {
+    let kb = kb_falsa();
+    escribe_nota(&kb, "log/b.md", LOG_VACIO);
+
+    for mala in [
+        "## Delta 2026-08-18",
+        "## 2026-10-20 - guion corto",
+        "## 2026-10-20 — ",
+        "## 26-10-20 — tema",
+    ] {
+        let err =
+            escribe_append(kb.path(), "log/b.md", &format!("{mala}\n- x\n"), false).unwrap_err();
+        match rechazo_de(&err) {
+            Rechazo::CabeceraInvalida {
+                cabeceras,
+                generica,
+            } => {
+                assert_eq!(cabeceras, &vec![mala.trim_end().to_string()]);
+                assert!(!generica, "{mala}: es de formato, no genérica");
+            }
+            otro => panic!("{mala}: rechazo inesperado {otro:?}"),
+        }
+    }
+}
+
+#[test]
+fn append_con_etiqueta_generica_se_rechaza() {
+    let kb = kb_falsa();
+    escribe_nota(&kb, "log/b.md", LOG_VACIO);
+
+    for g in [
+        "canon",
+        "Delta",
+        "detalle",
+        "distill",
+        "Sesión",
+        "movido del canon",
+    ] {
+        let cab = format!("## 2026-10-20 — {g}");
+        let err =
+            escribe_append(kb.path(), "log/b.md", &format!("{cab}\n- x\n"), false).unwrap_err();
+        assert!(
+            matches!(
+                rechazo_de(&err),
+                Rechazo::CabeceraInvalida { generica: true, .. }
+            ),
+            "{g}: {err}"
+        );
+    }
+}
+
+#[test]
+fn append_acepta_etiqueta_con_tema_detras() {
+    let kb = kb_falsa();
+    escribe_nota(&kb, "log/b.md", LOG_VACIO);
+
+    escribe_append(
+        kb.path(),
+        "log/b.md",
+        "## 2026-10-20 — delta del gate de append\n- x\n",
+        false,
+    )
+    .unwrap();
+}
+
+#[test]
+fn append_force_salta_el_gate_de_formato_y_queda_forzado() {
+    let kb = kb_falsa();
+    escribe_nota(&kb, "log/b.md", LOG_VACIO);
+    let cuerpo = format!("## Delta\n{}", "- hecho\n".repeat(20));
+
+    let esc = escribe_append(kb.path(), "log/b.md", &cuerpo, true).unwrap();
+
+    assert!(esc.forzado);
+}
+
+#[test]
+fn append_de_bloques_movidos_no_tiene_tope_de_lineas() {
+    // distill y auto-distill vuelcan el sidecar `-moved.md`: bloques
+    // verbatim del canon, con su cabecera `movido del canon: <tema>`.
+    let kb = kb_falsa();
+    escribe_nota(&kb, "log/b.md", LOG_VACIO);
+    let cuerpo = format!(
+        "## 2026-10-20 — movido del canon: uno\n{}## 2026-10-20 — movido del canon: dos\n{}",
+        "- hecho\n".repeat(30),
+        "- hecho\n".repeat(30),
+    );
+
+    escribe_append(kb.path(), "log/b.md", &cuerpo, false).unwrap();
+}
+
+#[test]
+fn append_mixto_con_una_cabecera_no_movida_sigue_con_tope() {
+    let kb = kb_falsa();
+    escribe_nota(&kb, "log/b.md", LOG_VACIO);
+    let cuerpo = format!(
+        "## 2026-10-20 — movido del canon: uno\n- x\n## 2026-10-20 — normal\n{}",
+        "- hecho\n".repeat(30),
+    );
+
+    let err = escribe_append(kb.path(), "log/b.md", &cuerpo, false).unwrap_err();
+
+    assert!(matches!(rechazo_de(&err), Rechazo::CuerpoLargo { .. }));
 }
