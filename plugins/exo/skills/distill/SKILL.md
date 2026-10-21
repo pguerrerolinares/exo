@@ -110,6 +110,14 @@ título: `consolidacion.md`.
 
 ### 3. Archivar sesiones de frentes cerrados
 
+**Legado v1: solo aplica si `git -C $KB_ROOT ls-files sesiones/` no está vacío.**
+Desde el contrato v2 `/document` no crea notas de sesión (lo que era una sesión
+es una entrada fechada en `log/<proyecto>-bitacora.md`) y el archivado lo hace
+`exo rotate` del paso 0 (a `archive/log/`). Si `ls-files` sale vacío, salta el
+paso con una línea en el resumen («paso 3: sin `sesiones/` trackeadas, archivado
+por `exo rotate`») y sigue al 4; un directorio `sesiones/` vacío o sin trackear
+no cuenta como «no hay `sesiones/`».
+
 **Escanea solo lo cambiado.** No re-escanees toda la KB: `exo` no trae
 `diff-since` (decisión de la campaña D — no se porta: con git ya delante,
 duplicarlo dentro del binario no añade nada que `git diff`/`git log` no den
