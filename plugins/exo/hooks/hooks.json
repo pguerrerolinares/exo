@@ -23,6 +23,15 @@
         ]
       },
       {
+        "matcher": "^SubagentHandback$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/red-gate.sh"
+          }
+        ]
+      },
+      {
         "matcher": "^(Agent|Task|Edit|Write|NotebookEdit)$",
         "hooks": [
           {
