@@ -9,6 +9,7 @@
 # Default OUTFILE: <repo-root>/.superpowers/sdd/<plan-basename>/task-<N>-brief.md
 # (per plan and per worktree; concurrent runs of the SAME plan in the same
 # working tree share it).
+# Exit 4: DAG inválido o la ola anterior sin cierre verde (gate de ola).
 set -euo pipefail
 
 if [ $# -lt 2 ] || [ $# -gt 3 ]; then
@@ -20,10 +21,32 @@ plan=$1
 n=$2
 [ -f "$plan" ] || { echo "no such plan file: $plan" >&2; exit 2; }
 
+here=$(cd "$(dirname "$0")" && pwd)
+
+# Gate de ola: la tarea de la ola K>1 solo sale si el ledger tiene `Ola K-1: cierre — verde`
+# (lo escribe `sdd-workspace wave-close`; el último resumen de esa ola manda). Sin --force.
+dag=$("$here/task-dag" "$plan")
+case "$dag" in
+  *'"olas": []'*) echo "DAG inválido, resuélvelo con un Ruling antes de despachar: $dag" >&2; exit 4 ;;
+esac
+k=$(printf '%s\n' "$dag" | awk -v n="$n" '{
+  s = $0; sub(/^\{"olas": \[/, "", s); sub(/\], "avisos".*/, "", s)
+  w = split(s, ws, /\], \[/)
+  for (i = 1; i <= w; i++) { g = ws[i]; gsub(/[^0-9,]/, "", g); c = split(g, ids, ",")
+    for (j = 1; j <= c; j++) if (ids[j] == n) { print i; exit } } }')
+dir=$("$here/sdd-workspace" "$plan")
+if [ -n "$k" ] && [ "$k" -gt 1 ]; then
+  prev=$((k - 1))
+  last=$(awk -v k="$prev" 'index($0, "Ola " k ": cierre — ") == 1 && ($0 ~ /cierre — (verde|ROJO) /) { l = $0 } END { print l }' "$dir/progress.md" 2>/dev/null || true)
+  case "$last" in
+    *"cierre — verde "*) ;;
+    *) echo "Task ${n} es de la ola ${k} y la ola ${prev} no tiene cierre verde en el ledger: corre 'sdd-workspace wave-close ${plan} ${prev}'" >&2; exit 4 ;;
+  esac
+fi
+
 if [ $# -eq 3 ]; then
   out=$3
 else
-  dir=$("$(cd "$(dirname "$0")" && pwd)/sdd-workspace" "$plan")
   out="$dir/task-${n}-brief.md"
 fi
 

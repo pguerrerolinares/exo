@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Test standalone para `sdd-workspace close` (skills/orchestrate/scripts/sdd-workspace).
 # Repos en mktemp -d; los worktrees llevan espacios en la ruta a propósito.
+# shellcheck disable=SC2016 # los backticks de los ledgers de prueba son literales
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -148,6 +149,47 @@ if [ "$RC" = 0 ] && [ ! -e "$WS" ] && grep -qx 'close: --no-ci (repo sin CI)' "$
   pass close_no_ci_registra_en_ledger; else fail close_no_ci_registra_en_ledger "rc=$RC $OUT"; fi
 mkrepo c10m; OUT=$(cd "$REPO" && "$SW" close docs/plan.md --archive "$ARCH" --no-ci 2>&1); RC=$?
 if [ "$RC" = 2 ] && [ -d "$WS" ]; then pass close_no_ci_sin_motivo_exit2; else fail close_no_ci_sin_motivo_exit2 "rc=$RC $OUT"; fi
+
+# 11. wave-close: ejecuta cada comando del ledger, escribe las líneas y sale con el nº de rojos
+PLAN2=$'# Plan\n\n## Task 1: a\n\n**Files:**\n- Create: `a.txt`\n\n## Task 2: b\n\n**Files:**\n- Create: `b.txt`\n\n**Interfaces:**\n- Consumes: x @Task 1\n'
+# mkwave NOMBRE LEDGER_CIERRE -> repo con plan de 2 olas y ledger con la sección dada
+mkwave() {
+  mkrepo "$1"; printf '%s' "$PLAN2" > "$REPO/docs/plan.md"
+  git -C "$REPO" add docs/plan.md; git -C "$REPO" commit -qm plan2
+  printf '# SDD ledger — plan: docs/plan.md\n\n## Cierre de ola\n%s\n' "$2" > "$WS/progress.md"
+}
+wclose() { OUT=$(cd "$REPO" && "$SW" wave-close docs/plan.md "$1" 2>&1); RC=$?; }
+mkwave w1 $'- `echo uno && echo hecho` → verde = hecho\n- `test -d .` → verde = ok'
+wclose 1
+sha=$(git -C "$REPO" rev-parse --short HEAD)
+if [ "$RC" = 0 ] && grep -qxF 'Ola 1: cierre — echo uno && echo hecho: exit=0 (hecho)' "$WS/progress.md" \
+   && grep -qxF "Ola 1: cierre — verde (2/2) @$sha" "$WS/progress.md"; then
+  pass wave_close_verde; else fail wave_close_verde "rc=$RC $OUT / $(tail -3 "$WS/progress.md")"; fi
+
+mkwave w2 $'- `true` → ok\n- `echo roto; exit 3` → ok\n- `false` → ok'
+wclose 1
+if [ "$RC" = 2 ] && grep -qxF 'Ola 1: cierre — echo roto; exit 3: exit=3 (roto)' "$WS/progress.md" \
+   && grep -q '^Ola 1: cierre — ROJO (2/3)' "$WS/progress.md" && ! grep -q 'cierre — verde' "$WS/progress.md"; then
+  pass wave_close_rojo_exit_nrojos; else fail wave_close_rojo_exit_nrojos "rc=$RC $(tail -4 "$WS/progress.md")"; fi
+
+mkrepo w3; printf '# SDD ledger\n' > "$WS/progress.md"; wclose 1
+if [ "$RC" = 1 ] && ! grep -q 'cierre' "$WS/progress.md"; then pass wave_close_sin_seccion_exit1; else fail wave_close_sin_seccion_exit1 "rc=$RC $OUT"; fi
+mkwave w3b '- `true`'; wclose x
+if [ "$RC" = 2 ]; then pass wave_close_k_invalida_exit2; else fail wave_close_k_invalida_exit2 "rc=$RC $OUT"; fi
+
+# 12. close exige la última ola en verde (plan de 2 olas), sumado al gate de CI
+mkwave w4 '- `true`'; wclose 1
+close --no-ci t
+if [ "$RC" = 1 ] && contains "$OUT" "Ola 2 sin cierre verde" && [ -f "$WS/progress.md" ] && [ ! -e "$ARCH" ]; then
+  pass close_ultima_ola_sin_cierre; else fail close_ultima_ola_sin_cierre "rc=$RC $OUT"; fi
+wclose 2
+OUT=$(cd "$REPO" && STUB_CI=FAILURE "$SW" close docs/plan.md --archive "$ARCH" 2>&1); RC=$?
+if [ "$RC" = 1 ] && contains "$OUT" "CI no verde" && [ -f "$WS/progress.md" ]; then
+  pass close_ola_verde_pero_ci_rojo; else fail close_ola_verde_pero_ci_rojo "rc=$RC $OUT"; fi
+close
+if [ "$RC" = 0 ] && [ ! -e "$WS" ]; then pass close_ola_verde_y_ci_verde; else fail close_ola_verde_y_ci_verde "rc=$RC $OUT"; fi
+mkwave w5 '- `false`'; wclose 1; wclose 2; close --no-ci t
+if [ "$RC" = 1 ] && contains "$OUT" "Ola 2 sin cierre verde"; then pass close_ultima_ola_roja; else fail close_ultima_ola_roja "rc=$RC $OUT"; fi
 
 printf '\n%d pass, %d fail\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

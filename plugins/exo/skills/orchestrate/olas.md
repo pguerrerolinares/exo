@@ -81,10 +81,14 @@ Cada hallazgo se resuelve con un Ruling ledgerizado, junto a su fila.
    en su worktree, con re-review). Si una tarea sigue en review, la ola no
    cierra.
 1. Merge de las ramas de la ola (en el mismo worktree no hay merge).
-2. Suite completa = los comandos de `## Cierre de ola` copiados al ledger,
-   todos y literales. Ledger: `Ola K: cierre — <comando>: <pass>/<total>` por
-   comando. Roja ⇒ NO se abre la siguiente ola; fix dispatch con el output
-   completo.
+2. Suite completa = `scripts/sdd-workspace wave-close PLAN K`: ejecuta TODOS los
+   comandos de `## Cierre de ola` del ledger (`bash -c` en la raíz, sin pipe) y
+   escribe él las líneas `Ola K: cierre — <cmd>: exit=N (<última línea>)` y
+   `Ola K: cierre — verde (n/n) @<sha>` o `— ROJO (m/n)`; exit = nº de rojos. Tú
+   no escribes esas líneas ni eliges comandos «según lo que toca la ola». Roja
+   ⇒ NO se abre la siguiente ola; fix dispatch con el output completo y
+   `wave-close` otra vez (manda el último resumen). `task-brief` se niega (exit 4)
+   a emitir una tarea de la ola K+1 sin `Ola K: cierre — verde`.
 3. Conflicto de merge ⇒ executor de integración con los dos diffs. Si no
    resuelve, BLOCKED y pregunta al humano. Nunca `-X ours/theirs` a ciegas.
 4. Solo hallazgos tardíos: Critical/Important de una tarea ya mergeada ⇒
