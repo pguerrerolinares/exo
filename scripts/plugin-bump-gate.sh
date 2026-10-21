@@ -13,6 +13,8 @@
 # máquina de Paul siguió sirviendo el contenido del 16 de septiembre —
 # campaña I entera sin ejecutarse — y nada lo dijo.
 #
+# `version` tiene que ser estrictamente mayor que la de BASE, no solo distinta.
+#
 # BASE: la base del PR, o el commit anterior en un push a main. Sin ella el
 # gate se abstiene, y lo dice: un gate que calla cuando no puede mirar es
 # indistinguible de uno que miró y no vio nada.
@@ -49,8 +51,21 @@ if [ -z "$v_base" ]; then
   exit 0
 fi
 if [ "$v_base" != "$v_head" ]; then
-  echo "plugin-bump-gate: OK — plugins/exo/ cambia y version también: $v_base → $v_head"
-  exit 0
+  # Distinta no basta: con PRs paralelos un merge fuera de orden deja en main
+  # un número menor que el ya publicado, y el marketplace no ve lo nuevo.
+  if [ "$(printf '%s\n%s\n' "$v_base" "$v_head" | sort -V | tail -n1)" = "$v_head" ]; then
+    echo "plugin-bump-gate: OK — plugins/exo/ cambia y version sube: $v_base → $v_head"
+    exit 0
+  fi
+  {
+    echo "plugin-bump-gate: version baja: $v_base (en $BASE) → $v_head (aquí)."
+    echo
+    echo "  Tiene que ser estrictamente mayor que la de BASE (orden de versión, sort -V):"
+    echo "  un número menor que el ya publicado hace que \`/plugin\` no vea contenido"
+    echo "  nuevo. Si mergeaste fuera de orden, rebasea y sube a un número mayor en"
+    echo "  $PLUGIN_JSON y en .claude-plugin/marketplace.json."
+  } >&2
+  exit 1
 fi
 
 n="$(printf '%s\n' "$cambios" | wc -l | tr -d ' ')"
