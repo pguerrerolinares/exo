@@ -43,7 +43,7 @@ una ola.]
 autodetecta (cargo-mutants, mutmut 2.x, stryker). Un comando que imprime
 `cazados/total` en su última línea, o `manual` si el stack no tiene
 instrumento: entonces el executor declara la tabla de mutación manual en su
-report. Omite la sección si todo se autodetecta.]
+report. Si todo se autodetecta, escribe `manual`.]
 - `android`: `./scripts/pitest-diff.sh`
 - `web`: manual
 
@@ -113,5 +113,8 @@ que fija la spec. Si no hay, omite el campo.]
 - `## Setup del worktree`, `## Cierre de ola`, `## Mutación`,
   `## Excluir de la review` y `## Recursos compartidos` van en el header, antes de la primera tarea: `task-brief` extiende la
   última tarea hasta el final del fichero.
+- `task-dag --lint` exige en el header `## Cierre de ola` (≥1 comando entre
+  backticks), `## Mutación` (`manual` si no hay instrumento), `## Recursos
+  compartidos` y `**Spec:**`; por tarea `**Tests:**` con ítem o `n/a — <motivo>`.
 - Un plan que no cumple esto no rompe nada: `orchestrate` cae a secuencial y
   lo deja visible.

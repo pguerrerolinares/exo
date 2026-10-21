@@ -8,6 +8,16 @@ SW="${SCRIPT_DIR}/../skills/orchestrate/scripts/sdd-workspace"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
+# Stub de gh: STUB_CI = estados separados por espacios (por defecto verde); "nopr" = sin PR (exit 1).
+mkdir -p "$TMP/bin"
+cat > "$TMP/bin/gh" <<'STUB'
+#!/usr/bin/env bash
+[ "${STUB_CI-SUCCESS}" != nopr ] || { echo "no pull requests found" >&2; exit 1; }
+for s in ${STUB_CI-SUCCESS}; do echo "$s"; done
+STUB
+chmod +x "$TMP/bin/gh"
+export PATH="$TMP/bin:$PATH"
+
 PASS=0
 FAIL=0
 pass() { printf '[PASS] %s\n' "$1"; PASS=$((PASS+1)); }
@@ -121,6 +131,23 @@ done
 mkrepo c9; rm "$WS/progress.md"; close
 if [ "$RC" = 0 ] && [ -f "$ARCH/plan-$(date +%F)-final-review.md" ] && [ ! -e "$WS" ] && contains "$OUT" "sin ledger que archivar"; then
   pass close_final_review_sin_progress; else fail close_final_review_sin_progress "rc=$RC $OUT"; fi
+
+# 10. gate de CI: rojo/pendiente/sin PR/sin checks => exit 1 y NADA se toca; verde => cierra
+for caso in "rojo:SUCCESS FAILURE" "pendiente:SUCCESS PENDING" "en_curso:IN_PROGRESS" "sin_pr:nopr" "sin_checks:"; do
+  n=${caso%%:*}; mkrepo "c10$n"
+  OUT=$(cd "$REPO" && STUB_CI="${caso#*:}" "$SW" close docs/plan.md --archive "$ARCH" 2>&1); RC=$?
+  if [ "$RC" = 1 ] && contains "$OUT" "CI no verde: fix dispatch con el ledger vivo" && [ -f "$WS/progress.md" ] && [ ! -e "$ARCH" ]; then
+    pass "close_ci_bloquea[$n]"; else fail "close_ci_bloquea[$n]" "rc=$RC $OUT"; fi
+done
+mkrepo c10v; OUT=$(cd "$REPO" && STUB_CI="SUCCESS SKIPPED" "$SW" close docs/plan.md --archive "$ARCH" 2>&1); RC=$?
+if [ "$RC" = 0 ] && [ ! -e "$WS" ]; then pass close_ci_verde_cierra; else fail close_ci_verde_cierra "rc=$RC $OUT"; fi
+
+# 10b. --no-ci MOTIVO: salta el gate y deja la línea en el ledger archivado
+mkrepo c10n; OUT=$(cd "$REPO" && STUB_CI=FAILURE "$SW" close docs/plan.md --archive "$ARCH" --no-ci "repo sin CI" 2>&1); RC=$?
+if [ "$RC" = 0 ] && [ ! -e "$WS" ] && grep -qx 'close: --no-ci (repo sin CI)' "$ARCH/plan-$(date +%F)-progress.md"; then
+  pass close_no_ci_registra_en_ledger; else fail close_no_ci_registra_en_ledger "rc=$RC $OUT"; fi
+mkrepo c10m; OUT=$(cd "$REPO" && "$SW" close docs/plan.md --archive "$ARCH" --no-ci 2>&1); RC=$?
+if [ "$RC" = 2 ] && [ -d "$WS" ]; then pass close_no_ci_sin_motivo_exit2; else fail close_no_ci_sin_motivo_exit2 "rc=$RC $OUT"; fi
 
 printf '\n%d pass, %d fail\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

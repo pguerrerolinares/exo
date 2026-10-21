@@ -117,6 +117,7 @@ qué hace cada uno y su abstención en `plugins/exo/README.md`):
 | clean-orchestrator | `PreToolUse:WebSearch\|WebFetch\|navegación MCP` | `plugins/exo/scripts/clean-orchestrator-research.sh` |
 | git-c + zero-residuo + verify-before-done | `PreToolUse:Bash` | `plugins/exo/scripts/bash-guards.sh` |
 | search-first | `PreToolUse:Agent\|Task\|Edit\|Write\|NotebookEdit` | `plugins/exo/scripts/search-first.sh` |
+| red-gate | `PreToolUse:SubagentHandback` | `plugins/exo/scripts/red-gate.sh` |
 | exo-recall | `SessionStart` | `plugins/exo/scripts/exo-recall.sh` |
 | estilo-directo | `SessionStart` | `plugins/exo/scripts/estilo-directo.sh` |
 | sdd-wake-guard | `Stop` | `plugins/exo/scripts/sdd-wake-guard.sh` |

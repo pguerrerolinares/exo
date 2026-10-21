@@ -98,7 +98,9 @@ UN fix subagent con la lista completa (una re-review, sin segunda ola).
 
 ## Olas
 
-Calcula con `scripts/task-dag PLAN` (a mano solo si falla); `avisos` ⇒
+Antes del pre-flight corre `scripts/task-dag --lint PLAN`: exit 4 bloquea
+(el plan vuelve a `exo:plan`). Calcula con `scripts/task-dag PLAN` (a mano solo
+con exit 2); `avisos` ⇒
 ledger. Ola de ≥2 ⇒ un worktree por tarea, todos los dispatches en un
 mensaje; resto en `olas.md`. Ambiguo ⇒ secuencial. No paralelices ante fallos relacionados,
 estado completo necesario, debugging exploratorio ni estado compartido
@@ -113,7 +115,9 @@ línea `Ruling:` del ledger en tu mensaje final bajo «Rulings I made» (orden
 cronológico, cada una con su coste si está mal): es lo único que lleva al
 humano las decisiones tomadas por él. Sácalas con `scripts/rulings-collect
 <workspace>/progress.md` (numeradas, `PR-pendiente` marcadas con ⚠) y pégalas
-también en el cuerpo del PR. Luego `scripts/sdd-workspace close PLAN`: archiva
+también en el cuerpo del PR. Luego `scripts/sdd-workspace close PLAN` (se niega con exit 1 si el CI del PR de la
+rama no está verde: un CI rojo o pendiente es hallazgo tardío con el ledger vivo,
+fix dispatch + re-review; `--no-ci MOTIVO` solo si no hay PR ni CI, y queda en el ledger): archiva
 ledger y `final-review.md` fuera del repo, quita worktrees y ramas `task/*` ya
 integrados (sin `--force`) y borra solo el workspace de ese plan. Exit 1 =
 quedó algo sin integrar o sucio: lo dices, no lo fuerzas. Nunca `rm -rf` a mano.

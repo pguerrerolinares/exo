@@ -85,5 +85,28 @@ if [ "$rc" = 2 ]; then pass uso_sin_argumento; else fail uso_sin_argumento "rc=$
 "$DAG" "$FX/no-existe.md" >/dev/null 2>&1; rc=$?
 if [ "$rc" = 2 ]; then pass fichero_inexistente; else fail fichero_inexistente "rc=$rc"; fi
 
+# --lint: válido => 0 y sin salida; un fixture por hueco => 4 y `fichero:línea — falta X`
+out=$("$DAG" --lint "$FX/lint_valido.md" 2>&1); rc=$?
+if [ "$rc" = 0 ] && [ -z "$out" ]; then pass lint_valido; else fail lint_valido "rc=$rc salida: $out"; fi
+check_lint() { # fixture fragmento_del_hueco
+  local out rc
+  out=$("$DAG" --lint "$FX/lint_$1.md" 2>/dev/null); rc=$?
+  if [ "$rc" = 4 ] && grep -qE "lint_$1\.md:[0-9]+ — falta .*$2" <<<"$out"; then pass "lint_$1"
+  else fail "lint_$1" "rc=$rc salida: $out"; fi
+}
+check_lint sin_cierre "## Cierre de ola"
+check_lint cierre_sin_comando "comando entre backticks"
+check_lint sin_mutacion "## Mutación"
+check_lint sin_recursos "## Recursos compartidos"
+check_lint sin_spec "Spec"
+check_lint sin_tests "\*\*Tests:\*\* en Task 1"
+check_lint tests_vacio "ítem o .n/a"
+check_lint na_sin_motivo "ítem o .n/a"
+check_lint relleno_tbd "marcador de relleno"
+check_lint relleno_frase "marcador de relleno"
+# el lint rojo no es el exit de uso
+"$DAG" --lint >/dev/null 2>&1; rc=$?
+if [ "$rc" = 2 ]; then pass lint_uso_sin_fichero; else fail lint_uso_sin_fichero "rc=$rc"; fi
+
 printf '\n%s pass, %s fail\n' "$PASS" "$FAIL"
 [ "$FAIL" = 0 ]
