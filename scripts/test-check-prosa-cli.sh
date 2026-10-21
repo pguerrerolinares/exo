@@ -39,6 +39,7 @@ if [ $rc -eq 0 ] && [ -z "$out" ]; then ok prosa_valida; else bad "prosa_valida 
 
 # shellcheck disable=SC2016
 corre 'Usa `exo buscar "q"` y `exo extra`, `exo search`, `exo write new`.'
+# shellcheck disable=SC2016
 if [ $rc -eq 1 ] && printf '%s' "$out" | grep -q 'SKILL.md:1: `exo buscar` no existe'; then ok subcomando_inexistente; else bad "subcomando_inexistente (rc=$rc out=$out)"; fi
 
 # shellcheck disable=SC2016
@@ -66,6 +67,11 @@ if [ $rc -eq 1 ] && printf '%s' "$out" | grep -q 'exo extra existe en --help per
 # shellcheck disable=SC2016
 corre 'El motor `exo` y `exo:plan`, "exo es" no son invocaciones; `exo search`, `exo write new`, `exo extra`.'
 if [ $rc -eq 0 ]; then ok prosa_que_no_es_invocacion; else bad "prosa_que_no_es_invocacion (rc=$rc out=$out)"; fi
+
+# sin_binario: ni EXO_BIN ni build local, y sin exo en PATH, no es un verde
+P="$T/p"
+out="$(EXO_BIN="$T/no-existe" bash "$CHECK" "$P" 2>&1)"; rc=$?
+if [ $rc -ne 0 ] && printf '%s' "$out" | grep -q 'no hay binario ejecutable'; then ok sin_binario; else bad "sin_binario (rc=$rc out=$out)"; fi
 
 # repo_real, solo si hay binario compilado
 unset EXO_BIN

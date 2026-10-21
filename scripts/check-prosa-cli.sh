@@ -23,7 +23,7 @@ BIN="${EXO_BIN:-engine/target/debug/exo}"
 EXCLUIDOS=(
   "init|setup de la máquina que hace el humano (docs/instalacion.md), no un skill"
   "index|lo dispara el hook post-commit, no un skill"
-  "rebuild|remedio manual ante índice corrupto; lo guía `exo doctor`"
+  "rebuild|remedio manual ante índice corrupto; lo guía exo doctor"
   "ratchet|gate de la KB que corre su propio pre-commit, no un skill"
   "rotate|mantenimiento de bitácoras que hoy hace el humano; /distill aún no lo cita"
   "stale|consulta de diagnóstico que ningún skill usa"
