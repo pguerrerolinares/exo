@@ -1161,14 +1161,15 @@ fn git_bash_path_a_wsl_es_warn_y_lo_dice() {
 }
 
 // El CRLF del jq nativo no baja el check a `warn` (#158): ningún script vivo
-// lee jq línea a línea; el dato queda en el detalle de un `ok`.
+// lee jq línea a línea; el dato queda en el detalle de un `ok`. Solo Windows:
+// el stub se compila con `compila_bash_falso_que_dice` y el CRLF es del jq nativo.
+#[cfg(windows)]
 #[test]
 fn un_jq_que_emite_crlf_es_ok_y_lo_dice_en_el_detalle() {
     let dir = tempfile::tempdir().unwrap();
     let bindir = dir.path().join("bin");
     fs::create_dir_all(&bindir).unwrap();
-    let nombre = if cfg!(windows) { "jq.exe" } else { "jq" };
-    compila_bash_falso_que_dice(&bindir.join(nombre), "jq-1.7.1\r");
+    compila_bash_falso_que_dice(&bindir.join("jq.exe"), "jq-1.7.1\r");
     let mut env = entorno(dir.path());
     env.path = bindir.display().to_string();
     let informe = analiza(&env);
