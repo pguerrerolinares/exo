@@ -68,8 +68,13 @@ repreguntar. Cada tramo es breve; importa que sea exacta y corregible.
   sensatos, dichos en voz alta (un default que no oyó no pudo rechazarlo).
   Con trabajo existente, construye sobre lo que ya usa. Toda elección tuya va
   en el diseño como decisión tuya, nunca como algo acordado.
-- Propón 2-3 enfoques con trade-offs, liderando con tu recomendación y su
-  porqué.
+- Enfoques: cuando entiendas lo que quiere y antes de escribir nada, pon las
+  formas de construirlo en un mensaje propio. Idea varias alternativas reales
+  y descarta las débiles (también las que van contra su porqué y las que el
+  trabajo existente excluye); presenta las 2-3 que queden, ancladas en lo que
+  el proyecto ya hace y con su trade-off; recomienda una con su porqué y
+  pregunta cuál prefiere. Si solo hay una vía sensata, dilo y explica por qué
+  las demás no encajan. Es para el cómo; el qué lo describe él primero.
 - Si el usuario no tiene criterio en una pregunta de diseño (UX, a11y,
   rendimiento, CI), despacha un consultor con `consultor-brief.md` ANTES de
   preguntarle, y la pregunta lleva sus opciones y su condición de
@@ -84,17 +89,19 @@ repreguntar. Cada tramo es breve; importa que sea exacta y corregible.
 
 ## Tamaño del trabajo
 
-Una vez entendida la intención, elige un tamaño y dilo en claro (el usuario
-puede cambiarlo): **cambio pequeño** ⇒ la descripción completa va en el chat;
-**proyecto** ⇒ spec escrita (abajo). Si crece a mitad de camino, para, dilo y
-sube de tamaño. El gate aplica a ambos: construir exige aprobación de la
-descripción completa.
+Una vez entendida la intención y elegido el enfoque, elige un tamaño y dilo en
+claro (el usuario puede cambiarlo): **cambio pequeño** ⇒ la descripción
+completa va en el chat; **proyecto** ⇒ spec escrita (abajo), con una parte
+**Enfoques**: las 2-3 formas consideradas, su trade-off, cuál eligió el
+usuario y por qué. Si crece a mitad de camino, para, dilo y sube de tamaño. El
+gate aplica a ambos: construir exige aprobación de la descripción completa.
 
 ## Gate: diseño antes de código
 
 No invoques ninguna skill de implementación, ni escribas código, ni scaffold,
 ni instales dependencias de producto, hasta que el usuario apruebe el diseño y
-luego revise la spec escrita. Aplica a TODO proyecto, sin importar cuán simple
+luego revise la spec escrita; y no escribas la spec sin haber puesto antes los
+enfoques en su propio mensaje. Aplica a TODO proyecto, sin importar cuán simple
 parezca — "demasiado simple para necesitar diseño" es la trampa más común: el
 diseño puede ser corto, pero se presenta y se aprueba siempre.
 
