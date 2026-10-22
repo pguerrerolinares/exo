@@ -17,6 +17,8 @@ const composeVivo = new Set<string>();
 const turnos = new Map<string, number>();
 const composeMarcado = new Set<string>();
 const submitMarcado = new Set<string>();
+// Sin hook compose registrado (opción composeHook=false) no hay marca de store que esperar: submit entrega desde el turno 1.
+let sinCompose = false;
 
 const hbPath = (home: string, sid: string) => `${home}/.claude/exo-rules/hb-${sid}`;
 const bloque = (reglas: string[]) => FRAMING + reglas.map((x) => `- ${x}`).join("\n");
@@ -84,7 +86,7 @@ async function fallbackSubmit($: any): Promise<string | null> {
   turnos.set(sid, turno);
   const vivo = composeVivo.has(sid);
   const storeCompose = forzar ? undefined : await $.store.get("compose").catch(() => undefined);
-  const entregar = forzar || (!vivo && (turno >= 2 || storeCompose !== true));
+  const entregar = forzar || sinCompose || (!vivo && (turno >= 2 || storeCompose !== true));
 
   if (!entregar) {
     if (!vivo && !(await $.fs.exists(hbPath(home, sid)).catch(() => false))) {
@@ -104,7 +106,7 @@ async function fallbackSubmit($: any): Promise<string | null> {
   return hb.status === "ok" && reglas.length > 0 ? bloque(reglas) : null;
 }
 
-export function register(on: any) {
+export function register(on: any, options: any = {}) {
   on("session.start", async ($: any, e: any, next: any) => {
     try {
       const sid = await $.session.id();
@@ -144,40 +146,47 @@ export function register(on: any) {
     return next(e);
   });
 
-  on("prompt.compose", async ($: any, e: any, next: any) => {
-    // Seam de test: con FORZAR compose queda inerte para que el eval/e2e midan solo el canal submit.
-    try {
-      if ((await $.env.get("EXO_RULES_FORZAR_SUBMIT")) === "1") return await next(e);
-    } catch {
-      // sin env legible se sigue por el camino normal
-    }
-    const r = await next(e);
-    let hb: Latido = { status: "error", n: 0, via: "compose", error: "mod" };
-    let reglas: string[] = [];
-    let sid = "";
-    let home = "";
-    try {
-      sid = await $.session.id();
-      if (sid) composeVivo.add(sid);
-      home = (await $.env.get("HOME")) || (await $.env.get("USERPROFILE")) || "";
-      const c = await consultar($, home, await $.session.cwd());
-      hb = { ...c.hb, via: "compose" };
-      reglas = c.reglas;
-    } catch (err: any) {
-      hb = { status: "error", n: 0, via: "compose", error: msg(err) };
-    }
-    // Sin sid o sin HOME no hay nombre de latido válido: no se escribe en una ruta inventada.
-    if (!sid || !home) return r;
-    try {
-      await $.fs.write(hbPath(home, sid), JSON.stringify(hb));
-    } catch {
-      return r;
-    }
-    if (!composeMarcado.has(sid)) {
-      composeMarcado.add(sid);
-      await $.store.set("compose", true).catch(() => {});
-    }
-    if (hb.status !== "ok" || reglas.length === 0) return r;
-    return { sections: [...r.sections, { id: "exo:reglas-proyecto", text: bloque(reglas), scope: "session" }] };
-  });
+  // Con el guard de Team/Enterprise (cc-plugin-sec-default) este hook nunca corre y Claude Code avisa en
+  // cada turno. register() no tiene `$` (ni fs ni env) y `on` no se puede llamar después, así que la org
+  // no se puede leer aquí: el interruptor es la opción `composeHook` (userConfig). Con false las reglas
+  // llegan solo por prompt.submit, que el guard no intercepta.
+  sinCompose = options.composeHook === false;
+  if (!sinCompose) {
+    on("prompt.compose", async ($: any, e: any, next: any) => {
+      // Seam de test: con FORZAR compose queda inerte para que el eval/e2e midan solo el canal submit.
+      try {
+        if ((await $.env.get("EXO_RULES_FORZAR_SUBMIT")) === "1") return await next(e);
+      } catch {
+        // sin env legible se sigue por el camino normal
+      }
+      const r = await next(e);
+      let hb: Latido = { status: "error", n: 0, via: "compose", error: "mod" };
+      let reglas: string[] = [];
+      let sid = "";
+      let home = "";
+      try {
+        sid = await $.session.id();
+        if (sid) composeVivo.add(sid);
+        home = (await $.env.get("HOME")) || (await $.env.get("USERPROFILE")) || "";
+        const c = await consultar($, home, await $.session.cwd());
+        hb = { ...c.hb, via: "compose" };
+        reglas = c.reglas;
+      } catch (err: any) {
+        hb = { status: "error", n: 0, via: "compose", error: msg(err) };
+      }
+      // Sin sid o sin HOME no hay nombre de latido válido: no se escribe en una ruta inventada.
+      if (!sid || !home) return r;
+      try {
+        await $.fs.write(hbPath(home, sid), JSON.stringify(hb));
+      } catch {
+        return r;
+      }
+      if (!composeMarcado.has(sid)) {
+        composeMarcado.add(sid);
+        await $.store.set("compose", true).catch(() => {});
+      }
+      if (hb.status !== "ok" || reglas.length === 0) return r;
+      return { sections: [...r.sections, { id: "exo:reglas-proyecto", text: bloque(reglas), scope: "session" }] };
+    });
+  }
 }
