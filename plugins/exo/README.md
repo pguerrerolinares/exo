@@ -67,6 +67,8 @@ Tabla exacta al cableado vivo de `hooks/hooks.json` (nueve comandos):
 | exo-index | `Stop` | `scripts/exo-index.sh` | reindexa la KB al cierre de sesión | best-effort, fallback logueado |
 | subagent-inject | `SubagentStart` | `scripts/subagent-inject.sh` | inyecta doctrina/contexto al arrancar un subagente; a `exo:executor`, `general-purpose` y `claude`, también las reglas duras del repo (`exo rules`) | — (PUSH) |
 
+**Cuentas Team/Enterprise**: el guard integrado `cc-plugin-sec-default` intercepta `prompt.compose` antes que el mod de exo y Claude Code avisa en cada turno (`its prompt.compose hook was skipped`). Sin pérdida funcional: las reglas del proyecto llegan por `prompt.submit`. Para quitar el aviso, pon la opción `composeHook` del plugin a `false` (`pluginConfigs.exo.options.composeHook` en settings, o la fila de `/config`): el mod deja de registrar `prompt.compose` y entrega por submit desde el turno 1. La org no se puede autodetectar en el registro (`register()` no tiene `$`).
+
 Nota: el README anterior de `reflex` documentaba también `cost-pyramid` y
 `stuck-loop` como reflejos independientes. Ninguno de los dos está cableado
 hoy en `hooks.json` como hook propio: `cost-pyramid` no tiene script en

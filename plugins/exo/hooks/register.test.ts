@@ -357,3 +357,27 @@ test("turn_complete_forzar_no_toca_store", async ($, on) => {
   await w.complete();
   expect(w.storeSets).toEqual([]);
 });
+
+test("compose_hook_off_no_registra_compose", { options: { composeHook: false } }, async ($, on) => {
+  const w = await mundo($, on, () => out(okOut));
+  const r = await w.compose();
+  expect(r.sections).toEqual(BASE);
+  expect(w.calls.length).toBe(0);
+  expect(Object.keys(w.writes)).toEqual([]);
+  expect(w.store.compose).toBeUndefined();
+});
+
+test("compose_hook_off_submit_entrega_en_turno1", { options: { composeHook: false } }, async ($, on) => {
+  const claudeJson = JSON.stringify({ oauthAccount: { organizationType: "claude_team" } });
+  const w = await mundo($, on, () => out(okOut), { store: { compose: true }, claudeJson });
+  const r = await w.submit();
+  expect(ultimo(r)).toBe(REGLAS);
+  expect(JSON.parse(w.writes[HB])).toEqual({ status: "ok", n: 2, via: "submit", org: "claude_team" });
+});
+
+test("compose_hook_por_defecto_registra_compose", async ($, on) => {
+  const w = await mundo($, on, () => out(okOut));
+  const r = await w.compose();
+  expect(r.sections[r.sections.length - 1].id).toBe("exo:reglas-proyecto");
+  expect(JSON.parse(w.writes[HB]).via).toBe("compose");
+});

@@ -1,7 +1,15 @@
 {
   "name": "exo",
   "description": "Framework de trabajo agéntico con memoria persistente. Ocho skills de proceso (brainstorm · plan · orchestrate · tdd · debug · verify · document · distill), el agente de rol `executor` con la doctrina en su system prompt, y la capa de reflejos: guardrails deterministas en PreToolUse/SessionStart/SubagentStart/Stop que activan conocimiento procedural en el punto de acción. El recall lo sirve el engine `exo` desde SQLite. Abstención por defecto. Destila el catálogo de obra/superpowers (MIT, © 2025 Jesse Vincent) y parte de DietrichGebert/ponytail (MIT), más doctrina propia.",
-  "version": "1.18.1",
+  "version": "1.18.2",
+  "userConfig": {
+    "composeHook": {
+      "type": "boolean",
+      "title": "Registrar el hook prompt.compose",
+      "description": "Desactívalo en cuentas Claude Team/Enterprise: el guard cc-plugin-sec-default intercepta prompt.compose y Claude Code avisa en cada turno. Las reglas del proyecto se entregan igual por prompt.submit.",
+      "default": true
+    }
+  },
   "author": {
     "name": "Paul Guerrero",
     "email": "pguerrerolinares@gmail.com"
