@@ -676,8 +676,9 @@ fn check_dispositivo(entorno: &Entorno, cfg: Option<&crate::config::Config>) -> 
 ///
 /// Dos trampas medidas, ambas del runbook de W11: el `jq` de la Store es un
 /// **alias de ejecución** bajo `WindowsApps` que no es un jq, y el `jq`
-/// nativo de winget emite **CRLF**, que solo muerde leyendo con `while read`
-/// desde process substitution (`a1-gate.sh:201-202`, 22 checks caídos).
+/// nativo de winget emite **CRLF**, que solo muerde leyendo con `while read`.
+/// Ningún script vivo lo hace (`scripts/check-jq-crlf.sh` lo vigila en CI),
+/// así que el CRLF va en el detalle de un `ok`, no baja el check a `warn`.
 fn check_jq(entorno: &Entorno) -> Check {
     let Some(ruta) = busca_en_path(&entorno.path, "jq") else {
         return Check::nuevo(
@@ -698,19 +699,15 @@ fn check_jq(entorno: &Entorno) -> Check {
         );
     }
     match std::process::Command::new(&ruta).arg("--version").output() {
-        Ok(o) if o.stdout.contains(&b'\r') => Check::nuevo(
-            "jq",
-            Estado::Warn,
-            artefacto,
-            "jq nativo: emite CRLF. Muerde en `while read` desde process \
-             substitution (a1-gate.sh:201-202); con $(...) bash come el \\r",
-        ),
-        Ok(o) => Check::nuevo(
-            "jq",
-            Estado::Ok,
-            artefacto,
-            String::from_utf8_lossy(&o.stdout).trim().to_string(),
-        ),
+        Ok(o) => {
+            let version = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            let detalle = if o.stdout.contains(&b'\r') {
+                format!("{version} (jq nativo: emite CRLF; los scripts del plugin no lo sufren)")
+            } else {
+                version
+            };
+            Check::nuevo("jq", Estado::Ok, artefacto, detalle)
+        }
         Err(e) => Check::nuevo(
             "jq",
             Estado::Warn,
@@ -791,6 +788,9 @@ fn check_git_bash(entorno: &Entorno) -> Check {
             "git_bash",
             Estado::Na,
             format!("plataforma={}", std::env::consts::OS),
+            "solo se mide en Windows: fuera de ahí el shell de los hooks ya es bash",
+        );
+    }
     if let Some(var) = entorno.git_bash_path.as_deref() {
         let ruta = PathBuf::from(var);
         let artefacto = ruta.display().to_string();
@@ -818,9 +818,6 @@ fn check_git_bash(entorno: &Entorno) -> Check {
                  (probablemente WSL): los hooks .sh de Claude Code esperan Git Bash",
             )
         };
-    }
-            "solo se mide en Windows: fuera de ahí el shell de los hooks ya es bash",
-        );
     }
     match busca_en_path(&entorno.path, "bash") {
         Some(ruta) if es_git_bash(&ruta) => Check::nuevo(
