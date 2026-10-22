@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       # Rojo si el script sale != 0: sin issue (`-`), sin latidos, último latido
-      # en alerta o de más de 15 días (el JSON lleva `body`: el script filtra por
+      # en alerta, de más de 15 días o con un release de upstream sin revisar tras 3 días (el JSON lleva `body`: el script filtra por
       # la línea `estado:`). `--paginate` imprime un array por página; `jq -s` los junta
       # en un array de arrays y `add` lo aplana en el array que espera el script.
       - name: Comprobar el último latido
@@ -34,5 +34,8 @@ jobs:
             bash scripts/upstream-watchdog.sh -
           else
             gh api "repos/$GITHUB_REPOSITORY/issues/$n/comments" --paginate | jq -s 'add // []' > "$RUNNER_TEMP/comentarios.json"
-            bash scripts/upstream-watchdog.sh "$RUNNER_TEMP/comentarios.json"
+            # Último release de upstream (no `tags`: el listado de tags no viene ordenado
+            # por fecha y no trae la fecha sin otra llamada). Si falla, `set -e` => rojo.
+            read -r tag fecha < <(gh api repos/obra/superpowers/releases/latest --jq '"\(.tag_name) \(.published_at)"' | tr -d '\r')
+            bash scripts/upstream-watchdog.sh "$RUNNER_TEMP/comentarios.json" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" 15 "$tag" "$fecha"
           fi
