@@ -108,6 +108,9 @@ pub struct Entorno {
     /// DB ya resuelta por `flag > $EXO_DB > config` (`resuelve_db`). Mismo
     /// contrato que `kb`.
     pub db: Option<PathBuf>,
+    /// `CLAUDE_CODE_GIT_BASH_PATH`: la variable con la que Claude Code elige
+    /// el shell de los hooks en Windows. Si está, manda sobre el PATH.
+    pub git_bash_path: Option<String>,
 }
 
 impl Entorno {
@@ -133,6 +136,9 @@ impl Entorno {
             path: std::env::var("PATH").unwrap_or_default(),
             kb: None,
             db: None,
+            git_bash_path: std::env::var("CLAUDE_CODE_GIT_BASH_PATH")
+                .ok()
+                .filter(|v| !v.is_empty()),
         }
     }
 }
@@ -670,8 +676,9 @@ fn check_dispositivo(entorno: &Entorno, cfg: Option<&crate::config::Config>) -> 
 ///
 /// Dos trampas medidas, ambas del runbook de W11: el `jq` de la Store es un
 /// **alias de ejecución** bajo `WindowsApps` que no es un jq, y el `jq`
-/// nativo de winget emite **CRLF**, que solo muerde leyendo con `while read`
-/// desde process substitution (`a1-gate.sh:201-202`, 22 checks caídos).
+/// nativo de winget emite **CRLF**, que solo muerde leyendo con `while read`.
+/// Ningún script vivo lo hace (`scripts/check-jq-crlf.sh` lo vigila en CI),
+/// así que el CRLF va en el detalle de un `ok`, no baja el check a `warn`.
 fn check_jq(entorno: &Entorno) -> Check {
     let Some(ruta) = busca_en_path(&entorno.path, "jq") else {
         return Check::nuevo(
@@ -692,19 +699,15 @@ fn check_jq(entorno: &Entorno) -> Check {
         );
     }
     match std::process::Command::new(&ruta).arg("--version").output() {
-        Ok(o) if o.stdout.contains(&b'\r') => Check::nuevo(
-            "jq",
-            Estado::Warn,
-            artefacto,
-            "jq nativo: emite CRLF. Muerde en `while read` desde process \
-             substitution (a1-gate.sh:201-202); con $(...) bash come el \\r",
-        ),
-        Ok(o) => Check::nuevo(
-            "jq",
-            Estado::Ok,
-            artefacto,
-            String::from_utf8_lossy(&o.stdout).trim().to_string(),
-        ),
+        Ok(o) => {
+            let version = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            let detalle = if o.stdout.contains(&b'\r') {
+                format!("{version} (jq nativo: emite CRLF; los scripts del plugin no lo sufren)")
+            } else {
+                version
+            };
+            Check::nuevo("jq", Estado::Ok, artefacto, detalle)
+        }
         Err(e) => Check::nuevo(
             "jq",
             Estado::Warn,
@@ -788,20 +791,48 @@ fn check_git_bash(entorno: &Entorno) -> Check {
             "solo se mide en Windows: fuera de ahí el shell de los hooks ya es bash",
         );
     }
+    if let Some(var) = entorno.git_bash_path.as_deref() {
+        let ruta = PathBuf::from(var);
+        let artefacto = ruta.display().to_string();
+        return if !ruta.is_file() {
+            Check::nuevo(
+                "git_bash",
+                Estado::Warn,
+                artefacto,
+                "CLAUDE_CODE_GIT_BASH_PATH apunta a un fichero que no existe: \
+                 Claude Code no podrá lanzar los hooks .sh",
+            )
+        } else if es_git_bash(&ruta) {
+            Check::nuevo(
+                "git_bash",
+                Estado::Ok,
+                artefacto,
+                "CLAUDE_CODE_GIT_BASH_PATH: Claude Code puede correr los hooks .sh del plugin",
+            )
+        } else {
+            Check::nuevo(
+                "git_bash",
+                Estado::Warn,
+                artefacto,
+                "CLAUDE_CODE_GIT_BASH_PATH apunta a un bash que no es Git Bash \
+                 (probablemente WSL): los hooks .sh de Claude Code esperan Git Bash",
+            )
+        };
+    }
     match busca_en_path(&entorno.path, "bash") {
         Some(ruta) if es_git_bash(&ruta) => Check::nuevo(
             "git_bash",
             Estado::Ok,
             ruta.display().to_string(),
-            "Claude Code puede correr los hooks .sh del plugin",
+            "PATH: Claude Code puede correr los hooks .sh del plugin",
         ),
         Some(ruta) => Check::nuevo(
             "git_bash",
             Estado::Warn,
             ruta.display().to_string(),
-            "resuelve a un bash que no es Git Bash (probablemente WSL): los \
-             hooks .sh de Claude Code esperan Git Bash — instala Git for \
-             Windows y ponlo antes en el PATH",
+            "PATH resuelve a un bash que no es Git Bash (probablemente WSL): \
+             los hooks .sh de Claude Code esperan Git Bash — instala Git for \
+             Windows y ponlo antes en el PATH, o define CLAUDE_CODE_GIT_BASH_PATH",
         ),
         None => Check::nuevo(
             "git_bash",
