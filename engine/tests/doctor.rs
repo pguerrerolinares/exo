@@ -18,6 +18,7 @@ fn entorno(dir: &Path) -> Entorno {
         path: String::new(),
         kb: None,
         db: None,
+        git_bash_path: None,
     }
 }
 
@@ -135,6 +136,7 @@ fn entorno_con_config(dir: &Path) -> Entorno {
         path: String::new(),
         kb: None,
         db: None,
+        git_bash_path: None,
     }
 }
 
@@ -1093,4 +1095,67 @@ fn settings_ilegible_es_warn_no_silencio() {
         check(&analiza(&env), "superpowers_disabled").estado,
         Estado::Warn
     );
+}
+
+// `CLAUDE_CODE_GIT_BASH_PATH` es lo que usa Claude Code para elegir el shell
+// de los hooks: si está, el check juzga ESA ruta y el PATH no cuenta (#157).
+#[cfg(windows)]
+#[test]
+fn git_bash_path_a_un_msys_es_ok_aunque_el_path_resuelva_a_system32() {
+    let dir = tempfile::tempdir().unwrap();
+    let sys32 = dir.path().join("System32");
+    let git = dir.path().join("HerramientasVarias");
+    fs::create_dir_all(&sys32).unwrap();
+    fs::create_dir_all(&git).unwrap();
+    compila_bash_falso_que_dice(&sys32.join("bash.exe"), "Microsoft WSL launcher");
+    compila_bash_falso_que_dice(&git.join("bash.exe"), VERSION_MSYS_DE_VERDAD);
+    let mut env = entorno(dir.path());
+    env.path = sys32.display().to_string();
+    env.git_bash_path = Some(git.join("bash.exe").display().to_string());
+    let informe = analiza(&env);
+    let c = check(&informe, "git_bash");
+    assert_eq!(c.estado, Estado::Ok, "{c:?}");
+    assert_eq!(c.artefacto, git.join("bash.exe").display().to_string());
+    assert!(
+        c.detalle.contains("CLAUDE_CODE_GIT_BASH_PATH"),
+        "{}",
+        c.detalle
+    );
+}
+
+#[cfg(windows)]
+#[test]
+fn git_bash_path_a_una_ruta_inexistente_es_warn_aunque_el_path_tenga_git_bash() {
+    let dir = tempfile::tempdir().unwrap();
+    let git = dir.path().join("HerramientasVarias");
+    fs::create_dir_all(&git).unwrap();
+    compila_bash_falso_que_dice(&git.join("bash.exe"), VERSION_MSYS_DE_VERDAD);
+    let mut env = entorno(dir.path());
+    env.path = git.display().to_string();
+    env.git_bash_path = Some(
+        dir.path()
+            .join("no-existe")
+            .join("bash.exe")
+            .display()
+            .to_string(),
+    );
+    let informe = analiza(&env);
+    let c = check(&informe, "git_bash");
+    assert_eq!(c.estado, Estado::Warn, "{c:?}");
+    assert!(c.detalle.contains("no existe"), "{}", c.detalle);
+}
+
+#[cfg(windows)]
+#[test]
+fn git_bash_path_a_wsl_es_warn_y_lo_dice() {
+    let dir = tempfile::tempdir().unwrap();
+    let sys32 = dir.path().join("System32");
+    fs::create_dir_all(&sys32).unwrap();
+    compila_bash_falso_que_dice(&sys32.join("bash.exe"), VERSION_MSYS_DE_VERDAD);
+    let mut env = entorno(dir.path());
+    env.git_bash_path = Some(sys32.join("bash.exe").display().to_string());
+    let informe = analiza(&env);
+    let c = check(&informe, "git_bash");
+    assert_eq!(c.estado, Estado::Warn, "{c:?}");
+    assert!(c.detalle.contains("WSL"), "{}", c.detalle);
 }
