@@ -9,7 +9,7 @@ Explora intención, requisitos y diseño en diálogo colaborativo antes de
 implementar. Termina invocando `exo:plan` — nunca código.
 
 Entendimiento compartido y gate por etapa destilados de `brainstorming/SKILL.md`
-(superpowers 7.0.0, MIT © 2025 Jesse Vincent).
+(superpowers 7.0.1, MIT © 2025 Jesse Vincent).
 
 ## Entendimiento compartido
 
@@ -22,8 +22,9 @@ anclado en lo que quiere lograr.
 2. **Devuélvelo por tramos:** cuando una parte quede clara (para qué y para
    quién; cómo se comporta una pieza), devuélvela en unas líneas antes de
    seguir preguntando, y alterna así hasta el final. Separa lo que dijo de
-   lo que supones: sus palabras como suyas, tus supuestos marcados como
-   tuyos (una opción elegida de un menú confirma el qué, no el porqué).
+   lo que supones: sus palabras como suyas, lo que rellenaste como propuesta
+   tuya con su razón (una opción elegida de un menú confirma el qué, no el
+   porqué).
    Cierra cada tramo preguntando qué falla o falta, e incorpora la
    respuesta antes de tratar el conjunto como brief del diseño.
 3. **Llévalo al diseño:** conserva ese entendimiento en el diseño y contrasta
@@ -34,14 +35,32 @@ repreguntar. Cada tramo es breve; importa que sea exacta y corregible.
 
 ## Proceso
 
-- Explora primero el contexto del proyecto: ficheros, docs, commits recientes.
+- Mira antes de preguntar: en un proyecto existente, o si el usuario trajo
+  contexto (spec, plan, handoff, ficheros, conversación previa), lee lo que
+  citó y el código o material que toca, hasta poder explicar cómo funcionan
+  hoy las partes relevantes y qué tocaría el cambio. Nunca preguntes lo que
+  el proyecto o su contexto ya responde.
+- Si ya dijo lo que quiere (spec, plan, petición detallada), el primer
+  mensaje (~200 palabras) devuelve su petición con tus palabras (qué, para
+  quién y por qué, hasta donde lo dijo) y añade lo que hallaste: cómo
+  funciona hoy y qué tocaría el cambio; si algo que quizá no vio cambia lo
+  pedido (restricción, conflicto, camino más barato), dilo claro. Cierra con
+  una línea que invita a corregir y UNA pregunta: lo que su petición deja
+  abierto y más cambiaría lo construido. Una spec suele estar incompleta:
+  confírmala antes de construir sobre ella.
 - Antes de refinar detalles, evalúa el scope: si la petición describe varios
   subsistemas independientes, decompón en sub-proyectos, cada uno con su
   propio ciclo spec→plan→implementación. No gastes preguntas en detalles de
   un proyecto que necesita descomponerse primero.
 - Preguntas de una en una; si un tema pide más, pártelo en varias preguntas.
   Objetivo: purpose, constraints, success criteria. Prefiere multiple choice
-  cuando sea posible.
+  cuando sea posible. Cada pregunta, específica del proyecto y de lo que dijo,
+  encadenada a su última respuesta o a un hallazgo, de modo que le haga pensar
+  una consecuencia o un caso que quizá no vio; si la razón no es obvia, di qué
+  esperas aprender o qué cambiaría la respuesta. Una propuesta corregible con
+  su porqué suele valer más que una pregunta.
+- Con algo de base, ofrece ir a mirar más a fondo (su codebase o proyecto, sus
+  ficheros y datos, la web): di qué buscarías; decide él si vas.
 - Cómo se hace: todo proyecto descansa en elecciones de medio, herramientas y
   recursos (plataforma, lenguaje y librerías de una app). Averigua pronto
   cuáles quiere tomar el usuario, cuáles te delega y con qué cuenta ya. Quien
