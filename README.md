@@ -26,6 +26,15 @@ separado:
 
 ## Instalar
 
+**Con un agente (recomendado):** pide a Claude Code *«clona `<url de este
+repo>` y sigue su `docs/instalar-con-agente.md`»*. En KBI, la URL es la del
+espejo de `gitlab.norbolsa.com`. La guía es un runbook para el agente: qué
+preguntarte, binario, KB, plugin, reinicio y verificación. Después,
+[`docs/sembrar-kb.md`](docs/sembrar-kb.md) llena la KB nueva con tus
+proyectos activos.
+
+A mano:
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/pguerrerolinares/exo/main/install.sh | bash
 ```
@@ -134,6 +143,7 @@ git-subdir — ese modelo de publicación quedó atrás con la fusión de plugin
 ## Documentación
 
 - Cómo funciona, derivado del código: [`docs/arquitectura.md`](docs/arquitectura.md)
+- Instalación guiada por un agente: [`docs/instalar-con-agente.md`](docs/instalar-con-agente.md) y [`docs/sembrar-kb.md`](docs/sembrar-kb.md)
 - Instalación, compilar desde fuente y tests: [`docs/instalacion.md`](docs/instalacion.md)
 - **Qué falta y qué está roto: [`docs/backlog.md`](docs/backlog.md)** — léelo
   antes de asumir que algo está terminado.

@@ -272,3 +272,26 @@ Dos avisos honestos, ambos anotados en `docs/backlog.md`:
   dejar un binario que no arranca.
 - **`exo diff-since` y `exo history`.** No se portan por decisión: se usan
   `git diff`/`git log` directamente (ver skill `distill`).
+
+## 8. Problemas conocidos en Windows 11
+
+Encontrados en máquinas reales. El camino guiado está en
+[`instalar-con-agente.md`](instalar-con-agente.md).
+
+| Síntoma | Causa | Remedio |
+|---|---|---|
+| Los hooks no hacen nada, sin error | `jq` es el alias de la Microsoft Store (`WindowsApps\jq.exe`): Git Bash no lo resuelve y sin `jq` los hooks se abstienen | `install.ps1` deja un `jq.exe` real delante en el PATH. Check: `exo doctor` (fila `jq`) |
+| `exo`/`jq` "command not found" tras instalar | La sesión de Claude Code arrancó antes del cambio de PATH | Cerrar Claude Code del todo y abrir sesión nueva |
+| Hooks `.sh` no arrancan o corren en WSL | El `bash` del PATH es `System32\bash.exe` (WSL), no Git Bash | Git for Windows antes en el PATH, o `CLAUDE_CODE_GIT_BASH_PATH` a `Git\bin\bash.exe`. Check: `exo doctor` (fila `git_bash`) |
+| `exo init` falla al descargar el modelo | `exo` (ureq + rustls) solo ve el proxy por `HTTPS_PROXY`/`ALL_PROXY`, no el de Windows, y confía solo en `webpki-roots`, no en la CA corporativa | `HTTPS_PROXY` definido; o `HF_ENDPOINT` a un espejo interno; o copiar `~/.cache/huggingface/hub/models--jinaai--jina-embeddings-v2-base-es` de otra máquina (respeta `HF_HOME`) |
+| `exo init` muere a los 2 min | Timeout por defecto del Bash tool; la descarga en frío tarda ~6 min | Background o `timeout: 600000` |
+| `exo init`: «existe y no está vacía» | Por diseño: no pisa notas | Carpeta nueva o vacía; adoptar una KB existente solo se soporta desde basic-memory |
+| La KB queda sin commits | `exo init` commitea best-effort y sin `user.email` falla en silencio | `git config --global user.email …` y commitear a mano |
+| `database is locked` | Dos indexados a la vez (`init` y el hook `Stop`) | Esperar a que termine uno; `ps -W` lista el binario como `exo`, sin `.exe` |
+| Commit de la KB bloqueado | El pre-commit no encuentra `exo` o el plugin (fail-closed) | Revisar PATH / plugin; escape consciente: `git commit --no-verify` |
+| `exo budget` o el pre-commit: «sin tier» / «falta tags» | Nota creada con `exo write new` sin `--tier` o sin `tags` en el frontmatter del `--from` | Añadir `tier` y `tags` al frontmatter |
+| Aviso «prompt.compose hook was skipped» en cada turno | Cuenta Team/Enterprise: el guard `cc-plugin-sec-default` lo intercepta | `echo '{"composeHook":"false"}' \| claude plugin configure exo@exo --values-stdin` |
+| Skills o hooks duplicados | superpowers sigue habilitado | `claude plugin disable superpowers@<marketplace> --scope user`. Check: `exo doctor` (fila `superpowers_disabled`) |
+| Cada prompt tarda ~1,5 s más | Coste de los hooks bajo Git Bash (≈20 procesos por hook; W11 p50 ≈ 1,7 s) | Esperado |
+| PowerShell: `&&` no es válido | Windows PowerShell 5.1 no lo admite (sí `pwsh` 7) | Ejecutar desde Git Bash, o encadenar con `;` |
+| KB con cambios perdidos o `.git` corrupto | KB en una carpeta sincronizada por OneDrive | Mover la KB fuera (`C:\proyectos\…`) |
