@@ -2,6 +2,7 @@
 # Test standalone para subagent-bg-guard.sh (SubagentStop, #170): bloquea solo si
 # el subagente dejó tareas de fondo PROPIAS vivas. Transcripts sintéticos con los
 # formatos reales de tool_result; HOME y ficheros en mktemp -d.
+# shellcheck disable=SC2015 # `A && pass || fail`: pass siempre sale 0, no hay doble disparo
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 HOOK="${SCRIPT_DIR}/subagent-bg-guard.sh"
@@ -83,6 +84,28 @@ run "$TMP/no-existe.jsonl"
 
 printf '{"agent_id":"a1"}' | "$HOOK" >/dev/null 2>&1
 [ $? -eq 0 ] && pass "calla: sin agent_transcript_path" || fail "calla: sin agent_transcript_path" "rc=$?"
+
+# Fixture saneado del caso real (#170); `@TASKS@` = directorio de los .output.
+FIX="${SCRIPT_DIR}/testdata/subagent-bg-guard/transcript.jsonl"
+mkdir -p "$TMP/tasks"
+for id in b6ia30yek bi1d3rqpi bquoted00; do printf 'x\n' > "$TMP/tasks/$id.output"; done
+T="$TMP/t-fix.jsonl"; sed "s#@TASKS@#$TMP/tasks#g" "$FIX" > "$T"
+run "$T"
+R="$(printf '%s' "$OUT" | jq -r '.reason // empty')"
+case "$R" in *b6ia30yek*bi1d3rqpi*) pass "fixture real: bloquea con las dos propias vivas" ;;
+  *) fail "fixture real: bloquea con las dos propias vivas" "out=$OUT" ;; esac
+case "$R" in *bquoted00*) fail "calla: resultado citado dentro de otro tool_result" "reason=$R" ;;
+  *) pass "calla: resultado citado dentro de otro tool_result (bquoted00)" ;; esac
+run "$T" ',"background_tasks":[{"id":"bquoted00","type":"shell","status":"running"}]'
+[ -z "$OUT" ] && pass "calla: citado aunque esté running en background_tasks" || fail "calla: citado running" "out=$OUT"
+
+# Sin jq: PATH mínimo con solo `cat` (patrón de test-search-first.sh).
+BASH_ABS="$(command -v bash)"
+mkdir -p "$TMP/shim"
+printf '#!%s\nexec %s "$@"\n' "$BASH_ABS" "$(command -v cat)" > "$TMP/shim/cat"
+chmod +x "$TMP/shim/cat"
+OUT="$(printf '{"agent_id":"a1","agent_transcript_path":"%s"}' "$TMP/t-vivo.jsonl" | PATH="$TMP/shim" "$BASH_ABS" "$HOOK" 2>/dev/null)"; RC=$?
+[ "$RC" = 0 ] && [ -z "$OUT" ] && pass "calla: sin jq en el PATH" || fail "calla: sin jq" "rc=$RC out=$OUT"
 
 printf '\n%d pass, %d fail\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
