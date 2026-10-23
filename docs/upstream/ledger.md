@@ -165,6 +165,6 @@ Decisiones del mantenedor (2026-09-30), distintas de las Divergencias: no son "n
 | #2380 | debug | no aplica | — | solo cambia un ejemplo de diagnóstico que exo no tiene | — |
 | #2560 | brainstorm | parcial | propuesto | — | bcd2d1a |
 | #2571 | brainstorm | parcial | propuesto | — | f2a5563 |
-| #2571 | brainstorm | duda | pendiente | ¿Spec corta también para el cambio pequeño? 7.0.1 quita el «en chat» de «Tamaño del trabajo» (brainstorm/SKILL.md:66-72), la base que D11 cita. Decidiría: no portarlo y mantener chat para el cambio pequeño | — |
-| #2565 | orchestrate | duda | pendiente | mapeo: subagent-driven-development/references/batching.md / cannot-verify.md / final-review.md / fix-loop.md / handling-reports.md / preflight.md / resuming.md. SKILL.md solo reubica texto sin cambiarlo. Decidiría: confirmar el mapeo propuesto en la tabla y no portar nada (orchestrate/SKILL.md:27-31,69-72,83-87,114-126 y olas.md ya lo cubren; batching.md choca con D6) | — |
+| #2571 | brainstorm | ya cubierto | pendiente | respondida | — |
+| #2565 | orchestrate | ya cubierto | pendiente | respondida | — |
 | #2563 | orchestrate | no aplica | — | sin equivalente: executing-plans/SKILL.md (D8): solo elimina el Example Workflow del modo inline | — |
