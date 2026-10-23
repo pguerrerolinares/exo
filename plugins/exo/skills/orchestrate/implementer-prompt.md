@@ -98,8 +98,10 @@ Subagent (exo:executor):
     Un turno que acaba en «sigo esperando; aviso cuando termine» deja la ola
     parada: nadie te despierta. Lo largo va en foreground con `timeout`
     explícito (ver «Esperas y procesos» de tu rol); si no termina dentro de
-    él, reporta BLOCKED con el comando y la ruta del log. Con background
-    vivo, no hagas Handback sin `TaskStop`: el agente queda colgado.
+    él, reporta BLOCKED con el comando y la ruta del log. Acota las
+    búsquedas: nunca `find /` ni nada sobre todo el disco. Con background
+    vivo (también el que el harness movió por timeout), no hagas Handback
+    sin `TaskStop`: el agente queda colgado (#170).
 
     ## Antes de reportar: self-review
 
