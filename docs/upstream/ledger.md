@@ -2,7 +2,7 @@
 
 Estado versionado del bot que porta a exo lo que cambia en obra/superpowers. Diseño: `docs/superpowers/specs/2026-09-29-upstream-sync-design.md`. Prompt del bot: `docs/upstream/sync-prompt.md`.
 
-upstream_tag: v7.0.0
+upstream_tag: v7.0.1
 
 verdad_sello: —
 
@@ -36,6 +36,13 @@ Rutas relativas a `skills/` de superpowers y a `plugins/exo/skills/` de exo. Las
 | systematic-debugging/condition-based-waiting.md | debug/techniques.md | cabecera de atribución |
 | systematic-debugging/condition-based-waiting-example.ts | debug/techniques.md | solo la técnica; el ejemplo .ts no se porta |
 | verification-before-completion/SKILL.md | verify/SKILL.md | destilado |
+| subagent-driven-development/references/batching.md | orchestrate/SKILL.md | propuesto por el bot (duda #2565, pendiente de confirmar): agrupar trabajo trivial: choca con D6 |
+| subagent-driven-development/references/cannot-verify.md | orchestrate/SKILL.md | propuesto por el bot (duda #2565, pendiente de confirmar): destilado; detalle en olas.md |
+| subagent-driven-development/references/final-review.md | orchestrate/SKILL.md | propuesto por el bot (duda #2565, pendiente de confirmar): destilado; detalle en olas.md |
+| subagent-driven-development/references/fix-loop.md | orchestrate/olas.md | propuesto por el bot (duda #2565, pendiente de confirmar): destilado; también orchestrate/SKILL.md |
+| subagent-driven-development/references/handling-reports.md | orchestrate/SKILL.md | propuesto por el bot (duda #2565, pendiente de confirmar): destilado |
+| subagent-driven-development/references/preflight.md | orchestrate/olas.md | propuesto por el bot (duda #2565, pendiente de confirmar): destilado; también orchestrate/SKILL.md |
+| subagent-driven-development/references/resuming.md | orchestrate/SKILL.md | propuesto por el bot (duda #2565, pendiente de confirmar): destilado |
 
 ## Excluidos
 
@@ -137,7 +144,7 @@ Decisiones del mantenedor (2026-09-30), distintas de las Divergencias: no son "n
 | #2078 | orchestrate | no aplica | — | D6 | — |
 | #2318 | orchestrate | no aplica | — | D8 | — |
 | #2318 | plan | no aplica | — | D8 | — |
-| #2258 | plan | aplica | propuesto | — | 8790cf3 |
+| #2258 | plan | aplica | portado | — | 8790cf3 |
 | #2006 | brainstorm | no aplica | — | sin equivalente: brainstorming/visual-companion.md | — |
 | #1959 | brainstorm | no aplica | — | sin equivalente: brainstorming/visual-companion.md | — |
 | #2133 | orchestrate | ya cubierto | — | — | — |
@@ -156,3 +163,8 @@ Decisiones del mantenedor (2026-09-30), distintas de las Divergencias: no son "n
 | #2388 | orchestrate | no aplica | — | sin equivalente: executing-plans/scripts/task-done (D8) | — |
 | #2361 | orchestrate | no aplica | — | solo cambia un ejemplo de BASE_SHA que exo no tiene | — |
 | #2380 | debug | no aplica | — | solo cambia un ejemplo de diagnóstico que exo no tiene | — |
+| #2560 | brainstorm | parcial | propuesto | — | bcd2d1a |
+| #2571 | brainstorm | parcial | propuesto | — | f2a5563 |
+| #2571 | brainstorm | duda | pendiente | ¿Spec corta también para el cambio pequeño? 7.0.1 quita el «en chat» de «Tamaño del trabajo» (brainstorm/SKILL.md:66-72), la base que D11 cita. Decidiría: no portarlo y mantener chat para el cambio pequeño | — |
+| #2565 | orchestrate | duda | pendiente | mapeo: subagent-driven-development/references/batching.md / cannot-verify.md / final-review.md / fix-loop.md / handling-reports.md / preflight.md / resuming.md. SKILL.md solo reubica texto sin cambiarlo. Decidiría: confirmar el mapeo propuesto en la tabla y no portar nada (orchestrate/SKILL.md:27-31,69-72,83-87,114-126 y olas.md ya lo cubren; batching.md choca con D6) | — |
+| #2563 | orchestrate | no aplica | — | sin equivalente: executing-plans/SKILL.md (D8): solo elimina el Example Workflow del modo inline | — |
