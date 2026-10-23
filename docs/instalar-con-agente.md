@@ -6,8 +6,8 @@
 >
 > `<url-del-repo>` es la URL desde la que el usuario te pide clonar (en KBI,
 > el espejo de `gitlab.norbolsa.com`). El plugin se instala desde ese mismo
-> repo; el binario sale de las releases públicas de GitHub y se verifica por
-> SHA256. Referencia completa: [`instalacion.md`](instalacion.md).
+> repo; el binario sale de las releases públicas de GitHub, en la versión del
+> último tag del clon, y se verifica por SHA256. Referencia completa: [`instalacion.md`](instalacion.md).
 
 ## Reglas para el agente
 
@@ -54,16 +54,19 @@ git config --global user.email
 
 ## 2. Binario (`exo` + `jq`)
 
+La versión del binario es la del último tag del clon, no la última de
+GitHub. Así binario y plugin salen del mismo punto del repo.
+
 Windows:
 
 ```bash
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w ~/.exo/repo/install.ps1)"
+EXO_VERSION="$(git -C ~/.exo/repo describe --tags --abbrev=0 --match 'v[0-9]*')" powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w ~/.exo/repo/install.ps1)"
 ```
 
 Linux:
 
 ```bash
-bash ~/.exo/repo/install.sh
+EXO_VERSION="$(git -C ~/.exo/repo describe --tags --abbrev=0 --match 'v[0-9]*')" bash ~/.exo/repo/install.sh
 ```
 
 Deja `~/.local/bin/exo(.exe)` (SHA256 verificado), un `jq.exe` real si no lo
@@ -179,6 +182,6 @@ Devuelve notas de la KB. Con eso, la instalación está hecha: sigue con
 - **Plugin:** con `autoUpdate` llega al arrancar Claude Code; a mano,
   `claude plugin marketplace update exo`, `claude plugin update exo@exo` y
   reiniciar.
-- **Binario:** `git -C ~/.exo/repo pull` y repetir el paso 2. Si el plugin
+- **Binario:** `git -C ~/.exo/repo pull --tags` y repetir el paso 2. Si el plugin
   exige un binario más nuevo, lo dicen `exo doctor` (`plugin_compat`) y el
   aviso de arranque.
