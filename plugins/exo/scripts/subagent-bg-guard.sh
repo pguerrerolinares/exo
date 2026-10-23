@@ -76,7 +76,7 @@ for E in ${OWN[@]+"${OWN[@]}"}; do
   if [ "$HAS_BG" = "1" ]; then
     case " $RUNNING " in *" $ID "*) ;; *) continue ;; esac
   else
-    [ -n "$OUT" ] && [ -f "$OUT" ] || continue
+    [ -f "$OUT" ] || continue
     [[ "$(tail -c 4096 "$OUT" 2>/dev/null)" == *"[exited with code"* ]] && continue
   fi
   LIVE="${LIVE:+$LIVE, }${ID}${OUT:+ (log: $OUT)}"
