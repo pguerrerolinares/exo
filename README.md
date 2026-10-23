@@ -73,7 +73,7 @@ flowchart TB
         direction TB
         skills["skills/<br/>exo:brainstorm · plan · orchestrate · tdd<br/>debug · verify · document · distill"]
         agent["agents/<br/>exo:executor"]
-        hooks["hooks/<br/>SessionStart<br/>SubagentStart · Stop · PreToolUse"]
+        hooks["hooks/<br/>SessionStart<br/>SubagentStart · SubagentStop · Stop · PreToolUse"]
     end
 
     subgraph bin["exo — binario Rust, sin runtime"]
@@ -118,7 +118,7 @@ Agente: `plugins/exo/agents/executor.md` (`exo:executor`) — ejecutor de tareas
 implementación acotadas, despachado por `orchestrate` (subagent-driven
 development).
 
-Hooks (nueve, cableados en `plugins/exo/hooks/hooks.json`; tabla completa con
+Hooks (once, cableados en `plugins/exo/hooks/hooks.json`; tabla completa con
 qué hace cada uno y su abstención en `plugins/exo/README.md`):
 
 | Reflejo | Evento | Fichero |
@@ -133,6 +133,7 @@ qué hace cada uno y su abstención en `plugins/exo/README.md`):
 | document-remind | `Stop` | `plugins/exo/scripts/document-remind.sh` |
 | exo-index | `Stop` | `plugins/exo/scripts/exo-index.sh` |
 | subagent-inject | `SubagentStart` | `plugins/exo/scripts/subagent-inject.sh` |
+| subagent-bg-guard | `SubagentStop` | `plugins/exo/scripts/subagent-bg-guard.sh` |
 
 Este repo es la **fuente de verdad** del plugin (co-evoluciona con el engine y con
 sus evals de paridad en `evals/prep-m3/`) y además es su propio marketplace:
