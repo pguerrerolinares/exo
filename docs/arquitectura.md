@@ -208,11 +208,22 @@ motivos, tal como los declara el código:
 antes `fts`), implementados en `engine/src/buscador.rs`. Todos devuelven
 resultados **a nivel de nota** (`type: "entity"`), nunca de trozo. El modo
 medido es el default, `--type hybrid`. Desde el 2026-10-04 (serie B, engine
-0.3.0) el FTS une los tokens con OR y la fusión es CombSUM. Sobre el gold J
-da hit@5 **107/145**, frente a 90/145 de la versión anterior (AND + CombMAX).
-Sin el estrato `prompt`, que modelaba el recall por prompt ya borrado, la
-cifra pasa de **61/91 a 74/91**. Es un eval orientativo (`evals/b-retrieval/`,
-§6). Las cifras históricas (48/55 in-sample, 64/92 held-out de la campaña C)
+0.3.0) el FTS une los tokens con OR y la fusión es CombSUM; desde la 0.9.0
+el título pesa ×5 en el BM25 (`bm25(notas_fts, 5.0, 1.0)`). Cifras hybrid
+sobre los snapshots `kb-snap` de los golds C y J, índice construido en GPU:
+
+| gold | 0.8.0 sin prompt | 0.8.0 total | 0.8.0 MRR@10 | 0.9.0 sin prompt | 0.9.0 total | 0.9.0 MRR@10 |
+|---|---|---|---|---|---|---|
+| C | 58/70 | 68/92 | 0.537 | 59/70 | 69/92 | 0.546 |
+| J | 79/91 | 111/145 | 0.559 | 79/91 | 111/145 | 0.569 |
+
+El peso del título sube el MRR sin perder ninguna query. La serie B daba
+107/145 y 74/91 sin `prompt`, pero midió sobre otra db, así que esas cifras no
+se comparan con estas. El salto de AND + CombMAX a OR + CombSUM (90 → 107
+sobre esa db) sigue valiendo como comparación entre brazos. Desde la 0.9.0 el
+hit@5 sin `prompt` de J está saturado: el gold v2, con aceptables juzgados por
+pooling, mueve como mucho un acierto, así que las palancas se comparan por
+MRR. Es un eval orientativo (`evals/b-retrieval/`, §6). Las cifras históricas (48/55 in-sample, 64/92 held-out de la campaña C)
 son de la fusión anterior. El default usa
 `min_similarity = MIN_SIMILARITY_SELLADO = 0.40` cuando `--min-similarity`
 se omite — ya no hace falta pasarlo a mano. `fts` a secas sigue disponible
