@@ -25,6 +25,7 @@ H="$(cd "$(dirname "$0")" && pwd)"
 K_ROOT="${K_ROOT:-$HOME/.cache/exo-ablacion-k}"; P="$K_ROOT/prep"
 PLUG="$(cd "$H/../../../plugins/exo/scripts" && pwd)"
 MODELO="${K_MODELO:-claude-sonnet-5-5}"
+[[ "${K_CORRIDAS:-corridas}" =~ ^corridas[A-Za-z0-9_-]*$ ]] || { echo "K_CORRIDAS inválida: ${K_CORRIDAS}" >&2; exit 2; }
 if [ "$brazo" = ar ] && [ ! -s "${K_REGLA_FILE:-}" ]; then
   echo "ar requiere K_REGLA_FILE no vacío" >&2; exit 2
 fi
@@ -38,7 +39,7 @@ if [ "$brazo" = arp ] && [ "$(grep -o '{{REGLA}}' "$K_FRAMING_FILE" | wc -l)" !=
   echo "arp: K_FRAMING_FILE debe contener {{REGLA}} exactamente una vez" >&2; exit 2
 fi
 [ -f "$P/manifiesto.txt" ] || { echo "falta $P (preparar.sh)" >&2; exit 2; }
-id=$(basename "$tarea"); O="$K_ROOT/corridas/$id/$brazo-r$rep"; rm -rf "$O"; mkdir -p "$O"
+id=$(basename "$tarea"); O="$K_ROOT/${K_CORRIDAS:-corridas}/$id/$brazo-r$rep"; rm -rf "$O"; mkdir -p "$O"
 t_json="$tarea/tarea.json"
 
 # Workdir: setup sintético o copia congelada de la fuente (congelar_fuentes.sh).
