@@ -9,12 +9,30 @@ algo (lo ideal en un negativo es devolver nada).
 Uso:
   rapido.py --gold G --db D --brazo nombre=BIN:tipo[:min_sim] [...] [--jobs 4]
   p. ej. --brazo base-fts=/ruta/exo:fts --brazo b1-hyb=/ruta/exo:hybrid:0.40
+
+La db se indexa con una build `--features cuda` (docs/instalacion.md §3):
+en CPU el snapshot del gold J tarda ~9 min, en GPU ~20 s, con el mismo
+ranking (verificado el 2026-10-24: 111/145 en los dos). Sin
+`meta.dispositivo_embeddings = cuda` el script no mide salvo `--permite-cpu`.
+Ojo en zsh: `$B:hybrid` se expande como `$B:h`; escribe `${B}:hybrid`.
 """
 import argparse
 import collections
 import json
+import sqlite3
 import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor
+
+
+def dispositivo(db):
+    # Las builds sin `cuda` no escriben la clave: ausente cuenta como CPU.
+    con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    try:
+        fila = con.execute("SELECT valor FROM meta WHERE clave = 'dispositivo_embeddings'").fetchone()
+    finally:
+        con.close()
+    return fila[0] if fila else "cpu"
 
 
 def busca(binario, db, query, tipo, min_sim):
@@ -54,7 +72,14 @@ def main():
     ap.add_argument("--db", required=True)
     ap.add_argument("--brazo", action="append", required=True)
     ap.add_argument("--jobs", type=int, default=4)
+    ap.add_argument("--permite-cpu", action="store_true",
+                    help="mide aunque la db no se indexara en CUDA")
     a = ap.parse_args()
+    disp = dispositivo(a.db)
+    if disp != "cuda" and not a.permite_cpu:
+        sys.exit(f"rapido: {a.db} se indexó en {disp}, no en cuda; reindexa con la build "
+                 f"`--features cuda` o pasa --permite-cpu")
+    print(f"db {a.db} · embeddings indexados en {disp}", flush=True)
     filas = [json.loads(l) for l in open(a.gold, encoding="utf-8") if l.strip()]
     for spec in a.brazo:
         nombre, resto = spec.split("=", 1)
