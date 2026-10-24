@@ -3,7 +3,8 @@
 
 Uso: validar_tareas.py <dir gold/s1>  ->  `<id>\tok` o `<id>\tKO\t<motivo>`; sale 1 si alguna es KO.
 Workdirs de prueba: `pruebas/<cumple|viola>/` si existe (si no, el repo base) y
-transcript `pruebas/<cumple|viola>.jsonl` (si no, vacío).
+transcripts `pruebas/{cumple,viola,vacio}.jsonl` (si no, vacíos).
+`--heredadas <fichero>` (un id por línea): esas tareas se validan solo por schema.
 """
 import json
 import os
@@ -40,7 +41,7 @@ def _base(d, tarea, tmp):
     return base
 
 
-def valida(d: Path) -> str | None:
+def valida(d: Path, solo_schema: bool = False) -> str | None:
     d = Path(d)
     try:
         t = json.loads((d / "tarea.json").read_text())
@@ -56,6 +57,8 @@ def valida(d: Path) -> str | None:
     if check.get("tipo") == "rubrica":
         n = len(check.get("items") or [])
         return None if 1 <= n <= 3 else "rubrica: items debe tener de 1 a 3"
+    if solo_schema:
+        return None
     if not t.get("sanity"):
         return "falta sanity"
     if not (d / "check.sh").is_file():
@@ -71,8 +74,10 @@ def valida(d: Path) -> str | None:
             return "falta repo"
         head = subprocess.run(["git", "-C", str(base), "rev-parse", "HEAD"],
                               capture_output=True, text=True).stdout.strip()
-        vacio = tmp / "vacio.jsonl"
-        vacio.write_text("")
+        vacio = d / "pruebas" / "vacio.jsonl"
+        if not vacio.is_file():
+            vacio = tmp / "vacio.jsonl"
+            vacio.write_text("")
 
         rc = _check(d, base, vacio, head)
         if rc not in RCS_VALIDOS:
@@ -89,12 +94,21 @@ def valida(d: Path) -> str | None:
 
 
 def main(argv):
-    if len(argv) != 2:
+    args = argv[1:]
+    heredadas = set()
+    if "--heredadas" in args:
+        k = args.index("--heredadas")
+        if k + 1 >= len(args):
+            print(__doc__, file=sys.stderr)
+            return 2
+        heredadas = set(Path(args[k + 1]).read_text().split())
+        del args[k:k + 2]
+    if len(args) != 1:
         print(__doc__, file=sys.stderr)
         return 2
     ko = nc = 0
-    for d in sorted(p for p in Path(argv[1]).iterdir() if (p / "tarea.json").is_file()):
-        m = valida(d)
+    for d in sorted(p for p in Path(args[0]).iterdir() if (p / "tarea.json").is_file()):
+        m = valida(d, solo_schema=d.name in heredadas)
         print(f"{d.name}\tok" if m is None else f"{d.name}\tKO\t{m}")
         ko += m is not None
         try:
