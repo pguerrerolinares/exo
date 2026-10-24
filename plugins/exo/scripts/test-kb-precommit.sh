@@ -137,6 +137,7 @@ prep_a_sin_tags() { nota "$1/n.md" 'tier: stable'; git -C "$1" add n.md; }
 prep_a_tags_vacio() { nota "$1/n.md" $'tier: stable\ntags: []'; git -C "$1" add n.md; }
 prep_a_ok() { nota "$1/n.md" $'tier: stable\ntags: [x]'; git -C "$1" add n.md; }
 prep_a_docs() { mkdir -p "$1/docs"; printf 'sin frontmatter\n' > "$1/docs/x.md"; printf 'x\n' > "$1/README.md"; git -C "$1" add docs/x.md README.md; }
+prep_a_sidecar_distill() { mkdir -p "$1/.distill"; printf '## 2026-10-24 — movido del canon: x\nbloque\n' > "$1/.distill/n-moved.md"; git -C "$1" add .distill/n-moved.md; }
 prep_a_tier_bloque() { nota "$1/n.md" $'tier: log\ntags:\n  - x'; git -C "$1" add n.md; }
 prep_m_sin_tags() {
   nota "$1/n.md" 'tier: stable'
@@ -158,6 +159,7 @@ caso_fm "nota modificada sin tags ⇒ exit 0 + aviso" 0 "aviso" prep_m_sin_tags
 caso_fm "nota correcta ⇒ exit 0" 0 "" prep_a_ok
 caso_fm "tags en lista YAML de bloque ⇒ exit 0" 0 "" prep_a_tier_bloque
 caso_fm "docs/ y README.md exentos ⇒ exit 0" 0 "" prep_a_docs
+caso_fm "sidecar .distill/ de auto-distill exento ⇒ exit 0" 0 "" prep_a_sidecar_distill
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

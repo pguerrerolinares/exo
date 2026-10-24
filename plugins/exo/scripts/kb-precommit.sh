@@ -90,7 +90,9 @@ fm_campos() { # stdin: nota; imprime "tier" y/o "tags" si están presentes y vá
 }
 while IFS= read -r -d '' estado && IFS= read -r -d '' ruta; do
   case "$ruta" in *.md) ;; *) continue ;; esac
-  case "$ruta" in docs/*|README.md|AGENTS.md) continue ;; esac
+  # .distill/ es el sidecar de auto-distill (skills/document/auto-distill.md):
+  # bloques movidos verbatim, sin frontmatter, que se anexan a la bitácora.
+  case "$ruta" in docs/*|.distill/*|README.md|AGENTS.md) continue ;; esac
   campos="$(git -C "$KB" show ":$ruta" 2>/dev/null | fm_campos)"
   case "$campos" in *tier*) ;; *) echo "$ruta: falta tier" >&2; fail=1 ;; esac
   case "$campos" in
