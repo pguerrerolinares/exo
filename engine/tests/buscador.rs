@@ -511,3 +511,42 @@ fn vector_puro_sin_vectores_tambien_avisa() {
         );
     });
 }
+
+/// El título pesa ×5 en BM25: una nota cuyo título casa con la query gana a
+/// otra que la menciona igual de veces solo en el cuerpo. La del cuerpo es
+/// más corta, así que sin el peso ganaba ella.
+#[test]
+fn titulo_que_casa_gana_a_cuerpo_con_la_misma_frecuencia() {
+    let kb = tempfile::tempdir().unwrap();
+    git(kb.path(), &["init", "-q"]);
+    git(kb.path(), &["config", "user.email", "test@exo.local"]);
+    git(kb.path(), &["config", "user.name", "exo-test"]);
+    crea_nota(
+        kb.path(),
+        "en-cuerpo.md",
+        "kb-test/en-cuerpo",
+        "Notas varias",
+        "zafiro",
+    );
+    crea_nota(
+        kb.path(),
+        "en-titulo.md",
+        "kb-test/en-titulo",
+        "Zafiro",
+        "texto de relleno largo que no casa con la consulta y alarga el cuerpo de esta nota \
+         para que la normalizacion por longitud no la favorezca sobre la otra",
+    );
+    git(kb.path(), &["add", "."]);
+    git(kb.path(), &["commit", "-q", "-m", "fixture titulo"]);
+    let (_db_dir, db) = db_temporal();
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
+        let r = busca(&db, "zafiro", 10, None).unwrap();
+        assert_eq!(r.results.len(), 2, "{:?}", r.results);
+        assert_eq!(
+            r.results[0].permalink, "kb-test/en-titulo",
+            "{:?}",
+            r.results
+        );
+    });
+}
