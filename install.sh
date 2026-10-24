@@ -42,6 +42,17 @@ esac
 asset="exo-$target"
 case "$bin" in *.exe) asset="$asset.exe";; esac
 
+# Un script en el destino es el wrapper de una build con `cuda`
+# (docs/instalacion.md §3). Copiar la release encima deja la máquina indexando
+# en CPU sin que nada lo diga: pasó el 2026-10-21. Se comprueba antes de bajar
+# nada; EXO_FORCE=1 es el escape consciente.
+if [ -f "$EXO_DIR/$bin" ] && [ "$(head -c 2 "$EXO_DIR/$bin")" = '#!' ] && [ "${EXO_FORCE:-}" != 1 ]; then
+  echo "install: $EXO_DIR/$bin es un wrapper (build con cuda), no un binario de release." >&2
+  echo "install: para actualizarlo recompila el tag con --features cuda (docs/instalacion.md §3)." >&2
+  echo "install: para reemplazarlo igualmente por la release (solo CPU): EXO_FORCE=1" >&2
+  exit 1
+fi
+
 # EXO_BASE_URL es un seam de test declarado (scripts/test-install.sh sirve una
 # release falsa por file://). En uso normal no se pone.
 if [ -n "${EXO_BASE_URL:-}" ]; then

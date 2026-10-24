@@ -72,7 +72,9 @@ revertirlo (`claude plugin enable <clave>`). Opt-out: `-KeepSuperpowers` o
 
 Variables reconocidas: `EXO_DIR` (destino), `EXO_VERSION` (un tag concreto en
 vez de `latest`), `EXO_INIT_KB` + `EXO_INIT_NAME` (encadenan `exo init`; sin
-ellas el instalador imprime el comando, no inventa una KB).
+ellas el instalador imprime el comando, no inventa una KB), `EXO_FORCE=1`
+(`install.sh` reemplaza un wrapper de build con `cuda`, §3; sin ella aborta
+sin tocarlo).
 
 ### Verificar la instalación
 
@@ -137,6 +139,10 @@ chmod +x ~/.local/bin/exo
 
 Si CUDA no arranca, el indexado sigue en CPU, lo dice en stderr y lo deja
 registrado: `exo doctor` lo muestra en el check `embeddings_device`.
+
+Para actualizar, recompila el tag nuevo y copia solo el binario a
+`~/.local/lib/exo/`. `install.sh` ve el wrapper y aborta: copiar la release
+encima dejaría la máquina indexando en CPU sin aviso.
 
 ## 4. Crear (o adoptar) una KB
 
