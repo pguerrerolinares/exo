@@ -144,8 +144,10 @@ if [ -x "$tarea/check.sh" ]; then
   echo $? > "$O/check.rc"
 fi
 python3 "$H/fugas.py" "$O" "$brazo" > "$O/fugas.json" 2>/dev/null
-git -C "$P/kb" status --porcelain > "$O/kb-sucia.txt" 2>/dev/null
-git -C "$P/kb" checkout -- . 2>/dev/null && git -C "$P/kb" clean -fdq 2>/dev/null
+kb_base=$(awk '$1=="kb_commit"{print $2}' "$P/manifiesto.txt")
+{ [ -e "$P/kb/.git" ] && [ -n "$kb_base" ]; } || { echo "no se puede restaurar $P/kb (sin .git o sin kb_commit en manifiesto.txt)" >&2; exit 3; }
+{ git -C "$P/kb" status --porcelain; git -C "$P/kb" log --format='C %h %s' "$kb_base..HEAD"; } > "$O/kb-sucia.txt" 2>/dev/null
+git -C "$P/kb" reset -q --hard "$kb_base" && git -C "$P/kb" clean -fdq
 git -C "$O/work" diff "$(cat "$O/inicio.txt" 2>/dev/null)" > "$O/diff.patch" 2>/dev/null
 git -C "$O/work" status --porcelain > "$O/status.txt" 2>/dev/null
 [ "${K_CONSERVAR_WORK:-0}" = 1 ] || rm -rf "$O/work"

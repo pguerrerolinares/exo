@@ -14,6 +14,7 @@ printf 'base\n' > "$P/claude-md.md"
 git -C "$K_ROOT/fuentes/tt" init -q
 mkdir -p "$P/kb"; git -C "$P/kb" init -q; echo base > "$P/kb/k.md"
 git -C "$P/kb" add k.md; git -C "$P/kb" -c user.name=t -c user.email=t@t commit -qm base
+KB_BASE=$(git -C "$P/kb" rev-parse HEAD); echo "kb_commit $KB_BASE" > "$P/manifiesto.txt"
 tarea="$T/tareas/tt"; mkdir -p "$tarea"; echo '{"prompt":"x"}' > "$tarea/tarea.json"
 export K_MEMORIA_DIR="$T/memoria-orig"; mkdir -p "$K_MEMORIA_DIR/sub"
 printf -- '- [uno](uno.md) — primera\n' > "$K_MEMORIA_DIR/MEMORY.md"
@@ -62,11 +63,12 @@ cat > "$T/bin/claude" <<STUB
 #!/usr/bin/env bash
 [ "\${1:-}" = --version ] && { echo fake; exit 0; }
 echo sucio > "$P/kb/nuevo-agente.md"; echo cambiado >> "$P/kb/k.md"
+if [ -n "\${STUB_COMMIT:-}" ]; then git -C "$P/kb" add -A; git -C "$P/kb" -c user.name=t -c user.email=t@t commit -qm agente; fi
 exit \${STUB_RC:-0}
 STUB
 chmod +x "$T/bin/claude"
 unset K_ENSAYO
-for caso in "a0 0" "a0 1" "n 1"; do
+for caso in "a0 0" "a0 1" "n 1" "a0 124"; do
   set -- $caso; b=$1; export STUB_RC=$2
   PATH="$T/bin:$PATH" bash "$CORRER" "$tarea" $b 7 >/dev/null 2>&1; Ob=$(dir $b 7)
   if grep -q 'nuevo-agente.md' "$Ob/kb-sucia.txt" 2>/dev/null && [ "$(grep -c . "$Ob/kb-sucia.txt")" = 2 ] \
@@ -74,6 +76,20 @@ for caso in "a0 0" "a0 1" "n 1"; do
     ok "restaura_kb ($b, claude rc=$2)"; else ko "restaura_kb ($b, claude rc=$2) sucia=$(cat "$Ob/kb-sucia.txt" 2>/dev/null) ahora=$(git -C "$P/kb" status --porcelain)"; fi
 done
 unset STUB_RC
+
+# restaura_kb_commit: el agente hace add + commit; HEAD vuelve a kb_commit y kb-sucia.txt lo refleja
+export STUB_RC=0 STUB_COMMIT=1
+PATH="$T/bin:$PATH" bash "$CORRER" "$tarea" a0 9 >/dev/null 2>&1; Oc=$(dir a0 9)
+if [ "$(git -C "$P/kb" rev-parse HEAD)" = "$KB_BASE" ] && [ -z "$(git -C "$P/kb" status --porcelain)" ] && [ ! -e "$P/kb/nuevo-agente.md" ] \
+   && grep -q 'nuevo-agente.md\|^C ' "$Oc/kb-sucia.txt" && grep -q '^C .* agente$' "$Oc/kb-sucia.txt"; then
+  ok restaura_kb_commit; else ko "restaura_kb_commit head=$(git -C "$P/kb" rev-parse --short HEAD) sucia=$(cat "$Oc/kb-sucia.txt" 2>/dev/null)"; fi
+unset STUB_RC STUB_COMMIT
+
+# restaura_kb_sin_git: sin .git sale 3 y no toca nada
+mv "$P/kb/.git" "$T/kb-git"; :
+PATH="$T/bin:$PATH" bash "$CORRER" "$tarea" a0 10 >/dev/null 2>&1; rc=$?
+[ $rc = 3 ] && [ -e "$P/kb/nuevo-agente.md" ] && [ ! -e "$(dir a0 10)/kb-sucia.txt" ] && ok restaura_kb_sin_git || ko "restaura_kb_sin_git rc=$rc"
+rm -f "$P/kb/nuevo-agente.md"; mv "$T/kb-git" "$P/kb/.git"
 
 # ensayo_no_restaura: K_ENSAYO=1 sale antes de tocar la KB
 echo sucio > "$P/kb/nuevo-agente.md"
