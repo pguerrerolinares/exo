@@ -4,7 +4,8 @@
 Uso: validar_tareas.py <dir gold/s1>  ->  `<id>\tok` o `<id>\tKO\t<motivo>`; sale 1 si alguna es KO.
 Workdirs de prueba: `pruebas/<cumple|viola>/` si existe (si no, el repo base) y
 transcripts `pruebas/{cumple,viola,vacio}.jsonl` (si no, vacíos).
-`--heredadas <fichero>` (un id por línea): esas tareas se validan solo por schema (sin regla del prompt).
+`--heredadas <fichero>` (un id por línea): esas tareas se validan por schema (sin regla del prompt) y con un
+humo: check.sh con transcript vacío debe salir 0/1/2 sin `No such file or directory` y no citar un `.../harness` inexistente.
 """
 import json
 import os
@@ -17,6 +18,22 @@ from pathlib import Path
 
 PROHIBIDAS = re.compile(r"\b(KB|memoria|nota|doctrina|exo)\b", re.IGNORECASE)
 RCS_VALIDOS = (0, 1, 2)
+RUTA_HARNESS = re.compile(r"(?<![\w.)}/])/[^\s\"'$]*/harness\b")
+
+
+def _humo_check(d):
+    """Un check heredado con rutas absolutas rotas sale 2 «sin evaluar» y pasaría por válido."""
+    for ruta in sorted(set(RUTA_HARNESS.findall((d / "check.sh").read_text()))):
+        if not Path(ruta).is_dir():
+            return f"check roto: {ruta} no existe"
+    with tempfile.TemporaryDirectory() as tmp:
+        vacio = Path(tmp) / "vacio.jsonl"
+        vacio.write_text("")
+        r = subprocess.run(["bash", str(d / "check.sh"), tmp, str(vacio), ""],
+                           capture_output=True, text=True, timeout=120)
+    if r.returncode not in RCS_VALIDOS or "No such file or directory" in r.stderr:
+        return f"check roto: rc={r.returncode} {r.stderr.strip()[:120]}"
+    return None
 
 
 def _check(d, workdir, transcript, commit):
@@ -60,7 +77,7 @@ def valida(d: Path, solo_schema: bool = False) -> str | None:
     if not t.get("sanity"):
         return "falta sanity"
     if solo_schema:
-        return None
+        return _humo_check(d) if (d / "check.sh").is_file() else None
     if not (d / "check.sh").is_file():
         return "falta check.sh"
 

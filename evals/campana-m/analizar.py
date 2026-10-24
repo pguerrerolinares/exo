@@ -72,7 +72,11 @@ def veredicto(m):
         return ["CUELLO = CUMPLIMIENTO"] + dano + sin_datos
     if m["d_a2_a0"] is None:
         return ["SIN DATOS X-A0"] + dano + sin_datos
+    if m["d_n_a0"] is None:
+        sin_datos.append("SIN DATOS N-A0")
     if not m["d_a2_a0"]["lo"] > 0:
+        if m["d_n_a0"] is not None and not m["d_n_a0"]["lo"] > 0:
+            return ["NI X NI N DEMOSTRARON EFECTO", "RECOMENDACIÓN: memoria mínima"] + dano + sin_datos
         return ["SOLO COSTE"] + dano + sin_datos
     tk = m["tokens_mediana"]
     if m["d_n_a2"] is None:
@@ -235,7 +239,7 @@ def analizar(k_root, sondas_path, neutras_path, semilla=SEMILLA):
     frac_sucia = sum(r["sucia"] for r in runs) / len(runs) if runs else 0.0
 
     m = {"n_sondas": len(tier), "oraculo_ok": oraculo_ok, "frac_sucia": frac_sucia,
-         "d_n_a2": d_n_a2, "d_a2_n": d_a2_n, "d_a2_a0": d_a2_a0, "tokens_mediana": tmed,
+         "d_n_a2": d_n_a2, "d_a2_n": d_a2_n, "d_a2_a0": d_a2_a0, "d_n_a0": d_n_a0, "tokens_mediana": tmed,
          "neutro": neu, "desempate": desempate}
     return {
         "n_sondas": len(tier), "n_neutras": len(neutras), "n_corridas": len(runs),

@@ -4,7 +4,7 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 HARNESS="$HERE/../ablacion-k/harness"
-T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
+T=$(mktemp -d); trap 'chmod -R u+w "$T" 2>/dev/null; rm -rf "$T"' EXIT
 fail=0
 ok(){ echo "ok   $1"; }; ko(){ echo "FAIL $1"; fail=1; }
 unset K_ROOT K_ORDEN K_TANDA K_CORRIDAS K_TOPE_USD K_CONGELACION K_REANUDAR K_TARBALL K_TARBALL_SHA
@@ -15,6 +15,7 @@ cat > "$T/h/correr.sh" <<'STUB'
 #!/usr/bin/env bash
 id=$(basename "$1"); O="$K_ROOT/${K_CORRIDAS:-corridas}/$id/$2-r$3"; mkdir -p "$O"
 echo "$id $2 $3" >> "$K_ROOT/invocaciones.log"
+echo "$id $2 ${K_REGLA_FILE-<sin>}" >> "$K_ROOT/reglas-recibidas.log"
 echo start >> "$K_ROOT/solape.log"; sleep 0.15; echo end >> "$K_ROOT/solape.log"
 echo "{\"fin\":\"ok\",\"tokens_in\":100,\"usd\":${STUB_USD:-0}}" > "$O/meta.json"
 echo '{"fuga":false}' > "$O/fugas.json"
@@ -46,6 +47,13 @@ lista=$(cat "$K/tandas/orden-criba-a0-2.lista" 2>/dev/null | cut -f1 | tr '\n' '
 if [ $rc = 0 ] && [ "$lista" = "t3 t4 " ] && [ -f "$K/corridas-criba/t3/a0-r1/meta.json" ] && [ ! -e "$K/corridas" ] \
    && [ "$(sed -n 1,4p "$K/solape.log" | tr '\n' ' ')" = "start end start end " ]; then
   ok tanda_orden_propio; else ko tanda_orden_propio; fi
+
+# tanda_pasa_regla: el brazo ar recibe K_REGLA_FILE=$K_ROOT/reglas/<tarea>.txt; los demás no
+K=$(nuevo_k kar); echo f > "$K/congelacion.txt"
+printf 't3\tar\t1\nt4\ta0\t1\n' > "$K/orden-etapa1.txt"
+K_REGLA_FILE=ajeno K_ROOT=$K bash "$T/h/tanda.sh" 1 >/dev/null 2>&1
+if grep -qx "t3 ar $K/reglas/t3.txt" "$K/reglas-recibidas.log" && grep -qx "t4 a0 <sin>" "$K/reglas-recibidas.log"; then
+  ok tanda_pasa_regla; else ko "tanda_pasa_regla ($(tr '\n' ';' < "$K/reglas-recibidas.log"))"; fi
 
 # tanda_sin_congelacion: sin el fichero, exit 2
 K=$(nuevo_k ks); orden "$K/orden-etapa1.txt" 3
@@ -153,9 +161,21 @@ PY
 esac
 STUB
 chmod +x "$T/bin/exo"
-prep() {  # $1 = valor de STUB_DISP ; devuelve rc y deja salida en $T/prep.out
+mkdir -p "$T/home" "$T/ktar/pool" "$T/kgold/s1/g0-1" "$T/kgold/s1/g0-2"
+printf '{"id":"g0-1","nota":"core/a.md","regla":"Primera regla.\\nSegunda."}\n{"id":"g0-2","nota":"x","regla":"Sin salto final"}\n' > "$T/ktar/pool/reglas-g0.jsonl"
+printf '{"id":"g1-1","nota":"x","regla":"De g1"}\n' > "$T/ktar/pool/reglas-g1.jsonl"; : > "$T/ktar/pool/reglas-g2.jsonl"
+tar czf "$T/k-reg.tar.gz" -C "$T/ktar" pool
+for g in g0-1 g0-2; do
+  printf '#!/usr/bin/env bash\nH=/home/paul/Documentos/proyectos/exo/.worktrees/campana-k/evals/ablacion-k/harness\n"$H/herramientas.sh" "$2"\n' > "$T/kgold/s1/$g/check.sh"
+  echo '{}' > "$T/kgold/s1/$g/tarea.json"
+done
+mkdir -p "$T/kgold/harness"; echo h > "$T/kgold/harness/herramientas.sh"
+printf '#!/usr/bin/env bash\nH="$(cd "$(dirname "$0")/../../harness" && pwd)"\n' > "$T/kgold/s1/g0-1/check.sh"
+cp -r "$T/kgold" "$T/kgold.orig"; chmod -R a-w "$T/kgold"   # el gold real de K es de solo lectura
+prep() {  # prep cuda con tarball y gold falsos
   rm -rf "$T/kp"; mkdir -p "$T/kp"; : > "$T/prep.log"
   PATH="$T/bin:$PATH" STUB_LOG="$T/prep.log" STUB_DISP="$1" PREPARAR="$T/prep-stub/preparar.sh" K_ROOT="$T/kp" \
+    K_TARBALL="$T/k-reg.tar.gz" K_GOLD_ORIGEN="$T/kgold/s1" HOME="$T/home" \
     bash "$HERE/preparar-m.sh" > "$T/prep.out" 2>&1
 }
 prep cuda; rc=$?
@@ -164,6 +184,15 @@ if [ $rc = 0 ] && [ -s "$T/kp/prep/memoria/MEMORY.md" ] && grep -q '^80cba57878d
 prep cpu; rc=$?;  { [ $rc = 1 ] && grep -q 'índice no embebido en cuda' "$T/prep.out" && [ ! -e "$T/kp/prep/memoria" ]; } && ok preparar_exige_cuda_cpu || ko "preparar_exige_cuda_cpu ($rc)"
 prep SIN; rc=$?;  { [ $rc = 1 ] && grep -q 'índice no embebido en cuda' "$T/prep.out"; } && ok preparar_exige_cuda_sin_clave || ko "preparar_exige_cuda_sin_clave ($rc)"
 
+prep cuda
+# preparar_reglas: reglas/<id>.txt byte a byte (sin salto añadido), de los tres g*
+if [ "$(cat "$T/kp/reglas/g0-1.txt")" = $'Primera regla.\nSegunda.' ] && [ "$(wc -c < "$T/kp/reglas/g0-2.txt")" = "$(printf %s 'Sin salto final' | wc -c)" ] \
+   && [ "$(cat "$T/kp/reglas/g1-1.txt")" = 'De g1' ]; then ok preparar_reglas; else ko "preparar_reglas"; fi
+
+# preparar_gold: la COPIA apunta al harness del repo; el origen queda intacto
+HR="$(cd "$HERE/../ablacion-k/harness" && pwd)"
+if grep -qx "H=$HR" "$T/kp/gold/s1/g0-2/check.sh" && ! grep -rq 'campana-k' "$T/kp/gold/s1" && [ -f "$T/kp/gold/s1/g0-1/tarea.json" ] && [ -f "$T/kp/gold/harness/herramientas.sh" ] \
+   && diff -r "$T/kgold" "$T/kgold.orig" >/dev/null; then ok preparar_gold_reescrito; else ko "preparar_gold_reescrito"; fi
 # preparar_sin_k_root: sin K_ROOT explícito (o el de K) se niega y no llama a preparar.sh (rm -rf "$P")
 : > "$T/prep.log"
 o1=$(unset K_ROOT; PATH="$T/bin:$PATH" STUB_LOG="$T/prep.log" PREPARAR="$T/prep-stub/preparar.sh" bash "$HERE/preparar-m.sh" 2>&1); rc1=$?
