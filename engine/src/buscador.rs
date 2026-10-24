@@ -249,7 +249,9 @@ fn busca_con(
     } else {
         let mut stmt = conn
             .prepare(
-                "SELECT permalink, -bm25(notas_fts) AS score
+                // Pesos por columna en el orden de `notas_fts` (titulo, cuerpo);
+                // `permalink` UNINDEXED va después y queda en su default.
+                "SELECT permalink, -bm25(notas_fts, 5.0, 1.0) AS score
                  FROM notas_fts
                  WHERE notas_fts MATCH ?1
                  ORDER BY score DESC
