@@ -420,6 +420,7 @@ flowchart TD
         SS["SessionStart"] --> ERS["exo-recall.sh"]
         SS --> EDS["estilo-directo.sh"]
         SA["SubagentStart"] --> SIS["subagent-inject.sh"]
+        SS2["SubagentStop"] --> SBG["subagent-bg-guard.sh"]
         ST["Stop"] --> EIS["exo-index.sh"] & DRS["document-remind.sh"] & SWG["sdd-wake-guard.sh"]
     end
 

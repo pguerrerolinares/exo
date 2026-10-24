@@ -52,7 +52,7 @@ verificar ni cómo commitear.
 
 ## Hooks
 
-Tabla exacta al cableado vivo de `hooks/hooks.json` (nueve comandos):
+Tabla exacta al cableado vivo de `hooks/hooks.json` (once comandos):
 
 | Reflejo | Evento | Fichero | Qué hace | Abstención |
 |---|---|---|---|---|
@@ -66,6 +66,7 @@ Tabla exacta al cableado vivo de `hooks/hooks.json` (nueve comandos):
 | document-remind | `Stop` | `scripts/document-remind.sh` | recuerda `/document` al cerrar | 1×/sesión + umbral de transcript |
 | exo-index | `Stop` | `scripts/exo-index.sh` | reindexa la KB al cierre de sesión | best-effort, fallback logueado |
 | subagent-inject | `SubagentStart` | `scripts/subagent-inject.sh` | inyecta doctrina/contexto al arrancar un subagente; a `exo:executor`, `general-purpose` y `claude`, también las reglas duras del repo (`exo rules`) | — (PUSH) |
+| subagent-bg-guard | `SubagentStop` | `scripts/subagent-bg-guard.sh` | bloquea (una vez) el cierre de un subagente con tareas de fondo propias vivas (#170): ids sacados de su `agent_transcript_path` («moved to the background», «running in background», «Monitor started»), menos los que tienen `TaskStop`; viva = `running` en `background_tasks` o, sin él, `.output` sin `[exited with code`. El `reason` pide `TaskStop`, esperar sobre el log con timeout o BLOCKED. No cubre un Monitor sin `background_tasks` (no trae ruta de log) | sin `jq`, sin `agent_id`, `stop_hook_active`, transcript ilegible, o sin tareas propias vivas (las del padre no cuentan) |
 
 **Cuentas Team/Enterprise**: el guard integrado `cc-plugin-sec-default` intercepta `prompt.compose` antes que el mod de exo y Claude Code avisa en cada turno (`its prompt.compose hook was skipped`). Sin pérdida funcional: las reglas del proyecto llegan por `prompt.submit`. Para quitar el aviso, pon la opción `composeHook` del plugin a `false` (la fila «Registrar el hook prompt.compose» de `/config`, que guarda `pluginConfigs["exo@exo"].options.composeHook` en `~/.claude/settings.json`; la opción aparece desde la 1.18.2): el mod deja de registrar `prompt.compose` y entrega por submit desde el turno 1. La org no se puede autodetectar en el registro (`register()` no tiene `$`).
 

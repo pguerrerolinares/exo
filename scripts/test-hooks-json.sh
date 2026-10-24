@@ -42,7 +42,7 @@ if [ "$N_HOOKS" -eq 0 ]; then
 fi
 
 FALLOS=0
-EVENTOS_VALIDOS="PreToolUse SessionStart Stop SubagentStart"
+EVENTOS_VALIDOS="PreToolUse SessionStart Stop SubagentStart SubagentStop"
 
 for evento in $(jq -r '.hooks | keys[]' "$HOOKS" | tr -d '\r'); do
   if ! printf '%s\n' "$EVENTOS_VALIDOS" | tr ' ' '\n' | grep -qx "$evento"; then

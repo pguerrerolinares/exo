@@ -94,9 +94,23 @@ Subagent (exo:executor):
     ## Nunca acabes el turno esperando
 
     Un turno que acaba en «sigo esperando; aviso cuando termine» deja la ola
-    parada: nadie te despierta. Lo largo va en foreground con timeout, o en
-    background si cabe en tu turno; si no termina dentro de él, reporta
-    BLOCKED con el comando y la ruta del log.
+    parada: nadie te despierta. Y lo que dejes vivo en background tampoco
+    acaba solo (#170: un `find /` y un `until pgrep` huérfanos sostuvieron a
+    sus agentes 3 h y 21 h).
+
+    - Un comando que pueda pasar de 2 min (suite, build, install): una
+      llamada en foreground con `timeout` explícito (hasta 600000). Si no
+      cabe en 10 min, reporta BLOCKED con el comando y la ruta del log.
+    - Acota las búsquedas: nunca `find /` ni nada sobre todo el disco; busca
+      en las rutas del brief o del repo.
+    - Para esperar algo ya en background, espera sobre su log
+      (`until grep -q '<marca de fin>' LOG`) con timeout. Nunca `pgrep -f`
+      con un patrón que aparece en tu propio comando: se casa consigo mismo
+      y con procesos de otros agentes.
+    - Antes del report (SubagentHandback o mensaje final), `TaskStop` de todo
+      lo que lanzaste en background o con Monitor, o que el harness movió a
+      background, y siga vivo. Si necesitas su resultado, espéralo o reporta
+      BLOCKED.
 
     ## Antes de reportar: self-review
 
