@@ -83,5 +83,38 @@ else
   fi
 fi
 
+# --- Caso 3: el destino es un wrapper (build con `cuda`, docs/instalacion.md
+# §3) -> aborta sin tocarlo; con EXO_FORCE=1 lo reemplaza. Pisarlo en
+# silencio deja la máquina indexando en CPU sin que nada lo diga.
+rel="$TMP/release-wrapper"; dest="$TMP/bin-wrapper"
+fabrica_release "$rel" '#!/bin/sh
+echo exo-falso'
+mkdir -p "$dest"
+# shellcheck disable=SC2016 # el wrapper es texto literal del fixture
+wrapper='#!/bin/sh
+exec "$HOME/.local/lib/exo/exo" "$@"'
+printf '%s\n' "$wrapper" > "$dest/$bin"
+if EXO_BASE_URL="$(file_url "$rel")" EXO_DIR="$dest" bash ./install.sh >"$TMP/wrapper.log" 2>&1; then
+  echo "test-install: FALLO — pisó un wrapper sin EXO_FORCE y salió 0" >&2
+  fallos=1
+elif [ "$(cat "$dest/$bin")" != "$wrapper" ]; then
+  echo "test-install: FALLO — abortó pero el wrapper cambió" >&2
+  fallos=1
+elif ! grep -q 'EXO_FORCE=1' "$TMP/wrapper.log"; then
+  echo "test-install: FALLO — abortó sin decir cómo forzarlo" >&2
+  cat "$TMP/wrapper.log" >&2
+  fallos=1
+else
+  echo "test-install: OK — un wrapper en el destino aborta y queda intacto"
+fi
+if EXO_FORCE=1 EXO_BASE_URL="$(file_url "$rel")" EXO_DIR="$dest" bash ./install.sh >"$TMP/wrapper-force.log" 2>&1 \
+   && grep -q 'exo-falso' "$dest/$bin"; then
+  echo "test-install: OK — con EXO_FORCE=1 reemplaza el wrapper"
+else
+  echo "test-install: FALLO — EXO_FORCE=1 no reemplazó el wrapper" >&2
+  cat "$TMP/wrapper-force.log" >&2
+  fallos=1
+fi
+
 [ "$fallos" -eq 0 ] || { echo "test-install: hay fallos" >&2; exit 1; }
-echo "test-install: OK — los dos casos"
+echo "test-install: OK — los tres casos"
