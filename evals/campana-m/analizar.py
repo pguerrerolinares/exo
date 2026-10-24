@@ -32,7 +32,7 @@ def _deltas(a, b):
 def delta_bootstrap(a, b, semilla=SEMILLA, n=REPS):
     d = list(_deltas(a, b).values())
     if not d:
-        return (0.0, 0.0, 0.0)
+        return None
     rng = random.Random(semilla)
     k = len(d)
     medias = sorted(sum(d[rng.randrange(k)] for _ in range(k)) / k for _ in range(n))
@@ -54,6 +54,8 @@ def cociente_R(a0, ar, x):
 
 
 def _domina(x, y):
+    if None in (x["valor"], y["valor"], x["sobrecarga_bytes"], y["sobrecarga_bytes"]):
+        return False
     return (x["valor"] > y["valor"] and x["sobrecarga_bytes"] <= y["sobrecarga_bytes"]) or \
            (x["valor"] >= y["valor"] and x["sobrecarga_bytes"] < y["sobrecarga_bytes"])
 
@@ -61,22 +63,29 @@ def _domina(x, y):
 def veredicto(m):
     if m["frac_sucia"] > 0.05:
         return ["NO ADJUDICABLE"]
-    dano = [f"DAÑO {b}" for b in ("a2", "n") if not m["neutro"][b]["lo"] > -MARGEN]
+    sin_datos = []
+    ok = [b for b in ("a2", "n") if m["neutro"][b] is not None]
+    if len(ok) < 2:
+        sin_datos.append("SIN DATOS R3")
+    dano = [f"DAÑO {b}" for b in ok if not m["neutro"][b]["lo"] > -MARGEN]
     if m["oraculo_ok"] * 10 < 3 * m["n_sondas"]:
-        return ["CUELLO = CUMPLIMIENTO"] + dano
+        return ["CUELLO = CUMPLIMIENTO"] + dano + sin_datos
+    if m["d_a2_a0"] is None:
+        return ["SIN DATOS X-A0"] + dano + sin_datos
     if not m["d_a2_a0"]["lo"] > 0:
-        return ["SOLO COSTE"] + dano
+        return ["SOLO COSTE"] + dano + sin_datos
     tk = m["tokens_mediana"]
-    r1 = m["d_n_a2"]["lo"] > -MARGEN and tk["n"] < tk["a2"]
-    r2 = m["d_a2_n"]["lo"] > 0 and m["d_a2_n"]["media"] >= MARGEN
+    if m["d_n_a2"] is None:
+        sin_datos.append("SIN DATOS R1")
+    if m["d_a2_n"] is None:
+        sin_datos.append("SIN DATOS R2")
+    r1 = m["d_n_a2"] is not None and m["d_n_a2"]["lo"] > -MARGEN and tk["n"] < tk["a2"]
+    r2 = m["d_a2_n"] is not None and m["d_a2_n"]["lo"] > 0 and m["d_a2_n"]["media"] >= MARGEN
     if r1 or r2 or dano:
-        return (["GANA N"] if r1 else []) + (["EXO SOBREVIVE"] if r2 else []) + dano
+        return (["GANA N"] if r1 else []) + (["EXO SOBREVIVE"] if r2 else []) + dano + sin_datos
     de = m["desempate"]
-    if _domina(de["n"], de["a2"]):
-        return ["GANA N"]
-    if _domina(de["a2"], de["n"]):
-        return ["EXO SOBREVIVE"]
-    return ["NO CONCLUYENTE"]
+    quien = "n" if _domina(de["n"], de["a2"]) else "a2" if _domina(de["a2"], de["n"]) else "ninguno"
+    return ["NO CONCLUYENTE", f"DESEMPATE: {quien}"] + sin_datos
 
 
 def _leer(path):
@@ -98,11 +107,21 @@ def _corrida(d):
         motivos = json.load(open(f"{d}/fugas.json")).get("motivos", [])
     except (OSError, ValueError):
         motivos = []
+    modelo = None
+    try:
+        with open(f"{d}/transcript.jsonl") as f:
+            for linea in f:
+                ev = json.loads(linea)
+                if ev.get("type") == "system" and ev.get("subtype") == "init":
+                    modelo = ev.get("model")
+                    break
+    except (OSError, ValueError):
+        pass
     ins = f"{d}/inyectado.txt"
     return {
         "rc": int(rc) if completa else 1,
         "tokens": meta.get("tokens_in"),
-        "modelo": meta.get("modelo"),
+        "modelo": modelo,
         "version": _leer(f"{d}/claude-version.txt").split(" ")[0].strip(),
         "sucia": bool(_leer(f"{d}/kb-sucia.txt").strip())
         or any(w in x for x in motivos for w in MOTIVOS_ESCRITURA),
@@ -132,7 +151,10 @@ def _media(d):
 
 
 def _ci(a, b, semilla):
-    media, lo, hi = delta_bootstrap(a, b, semilla)
+    r = delta_bootstrap(a, b, semilla)
+    if r is None:
+        return None
+    media, lo, hi = r
     return {"media": media, "lo": lo, "hi": hi}
 
 
@@ -203,7 +225,7 @@ def analizar(k_root, sondas_path, neutras_path, semilla=SEMILLA):
               for r in rs if r["bytes"] is not None]
         if bs:
             sobrecarga[b] = statistics.median(bs)
-    desempate = {b: {"valor": PREVALENCIA * dd["media"], "sobrecarga_bytes": sobrecarga.get(b, 0)}
+    desempate = {b: {"valor": None if dd is None else PREVALENCIA * dd["media"], "sobrecarga_bytes": sobrecarga.get(b)}
                  for b, dd in (("a2", d_a2_a0), ("n", d_n_a0))}
 
     tmed = {b: statistics.median([r["tokens"] for rs in suelo[b].values() for r in rs
@@ -236,8 +258,14 @@ def main(argv):
     print("|---|---|---|")
     for nombre in ("d_n_a2", "d_a2_n", "d_a2_a0", "d_n_a0"):
         c = r[nombre]
+        if c is None:
+            print(f"| {nombre} | sin datos | |")
+            continue
         print(f"| {nombre} | {c['media']:+.3f} | [{c['lo']:+.3f}, {c['hi']:+.3f}] |")
     for b, c in r["neutro"].items():
+        if c is None:
+            print(f"| neutro {b}-a0 | sin datos | |")
+            continue
         print(f"| neutro {b}-a0 | {c['media']:+.3f} | [{c['lo']:+.3f}, {c['hi']:+.3f}] |")
     print(f"\nO >= 2/3: {r['oraculo_ok']}/{r['n_sondas']} · sucias {r['frac_sucia']:.1%} · "
           f"excluidas {len(r['excluidas'])}")

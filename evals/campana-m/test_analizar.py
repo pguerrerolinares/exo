@@ -58,8 +58,8 @@ def test_signos():
 def test_r1_gana_n():
     base = dict(d_n_a2=ci(0.0, -0.10, 0.10))
     assert A.veredicto(mk(**base, tokens_mediana={"a2": 200, "n": 100})) == ["GANA N"]
-    assert A.veredicto(mk(**base, tokens_mediana={"a2": 100, "n": 200})) == ["NO CONCLUYENTE"]
-    assert A.veredicto(mk(**base, tokens_mediana={"a2": 100, "n": 100})) == ["NO CONCLUYENTE"]
+    assert A.veredicto(mk(**base, tokens_mediana={"a2": 100, "n": 200})) == ["NO CONCLUYENTE", "DESEMPATE: ninguno"]
+    assert A.veredicto(mk(**base, tokens_mediana={"a2": 100, "n": 100})) == ["NO CONCLUYENTE", "DESEMPATE: ninguno"]
     # IC demasiado bajo, aunque n gaste menos
     peor = dict(d_n_a2=ci(-0.1, -0.20, 0.0), tokens_mediana={"a2": 200, "n": 100})
     assert "GANA N" not in A.veredicto(mk(**peor))
@@ -109,19 +109,37 @@ def test_desempate_solo_sin_reglas():
     gana_a2 = {"a2": {"valor": 0.003, "sobrecarga_bytes": 5900},
                "n": {"valor": 0.001, "sobrecarga_bytes": 8000}}
     gana_n = {"n": gana_a2["a2"], "a2": gana_a2["n"]}
-    # R1 verdadera con el desempate apuntando al otro lado: manda R1
+    # R1 verdadera con el desempate apuntando al otro lado: manda R1, sin etiqueta de desempate
     r1 = dict(d_n_a2=ci(0.0, -0.10, 0.10), tokens_mediana={"a2": 200, "n": 100})
     assert A.veredicto(mk(**r1, desempate=gana_a2)) == ["GANA N"]
-    # sin reglas: decide
-    assert A.veredicto(mk(desempate=gana_n)) == ["GANA N"]
-    assert A.veredicto(mk(desempate=gana_a2)) == ["EXO SOBREVIVE"]
-    # sin dominancia: sigue NO CONCLUYENTE
+    # sin reglas: NO CONCLUYENTE, el desempate solo se etiqueta
+    assert A.veredicto(mk(desempate=gana_n)) == ["NO CONCLUYENTE", "DESEMPATE: n"]
+    assert A.veredicto(mk(desempate=gana_a2)) == ["NO CONCLUYENTE", "DESEMPATE: a2"]
     mixto = {"a2": {"valor": 0.003, "sobrecarga_bytes": 8000},
              "n": {"valor": 0.001, "sobrecarga_bytes": 5900}}
-    assert A.veredicto(mk(desempate=mixto)) == ["NO CONCLUYENTE"]
+    assert A.veredicto(mk(desempate=mixto)) == ["NO CONCLUYENTE", "DESEMPATE: ninguno"]
     # con R3 disparada no decide
     dano = {"a2": ci(0, -0.05, 0.05), "n": ci(-0.3, -0.4, -0.1)}
     assert A.veredicto(mk(desempate=gana_n, neutro=dano)) == ["DAÑO n"]
+    # sobrecarga sin dato: sin dominancia
+    sin = {"a2": {"valor": 0.003, "sobrecarga_bytes": None},
+           "n": {"valor": 0.001, "sobrecarga_bytes": 8000}}
+    assert A.veredicto(mk(desempate=sin)) == ["NO CONCLUYENTE", "DESEMPATE: ninguno"]
+
+
+def test_sin_datos_no_pasa_por_vacuidad():
+    v = A.veredicto(mk(d_n_a2=None, tokens_mediana={"a2": 200, "n": 100}))
+    assert "GANA N" not in v and "SIN DATOS R1" in v
+    v = A.veredicto(mk(neutro={"a2": ci(0, -0.05, 0.05), "n": None}))
+    assert "SIN DATOS R3" in v and "DAÑO n" not in v
+    assert A.delta_bootstrap({"a": 1}, {"b": 0}) is None
+
+
+def test_sin_neutras_y_sin_inyectado(tmp_path):
+    r = analizar(tmp_path, {"t1": "core", "t2": "core"})
+    assert r["neutro"] == {"a2": None, "n": None}
+    assert "SIN DATOS R3" in r["veredicto"]
+    assert r["desempate"]["a2"]["sobrecarga_bytes"] is None
 
 
 def test_cociente_R():
@@ -133,16 +151,12 @@ def test_cociente_R():
 # ---------- sobre un K_ROOT de fixture ----------
 
 def run(root, tarea, brazo, rep, rc, *, tokens=1000, fin="completed", inyectado=None,
-        sucia="", fuga=None, version="2.1.285 (Claude Code)", modelo=None,
+        sucia="", fuga=None, version="2.1.285 (Claude Code)",
         meta=None, base="corridas"):
     d = os.path.join(root, base, tarea, f"{brazo}-r{rep}")
     os.makedirs(d)
     if meta is None:
         meta = {"tokens_in": tokens, "usd": 1.0, "turnos": 5, "seg": 10, "fin": fin}
-        if modelo:
-            meta["modelo"] = modelo
-    else:
-        pass
     json.dump(meta, open(f"{d}/meta.json", "w"))
     if rc is not None:
         open(f"{d}/check.rc", "w").write(f"{rc}\n")
@@ -289,9 +303,10 @@ def test_version_discrepante(tmp_path):
     for rep in (1, 2, 3):
         open(f"{root}/corridas/t1/a2-r{rep}/claude-version.txt", "w").write(
             "2.1.286 (Claude Code)\n" if rep == 2 else "2.1.285 (Claude Code)\n")
-        m = json.load(open(f"{root}/corridas/t1/a2-r{rep}/meta.json"))
-        m["modelo"] = "claude-opus-4" if rep == 3 else "claude-sonnet-5-5"
-        json.dump(m, open(f"{root}/corridas/t1/a2-r{rep}/meta.json", "w"))
+        mod = "claude-opus-4" if rep == 3 else "claude-sonnet-5-5"
+        with open(f"{root}/corridas/t1/a2-r{rep}/transcript.jsonl", "w") as f:
+            f.write(json.dumps({"type": "system", "subtype": "hook_started"}) + "\n")
+            f.write(json.dumps({"type": "system", "subtype": "init", "model": mod}) + "\n")
     r = A.analizar(root, sp, npth)
     assert sorted(e["corrida"] for e in r["excluidas"]) == ["t1/a2-r2", "t1/a2-r3"]
     assert r["exito_sonda"]["a2"]["t1"] == 1.0  # solo cuenta r1 (rc 0)
