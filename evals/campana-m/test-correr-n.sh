@@ -97,6 +97,11 @@ echo "exo x" > "$P/manifiesto.txt"; guarda sin-kb_commit
 echo "kb_commit 0123456789abcdef0123456789abcdef01234567" > "$P/manifiesto.txt"; guarda kb_commit-inexistente
 cp "$T/manifiesto.bak" "$P/manifiesto.txt"
 
+# guarda_kb_contaminada: fichero sin trackear o HEAD movido antes de empezar => exit 3 sin lanzar claude
+echo previo > "$P/kb/previo.md"; guarda kb-sucia-al-arrancar; rm -f "$P/kb/previo.md"
+echo mas >> "$P/kb/k.md"; git -C "$P/kb" -c user.name=t -c user.email=t@t commit -qam movido; guarda head-movido
+git -C "$P/kb" reset -q --hard "$KB_BASE"
+
 # restaura_kb_fallo_visible: reset/clean que falla => "restauracion: fallo" y exit 3
 cat > "$T/bin/git" <<GIT
 #!/usr/bin/env bash

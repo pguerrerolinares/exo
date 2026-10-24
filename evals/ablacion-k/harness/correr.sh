@@ -122,6 +122,8 @@ fi
 kb_base=$(awk '$1=="kb_commit"{print $2}' "$P/manifiesto.txt")
 { [ -e "$P/kb/.git" ] && [ -n "$kb_base" ] && git -C "$P/kb" cat-file -e "$kb_base^{commit}" 2>/dev/null; } \
   || { echo "no se puede restaurar $P/kb (sin .git, o kb_commit ausente o inexistente): no se lanza claude" >&2; exit 3; }
+[ -z "$(git -C "$P/kb" status --porcelain)" ] && [ "$(git -C "$P/kb" rev-parse HEAD)" = "$(git -C "$P/kb" rev-parse "$kb_base^{commit}")" ] \
+  || { echo "$P/kb no está limpia o su HEAD no es kb_commit (restauración previa fallida?): no se lanza claude" >&2; exit 3; }
 prompt=$(jq -r .prompt "$t_json")
 [ "$brazo" = a2 ] && PATH="$ruta" EXO_CONFIG="$P/config.toml" EXO_KB="$P/kb" EXO_DB="$P/index.db" EXO_INDEX="$P/index.db" \
   EXO_BIN="$(command -v exo)" "$PLUG/exo-recall.sh" < /dev/null > "$O/inyectado.txt" 2>/dev/null
