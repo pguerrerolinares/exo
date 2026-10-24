@@ -462,7 +462,19 @@ Cierre de ola verde.
 Cada paso con **[gate]** espera el OK explícito del mantenedor. Ningún paso
 gasta API sin haber pasado su gate.
 
-1. **Preparar.** `K_ROOT=~/.cache/exo-campana-m evals/campana-m/preparar-m.sh`.
+1. **Preparar.** `K_ROOT=~/.cache/exo-campana-m evals/campana-m/preparar-m.sh`,
+   siempre desde el checkout principal del repo, nunca desde un worktree. La
+   reescritura del gold graba la ruta del checkout (Ruling Final N1).
+   Después:
+   - copiar `~/.cache/exo-ablacion-k/fuentes/*` a `$K_ROOT/fuentes/`: 8
+     heredadas con `setup: false` las necesitan (Ruling Final R1);
+   - comprobar que las 40 tienen `setup` o fuente;
+   - correr `validar_tareas.py $K_ROOT/gold/s1 --heredadas <40 ids>`, que debe
+     dar 40 ok.
+
+   El neutro NO reutiliza el S2 de K: sus repos y venvs no están en esta
+   máquina. Son 15 sondas nuevas autocontenidas, redactadas en el paso 3
+   (Ruling Final).
    Verde = `lineas=` ≤ 200 y `bytes=` ≤ 25000 en la salida de
    `gen_memoria`, más `dispositivo_embeddings = cuda`.
 2. **Canario de N [gate].** Una corrida `n` sobre una tarea sintética cuyo
