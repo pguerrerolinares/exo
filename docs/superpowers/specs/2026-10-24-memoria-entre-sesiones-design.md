@@ -211,7 +211,8 @@ nuevo (precedente: `arp`, `ars`). Cambios obligatorios:
   1. ¿la decisión D de la sesión aparece en el artefacto? Binario, juez a
      ciegas;
   2. bytes escritos;
-  3. minutos del dueño para dejarlo limpio;
+  3. tamaño del diff necesario para dejarlo limpio, como proxy del tiempo de
+     mantenimiento del dueño (ver §8);
   4. lectura de vuelta: una sesión N+1 con el acceso ganador resuelve una
      sonda derivada de D.
 - Se declara de antemano que **no decide** la etapa 1. Sirve para dimensionar
@@ -260,6 +261,21 @@ Si la criba revela que el pool no da 40 sondas, se para antes del principal.
 
   Al congelar, el plan vuelve a verificar ese sha256 y el de `gold-activo.tar`
   frente a `congelacion.txt`.
+- **Suelo de memoria.** «Sin memoria» no es un veredicto admisible. Siempre
+  existe un mínimo de memoria, como recomienda Anthropic: un CLAUDE.md conciso
+  con las reglas del proyecto (la guía oficial pide menos de 200 líneas).
+  Consecuencias:
+  - el desempate por coste (§4.5) compara solo X frente a N;
+  - si ninguno de los dos demuestra efecto sobre A0, el veredicto es «ni X ni
+    N demostraron efecto de acceso» y la recomendación es ese mínimo, no
+    retirar toda memoria;
+  - A0 conserva el CLAUDE.md del repo de cada tarea, igual que en K. Es el
+    mínimo, no la ausencia de memoria.
+- **Piloto de escritura con sesiones sintéticas.** Derivadas de las sondas
+  «decisión». El tiempo de mantenimiento del dueño se mide con un proxy: el
+  tamaño del diff necesario para dejar limpio lo que escribió cada brazo. Lo
+  calcula un juez a ciegas contra la decisión de referencia. Sustituye a los
+  «minutos del dueño» de §4.8.
 
 **Del orquestador:**
 
