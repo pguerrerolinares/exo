@@ -119,6 +119,9 @@ fi
 if [ "${K_ENSAYO:-0}" = 1 ]; then
   echo "correr.sh: modo ensayo, no se lanza claude" >&2; exit 0
 fi
+kb_base=$(awk '$1=="kb_commit"{print $2}' "$P/manifiesto.txt")
+{ [ -e "$P/kb/.git" ] && [ -n "$kb_base" ] && git -C "$P/kb" cat-file -e "$kb_base^{commit}" 2>/dev/null; } \
+  || { echo "no se puede restaurar $P/kb (sin .git, o kb_commit ausente o inexistente): no se lanza claude" >&2; exit 3; }
 prompt=$(jq -r .prompt "$t_json")
 [ "$brazo" = a2 ] && PATH="$ruta" EXO_CONFIG="$P/config.toml" EXO_KB="$P/kb" EXO_DB="$P/index.db" EXO_INDEX="$P/index.db" \
   EXO_BIN="$(command -v exo)" "$PLUG/exo-recall.sh" < /dev/null > "$O/inyectado.txt" 2>/dev/null
@@ -144,11 +147,13 @@ if [ -x "$tarea/check.sh" ]; then
   echo $? > "$O/check.rc"
 fi
 python3 "$H/fugas.py" "$O" "$brazo" > "$O/fugas.json" 2>/dev/null
-kb_base=$(awk '$1=="kb_commit"{print $2}' "$P/manifiesto.txt")
-{ [ -e "$P/kb/.git" ] && [ -n "$kb_base" ]; } || { echo "no se puede restaurar $P/kb (sin .git o sin kb_commit en manifiesto.txt)" >&2; exit 3; }
 { git -C "$P/kb" status --porcelain; git -C "$P/kb" log --format='C %h %s' "$kb_base..HEAD"; } > "$O/kb-sucia.txt" 2>/dev/null
-git -C "$P/kb" reset -q --hard "$kb_base" && git -C "$P/kb" clean -fdq
+restaura=0
+git -C "$P/kb" reset -q --hard "$kb_base" || restaura=1
+git -C "$P/kb" clean -fdq || restaura=1
+[ $restaura = 0 ] || echo "restauracion: fallo" >> "$O/kb-sucia.txt"
 git -C "$O/work" diff "$(cat "$O/inicio.txt" 2>/dev/null)" > "$O/diff.patch" 2>/dev/null
 git -C "$O/work" status --porcelain > "$O/status.txt" 2>/dev/null
 [ "${K_CONSERVAR_WORK:-0}" = 1 ] || rm -rf "$O/work"
 cat "$O/meta.json"
+[ $restaura = 0 ] || exit 3

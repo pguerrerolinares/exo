@@ -62,7 +62,7 @@ if grep -qxF "deny=Read(/$P/kb/**)" "$O/cmdline.txt" && grep -qxF "deny=Grep(/$P
 cat > "$T/bin/claude" <<STUB
 #!/usr/bin/env bash
 [ "\${1:-}" = --version ] && { echo fake; exit 0; }
-echo sucio > "$P/kb/nuevo-agente.md"; echo cambiado >> "$P/kb/k.md"
+echo lanzado > "$T/testigo"; echo sucio > "$P/kb/nuevo-agente.md"; echo cambiado >> "$P/kb/k.md"
 if [ -n "\${STUB_COMMIT:-}" ]; then git -C "$P/kb" add -A; git -C "$P/kb" -c user.name=t -c user.email=t@t commit -qm agente; fi
 exit \${STUB_RC:-0}
 STUB
@@ -85,11 +85,28 @@ if [ "$(git -C "$P/kb" rev-parse HEAD)" = "$KB_BASE" ] && [ -z "$(git -C "$P/kb"
   ok restaura_kb_commit; else ko "restaura_kb_commit head=$(git -C "$P/kb" rev-parse --short HEAD) sucia=$(cat "$Oc/kb-sucia.txt" 2>/dev/null)"; fi
 unset STUB_RC STUB_COMMIT
 
-# restaura_kb_sin_git: sin .git sale 3 y no toca nada
-mv "$P/kb/.git" "$T/kb-git"; :
-PATH="$T/bin:$PATH" bash "$CORRER" "$tarea" a0 10 >/dev/null 2>&1; rc=$?
-[ $rc = 3 ] && [ -e "$P/kb/nuevo-agente.md" ] && [ ! -e "$(dir a0 10)/kb-sucia.txt" ] && ok restaura_kb_sin_git || ko "restaura_kb_sin_git rc=$rc"
-rm -f "$P/kb/nuevo-agente.md"; mv "$T/kb-git" "$P/kb/.git"
+# guarda_antes_de_lanzar: sin .git, sin kb_commit o con kb_commit inexistente => exit 3 y claude no se invoca
+guarda(){ # $1 caso
+  rm -f "$T/testigo"
+  PATH="$T/bin:$PATH" bash "$CORRER" "$tarea" a0 10 >/dev/null 2>&1; rc=$?
+  if [ $rc = 3 ] && [ ! -e "$T/testigo" ] && [ ! -e "$(dir a0 10)/transcript.jsonl" ]; then ok "guarda_antes_de_lanzar ($1)"; else ko "guarda_antes_de_lanzar ($1) rc=$rc testigo=$(ls "$T/testigo" 2>&1)"; fi
+}
+mv "$P/kb/.git" "$T/kb-git"; guarda sin-git; mv "$T/kb-git" "$P/kb/.git"
+cp "$P/manifiesto.txt" "$T/manifiesto.bak"
+echo "exo x" > "$P/manifiesto.txt"; guarda sin-kb_commit
+echo "kb_commit 0123456789abcdef0123456789abcdef01234567" > "$P/manifiesto.txt"; guarda kb_commit-inexistente
+cp "$T/manifiesto.bak" "$P/manifiesto.txt"
+
+# restaura_kb_fallo_visible: reset/clean que falla => "restauracion: fallo" y exit 3
+cat > "$T/bin/git" <<GIT
+#!/usr/bin/env bash
+case "\$*" in *"reset -q --hard"*) exit 1 ;; esac
+exec $(command -v git) "\$@"
+GIT
+chmod +x "$T/bin/git"
+PATH="$T/bin:$PATH" bash "$CORRER" "$tarea" a0 11 >/dev/null 2>&1; rc=$?
+if [ $rc = 3 ] && grep -qxF 'restauracion: fallo' "$(dir a0 11)/kb-sucia.txt"; then ok restaura_kb_fallo_visible; else ko "restaura_kb_fallo_visible rc=$rc"; fi
+rm -f "$T/bin/git"; git -C "$P/kb" reset -q --hard "$KB_BASE"; git -C "$P/kb" clean -fdq
 
 # ensayo_no_restaura: K_ENSAYO=1 sale antes de tocar la KB
 echo sucio > "$P/kb/nuevo-agente.md"
