@@ -247,6 +247,16 @@ Si la criba revela que el pool no da 40 sondas, se para antes del principal.
 
 ## 8. Decisiones del builder check (2026-10-24)
 
+**Del mantenedor:**
+
+- **Insumos de K.** Siguen en la máquina de escritorio y se reutilizan. El
+  pool está dentro del tarball de K, en `pool/reglas-g*.jsonl`, no suelto en
+  el repo. El plan tiene que empezar por localizar el tarball, verificarlo
+  contra su sha256 (`congelacion.txt`) y desplegarlo en la máquina que corra
+  la campaña. En la máquina WSL no existe `~/.cache/exo-ablacion-k`.
+
+**Del orquestador:**
+
 Decisiones del orquestador, no del mantenedor. Se marcan así para que se
 puedan revisar.
 
