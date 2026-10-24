@@ -244,3 +244,43 @@ Si la criba revela que el pool no da 40 sondas, se para antes del principal.
   este uso, no sobre memoria de agentes en general.
 - El orquestador sabe qué brazo es exo. La adjudicación final la hace un
   adjudicador fresco desde los datos crudos, como en K.
+
+## 8. Decisiones del builder check (2026-10-24)
+
+Decisiones del orquestador, no del mantenedor. Se marcan así para que se
+puedan revisar.
+
+- **Snapshot y fugas.** Un solo snapshot de la KB, congelado a un commit antes
+  de la criba. Las sondas se derivan de decisiones anteriores a ese commit. Un
+  veto automático (patrón `pool/brief-veto.md`) descarta toda sonda cuya
+  respuesta literal, o su check, esté en la KB o en el repo de la tarea. Las
+  sondas las redacta un subagente con los briefs de `pool/`, sin ver los
+  brazos.
+- **Índice de N.** Generación mecánica: `- [título](ruta) — <description del
+  frontmatter, o la primera frase del cuerpo>`, para las notas core + stable.
+  Se congela antes de la criba y no se ajusta viendo resultados.
+- **Tier de origen de las sondas.** El pool sale de todos los tiers. Que N no
+  tenga en el índice las notas log y archive es una limitación real de la
+  plataforma, y forma parte de lo que se mide. Δ(N − X) se reporta además
+  estratificado por el tier de la nota de origen. La decisión principal usa el
+  pool entero.
+- **Qué ve N.** Su carpeta de memoria (una copia fresca por corrida) contiene
+  las 286 notas del snapshot como topic files. El snapshot `$P/kb` le queda
+  denegado, igual que a A0 y a O. X conserva `exo search` sobre el snapshot.
+- **Plan B del canario.** Si `MEMORY.md` no carga con `--setting-sources ""`,
+  se prueba `--setting-sources project` con `autoMemoryDirectory` y se repite
+  el canario. Si tampoco carga, se para y se escala. N nunca se inyecta por
+  system prompt: dejaría de ser nativa.
+- **Réplicas.** La invalidación 4.6.1 y todas las métricas se calculan solo
+  con las réplicas nuevas de la corrida principal, nunca con las de la criba
+  (evita la maldición del ganador). El techo esperado de O está acotado por
+  el 5/10 de `ar` en techo-reglas-2.
+- **Topes.** Tope total de 130 USD y el breaker de `tanda.sh` (media > 2M
+  tokens por corrida). Antes de la tanda principal se corre una tanda piloto
+  de N de 5 sondas × 1 réplica para ver su cola de tokens.
+- **Neutro.** Las 15 sondas neutras se regeneran con `pool/brief-s2.md` y
+  `validar_s2.py`. La ausencia en la KB se comprueba por grep de los términos
+  clave.
+- **Congelación.** `congelar.sh` se extiende con la semilla, la versión de
+  Claude Code y el modelo. Cada corrida registra `claude --version` y el
+  modelo de `system.init`. Una discrepancia excluye la corrida.
