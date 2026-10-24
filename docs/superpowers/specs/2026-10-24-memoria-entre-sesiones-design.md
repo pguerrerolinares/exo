@@ -249,11 +249,17 @@ Si la criba revela que el pool no da 40 sondas, se para antes del principal.
 
 **Del mantenedor:**
 
-- **Insumos de K.** Siguen en la máquina de escritorio y se reutilizan. El
-  pool está dentro del tarball de K, en `pool/reglas-g*.jsonl`, no suelto en
-  el repo. El plan tiene que empezar por localizar el tarball, verificarlo
-  contra su sha256 (`congelacion.txt`) y desplegarlo en la máquina que corra
-  la campaña. En la máquina WSL no existe `~/.cache/exo-ablacion-k`.
+- **Insumos de K.** Se reutilizan tal cual; no se reconstruye nada. Copiados
+  por rsync desde el portátil a la máquina WSL el 2026-10-24 y verificados:
+  - `~/.cache/exo-ablacion-k/` tiene 23.293 ficheros, con `gold/s1` (40
+    tareas) y `gold/s2` (20), además de `prep/`, `fuentes/` y `corridas/`;
+  - el pool **no** está suelto en el repo, sino dentro del tarball
+    `~/.cache/exo-ablacion-k-registro.tar.gz` (`pool/reglas-g{0,1,2}.jsonl`).
+    Su sha256 `116964a9…abd9` coincide con el que fija
+    `evals/techo-reglas/preregistro.md:18`.
+
+  Al congelar, el plan vuelve a verificar ese sha256 y el de `gold-activo.tar`
+  frente a `congelacion.txt`.
 
 **Del orquestador:**
 
