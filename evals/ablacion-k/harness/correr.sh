@@ -12,8 +12,12 @@
 #   ar     a0 exacto + SessionStart que inyecta la regla literal de $K_REGLA_FILE (techo de reglas)
 #   arp    a0 exacto + sysprompt.md (claude-md.md + framing con la regla) por --append-system-prompt-file;
 #          requiere K_REGLA_FILE y K_FRAMING_FILE (techo-reglas-2)
+#   n      a0 exacto (sin exo, sin snapshot) + memoria nativa de Claude Code activa sobre $O/memoria, copia fresca
+#          de $K_MEMORIA_DIR (default $P/memoria) en cada corrida (campaña M)
 #   ars    a0 exacto (claude-md.md sin framing) + solo el mod register.ts por --plugin-dir con EXO_RULES_FORZAR_SUBMIT=1:
 #          entrega la regla por prompt.submit (canal degradado); un shim `exo` le sirve la regla de K_REGLA_FILE
+# $O/inyectado.txt = lo que el brazo inyecta al arrancar (a2: solo en corridas reales). $O/kb-sucia.txt = estado de
+# $P/kb que dejó el agente; la KB se restaura al final (I2 de K).
 # cmdline.txt (deny, PATH, append) se escribe siempre. K_ENSAYO=1: sale tras generarlo, sin lanzar claude.
 set -uo pipefail
 tarea=$1; brazo=$2; rep=$3
@@ -76,14 +80,27 @@ PY
       printf '#!/usr/bin/env bash\nif [ "${1:-}" = rules ]; then cat "%s/rules.json"; exit 0; fi\nexec "%s/stub/exo" "$@"\n' \
         "$O/stub-ars" "$P" > "$O/stub-ars/exo"
       chmod +x "$O/stub-ars/exo" ;;
+  n) K_MEMORIA_DIR="${K_MEMORIA_DIR:-$P/memoria}"
+      [ -f "$K_MEMORIA_DIR/MEMORY.md" ] || { echo "n requiere $K_MEMORIA_DIR/MEMORY.md" >&2; exit 2; }
+      cp -a "$K_MEMORIA_DIR" "$O/memoria" || exit 2 ;;
   *) echo "brazo desconocido: $brazo" >&2; exit 2 ;;
 esac
-jq -n --argjson h "$hooks" '{autoMemoryEnabled:false, hooks:$h}' > "$O/settings.json"
+if [ "$brazo" = n ]; then
+  jq -n --argjson h "$hooks" --arg d "$O/memoria" '{autoMemoryEnabled:true, autoMemoryDirectory:$d, hooks:$h}' > "$O/settings.json"
+else
+  jq -n --argjson h "$hooks" '{autoMemoryEnabled:false, hooks:$h}' > "$O/settings.json"
+fi
+case $brazo in
+  ar) cp "$O/regla-ctx.json" "$O/inyectado.txt" ;;
+  a1) cp "$P/a1-inicio.json" "$O/inyectado.txt" 2>/dev/null || : > "$O/inyectado.txt" ;;
+  n) cp "$O/memoria/MEMORY.md" "$O/inyectado.txt" ;;
+  *) : > "$O/inyectado.txt" ;;
+esac
 
 deny=("Read(//home/paul/Documentos/proyectos/wisdom-paul/**)" "Read(//home/paul/.exo/**)"
       "Grep(//home/paul/Documentos/proyectos/wisdom-paul/**)" "Grep(//home/paul/.exo/**)")
-{ [ "$brazo" = a0 ] || [ "$brazo" = ar ] || [ "$brazo" = arp ] || [ "$brazo" = ars ]; } && deny+=("Read(/$P/kb/**)" "Grep(/$P/kb/**)")
-ruta="$PATH"; case $brazo in a0|a1|ar|arp) ruta="$P/stub:$PATH" ;; ars) ruta="$O/stub-ars:$P/stub:$PATH" ;; esac
+{ [ "$brazo" = a0 ] || [ "$brazo" = n ] || [ "$brazo" = ar ] || [ "$brazo" = arp ] || [ "$brazo" = ars ]; } && deny+=("Read(/$P/kb/**)" "Grep(/$P/kb/**)")
+ruta="$PATH"; case $brazo in a0|a1|n|ar|arp) ruta="$P/stub:$PATH" ;; ars) ruta="$O/stub-ars:$P/stub:$PATH" ;; esac
 
 # S2: el agente usa el venv del repo (solo lectura) y el código de su workdir.
 extra_env=(); plugin_args=()
@@ -102,7 +119,14 @@ fi
 if [ "${K_ENSAYO:-0}" = 1 ]; then
   echo "correr.sh: modo ensayo, no se lanza claude" >&2; exit 0
 fi
+kb_base=$(awk '$1=="kb_commit"{print $2}' "$P/manifiesto.txt")
+{ [ -e "$P/kb/.git" ] && [ -n "$kb_base" ] && git -C "$P/kb" cat-file -e "$kb_base^{commit}" 2>/dev/null; } \
+  || { echo "no se puede restaurar $P/kb (sin .git, o kb_commit ausente o inexistente): no se lanza claude" >&2; exit 3; }
+[ -z "$(git -C "$P/kb" status --porcelain)" ] && [ "$(git -C "$P/kb" rev-parse HEAD)" = "$(git -C "$P/kb" rev-parse "$kb_base^{commit}")" ] \
+  || { echo "$P/kb no está limpia o su HEAD no es kb_commit (restauración previa fallida?): no se lanza claude" >&2; exit 3; }
 prompt=$(jq -r .prompt "$t_json")
+[ "$brazo" = a2 ] && PATH="$ruta" EXO_CONFIG="$P/config.toml" EXO_KB="$P/kb" EXO_DB="$P/index.db" EXO_INDEX="$P/index.db" \
+  EXO_BIN="$(command -v exo)" "$PLUG/exo-recall.sh" < /dev/null > "$O/inyectado.txt" 2>/dev/null
 cd "$O/work" || exit 3; t0=$(date +%s)
 env "${extra_env[@]}" PATH="$ruta" EXO_CONFIG="$P/config.toml" EXO_KB="$P/kb" EXO_DB="$P/index.db" EXO_INDEX="$P/index.db" \
 EXO_BIN="$(command -v exo)" REFLEX_LOG_FILE="$O/reflex.jsonl" \
@@ -125,7 +149,13 @@ if [ -x "$tarea/check.sh" ]; then
   echo $? > "$O/check.rc"
 fi
 python3 "$H/fugas.py" "$O" "$brazo" > "$O/fugas.json" 2>/dev/null
+{ git -C "$P/kb" status --porcelain; git -C "$P/kb" log --format='C %h %s' "$kb_base..HEAD"; } > "$O/kb-sucia.txt" 2>/dev/null
+restaura=0
+git -C "$P/kb" reset -q --hard "$kb_base" || restaura=1
+git -C "$P/kb" clean -fdq || restaura=1
+[ $restaura = 0 ] || echo "restauracion: fallo" >> "$O/kb-sucia.txt"
 git -C "$O/work" diff "$(cat "$O/inicio.txt" 2>/dev/null)" > "$O/diff.patch" 2>/dev/null
 git -C "$O/work" status --porcelain > "$O/status.txt" 2>/dev/null
 [ "${K_CONSERVAR_WORK:-0}" = 1 ] || rm -rf "$O/work"
 cat "$O/meta.json"
+[ $restaura = 0 ] || exit 3
