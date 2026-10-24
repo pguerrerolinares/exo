@@ -1,0 +1,8 @@
+PATH=<K_ROOT>/prep/stub:<PATH>
+deny=Read(//home/paul/Documentos/proyectos/wisdom-paul/**)
+deny=Read(//home/paul/.exo/**)
+deny=Grep(//home/paul/Documentos/proyectos/wisdom-paul/**)
+deny=Grep(//home/paul/.exo/**)
+deny=Read(/<K_ROOT>/prep/kb/**)
+deny=Grep(/<K_ROOT>/prep/kb/**)
+append=<O>/sysprompt.md
