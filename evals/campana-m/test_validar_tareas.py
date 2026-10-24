@@ -176,3 +176,11 @@ def test_cli_heredadas_solo_schema(tmp_path):
     assert r.returncode == 0 and r.stdout.splitlines() == ["g0-1\tok", "nueva\tok"]
     r = subprocess.run(cli, capture_output=True, text=True)
     assert r.returncode == 1 and "g0-1\tKO\tsanity cumple=2" in r.stdout
+
+
+def test_heredada_exenta_de_regla_del_prompt_pero_no_de_sanity(tmp_path):
+    d = tarea(tmp_path, {"prompt": "Revisa la KB"})
+    assert valida(d) == "prompt menciona la memoria"
+    assert valida(d, solo_schema=True) is None
+    d = tarea(tmp_path, {"prompt": "Revisa la KB", "sanity": None})
+    assert valida(d, solo_schema=True) == "falta sanity"

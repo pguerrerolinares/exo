@@ -4,7 +4,7 @@
 Uso: validar_tareas.py <dir gold/s1>  ->  `<id>\tok` o `<id>\tKO\t<motivo>`; sale 1 si alguna es KO.
 Workdirs de prueba: `pruebas/<cumple|viola>/` si existe (si no, el repo base) y
 transcripts `pruebas/{cumple,viola,vacio}.jsonl` (si no, vacíos).
-`--heredadas <fichero>` (un id por línea): esas tareas se validan solo por schema.
+`--heredadas <fichero>` (un id por línea): esas tareas se validan solo por schema (sin regla del prompt).
 """
 import json
 import os
@@ -51,16 +51,16 @@ def valida(d: Path, solo_schema: bool = False) -> str | None:
         return None if t.get("motivo") else "falta motivo"
     if not t.get("prompt"):
         return "falta prompt"
-    if PROHIBIDAS.search(t["prompt"]):
+    if not solo_schema and PROHIBIDAS.search(t["prompt"]):
         return "prompt menciona la memoria"
     check = t.get("check") or {}
     if check.get("tipo") == "rubrica":
         n = len(check.get("items") or [])
         return None if 1 <= n <= 3 else "rubrica: items debe tener de 1 a 3"
-    if solo_schema:
-        return None
     if not t.get("sanity"):
         return "falta sanity"
+    if solo_schema:
+        return None
     if not (d / "check.sh").is_file():
         return "falta check.sh"
 
