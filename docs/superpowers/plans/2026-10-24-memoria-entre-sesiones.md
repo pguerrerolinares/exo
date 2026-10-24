@@ -22,6 +22,8 @@ exo 0.9.0 con `cuda`.
 
 **Spec:** `docs/superpowers/specs/2026-10-24-memoria-entre-sesiones-design.md`
 
+Plan: 25 min, 18 turnos, 24 KB
+
 **Global Constraints:**
 - Modelo de las corridas: `claude-sonnet-5-5`. `--max-budget-usd 10` por
   corrida y `--max-turns 40`, como K.
