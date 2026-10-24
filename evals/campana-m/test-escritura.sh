@@ -37,8 +37,8 @@ CIERRE='cierra la sesión y persiste lo decidido'
 c=1
 for b in x n; do
   K_ENSAYO=1 bash "$ESC" "$T/sesion.json" $b "$T/ens-$b" >/dev/null 2>&1 || c=0
-  [ "$(grep '^prompt=' "$T/ens-$b/cmdline.txt" | tail -1)" = "prompt=$CIERRE" ] || c=0
-  [ "$(grep -c '^prompt=' "$T/ens-$b/cmdline.txt")" = 3 ] || c=0
+  [ "$(tail -1 "$T/ens-$b/entrada.jsonl" | jq -r 'select(.type=="user") | .message.content')" = "$CIERRE" ] || c=0
+  [ "$(wc -l < "$T/ens-$b/entrada.jsonl")" = 3 ] || c=0
 done
 grep -qxF "plugin-dir=$REPO/plugins/exo" "$T/ens-x/cmdline.txt" || c=0
 grep -q '^plugin-dir=' "$T/ens-n/cmdline.txt" && c=0
@@ -55,10 +55,22 @@ grep -q 'escrito-stub.md' "$T/out-x/escrito.diff" || c=0
 grep -q 'nueva.md' "$T/out-n/escrito.diff" || c=0
 [ "$(cd "$P/memoria" && find . -type f | sort | xargs sha256sum | sha256sum)" = "$sha_mem" ] || c=0
 [ ! -e "$T/out-n/memoria/.git" ] && [ ! -L "$T/out-n/memoria" ] || c=0
-# sesión encadenada: un --session-id, luego --resume del mismo id, con config propia (no la del usuario)
-[ "$(grep -c '^ARG --resume$' "$STUB_LOG")" = 4 ] && [ "$(grep -c '^ARG --session-id$' "$STUB_LOG")" = 2 ] || c=0
-[ "$(grep -c '^ARG --no-session-persistence$' "$STUB_LOG")" = 0 ] || c=0
+# un solo proceso por sesión (stream-json por stdin), sin resume ni session-id
+[ "$(grep -c '^--$' "$STUB_LOG")" = 2 ] && [ "$(grep -c '^ARG --no-session-persistence$' "$STUB_LOG")" = 2 ] || c=0
+[ "$(grep -c '^ARG --input-format$' "$STUB_LOG")" = 2 ] || c=0
+grep -qE '^ARG --(resume|session-id)$' "$STUB_LOG" && c=0
 [ $c = 1 ] && ok copias_aisladas || ko copias_aisladas
+
+# sin_credenciales: nada de tokens bajo la salida (acaba en el tarball de registro) ni CLAUDE_CONFIG_DIR propio
+mkdir -p "$HOME/.claude"; echo '{"claudeAiOauth":{"accessToken":"SECRETO"}}' > "$HOME/.claude/.credentials.json"
+c=1
+for b in x n; do
+  bash "$ESC" "$T/sesion.json" $b "$T/cred-$b" >/dev/null 2>&1 || c=0
+  [ -z "$(find "$T/cred-$b" -name .credentials.json)" ] || c=0
+  grep -rq accessToken "$T/cred-$b" && c=0
+  grep -q CLAUDE_CONFIG_DIR "$T/cred-$b/cmdline.txt" && c=0
+done
+[ $c = 1 ] && ok sin_credenciales || ko sin_credenciales
 
 # brazo_desconocido
 bash "$ESC" "$T/sesion.json" a0 "$T/out-a0" >/dev/null 2>&1; [ $? = 2 ] && ok brazo_desconocido || ko brazo_desconocido
