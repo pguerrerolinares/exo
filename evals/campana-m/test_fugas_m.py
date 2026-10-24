@@ -83,11 +83,30 @@ def test_bash_lectura_snapshot_a2_limpia(mundo):
 
 def test_escritura_memoria(mundo):
     _, o = mundo
-    rc, r = correr(mundo, "n", [tool("Write", file_path=f"{o}/memoria/x.md")])
-    assert r["motivos"] == [MEM_MSG]
+    ev = [tool("Write", file_path=f"{o}/memoria/notas.md")]
+    rc, r = correr(mundo, "n", ev)
+    assert (rc, r["fuga"], r["motivos"], r["avisos"]) == (0, False, [], [MEM_MSG])
+    for brazo in ("a0", "ar", "a2"):
+        rc, r = correr(mundo, brazo, ev)
+        assert rc == 1 and r["motivos"] == [MEM_MSG]
     for ruta in (f"{o}/work/memoria/x.py", f"{o}/work/y.py"):
-        rc, r = correr(mundo, "n", [tool("Write", file_path=ruta)])
+        rc, r = correr(mundo, "a2", [tool("Write", file_path=ruta)])
         assert r["motivos"] == []
+
+
+@pytest.mark.parametrize("brazo", ["a2", "n"])
+def test_escritura_snapshot_bash_cd_relativa(mundo, brazo):
+    k, _ = mundo
+    # escenario real de K (g1-16/a3-r2), con la raíz sustituida por la del tmp
+    cmd = f"cd {k}/prep/kb && printf '\\n## x\\n' >> log/code-graph-engine-bitacora.md"
+    rc, r = correr(mundo, brazo, [tool("Bash", command=cmd)])
+    assert rc == 1 and SNAP_MSG in r["motivos"]
+
+
+def test_bash_cd_snapshot_lectura_limpia(mundo):
+    k, _ = mundo
+    rc, r = correr(mundo, "a2", [tool("Bash", command=f"cd {k}/prep/kb && grep -r x . 2>&1 >/dev/null; ls > /dev/null")])
+    assert (rc, r["motivos"]) == (0, [])
 
 
 def test_lectura_memoria_n_permitida(mundo):

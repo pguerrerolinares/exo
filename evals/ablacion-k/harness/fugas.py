@@ -18,15 +18,19 @@ SNAP = os.path.join(K_ROOT, "prep", "kb")
 PROD = ["/home/paul/Documentos/proyectos/wisdom-paul", "/home/paul/.exo", "~/.exo"]
 EXO = re.compile(r"(^|[\s;&|(`$])(\S*/)?exo\s+(search|recall|targets|index|rebuild|write|config|budget|lint|ratchet|rotate|doctor|stale|init|rules)\b")
 STUB = "exo: orden no encontrada"
-# Escritura por Bash en el snapshot: redirección, tee, sed -i, cp/mv/install con destino en él, rm/touch/truncate.
-SNAPRE = r"(?:\S*prep/kb\S*)"
-ESCRIBE_BASH = re.compile("|".join([
-    r">>?\s*" + SNAPRE,
-    r"\btee\b[^|;&]*" + SNAPRE,
-    r"\bsed\b[^|;&]*\s-\w*i\w*\b[^|;&]*" + SNAPRE,
-    r"\b(?:cp|mv|install)\b[^|;&]*" + SNAPRE + r"\s*(?:$|[;&|])",
-    r"\b(?:rm|touch|truncate)\b[^|;&]*" + SNAPRE,
-]))
+# Escritura por Bash: redirección, tee, sed -i, cp/mv/install con destino en el objetivo, rm/touch/truncate.
+def _escribe(objetivo):
+    return re.compile("|".join([
+        r"(?<![0-9&])>>?\s*(?!&|/dev/null)" + objetivo,
+        r"\btee\b[^|;&]*" + objetivo,
+        r"\bsed\b[^|;&]*\s-\w*i\w*\b[^|;&]*" + objetivo,
+        r"\b(?:cp|mv|install)\b[^|;&]*" + objetivo + r"\s*(?:$|[;&|])",
+        r"\b(?:rm|touch|truncate)\b[^|;&]*" + objetivo,
+    ]))
+ESCRIBE_SNAP = _escribe(r"\S*prep/kb\S*")
+# Tras un `cd` al snapshot, cualquier destino (relativo) escribe dentro de él.
+CD_SNAP = re.compile(r"\bcd\s+['\"]?" + re.escape(SNAP) + r"(?:/\S*)?['\"]?\s*(?:&&|;)(.*)", re.S)
+ESCRIBE_REL = _escribe(r"\S+")
 ESCRIBE_TOOLS = ("Write", "Edit", "MultiEdit", "NotebookEdit")
 MEMORIA = os.path.join(os.path.abspath(d), "memoria") + os.sep
 HOOKS = {"n": set(), "a0": set(), "arp": set(), "ars": set(), "ar": {"SessionStart"}, "a1": {"SessionStart"}, "a2": {"SessionStart"}, "a3": {"SessionStart", "UserPromptSubmit"}}
@@ -74,9 +78,13 @@ for e in eventos:
             if ruta.startswith(SNAP + os.sep):
                 motivos.append("escribe en el snapshot de la KB")
             if ruta.startswith(MEMORIA):
-                motivos.append("escribe en la memoria nativa")
-        elif b.get("name") == "Bash" and ESCRIBE_BASH.search(inp.get("command", "")):
-            motivos.append("escribe en el snapshot de la KB")
+                # auto memory nativa de n: conducta prevista, no fuga
+                (avisos if brazo == "n" else motivos).append("escribe en la memoria nativa")
+        elif b.get("name") == "Bash":
+            cmd = inp.get("command", "")
+            cd = CD_SNAP.search(cmd)
+            if ESCRIBE_SNAP.search(cmd) or (cd and ESCRIBE_REL.search(cd.group(1))):
+                motivos.append("escribe en el snapshot de la KB")
 
 log = os.path.join(d, "reflex.jsonl")
 if brazo in ("a0", "a1", "a2", "ar", "arp", "ars") and os.path.exists(log):
