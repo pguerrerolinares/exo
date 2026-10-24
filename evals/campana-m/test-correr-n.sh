@@ -132,4 +132,8 @@ for b in a0 ar arp ars; do
   done
 done
 [ $inv = 1 ] && ok invariancia_brazos_viejos || ko invariancia_brazos_viejos
+
+# k_corridas: correr.sh escribe en $K_CORRIDAS si está, y no en corridas/
+K_CORRIDAS=corridas-criba bash "$CORRER" "$tarea" a0 41 >/dev/null 2>&1
+[ -f "$K_ROOT/corridas-criba/tt/a0-r41/inicio.txt" ] && [ ! -e "$K_ROOT/corridas/tt/a0-r41" ] && ok k_corridas || ko k_corridas
 exit $fail

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# tanda.sh <n_tanda> [paralelo=4] — corre la tanda n (40 corridas) del orden congelado de la etapa 1.
+# tanda.sh <n_tanda> [paralelo=4] — corre la tanda n (K_TANDA=40 corridas) del orden congelado de la etapa 1.
 # Variables (campaña M; sin ellas, comportamiento de K):
 #   K_CONGELACION  fichero de congelación (default $K_ROOT/congelacion.txt)
 #   K_ORDEN        orden a leer (default $K_ROOT/orden-etapa1.txt). Con K_ORDEN el paralelo por
 #                  defecto es 1: $P/kb es compartido y la restauración de correr.sh no es concurrente.
 #   K_TANDA        corridas por tanda (default 40)
-#   K_CORRIDAS     carpeta de resultados bajo $K_ROOT (default corridas)
-#   K_TOPE_USD     si la suma de `usd` de todas las corridas de K_CORRIDAS lo supera → PARAR
+#   K_CORRIDAS     carpeta de resultados bajo $K_ROOT (default corridas); correr.sh la honra
+#   K_TOPE_USD     si la suma de `usd` de TODAS las corridas de la campaña ($K_ROOT/corridas*/) lo supera → PARAR
 # Tras la tanda aplica, SIN mirar ningún resultado de éxito (E3, §9):
 #   - consumo: media de tokens de entrada por corrida > 2M → PARAR
 #   - infra: > 10 % de corridas de un brazo sin `result` → PARAR
@@ -31,13 +31,8 @@ corre() {  # $1=tarea $2=brazo $3=rep
   local d="$K_ROOT/gold/s1/$1"; [ -d "$d" ] || d="$K_ROOT/gold/s2/$1"
   # K_REANUDAR=1: salta las corridas ya completas (con `fin` en meta.json). Solo para cortes
   # de infraestructura; se repiten todas las incompletas, de cualquier brazo.
-  if [ "${K_REANUDAR:-0}" = 1 ] && jq -e '.fin' "$K_ROOT/$K_CORRIDAS/$1/$2-r$3/meta.json" >/dev/null 2>&1 && [ -f "$K_ROOT/corridas/$1/$2-r$3/fugas.json" ]; then return 0; fi
+  if [ "${K_REANUDAR:-0}" = 1 ] && jq -e '.fin' "$K_ROOT/$K_CORRIDAS/$1/$2-r$3/meta.json" >/dev/null 2>&1 && [ -f "$K_ROOT/$K_CORRIDAS/$1/$2-r$3/fugas.json" ]; then return 0; fi
   "$H/correr.sh" "$d" "$2" "$3" > /dev/null 2>&1
-  # correr.sh escribe siempre en corridas/; con otra K_CORRIDAS se mueve la corrida a su carpeta.
-  if [ "$K_CORRIDAS" != corridas ] && [ -d "$K_ROOT/corridas/$1/$2-r$3" ]; then
-    rm -rf "$K_ROOT/$K_CORRIDAS/$1/$2-r$3"; mkdir -p "$K_ROOT/$K_CORRIDAS/$1"
-    mv "$K_ROOT/corridas/$1/$2-r$3" "$K_ROOT/$K_CORRIDAS/$1/$2-r$3"
-  fi
 }
 export -f corre; export H K_REANUDAR K_CORRIDAS
 xargs -P "$par" -L 1 bash -c 'corre "$0" "$1" "$2"' < "$L.lista"
@@ -64,19 +59,23 @@ for t, b, r in filas:
     except Exception:
         fugas.append(f"{t}/{b}-r{r} (sin fugas.json)")
 media = sum(toks) / len(toks) if toks else 0
-parar = []
+parar = []; usd_desc = 0
 if media > 2_000_000: parar.append(f"consumo: media {media:,.0f} > 2M")
 for b in por_brazo:
     if sin_result[b] / por_brazo[b] > 0.10: parar.append(f"infra: {b} {sin_result[b]}/{por_brazo[b]} sin result")
 if fugas: parar.append(f"fuga: {fugas}")
 if tope:
     gastado = 0.0
-    for f in glob.glob(f"{root}/{corridas}/*/*/meta.json"):
-        try: gastado += float(json.load(open(f)).get("usd") or 0)
-        except Exception: pass
+    for f in glob.glob(f"{root}/corridas*/*/*/meta.json"):
+        try:
+            u = json.load(open(f)).get("usd")
+        except Exception:
+            parar.append(f"meta ilegible: {f}"); continue
+        if u is None: usd_desc += 1
+        else: gastado += float(u)
     if gastado > float(tope): parar.append(f"coste: {gastado:.2f} USD > tope {float(tope):.2f}")
 res = [f"tanda {n}: {len(filas)} corridas · tokens_in medio {media:,.0f} · total {sum(toks):,}",
-       f"sin result por brazo: {dict(sin_result)}", "PARAR: " + "; ".join(parar) if parar else "SEGUIR"]
+       f"sin result por brazo: {dict(sin_result)}" + (f" · usd desconocido: {usd_desc}" if tope else ""), "PARAR: " + "; ".join(parar) if parar else "SEGUIR"]
 open(f"{root}/tandas/{tag}{n}.txt", "w").write("\n".join(res) + "\n")
 print("\n".join(res))
 sys.exit(1 if parar else 0)

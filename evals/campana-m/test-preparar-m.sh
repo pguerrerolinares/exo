@@ -13,7 +13,8 @@ unset K_ROOT K_ORDEN K_TANDA K_CORRIDAS K_TOPE_USD K_CONGELACION K_REANUDAR K_TA
 mkdir -p "$T/h"; cp "$HARNESS/tanda.sh" "$T/h/tanda.sh"
 cat > "$T/h/correr.sh" <<'STUB'
 #!/usr/bin/env bash
-id=$(basename "$1"); O="$K_ROOT/corridas/$id/$2-r$3"; mkdir -p "$O"
+id=$(basename "$1"); O="$K_ROOT/${K_CORRIDAS:-corridas}/$id/$2-r$3"; mkdir -p "$O"
+echo "$id $2 $3" >> "$K_ROOT/invocaciones.log"
 echo start >> "$K_ROOT/solape.log"; sleep 0.15; echo end >> "$K_ROOT/solape.log"
 echo "{\"fin\":\"ok\",\"tokens_in\":100,\"usd\":${STUB_USD:-0}}" > "$O/meta.json"
 echo '{"fuga":false}' > "$O/fugas.json"
@@ -42,7 +43,7 @@ K=$(nuevo_k ko); orden "$K/orden-criba-a0.txt" 5; echo f > "$K/congelacion-criba
 K_ROOT=$K K_ORDEN="$K/orden-criba-a0.txt" K_TANDA=2 K_CORRIDAS=corridas-criba K_CONGELACION="$K/congelacion-criba.txt" \
   bash "$T/h/tanda.sh" 2 >/dev/null 2>&1; rc=$?
 lista=$(cat "$K/tandas/orden-criba-a0-2.lista" 2>/dev/null | cut -f1 | tr '\n' ' ')
-if [ $rc = 0 ] && [ "$lista" = "t3 t4 " ] && [ -f "$K/corridas-criba/t3/a0-r1/meta.json" ] && [ ! -e "$K/corridas/t3/a0-r1" ] \
+if [ $rc = 0 ] && [ "$lista" = "t3 t4 " ] && [ -f "$K/corridas-criba/t3/a0-r1/meta.json" ] && [ ! -e "$K/corridas" ] \
    && [ "$(sed -n 1,4p "$K/solape.log" | tr '\n' ' ')" = "start end start end " ]; then
   ok tanda_orden_propio; else ko tanda_orden_propio; fi
 
@@ -57,12 +58,31 @@ tope() {  # $1=usd previo, $2=usd de la tanda
   mkdir -p "$k/corridas-c/viejo/n-r3"
   echo "{\"fin\":\"ok\",\"tokens_in\":1,\"usd\":0}" > "$k/corridas-c/viejo/a0-r1/meta.json"
   echo "{\"fin\":\"ok\",\"tokens_in\":1,\"usd\":$1}" > "$k/corridas-c/viejo/n-r3/meta.json"
-  echo '{"fin":"ok","tokens_in":1,"usd":99}' > "$k/corridas/otro/a0-r1/meta.json"   # otra carpeta: no cuenta
+  echo "{\"fin\":\"ok\",\"tokens_in\":1,\"usd\":${3:-0}}" > "$k/corridas/otro/a0-r1/meta.json"   # otra carpeta de la campaña: cuenta
   STUB_USD=$2 K_ROOT=$k K_ORDEN="$k/o.txt" K_CORRIDAS=corridas-c K_TOPE_USD=1 bash "$T/h/tanda.sh" 1 > "$k/out.txt" 2>&1
   echo "$? $(grep -c 'PARAR: coste' "$k/out.txt") $(grep -c '^SEGUIR' "$k/out.txt")"
+  LASTK=$k
 }
 r_sup=$(tope 0.7 0.4); r_inf=$(tope 0.1 0.2)   # 0,7 + 2×0,4 = 1,5 > 1 ; 0,1 + 2×0,2 = 0,5
-if [ "$r_sup" = "1 1 0" ] && [ "$r_inf" = "0 0 1" ]; then ok tope_usd; else ko "tope_usd ($r_sup | $r_inf)"; fi
+r_cru=$(tope 0.3 0 0.6)   # 0,3 en corridas-c + 0,6 en corridas = 0,9 -> SEGUIR ; con 0,8 -> 1,1 -> PARAR
+r_cru2=$(tope 0.3 0 0.8)
+if [ "$r_sup" = "1 1 0" ] && [ "$r_inf" = "0 0 1" ] && [ "$r_cru" = "0 0 1" ] && [ "$r_cru2" = "1 1 0" ]; then ok tope_usd; else ko "tope_usd ($r_sup | $r_inf | $r_cru | $r_cru2)"; fi
+
+# tope_meta_ilegible: un meta.json ilegible para (falla cerrado); un usd ausente se cuenta aparte y no para
+tope 0.1 0 >/dev/null; echo '{rota' > "$LASTK/corridas-c/viejo/n-r3/meta.json"
+K_ROOT=$LASTK K_ORDEN="$LASTK/o.txt" K_CORRIDAS=corridas-c K_TOPE_USD=1 bash "$T/h/tanda.sh" 1 > "$LASTK/out2.txt" 2>&1; rc=$?
+if [ $rc = 1 ] && grep -q "PARAR: .*meta ilegible: $LASTK/corridas-c/viejo/n-r3/meta.json" "$LASTK/out2.txt"; then ok tope_meta_ilegible; else ko "tope_meta_ilegible ($rc)"; fi
+tope 0.1 0 >/dev/null; echo '{"fin":"ok","tokens_in":1}' > "$LASTK/corridas-c/viejo/n-r3/meta.json"
+K_ROOT=$LASTK K_ORDEN="$LASTK/o.txt" K_CORRIDAS=corridas-c K_TOPE_USD=1 bash "$T/h/tanda.sh" 1 > "$LASTK/out2.txt" 2>&1; rc=$?
+if [ $rc = 0 ] && grep -q 'usd desconocido: 1' "$LASTK/out2.txt" && grep -q '^SEGUIR' "$LASTK/out2.txt"; then ok tope_usd_desconocido; else ko "tope_usd_desconocido ($rc)"; fi
+
+# reanudar_con_k_corridas: una corrida completa (fin + fugas.json) en K_CORRIDAS no se relanza; la incompleta sí
+K=$(nuevo_k kr); echo f > "$K/congelacion.txt"; orden "$K/o.txt" 2
+mkdir -p "$K/corridas-criba/t1/a0-r1" "$K/corridas-criba/t2/a0-r1"
+echo '{"fin":"ok","tokens_in":1,"usd":0}' > "$K/corridas-criba/t1/a0-r1/meta.json"; echo '{"fuga":false}' > "$K/corridas-criba/t1/a0-r1/fugas.json"
+echo '{"tokens_in":1,"usd":0}' > "$K/corridas-criba/t2/a0-r1/meta.json"
+K_ROOT=$K K_ORDEN="$K/o.txt" K_CORRIDAS=corridas-criba K_REANUDAR=1 bash "$T/h/tanda.sh" 1 >/dev/null 2>&1
+if [ "$(cat "$K/invocaciones.log" 2>/dev/null)" = "t2 a0 1" ]; then ok reanudar_con_k_corridas; else ko "reanudar_con_k_corridas ($(tr '\n' ';' < "$K/invocaciones.log" 2>/dev/null))"; fi
 
 # ---- congelar-m.sh ----
 mkdir -p "$T/bin"
