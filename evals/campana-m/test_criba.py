@@ -1,4 +1,5 @@
 import hashlib
+import json
 import random
 import subprocess
 import sys
@@ -100,3 +101,27 @@ def test_orden_determinista(tmp_path):
     assert hashlib.sha256(outs[0]).hexdigest() == hashlib.sha256(esperado).hexdigest()
     ordenado = "".join(f"{t}\ta0\t{r}\n" for t in ids for r in (1, 2)).encode()
     assert outs[0] != ordenado
+
+
+def test_principal_escribe_sondas_tsv(tmp_path):
+    ids = [f"g0-{i:02d}" for i in range(41)]
+    pool, kb = tmp_path / "pool", tmp_path / "kb"
+    pool.mkdir(); (kb / "core").mkdir(parents=True); (kb / "stable").mkdir()
+    (kb / "core" / "a.md").write_text("---\ntitle: A\ntier: core\n---\ncuerpo\n")
+    (kb / "stable" / "b.md").write_text("---\ntitle: B\ntier: stable\n---\ncuerpo\n")
+    (kb / "stable" / "sin-tier.md").write_text("---\ntitle: C\n---\ncuerpo\n")
+    (kb / "stable" / "sin-fm.md").write_text("tier: core\n---\ncuerpo\n")
+    notas = {i: ("core/a.md", "stable/b.md", "stable/sin-tier.md", "no/existe.md", "stable/sin-fm.md")[n % 5] for n, i in enumerate(ids)}
+    (pool / "reglas-g0.jsonl").write_text("".join(json.dumps({"id": i, "nota": notas[i], "regla": "r"}) + "\n" for i in ids))
+    (pool / "reglas-g1.jsonl").write_text("")
+    sondas, neutras, out = tmp_path / "s.txt", tmp_path / "n.txt", tmp_path / "orden.txt"
+    sondas.write_text("".join(f"{i}\n" for i in ids)); neutras.write_text("n0\n")
+    r = run("principal", sondas, neutras, out, "--pool", pool, "--kb", kb)
+    assert r.returncode == 0, r.stderr
+    filas = [l.split("\t") for l in (tmp_path / "sondas.tsv").read_text().splitlines()]
+    usadas = {l.split("\t")[0] for l in out.read_text().splitlines()} - {"n0"}
+    assert len(filas) == 40 and {f[0] for f in filas} == usadas
+    esperado = {"core/a.md": "core", "stable/b.md": "stable", "stable/sin-tier.md": "desconocido", "no/existe.md": "desconocido",
+                "stable/sin-fm.md": "desconocido"}
+    assert all(t == esperado[notas[i]] for i, t in filas)
+    assert "desconocido" in r.stderr

@@ -184,3 +184,33 @@ def test_heredada_exenta_de_regla_del_prompt_pero_no_de_sanity(tmp_path):
     assert valida(d, solo_schema=True) is None
     d = tarea(tmp_path, {"prompt": "Revisa la KB", "sanity": None})
     assert valida(d, solo_schema=True) == "falta sanity"
+
+
+def _heredada(g, check, nombre="g0-1"):
+    d = g / nombre
+    (d / "pruebas").mkdir(parents=True)
+    (d / "check.sh").write_text(check)
+    (d / "setup.sh").write_text(SETUP_BASE)
+    (d / "tarea.json").write_text(json.dumps({"regla_id": nombre, "setup": True, "prompt": "Arregla X.",
+        "check": {"tipo": "script"}, "sanity": SANITY_OK}))
+    return d
+
+
+def test_heredada_con_check_roto_es_ko(tmp_path):
+    # rc 2 + «No such file» en stderr: antes pasaba como «no evaluable»
+    d = _heredada(tmp_path / "a", '#!/usr/bin/env bash\n/no/existe/herramientas.sh "$2"\nexit 2\n')
+    assert valida(d, solo_schema=True).startswith("check roto")
+    # sale 2 antes de usar la ruta, pero la ruta del harness no existe
+    d = _heredada(tmp_path / "b", '#!/usr/bin/env bash\nH=/no/existe/evals/ablacion-k/harness\n[ -s "$2" ] || exit 2\n')
+    assert valida(d, solo_schema=True).startswith("check roto")
+    # rc fuera de 0/1/2
+    d = _heredada(tmp_path / "c", '#!/usr/bin/env bash\nexit 127\n')
+    assert valida(d, solo_schema=True).startswith("check roto")
+
+
+def test_heredada_con_check_sano_pasa(tmp_path):
+    h = tmp_path / "harness"
+    h.mkdir()
+    for i, rc in enumerate((0, 1, 2)):
+        d = _heredada(tmp_path / f"g{i}", f'#!/usr/bin/env bash\nH={h}\n[ -d "$H" ] || exit 9\nexit {rc}\n')
+        assert valida(d, solo_schema=True) is None

@@ -17,7 +17,7 @@ def mk(**cambios):
     m = {
         "n_sondas": 40, "oraculo_ok": 30, "frac_sucia": 0.0,
         "d_n_a2": ci(0.0, -0.3, 0.3), "d_a2_n": ci(0.0, -0.3, 0.3),
-        "d_a2_a0": ci(0.3, 0.1, 0.5),
+        "d_a2_a0": ci(0.3, 0.1, 0.5), "d_n_a0": ci(0.3, 0.1, 0.5),
         "tokens_mediana": {"a2": 100, "n": 100},
         "neutro": {"a2": ci(0.0, -0.05, 0.05), "n": ci(0.0, -0.05, 0.05)},
         "desempate": {"a2": {"valor": 0.001, "sobrecarga_bytes": 6000},
@@ -98,6 +98,21 @@ def test_r3_dano_independiente_y_multiple():
     # borde exacto del neutro: estricto
     v = A.veredicto(mk(neutro={"a2": ci(0, -0.15, 0.05), "n": ci(0, -0.05, 0.05)}))
     assert "DAÑO a2" in v and "DAÑO n" not in v
+
+
+def test_ni_x_ni_n_demostraron_efecto():
+    ni = ["NI X NI N DEMOSTRARON EFECTO", "RECOMENDACIÓN: memoria mínima"]
+    # positivo, y el borde lo == 0 también cuenta como sin efecto
+    assert A.veredicto(mk(d_a2_a0=ci(0.0, -0.1, 0.1), d_n_a0=ci(0.0, -0.2, 0.1))) == ni
+    assert A.veredicto(mk(d_a2_a0=ci(0.05, 0.0, 0.1), d_n_a0=ci(0.0, 0.0, 0.1))) == ni
+    # negativo: basta que uno demuestre efecto
+    assert A.veredicto(mk(d_a2_a0=ci(0.0, -0.1, 0.1), d_n_a0=ci(0.2, 0.01, 0.3))) == ["SOLO COSTE"]
+    assert A.veredicto(mk(d_a2_a0=ci(0.2, 0.01, 0.3), d_n_a0=ci(0.0, -0.1, 0.1)))[0] not in ni
+    # n sin evaluar: no hay veredicto de «ni X ni N»
+    v = A.veredicto(mk(d_a2_a0=ci(0.0, -0.1, 0.1), d_n_a0=None))
+    assert v[0] not in ni and "SIN DATOS N-A0" in v
+    # el cuello manda sobre este veredicto
+    assert A.veredicto(mk(oraculo_ok=11, d_a2_a0=ci(0, -0.1, 0.1), d_n_a0=ci(0, -0.1, 0.1)))[0] == "CUELLO = CUMPLIMIENTO"
 
 
 def test_no_adjudicable_en_veredicto():

@@ -33,6 +33,8 @@ corre() {  # $1=tarea $2=brazo $3=rep
   # K_REANUDAR=1: salta las corridas ya completas (con `fin` en meta.json). Solo para cortes
   # de infraestructura; se repiten todas las incompletas, de cualquier brazo.
   if [ "${K_REANUDAR:-0}" = 1 ] && jq -e '.fin' "$K_ROOT/$K_CORRIDAS/$1/$2-r$3/meta.json" >/dev/null 2>&1 && [ -f "$K_ROOT/$K_CORRIDAS/$1/$2-r$3/fugas.json" ]; then return 0; fi
+  # El oráculo (ar) recibe su regla; reglas/ lo puebla preparar-m.sh. Los demás brazos no la ven.
+  if [ "$2" = ar ]; then export K_REGLA_FILE="$K_ROOT/reglas/$1.txt"; else unset K_REGLA_FILE; fi
   "$H/correr.sh" "$d" "$2" "$3" > /dev/null 2>&1
 }
 export -f corre; export H K_REANUDAR K_CORRIDAS
