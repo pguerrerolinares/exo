@@ -136,4 +136,14 @@ done
 # k_corridas: correr.sh escribe en $K_CORRIDAS si está, y no en corridas/
 K_CORRIDAS=corridas-criba bash "$CORRER" "$tarea" a0 41 >/dev/null 2>&1
 [ -f "$K_ROOT/corridas-criba/tt/a0-r41/inicio.txt" ] && [ ! -e "$K_ROOT/corridas/tt/a0-r41" ] && ok k_corridas || ko k_corridas
+
+# k_corridas_valida: valor fuera de ^corridas[A-Za-z0-9_-]*$ => exit 2 y sin rm -rf fuera de K_ROOT
+v=1
+for bad in ../x otro corridas/sub; do
+  mkdir -p "$T/x/tt/a0-r42" "$K_ROOT/otro/tt/a0-r42" "$K_ROOT/corridas/sub/tt/a0-r42"; echo w > "$T/x/tt/a0-r42/w"; echo w > "$K_ROOT/otro/tt/a0-r42/w"; echo w > "$K_ROOT/corridas/sub/tt/a0-r42/w"
+  K_CORRIDAS=$bad bash "$CORRER" "$tarea" a0 42 >/dev/null 2>&1; [ $? = 2 ] || v=0
+  [ -f "$T/x/tt/a0-r42/w" ] && [ -f "$K_ROOT/otro/tt/a0-r42/w" ] && [ -f "$K_ROOT/corridas/sub/tt/a0-r42/w" ] || v=0
+done
+K_CORRIDAS=corridas bash "$CORRER" "$tarea" a0 43 >/dev/null 2>&1 || v=0
+[ $v = 1 ] && ok k_corridas_valida || ko k_corridas_valida
 exit $fail

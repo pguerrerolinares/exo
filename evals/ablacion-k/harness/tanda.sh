@@ -18,6 +18,7 @@ K_TANDA="${K_TANDA:-40}"; K_CORRIDAS="${K_CORRIDAS:-corridas}"
 par=${2:-$([ -n "${K_ORDEN:-}" ] && echo 1 || echo 4)}
 H="$(cd "$(dirname "$0")" && pwd)"
 K_ROOT="${K_ROOT:-$HOME/.cache/exo-ablacion-k}"; export K_ROOT
+[[ "$K_CORRIDAS" =~ ^corridas[A-Za-z0-9_-]*$ ]] || { echo "K_CORRIDAS inválida: $K_CORRIDAS" >&2; exit 2; }
 mkdir -p "$K_ROOT/tandas"
 [ -f "${K_CONGELACION:-$K_ROOT/congelacion.txt}" ] || { echo "sin congelación" >&2; exit 2; }
 # Con K_ORDEN, las tandas de órdenes distintos (p. ej. criba a0 y ar) no se pisan.
@@ -38,7 +39,7 @@ export -f corre; export H K_REANUDAR K_CORRIDAS
 xargs -P "$par" -L 1 bash -c 'corre "$0" "$1" "$2"' < "$L.lista"
 
 python3 - "$K_ROOT" "$n" "$K_CORRIDAS" "${K_TOPE_USD:-}" "$tag" <<'PY'
-import glob, json, os, sys, collections
+import glob, json, math, os, sys, collections
 root, n, corridas, tope, tag = sys.argv[1:6]
 filas = [l.split() for l in open(f"{root}/tandas/{tag}{n}.lista")]
 toks, sin_result, fugas, por_brazo = [], collections.Counter(), [], collections.Counter()
@@ -72,7 +73,9 @@ if tope:
         except Exception:
             parar.append(f"meta ilegible: {f}"); continue
         if u is None: usd_desc += 1
-        else: gastado += float(u)
+        elif isinstance(u, bool) or not isinstance(u, (int, float)) or not math.isfinite(u):
+            parar.append(f"usd inválido: {f}")
+        else: gastado += u
     if gastado > float(tope): parar.append(f"coste: {gastado:.2f} USD > tope {float(tope):.2f}")
 res = [f"tanda {n}: {len(filas)} corridas · tokens_in medio {media:,.0f} · total {sum(toks):,}",
        f"sin result por brazo: {dict(sin_result)}" + (f" · usd desconocido: {usd_desc}" if tope else ""), "PARAR: " + "; ".join(parar) if parar else "SEGUIR"]

@@ -76,6 +76,23 @@ tope 0.1 0 >/dev/null; echo '{"fin":"ok","tokens_in":1}' > "$LASTK/corridas-c/vi
 K_ROOT=$LASTK K_ORDEN="$LASTK/o.txt" K_CORRIDAS=corridas-c K_TOPE_USD=1 bash "$T/h/tanda.sh" 1 > "$LASTK/out2.txt" 2>&1; rc=$?
 if [ $rc = 0 ] && grep -q 'usd desconocido: 1' "$LASTK/out2.txt" && grep -q '^SEGUIR' "$LASTK/out2.txt"; then ok tope_usd_desconocido; else ko "tope_usd_desconocido ($rc)"; fi
 
+# k_corridas_invalida (tanda): fuera de ^corridas[A-Za-z0-9_-]*$ => exit 2 sin lanzar nada
+K=$(nuevo_k kv); echo f > "$K/congelacion.txt"; orden "$K/o.txt" 2; v=1
+for bad in ../x otro corridas/sub; do
+  K_ROOT=$K K_ORDEN="$K/o.txt" K_CORRIDAS=$bad bash "$T/h/tanda.sh" 1 >/dev/null 2>&1; [ $? = 2 ] || v=0
+done
+[ ! -e "$K/invocaciones.log" ] || v=0
+K_ROOT=$K K_ORDEN="$K/o.txt" K_CORRIDAS=corridas-criba bash "$T/h/tanda.sh" 1 >/dev/null 2>&1 || v=0
+[ -s "$K/invocaciones.log" ] || v=0
+[ $v = 1 ] && ok k_corridas_invalida || ko k_corridas_invalida
+
+# usd_invalido: no numérico y NaN paran con `usd inválido: <ruta>` (sin tumbar el breaker)
+for val in '"abc"' NaN; do
+  tope 0.1 0 >/dev/null; echo "{\"fin\":\"ok\",\"tokens_in\":1,\"usd\":$val}" > "$LASTK/corridas-c/viejo/n-r3/meta.json"
+  K_ROOT=$LASTK K_ORDEN="$LASTK/o.txt" K_CORRIDAS=corridas-c K_TOPE_USD=1 bash "$T/h/tanda.sh" 1 > "$LASTK/out2.txt" 2>&1; rc=$?
+  if [ $rc = 1 ] && grep -q "PARAR: .*usd inválido: $LASTK/corridas-c/viejo/n-r3/meta.json" "$LASTK/out2.txt"; then ok "usd_invalido_$val"; else ko "usd_invalido_$val ($rc)"; fi
+done
+
 # reanudar_con_k_corridas: una corrida completa (fin + fugas.json) en K_CORRIDAS no se relanza; la incompleta sí
 K=$(nuevo_k kr); echo f > "$K/congelacion.txt"; orden "$K/o.txt" 2
 mkdir -p "$K/corridas-criba/t1/a0-r1" "$K/corridas-criba/t2/a0-r1"

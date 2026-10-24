@@ -25,6 +25,7 @@ H="$(cd "$(dirname "$0")" && pwd)"
 K_ROOT="${K_ROOT:-$HOME/.cache/exo-ablacion-k}"; P="$K_ROOT/prep"
 PLUG="$(cd "$H/../../../plugins/exo/scripts" && pwd)"
 MODELO="${K_MODELO:-claude-sonnet-5-5}"
+[[ "${K_CORRIDAS:-corridas}" =~ ^corridas[A-Za-z0-9_-]*$ ]] || { echo "K_CORRIDAS inválida: ${K_CORRIDAS}" >&2; exit 2; }
 if [ "$brazo" = ar ] && [ ! -s "${K_REGLA_FILE:-}" ]; then
   echo "ar requiere K_REGLA_FILE no vacío" >&2; exit 2
 fi
