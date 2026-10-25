@@ -1204,7 +1204,7 @@ fn rules_cmd(args: ArgsRules) -> Result<()> {
     if args.json {
         envelope::emite("rules", serde_json::to_value(&resultado)?);
     } else {
-        match &resultado {
+        match &resultado.resultado {
             exo::reglas::Resultado::Ok { repo, rules, .. } => {
                 println!("ok {repo}: {} reglas", rules.len());
             }

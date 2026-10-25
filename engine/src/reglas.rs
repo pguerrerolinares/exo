@@ -18,7 +18,6 @@ pub enum Razon {
     Ambigua,
     SinSeccion,
     SeccionVacia,
-    ExcedeCap,
 }
 
 impl Razon {
@@ -29,7 +28,6 @@ impl Razon {
             Razon::Ambigua => "ambigua",
             Razon::SinSeccion => "sin_seccion",
             Razon::SeccionVacia => "seccion_vacia",
-            Razon::ExcedeCap => "excede_cap",
         }
     }
 }
@@ -135,8 +133,10 @@ fn casa(clave: &str, contenido: &str, fichero: &Path) -> Option<Casa> {
     (base.to_lowercase() == clave).then_some(Casa::Stem)
 }
 
-/// Candidatas ordenadas: `projects/*.md` de primer nivel que casan con `clave`.
-/// Si alguna casa por slug, solo cuentan esas; si no, las que casan por stem.
+/// Candidatas ordenadas: `projects/*.md` y `projects/*/*.md` (un solo nivel de
+/// subdirectorio) que casan con `clave`. Si alguna casa por slug, solo cuentan
+/// esas; si no, las que casan por stem. La ruta devuelta es relativa a la KB y
+/// con `/`.
 fn candidatas(kb: &Path, clave: &str) -> Result<Vec<(String, PathBuf)>> {
     let dir = kb.join("projects");
     // KB mal apuntada ≠ repo sin nota: sin `projects/` legible todo daría
@@ -146,13 +146,22 @@ fn candidatas(kb: &Path, clave: &str) -> Result<Vec<(String, PathBuf)>> {
     for entrada in lectura {
         let entrada = entrada.with_context(|| format!("leer {}", dir.display()))?;
         let ruta = entrada.path();
-        if !ruta.is_file() || ruta.extension().is_none_or(|e| e != "md") {
-            continue;
-        }
-        let bytes = std::fs::read(&ruta).with_context(|| format!("leer {}", ruta.display()))?;
-        if let Some(como) = casa(clave, &String::from_utf8_lossy(&bytes), &ruta) {
-            let nombre = entrada.file_name().to_string_lossy().into_owned();
-            halladas.push((como, format!("projects/{nombre}"), ruta));
+        let nombre = entrada.file_name().to_string_lossy().into_owned();
+        if ruta.is_dir() {
+            let sub =
+                std::fs::read_dir(&ruta).with_context(|| format!("leer {}", ruta.display()))?;
+            for e in sub {
+                let e = e.with_context(|| format!("leer {}", ruta.display()))?;
+                let n = e.file_name().to_string_lossy().into_owned();
+                evalua(
+                    clave,
+                    &e.path(),
+                    format!("projects/{nombre}/{n}"),
+                    &mut halladas,
+                )?;
+            }
+        } else {
+            evalua(clave, &ruta, format!("projects/{nombre}"), &mut halladas)?;
         }
     }
     let mejor = halladas.iter().map(|(c, ..)| *c).max();
@@ -163,6 +172,22 @@ fn candidatas(kb: &Path, clave: &str) -> Result<Vec<(String, PathBuf)>> {
         .collect();
     halladas.sort();
     Ok(halladas)
+}
+
+fn evalua(
+    clave: &str,
+    ruta: &Path,
+    rel: String,
+    halladas: &mut Vec<(Casa, String, PathBuf)>,
+) -> Result<()> {
+    if !ruta.is_file() || ruta.extension().is_none_or(|e| e != "md") {
+        return Ok(());
+    }
+    let bytes = std::fs::read(ruta).with_context(|| format!("leer {}", ruta.display()))?;
+    if let Some(como) = casa(clave, &String::from_utf8_lossy(&bytes), ruta) {
+        halladas.push((como, rel, ruta.to_path_buf()));
+    }
+    Ok(())
 }
 
 /// `None` si no hay encabezado; si no, (reglas, líneas ignoradas).
@@ -185,33 +210,74 @@ fn lee_seccion(contenido: &str) -> Option<(Vec<String>, Vec<String>)> {
     Some((reglas, ignoradas))
 }
 
-pub fn resuelve(kb: &Path, cwd: &Path) -> Result<Resultado> {
+/// Lo que `exo rules` entrega: el resultado del proyecto más las reglas
+/// globales y cuántas reglas (de ambas listas) se recortaron al `CAP`.
+#[derive(Debug, Serialize, PartialEq, Eq)]
+pub struct Salida {
+    #[serde(flatten)]
+    pub resultado: Resultado,
+    pub global: Vec<String>,
+    pub truncated: usize,
+}
+
+fn recorta(mut reglas: Vec<String>) -> (Vec<String>, usize) {
+    let cortadas = reglas.len().saturating_sub(CAP);
+    reglas.truncate(CAP);
+    (reglas, cortadas)
+}
+
+/// Reglas de `core/reglas-duras.md` recortadas al `CAP` y cuántas se cortaron;
+/// fichero o sección ausentes dan `(vec![], 0)`.
+fn lee_global(kb: &Path) -> Result<(Vec<String>, usize)> {
+    let ruta = kb.join("core/reglas-duras.md");
+    let bytes = match std::fs::read(&ruta) {
+        Ok(b) => b,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok((vec![], 0)),
+        Err(e) => return Err(e).with_context(|| format!("leer {}", ruta.display())),
+    };
+    Ok(lee_seccion(&String::from_utf8_lossy(&bytes))
+        .map(|(reglas, _)| recorta(reglas))
+        .unwrap_or_default())
+}
+
+pub fn resuelve(kb: &Path, cwd: &Path) -> Result<Salida> {
+    let (global, cortadas_global) = lee_global(kb)?;
+    let (resultado, cortadas) = resuelve_proyecto(kb, cwd)?;
+    Ok(Salida {
+        resultado,
+        global,
+        truncated: cortadas + cortadas_global,
+    })
+}
+
+fn resuelve_proyecto(kb: &Path, cwd: &Path) -> Result<(Resultado, usize)> {
     let Some(repo) = clave_repo(cwd)? else {
-        return Ok(skip(None, Razon::SinGit, vec![]));
+        return Ok((skip(None, Razon::SinGit, vec![]), 0));
     };
     let cands = candidatas(kb, &repo)?;
     let (note, ruta) = match cands.as_slice() {
-        [] => return Ok(skip(Some(repo), Razon::SinNota, vec![])),
+        [] => return Ok((skip(Some(repo), Razon::SinNota, vec![]), 0)),
         [uno] => uno.clone(),
         varias => {
             let nombres = varias.iter().map(|(n, _)| n.clone()).collect();
-            return Ok(skip(Some(repo), Razon::Ambigua, nombres));
+            return Ok((skip(Some(repo), Razon::Ambigua, nombres), 0));
         }
     };
     let bytes = std::fs::read(&ruta).with_context(|| format!("leer {}", ruta.display()))?;
     let Some((rules, ignored_lines)) = lee_seccion(&String::from_utf8_lossy(&bytes)) else {
-        return Ok(skip(Some(repo), Razon::SinSeccion, vec![]));
+        return Ok((skip(Some(repo), Razon::SinSeccion, vec![]), 0));
     };
     if rules.is_empty() {
-        return Ok(skip(Some(repo), Razon::SeccionVacia, vec![]));
+        return Ok((skip(Some(repo), Razon::SeccionVacia, vec![]), 0));
     }
-    if rules.len() > CAP {
-        return Ok(skip(Some(repo), Razon::ExcedeCap, vec![]));
-    }
-    Ok(Resultado::Ok {
-        repo,
-        note,
-        rules,
-        ignored_lines,
-    })
+    let (rules, cortadas) = recorta(rules);
+    Ok((
+        Resultado::Ok {
+            repo,
+            note,
+            rules,
+            ignored_lines,
+        },
+        cortadas,
+    ))
 }
