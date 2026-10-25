@@ -1,0 +1,42 @@
+# kb=/home/paul/Documentos/proyectos/wisdom-paul commit=552f06af6ce83895c644989fe7af4be643e7e7ab
+id	proyecto	ambito	cubierta	status	reason	n_global	n_proyecto	bytes	pos	sim_max	en_global
+g1-15	wisdom-paul	proyecto	no	skip	sin_nota	5	0	801		0.287	
+g2-27	transversal	transversal	no	skip	sin_nota	5	0	801		0.330	no
+g1-46	transversal	transversal	no	skip	sin_nota	5	0	801		0.281	no
+g0-101	ai-news-platform	proyecto	si	ok		5	7	1787	4	0.369	
+g0-9	wisdom-paul	proyecto	no	skip	sin_nota	5	0	801		0.274	
+g1-82	lighthouses-bot	proyecto	si	ok		5	10	2018	2	0.308	
+g1-147	jev-shadow	proyecto	si	ok		5	8	1766	1	0.398	
+g0-66	exo	proyecto	si	ok		5	10	2056	1	0.376	
+g1-136	code-graph-engine	proyecto	no	ok		5	10	2158		0.299	
+g1-152	transversal	transversal	no	skip	sin_nota	5	0	801	0	0.283	si
+g0-43	transversal	transversal	no	skip	sin_nota	5	0	801		0.383	no
+g1-21	transversal	transversal	no	skip	sin_nota	5	0	801		0.394	no
+g0-12	transversal	transversal	no	skip	sin_nota	5	0	801		0.283	no
+g1-140	finnk-publica-react	proyecto	si	ok		5	8	1861	1	0.308	
+g2-138	exo	proyecto	no	ok		5	10	2056		0.364	
+g0-147	pguerrero-music	proyecto	si	ok		5	10	1981	1	0.339	
+g0-33	transversal	transversal	no	skip	sin_nota	5	0	801		0.365	no
+g1-57	transversal	transversal	no	skip	sin_nota	5	0	801		0.329	no
+g2-154	kbx	proyecto	si	ok		5	10	1929	5	0.326	
+g1-102	transversal	transversal	no	skip	sin_nota	5	0	801		0.333	no
+g0-87	viz-components	proyecto	no	skip	sin_seccion	5	0	801		0.352	
+g1-157	llm-apps	proyecto	si	ok		5	8	1788	0	0.360	
+g2-143	foss-jam-kit	proyecto	no	ok		5	6	1523		0.367	
+g0-67	exo	proyecto	si	ok		5	10	2056	2	0.415	
+g0-55	transversal	transversal	no	skip	sin_nota	5	0	801		0.329	no
+g0-96	a11y-crawler	proyecto	si	ok		5	7	1679	4	0.312	
+g2-23	transversal	transversal	no	skip	sin_nota	5	0	801		0.264	no
+g1-170	CV	proyecto	no	skip	sin_nota	5	0	801		0.300	
+g2-160	kbx	proyecto	si	ok		5	10	1929	8	0.346	
+g1-32	transversal	transversal	no	skip	sin_nota	5	0	801		0.290	no
+g1-47	transversal	transversal	no	skip	sin_nota	5	0	801		0.305	no
+g2-48	transversal	transversal	no	skip	sin_nota	5	0	801		0.406	no
+g2-141	foss-jam-kit	proyecto	si	ok		5	6	1523	2	0.386	
+g0-78	transversal	transversal	no	skip	sin_nota	5	0	801		0.320	no
+g1-14	wisdom-paul	proyecto	no	skip	sin_nota	5	0	801		0.340	
+g1-110	agent-develop	proyecto	si	ok		5	4	1477	2	0.274	
+g0-110	kbi-broker	proyecto	si	ok		5	4	1447	2	0.362	
+g0-44	transversal	transversal	no	skip	sin_nota	5	0	801		0.319	no
+g0-149	pguerrero-music	proyecto	si	ok		5	10	1981	2	0.299	
+g2-186	recon	proyecto	si	ok		5	6	1562	0	0.318	
