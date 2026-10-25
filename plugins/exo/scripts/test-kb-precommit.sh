@@ -161,5 +161,91 @@ caso_fm "tags en lista YAML de bloque ⇒ exit 0" 0 "" prep_a_tier_bloque
 caso_fm "docs/ y README.md exentos ⇒ exit 0" 0 "" prep_a_docs
 caso_fm "sidecar .distill/ de auto-distill exento ⇒ exit 0" 0 "" prep_a_sidecar_distill
 
+# ------------------- reglas duras: rules --check sobre el snapshot staged ---
+# `exo` falso: ante `rules --check --kb <dir>` deja marca con el --kb recibido,
+# cuenta las líneas `- ` bajo `## Reglas duras` y sale 3 si alguna nota pasa de
+# 10. EXO_FAKE_SIN_CHECK=1 emula un engine anterior (clap, exit 2);
+# EXO_FAKE_RC_CHECK=<n> fuerza ese exit.
+EXO_REGLAS="$TMP/exo-reglas"
+cat > "$EXO_REGLAS" <<'EOF'
+#!/usr/bin/env bash
+[ "$1" = rules ] && [ "$2" = "--check" ] && [ "$3" = "--kb" ] || exit 0
+dir="$4"
+[ -n "${EXO_FAKE_MARCA:-}" ] && echo "$dir" > "$EXO_FAKE_MARCA"
+[ "${EXO_FAKE_SIN_CHECK:-}" = 1 ] && exit 2
+[ -n "${EXO_FAKE_RC_CHECK:-}" ] && exit "$EXO_FAKE_RC_CHECK"
+rc=0
+for f in "$dir"/projects/*.md "$dir"/projects/*/*.md "$dir"/core/reglas-duras.md; do
+  [ -f "$f" ] || continue
+  n="$(awk '/^## /{en=($0=="## Reglas duras");next} en&&/^- /{c++} END{print c+0}' "$f")"
+  if [ "$n" -gt 10 ]; then
+    echo "exo rules --check: ${f#$dir/} tiene $n reglas duras (máximo 10): desplaza la última"
+    rc=3
+  fi
+done
+exit $rc
+EOF
+chmod +x "$EXO_REGLAS"
+
+_nota_reglas() { # $1=kb $2=nº reglas
+  local i
+  { printf -- '---\ntier: stable\ntags: [x]\n---\n## Reglas duras\n'
+    for ((i=1;i<=$2;i++)); do printf -- '- regla %d\n' "$i"; done; } > "$1/projects/p.md"
+}
+prep_reglas() { # $1=kb $2=nº reglas staged $3=nº reglas en disco (default = staged)
+  mkdir -p "$1/projects"
+  git -C "$1" init -q
+  git -C "$1" -c user.email=t@t.local -c user.name=t commit -q --allow-empty -m init
+  _nota_reglas "$1" "$2"; git -C "$1" add projects/p.md
+  _nota_reglas "$1" "${3:-$2}"
+}
+corre_reglas() { # $1=kb; deja OUT/RC/MARCA_VISTA
+  rm -f "$TMP/marca-reglas"
+  OUT="$(cd "$1" && EXO_BIN="$EXO_REGLAS" EXO_FAKE_MARCA="$TMP/marca-reglas" "$HOOK" 2>&1)"; RC=$?
+  MARCA_VISTA="$(cat "$TMP/marca-reglas" 2>/dev/null || echo "<sin marca>")"
+}
+
+K="$TMP/r-exceso"; prep_reglas "$K" 11; corre_reglas "$K"
+if [ "$RC" -eq 1 ] && contains "$OUT" "tiene 11 reglas duras (máximo 10)"; then
+  pass "precommit_rechaza_exceso: 11 reglas staged ⇒ exit 1 y mensaje"
+else
+  fail "precommit_rechaza_exceso: 11 reglas staged ⇒ exit 1 y mensaje" "rc=$RC out=$OUT"
+fi
+
+K="$TMP/r-cap"; prep_reglas "$K" 10; corre_reglas "$K"
+if [ "$RC" -eq 0 ] && [ "$MARCA_VISTA" != "<sin marca>" ]; then
+  pass "precommit_pasa_con_cap: 10 reglas ⇒ exit 0 y rules --check invocado"
+else
+  fail "precommit_pasa_con_cap: 10 reglas ⇒ exit 0 y rules --check invocado" "rc=$RC marca=$MARCA_VISTA out=$OUT"
+fi
+
+K="$TMP/r-viejo"; prep_reglas "$K" 11
+OUT="$(cd "$K" && EXO_BIN="$EXO_REGLAS" EXO_FAKE_SIN_CHECK=1 "$HOOK" 2>&1)"; RC=$?
+if [ "$RC" -eq 0 ] && contains "$OUT" "kb-precommit: el engine no conoce «rules --check»; reglas duras sin verificar"; then
+  pass "precommit_engine_viejo: exit 2 ⇒ aviso y no bloquea"
+else
+  fail "precommit_engine_viejo: exit 2 ⇒ aviso y no bloquea" "rc=$RC out=$OUT"
+fi
+
+K="$TMP/r-fallo"; prep_reglas "$K" 10
+OUT="$(cd "$K" && EXO_BIN="$EXO_REGLAS" EXO_FAKE_RC_CHECK=5 "$HOOK" 2>&1)"; RC=$?
+if [ "$RC" -eq 1 ]; then
+  pass "precommit_fallo_engine: exit 5 en --check ⇒ bloquea (fail-closed)"
+else
+  fail "precommit_fallo_engine: exit 5 en --check ⇒ bloquea (fail-closed)" "rc=$RC out=$OUT"
+fi
+
+K1="$TMP/r-idx1"; prep_reglas "$K1" 11 10; corre_reglas "$K1"
+R1=$RC; O1=$OUT; M1=$MARCA_VISTA
+K2="$TMP/r-idx2"; prep_reglas "$K2" 10 11; corre_reglas "$K2"
+if [ "$R1" -eq 1 ] && contains "$O1" "tiene 11 reglas" && [ "$RC" -eq 0 ] \
+   && [ "$M1" != "<sin marca>" ] && [ "$M1" != "$K1" ] \
+   && [ "$MARCA_VISTA" != "<sin marca>" ] && [ "$MARCA_VISTA" != "$K2" ]; then
+  pass "precommit_mira_el_index: staged 11/disco 10 bloquea; staged 10/disco 11 no; --kb es el snapshot"
+else
+  fail "precommit_mira_el_index: staged 11/disco 10 bloquea; staged 10/disco 11 no; --kb es el snapshot" \
+    "r1=$R1 o1=$O1 m1=$M1 rc2=$RC m2=$MARCA_VISTA"
+fi
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

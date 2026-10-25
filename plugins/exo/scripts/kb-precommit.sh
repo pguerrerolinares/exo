@@ -64,6 +64,15 @@ if git -C "$KB" checkout-index -a --prefix="$snap/" 2>/dev/null; then
     echo "$out" >&2
     fail=1
   fi
+
+  # Reglas duras (CAP por sección): exit 2 = engine anterior sin `rules --check`
+  # (clap), solo avisa; 3 = excesos; cualquier otro exit es fallo del engine.
+  out="$("$EXO" rules --check --kb "$snap" 2>&1)"; rc=$?
+  case "$rc" in
+    0) ;;
+    2) echo "kb-precommit: el engine no conoce «rules --check»; reglas duras sin verificar" >&2 ;;
+    *) echo "$out" >&2; fail=1 ;;
+  esac
 else
   echo "kb-precommit: no pude materializar el index; presupuestos no verificados" >&2
 fi
