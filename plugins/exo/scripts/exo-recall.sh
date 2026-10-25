@@ -34,6 +34,9 @@ RECON-FIRST (look before you leap) en tareas DURAS/desconocidas/time-boxed: ante
 EXO_BIN="${EXO_BIN:-$(command -v exo 2>/dev/null || echo "$HOME/.local/bin/exo")}"
 EXO_INDEX="${EXO_INDEX:-$HOME/.exo/index.db}"
 EXO_CAP="${EXO_RECALL_CAP:-6144}"
+# Cap del bloque FINAL (contrato + avisos), aplicado tras extraer. Distinto de
+# EXO_CAP: ese es el --cap-bytes del engine y cortaría ANTES de extraer.
+BLOQUE_CAP="${RECALL_BLOQUE_CAP:-1500}"
 # ENGINE_MIN (campaña H): el mínimo de engine que ESTE plugin declara
 # necesitar, sobreescribible por test (`ENGINE_MIN=x.y.z`, seam igual que
 # EXO_BIN/EXO_INDEX de arriba). Sin override, el fichero versionado junto al
@@ -121,6 +124,11 @@ elif [ "$RULES_ENGINE" = ok ]; then
     # cosa), y es mejor el fallback conocido que un bloque plausible pero falso.
     log_recall_fallback "no-contract"
     BASE=""
+  else
+    # Solo la sección de contrato: hasta el siguiente `## `. Sin encabezado
+    # (el guard casó por texto) el bloque servido se queda entero.
+    SECCION="$(printf '%s\n' "$BASE" | awk '/^## Contrato de memoria/{d=1; print; next} d && /^## /{exit} d{print}')"
+    [ -n "$SECCION" ] && BASE="$SECCION"
   fi
 else
   ENGINE_VER="${ENGINE_VER:-desconocida}"
@@ -145,6 +153,7 @@ TEXTO="$BASE"
 # embebidos). Riesgo práctico bajo y se acepta: `source` es un enum que fija
 # el harness de Claude Code ("startup"/"resume"/"clear"/"compact"/"vscode"),
 # no texto libre que un agente o un tercero pueda inyectar.
+REAFIRMA=""
 SOURCE=""; SID=""
 IFS=$'\x1f' read -r SOURCE SID <<< "$(printf '%s' "$INPUT" | jq -r '[(.source // ""), (.session_id // "")] | join("\u001f")' 2>/dev/null)"
 
@@ -165,7 +174,7 @@ if [ "$SOURCE" = "compact" ] && [ -n "$SID" ] && [ -f "$HOME/.claude/reflex-log.
       esac
     done
     if [ -n "$PIN" ]; then
-      TEXTO="${TEXTO}
+      REAFIRMA="
 
 --- Reglas reforzadas tras compactacion (dispararon esta sesion) ---
 $(printf '%b' "$PIN" | awk '!seen[$0]++')"
@@ -261,6 +270,18 @@ ${GATE_AVISOS}"
   fi
 fi
 
+# --- Cap del bloque: contrato + avisos, y la reafirmación de compact FUERA ---
+# El corte es por el final: los avisos caen antes que el contrato.
+BYTES_ANTES="$(printf '%s' "$TEXTO" | wc -c | tr -d ' ')"
+if [ "$BYTES_ANTES" -gt "$BLOQUE_CAP" ]; then
+  # iconv -c descarta el carácter UTF-8 partido por el corte (si no, jq lo
+  # sustituiría por U+FFFD, de 3 B, y el bloque pasaría del cap).
+  TEXTO="$(printf '%s' "$TEXTO" | head -c "$BLOQUE_CAP" | { iconv -c -f UTF-8 -t UTF-8 2>/dev/null || cat; })"
+  . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && \
+    reflex_log "recall-truncated" "${INPUT:-"{}"}" "bytes=$BYTES_ANTES cap=$BLOQUE_CAP" || true
+fi
+TEXTO="${TEXTO}${REAFIRMA}"
+
 # --- Reglas de proyecto (2d): resuelve para el testigo de Stop y grita anomalías ---
 # El mod inyecta las reglas en el system prompt; aquí solo se resuelve para
 # dejar `ss-<sid>` (lo que SessionStart vio) y avisar. Nada va a additionalContext.
@@ -271,7 +292,7 @@ if [ "$SOURCE" != "compact" ] && [ -n "$RULES_ENGINE" ]; then
   find "$RULES_DIR" -maxdepth 1 -type f \( -name 'ss-*' -o -name 'hb-*' \) -mtime +7 -delete 2>/dev/null
   RCWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)"
   RCWD="${RCWD:-$PWD}"
-  RSTATUS=""; RREASON=""; RREPO=""; RN=0; RERR=""
+  RSTATUS=""; RREASON=""; RREPO=""; RN=0; RNG=0; RTRUNC=0; RERR=""
   if [ "$RULES_ENGINE" = stale ]; then
     # Un engine viejo no tiene `exo rules`: ni se llama.
     RSTATUS=skip; RREASON=engine_stale
@@ -282,29 +303,36 @@ if [ "$SOURCE" != "compact" ] && [ -n "$RULES_ENGINE" ]; then
     RERR="$(head -c 200 "$RERR_TMP" 2>/dev/null | tr '\n' ' ')"
     rm -f "$RERR_TMP"
     if [ "$RRC" -eq 0 ]; then
-      IFS=$'\x1f' read -r RSTATUS RREASON RREPO RN <<< "$(printf '%s' "$ROUT" | jq -r '[(.data.status // ""), (.data.reason // ""), (.data.repo // ""), ((.data.rules // []) | length | tostring)] | join("\u001f")' 2>/dev/null)"
+      IFS=$'\x1f' read -r RSTATUS RREASON RREPO RN RNG RTRUNC <<< "$(printf '%s' "$ROUT" | jq -r '[(.data.status // ""), (.data.reason // ""), (.data.repo // ""), ((.data.rules // []) | length | tostring), ((.data.global // []) | length | tostring), ((.data.truncated // 0) | tostring)] | join("\u001f")' 2>/dev/null)"
     fi
     case "$RSTATUS" in
       ok|skip) ;;
-      *) RSTATUS=skip; RREASON=error_engine; RREPO=""; RN=0 ;;
+      *) RSTATUS=skip; RREASON=error_engine; RREPO=""; RN=0; RNG=0; RTRUNC=0 ;;
     esac
   fi
   [ "$RSTATUS" = skip ] && RN=0
   [ "$RREASON" = error_engine ] || RERR=""
   case "${RN:-}" in ''|*[!0-9]*) RN=0 ;; esac
+  case "${RNG:-}" in ''|*[!0-9]*) RNG=0 ;; esac
+  case "${RTRUNC:-}" in ''|*[!0-9]*) RTRUNC=0 ;; esac
+  RN=$((RN + RNG))
   if [ "$RSTATUS" = skip ]; then
     RLABEL="${RREPO:-$(basename "$RCWD")}"
     . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && \
       reflex_log "project-rules-skip" "${INPUT:-"{}"}" "reason=$RREASON repo=${RREPO:--}${RERR:+ err=$RERR}" || true
     case "$RREASON" in
-      ambigua|seccion_vacia|excede_cap|error_engine|engine_stale)
+      ambigua|seccion_vacia|error_engine|engine_stale)
         VISIBLE="⚠ sin reglas de proyecto para $RLABEL ($RREASON)" ;;
     esac
   fi
+  if [ "$RTRUNC" -gt 0 ]; then
+    # El recorte puede venir de las globales: no se atribuye al repo.
+    VISIBLE="${VISIBLE:+$VISIBLE; }⚠ $RTRUNC reglas duras recortadas al máximo de 10 (corre «exo rules --check»)"
+  fi
   if [ -n "$SID" ] && [ "${SID#*/}" = "$SID" ]; then
     mkdir -p "$RULES_DIR" 2>/dev/null
-    jq -cn --arg st "$RSTATUS" --arg rs "$RREASON" --arg repo "$RREPO" --argjson n "$RN" \
-      '{status:$st} + (if $rs=="" then {} else {reason:$rs} end) + {n:$n, repo:(if $repo=="" then null else $repo end)}' \
+    jq -cn --arg st "$RSTATUS" --arg rs "$RREASON" --arg repo "$RREPO" --argjson n "$RN" --argjson ng "$RNG" \
+      '{status:$st} + (if $rs=="" then {} else {reason:$rs} end) + {n:$n, n_global:$ng, repo:(if $repo=="" then null else $repo end)}' \
       > "$RULES_DIR/ss-$SID.tmp" 2>/dev/null && mv -f "$RULES_DIR/ss-$SID.tmp" "$RULES_DIR/ss-$SID" 2>/dev/null
   fi
 fi

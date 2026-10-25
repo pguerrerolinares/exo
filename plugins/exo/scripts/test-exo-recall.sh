@@ -252,11 +252,11 @@ case "\$1" in
   rules)
     echo "\$*" >> "$RULES_CALLS"
     case "\${RULES_MODE:-ok}" in
-      ok) echo '{"schema_version":2,"command":"rules","data":{"status":"ok","repo":"mirepo","note":"projects/mirepo.md","rules":["a","b","c"],"ignored_lines":[]}}' ;;
+      ok) echo '{"schema_version":2,"command":"rules","data":{"status":"ok","repo":"mirepo","note":"projects/mirepo.md","rules":["a","b","c"],"ignored_lines":[],"global":'"\${STUB_GLOBAL:-[]}"',"truncated":'"\${STUB_TRUNC:-0}"'}}' ;;
       vacio) exit 0 ;;
       error) echo 'boom-stderr-del-engine' >&2; exit 1 ;;
       cuelga) exec sleep 10 ;;
-      skip:*) echo '{"schema_version":2,"command":"rules","data":{"status":"skip","repo":"mirepo","reason":"'"\${RULES_MODE#skip:}"'","candidates":[]}}' ;;
+      skip:*) echo '{"schema_version":2,"command":"rules","data":{"status":"skip","repo":"mirepo","reason":"'"\${RULES_MODE#skip:}"'","candidates":[],"global":'"\${STUB_GLOBAL:-[]}"',"truncated":'"\${STUB_TRUNC:-0}"'}}' ;;
     esac ;;
   *) exit 1 ;;
 esac
@@ -274,7 +274,7 @@ reglas_hook() {  # $1=input JSON, $2=RULES_MODE, resto env extra
 ss_de() { jq -c . "$RULES_DIR/ss-$1" 2>/dev/null; }
 
 reglas_hook '{"session_id":"r-ok","cwd":"/tmp/proy-x"}' ok
-if [ -z "$SYSMSG" ] && [ "$(ss_de r-ok)" = '{"status":"ok","n":3,"repo":"mirepo"}' ] \
+if [ -z "$SYSMSG" ] && [ "$(ss_de r-ok)" = '{"status":"ok","n":3,"n_global":0,"repo":"mirepo"}' ] \
    && [ "$CTX_R" = "Contrato de memoria: bloque de prueba camino feliz." ] && [ ! -s "$LOGC" ] \
    && grep -q -- '--cwd /tmp/proy-x' "$RULES_CALLS"; then
   pass "reglas_ok_silencioso: ss ok n=3, sin systemMessage, additionalContext intacto, cwd del input"
@@ -287,7 +287,7 @@ else fail "sin_seccion_solo_log" "sys='$SYSMSG' log=$(cat "$LOGC")"; fi
 
 reglas_hook '{"session_id":"r-amb"}' skip:ambigua
 if [ "$SYSMSG" = "⚠ sin reglas de proyecto para mirepo (ambigua)" ] && [ "$(regla_evento)" = "project-rules-skip" ] \
-   && [ "$(ss_de r-amb)" = '{"status":"skip","reason":"ambigua","n":0,"repo":"mirepo"}' ]; then
+   && [ "$(ss_de r-amb)" = '{"status":"skip","reason":"ambigua","n":0,"n_global":0,"repo":"mirepo"}' ]; then
   pass "ambigua_visible: systemMessage con el copy fijado + reflex-log + ss"
 else fail "ambigua_visible" "sys='$SYSMSG' log=$(cat "$LOGC") ss=$(ss_de r-amb)"; fi
 
@@ -306,7 +306,7 @@ else fail "error_engine_stderr" "log=$(cat "$LOGC")"; fi
 
 rm -f "$RULES_DIR/ss-r-sin-indice"
 reglas_hook '{"session_id":"r-sin-indice","cwd":"/tmp/proy-y"}' ok EXO_INDEX="$TMP/no-existe.db"
-if [ -s "$RULES_CALLS" ] && [ "$(ss_de r-sin-indice)" = '{"status":"ok","n":3,"repo":"mirepo"}' ]; then
+if [ -s "$RULES_CALLS" ] && [ "$(ss_de r-sin-indice)" = '{"status":"ok","n":3,"n_global":0,"repo":"mirepo"}' ]; then
   pass "sin_indice_resuelve_reglas: engine OK e índice ausente ⇒ exo rules llamado y ss escrito"
 else fail "sin_indice_resuelve_reglas" "calls=$(cat "$RULES_CALLS") ss=$(ss_de r-sin-indice)"; fi
 
@@ -460,6 +460,106 @@ printf '%s' '{"session_id":"g3"}' | env EXO_BIN="$STUB_FELIZ" EXO_INDEX="$TMP/in
 if [ "$RC_G" = 0 ] && jq -e . "$TMP/out.txt" >/dev/null 2>&1 && ! grep -q 'gate pendiente' "$TMP/out.txt"; then
   pass "kb_sin_git_no_rompe"
 else fail "kb_sin_git_no_rompe" "rc=$RC_G out=$(cat "$TMP/out.txt")"; fi
+
+# ------------------- #184: arranque podado (contrato + avisos, cap 1.500 B) ---
+# Stub con core-index multisección; CORE_MODE elige el contenido servido.
+STUB_CORE="$TMP/exo-stub-core"
+cat > "$STUB_CORE" <<'EOF'
+#!/usr/bin/env bash
+case "$1" in
+  --version) echo "exo 9.0.0" ;;
+  config) echo '{"schema_version":2,"command":"config","data":{"kb":{"name":"kb-test","path":"/tmp/kb-test"}}}' ;;
+  recall)
+    case "${CORE_MODE:-multi}" in
+      multi)
+        printf '# core-index\n\nintro\n\n## Doctrina compacta\n- doctrina-x\n\n## Contrato de memoria\nCONTRATO-LINEA-1\nCONTRATO-LINEA-2\n\n## Cores\n- core-x\n\n## Actividad reciente\n- act-x\n' ;;
+      grande)
+        printf '## Contrato de memoria\n'; awk 'BEGIN{for(i=0;i<40;i++) printf "%049d\n", i}'
+        printf '\n## Cores\n- core-x\n' ;;
+      sinhdr) echo "Contrato de memoria: una sola linea sin encabezado." ;;
+    esac ;;
+  rules) echo '{"schema_version":2,"command":"rules","data":{"status":"ok","repo":"r","note":"projects/r.md","rules":[],"ignored_lines":[]}}' ;;
+  *) exit 1 ;;
+esac
+EOF
+chmod +x "$STUB_CORE"
+touch "$TMP/index-core.db"
+core_hook() {  # $1=input JSON, $2=CORE_MODE, resto env extra
+  local input="$1" mode="$2"; shift 2
+  : > "$LOGC"
+  run_hook "$input" EXO_BIN="$STUB_CORE" EXO_INDEX="$TMP/index-core.db" ENGINE_MIN=0.1.0 CORE_MODE="$mode" "$@"
+  CTX_C="$(printf '%s' "$HOOK_OUT" | jq -r '.hookSpecificOutput.additionalContext' 2>/dev/null)"
+}
+bytes_de() { printf '%s' "$1" | wc -c | tr -d ' '; }
+empieza_por_contrato() { case "$1" in "## Contrato de memoria"*) return 0 ;; *) return 1 ;; esac; }
+
+core_hook '{"session_id":"c1"}' multi
+if empieza_por_contrato "$CTX_C" && contains "$CTX_C" "CONTRATO-LINEA-2"; then
+  pass "bloque_empieza_por_contrato: additionalContext arranca en la sección de contrato"
+else fail "bloque_empieza_por_contrato" "ctx='$CTX_C'"; fi
+if ! contains "$CTX_C" "## Doctrina compacta" && ! contains "$CTX_C" "## Cores" \
+   && ! contains "$CTX_C" "Actividad reciente" && ! contains "$CTX_C" "# core-index"; then
+  pass "bloque_solo_contrato: sin doctrina, cores ni actividad reciente"
+else fail "bloque_solo_contrato" "ctx='$CTX_C'"; fi
+
+core_hook '{"session_id":"c2"}' sinhdr
+if contains "$CTX_C" "una sola linea sin encabezado" && [ ! -s "$LOGC" ]; then
+  pass "bloque_sin_encabezado: sin '## Contrato de memoria' el bloque servido va entero"
+else fail "bloque_sin_encabezado" "ctx='$CTX_C' log=$(cat "$LOGC")"; fi
+
+core_hook '{"session_id":"c3"}' grande
+if [ "$(bytes_de "$CTX_C")" -le 1500 ] && [ "$(bytes_de "$CTX_C")" -gt 1000 ] \
+   && [ "$(ultimo_evento)" = "recall-truncated" ] && contains "$(ultimo_payload)" "cap=1500" \
+   && contains "$(ultimo_payload)" "bytes="; then
+  pass "bloque_cap_1500: contrato de ~2 KB ⇒ bloque <= 1500 B y evento recall-truncated"
+else fail "bloque_cap_1500" "bytes=$(bytes_de "$CTX_C") ev=$(ultimo_evento) pl=$(ultimo_payload)"; fi
+
+core_hook '{"session_id":"c4"}' grande RECALL_BLOQUE_CAP=300
+if [ "$(bytes_de "$CTX_C")" -le 300 ]; then pass "bloque_cap_configurable: RECALL_BLOQUE_CAP baja el cap"
+else fail "bloque_cap_configurable" "bytes=$(bytes_de "$CTX_C")"; fi
+
+# compact: la reafirmación queda fuera del cap aunque el contrato lo llene
+printf '{"ts":"t","reflex":"git-c","session_id":"c5","agent_id":"","agent_type":"","tool":"Bash","payload":"x"}\n' > "$LOGC"
+printf '%s' '{"session_id":"c5","source":"compact"}' | env EXO_BIN="$STUB_CORE" EXO_INDEX="$TMP/index-core.db" ENGINE_MIN=0.1.0 CORE_MODE=grande "$HOOK" > "$TMP/out.txt" 2>/dev/null
+CTX_C="$(jq -r '.hookSpecificOutput.additionalContext' "$TMP/out.txt" 2>/dev/null)"
+SEP_REAF=$'\n\n--- Reglas reforzadas'
+PARTE_CONTRATO="${CTX_C%%"$SEP_REAF"*}"
+if contains "$CTX_C" "--- Reglas reforzadas tras compactacion" && contains "$CTX_C" 'git -C X' \
+   && [ "$(bytes_de "$PARTE_CONTRATO")" -le 1500 ] && [ "$(bytes_de "$CTX_C")" -gt 1500 ]; then
+  pass "compact_fuera_del_cap: cap actuó sobre el contrato y la reafirmación sigue presente"
+else fail "compact_fuera_del_cap" "contrato=$(bytes_de "$PARTE_CONTRATO") total=$(bytes_de "$CTX_C")"; fi
+
+# avisos operativos dentro del cap y recortados DESPUÉS del contrato
+nuevo_kb avisos
+kbcommit 4000 "$(printf 'docs(kb): nota grande\n\n%s' "$GATE_TRAILER")"
+core_hook '{"session_id":"c6"}' multi EXO_KB="$KBG"
+if contains "$CTX_C" "gate pendiente en" && contains "$CTX_C" "CONTRATO-LINEA-2" \
+   && [ "$(bytes_de "$CTX_C")" -le 1500 ]; then
+  pass "avisos_dentro_del_cap: el gate pendiente entra tras el contrato"
+else fail "avisos_dentro_del_cap" "ctx='$CTX_C'"; fi
+core_hook '{"session_id":"c7"}' grande EXO_KB="$KBG"
+if ! contains "$CTX_C" "gate pendiente" && [ "$(bytes_de "$CTX_C")" -le 1500 ] \
+   && empieza_por_contrato "$CTX_C"; then
+  pass "avisos_recortan_despues: con contrato lleno el cap come el aviso, no el contrato"
+else fail "avisos_recortan_despues" "bytes=$(bytes_de "$CTX_C") ctx='${CTX_C:0:80}'"; fi
+
+# ss con global
+reglas_hook '{"session_id":"r-glob"}' skip:sin_nota STUB_GLOBAL='["g1","g2"]'
+if [ "$(ss_de r-glob)" = '{"status":"skip","reason":"sin_nota","n":2,"n_global":2,"repo":"mirepo"}' ] && [ -z "$SYSMSG" ]; then
+  pass "ss_cuenta_global: skip + 2 globales ⇒ n=2 n_global=2"
+else fail "ss_cuenta_global" "ss=$(ss_de r-glob) sys='$SYSMSG'"; fi
+reglas_hook '{"session_id":"r-glob2"}' ok STUB_GLOBAL='["g1","g2"]'
+if [ "$(ss_de r-glob2)" = '{"status":"ok","n":5,"n_global":2,"repo":"mirepo"}' ]; then
+  pass "ss_suma_proyecto_y_global: ok con 3 de proyecto + 2 globales ⇒ n=5"
+else fail "ss_suma_proyecto_y_global" "ss=$(ss_de r-glob2)"; fi
+
+reglas_hook '{"session_id":"r-trunc"}' ok STUB_TRUNC=4
+if [ "$SYSMSG" = "⚠ 4 reglas duras recortadas al máximo de 10 (corre «exo rules --check»)" ] && ! contains "$SYSMSG" "excede_cap"; then
+  pass "sin_excede_cap: truncated>0 ⇒ aviso de recorte sin atribuirlo al repo"
+else fail "sin_excede_cap" "sys='$SYSMSG'"; fi
+reglas_hook '{"session_id":"r-trunc2"}' skip:excede_cap
+if [ -z "$SYSMSG" ]; then pass "sin_excede_cap: el engine ya no lo emite; sin aviso propio"
+else fail "sin_excede_cap (reason legado)" "sys='$SYSMSG'"; fi
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
