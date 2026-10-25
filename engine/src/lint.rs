@@ -593,9 +593,26 @@ pub fn indice_ligero(kb: &Path) -> Result<rusqlite::Connection> {
     Ok(conn)
 }
 
+/// Clave de comparación con la baseline: (tipo, ruta, detalle), salvo que el
+/// `detalle` sea una cifra volátil. `budget_exceeded` lleva el tamaño en bytes y
+/// `index_stale` sin ruta lleva un recuento de notas; con ellos en la clave, una
+/// nota que sigue excediendo tras una evicción parcial (o una propuesta de
+/// partición) sería un hallazgo «nuevo» y el auto-distill nunca podría
+/// commitear justo el caso para el que se lanza. Que la nota exceda es la misma
+/// deuda; que crezca es cosa del brief (`wc -c`), no del lint.
+fn clave_estable(h: &Hallazgo) -> (String, String, String) {
+    let volatil = h.tipo == "budget_exceeded" || (h.tipo == "index_stale" && h.ruta.is_empty());
+    let detalle = if volatil {
+        String::new()
+    } else {
+        h.detalle.clone()
+    };
+    (h.tipo.clone(), h.ruta.clone(), detalle)
+}
+
 /// Lint de `kb` descontando lo que ya estaba en `baseline`: un hallazgo del
-/// worktree solo cuenta si su (tipo, ruta, detalle) no aparece en el informe de
-/// la baseline. Se compara por valor y no por posición ni por conteo: mover
+/// worktree solo cuenta si su `clave_estable` no aparece en el informe de la
+/// baseline. Se compara por valor y no por posición ni por conteo: mover
 /// líneas no debe inventar hallazgos, y un hallazgo idéntico repetido en el
 /// worktree se trata como el mismo.
 ///
@@ -616,14 +633,14 @@ pub fn analiza_con_baseline(
         analiza(&conn, baseline, presupuestos, excluidos)?
             .hallazgos
             .into_iter()
-            .map(|h| (h.tipo, h.ruta, h.detalle))
+            .map(|h| clave_estable(&h))
             .collect()
     };
     let conn = indice_ligero(kb)?;
     let mut informe = analiza(&conn, kb, presupuestos, excluidos)?;
     informe
         .hallazgos
-        .retain(|h| !previos.contains(&(h.tipo.clone(), h.ruta.clone(), h.detalle.clone())));
+        .retain(|h| !previos.contains(&clave_estable(h)));
     informe.ok = informe.hallazgos.is_empty();
     Ok(informe)
 }

@@ -118,3 +118,19 @@ fn baseline_y_db_son_excluyentes() {
         String::from_utf8_lossy(&o.stderr)
     );
 }
+
+#[test]
+fn nota_que_sigue_excediendo_con_otro_tamano_es_la_misma_deuda() {
+    // Evicción parcial o solo propuesta de partición: la nota baja pero sigue
+    // sobre el techo. El tamaño vive en el `detalle`, que no debe romper la
+    // comparación.
+    let base = tempfile::tempdir().unwrap();
+    let wt = tempfile::tempdir().unwrap();
+    let grande =
+        |n: usize| nota("kb/g", &format!("{}\n[[kb/g]]", "x".repeat(n))).replace("stable", "core");
+    fs::write(base.path().join("g.md"), grande(14_000)).unwrap();
+    fs::write(wt.path().join("g.md"), grande(12_000)).unwrap();
+
+    let o = lint(wt.path(), base.path());
+    assert_eq!(o.status.code(), Some(0), "stdout: {}", texto(&o));
+}

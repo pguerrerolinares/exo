@@ -54,13 +54,22 @@ enteros verbatim; no resumes ni reescribes prosa.
    mantenedor. Subir el techo (`kbx_budget_max`) no es alternativa y no la
    propongas: sin llegar al 60 %, la única salida es la partición.
 6. Verifica antes de commitear: (a) conservación, todo bloque que sale del
-   canon aparece literal en el sidecar; (b) `wc -c` de la nota ≤60 % del techo
-   (solo si llegaste; si no, que la propuesta de partición esté en el cuerpo); (c) `exo budget --kb <wt>` sin offenders; (d) `exo lint
+   canon aparece literal en el sidecar; (b) **solo si llegaste al 60 %**:
+   `wc -c` de la nota ≤60 % del techo (si no llegaste, la propuesta de
+   partición va en el cuerpo y (b) no aplica); (c) `exo budget --kb <wt>`: sus
+   offenders son un subconjunto de los de `exo budget --kb <kb>` (ninguno nuevo)
+   y la nota tocada no pesa más que antes (`wc -c` ≤ el de `<kb>`); si llegaste
+   al 60 % tampoco es offender. Seguir sobre el techo sin crecer es válido
+   (evicción parcial, solo propuesta); (d) `exo lint
    --kb <wt> --baseline <kb>` sale 0 (exit 3 = hallazgos que tu rama introduce:
    no commitees). Es mecánico: solo cuentan los hallazgos que `<kb>` no tiene;
-   los previos, ajenos a tu cambio, **no bloquean**: cita en una línea del cuerpo
-   del commit `Lint previo: <n> hallazgo(s) ajenos` (sin lista) y sigue. No
-   juzgues tú qué hallazgo es «tuyo». Si algo más falla, **no commitees**: deja el informe.
+   una nota que ya excedía y sigue excediendo (con otro tamaño) es el mismo
+   hallazgo; los previos **no bloquean**: cita en una línea del cuerpo del commit
+   `Lint previo: <n> hallazgo(s) ajenos` (sin lista) y sigue. No juzgues tú qué
+   hallazgo es «tuyo». Todo camino tiene salida: evicción completa cumple
+   a–d; evicción parcial, (a), (c) y (d) con (b) no aplicable; solo propuesta
+   (sin bloques movidos, nota intacta), (c) y (d) trivialmente. Si algo falla,
+   **no commitees**: deja el informe.
 7. Commit en tu rama, con rutas explícitas (`git -C <wt> add <ruta>
    .distill/<slug>-moved.md`, solo lo que exista): subject `docs(kb): auto-distill
    <slug> — <evicción|propuesta de partición|evicción + partición>`; cuerpo con una línea
