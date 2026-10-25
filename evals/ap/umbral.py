@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Ap (spec §7.2, #190) — umbrales k(N) y potencia. Escrito ANTES de sembrar y de correr.
 
-Uso: umbral.py [--potencia]  → tabla en stdout (la que sella preregistro.md).
+Uso: umbral.py [--potencia] [--k K]  → tabla en stdout. Sin --k (K=3) es la que sella preregistro.md;
+con --k 5 es la de la errata E1 (erratas.md): pasa con mayoría (>= 3 de 5) y N desde 16.
 
 Modelo nulo: éxito por corrida p_i ~ Beta(A, B) por sonda, ajustada por momentos a las 24 sondas de
 proyecto del brazo O de la campaña M (65/72 = 0,903; distribución 19/3/2/0 en 3/3, 2/3, 1/3, 0/3).
@@ -17,7 +18,9 @@ import math
 import sys
 
 A, B = 2.86, 0.31
-N_MIN, N_MAX = 18, 24
+K = int(sys.argv[sys.argv.index("--k") + 1]) if "--k" in sys.argv else 3  # réplicas por sonda y brazo
+PASA = K // 2 + 1  # mayoría: 2 de 3, 3 de 5
+N_MIN, N_MAX = (18, 24) if K == 3 else (16, 24)
 ALFA = 0.025
 CANAL_MIN = 0.80
 SEMILLA, SIMS, BOOT = 20261025, 2000, 1000
@@ -28,7 +31,15 @@ def momento(n):
     return math.prod((A + i) / (A + B + i) for i in range(n))
 
 
-Q = 3 * momento(2) - 2 * momento(3)
+def _q():
+    if K == 3:
+        return 3 * momento(2) - 2 * momento(3)  # forma cerrada de la tabla sellada
+    # beta-binomial: P(>= PASA de K) = Σ C(K,j) B(j+A, K-j+B) / B(A,B)
+    lb = lambda x, y: math.lgamma(x) + math.lgamma(y) - math.lgamma(x + y)
+    return sum(math.comb(K, j) * math.exp(lb(j + A, K - j + B) - lb(A, B)) for j in range(PASA, K + 1))
+
+
+Q = _q()
 
 
 def cdf_lt(n, q, k):
@@ -54,21 +65,21 @@ def potencia(n, escenario, rng):
             pa = p.copy(); pa[rng.choice(n, int(escenario[6:]), replace=False)] = 0.05
         else:
             pa = p
-        s1 = rng.binomial(3, p); s0 = rng.binomial(3, pa)
+        s1 = rng.binomial(K, p); s0 = rng.binomial(K, pa)
         r, k, s = umbrales(n)
-        if (s1 >= 2).sum() < r or s1.sum() / (3 * n) < CANAL_MIN:
+        if (s1 >= PASA).sum() < r or s1.sum() / (K * n) < CANAL_MIN:
             sin_replica += 1
             continue  # sin réplica no se adjudica: no cuenta como caída
-        d = (s0 - s1) / 3
+        d = (s0 - s1) / K
         medias = np.sort(d[rng.integers(0, n, (BOOT, n))].mean(axis=1))
         pareado = medias[int(0.975 * BOOT) - 1] < 0
-        absoluto = (s1 >= 2).sum() >= s and (s0 >= 2).sum() < k
+        absoluto = (s1 >= PASA).sum() >= s and (s0 >= PASA).sum() < k
         cae += pareado or absoluto
     return cae / SIMS, sin_replica / SIMS
 
 
 def main():
-    print(f"q = P(sonda >= 2/3 | nula) = {Q:.4f}  (Beta({A}, {B}))")
+    print(f"q = P(sonda >= {PASA}/{K} | nula) = {Q:.4f}  (Beta({A}, {B}))")
     print("N  | réplica Ap1 >= r | cae abs. si Ap < k | abs. solo si Ap1 >= s | P(no réplica) | α abs.")
     for n in range(N_MIN, N_MAX + 1):
         r, k, s = umbrales(n)
@@ -77,7 +88,7 @@ def main():
         import numpy as np
         rng = np.random.default_rng(SEMILLA)
         print("\nN  | P(cae): nula · moderada · fuerte · pierde3 · pierde5 | P(sin réplica | nula)")
-        for n in (N_MIN, 21, N_MAX):
+        for n in ((N_MIN, 21, N_MAX) if K == 3 else (N_MIN, 20, N_MAX)):
             fila = [potencia(n, e, rng) for e in ("nula", "moderada", "fuerte", "pierde3", "pierde5")]
             print(f"{n} | " + " · ".join(f"{c:.2f}" for c, _ in fila) + f" | {fila[0][1]:.3f}")
 
