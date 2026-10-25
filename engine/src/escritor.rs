@@ -9,10 +9,10 @@
 //! del canon se queda en la tool `Edit`, que opera sobre texto exacto y no
 //! parsea headings.
 
+use crate::nota::comilla_simple_yaml;
 use anyhow::{Context, Result};
 use serde::Serialize;
 use std::io::{Seek, SeekFrom, Write};
-use crate::nota::comilla_simple_yaml;
 use std::path::{Path, PathBuf};
 
 /// Gate rechazado: una decisión que se le devuelve al llamador, no un fallo.
@@ -670,8 +670,18 @@ fn compone_frontmatter(
         }
     };
 
-    añade("permalink", comilla_simple_yaml(permalink), &mut nuevas, &mut completado);
-    añade("title", comilla_simple_yaml(titulo), &mut nuevas, &mut completado);
+    añade(
+        "permalink",
+        comilla_simple_yaml(permalink),
+        &mut nuevas,
+        &mut completado,
+    );
+    añade(
+        "title",
+        comilla_simple_yaml(titulo),
+        &mut nuevas,
+        &mut completado,
+    );
     añade("type", "note".into(), &mut nuevas, &mut completado);
     if let Some(t) = tier {
         añade("tier", t.into(), &mut nuevas, &mut completado);

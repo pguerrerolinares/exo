@@ -107,7 +107,7 @@ flowchart TD
     WALK --> MT{"¿mtime igual al<br/>de la tabla notas?"}
     MT -->|"sí"| SKIP["saltada<br/>(ni parseo ni modelo)"]
     MT -->|"no"| PARSE["nota::parsea_nota<br/>frontmatter YAML + cuerpo"]
-    PARSE -->|"sin permalink:"| WARN["aviso stderr, contador<br/>'unreadable' del envelope<br/>(jamás se genera uno)"]
+    PARSE -->|"YAML inválido o<br/>sin permalink:"| WARN["aviso stderr que distingue<br/>YAML inválido de sin permalink;<br/>contador 'unreadable' del envelope<br/>(jamás se genera uno)"]
     PARSE -->|"con permalink"| TX
     subgraph TX["transacción por nota (rollback si falla a mitad)"]
         NOTAS["upsert en notas<br/>permalink, ruta, titulo, mtime,<br/>git_epoch (último commit git, no mtime)"]
