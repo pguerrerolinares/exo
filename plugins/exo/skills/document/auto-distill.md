@@ -66,7 +66,8 @@ enteros verbatim; no resumes ni reescribes prosa.
    una nota que ya excedía y sigue excediendo (con otro tamaño) es el mismo
    hallazgo; los previos **no bloquean**: cita en una línea del cuerpo del commit
    `Lint previo: <n> hallazgo(s) ajenos` (sin lista) y sigue. No juzgues tú qué
-   hallazgo es «tuyo». Todo camino tiene salida: evicción completa cumple
+   hallazgo es «tuyo». Si `--baseline` no existe (exit 2, engine < 0.11.0), abstención ruidosa
+   citando `exo --version`. Todo camino tiene salida: evicción completa cumple
    a–d; evicción parcial, (a), (c) y (d) con (b) no aplicable; solo propuesta
    (sin bloques movidos, nota intacta), (c) y (d) trivialmente. Si algo falla,
    **no commitees**: deja el informe.
