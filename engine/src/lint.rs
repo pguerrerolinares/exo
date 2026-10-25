@@ -564,6 +564,70 @@ pub fn analiza(
     })
 }
 
+/// Índice en memoria construido solo desde el disco de `kb`: notas, aristas y
+/// su resolución, sin embeddings, sin git y sin tocar ninguna DB en disco.
+///
+/// Existe para `--baseline`: el índice persistente describe UNA KB (la
+/// principal), no el worktree que se está juzgando, así que `orphan`,
+/// `broken_link` e `index_stale` leídos de él miran el árbol equivocado. Con el
+/// mismo constructor a ambos lados, la diferencia entre los dos informes solo
+/// puede venir de los ficheros. Reutiliza las funciones del indexer (`parsea_nota`,
+/// `reindexa_aristas_de_nota`, `resuelve_destinos`), no su semántica copiada.
+pub fn indice_ligero(kb: &Path) -> Result<rusqlite::Connection> {
+    let conn = crate::abre_db_en_memoria()?;
+    crate::schema::crea_schema(&conn)?;
+    for abs in crate::walker::walk_kb(kb)? {
+        let Some(n) = crate::nota::parsea_nota(&abs)? else {
+            continue;
+        };
+        let rel = crate::indexer::ruta_relativa(kb, &abs)?;
+        conn.execute(
+            "INSERT OR REPLACE INTO notas (permalink, ruta, titulo, tipo, mtime, git_epoch)
+             VALUES (?1, ?2, ?3, ?4, 0.0, NULL)",
+            rusqlite::params![n.permalink, rel, n.titulo, n.tipo],
+        )
+        .with_context(|| format!("indexar {rel} en memoria"))?;
+        crate::aristas::reindexa_aristas_de_nota(&conn, &n.permalink, &n.cuerpo)?;
+    }
+    crate::aristas::resuelve_destinos(&conn)?;
+    Ok(conn)
+}
+
+/// Lint de `kb` descontando lo que ya estaba en `baseline`: un hallazgo del
+/// worktree solo cuenta si su (tipo, ruta, detalle) no aparece en el informe de
+/// la baseline. Se compara por valor y no por posición ni por conteo: mover
+/// líneas no debe inventar hallazgos, y un hallazgo idéntico repetido en el
+/// worktree se trata como el mismo.
+///
+/// Los dos lados usan `indice_ligero`, no la DB persistente (ver allí). Por eso
+/// `index_stale` no distingue «índice desfasado» —no hay índice que desfasar—
+/// y solo conserva sus causas de disco (extensión, sin `permalink`), que se
+/// comparan igual que el resto.
+///
+/// `waived` sale del `kb` sin filtrar: es superficie de auditoría, no gate.
+pub fn analiza_con_baseline(
+    kb: &Path,
+    baseline: &Path,
+    presupuestos: Presupuestos,
+    excluidos: &[&str],
+) -> Result<InformeLint> {
+    let previos: std::collections::HashSet<(String, String, String)> = {
+        let conn = indice_ligero(baseline)?;
+        analiza(&conn, baseline, presupuestos, excluidos)?
+            .hallazgos
+            .into_iter()
+            .map(|h| (h.tipo, h.ruta, h.detalle))
+            .collect()
+    };
+    let conn = indice_ligero(kb)?;
+    let mut informe = analiza(&conn, kb, presupuestos, excluidos)?;
+    informe
+        .hallazgos
+        .retain(|h| !previos.contains(&(h.tipo.clone(), h.ruta.clone(), h.detalle.clone())));
+    informe.ok = informe.hallazgos.is_empty();
+    Ok(informe)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

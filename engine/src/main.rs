@@ -380,6 +380,13 @@ struct ArgsLint {
     /// Raíz de la KB. Precedencia: flag > $EXO_KB > config.
     #[arg(long)]
     kb: Option<PathBuf>,
+    /// Otra raíz de KB (p. ej. el checkout principal en HEAD) como línea base:
+    /// solo gatean los hallazgos de `--kb` que ella no tiene, comparados por
+    /// (tipo, ruta, detalle). Construye un índice en memoria de cada árbol, sin
+    /// embeddings: no usa ni necesita `--db`, y `index_stale` pierde su causa
+    /// «índice desfasado». Exit 3 solo con hallazgos nuevos.
+    #[arg(long, conflicts_with = "db")]
+    baseline: Option<PathBuf>,
     /// Emite el resultado como envelope JSON en stdout.
     #[arg(long)]
     json: bool,
@@ -1314,21 +1321,31 @@ fn budget_cmd(args: ArgsBudget) -> Result<()> {
 /// inexistente = error real (exit 1, no exit 3): el binario no puede
 /// trabajar, que es distinto de "la KB está mal" (`index_stale` sí es exit 3).
 fn lint_cmd(args: ArgsLint) -> Result<()> {
-    let db_ruta = resuelve_db(args.db)?;
-    if !db_ruta.exists() {
-        anyhow::bail!(
-            "DB no encontrada: {} — corre `exo index` primero",
-            db_ruta.display()
-        );
-    }
-    let kb = resuelve_kb(args.kb)?;
-    let conn = exo::abre_db(&db_ruta)?;
-    let informe = exo::lint::analiza(
-        &conn,
-        &kb,
-        exo::presupuesto::NOMINALES,
-        &exo::presupuesto::EXCLUIDOS,
-    )?;
+    let informe = if let Some(baseline) = &args.baseline {
+        let kb = resuelve_kb(args.kb)?;
+        exo::lint::analiza_con_baseline(
+            &kb,
+            baseline,
+            exo::presupuesto::NOMINALES,
+            &exo::presupuesto::EXCLUIDOS,
+        )?
+    } else {
+        let db_ruta = resuelve_db(args.db)?;
+        if !db_ruta.exists() {
+            anyhow::bail!(
+                "DB no encontrada: {} — corre `exo index` primero",
+                db_ruta.display()
+            );
+        }
+        let kb = resuelve_kb(args.kb)?;
+        let conn = exo::abre_db(&db_ruta)?;
+        exo::lint::analiza(
+            &conn,
+            &kb,
+            exo::presupuesto::NOMINALES,
+            &exo::presupuesto::EXCLUIDOS,
+        )?
+    };
 
     if args.json {
         envelope::emite("lint", serde_json::to_value(&informe)?);

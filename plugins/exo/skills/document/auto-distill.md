@@ -56,7 +56,11 @@ enteros verbatim; no resumes ni reescribes prosa.
 6. Verifica antes de commitear: (a) conservación, todo bloque que sale del
    canon aparece literal en el sidecar; (b) `wc -c` de la nota ≤60 % del techo
    (solo si llegaste; si no, que la propuesta de partición esté en el cuerpo); (c) `exo budget --kb <wt>` sin offenders; (d) `exo lint
-   --kb <wt>` limpio. Si algo falla, **no commitees**: deja el informe.
+   --kb <wt> --baseline <kb>` sale 0 (exit 3 = hallazgos que tu rama introduce:
+   no commitees). Es mecánico: solo cuentan los hallazgos que `<kb>` no tiene;
+   los previos, ajenos a tu cambio, **no bloquean**: cita en una línea del cuerpo
+   del commit `Lint previo: <n> hallazgo(s) ajenos` (sin lista) y sigue. No
+   juzgues tú qué hallazgo es «tuyo». Si algo más falla, **no commitees**: deja el informe.
 7. Commit en tu rama, con rutas explícitas (`git -C <wt> add <ruta>
    .distill/<slug>-moved.md`, solo lo que exista): subject `docs(kb): auto-distill
    <slug> — <evicción|propuesta de partición|evicción + partición>`; cuerpo con una línea
