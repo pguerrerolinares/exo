@@ -107,6 +107,9 @@ enum Comando {
 enum ComandoWrite {
     /// Crea una nota nueva con frontmatter completo y permalink derivado del
     /// título. Rechaza (exit 3) si hay candidatas duplicadas, salvo `--force`.
+    /// `title` y `permalink` se escriben entre comillas simples; si el
+    /// frontmatter resultante (incluido el del `--from`) no es YAML válido,
+    /// falla sin escribir nada.
     New(ArgsWriteNew),
     /// Anexa al final de una bitácora sin releerla. Rechaza (exit 3) si el
     /// destino no es `tier: log`, salvo `--force`.

@@ -203,10 +203,17 @@ pub fn indexa(kb: &Path, db_ruta: &Path) -> Result<Resumen> {
         }
 
         let Some(n) = parsea_nota(ruta_abs)? else {
-            eprintln!(
-                "aviso: {} sin permalink en frontmatter, se salta (§6.2 regla 1)",
-                ruta_abs.display()
-            );
+            if crate::nota::frontmatter_yaml_invalido(ruta_abs) {
+                eprintln!(
+                    "aviso: {} frontmatter YAML inválido, se salta (no es un permalink ausente: corrige el YAML)",
+                    ruta_abs.display()
+                );
+            } else {
+                eprintln!(
+                    "aviso: {} sin permalink en frontmatter, se salta (§6.2 regla 1)",
+                    ruta_abs.display()
+                );
+            }
             sin_permalink += 1;
             continue;
         };
