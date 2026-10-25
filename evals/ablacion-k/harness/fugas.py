@@ -33,7 +33,7 @@ CD_SNAP = re.compile(r"\bcd\s+['\"]?" + re.escape(SNAP) + r"(?:/\S*)?['\"]?\s*(?
 ESCRIBE_REL = _escribe(r"\S+")
 ESCRIBE_TOOLS = ("Write", "Edit", "MultiEdit", "NotebookEdit")
 MEMORIA = os.path.join(os.path.abspath(d), "memoria") + os.sep
-HOOKS = {"n": set(), "a0": set(), "arp": set(), "ars": set(), "ar": {"SessionStart"}, "a1": {"SessionStart"}, "a2": {"SessionStart"}, "a3": {"SessionStart", "UserPromptSubmit"}}
+HOOKS = {"n": set(), "a0": set(), "arp": set(), "ars": set(), "ar": {"SessionStart"}, "a1": {"SessionStart"}, "a2": {"SessionStart"}, "a2s": {"SessionStart", "PreToolUse"}, "a3": {"SessionStart", "UserPromptSubmit"}}
 
 motivos, avisos = [], []
 eventos = []
@@ -87,7 +87,7 @@ for e in eventos:
                 motivos.append("escribe en el snapshot de la KB")
 
 log = os.path.join(d, "reflex.jsonl")
-if brazo in ("a0", "a1", "a2", "ar", "arp", "ars") and os.path.exists(log):
+if brazo in ("a0", "a1", "a2", "a2s", "ar", "arp", "ars") and os.path.exists(log):
     if any('"recall-inject-emitted"' in l for l in open(log, encoding="utf-8")):
         motivos.append("recall-inject emitió")
 

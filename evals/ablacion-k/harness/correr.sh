@@ -9,6 +9,7 @@
 #   a1     bloque de arranque con búsqueda por grep · exo = stub
 #   a2     bloque de arranque real (exo-recall.sh) · exo apunta al snapshot
 #   a3     a2 + recall-inject.sh en cada prompt
+#   a2s    a2 + reflejo search-first.sh en PreToolUse (matcher de producción) · sentinel por corrida en $O (campaña M)
 #   ar     a0 exacto + SessionStart que inyecta la regla literal de $K_REGLA_FILE (techo de reglas)
 #   arp    a0 exacto + sysprompt.md (claude-md.md + framing con la regla) por --append-system-prompt-file;
 #          requiere K_REGLA_FILE y K_FRAMING_FILE (techo-reglas-2)
@@ -59,6 +60,8 @@ hooks='{}'; append="$P/claude-md.md"
 case $brazo in
   a1) hooks=$(jq -n --arg c "cat $P/a1-inicio.json" '{SessionStart:[{hooks:[{type:"command",command:$c}]}]}') ;;
   a2) hooks=$(jq -n --arg c "$PLUG/exo-recall.sh" '{SessionStart:[{hooks:[{type:"command",command:$c}]}]}') ;;
+  a2s) hooks=$(jq -n --arg c "$PLUG/exo-recall.sh" --arg s "$PLUG/search-first.sh" \
+        '{SessionStart:[{hooks:[{type:"command",command:$c}]}],PreToolUse:[{matcher:"^(Agent|Task|Edit|Write|NotebookEdit)$",hooks:[{type:"command",command:$s}]}]}') ;;
   a3) hooks=$(jq -n --arg c "$PLUG/exo-recall.sh" --arg u "$PLUG/recall-inject.sh" \
         '{SessionStart:[{hooks:[{type:"command",command:$c}]}],UserPromptSubmit:[{hooks:[{type:"command",command:$u}]}]}') ;;
   a0) ;;
@@ -104,7 +107,9 @@ deny=("Read(//home/paul/Documentos/proyectos/wisdom-paul/**)" "Read(//home/paul/
 ruta="$PATH"; case $brazo in a0|a1|n|ar|arp) ruta="$P/stub:$PATH" ;; ars) ruta="$O/stub-ars:$P/stub:$PATH" ;; esac
 
 # S2: el agente usa el venv del repo (solo lectura) y el código de su workdir.
-extra_env=(); plugin_args=()
+extra_env=(); plugin_args=(); persist=(--no-session-persistence)
+# a2s persiste la sesión: search-first lee transcript_path y sin él calla (motivo=transcript-ilegible).
+[ "$brazo" = a2s ] && { extra_env+=(SEARCH_FIRST_SENTINEL_DIR="$O"); persist=(); }
 [ "$brazo" = ars ] && { extra_env+=(EXO_RULES_FORZAR_SUBMIT=1); plugin_args=(--plugin-dir "$O/plugin-ars"); }
 if [ -f "$tarea/meta.json" ]; then
   s2repo=$(jq -r .repo "$tarea/meta.json"); venv="$K_ROOT/s2/venv-$s2repo"
@@ -126,7 +131,7 @@ kb_base=$(awk '$1=="kb_commit"{print $2}' "$P/manifiesto.txt")
 [ -z "$(git -C "$P/kb" status --porcelain)" ] && [ "$(git -C "$P/kb" rev-parse HEAD)" = "$(git -C "$P/kb" rev-parse "$kb_base^{commit}")" ] \
   || { echo "$P/kb no está limpia o su HEAD no es kb_commit (restauración previa fallida?): no se lanza claude" >&2; exit 3; }
 prompt=$(jq -r .prompt "$t_json")
-[ "$brazo" = a2 ] && PATH="$ruta" EXO_CONFIG="$P/config.toml" EXO_KB="$P/kb" EXO_DB="$P/index.db" EXO_INDEX="$P/index.db" \
+{ [ "$brazo" = a2 ] || [ "$brazo" = a2s ]; } && PATH="$ruta" EXO_CONFIG="$P/config.toml" EXO_KB="$P/kb" EXO_DB="$P/index.db" EXO_INDEX="$P/index.db" \
   EXO_BIN="$(command -v exo)" "$PLUG/exo-recall.sh" < /dev/null > "$O/inyectado.txt" 2>/dev/null
 cd "$O/work" || exit 3; t0=$(date +%s)
 env "${extra_env[@]}" PATH="$ruta" EXO_CONFIG="$P/config.toml" EXO_KB="$P/kb" EXO_DB="$P/index.db" EXO_INDEX="$P/index.db" \
@@ -134,10 +139,15 @@ EXO_BIN="$(command -v exo)" REFLEX_LOG_FILE="$O/reflex.jsonl" \
 DISABLE_AUTOUPDATER=1 timeout 1800 claude -p --model "$MODELO" --setting-sources "" --strict-mcp-config \
   --settings "$O/settings.json" "${plugin_args[@]}" --append-system-prompt-file "$append" \
   --disallowedTools "${deny[@]}" \
-  --permission-mode bypassPermissions --max-turns 40 --max-budget-usd 10 --no-session-persistence \
+  --permission-mode bypassPermissions --max-turns 40 --max-budget-usd 10 "${persist[@]}" \
   --output-format stream-json --verbose "$prompt" < /dev/null > "$O/transcript.jsonl" 2> "$O/err.log"
 rc=$?; t1=$(date +%s)
 claude --version > "$O/claude-version.txt" 2>/dev/null
+# a2s: la sesión persistida (único rastro del aviso de search-first que vio el modelo) se mueve a $O/sesion.jsonl.
+if [ "$brazo" = a2s ]; then
+  sdir="$HOME/.claude/projects/$(printf '%s' "$O/work" | sed 's#[^A-Za-z0-9]#-#g')"
+  cat "$sdir"/*.jsonl > "$O/sesion.jsonl" 2>/dev/null && rm -f "$sdir"/*.jsonl && rmdir "$sdir" 2>/dev/null
+fi
 jq -c --arg id "$id" --arg b "$brazo" --arg r "$rep" --arg rc "$rc" --arg s "$((t1-t0))" \
   'select(.type=="result") | {tarea:$id, brazo:$b, rep:($r|tonumber), rc:($rc|tonumber), seg:($s|tonumber),
    fin:.terminal_reason, turnos:.num_turns, usd:.total_cost_usd,
