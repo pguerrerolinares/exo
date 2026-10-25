@@ -153,7 +153,7 @@ min_similarity = 0.35
                 ruta_fichero.display()
             )
         });
-        let linea_esperada = format!("permalink: {NAME_CONFIG}/log/{slug}");
+        let linea_esperada = format!("permalink: '{NAME_CONFIG}/log/{slug}'");
         assert!(
             frontmatter.contains(&linea_esperada),
             "el frontmatter en disco no lleva `{linea_esperada}` — contenido:\n{frontmatter}"

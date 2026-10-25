@@ -61,6 +61,31 @@ pub fn parsea_nota(ruta: &Path) -> Result<Option<Nota>> {
     }))
 }
 
+/// Envuelve `s` como escalar YAML de comilla simple: la única regla de
+/// escape es doblar una comilla simple embebida, así que es seguro para
+/// cualquier contenido — a diferencia del estilo "plain", donde `: `, `#`, `&`,
+/// `*` o `[` cambian lo que la línea significa para un parser YAML.
+pub fn comilla_simple_yaml(s: &str) -> String {
+    format!("'{}'", s.replace('\'', "''"))
+}
+
+/// Comprueba que `yaml` parsea con el mismo deserializador que usa
+/// `parsea_nota`. El `Err` lleva el mensaje del parser.
+pub fn valida_yaml(yaml: &str) -> std::result::Result<(), String> {
+    yaml_serde::from_str::<FrontmatterLaxo>(yaml)
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
+/// `true` si `ruta` tiene frontmatter delimitado cuyo YAML no parsea. Sirve al
+/// indexer para distinguir «YAML inválido» de «sin permalink».
+pub fn frontmatter_yaml_invalido(ruta: &Path) -> bool {
+    std::fs::read_to_string(ruta)
+        .ok()
+        .and_then(|c| separa_frontmatter(&c))
+        .is_some_and(|(yaml, _)| valida_yaml(&yaml).is_err())
+}
+
 fn stem_de(ruta: &Path) -> String {
     ruta.file_stem()
         .map(|s| s.to_string_lossy().into_owned())

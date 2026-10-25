@@ -185,14 +185,7 @@ fn reemplaza_clave(fm: &[u8], clave: &str, valor: &str) -> Vec<u8> {
     out
 }
 
-/// Envuelve `s` como escalar YAML de comilla simple: la única regla de
-/// escape es doblar una comilla simple embebida, así que es seguro para
-/// cualquier contenido — a diferencia del estilo "plain", donde `#`, `&`,
-/// `*`, `:` o `[` cambian lo que la línea significa para un parser YAML. El
-/// título/slug de una nota los escribe Paul libremente.
-fn comilla_simple_yaml(s: &str) -> String {
-    format!("'{}'", s.replace('\'', "''"))
-}
+use crate::nota::comilla_simple_yaml;
 
 static PATRON_FECHA_ISO: LazyLock<regex::bytes::Regex> = LazyLock::new(|| {
     // `[0-9]`, no `\d`: en `regex` (Unicode activo por default) `\d` casa

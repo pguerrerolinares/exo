@@ -106,17 +106,22 @@ printf '%s\n' "$exo_rules" > "$F/transcript.jsonl"
 out=$(python3 "$FUG" "$F" ars 2>&1); rc=$?
 [ $rc = 1 ] && [ "$(jq -r .fuga <<<"$out")" = true ] && ok fugas_ars_exo_rules_es_fuga || ko "fugas_ars_exo_rules_es_fuga rc=$rc out=$out"
 
-# framing_del_mod_es_el_de_arp: ars mide el canal, no el framing; falla si se edita uno de los dos
-if python3 - "$REPO/plugins/exo/hooks/register.ts" "$HERE/framing.txt" <<'PY'
-import json, re, sys
-ts = open(sys.argv[1], encoding="utf-8").read()
-m = re.search(r'const FRAMING =\s*("[^;]*");', ts)
-mod = json.loads(m.group(1))
-fr = open(sys.argv[2], encoding="utf-8", newline="").read()
-suf = "- {{REGLA}}\n"
-sys.exit(0 if fr.endswith(suf) and fr[:-len(suf)] == mod else 1)
-PY
-then ok framing_del_mod_es_el_de_arp; else ko framing_del_mod_es_el_de_arp; fi
+# framing_del_mod_es_el_de_arp: ars mide el canal, no el framing; falla si el render real del mod diverge de framing.txt
+# register.ts no exporta lista()/AUTORIDAD: se extraen del fuente y se evalúan con bun (sin tocar plugins/).
+cat > "$T/render.js" <<'JS'
+const ts = require("fs").readFileSync(process.argv[2], "utf8");
+const A = ts.match(/const AUTORIDAD =\s*("[^;]*");/);
+const L = ts.match(/const lista = \(titulo: string, reglas: string\[\]\) =>\s*([^;]*);/);
+if (!A || !L) { console.error("no se pudo extraer AUTORIDAD/lista de register.ts"); process.exit(3); }
+const AUTORIDAD = eval(A[1]);
+const lista = eval("(titulo, reglas) => " + L[1]);
+process.stdout.write(lista("Reglas duras del proyecto", ["{{REGLA}}"]) + "\n");
+JS
+if bun "$T/render.js" "$REPO/plugins/exo/hooks/register.ts" > "$T/render.txt" 2> "$T/render.err" && cmp -s "$T/render.txt" "$HERE/framing.txt"; then
+  ok framing_del_mod_es_el_de_arp
+else
+  ko "framing_del_mod_es_el_de_arp: DIVERGENCIA entre el render de lista() en register.ts y evals/techo-reglas-2/framing.txt (framing.txt es un artefacto pre-registrado: no se edita, se reporta). $(cat "$T/render.err")"
+fi
 
 # correr_techo_ars_no_pisa_el_estado_de_arp: ensayo con estado propio; sin TECHO_P aborta sin tocar nada
 KC="$T/kc"; EXPD="$T/x/techo-reglas-2"; mkdir -p "$KC/prep/stub" "$KC/fuentes" "$EXPD"; : > "$KC/prep/manifiesto.txt"; : > "$KC/reconstruccion.tsv"

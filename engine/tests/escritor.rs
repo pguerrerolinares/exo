@@ -82,9 +82,9 @@ fn nueva_genera_frontmatter_completo_y_ruta_correcta() {
 
     let escrito = std::fs::read_to_string(kb.path().join(&esc.ruta_rel)).unwrap();
     assert!(escrito.starts_with("---\n"), "debe abrir con frontmatter");
-    assert!(escrito.contains("title: Proyecto Nuevo — de prueba\n"));
+    assert!(escrito.contains("title: 'Proyecto Nuevo — de prueba'\n"));
     assert!(escrito.contains("type: note\n"));
-    assert!(escrito.contains("permalink: kb-test/projects/proyecto-nuevo-de-prueba\n"));
+    assert!(escrito.contains("permalink: 'kb-test/projects/proyecto-nuevo-de-prueba'\n"));
     assert!(escrito.contains("tier: stable\n"));
     assert!(escrito.ends_with("cuerpo de la nota\n"));
 }
@@ -108,7 +108,7 @@ fn nueva_respeta_el_frontmatter_que_ya_trae_el_cuerpo() {
     let escrito = std::fs::read_to_string(kb.path().join(&esc.ruta_rel)).unwrap();
     assert!(escrito.contains("type: research\n"), "no pisa el type dado");
     assert!(escrito.contains("- uno\n"), "conserva tags del autor");
-    assert!(escrito.contains("permalink: kb-test/projects/con-tags\n"));
+    assert!(escrito.contains("permalink: 'kb-test/projects/con-tags'\n"));
     assert!(
         !escrito.contains("type: note"),
         "no debe duplicar la clave type"
@@ -453,7 +453,7 @@ fn titulo_con_barra_no_crea_subdirectorio() {
     );
     let escrito = std::fs::read_to_string(kb.path().join(&esc.ruta_rel)).unwrap();
     assert!(
-        escrito.contains("title: pguerrero.me — Hub personal / portfolio\n"),
+        escrito.contains("title: 'pguerrero.me — Hub personal / portfolio'\n"),
         "el title del frontmatter conserva la barra literal"
     );
 }
@@ -673,4 +673,52 @@ fn append_mixto_con_una_cabecera_no_movida_sigue_con_tope() {
     let err = escribe_append(kb.path(), "log/b.md", &cuerpo, false).unwrap_err();
 
     assert!(matches!(rechazo_de(&err), Rechazo::CuerpoLargo { .. }));
+}
+
+// ------------------------------------------------- frontmatter válido (#181)
+
+#[test]
+fn nueva_con_titulo_de_caracteres_yaml_conflictivos_parsea_y_se_indexa() {
+    let kb = kb_falsa();
+    let titulo = "frentes: app Android # UI 'con IA'";
+    let esc = escribe_nueva(&NuevaNota {
+        kb: kb.path(),
+        proyecto: "kb-test",
+        dir: "projects",
+        titulo,
+        cuerpo: "cuerpo\n",
+        tier: Some("stable"),
+        dup_candidatas: &[],
+        forzado: false,
+    })
+    .unwrap();
+
+    let nota = exo::nota::parsea_nota(&kb.path().join(&esc.ruta_rel))
+        .unwrap()
+        .expect("el indexer debe ver el permalink");
+    assert_eq!(nota.titulo, titulo);
+    assert_eq!(nota.permalink, esc.permalink);
+    assert_eq!(nota.tier.as_deref(), Some("stable"));
+}
+
+#[test]
+fn nueva_con_from_de_frontmatter_roto_falla_y_no_deja_fichero() {
+    let kb = kb_falsa();
+    let err = escribe_nueva(&NuevaNota {
+        kb: kb.path(),
+        proyecto: "kb-test",
+        dir: "projects",
+        titulo: "Rota",
+        cuerpo: "---\ntags: [a, b\nroto: : :\n---\ncuerpo\n",
+        tier: Some("stable"),
+        dup_candidatas: &[],
+        forzado: false,
+    })
+    .unwrap_err();
+
+    assert!(err.to_string().contains("YAML inválido"), "{err}");
+    let ficheros = std::fs::read_dir(kb.path().join("projects"))
+        .unwrap()
+        .count();
+    assert_eq!(ficheros, 0, "no debe quedar ni la nota ni un temporal");
 }

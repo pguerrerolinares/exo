@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # preparar-m.sh — prep de la campaña M: snapshot de K (80cba57) + índice en cuda + MEMORY.md de N,
 # las reglas del oráculo (reglas/<id>.txt) y la copia del gold heredado de K con el harness reapuntado.
-# Exige K_ROOT explícito: preparar.sh hace `rm -rf "$K_ROOT/prep"` y el default de K es el prep de K.
+# Exige K_ROOT explícito: el default de K es el prep de K. Rehacer el prep de M es intencional: preparar.sh --forzar
+# mueve el anterior a prep.pisado-<fecha> en vez de borrarlo.
 set -euo pipefail
 H="$(cd "$(dirname "$0")" && pwd)"
 PREPARAR="${PREPARAR:-$H/../ablacion-k/harness/preparar.sh}"
@@ -13,11 +14,11 @@ PREFIJO_K=/home/paul/Documentos/proyectos/exo/.worktrees/campana-k/evals/ablacio
 
 [ -n "${K_ROOT:-}" ] || { echo "preparar-m: K_ROOT debe venir explícito (p. ej. ~/.cache/exo-campana-m)" >&2; exit 2; }
 case "$(realpath -m "$K_ROOT")" in
-  "$(realpath -m "$HOME/.cache/exo-ablacion-k")"*) echo "preparar-m: K_ROOT apunta a los datos de K; preparar.sh los borraría" >&2; exit 2;;
+  "$(realpath -m "$HOME/.cache/exo-ablacion-k")"*) echo "preparar-m: K_ROOT apunta a los datos de K; preparar.sh podría pisarlos" >&2; exit 2;;
 esac
 export K_ROOT; P="$K_ROOT/prep"
 
-"$PREPARAR" "$KB_COMMIT"
+"$PREPARAR" --forzar "$KB_COMMIT"
 
 export EXO_CONFIG="$P/config.toml" EXO_KB="$P/kb" EXO_DB="$P/index.db" EXO_INDEX="$P/index.db"
 exo rebuild > "$P/rebuild-cuda.log" 2>&1

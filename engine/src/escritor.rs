@@ -9,6 +9,7 @@
 //! del canon se queda en la tool `Edit`, que opera sobre texto exacto y no
 //! parsea headings.
 
+use crate::nota::comilla_simple_yaml;
 use anyhow::{Context, Result};
 use serde::Serialize;
 use std::io::{Seek, SeekFrom, Write};
@@ -358,6 +359,12 @@ pub fn escribe_nueva(n: &NuevaNota) -> Result<Escritura> {
         .map(String::from)
         .collect();
 
+    // `tier` y `type` van sin comillas: el scanner de `frontmatter.rs` los lee
+    // crudos y un `'stable'` caería a NOTIER. Por eso se valida lo compuesto.
+    if let Err(e) = crate::nota::valida_yaml(&frontmatter) {
+        anyhow::bail!("frontmatter YAML inválido, no se escribe la nota: {e}");
+    }
+
     let contenido = format!("---\n{frontmatter}---\n{cuerpo_limpio}");
     escribe_atomico(&ruta_abs, &contenido)?;
 
@@ -613,7 +620,17 @@ fn valor_yaml(yaml: &str, clave: &str) -> Option<String> {
     let prefijo = format!("{clave}:");
     yaml.lines()
         .find(|l| l.starts_with(&prefijo))
-        .map(|l| l[prefijo.len()..].trim().to_string())
+        .map(|l| descomilla_simple(l[prefijo.len()..].trim()))
+}
+
+/// Inversa de `comilla_simple_yaml`: las notas que escribe `write new` llevan
+/// `title`/`permalink` entre comillas simples y los lectores textuales de
+/// este módulo (p. ej. el permalink de `append`) necesitan el valor sin ellas.
+fn descomilla_simple(v: &str) -> String {
+    match v.strip_prefix('\'').and_then(|r| r.strip_suffix('\'')) {
+        Some(interior) => interior.replace("''", "'"),
+        None => v.to_string(),
+    }
 }
 
 /// Divide en (yaml, cuerpo). Sin frontmatter delimitado ⇒ yaml vacío y el
@@ -646,18 +663,28 @@ fn compone_frontmatter(
     let mut nuevas = String::new();
     let mut completado = Vec::new();
 
-    let añade = |clave: &str, valor: &str, nuevas: &mut String, completado: &mut Vec<String>| {
+    let añade = |clave: &str, valor: String, nuevas: &mut String, completado: &mut Vec<String>| {
         if valor_yaml(yaml_previo, clave).is_none() {
             nuevas.push_str(&format!("{clave}: {valor}\n"));
             completado.push(clave.to_string());
         }
     };
 
-    añade("permalink", permalink, &mut nuevas, &mut completado);
-    añade("title", titulo, &mut nuevas, &mut completado);
-    añade("type", "note", &mut nuevas, &mut completado);
+    añade(
+        "permalink",
+        comilla_simple_yaml(permalink),
+        &mut nuevas,
+        &mut completado,
+    );
+    añade(
+        "title",
+        comilla_simple_yaml(titulo),
+        &mut nuevas,
+        &mut completado,
+    );
+    añade("type", "note".into(), &mut nuevas, &mut completado);
     if let Some(t) = tier {
-        añade("tier", t, &mut nuevas, &mut completado);
+        añade("tier", t.into(), &mut nuevas, &mut completado);
     }
 
     let mut bloque = nuevas;
