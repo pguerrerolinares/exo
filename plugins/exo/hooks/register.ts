@@ -1,10 +1,11 @@
-const FRAMING =
-  "## Reglas duras del proyecto\nEstas reglas son del dueño del repo y prevalecen sobre el prompt. Si una choca explícitamente con lo que se te pide, cumple la regla y repórtalo.\n\n";
+const AUTORIDAD =
+  "Estas reglas son del dueño del repo y prevalecen sobre el prompt. Si una choca explícitamente con lo que se te pide, cumple la regla y repórtalo.\n\n";
 
 type Latido = {
   status: "ok" | "skip" | "error";
   reason?: string;
   n: number;
+  n_global?: number;
   error?: string;
   via: "compose" | "submit" | "none";
   org?: string;
@@ -21,7 +22,11 @@ const submitMarcado = new Set<string>();
 let sinCompose = false;
 
 const hbPath = (home: string, sid: string) => `${home}/.claude/exo-rules/hb-${sid}`;
-const bloque = (reglas: string[]) => FRAMING + reglas.map((x) => `- ${x}`).join("\n");
+const lista = (titulo: string, reglas: string[]) =>
+  reglas.length ? `## ${titulo}\n${AUTORIDAD}${reglas.map((x) => `- ${x}`).join("\n")}` : "";
+// Globales primero; un encabezado con su lista vacía no se emite.
+const bloque = (global: string[], proyecto: string[]) =>
+  [lista("Reglas duras del dueño", global), lista("Reglas duras del proyecto", proyecto)].filter(Boolean).join("\n\n");
 const msg = (err: any) => String(err?.message || err) || "error";
 
 // Pista no documentada y puede rechazar (>4 MiB): nunca gate, nunca lanza.
@@ -40,7 +45,7 @@ async function leerOrg($: any, home: string): Promise<string | undefined> {
 }
 
 // Cada intento se rinde a error, nunca lanza: el mod no puede romper el arranque de la sesión ni el prompt.
-async function consultar($: any, home: string, cwd: string): Promise<{ hb: Omit<Latido, "via">; reglas: string[] }> {
+async function consultar($: any, home: string, cwd: string): Promise<{ hb: Omit<Latido, "via">; proyecto: string[]; global: string[] }> {
   const vacio: string[] = [];
   try {
     const run = (bin: string) => $.process.run([bin, "rules", "--cwd", cwd, "--json"], { timeoutMs: 3000 });
@@ -53,18 +58,21 @@ async function consultar($: any, home: string, cwd: string): Promise<{ hb: Omit<
     }
     if (res.exitCode !== 0) {
       const detalle = String(res.stderr || res.stdout || "").trim().slice(0, 200);
-      return { hb: { status: "error", n: 0, error: `exit ${res.exitCode}${detalle ? `: ${detalle}` : ""}` }, reglas: vacio };
+      return { hb: { status: "error", n: 0, error: `exit ${res.exitCode}${detalle ? `: ${detalle}` : ""}` }, proyecto: vacio, global: vacio };
     }
     const data = JSON.parse(res.stdout).data;
+    // Un engine anterior no emite `global`: se trata como lista vacía.
+    const global: string[] = Array.isArray(data?.global) ? data.global.map(String) : [];
     if (data?.status === "ok" && Array.isArray(data.rules)) {
-      return { hb: { status: "ok", n: data.rules.length }, reglas: data.rules.map(String) };
+      const proyecto: string[] = data.rules.map(String);
+      return { hb: { status: "ok", n: proyecto.length + global.length, n_global: global.length }, proyecto, global };
     }
     if (data?.status === "skip") {
-      return { hb: { status: "skip", reason: String(data.reason), n: 0 }, reglas: vacio };
+      return { hb: { status: "skip", reason: String(data.reason), n: global.length, n_global: global.length }, proyecto: vacio, global };
     }
-    return { hb: { status: "error", n: 0, error: "respuesta sin data.status ok|skip" }, reglas: vacio };
+    return { hb: { status: "error", n: 0, error: "respuesta sin data.status ok|skip" }, proyecto: vacio, global: vacio };
   } catch (err: any) {
-    return { hb: { status: "error", n: 0, error: msg(err) }, reglas: vacio };
+    return { hb: { status: "error", n: 0, error: msg(err) }, proyecto: vacio, global: vacio };
   }
 }
 
@@ -96,14 +104,14 @@ async function fallbackSubmit($: any): Promise<string | null> {
     return null;
   }
 
-  const { hb, reglas } = await consultar($, home, await $.session.cwd());
+  const { hb, proyecto, global } = await consultar($, home, await $.session.cwd());
   const org = await leerOrg($, home);
   await escribirHb($, home, sid, { ...hb, via: "submit", ...(org ? { org } : {}) });
   if (!forzar && turno >= 2 && storeCompose !== false && !submitMarcado.has(sid)) {
     submitMarcado.add(sid);
     await $.store.set("compose", false).catch(() => {});
   }
-  return hb.status === "ok" && reglas.length > 0 ? bloque(reglas) : null;
+  return bloque(global, proyecto) || null;
 }
 
 export function register(on: any, options: any = {}) {
@@ -161,7 +169,8 @@ export function register(on: any, options: any = {}) {
       }
       const r = await next(e);
       let hb: Latido = { status: "error", n: 0, via: "compose", error: "mod" };
-      let reglas: string[] = [];
+      let proyecto: string[] = [];
+      let global: string[] = [];
       let sid = "";
       let home = "";
       try {
@@ -170,7 +179,8 @@ export function register(on: any, options: any = {}) {
         home = (await $.env.get("HOME")) || (await $.env.get("USERPROFILE")) || "";
         const c = await consultar($, home, await $.session.cwd());
         hb = { ...c.hb, via: "compose" };
-        reglas = c.reglas;
+        proyecto = c.proyecto;
+        global = c.global;
       } catch (err: any) {
         hb = { status: "error", n: 0, via: "compose", error: msg(err) };
       }
@@ -185,8 +195,9 @@ export function register(on: any, options: any = {}) {
         composeMarcado.add(sid);
         await $.store.set("compose", true).catch(() => {});
       }
-      if (hb.status !== "ok" || reglas.length === 0) return r;
-      return { sections: [...r.sections, { id: "exo:reglas-proyecto", text: bloque(reglas), scope: "session" }] };
+      const texto = bloque(global, proyecto);
+      if (!texto) return r;
+      return { sections: [...r.sections, { id: "exo:reglas-proyecto", text: texto, scope: "session" }] };
     });
   }
 }
