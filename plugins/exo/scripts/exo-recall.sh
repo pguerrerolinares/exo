@@ -226,8 +226,11 @@ fi
 # (cubre la propuesta de partición, que commitea --allow-empty sin tocar la nota).
 # `--fixed-strings` en el grep y rutas comparadas como texto: llevan espacios,
 # ` — ` y paréntesis. Todo git bajo timeout; cualquier fallo ⇒ sin aviso.
+# Resuelta a mano (partición o poda sin auto-distill): si la nota existe y hoy
+# pesa menos del 85 % del `limit=` del trailer (el umbral de /document), el
+# gate ya no se cumple y no se avisa. Nota inexistente ⇒ se sigue avisando.
 avisos_gate_pendiente() {
-  local kb="${EXO_KB:-$CONFIG_KB_PATH}" gt="${EXO_GIT_TIMEOUT:-3}" rango gates dist
+  local kb="${EXO_KB:-$CONFIG_KB_PATH}" gt="${EXO_GIT_TIMEOUT:-3}" rango gates dist pend ruta lim tam
   [ -n "$kb" ] && [ -e "$kb/.git" ] || return 0
   if con_timeout "$gt" git -C "$kb" rev-parse -q --verify refs/tags/distill/last >/dev/null 2>&1; then
     rango="refs/tags/distill/last..HEAD"
@@ -240,7 +243,7 @@ avisos_gate_pendiente() {
   [ -n "$gates" ] || return 0
   # quotePath=false: sin él git escapa el em dash de las rutas en --name-only.
   dist="$(con_timeout "$gt" git -C "$kb" -c core.quotePath=false log --all --fixed-strings --grep='docs(kb): auto-distill' --format='@@%ct%n%B%n@@F' --name-only 2>/dev/null)" || return 0
-  awk -v dist="$dist" '
+  pend="$(awk -v dist="$dist" '
     BEGIN {
       n = split(dist, l, "\n")
       for (i = 1; i <= n; i++) {
@@ -253,13 +256,22 @@ avisos_gate_pendiente() {
     }
     /^@@/ { ct = substr($0, 3); next }
     /^Gate: .* bytes=[0-9]+ limit=[0-9]+ routed=bitacora$/ {
+      lim = $0
+      sub(/ routed=bitacora$/, "", lim); sub(/.* limit=/, "", lim)
       sub(/^Gate: /, "")
       sub(/ bytes=[0-9]+ limit=[0-9]+ routed=bitacora$/, "")
       if ($0 in seen) next
       seen[$0] = 1
-      if (!($0 in d) || ct + 0 > d[$0] + 0)
-        printf "AVISO exo: gate pendiente en %s, sin rama distill/auto/ (corre /distill)\n", $0
-    }' <<< "$gates"
+      if (!($0 in d) || ct + 0 > d[$0] + 0) printf "%s\t%s\n", $0, lim
+    }' <<< "$gates")"
+  while IFS=$'\t' read -r ruta lim; do
+    [ -n "$ruta" ] || continue
+    if [ -f "$kb/$ruta" ]; then
+      tam="$(wc -c < "$kb/$ruta")" || tam=""
+      [ -n "$tam" ] && [ $(( tam * 100 )) -lt $(( lim * 85 )) ] && continue
+    fi
+    printf 'AVISO exo: gate pendiente en %s, sin rama distill/auto/ (corre /distill)\n' "$ruta"
+  done <<< "$pend"
 }
 if [ "$SOURCE" != "compact" ]; then
   . "$SCRIPT_DIR/_timeout.sh" 2>/dev/null

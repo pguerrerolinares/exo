@@ -440,6 +440,20 @@ gate_hook
 if contains "$CTX_G" "$AVISO_G"; then pass "gate_posterior_a_autodistill_sigue_avisando"
 else fail "gate_posterior_a_autodistill_sigue_avisando" "ctx='$CTX_G'"; fi
 
+# resuelto a mano (partición o poda sin auto-distill): la nota hoy bajo el 85 %
+# del limit del trailer ⇒ sin aviso; en el 85 % justo sigue avisando
+nuevo_kb mano
+kbcommit 4000 "$(printf 'docs(kb): nota grande\n\n%s' "$GATE_TRAILER")"
+mkdir -p "$KBG/projects"
+head -c 10624 /dev/zero | tr '\0' x > "$KBG/$NOTA_G"
+gate_hook
+if ! contains "$CTX_G" "gate pendiente"; then pass "gate_resuelto_a_mano_no_avisa: nota bajo el 85 % del limit"
+else fail "gate_resuelto_a_mano_no_avisa" "ctx='$CTX_G'"; fi
+head -c 10625 /dev/zero | tr '\0' x > "$KBG/$NOTA_G"
+gate_hook
+if contains "$CTX_G" "$AVISO_G"; then pass "gate_nota_al_85_sigue_avisando"
+else fail "gate_nota_al_85_sigue_avisando" "ctx='$CTX_G'"; fi
+
 # git colgado ⇒ corta por EXO_GIT_TIMEOUT: exit 0, JSON válido, sin aviso, tiempo acotado
 mkdir -p "$TMP/shim"
 printf '#!/usr/bin/env bash\nexec sleep 20\n' > "$TMP/shim/git"; chmod +x "$TMP/shim/git"
