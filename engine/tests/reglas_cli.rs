@@ -222,6 +222,20 @@ fn repos_resuelve_cada_repo_de_la_lista_flow_y_bloque() {
 }
 
 #[test]
+fn repos_como_url_con_git_o_barra_final() {
+    let m = Mundo::nuevo();
+    m.nota(
+        "projects/canon.md",
+        "---\nrepos:\n  - https://github.com/o/uno.git\n  - https://github.com/o/dos/\n---\n## Reglas duras\n- a\n",
+    );
+    for repo in ["uno", "dos"] {
+        let v = m.rules(&m.repo(repo));
+        assert_eq!(data(&v)["status"], "ok", "{repo}");
+        assert_eq!(data(&v)["note"], "projects/canon.md", "{repo}");
+    }
+}
+
+#[test]
 fn slug_gana_a_repos_y_repos_gana_a_stem() {
     let m = Mundo::nuevo();
     let r = m.repo("foo");

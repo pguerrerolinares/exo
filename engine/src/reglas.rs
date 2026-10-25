@@ -111,8 +111,8 @@ fn sin_comillas(s: &str) -> &str {
 
 /// Cómo casa una nota con la clave del repo: `Slug` > `Repos` > `Stem`. El slug
 /// y `repos:` se declaran a propósito (`repos:` cubre las notas de varios
-/// repos, que solo pueden llevar un slug); el stem también lo lleva la nota hermana que nace al
-/// partir el canon (`foo — reglas android.md`).
+/// repos, que solo pueden llevar un slug); el stem también lo lleva la nota
+/// hermana que nace al partir el canon (`foo — reglas android.md`).
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Casa {
     Stem,
@@ -129,7 +129,12 @@ fn casa(clave: &str, contenido: &str, fichero: &Path) -> Option<Casa> {
     }
     let en_repos = crate::frontmatter::lista(contenido, "repos")
         .iter()
-        .any(|r| r.rsplit('/').next().unwrap_or(r).to_lowercase() == clave);
+        .any(|r| {
+            // Las URLs de clonado traen `.git` o `/` final.
+            let r = r.trim_end_matches('/');
+            let r = r.strip_suffix(".git").unwrap_or(r);
+            r.rsplit('/').next().unwrap_or(r).to_lowercase() == clave
+        });
     if en_repos {
         return Some(Casa::Repos);
     }
@@ -177,8 +182,8 @@ fn notas_de_proyecto(kb: &Path) -> Result<Vec<(String, PathBuf)>> {
     Ok(notas)
 }
 
-/// Candidatas ordenadas de `notas_de_proyecto` que casan con `clave`. Si
-/// el mejor rango presente (slug > `repos:` > stem) y solo cuentan las de ese rango.
+/// Candidatas ordenadas de `notas_de_proyecto` que casan con `clave`. Solo
+/// cuentan las del mejor rango presente: slug > `repos:` > stem.
 fn candidatas(kb: &Path, clave: &str) -> Result<Vec<(String, PathBuf)>> {
     // KB mal apuntada ≠ repo sin nota: sin `projects/` legible todo daría
     // `sin_nota` en silencio.
