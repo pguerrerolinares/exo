@@ -73,8 +73,9 @@ mkdir -p "$K_ROOT"; : > "$OUT"
 # prep: si el índice de exo falla se reporta y se sigue (ar usa el stub).
 prep_nota=""; prep_ok=si
 # preparar.sh tarda ~30 min (exo rebuild): se reutiliza un prep ya hecho en el mismo commit de KB (K_REHACER_PREP=1 lo fuerza).
+# --forzar: rehacer es intencional; preparar.sh mueve el prep viejo a prep.pisado-<fecha>.
 if [ -z "${K_REHACER_PREP:-}" ] && grep -qx "kb_commit $KB_COMMIT" "$K_ROOT/prep/manifiesto.txt" 2>/dev/null; then :
-elif ! bash "$HARNESS/preparar.sh" "$KB_COMMIT" > "$K_ROOT/preparar.log" 2>&1; then
+elif ! bash "$HARNESS/preparar.sh" --forzar "$KB_COMMIT" > "$K_ROOT/preparar.log" 2>&1; then
   prep_nota="preparar.sh fallo (ver preparar.log); "
 fi
 [ -f "$K_ROOT/prep/manifiesto.txt" ] || { prep_nota="${prep_nota}sin manifiesto.txt (correr.sh fallara); "; prep_ok=no; }

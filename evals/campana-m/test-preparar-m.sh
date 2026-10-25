@@ -139,6 +139,7 @@ PATH="$T/bin:$PATH" K_ROOT=$K K_TARBALL="$T/reg.tar.gz" K_TARBALL_SHA=$SHA bash 
 mkdir -p "$T/prep-stub"
 cat > "$T/prep-stub/preparar.sh" <<'STUB'
 #!/usr/bin/env bash
+[ "$1" = --forzar ] && shift
 echo "$1 $K_ROOT" >> "$STUB_LOG"
 P="$K_ROOT/prep"; rm -rf "$P"; mkdir -p "$P/kb/core"
 git -C "$P/kb" init -q

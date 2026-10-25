@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# preparar.sh <commit de wisdom-paul> — Task 3 de la campaña K.
+# preparar.sh [--forzar] <commit de wisdom-paul> — Task 3 de la campaña K.
+# Si $K_ROOT/prep ya tiene manifiesto.txt se niega (exit 2): es un prep terminado y compartido.
+# --forzar lo mueve a $K_ROOT/prep.pisado-<fecha> (no lo borra) y rehace el prep.
 # Deja en $K_ROOT/prep/ todo lo que comparten las corridas de la fase 1:
 #   kb/            snapshot de la KB en <commit> (clon sin remote)
 #   index.db       índice de exo construido desde cero sobre el snapshot
@@ -10,11 +12,21 @@
 #   stub/exo       binario falso para A0/A1 (sale 127)
 #   manifiesto.txt shas de todo lo anterior
 set -euo pipefail
+forzar=0
+case "${1:-}" in
+  -h|--help) sed -n '2,4p' "$0"; exit 0;;
+  --forzar) forzar=1; shift;;
+esac
+[ $# = 1 ] || { echo "uso: preparar.sh [--forzar] <commit de wisdom-paul>" >&2; exit 2; }
 commit=$1
 H="$(cd "$(dirname "$0")" && pwd)"
 K_ROOT="${K_ROOT:-$HOME/.cache/exo-ablacion-k}"; P="$K_ROOT/prep"
 KB_ORIG=/home/paul/Documentos/proyectos/wisdom-paul
 PLUG="$H/../../../plugins/exo/scripts"
+if [ -f "$P/manifiesto.txt" ]; then
+  [ $forzar = 1 ] || { echo "preparar: $P ya tiene manifiesto.txt; usa --forzar para moverlo a prep.pisado-<fecha> y rehacerlo" >&2; exit 2; }
+  mv "$P" "$P.pisado-$(date +%Y%m%d-%H%M%S)"
+fi
 rm -rf "$P"; mkdir -p "$P/stub"
 
 git clone -q --no-hardlinks "$KB_ORIG" "$P/kb"
