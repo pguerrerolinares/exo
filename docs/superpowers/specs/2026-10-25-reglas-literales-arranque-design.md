@@ -252,8 +252,14 @@ E.
 ### 7.4 Tests de código
 
 - `engine`: `ExcedeCap` entrega 10 + `truncated`; nota en subdirectorio
-  resuelve; varias candidatas en subdirectorio dan `ambigua`; `global` se
-  lee de core-index y llega con o sin nota de proyecto.
+  resuelve por `slug` aunque el directorio no case (caso `cge/` para
+  `code-graph-engine`); dos candidatas con el mismo rango dan `ambigua`;
+  `global` se lee de `core/reglas-duras.md` y llega con o sin nota de
+  proyecto, también en `skip`; `--check` rechaza `CAP+1`.
+- `test-compose-inject.sh`: con reglas, el bloque de subagente omite
+  `doctrina_compacta` y `rutas` y no pasa de 3.072 B.
+- `test-document-remind.sh`: `ss` con `n > 0` y `hb` con `n = 0` avisa
+  aunque `status` sea `skip`.
 - `kb-precommit`: sección con `CAP+1` reglas se rechaza; con `CAP` pasa.
 - `register.test.ts`: el bloque compuesto lleva globales y de proyecto, en
   ese orden.
