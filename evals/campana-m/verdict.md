@@ -342,3 +342,58 @@ conducta    : tool_use Bash con /(^|[\s;&|(])exo\s/ ; tool_use con '/memoria' o 
 
 Lo ejecuté con `python3` sobre `~/.cache/exo-campana-m` y solo leí; no
 modifiqué nada bajo `~/.cache`.
+
+## 8. Adenda — enmienda 1: brazo `a2s` (X + search-first), 2026-10-25
+
+Corrido según `preregistro.md` §7 (120 corridas, 3 tandas, breaker `SEGUIR` en
+las tres, 0 fugas, 0 KB sucias, 0 excluidas, 11,69 USD; campaña 93,71 USD de
+130). Análisis: `analizar_a2s.py` → `~/.cache/exo-campana-m/analisis-a2s.json`.
+Esta adenda la escribe el orquestador, no un adjudicador fresco: el cálculo es
+del script pre-registrado y las cifras de abajo salen de él o de greps
+reproducibles sobre `corridas-a2s/`.
+
+**Veredicto pre-registrado: `EL REFLEJO NO HACE BUSCAR` · `MEMORIA MÍNIMA
+CONFIRMADA`.** La recomendación 1 (§7) queda en pie.
+
+| brazo | éxito medio (40 sondas) |
+|---|---|
+| A0 | 0,008 |
+| X (`a2`) | 0,075 |
+| **X + search-first (`a2s`)** | **0,075** |
+| O | 0,858 |
+
+- Δ(a2s − a0) = +0,067, IC95 [−0,008, +0,158]; signos 3 a favor, 1 en contra,
+  p = 0,625. Δ(a2s − a2) = 0,000, IC95 [−0,025, +0,025].
+- **Busca: 1/120 (0,008)**, y esa única corrida (`g2-160/a2s-r3`) es
+  `exo targets --help`: la regex pre-registrada la cuenta, pero no es una
+  búsqueda. Búsquedas reales: 0/120.
+- **El aviso llegó en 47/120 corridas** (comprobado en `sesion.jsonl`: el
+  `system-reminder` está en las 47). En las otras 73 el agente no usó nunca
+  Edit, Write ni Agent (solo Bash/Read), así que el matcher no disparó.
+- **Ante el aviso, el agente lo lee, lo cita y decide no buscar** usando la
+  salida que el propio texto le da («si no, dilo en una línea y sigue»).
+  Ejemplos literales: «Es un cambio mecánico de config y no esperaba historia
+  relevante» (`g0-110/a2s-r1`); «un off-by-one en un repo aislado no debería
+  tener historia ahí» (`g0-43/a2s-r2`); «Sin historia previa en la KB para
+  este repo de juguete, así que sigo» (`g0-78/a2s-r3`).
+- Las ganancias de a2s son las mismas de X (`g0-9`, `g1-14`, más `g1-110`),
+  y salen del core-index inyectado, no de buscar.
+- Coste: Δ tokens_in frente a A0, mediana +12,7k (media +19,4k), del orden de X.
+
+**Lectura.** El cuello no es el canal ni el recordatorio: es que el agente no
+puede saber que existe una regla relevante para una tarea que parece local.
+Recuperar bajo demanda exige que el agente sospeche que hay algo que recuperar,
+y en las sondas de este experimento (decisiones fechadas que contradicen el
+default) nunca lo sospecha. Lo que funciona es que la regla llegue empujada y
+sin diluir (O, 0,858); el bloque de 6 KB de X la empuja diluida y pierde casi
+todo ese valor.
+
+**No decide:** un aviso sin cláusula de escape (bloqueante, o que obligue a
+buscar), ni una recuperación automática por tarea (inyectar al arrancar los
+top-k de una búsqueda con el prompt, sin depender del agente). La segunda es la
+forma de push que este resultado deja abierta. Tampoco cambia lo que §6 ya dice
+que no decide.
+
+**Instrumento:** `search-first.sh` calla con `claude -p
+--no-session-persistence` (`motivo=transcript-ilegible`), un fallo silencioso
+también en producción headless. La regex de `busca` debería excluir `--help`.
