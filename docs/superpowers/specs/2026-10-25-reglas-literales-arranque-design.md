@@ -234,9 +234,17 @@ con `CAP` 10 y se baja después (bajar el `CAP` reordena, no borra).
 
 40 sondas × 3, system prompt con las reglas sembradas tal como se despliegan
 y el arranque podado. Se reportan **cobertura** (sondas cuya regla está
-dentro) y **aplicación dada cobertura**. `Ap` cae si la aplicación dada
-cobertura < 0,60. La cobertura de las globales no es interpretable (el dueño
-diseñó M y eligió las globales); se reporta aparte y no adjudica.
+dentro) y **aplicación dada cobertura**. La cobertura de las globales no es
+interpretable (el dueño diseñó M y eligió las globales); se reporta aparte y
+no adjudica.
+
+Unidad, umbrales y réplica: `evals/ap/preregistro.md` (#190), que sustituye
+al «< 0,60» original. Ese umbral no fijaba la unidad, y con la base de
+techo-reglas-2 no discriminaba. Resumen: control `Ap1` (la regla gold sola,
+por el mismo canal) como réplica; gate primario pareado `Ap − Ap1` sobre la
+fracción de réplicas por sonda (bootstrap unilateral 97,5 %); secundario
+absoluto con sondas ≥2/3 < k(N), solo si `Ap1` está a nivel; umbrales en
+función de N, sellados por `evals/ap/umbral.py`.
 
 ### 7.3 Condiciones que invalidan A
 
@@ -244,7 +252,8 @@ Cada una basta por sí sola:
 
 - **Canal + dilución:** techo-reglas-3 ≤ 3/10 con gold + 9 (diluye incluso
   con la mitad de reglas).
-- **Selección de proyecto:** `Ap` con aplicación dada cobertura < 0,60.
+- **Selección de proyecto:** `Ap` cae según `evals/ap/preregistro.md`
+  (con réplica de `Ap1`; sin réplica no se adjudica).
 
 Si se cumple alguna, las reglas estáticas no compensan y el siguiente paso es
 E.
