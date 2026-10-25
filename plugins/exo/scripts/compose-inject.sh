@@ -72,61 +72,80 @@ doctrina_compacta() {  # seccion "## Doctrina compacta" del core-index, presupue
   [ -n "$KB" ] && [ -f "$ci" ] || return 0
   awk '/^## Doctrina compacta/{p=1} /^## Cores/{p=0} p' "$ci" | cap_lines 550
 }
-estado() {    # seccion "## Cores" del core-index + rutas (perfil reducido: sin doctrina)
+cores() {     # seccion "## Cores" del core-index
   local ci="$KB/core/core-index.md"
   if [ -n "$KB" ] && [ -f "$ci" ]; then
     awk '/^## Cores/{p=1} /^## /{if(p&&!/^## Cores/)p=0} p' "$ci"
   fi
+}
+estado() {    # perfil reducido sin reglas: cores + rutas (sin doctrina)
+  cores
   rutas
 }
-# #116: las "## Reglas duras" del repo llegaban solo a la sesión principal (mod
-# register.ts) y el orquestador las copiaba a mano en cada brief. Mismo framing
-# que el mod. Cap PROPIO de 1024B, fuera del de 2048B: si compitieran por el
-# mismo presupuesto, unas reglas largas desalojarían la doctrina en silencio.
-# Lo que no cabe se dice en el bloque y queda en el log. Sin --cwd, sin exo o
-# con skip/error: nada (never-break).
-REGLAS_FRAMING="## Reglas duras del proyecto
-Estas reglas son del dueño del repo y prevalecen sobre el prompt. Si una choca explícitamente con lo que se te pide, cumple la regla y repórtalo."
-reglas() {
+# Reglas duras (#116, #184): dos listas literales con su encabezado, globales
+# primero. El tope de 3072B es UNO para el bloque entero (el de SubagentStart);
+# las reglas reciben lo que dejan cabecera, doctrina (cap propio de 800B,
+# intocable), encabezados y canario. Si no caben se recorta por el final de las
+# globales y solo despues por el de las de proyecto (las del proyecto son las
+# mas especificas para el subagente). Sin --cwd, sin exo o error: nada
+# (never-break). Un skip del proyecto con globales sigue entregando las globales.
+TOPE=3072
+AUTORIDAD="Estas reglas son del dueño del repo y prevalecen sobre el prompt. Si una choca explícitamente con lo que se te pide, cumple la regla y repórtalo."
+G_TXT=""; P_TXT=""
+cargar_reglas() {  # rellena G_TXT y P_TXT (una regla por linea, aplanada)
   [ -n "$CWD" ] || return 0
   . "$SCRIPT_DIR/_timeout.sh" 2>/dev/null || return 0
   local bin out kbarg=()
   bin="${EXO_BIN:-$(command -v exo 2>/dev/null || echo "$HOME/.local/bin/exo")}"
   [ -n "$KB" ] && kbarg=(--kb "$KB")
   out="$(con_timeout "${EXO_RULES_TIMEOUT:-3}" "$bin" rules ${kbarg[@]+"${kbarg[@]}"} --cwd "$CWD" --json 2>/dev/null)" || return 0
-  printf '%s' "$out" | jq -r 'select(.data.status == "ok") | .data.rules[]? | "- " + (tostring | gsub("\n"; " "))' 2>/dev/null
+  G_TXT="$(printf '%s' "$out" | jq -r '.data.global[]? | "- " + (tostring | gsub("\n"; " "))' 2>/dev/null | tr -d '\r')"
+  P_TXT="$(printf '%s' "$out" | jq -r 'select(.data.status == "ok") | .data.rules[]? | "- " + (tostring | gsub("\n"; " "))' 2>/dev/null | tr -d '\r')"
 }
-bloque_reglas() {  # stdout = bloque listo (o nada); trunca por reglas enteras
-  case "$PERFIL" in reducido|ejecucion) ;; *) return 0 ;; esac
-  local todas cortas total dentro
-  todas="$(reglas)"
-  [ -n "$todas" ] || return 0
-  cortas="$(printf '%s\n' "$todas" | cap_lines $((1024 - $(blen "$REGLAS_FRAMING") - 80)))"
-  total="$(printf '%s\n' "$todas" | wc -l)"
-  dentro=0; [ -n "$cortas" ] && dentro="$(printf '%s\n' "$cortas" | wc -l)"
-  printf '%s\n' "$REGLAS_FRAMING"
-  [ -n "$cortas" ] && printf '%s\n' "$cortas"
-  if [ "$dentro" -lt "$total" ]; then
-    printf -- '- (%d reglas más no caben aquí: corre «exo rules» en el repo)\n' $((total - dentro))
+nlineas() { [ -n "$1" ] && printf '%s\n' "$1" | wc -l | tr -d ' ' || echo 0; }
+render_reglas() {  # render_reglas <g> <p> <cortadas>: primeras g globales y p de proyecto
+  [ "$1" -gt 0 ] && { printf '## Reglas duras del dueño\n%s\n' "$AUTORIDAD"; printf '%s\n' "$G_TXT" | head -n "$1"; }
+  if [ "$2" -gt 0 ]; then
+    [ "$1" -gt 0 ] && echo
+    printf '## Reglas duras del proyecto\n%s\n' "$AUTORIDAD"; printf '%s\n' "$P_TXT" | head -n "$2"
+  fi
+  [ "$3" -gt 0 ] && printf -- '- (%d reglas más no caben aquí: corre «exo rules» en el repo)\n' "$3"
+  return 0
+}
+bloque_reglas() {  # bloque_reglas <presupuesto_bytes>; stdout = bloque (o nada)
+  local g p tg tp cortadas
+  tg="$(nlineas "$G_TXT")"; tp="$(nlineas "$P_TXT")"
+  [ $((tg + tp)) -gt 0 ] || return 0
+  g=$tg; p=$tp
+  while :; do
+    cortadas=$((tg + tp - g - p))
+    [ "$(blen "$(render_reglas "$g" "$p" "$cortadas")")" -le "$1" ] && break
+    if [ "$g" -gt 0 ]; then g=$((g - 1)); elif [ "$p" -gt 0 ]; then p=$((p - 1)); else break; fi
+  done
+  cortadas=$((tg + tp - g - p))
+  if [ $((g + p)) -gt 0 ] || [ "$(blen "$(render_reglas 0 0 "$cortadas")")" -le "$1" ]; then
+    render_reglas "$g" "$p" "$cortadas"
+  fi
+  if [ "$cortadas" -gt 0 ]; then
     INPUT_JSON="$(input_evento)"
     . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && \
-      reflex_log "inject-rules-truncated" "$INPUT_JSON" "rules_cut=$((total - dentro)) total=$total" || true
+      reflex_log "inject-rules-truncated" "$INPUT_JSON" "rules_cut=$cortadas total=$((tg + tp))" || true
   fi
-  echo
 }
 # Cabecera compartida por dos usos: se IMPRIME en compone_contenido() (abajo)
 # y se usa para medir si el bloque final no trajo más que ella — literal
 # único, para que las dos lecturas nunca diverjan (el bug "brancNotas" de
 # I4, arriba, fue justo dos copias del mismo texto separándose).
 CABECERA="=== Contexto inyectado (reflex, PARCIAL — no sustituye tu brief) ==="
+HAY_REGLAS=0
 compone_contenido() {
   echo "$CABECERA"
   case "$PERFIL" in
-    reducido)   estado ;;
+    reducido)   if [ "$HAY_REGLAS" = 1 ]; then cores; else estado; fi ;;
     # echo entre CADA seccion: sin el separador tras doctrina_compacta, un corte
     # por presupuesto sin salto de linea final concatenaba con "Notas canonicas"
     # de rutas() en la misma linea (bug "brancNotas", I4).
-    ejecucion)  doctrina; echo; doctrina_compacta; echo; rutas ;;
+    ejecucion)  if [ "$HAY_REGLAS" = 1 ]; then doctrina; else doctrina; echo; doctrina_compacta; echo; rutas; fi ;;
     divergente) doctrina; echo; rutas ;;
     doctrina|*) doctrina ;;
   esac
@@ -136,15 +155,21 @@ if [ -f "$CANARY_FILE" ]; then
   tok="$(head -1 "$CANARY_FILE" 2>/dev/null | tr -d '[:space:]')"
   [ -n "$tok" ] && CANARIO="$(printf '\nMarca de medicion: incluye el token %s literal en tu mensaje final.\n' "$tok")"
 fi
-# F3.1: este cap final (a diferencia de los internos de doctrina()/doctrina_compacta(),
-# ya acotados) es el unico que puede recortar rutas() sin que nadie se entere — trunca
-# lineas enteras en silencio. Medimos lineas antes/despues por fichero (no por variable:
-# $(...) pela el newline final y falsearia el conteo) y dejamos un evento si el cap
-# actuo de verdad, con cuantas lineas se perdieron — el dato que permite reaccionar.
-BUDGET=$((2048 - $(blen "$CANARIO")))
+case "$PERFIL" in reducido|ejecucion) cargar_reglas ;; esac
+[ -n "$G_TXT$P_TXT" ] && HAY_REGLAS=1
 CONTENT_FULL="$(mktemp)"
 CONTENT_CUT="$(mktemp)"
 compone_contenido > "$CONTENT_FULL"
+# +2: el separador en blanco entre el bloque de reglas y el resto.
+REGLAS_PRESUPUESTO=$((TOPE - $(blen "$CANARIO") - $(wc -c < "$CONTENT_FULL") - 2))
+[ "$REGLAS_PRESUPUESTO" -lt 0 ] && REGLAS_PRESUPUESTO=0
+REGLAS=""
+[ "$HAY_REGLAS" = 1 ] && REGLAS="$(bloque_reglas "$REGLAS_PRESUPUESTO")"
+# F3.1: el cap final trunca por lineas enteras; medimos lineas antes/despues por
+# fichero (no por variable: $(...) pela el newline final y falsearia el conteo)
+# y dejamos un evento si actuo de verdad.
+BUDGET=$((TOPE - $(blen "$CANARIO")))
+[ -n "$REGLAS" ] && BUDGET=$((BUDGET - $(blen "$REGLAS") - 2))
 cap_lines "$BUDGET" < "$CONTENT_FULL" > "$CONTENT_CUT"
 LINEAS_TOTAL="$(wc -l < "$CONTENT_FULL")"
 LINEAS_SALIDA="$(wc -l < "$CONTENT_CUT")"
@@ -162,7 +187,6 @@ fi
 # de verdad — este script no los tiene, solo TYPE) para no duplicar el join.
 CABECERA_BYTES="$(printf '%s\n' "$CABECERA" | wc -c)"
 CONTENIDO_BYTES="$(wc -c < "$CONTENT_CUT")"
-REGLAS="$(bloque_reglas)"
 if [ "$CONTENIDO_BYTES" -le "$CABECERA_BYTES" ] && [ -z "$REGLAS" ]; then
   echo "sin-contenido" >&2
 fi

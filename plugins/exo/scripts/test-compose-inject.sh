@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Test standalone para compose-inject.sh (componedor A1, spec transporte §5.1).
-# Perfiles por agent_type, cap 2KB, canario por fichero de ventana.
+# Perfiles por agent_type, tope 3KB, canario por fichero de ventana.
 # Fixtures en mktemp -d; nunca toca la KB real ni ~/.claude/reflex-inject-canary.
 set -uo pipefail
 
@@ -247,10 +247,10 @@ BYTES5="$(wc -c < "$OUT5_FILE" | tr -d ' ')"
 # Caso 5: cap con fixture realista + canario ⇒ bloque total ≤2048 bytes.
 # =========================================================================
 {
-  if [ $EC5 -eq 0 ] && [ "$BYTES5" -le 2048 ]; then
-    pass "caso5: fixture realista + canario ⇒ total ≤2048B (bytes=$BYTES5)"
+  if [ $EC5 -eq 0 ] && [ "$BYTES5" -le 3072 ]; then
+    pass "caso5: fixture realista + canario ⇒ total ≤3072B (bytes=$BYTES5)"
   else
-    fail "caso5: fixture realista + canario ⇒ total ≤2048B" "ec=$EC5 bytes=$BYTES5"
+    fail "caso5: fixture realista + canario ⇒ total ≤3072B" "ec=$EC5 bytes=$BYTES5"
   fi
 }
 
@@ -417,7 +417,7 @@ done
 # =========================================================================
 # Fixture para casos 12-13: KB con 40 notas en core/ (rutas() no las cap,
 # a diferencia de doctrina()/doctrina_compacta()) — suficientes para que el
-# cap FINAL de 2048B (no los internos de 800/550) tenga que recortar líneas.
+# cap FINAL de 3072B (no los internos de 800/550) tenga que recortar líneas.
 # =========================================================================
 KB12="$TMP/kb12"
 mkdir -p "$KB12/core"
@@ -430,7 +430,7 @@ done
 
 # =========================================================================
 # Caso 12 (F3.1): cap final SÍ trunca (rutas() sin cap interno desborda el
-# presupuesto de 2048B) ⇒ debe quedar logueado un evento "inject-truncated"
+# presupuesto de 3072B) ⇒ debe quedar logueado un evento "inject-truncated"
 # con lines_cut>0 y el budget usado.
 # =========================================================================
 {
@@ -453,17 +453,17 @@ done
     fail "caso12: lines_cut>0 en el payload" "linea=$LINEA12"
   fi
 
-  if printf '%s' "$LINEA12" | grep -q 'budget=2048'; then
-    pass "caso12: budget=2048 presente en el payload"
+  if printf '%s' "$LINEA12" | grep -q 'budget=3072'; then
+    pass "caso12: budget=3072 presente en el payload"
   else
-    fail "caso12: budget=2048 presente en el payload" "linea=$LINEA12"
+    fail "caso12: budget=3072 presente en el payload" "linea=$LINEA12"
   fi
 
   BYTES12="$(printf '%s' "$OUT12" | wc -c)"
-  if [ $EC12 -eq 0 ] && [ "$BYTES12" -le 2048 ]; then
-    pass "caso12: pese al log, el bloque sigue saliendo ≤2048B y exit 0 (never-break)"
+  if [ $EC12 -eq 0 ] && [ "$BYTES12" -le 3072 ]; then
+    pass "caso12: pese al log, el bloque sigue saliendo ≤3072B y exit 0 (never-break)"
   else
-    fail "caso12: never-break (bloque ≤2048B, exit 0)" "ec=$EC12 bytes=$BYTES12"
+    fail "caso12: never-break (bloque ≤3072B, exit 0)" "ec=$EC12 bytes=$BYTES12"
   fi
 
   rm -f "$REFLEXLOG12"
@@ -586,6 +586,8 @@ if [ "\$1" = rules ]; then
     largo) jq -cn '{schema_version:2,command:"rules",data:{status:"ok",repo:"r",rules:[range(40)|"REGLA-\(.) " + ("x"*60)]}}' ;;
     skip)  echo '{"schema_version":2,"command":"rules","data":{"status":"skip","reason":"sin_repo"}}' ;;
     error) echo boom >&2; exit 2 ;;
+    custom) jq -cn --arg st "\${FAKE_STATUS:-ok}" --argjson g "\${FAKE_G:-[]}" --argjson p "\${FAKE_P:-[]}" \
+              '{schema_version:2,command:"rules",data:({status:\$st,global:\$g,truncated:0} + (if \$st=="ok" then {repo:"r",rules:\$p} else {reason:"sin_nota"} end))}' ;;
   esac
   exit 0
 fi
@@ -609,10 +611,10 @@ CWDX=(--cwd "$TMP/repo-x")
   if [ $EC16 -eq 0 ] && [ "$L2" = "## Reglas duras del proyecto" ] \
      && contains "$OUT16" "- REGLA-UNO nunca cd && git" && contains "$OUT16" "- REGLA-DOS fija la TZ" \
      && contains "$(cat "$RULES_ARGS" 2>/dev/null)" "--cwd $TMP/repo-x" \
-     && contains "$OUT16" "$KB_ENV/core/otra-nota-env.md"; then
-    pass "caso16: ejecucion ⇒ reglas tras la cabecera, --cwd propagado, resto intacto"
+     && contains "$OUT16" "FRAGMENTO_DOCTRINA_TEST" && not_contains "$OUT16" "Notas canonicas"; then
+    pass "caso16: ejecucion ⇒ reglas tras la cabecera, --cwd propagado, doctrina intacta"
   else
-    fail "caso16: ejecucion ⇒ reglas tras la cabecera, --cwd propagado, resto intacto" "ec=$EC16 l2=$L2 out=$OUT16"
+    fail "caso16: ejecucion ⇒ reglas tras la cabecera, --cwd propagado, doctrina intacta" "ec=$EC16 l2=$L2 out=$OUT16"
   fi
 }
 
@@ -641,21 +643,20 @@ CWDX=(--cwd "$TMP/repo-x")
   fi
 }
 
-# Caso 19: reglas que no caben ⇒ cap propio de 1024B por reglas enteras, aviso
-# con cuántas faltan, evento inject-rules-truncated, y nada del resto se pierde
-# (el cap de reglas no come del de 2048B).
+# Caso 19: reglas que no caben ⇒ bloque entero ≤3072B por reglas enteras, aviso
+# con cuántas faltan, evento inject-rules-truncated, y la doctrina (cap propio
+# de 800B) no se recorta para dejar sitio.
 {
   : > "$REFLEX_LOG_FILE"
   OUT19="$(reglas_run general-purpose largo "${CWDX[@]}")"
-  OUT19_SIN="$(reglas_run general-purpose skip "${CWDX[@]}")"
   SECC="$(printf '%s\n' "$OUT19" | awk '/^## Reglas duras/{p=1} p&&/^$/{exit} p')"
-  SB="$(printf '%s\n' "$SECC" | wc -c)"
-  if [ "$SB" -le 1024 ] && contains "$SECC" "reglas más no caben aquí" \
+  SB="$(printf '%s' "$OUT19" | wc -c)"
+  if [ "$SB" -le 3072 ] && contains "$SECC" "reglas más no caben aquí" \
      && grep -q 'inject-rules-truncated' "$REFLEX_LOG_FILE" \
-     && contains "$OUT19" "$(printf '%s\n' "$OUT19_SIN" | tail -n +2)"; then
-    pass "caso19: reglas largas ⇒ cap 1024B, aviso, evento, resto intacto"
+     && contains "$OUT19" "FRAGMENTO_DOCTRINA_TEST" && contains "$OUT19" "Segunda línea de doctrina fixture"; then
+    pass "caso19: reglas largas ⇒ bloque ≤3072B, aviso, evento, doctrina intacta"
   else
-    fail "caso19: reglas largas ⇒ cap 1024B, aviso, evento, resto intacto" "sb=$SB secc=$SECC"
+    fail "caso19: reglas largas ⇒ bloque ≤3072B, aviso, evento, doctrina intacta" "sb=$SB secc=$SECC"
   fi
 }
 
@@ -679,6 +680,109 @@ CWDX=(--cwd "$TMP/repo-x")
     pass "caso21: framing de reglas idéntico al de register.ts"
   else
     fail "caso21: framing de reglas idéntico al de register.ts" "una de las dos copias cambió"
+  fi
+}
+
+# --- #184: dos listas, orden, sustitución de secciones, tope único de 3072B ---
+reglas_custom() {  # reglas_custom <type> <status> <G json> <P json> [md] [canario]
+  FAKE_STATUS="$2" FAKE_G="$3" FAKE_P="$4" FAKE_RULES_MODE=custom EXO_BIN="$FAKE_RULES_DIR/exo" EXO_KB="$KB1" \
+    REFLEX_EXECUTOR_MD="${5:-$EXEC_MD}" REFLEX_CANARY_FILE="${6:-$NO_CANARY}" \
+    "$COMPOSE" --type "$1" "${CWDX[@]}" 2>/dev/null
+}
+gen_reglas() {  # gen_reglas <prefijo> <n> <bytes> ⇒ array JSON de n reglas de <bytes> B
+  jq -cn --arg p "$1" --argjson n "$2" --argjson b "$3" \
+    '[range($n) | ($p + (.|tostring) + " ") as $h | $h + ("x" * ($b - ($h|length)))]'
+}
+n_eventos() { grep -c "\"reflex\":\"$1\"" "$REFLEX_LOG_FILE" 2>/dev/null || true; }
+
+{
+  OUT="$(reglas_custom general-purpose skip '["G1"]' '[]')"
+  if contains "$OUT" "## Reglas duras del dueño" && contains "$OUT" "- G1" \
+     && not_contains "$OUT" "## Reglas duras del proyecto"; then
+    pass "caso_dos_listas: skip del proyecto con global ⇒ solo la lista del dueño"
+  else
+    fail "caso_dos_listas: skip del proyecto con global ⇒ solo la lista del dueño" "out=$OUT"
+  fi
+}
+{
+  OUT="$(reglas_custom general-purpose ok '["G1"]' '["P1"]')"
+  PRE="${OUT%%- G1*}"; PRE_P="${OUT%%- P1*}"
+  if contains "$OUT" "- G1" && contains "$OUT" "- P1" && [ "${#PRE}" -lt "${#PRE_P}" ] \
+     && contains "$OUT" "## Reglas duras del proyecto"; then
+    pass "caso_orden: la global aparece antes que la de proyecto"
+  else
+    fail "caso_orden: la global aparece antes que la de proyecto" "out=$OUT"
+  fi
+}
+{
+  OUT="$(reglas_custom general-purpose ok '["G1"]' '["P1"]')"
+  if not_contains "$OUT" "## Doctrina compacta" && not_contains "$OUT" "ORQUESTADOR: bullet" \
+     && not_contains "$OUT" "Notas canonicas" && contains "$OUT" "FRAGMENTO_DOCTRINA_TEST"; then
+    pass "caso_sin_doctrina_compacta_con_reglas: con reglas, sin compacta ni rutas; doctrina sí"
+  else
+    fail "caso_sin_doctrina_compacta_con_reglas: con reglas, sin compacta ni rutas; doctrina sí" "out=$OUT"
+  fi
+}
+{
+  OUT="$(reglas_custom general-purpose skip '[]' '[]')"
+  if contains "$OUT" "ORQUESTADOR: bullet uno" && contains "$OUT" "Notas canonicas" \
+     && contains "$OUT" "FRAGMENTO_DOCTRINA_TEST"; then
+    pass "caso_sin_reglas_conserva_doctrina: sin reglas, doctrina compacta y rutas como hoy"
+  else
+    fail "caso_sin_reglas_conserva_doctrina: sin reglas, doctrina compacta y rutas como hoy" "out=$OUT"
+  fi
+}
+{
+  : > "$REFLEX_LOG_FILE"
+  G="$(gen_reglas G 10 80)"; P="$(gen_reglas P 10 80)"
+  OUT="$(reglas_custom general-purpose ok "$G" "$P" "$SCRIPT_DIR/../agents/executor.md")"
+  FALTA=""; for i in 0 1 2 3 4 5 6 7 8 9; do
+    contains "$OUT" "- G$i " || FALTA="$FALTA G$i"; contains "$OUT" "- P$i " || FALTA="$FALTA P$i"; done
+  B="$(printf '%s' "$OUT" | wc -c)"
+  DOC="$(awk 'BEGIN{fm=0} /^---$/{fm++; next} fm>=2{print}' "$SCRIPT_DIR/../agents/executor.md" | grep -m1 . | head -c 40)"
+  if [ -z "$FALTA" ] && [ "$B" -le 3072 ] && [ "$(n_eventos inject-rules-truncated)" = 0 ] \
+     && [ "$(n_eventos inject-truncated)" = 0 ] && contains "$OUT" "$DOC"; then
+    pass "caso_realista_cabe: 10+10 reglas de 80B + executor.md real ⇒ todas, doctrina, sin eventos (bytes=$B)"
+  else
+    fail "caso_realista_cabe: 10+10 reglas de 80B + executor.md real ⇒ todas, doctrina, sin eventos" "falta=$FALTA bytes=$B doc=$DOC log=$(cat "$REFLEX_LOG_FILE")"
+  fi
+}
+{
+  : > "$REFLEX_LOG_FILE"
+  G="$(gen_reglas G 10 300)"; P="$(gen_reglas P 10 300)"
+  OUT="$(reglas_custom general-purpose ok "$G" "$P" "$SCRIPT_DIR/../agents/executor.md")"
+  B="$(printf '%s' "$OUT" | wc -c)"
+  NP=0; for i in 0 1 2 3 4 5 6 7 8 9; do contains "$OUT" "- P$i " && NP=$((NP+1)); done
+  NG=0; for i in 0 1 2 3 4 5 6 7 8 9; do contains "$OUT" "- G$i " && NG=$((NG+1)); done
+  # Ruling del orquestador: 10x300B de proyecto no caben en 3072B (cabecera + doctrina
+  # + encabezados); se recortan primero las globales por el final, luego las de proyecto.
+  if [ "$B" -le 3072 ] && [ "$(n_eventos inject-rules-truncated)" = 1 ] && [ "$NP" -ge 5 ] && [ "$NG" -eq 0 ]; then
+    pass "caso_tope_3072: ≤3072B, un inject-rules-truncated, globales fuera, proyecto conservado (G=$NG P=$NP bytes=$B)"
+  else
+    fail "caso_tope_3072: ≤3072B, un inject-rules-truncated, globales fuera, proyecto conservado" "bytes=$B G=$NG P=$NP ev=$(n_eventos inject-rules-truncated)"
+  fi
+}
+{
+  : > "$REFLEX_LOG_FILE"
+  G="$(gen_reglas G 10 100)"; P="$(gen_reglas P 10 150)"
+  OUT="$(reglas_custom general-purpose ok "$G" "$P" "$SCRIPT_DIR/../agents/executor.md")"
+  B="$(printf '%s' "$OUT" | wc -c)"
+  NP=0; NG=0; for i in 0 1 2 3 4 5 6 7 8 9; do
+    contains "$OUT" "- P$i " && NP=$((NP+1)); contains "$OUT" "- G$i " && NG=$((NG+1)); done
+  if [ "$B" -le 3072 ] && [ "$NP" -eq 10 ] && [ "$NG" -ge 1 ] && [ "$NG" -lt 10 ] \
+     && contains "$OUT" "- G0 " && not_contains "$OUT" "- G9 " && [ "$(n_eventos inject-rules-truncated)" = 1 ]; then
+    pass "caso_recorte_orden: se recortan primero las globales por el final (G=$NG P=$NP bytes=$B)"
+  else
+    fail "caso_recorte_orden: se recortan primero las globales por el final" "bytes=$B G=$NG P=$NP"
+  fi
+}
+{
+  OUT="$(reglas_custom exo:executor ok '["G1"]' '["P1"]')"
+  if contains "$OUT" "## Cores" && contains "$OUT" "- G1" && contains "$OUT" "- P1" \
+     && not_contains "$OUT" "Notas canonicas"; then
+    pass "caso_reducido_con_reglas: reducido conserva Cores y reglas, sin rutas"
+  else
+    fail "caso_reducido_con_reglas: reducido conserva Cores y reglas, sin rutas" "out=$OUT"
   fi
 }
 
