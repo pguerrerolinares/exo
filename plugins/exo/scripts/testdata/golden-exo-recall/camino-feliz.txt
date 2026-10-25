@@ -1,6 +1,6 @@
 {
   "hookSpecificOutput": {
     "hookEventName": "SessionStart",
-    "additionalContext": "Contrato de memoria: bloque de prueba camino feliz."
+    "additionalContext": "## Contrato de memoria\nContrato de memoria: bloque de prueba camino feliz."
   }
 }

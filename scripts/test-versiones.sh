@@ -65,6 +65,15 @@ elif [ -n "$engine" ]; then
   fi
 fi
 
+# #184: el contrato de reglas (`global`, `truncated`, `rules --check`) es de
+# engine 0.10.0, pero los consumidores lo toleran ausente (avisan, no rompen).
+# Subir ENGINE_MIN marcaría `engine-stale` a quien aún tiene 0.8/0.9 y apagaría
+# recall y reglas para ellos. Se sube solo con un cambio que lo exija de verdad.
+if [ "$engine_min" != "0.8.0" ]; then
+  echo "[FAIL] ENGINE_MIN es '$engine_min', esperado 0.8.0: subirlo deja en engine-stale a los engines anteriores; si el cambio lo exige de verdad, actualiza esta guardia con el porqué" >&2
+  fallos=1
+fi
+
 # El CLI de claude que valida el mod está pineado en dos workflows: tienen que
 # coincidir o CI y release validarían contra versiones distintas.
 claude_ci="$(sed -nE 's/^[[:space:]]*CLAUDE_CODE_VERSION:[[:space:]]*([^[:space:]#]+).*/\1/p' .github/workflows/ci.yml)"

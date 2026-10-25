@@ -140,5 +140,19 @@ if [ "$RC_R" -eq 0 ] && printf '%s' "$SALIDA_R" | jq -e '.command == "rules" and
   pass "contrato rules: command=rules, schema_version=2, skip con exit 0"
 else fail "contrato rules: envelope" "rc=$RC_R $SALIDA_R"; fi
 
+# El hook SessionStart y el mod leen `global` y `truncated` sin guardas: un
+# campo ausente se degrada en silencio a "sin reglas globales".
+if printf '%s' "$SALIDA_R" | jq -e '(.data.global|type) == "array" and (.data.truncated|type) == "number"' >/dev/null 2>&1; then
+  pass "contrato rules: .data.global es array y .data.truncated número"
+else fail "contrato rules: global y truncated" "$(printf '%s' "$SALIDA_R" | jq -c '.data' 2>/dev/null)"; fi
+
+# `rules --check` sobre una KB limpia (sin notas) sale 0; exit 3 = excesos.
+KB_C="$(mktemp -d)"
+con_timeout "${EXO_CONTRATO_TIMEOUT:-15}" "$EXO_BIN" rules --check --kb "$KB_C" >/dev/null 2>&1
+RC_C=$?
+rmdir "$KB_C" 2>/dev/null
+if [ "$RC_C" -eq 0 ]; then pass "contrato rules --check: KB limpia sale 0"
+else fail "contrato rules --check: KB limpia sale 0" "rc=$RC_C"; fi
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

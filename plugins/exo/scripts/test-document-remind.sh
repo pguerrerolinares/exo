@@ -328,5 +328,73 @@ run vc "$SMALL"
 if contains "$(msg)" "no entregó" && contains "$(witness_reasons)" "reason=no_entrego"; then pass "via_none_hb_corrupto"
 else fail "via_none_hb_corrupto" "out=$OUT log=$(witness_reasons)"; fi
 
+# --- D3: el testigo decide por n (proyecto + global), no por status ---
+# globales_perdidas_en_skip: repo sin nota pero con globales; el mod falló
+: > "$REFLEX_LOG_FILE"; stub_reset
+echo '{"status":"skip","reason":"sin_seccion","n":2,"n_global":2,"repo":"exo"}' > "$RULES/ss-gp"
+hbraw gp '{"status":"error","n":0,"via":"compose","error":"x"}'
+run gp "$SMALL"
+EXP='⚠ el mod de reglas de proyecto no entregó: SessionStart vio skip n=2, el latido dice error n=0'
+if [ "$(msg)" = "$EXP" ] && contains "$(witness_reasons)" "reason=no_entrego"; then pass "globales_perdidas_en_skip: no_entrego con aviso"
+else fail "globales_perdidas_en_skip: no_entrego con aviso" "out=$OUT log=$(witness_reasons)"; fi
+
+# sin_reglas_no_avisa (regresión: guarda de ss.n > 0)
+: > "$REFLEX_LOG_FILE"
+echo '{"status":"skip","reason":"sin_seccion","n":0,"repo":"exo"}' > "$RULES/ss-sr"
+hbraw sr '{"status":"error","n":0,"via":"compose"}'
+run sr "$SMALL"
+if [ -z "$OUT" ] && contains "$(witness_reasons)" "reason=hb_error"; then pass "sin_reglas_no_avisa"
+else fail "sin_reglas_no_avisa" "out=$OUT log=$(witness_reasons)"; fi
+
+# entrega_completa (regresión: sin falso positivo)
+: > "$REFLEX_LOG_FILE"
+echo '{"status":"ok","n":3,"n_global":1,"repo":"exo"}' > "$RULES/ss-ec"
+hbraw ec '{"status":"ok","n":3,"n_global":1,"via":"compose"}'
+run ec "$SMALL"
+if [ -z "$OUT" ] && [ ! -s "$REFLEX_LOG_FILE" ]; then pass "entrega_completa"
+else fail "entrega_completa" "out=$OUT log=$(witness_reasons)"; fi
+
+# via_none_con_ss_skip_y_n_grita: globales sin canal
+: > "$REFLEX_LOG_FILE"
+echo '{"status":"skip","reason":"sin_seccion","n":2,"n_global":2,"repo":"exo"}' > "$RULES/ss-vg"
+hbraw vg '{"status":"error","n":0,"via":"none","error":"sin entrega"}'
+run vg "$SMALL"
+if contains "$(msg)" "ningún canal entregó" && contains "$(witness_reasons)" "reason=sin_canal"; then pass "via_none_con_ss_skip_y_n_grita"
+else fail "via_none_con_ss_skip_y_n_grita" "out=$OUT log=$(witness_reasons)"; fi
+
+# hb_viejo_sin_n_global: la divergencia llega al mensaje aunque hb no traiga n_global
+: > "$REFLEX_LOG_FILE"; stub_reset
+echo '{"status":"ok","n":3,"repo":"exo"}' > "$RULES/ss-hg"
+hbraw hg '{"status":"ok","n":2}'
+stub '{"data":{"status":"ok","rules":["a","b"],"global":["g"]}}'
+run hg "$SMALL"; stub_reset
+if [ "$(msg)" = '⚠ el mod de reglas de proyecto no entregó: el engine dice ok n=3, el latido dice ok n=2' ]; then pass "hb_viejo_sin_n_global"
+else fail "hb_viejo_sin_n_global" "out=$OUT"; fi
+
+# reresolucion_cuenta_global: skip + global cuenta; ss se refresca con n y n_global
+: > "$REFLEX_LOG_FILE"; stub_reset
+echo '{"status":"ok","n":1,"repo":"exo"}' > "$RULES/ss-rg"
+hbraw rg '{"status":"skip","n":2,"n_global":2,"via":"compose"}'
+stub '{"data":{"status":"skip","reason":"sin_seccion","repo":"exo","rules":[],"global":["g1","g2"]}}'
+run rg "$SMALL"; stub_reset
+if [ -z "$OUT" ] && contains "$(witness_reasons)" "reason=kb_cambio" \
+   && [ "$(jq -r '[.status,.n,.n_global]|@tsv' "$RULES/ss-rg" | tr -d '\r')" = "$(printf 'skip\t2\t2')" ]; then pass "reresolucion_cuenta_global"
+else fail "reresolucion_cuenta_global" "out=$OUT log=$(witness_reasons) ss=$(cat "$RULES/ss-rg")"; fi
+
+# globales_perdidas_con_crlf: jq con CRLF no puede silenciar el caso de arriba
+mkdir -p "$TMP/jq-crlf"
+# CRLF solo en lo leído de ficheros (ss/hb): el session_id del input no es lo que se prueba.
+# shellcheck disable=SC2016 # cuerpo literal del jq falso: sus $ se expanden al ejecutarlo, no aquí
+printf '#!/usr/bin/env bash\nset -o pipefail\n"%s" "$@" | if [ -f "${!#}" ]; then sed "s/$/\\r/"; else cat; fi\n' "$(command -v jq)" > "$TMP/jq-crlf/jq"
+chmod +x "$TMP/jq-crlf/jq"
+: > "$REFLEX_LOG_FILE"; stub_reset
+echo '{"status":"skip","reason":"sin_seccion","n":2,"n_global":2,"repo":"exo"}' > "$RULES/ss-gc"
+hbraw gc '{"status":"error","n":0,"via":"compose","error":"x"}'
+OLD_PATH="$PATH"; PATH="$TMP/jq-crlf:$PATH"
+run gc "$SMALL"
+PATH="$OLD_PATH"
+if [ "$(msg)" = "$EXP" ] && contains "$(witness_reasons)" "reason=no_entrego"; then pass "globales_perdidas_con_crlf: no_entrego con aviso"
+else fail "globales_perdidas_con_crlf: no_entrego con aviso" "out=$OUT log=$(witness_reasons)"; fi
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

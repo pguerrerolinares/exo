@@ -46,14 +46,15 @@ guarda_o_compara() {  # $1=nombre $2=salida
   fi
 }
 
-# --- Escenario 1: camino feliz (STUB_FELIZ de test-exo-recall.sh) ---
+# --- Escenario 1: camino feliz; el core-index servido es multisección y el
+# --- golden fija que solo llega el contrato (#184) ---
 STUB_FELIZ="$TMP/exo-stub-feliz"
 cat > "$STUB_FELIZ" <<'EOF'
 #!/usr/bin/env bash
 case "$1" in
   --version) echo "exo 9.0.0" ;;
   config) echo '{"schema_version":2,"command":"config","data":{"kb":{"name":"kb-test","path":"/tmp/kb-test"}}}' ;;
-  recall) echo "Contrato de memoria: bloque de prueba camino feliz." ;;
+  recall) printf '# core-index\n\n## Doctrina compacta\n- doctrina-x\n\n## Contrato de memoria\nContrato de memoria: bloque de prueba camino feliz.\n\n## Cores\n- core-x\n\n## Actividad reciente\n- act-x\n' ;;
   rules) echo '{"schema_version":2,"command":"rules","data":{"status":"ok","repo":"r","note":"projects/r.md","rules":[],"ignored_lines":[]}}' ;;
   *) exit 1 ;;
 esac

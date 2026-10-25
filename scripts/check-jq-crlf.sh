@@ -8,6 +8,8 @@
 # Se marca una línea lógica (continuaciones `\` unidas) con `jq` que alimenta
 # un `read` (`jq … | … read`, `< <(… jq …)`) salvo que el jq lleve `-j` /
 # `--join-output` (sin saltos de línea) o la línea filtre con `tr -d '\r'`.
+# También `read … <<< "$(… jq …)"`: vale si el fichero limpia la última
+# variable del read con `${VAR%$'\r'}`.
 # Heurística de línea: no sigue variables intermedias.
 # Uso: check-jq-crlf.sh [<dir>]   (default plugins/exo/scripts)
 set -uo pipefail
@@ -22,9 +24,18 @@ if [ "${#FICHEROS[@]}" -eq 0 ]; then
 fi
 
 awk '
-  function revisa(l, n) {
+  function limpia_ultima(l,   pre, w, k, v, txt, x) {
+    pre = substr(l, 1, index(l, "<<<") - 1); sub(/[[:space:]]+$/, "", pre)
+    k = split(pre, w, /[[:space:]]+/); v = w[k]
+    while ((getline x < FILENAME) > 0) txt = txt x "\n"
+    close(FILENAME)
+    return index(txt, "${" v "%$\x27\\r\x27}") > 0
+  }
+  function revisa(l, n,   aqui) {
     if (l !~ /(^|[^[:alnum:]_.-])jq[[:space:]]/) return
-    if (l !~ /<[[:space:]]*<\(.*jq[[:space:]]/ && l !~ /jq[[:space:]].*\|[^|]*(^|[^[:alnum:]_-])read[[:space:]]/) return
+    aqui = (l ~ /(^|[^[:alnum:]_])read[[:space:]].*<<<[[:space:]]*"?\$\(.*jq[[:space:]]/)
+    if (aqui && limpia_ultima(l)) return
+    if (!aqui && l !~ /<[[:space:]]*<\(.*jq[[:space:]]/ && l !~ /jq[[:space:]].*\|[^|]*(^|[^[:alnum:]_-])read[[:space:]]/) return
     if (l ~ /jq[[:space:]]+(-[[:alpha:]]*j[[:alpha:]]*|--join-output)([[:space:]]|$)/) return
     if (l ~ /tr[[:space:]]+-d[[:space:]]+.\\r./) return
     printf "%s:%d: jq leído con read sin -j ni tr -d \x27\\r\x27: %s\n", FILENAME, n, substr(l, 1, 100)

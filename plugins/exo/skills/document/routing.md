@@ -22,7 +22,7 @@ placeholders entre corchetes.
 | Decisión, patrón u opinión sobre el propio dueño | `[nota de perfil del dueño]` | edita — nunca nota nueva |
 | Proyecto o tema nuevo | nota nueva en su directorio de proyectos | crea |
 | Research standalone | nota nueva en su directorio de research | crea |
-| Regla **mecánica** de un solo repo | además, `## Reglas duras` de su nota-puerta | una línea `- `, ≤10 por nota |
+| Regla **mecánica** (verificable, sin juicio) | además, `## Reglas duras`: la de un repo, en su nota canónica; la transversal, en `core/reglas-duras.md` | una línea `- ` de ≤300 B, máximo 10 por sección; se inserta en su posición de prioridad (la primera manda) y, si la sección está llena, desplaza a la última — nunca se anexa al final de una sección llena |
 | Decisión que merece nota canónica propia | nota nueva | crea — es la excepción, no la regla |
 
 ## Frontmatter

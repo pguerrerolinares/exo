@@ -270,23 +270,161 @@ fn encabezado_exacto() {
     assert_eq!(data(&m.rules(&r))["reason"], "sin_seccion");
 }
 
+fn con_reglas(prefijo: &str, n: usize) -> String {
+    let mut s = String::from("## Reglas duras\n");
+    for i in 1..=n {
+        s.push_str(&format!("- {prefijo}{i}\n"));
+    }
+    s
+}
+
+fn lista(prefijo: &str, n: usize) -> Value {
+    (1..=n).map(|i| format!("{prefijo}{i}")).collect()
+}
+
 #[test]
-fn excede_cap() {
+fn excede_cap_entrega_las_diez_primeras() {
     let m = Mundo::nuevo();
     let r = m.repo("foo");
-    let con = |n: usize| {
-        let mut s = String::from("## Reglas duras\n");
-        for i in 0..n {
-            s.push_str(&format!("- r{i}\n"));
-        }
-        s
-    };
-    m.nota("projects/foo.md", &con(11));
+    m.nota("projects/foo.md", &con_reglas("r", 12));
     let v = m.rules(&r);
-    assert_eq!(data(&v)["reason"], "excede_cap");
-    assert!(data(&v).get("rules").is_none());
-    m.nota("projects/foo.md", &con(10));
-    assert_eq!(data(&m.rules(&r))["status"], "ok");
+    assert_eq!(data(&v)["status"], "ok");
+    assert_eq!(data(&v)["rules"], lista("r", 10));
+    assert_eq!(data(&v)["truncated"], 2);
+    m.nota("projects/foo.md", &con_reglas("r", 10));
+    assert_eq!(data(&m.rules(&r))["truncated"], 0);
+}
+
+#[test]
+fn nota_en_subdirectorio_resuelve_por_slug() {
+    let m = Mundo::nuevo();
+    let r = m.repo("code-graph-engine");
+    m.nota(
+        "projects/cge/cge — motor.md",
+        "---\nslug: code-graph-engine\n---\n## Reglas duras\n- a\n",
+    );
+    let v = m.rules(&r);
+    assert_eq!(data(&v)["status"], "ok");
+    assert_eq!(data(&v)["note"], "projects/cge/cge — motor.md");
+}
+
+#[test]
+fn subdirectorio_por_stem() {
+    let m = Mundo::nuevo();
+    let r = m.repo("pm");
+    m.nota("projects/pm/pm — guía.md", "## Reglas duras\n- a\n");
+    let v = m.rules(&r);
+    assert_eq!(data(&v)["status"], "ok");
+    assert_eq!(data(&v)["note"], "projects/pm/pm — guía.md");
+}
+
+#[test]
+fn note_relativa_con_kb_relativa() {
+    let m = Mundo::nuevo();
+    let r = m.repo("pm");
+    m.nota("projects/pm/pm — guía.md", "## Reglas duras\n- a\n");
+    let o = Command::new(bin())
+        .args(["rules", "--json", "--kb", "kb", "--cwd"])
+        .arg(&r)
+        .current_dir(m.dir.path())
+        .env("GIT_CONFIG_GLOBAL", &m.cfg)
+        .env("GIT_CONFIG_SYSTEM", &m.cfg)
+        .output()
+        .unwrap();
+    assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
+    let v: Value = serde_json::from_slice(&o.stdout).unwrap();
+    assert_eq!(data(&v)["note"], "projects/pm/pm — guía.md");
+}
+
+#[test]
+fn ambigua_entre_raiz_y_subdirectorio() {
+    let m = Mundo::nuevo();
+    let r = m.repo("foo");
+    m.nota("projects/foo.md", "## Reglas duras\n- a\n");
+    m.nota("projects/x/foo — b.md", "## Reglas duras\n- b\n");
+    let v = m.rules(&r);
+    assert_eq!(data(&v)["status"], "skip");
+    assert_eq!(data(&v)["reason"], "ambigua");
+    assert_eq!(
+        data(&v)["candidates"],
+        serde_json::json!(["projects/foo.md", "projects/x/foo — b.md"])
+    );
+}
+
+#[test]
+fn dos_niveles_no_cuentan() {
+    let m = Mundo::nuevo();
+    m.nota("projects/pm/pm — guía.md", "## Reglas duras\n- a\n");
+    m.nota("projects/a/b/foo.md", "## Reglas duras\n- b\n");
+    let pm = m.repo("pm");
+    assert_eq!(data(&m.rules(&pm))["status"], "ok");
+    let foo = m.repo("foo");
+    let v = m.rules(&foo);
+    assert_eq!(data(&v)["status"], "skip");
+    assert_eq!(data(&v)["reason"], "sin_nota");
+}
+
+#[test]
+fn global_llega_con_ok() {
+    let m = Mundo::nuevo();
+    let r = m.repo("foo");
+    m.nota("projects/foo.md", "## Reglas duras\n- a\n");
+    m.nota("core/reglas-duras.md", "## Reglas duras\n- g1\n- g2\n");
+    let v = m.rules(&r);
+    assert_eq!(data(&v)["status"], "ok");
+    assert_eq!(data(&v)["global"], serde_json::json!(["g1", "g2"]));
+}
+
+#[test]
+fn global_llega_con_skip() {
+    let m = Mundo::nuevo();
+    m.nota("core/reglas-duras.md", "## Reglas duras\n- g1\n");
+    let r = m.repo("foo");
+    let v = m.rules(&r);
+    assert_eq!(data(&v)["status"], "skip");
+    assert_eq!(data(&v)["reason"], "sin_nota");
+    assert_eq!(data(&v)["global"], serde_json::json!(["g1"]));
+    let d = m.dir.path().join("vacio");
+    std::fs::create_dir_all(&d).unwrap();
+    let v = m.rules_con(&d, &m.kb(), Some(m.dir.path()));
+    assert_eq!(data(&v)["reason"], "sin_git");
+    assert_eq!(data(&v)["global"], serde_json::json!(["g1"]));
+}
+
+#[test]
+fn global_ausente_es_lista_vacia() {
+    let m = Mundo::nuevo();
+    let r = m.repo("foo");
+    let v = m.rules(&r);
+    assert_eq!(data(&v)["reason"], "sin_nota");
+    assert_eq!(data(&v)["global"], serde_json::json!([]));
+    assert_eq!(data(&v)["truncated"], 0);
+    m.nota("projects/foo.md", "## Reglas duras\n- a\n");
+    let v = m.rules(&r);
+    assert_eq!(data(&v)["status"], "ok");
+    assert_eq!(data(&v)["global"], serde_json::json!([]));
+    assert_eq!(data(&v)["truncated"], 0);
+}
+
+#[test]
+fn global_ilegible_es_error_del_engine() {
+    let m = Mundo::nuevo();
+    let r = m.repo("foo");
+    std::fs::create_dir_all(m.kb().join("core/reglas-duras.md")).unwrap();
+    let o = m.ejecuta(&r, &m.kb(), None);
+    assert!(!o.status.success(), "global ilegible debe ser exit != 0");
+}
+
+#[test]
+fn global_recorta_al_cap() {
+    let m = Mundo::nuevo();
+    let r = m.repo("foo");
+    m.nota("projects/foo.md", &con_reglas("r", 12));
+    m.nota("core/reglas-duras.md", &con_reglas("g", 11));
+    let v = m.rules(&r);
+    assert_eq!(data(&v)["rules"], lista("r", 10));
+    assert_eq!(data(&v)["global"], lista("g", 10));
+    assert_eq!(data(&v)["truncated"], 3);
 }
 
 #[test]
@@ -357,4 +495,90 @@ fn git_roto_dentro_de_un_repo_es_error_no_sin_git() {
         "git roto bajo un .git debe ser exit != 0"
     );
     assert!(!String::from_utf8_lossy(&o.stdout).contains("sin_git"));
+}
+
+fn check(m: &Mundo, kb: &Path, json: bool) -> std::process::Output {
+    let mut c = Command::new(bin());
+    c.args(["rules", "--check", "--kb"]).arg(kb);
+    if json {
+        c.arg("--json");
+    }
+    c.env("GIT_CONFIG_GLOBAL", &m.cfg)
+        .env("GIT_CONFIG_SYSTEM", &m.cfg)
+        .output()
+        .unwrap()
+}
+
+#[test]
+fn check_limpio_sale_0() {
+    let m = Mundo::nuevo();
+    m.nota("projects/foo.md", &con_reglas("r", 10));
+    m.nota("core/reglas-duras.md", &con_reglas("g", 3));
+    let o = check(&m, &m.kb(), false);
+    assert_eq!(o.status.code(), Some(0));
+    assert!(o.stdout.is_empty());
+}
+
+#[test]
+fn check_exceso_sale_3() {
+    let m = Mundo::nuevo();
+    m.nota("projects/foo.md", &con_reglas("r", 11));
+    let o = check(&m, &m.kb(), false);
+    assert_eq!(o.status.code(), Some(3));
+    assert_eq!(
+        String::from_utf8_lossy(&o.stdout),
+        "exo rules --check: projects/foo.md tiene 11 reglas duras (máximo 10): desplaza la última\n"
+    );
+}
+
+#[test]
+fn check_cubre_subdirectorio_y_global() {
+    let m = Mundo::nuevo();
+    m.nota("projects/x/y.md", &con_reglas("r", 11));
+    m.nota("core/reglas-duras.md", &con_reglas("g", 11));
+    m.nota("projects/sin.md", "# sin sección\n");
+    m.nota("projects/vacia.md", "## Reglas duras\n");
+    let o = check(&m, &m.kb(), false);
+    assert_eq!(o.status.code(), Some(3));
+    let t = String::from_utf8_lossy(&o.stdout);
+    assert!(t.contains("projects/x/y.md tiene 11"), "{t}");
+    assert!(t.contains("core/reglas-duras.md tiene 11"), "{t}");
+    assert_eq!(t.lines().count(), 2, "{t}");
+}
+
+#[test]
+fn check_sin_git() {
+    let m = Mundo::nuevo();
+    // `.git` roto: si --check invocara git, saldría con error (exit 1).
+    std::fs::write(m.dir.path().join("kb/.git"), "gitdir: /no/existe\n").unwrap();
+    m.nota("projects/foo.md", &con_reglas("r", 3));
+    assert_eq!(check(&m, &m.kb(), false).status.code(), Some(0));
+    m.nota("projects/foo.md", &con_reglas("r", 11));
+    assert_eq!(check(&m, &m.kb(), false).status.code(), Some(3));
+}
+
+#[test]
+fn check_kb_sin_projects() {
+    let m = Mundo::nuevo();
+    let kb = m.dir.path().join("kb-minima");
+    std::fs::create_dir_all(&kb).unwrap();
+    let o = check(&m, &kb, false);
+    assert_eq!(o.status.code(), Some(0));
+    assert!(o.stdout.is_empty());
+}
+
+#[test]
+fn check_json_un_envelope_con_ruta_con_barra() {
+    let m = Mundo::nuevo();
+    m.nota("projects/x/y.md", &con_reglas("r", 12));
+    let o = check(&m, &m.kb(), true);
+    assert_eq!(o.status.code(), Some(3));
+    let linea = String::from_utf8(o.stdout).unwrap();
+    assert_eq!(linea.trim().lines().count(), 1);
+    let v: Value = serde_json::from_str(linea.trim()).unwrap();
+    assert_eq!(v["command"], "rules-check");
+    assert_eq!(
+        data(&v)["excesos"],
+        serde_json::json!([{"nota": "projects/x/y.md", "reglas": 12}])
+    );
 }

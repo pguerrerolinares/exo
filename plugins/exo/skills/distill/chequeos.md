@@ -82,14 +82,15 @@ solo mientras kbx y exo convivían contra el mismo schema,
 - Chequea inject-failed E inject-abstained en reflex-log.jsonl (jq 'select(.reflex=="inject-failed" or .reflex=="inject-abstained")'): >0 sostenido = componedor roto en silencio o payloads sin agent_type — never-break no puede significar semanas sin inyección (spec transporte §7).
 - Chequea también `recall-fallback` con `reason=truncated`
   (`jq 'select(.reflex=="recall-fallback" and (.detail|test("truncated")))'`).
-  Cada uno es un arranque servido incompleto: el cuerpo de `core-index`
-  sobrevive siempre —el guard busca "Contrato de memoria", que está al
-  principio— y lo que se cae por el final son los punteros de actividad
-  reciente, sin que nada lo diga. Sostenido = `core-index` está sobresuscrito y
-  toca evicción del índice (entradas muertas y justificaciones, nunca comprimir
-  entradas vivas). Compruébalo con el bloque real, no con `wc` del fichero:
+  Cada uno es un arranque servido incompleto. Chequea además `recall-truncated`
+  (`jq 'select(.reflex=="recall-truncated")'`): el bloque de arranque tiene un
+  cap de 1.500 B y el payload (`bytes=<antes> cap=1500`) dice cuánto se recortó.
+  El bloque es el contrato de `core-index` más los avisos, y el corte es por el
+  final: caen antes los avisos que el contrato. Sostenido = el contrato ha
+  crecido más de lo que cabe, y toca evicción (entradas muertas y
+  justificaciones, nunca comprimir reglas ni entradas vivas). Las reglas duras
+  no viajan en este bloque; su tope se mide aparte:
 
-      exo recall --db ~/.exo/index.db --content \
-          --note kb-demo/core/core-index --limit 10 --cap-bytes 6144
+      exo rules --check --kb <kb>
 
-  Un `aviso: … truncado` en stderr es la señal.
+  Sale 3 y lista `excesos` (nota y nº de reglas) si alguna sección pasa de 10.

@@ -333,6 +333,10 @@ struct ArgsRules {
     /// Emite el resultado como envelope JSON en stdout.
     #[arg(long)]
     json: bool,
+    /// Solo comprueba que ninguna nota supera el máximo de reglas duras
+    /// (exit 3 si alguna lo supera). Ignora `--cwd` y no invoca git.
+    #[arg(long)]
+    check: bool,
 }
 
 #[derive(clap::Args)]
@@ -1196,6 +1200,25 @@ fn targets_cmd(args: ArgsTargets) -> Result<()> {
 
 fn rules_cmd(args: ArgsRules) -> Result<()> {
     let kb = resuelve_kb(args.kb)?;
+    if args.check {
+        let excesos = exo::reglas::check(&kb)?;
+        if args.json {
+            envelope::emite("rules-check", serde_json::json!({ "excesos": excesos }));
+        } else {
+            for e in &excesos {
+                println!(
+                    "exo rules --check: {} tiene {} reglas duras (máximo {}): desplaza la última",
+                    e.nota,
+                    e.reglas,
+                    exo::reglas::CAP
+                );
+            }
+        }
+        if !excesos.is_empty() {
+            std::process::exit(3);
+        }
+        return Ok(());
+    }
     let cwd = match args.cwd {
         Some(c) => c,
         None => std::env::current_dir().context("directorio actual")?,
@@ -1204,7 +1227,7 @@ fn rules_cmd(args: ArgsRules) -> Result<()> {
     if args.json {
         envelope::emite("rules", serde_json::to_value(&resultado)?);
     } else {
-        match &resultado {
+        match &resultado.resultado {
             exo::reglas::Resultado::Ok { repo, rules, .. } => {
                 println!("ok {repo}: {} reglas", rules.len());
             }
