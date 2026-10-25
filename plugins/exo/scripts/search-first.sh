@@ -16,11 +16,16 @@
 #      "${SEARCH_FIRST_SENTINEL_DIR:-/tmp}/claude-search-first-<session_id>";
 #      la variable de entorno solo existe para aislar los tests de /tmp
 #      real).
-#  (c) Si el sensor no sabe -- sin `jq`, sin `transcript_path`, con el
-#      fichero ausente/ilegible, o si el `jq` de deteccion falla -- calla
-#      (ni avisa ni cuenta como "ok"): `reflex_log "search-first-skip"` con
-#      el motivo, y CREA igualmente el sentinel (como mucho un intento por
-#      sesion, ok o skip).
+#  (c) Si el sensor no puede correr -- sin `jq`, o si el `jq` de deteccion
+#      falla -- calla (ni avisa ni cuenta como "ok"): `reflex_log
+#      "search-first-skip"` con el motivo, y CREA igualmente el sentinel
+#      (como mucho un intento por sesion, ok o skip).
+#  (d) Sin transcript -- sin `transcript_path` o con el fichero
+#      ausente/ilegible, que es lo normal en headless sin persistencia
+#      (`claude -p --no-session-persistence`: CI, evals) -- AVISA igual:
+#      sin evidencia de busqueda se asume que no la hubo, y el log lleva
+#      `search-first` con `motivo=...`. Antes callaba y el reflejo
+#      desaparecia sin ponerse rojo (#182).
 #
 # Camino rapido (desde la 2a llamada de la sesion en adelante, y para
 # distinguir subagente): bash puro, SIN jq -- session_id/agent_id se leen
@@ -83,14 +88,23 @@ LOG_OK=0
 # shellcheck source=_reflex-log.sh
 . "$(dirname "$0")/_reflex-log.sh" 2>/dev/null && LOG_OK=1
 
+# El aviso, compartido por la rama "no se busco" y por la de "sin transcript"
+# (abstencion d). $1 = payload del log ("" o "motivo=...").
+avisa() {
+  [ "$LOG_OK" = 1 ] && { reflex_log "search-first" "$INPUT" "$1" || true; }
+  # shellcheck disable=SC2016 # backticks literales del aviso en markdown, no sustitución de comandos
+  MSG='Reflejo search-first: primer trabajo sustantivo de la sesión sin `exo search`/`exo targets` previo. Si el tema puede tener historia en la KB, busca antes (`exo search --type hybrid "<tema>"`); si no, dilo en una línea y sigue.'
+  printf '%s' "$MSG" | jq -Rs '{hookSpecificOutput:{hookEventName:"PreToolUse",additionalContext:.}}'
+}
+
 TRANSCRIPT="$(printf '%s' "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/null)"
 
 if [ -z "$TRANSCRIPT" ]; then
-  [ "$LOG_OK" = 1 ] && { reflex_log "search-first-skip" "$INPUT" "motivo=sin-transcript_path" || true; }
+  avisa "motivo=sin-transcript_path"
   exit 0
 fi
 if [ ! -f "$TRANSCRIPT" ] || [ ! -r "$TRANSCRIPT" ]; then
-  [ "$LOG_OK" = 1 ] && { reflex_log "search-first-skip" "$INPUT" "motivo=transcript-ilegible" || true; }
+  avisa "motivo=transcript-ilegible"
   exit 0
 fi
 
@@ -129,10 +143,7 @@ case "$EC" in
     [ "$LOG_OK" = 1 ] && { reflex_log "search-first-ok" "$INPUT" "" || true; }
     ;;
   1)
-    [ "$LOG_OK" = 1 ] && { reflex_log "search-first" "$INPUT" "" || true; }
-    # shellcheck disable=SC2016 # backticks literales del aviso en markdown, no sustitución de comandos
-    MSG='Reflejo search-first: primer trabajo sustantivo de la sesión sin `exo search`/`exo targets` previo. Si el tema puede tener historia en la KB, busca antes (`exo search --type hybrid "<tema>"`); si no, dilo en una línea y sigue.'
-    printf '%s' "$MSG" | jq -Rs '{hookSpecificOutput:{hookEventName:"PreToolUse",additionalContext:.}}'
+    avisa ""
     ;;
   *)
     [ "$LOG_OK" = 1 ] && { reflex_log "search-first-skip" "$INPUT" "motivo=jq-deteccion-fallo-ec${EC}" || true; }

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Test standalone para search-first.sh (reflejo "search-first", PreToolUse
 # matcher ^(Agent|Task|Edit|Write|NotebookEdit)$ -- ver hooks/hooks.json).
-# Warn-only: exit 0 SIEMPRE. Avisa como mucho 1x/sesion, solo en el padre, y
-# calla cuando no sabe (sin jq, sin transcript_path, transcript ilegible, o
-# si el jq de deteccion falla).
+# Warn-only: exit 0 SIEMPRE. Avisa como mucho 1x/sesion, solo en el padre.
+# Sin transcript (headless sin persistencia) avisa igual (#182); calla solo
+# sin jq o si el jq de deteccion falla.
 #
 # Los 10 casos siguen la numeracion de
 # docs/superpowers/specs/2026-09-23-search-first-design.md Seccion 6, en el
 # mismo orden, para que sean trazables uno a uno contra la spec. El caso 7
-# se parte en 7a/7b (dos motivos distintos de skip).
+# se parte en 7a/7b (dos motivos distintos de aviso sin transcript, #182).
 #
 # Nota sobre el caso 4 (ver docs/superpowers/plans/2026-09-23-search-first.md,
 # seccion "Contradiccion encontrada..."): la spec Seccion 6 ilustra el falso
@@ -139,23 +139,26 @@ else
 fi
 rm -rf "$POISON_DIR"
 
-# --- Caso 7: sin transcript_path, o apuntando a un fichero que no existe -> skip, sin aviso
-# (review final: no basta con el reflex == skip, hay que distinguir el MOTIVO
-# via el payload exacto de la ultima linea del log -- si no, un skip por la
-# rama equivocada pasaria igual el test).
+# --- Caso 7: sin transcript_path, o apuntando a un fichero que no existe -> AVISA igual (#182)
+# Headless sin persistencia (`claude -p --no-session-persistence`) no deja
+# transcript: sin evidencia de busqueda, se asume que no la hubo. Antes callaba
+# (search-first-skip) y el reflejo desaparecia en CI/evals sin ponerse rojo.
+# Se distingue el MOTIVO por el payload exacto de la ultima linea del log.
 OUT7A="$(corre c7a "")"
-if [ -z "$OUT7A" ] && [ "$(ultima_reflex)" = "search-first-skip" ] && [ "$(ultima_payload)" = "motivo=sin-transcript_path" ]; then
-  pass "caso7a: sin transcript_path -> search-first-skip, sin aviso, payload motivo=sin-transcript_path"
+if printf '%s' "$OUT7A" | jq -e '.hookSpecificOutput.additionalContext | length > 0' >/dev/null 2>&1 \
+   && [ "$(ultima_reflex)" = "search-first" ] && [ "$(ultima_payload)" = "motivo=sin-transcript_path" ]; then
+  pass "caso7a: sin transcript_path -> aviso, search-first con payload motivo=sin-transcript_path"
 else
-  fail "caso7a: sin transcript_path -> search-first-skip, sin aviso, payload motivo=sin-transcript_path" \
+  fail "caso7a: sin transcript_path -> aviso, search-first con payload motivo=sin-transcript_path" \
     "out=$OUT7A reflex=$(ultima_reflex) payload=$(ultima_payload)"
 fi
 
 OUT7B="$(corre c7b "$TMP/no-existe-$$.jsonl")"
-if [ -z "$OUT7B" ] && [ "$(ultima_reflex)" = "search-first-skip" ] && [ "$(ultima_payload)" = "motivo=transcript-ilegible" ]; then
-  pass "caso7b: transcript_path a fichero inexistente -> search-first-skip, sin aviso, payload motivo=transcript-ilegible"
+if printf '%s' "$OUT7B" | jq -e '.hookSpecificOutput.additionalContext | length > 0' >/dev/null 2>&1 \
+   && [ "$(ultima_reflex)" = "search-first" ] && [ "$(ultima_payload)" = "motivo=transcript-ilegible" ]; then
+  pass "caso7b: transcript_path a fichero inexistente -> aviso, search-first con payload motivo=transcript-ilegible"
 else
-  fail "caso7b: transcript_path a fichero inexistente -> search-first-skip, sin aviso, payload motivo=transcript-ilegible" \
+  fail "caso7b: transcript_path a fichero inexistente -> aviso, search-first con payload motivo=transcript-ilegible" \
     "out=$OUT7B reflex=$(ultima_reflex) payload=$(ultima_payload)"
 fi
 

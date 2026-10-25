@@ -108,7 +108,7 @@ ruta="$PATH"; case $brazo in a0|a1|n|ar|arp) ruta="$P/stub:$PATH" ;; ars) ruta="
 
 # S2: el agente usa el venv del repo (solo lectura) y el código de su workdir.
 extra_env=(); plugin_args=(); persist=(--no-session-persistence)
-# a2s persiste la sesión: search-first lee transcript_path y sin él calla (motivo=transcript-ilegible).
+# a2s persiste la sesión: es el único rastro del aviso que vio el modelo (y, antes de #182, sin ella search-first callaba).
 [ "$brazo" = a2s ] && { extra_env+=(SEARCH_FIRST_SENTINEL_DIR="$O"); persist=(); }
 [ "$brazo" = ars ] && { extra_env+=(EXO_RULES_FORZAR_SUBMIT=1); plugin_args=(--plugin-dir "$O/plugin-ars"); }
 if [ -f "$tarea/meta.json" ]; then
@@ -132,7 +132,7 @@ kb_base=$(awk '$1=="kb_commit"{print $2}' "$P/manifiesto.txt")
   || { echo "$P/kb no está limpia o su HEAD no es kb_commit (restauración previa fallida?): no se lanza claude" >&2; exit 3; }
 prompt=$(jq -r .prompt "$t_json")
 { [ "$brazo" = a2 ] || [ "$brazo" = a2s ]; } && PATH="$ruta" EXO_CONFIG="$P/config.toml" EXO_KB="$P/kb" EXO_DB="$P/index.db" EXO_INDEX="$P/index.db" \
-  EXO_BIN="$(command -v exo)" "$PLUG/exo-recall.sh" < /dev/null > "$O/inyectado.txt" 2>/dev/null
+  EXO_BIN="$(command -v exo)" REFLEX_LOG_FILE="$O/reflex-captura.jsonl" "$PLUG/exo-recall.sh" < /dev/null > "$O/inyectado.txt" 2>/dev/null
 cd "$O/work" || exit 3; t0=$(date +%s)
 env "${extra_env[@]}" PATH="$ruta" EXO_CONFIG="$P/config.toml" EXO_KB="$P/kb" EXO_DB="$P/index.db" EXO_INDEX="$P/index.db" \
 EXO_BIN="$(command -v exo)" REFLEX_LOG_FILE="$O/reflex.jsonl" \

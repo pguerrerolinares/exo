@@ -92,9 +92,14 @@ siempre exit 0. Se cablea en `plugins/exo/hooks/hooks.json`:
    - En los dos casos se crea el sentinel: como mucho un aviso por sesión, y
      el log registra también las sesiones que sí buscaron (hace falta el
      denominador para la tasa).
-4. **Si falla algo:** sin `transcript_path`, con el fichero ausente o
-   ilegible, o si falla el `jq`, se registra `search-first-skip` con el
-   motivo, no se avisa y se crea el sentinel. Si el sensor no sabe, calla.
+4. **Si falla algo:** sin `jq`, o si falla el `jq` de detección, se registra
+   `search-first-skip` con el motivo, no se avisa y se crea el sentinel.
+   **Sin transcript** (sin `transcript_path`, o con el fichero ausente o
+   ilegible) se avisa igual y se registra `search-first` con
+   `motivo=sin-transcript_path` / `motivo=transcript-ilegible`: es lo normal
+   en headless sin persistencia (`claude -p --no-session-persistence`), y sin
+   evidencia de búsqueda se asume que no la hubo. Enmienda de #182: la
+   versión original callaba ahí y el reflejo desaparecía sin ponerse rojo.
 
 ### 4.3 Limitaciones aceptadas
 
@@ -130,7 +135,7 @@ fixture y `REFLEX_LOG_FILE` temporal:
 4. `echo "exo search"`: ok (falso negativo documentado en §4.3).
 5. Subagente (`agent_id` con valor): stdout vacío, sin log y sin sentinel.
 6. Segunda llamada con el sentinel creado: silencio, y `jq` no llega a invocarse (se comprueba con un `jq` falso que deja marca, como en los tests de la campaña I).
-7. Sin `transcript_path`, o apuntando a un fichero que no existe: `search-first-skip`, sin aviso.
+7. Sin `transcript_path`, o apuntando a un fichero que no existe: aviso, y `search-first` con el motivo en el payload (#182).
 8. Sin `jq` en el PATH: exit 0, `search-first-skip`.
 9. La salida del caso negativo es un JSON válido (`jq -e '.hookSpecificOutput.additionalContext'`).
 10. `exo search` en un mensaje del usuario (no `tool_use`): aviso.
