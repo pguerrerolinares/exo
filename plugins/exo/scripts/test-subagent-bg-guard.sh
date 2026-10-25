@@ -82,8 +82,8 @@ OUT="$(printf '{"session_id":"s","agent_transcript_path":"%s"}' "$TMP/t-vivo.jso
 run "$TMP/no-existe.jsonl"
 [ -z "$OUT" ] && pass "calla: transcript ilegible" || fail "calla: transcript ilegible" "out=$OUT"
 
-printf '{"agent_id":"a1"}' | "$HOOK" >/dev/null 2>&1
-[ $? -eq 0 ] && pass "calla: sin agent_transcript_path" || fail "calla: sin agent_transcript_path" "rc=$?"
+RC=0; printf '{"agent_id":"a1"}' | "$HOOK" >/dev/null 2>&1 || RC=$?
+[ "$RC" -eq 0 ] && pass "calla: sin agent_transcript_path" || fail "calla: sin agent_transcript_path" "rc=$RC"
 
 # Fixture saneado del caso real (#170); `@TASKS@` = directorio de los .output.
 FIX="${SCRIPT_DIR}/testdata/subagent-bg-guard/transcript.jsonl"
