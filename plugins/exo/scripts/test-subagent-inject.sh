@@ -235,6 +235,37 @@ FAKE
   fi
 }
 
+# =========================================================================
+# Caso 9: el cap final trunca rutas() ⇒ los eventos que loguea
+# compose-inject.sh (inject-truncated) llevan session_id/agent_id del
+# payload. Antes salían solo con {agent_type}: 184 eventos de producción
+# imposibles de casar con su sesión y confundibles con ruido de tests.
+# =========================================================================
+{
+  KB9="$TMP/kb9"
+  mkdir -p "$KB9/core"
+  i=1
+  while [ "$i" -le 40 ]; do
+    printf '# Título Largo De Prueba Numero %d\nRelleno.\n' "$i" \
+      > "$KB9/core/archivo-de-prueba-numero-$i-con-nombre-razonablemente-largo-para-forzar-el-corte.md"
+    i=$((i+1))
+  done
+  LOG9="$TMP/log9.jsonl"
+  : > "$LOG9"
+  PAYLOAD9='{"session_id":"sid-9","agent_id":"aid-9","agent_type":"Explore","hook_event_name":"SubagentStart","cwd":"/tmp"}'
+  printf '%s' "$PAYLOAD9" | REFLEX_LOG_FILE="$LOG9" REFLEX_INJECT_KB="$KB9" REFLEX_PROJECTS_DIR="$NO_PROJECTS" \
+    REFLEX_CANARY_FILE="$TMP/no-canary" "$ADAPTER" >/dev/null
+  LINEA9="$(grep '"reflex":"inject-truncated"' "$LOG9" 2>/dev/null | tail -1)"
+  if [ -n "$LINEA9" ] \
+     && [ "$(printf '%s' "$LINEA9" | jq -r '.session_id')" = "sid-9" ] \
+     && [ "$(printf '%s' "$LINEA9" | jq -r '.agent_id')" = "aid-9" ] \
+     && [ "$(printf '%s' "$LINEA9" | jq -r '.agent_type')" = "Explore" ]; then
+    pass "caso9: inject-truncated hereda session_id/agent_id del payload"
+  else
+    fail "caso9: inject-truncated hereda session_id/agent_id del payload" "log=$(cat "$LOG9" 2>/dev/null)"
+  fi
+}
+
 echo ""
 TOTAL=$((PASS+FAIL))
 echo "=== Resultado: ${PASS}/${TOTAL} pasaron ==="

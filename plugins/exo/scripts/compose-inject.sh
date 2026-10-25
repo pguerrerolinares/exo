@@ -57,6 +57,16 @@ rutas() {     # rutas reales de la KB con linea de indice (titulo)
         printf -- '- %s %s\n' "$f" "${t:+— $t}"
       done
 }
+# Payload para los eventos que loguea este script: el del hook si el adaptador
+# lo pasa (REFLEX_INJECT_PAYLOAD, desde subagent-inject.sh) para que el evento
+# lleve session_id/agent_id y se pueda casar con su sesión; si no, solo el tipo.
+input_evento() {
+  if [ -n "${REFLEX_INJECT_PAYLOAD:-}" ] && printf '%s' "$REFLEX_INJECT_PAYLOAD" | jq -e 'type=="object"' >/dev/null 2>&1; then
+    printf '%s' "$REFLEX_INJECT_PAYLOAD"
+  else
+    jq -cn --arg t "$TYPE" '{agent_type:$t}' 2>/dev/null || printf '{}'
+  fi
+}
 doctrina_compacta() {  # seccion "## Doctrina compacta" del core-index, presupuesto TOTAL de 550B (por lineas enteras)
   local ci="$KB/core/core-index.md"
   [ -n "$KB" ] && [ -f "$ci" ] || return 0
@@ -98,7 +108,7 @@ bloque_reglas() {  # stdout = bloque listo (o nada); trunca por reglas enteras
   [ -n "$cortas" ] && printf '%s\n' "$cortas"
   if [ "$dentro" -lt "$total" ]; then
     printf -- '- (%d reglas más no caben aquí: corre «exo rules» en el repo)\n' $((total - dentro))
-    INPUT_JSON="$(jq -cn --arg t "$TYPE" '{agent_type:$t}' 2>/dev/null)" || INPUT_JSON='{}'
+    INPUT_JSON="$(input_evento)"
     . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && \
       reflex_log "inject-rules-truncated" "$INPUT_JSON" "rules_cut=$((total - dentro)) total=$total" || true
   fi
@@ -140,7 +150,7 @@ LINEAS_TOTAL="$(wc -l < "$CONTENT_FULL")"
 LINEAS_SALIDA="$(wc -l < "$CONTENT_CUT")"
 if [ "$LINEAS_SALIDA" -lt "$LINEAS_TOTAL" ]; then
   CORTADAS=$((LINEAS_TOTAL - LINEAS_SALIDA))
-  INPUT_JSON="$(jq -cn --arg t "$TYPE" '{agent_type:$t}' 2>/dev/null)" || INPUT_JSON='{}'
+  INPUT_JSON="$(input_evento)"
   . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && \
     reflex_log "inject-truncated" "$INPUT_JSON" "lines_cut=$CORTADAS budget=$BUDGET" || true
 fi

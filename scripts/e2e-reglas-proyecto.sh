@@ -38,7 +38,7 @@ FORZAR_ENV=""
 claude_p() {
   local nombre="$1" kb="$2"; shift 2
   (cd "$TMP/fixrepo" && PATH="$RAIZ/engine/target/release:$PATH" EXO_KB="$kb" \
-    EXO_RULES_FORZAR_SUBMIT="${FORZAR_ENV:+1}" \
+    EXO_RULES_FORZAR_SUBMIT="${FORZAR_ENV:+1}" REFLEX_LOG_FILE="$TMP/reflex-log.jsonl" \
     claude -p --model haiku --setting-sources "" --strict-mcp-config \
       --settings "$SETTINGS" --plugin-dir "$RAIZ/plugins/exo" \
       --output-format json "$@" "$PREGUNTA" 2>"$TMP/err-$nombre")
