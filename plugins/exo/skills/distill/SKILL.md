@@ -67,11 +67,7 @@ canon antes del merge.
   engine ≥ 0.7.0: con uno anterior la doble aplicación duplica sin avisar), verifica que cada bloque quedó
   literal en destino, borra el sidecar y commitea; luego
   `git -C $KB_ROOT branch -d distill/auto/<slug>` (si no, la rama bloquea el
-  siguiente auto-distill de la nota). Si la rama trae una **partición** ya
-  ejecutada (línea `Hija:` en el commit), revisa el título de la hija con el
-  test de `consolidacion.md` y que cada puntero `→ [[hija]]` de la madre apunta
-  a bloques literales en ella; mergea como arriba y lista la hija en
-  `[[core-index]]` si la madre está. Si el commit de la rama es una
+  siguiente auto-distill de la nota). Si el commit de la rama es una
   **propuesta de partición**, no hay nada que mergear: ejecútala aquí con el
   test del título (`consolidacion.md`) o descártala, y en ambos casos
   `git -C $KB_ROOT branch -D distill/auto/<slug>`.
