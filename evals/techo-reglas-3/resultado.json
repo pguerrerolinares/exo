@@ -1,0 +1,528 @@
+{
+ "cumplen": {
+  "arp1": 5,
+  "arp10": 5,
+  "arp20": 6
+ },
+ "replica": true,
+ "cap": 10,
+ "invalida_A_7_3": false,
+ "tareas": {
+  "arp1": [
+   {
+    "id": "g0-122",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "1",
+     "r2": "1"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.0687487,
+     "r2": 0.07741980000000001
+    },
+    "resultado": "no cumple"
+   },
+   {
+    "id": "g0-149",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "0",
+     "r2": "0"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.11282990000000001,
+     "r2": 0.094639
+    },
+    "resultado": "cumple"
+   },
+   {
+    "id": "g0-33",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "0",
+     "r2": "0"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.11009540000000001,
+     "r2": 0.12217090000000001
+    },
+    "resultado": "cumple"
+   },
+   {
+    "id": "g1-131",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "2",
+     "r2": "2"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.048333,
+     "r2": 0.0621862
+    },
+    "resultado": "no cumple"
+   },
+   {
+    "id": "g1-139",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "1",
+     "r2": "1"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.047554,
+     "r2": 0.037508
+    },
+    "resultado": "no cumple"
+   },
+   {
+    "id": "g1-140",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "1",
+     "r2": "1"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.11938309999999999,
+     "r2": 0.22381079999999998
+    },
+    "resultado": "no cumple"
+   },
+   {
+    "id": "g1-157",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "0",
+     "r2": "0"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.0852747,
+     "r2": 0.08794350000000001
+    },
+    "resultado": "cumple"
+   },
+   {
+    "id": "g2-154",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "0",
+     "r2": "0"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.0439653,
+     "r2": 0.0512181
+    },
+    "resultado": "cumple"
+   },
+   {
+    "id": "g2-170",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "0",
+     "r2": "0"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.11926579999999999,
+     "r2": 0.12560030000000003
+    },
+    "resultado": "cumple"
+   },
+   {
+    "id": "g2-97",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "1",
+     "r2": "1"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.1613732,
+     "r2": 0.0912807
+    },
+    "resultado": "no cumple"
+   }
+  ],
+  "arp10": [
+   {
+    "id": "g0-122",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "1",
+     "r2": "1"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.0706682,
+     "r2": 0.06936099999999999
+    },
+    "resultado": "no cumple"
+   },
+   {
+    "id": "g0-149",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "0",
+     "r2": "0"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.1127966,
+     "r2": 0.0995114
+    },
+    "resultado": "cumple"
+   },
+   {
+    "id": "g0-33",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "1",
+     "r2": "1"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.06125280000000001,
+     "r2": 0.062394399999999996
+    },
+    "resultado": "no cumple"
+   },
+   {
+    "id": "g1-131",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "2",
+     "r2": "2"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.0716246,
+     "r2": 0.0519348
+    },
+    "resultado": "no cumple"
+   },
+   {
+    "id": "g1-139",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "1",
+     "r2": "1"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.0363988,
+     "r2": 0.052628
+    },
+    "resultado": "no cumple"
+   },
+   {
+    "id": "g1-140",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "1",
+     "r2": "0"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.1232301,
+     "r2": 0.1395833
+    },
+    "resultado": "cumple"
+   },
+   {
+    "id": "g1-157",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "0",
+     "r2": "0"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.0797804,
+     "r2": 0.08894329999999999
+    },
+    "resultado": "cumple"
+   },
+   {
+    "id": "g2-154",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "0",
+     "r2": "0"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.0653775,
+     "r2": 0.06173820000000001
+    },
+    "resultado": "cumple"
+   },
+   {
+    "id": "g2-170",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "0",
+     "r2": "0"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.09963350000000001,
+     "r2": 0.1095782
+    },
+    "resultado": "cumple"
+   },
+   {
+    "id": "g2-97",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "1",
+     "r2": "1"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.040759000000000004,
+     "r2": 0.049721699999999994
+    },
+    "resultado": "no cumple"
+   }
+  ],
+  "arp20": [
+   {
+    "id": "g0-122",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "1",
+     "r2": "1"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.06280490000000001,
+     "r2": 0.0747792
+    },
+    "resultado": "no cumple"
+   },
+   {
+    "id": "g0-149",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "0",
+     "r2": "0"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.1144395,
+     "r2": 0.10170759999999998
+    },
+    "resultado": "cumple"
+   },
+   {
+    "id": "g0-33",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "1",
+     "r2": "1"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.050367499999999996,
+     "r2": 0.0687649
+    },
+    "resultado": "no cumple"
+   },
+   {
+    "id": "g1-131",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "0",
+     "r2": "2"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.0545288,
+     "r2": 0.07406309999999999
+    },
+    "resultado": "cumple"
+   },
+   {
+    "id": "g1-139",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "1",
+     "r2": "1"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.0515336,
+     "r2": 0.0375857
+    },
+    "resultado": "no cumple"
+   },
+   {
+    "id": "g1-140",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "0",
+     "r2": "1"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.2511798,
+     "r2": 0.13109880000000002
+    },
+    "resultado": "cumple"
+   },
+   {
+    "id": "g1-157",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "0",
+     "r2": "0"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.0882358,
+     "r2": 0.0893534
+    },
+    "resultado": "cumple"
+   },
+   {
+    "id": "g2-154",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "0",
+     "r2": "0"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.053751,
+     "r2": 0.0664208
+    },
+    "resultado": "cumple"
+   },
+   {
+    "id": "g2-170",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "0",
+     "r2": "0"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.099047,
+     "r2": 0.12978739999999997
+    },
+    "resultado": "cumple"
+   },
+   {
+    "id": "g2-97",
+    "grupo": "suelo",
+    "rc": {
+     "r1": "1",
+     "r2": "1"
+    },
+    "fin": {
+     "r1": "completed",
+     "r2": "completed"
+    },
+    "usd": {
+     "r1": 0.0416106,
+     "r2": 0.0581292
+    },
+    "resultado": "no cumple"
+   }
+  ]
+ }
+}

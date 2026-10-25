@@ -75,6 +75,17 @@ if grep -qxF "deny=Read(/$P/kb/**)" "$O/cmdline.txt" && grep -qxF "deny=Grep(/$P
 if grep -qxF "append=$O/sysprompt.md" "$O/cmdline.txt" && grep -qxF "append=$P/claude-md.md" "$A0/cmdline.txt"; then
   ok arp_cmdline_usa_sysprompt; else ko arp_cmdline_usa_sysprompt; fi
 
+# arpN_es_arp_con_dir_propio (techo-reglas-3): mismo sysprompt, restricciones y fugas que arp; solo cambia el directorio
+export K_REGLA_FILE="$T/regla.txt" K_FRAMING_FILE="$FRAMING"
+bash "$CORRER" "$tarea" arp20 1 >/dev/null 2>&1; rc=$?; N="$K_ROOT/corridas/tt/arp20-r1"
+if [ $rc = 0 ] && cmp -s "$N/sysprompt.md" "$O/sysprompt.md" && cmp -s "$N/settings.json" "$O/settings.json" \
+   && diff <(sed "s|$N|<O>|g" "$N/cmdline.txt") <(sed "s|$O|<O>|g" "$O/cmdline.txt") >/dev/null; then
+  ok arpN_es_arp_con_dir_propio; else ko "arpN_es_arp_con_dir_propio rc=$rc"; fi
+msg=$(K_REGLA_FILE="$T/vacio.txt" bash "$CORRER" "$tarea" arp7 1 2>&1); rc=$?
+[ $rc = 2 ] && [ "$msg" = "arp requiere K_REGLA_FILE y K_FRAMING_FILE no vacíos" ] && ok arpN_exige_regla || ko "arpN_exige_regla rc=$rc msg=$msg"
+msg=$(bash "$CORRER" "$tarea" arpx 1 2>&1); rc=$?
+[ $rc = 2 ] && [ "$msg" = "brazo desconocido: arpx" ] && ok arp_con_sufijo_no_numerico_es_desconocido || ko "arpx rc=$rc msg=$msg"
+
 # corrida_real_registra_append: sin K_ENSAYO, con `claude` falso, cmdline.txt deja el append usado
 mkdir -p "$T/bin"; printf '#!/bin/sh\nexit 0\n' > "$T/bin/claude"; chmod +x "$T/bin/claude"
 ( unset K_ENSAYO; PATH="$T/bin:$PATH" bash "$CORRER" "$tarea" arp 2 >/dev/null 2>&1 ); R="$K_ROOT/corridas/tt/arp-r2"
