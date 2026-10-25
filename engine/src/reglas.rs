@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 const ENCABEZADO: &str = "## Reglas duras";
-const CAP: usize = 10;
+pub const CAP: usize = 10;
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone, Copy)]
 #[serde(rename_all = "snake_case")]
@@ -133,16 +133,23 @@ fn casa(clave: &str, contenido: &str, fichero: &Path) -> Option<Casa> {
     (base.to_lowercase() == clave).then_some(Casa::Stem)
 }
 
-/// Candidatas ordenadas: `projects/*.md` y `projects/*/*.md` (un solo nivel de
-/// subdirectorio) que casan con `clave`. Si alguna casa por slug, solo cuentan
-/// esas; si no, las que casan por stem. La ruta devuelta es relativa a la KB y
-/// con `/`.
-fn candidatas(kb: &Path, clave: &str) -> Result<Vec<(String, PathBuf)>> {
+/// Ruta relativa a la KB con `/` también en Windows: se une por componentes,
+/// nunca con el separador del sistema.
+fn une_con_barra(componentes: &[&str]) -> String {
+    componentes.join("/")
+}
+
+/// Notas `projects/*.md` y `projects/*/*.md` (un solo nivel de subdirectorio),
+/// con la ruta relativa a la KB y con `/`. Sin `projects/` legible es `Err`.
+fn notas_de_proyecto(kb: &Path) -> Result<Vec<(String, PathBuf)>> {
     let dir = kb.join("projects");
-    // KB mal apuntada ≠ repo sin nota: sin `projects/` legible todo daría
-    // `sin_nota` en silencio.
     let lectura = std::fs::read_dir(&dir).with_context(|| format!("leer {}", dir.display()))?;
-    let mut halladas = Vec::new();
+    let mut notas = Vec::new();
+    let mut anade = |ruta: PathBuf, rel: String| {
+        if ruta.is_file() && ruta.extension().is_some_and(|e| e == "md") {
+            notas.push((rel, ruta));
+        }
+    };
     for entrada in lectura {
         let entrada = entrada.with_context(|| format!("leer {}", dir.display()))?;
         let ruta = entrada.path();
@@ -153,15 +160,25 @@ fn candidatas(kb: &Path, clave: &str) -> Result<Vec<(String, PathBuf)>> {
             for e in sub {
                 let e = e.with_context(|| format!("leer {}", ruta.display()))?;
                 let n = e.file_name().to_string_lossy().into_owned();
-                evalua(
-                    clave,
-                    &e.path(),
-                    format!("projects/{nombre}/{n}"),
-                    &mut halladas,
-                )?;
+                anade(e.path(), une_con_barra(&["projects", &nombre, &n]));
             }
         } else {
-            evalua(clave, &ruta, format!("projects/{nombre}"), &mut halladas)?;
+            anade(ruta, une_con_barra(&["projects", &nombre]));
+        }
+    }
+    Ok(notas)
+}
+
+/// Candidatas ordenadas de `notas_de_proyecto` que casan con `clave`. Si
+/// alguna casa por slug, solo cuentan esas; si no, las que casan por stem.
+fn candidatas(kb: &Path, clave: &str) -> Result<Vec<(String, PathBuf)>> {
+    // KB mal apuntada ≠ repo sin nota: sin `projects/` legible todo daría
+    // `sin_nota` en silencio.
+    let mut halladas = Vec::new();
+    for (rel, ruta) in notas_de_proyecto(kb)? {
+        let bytes = std::fs::read(&ruta).with_context(|| format!("leer {}", ruta.display()))?;
+        if let Some(como) = casa(clave, &String::from_utf8_lossy(&bytes), &ruta) {
+            halladas.push((como, rel, ruta));
         }
     }
     let mejor = halladas.iter().map(|(c, ..)| *c).max();
@@ -172,22 +189,6 @@ fn candidatas(kb: &Path, clave: &str) -> Result<Vec<(String, PathBuf)>> {
         .collect();
     halladas.sort();
     Ok(halladas)
-}
-
-fn evalua(
-    clave: &str,
-    ruta: &Path,
-    rel: String,
-    halladas: &mut Vec<(Casa, String, PathBuf)>,
-) -> Result<()> {
-    if !ruta.is_file() || ruta.extension().is_none_or(|e| e != "md") {
-        return Ok(());
-    }
-    let bytes = std::fs::read(ruta).with_context(|| format!("leer {}", ruta.display()))?;
-    if let Some(como) = casa(clave, &String::from_utf8_lossy(&bytes), ruta) {
-        halladas.push((como, rel, ruta.to_path_buf()));
-    }
-    Ok(())
 }
 
 /// `None` si no hay encabezado; si no, (reglas, líneas ignoradas).
@@ -280,4 +281,50 @@ fn resuelve_proyecto(kb: &Path, cwd: &Path) -> Result<(Resultado, usize)> {
         },
         cortadas,
     ))
+}
+
+/// Nota cuya sección `## Reglas duras` supera el `CAP`.
+#[derive(Debug, Serialize, PartialEq, Eq)]
+pub struct Exceso {
+    pub nota: String,
+    pub reglas: usize,
+}
+
+/// Notas de `projects/*.md`, `projects/*/*.md` y `core/reglas-duras.md` con
+/// más de `CAP` reglas, ordenadas por ruta. Sin sección o vacía no es exceso;
+/// una KB sin `projects/` ni global tampoco. No toca git.
+pub fn check(kb: &Path) -> Result<Vec<Exceso>> {
+    let mut notas = if kb.join("projects").is_dir() {
+        notas_de_proyecto(kb)?
+    } else {
+        vec![]
+    };
+    let global = kb.join("core/reglas-duras.md");
+    if global.is_file() {
+        notas.push((une_con_barra(&["core", "reglas-duras.md"]), global));
+    }
+    let mut excesos = Vec::new();
+    for (nota, ruta) in notas {
+        let bytes = std::fs::read(&ruta).with_context(|| format!("leer {}", ruta.display()))?;
+        if let Some((reglas, _)) = lee_seccion(&String::from_utf8_lossy(&bytes))
+            && reglas.len() > CAP
+        {
+            excesos.push(Exceso {
+                nota,
+                reglas: reglas.len(),
+            });
+        }
+    }
+    excesos.sort_by(|a, b| a.nota.cmp(&b.nota));
+    Ok(excesos)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn une_con_barra_nunca_usa_el_separador_del_sistema() {
+        assert_eq!(une_con_barra(&["projects", "x", "y.md"]), "projects/x/y.md");
+    }
 }

@@ -496,3 +496,89 @@ fn git_roto_dentro_de_un_repo_es_error_no_sin_git() {
     );
     assert!(!String::from_utf8_lossy(&o.stdout).contains("sin_git"));
 }
+
+fn check(m: &Mundo, kb: &Path, json: bool) -> std::process::Output {
+    let mut c = Command::new(bin());
+    c.args(["rules", "--check", "--kb"]).arg(kb);
+    if json {
+        c.arg("--json");
+    }
+    c.env("GIT_CONFIG_GLOBAL", &m.cfg)
+        .env("GIT_CONFIG_SYSTEM", &m.cfg)
+        .output()
+        .unwrap()
+}
+
+#[test]
+fn check_limpio_sale_0() {
+    let m = Mundo::nuevo();
+    m.nota("projects/foo.md", &con_reglas("r", 10));
+    m.nota("core/reglas-duras.md", &con_reglas("g", 3));
+    let o = check(&m, &m.kb(), false);
+    assert_eq!(o.status.code(), Some(0));
+    assert!(o.stdout.is_empty());
+}
+
+#[test]
+fn check_exceso_sale_3() {
+    let m = Mundo::nuevo();
+    m.nota("projects/foo.md", &con_reglas("r", 11));
+    let o = check(&m, &m.kb(), false);
+    assert_eq!(o.status.code(), Some(3));
+    assert_eq!(
+        String::from_utf8_lossy(&o.stdout),
+        "exo rules --check: projects/foo.md tiene 11 reglas duras (máximo 10): desplaza la última\n"
+    );
+}
+
+#[test]
+fn check_cubre_subdirectorio_y_global() {
+    let m = Mundo::nuevo();
+    m.nota("projects/x/y.md", &con_reglas("r", 11));
+    m.nota("core/reglas-duras.md", &con_reglas("g", 11));
+    m.nota("projects/sin.md", "# sin sección\n");
+    m.nota("projects/vacia.md", "## Reglas duras\n");
+    let o = check(&m, &m.kb(), false);
+    assert_eq!(o.status.code(), Some(3));
+    let t = String::from_utf8_lossy(&o.stdout);
+    assert!(t.contains("projects/x/y.md tiene 11"), "{t}");
+    assert!(t.contains("core/reglas-duras.md tiene 11"), "{t}");
+    assert_eq!(t.lines().count(), 2, "{t}");
+}
+
+#[test]
+fn check_sin_git() {
+    let m = Mundo::nuevo();
+    // `.git` roto: si --check invocara git, saldría con error (exit 1).
+    std::fs::write(m.dir.path().join("kb/.git"), "gitdir: /no/existe\n").unwrap();
+    m.nota("projects/foo.md", &con_reglas("r", 3));
+    assert_eq!(check(&m, &m.kb(), false).status.code(), Some(0));
+    m.nota("projects/foo.md", &con_reglas("r", 11));
+    assert_eq!(check(&m, &m.kb(), false).status.code(), Some(3));
+}
+
+#[test]
+fn check_kb_sin_projects() {
+    let m = Mundo::nuevo();
+    let kb = m.dir.path().join("kb-minima");
+    std::fs::create_dir_all(&kb).unwrap();
+    let o = check(&m, &kb, false);
+    assert_eq!(o.status.code(), Some(0));
+    assert!(o.stdout.is_empty());
+}
+
+#[test]
+fn check_json_un_envelope_con_ruta_con_barra() {
+    let m = Mundo::nuevo();
+    m.nota("projects/x/y.md", &con_reglas("r", 12));
+    let o = check(&m, &m.kb(), true);
+    assert_eq!(o.status.code(), Some(3));
+    let linea = String::from_utf8(o.stdout).unwrap();
+    assert_eq!(linea.trim().lines().count(), 1);
+    let v: Value = serde_json::from_str(linea.trim()).unwrap();
+    assert_eq!(v["command"], "rules-check");
+    assert_eq!(
+        data(&v)["excesos"],
+        serde_json::json!([{"nota": "projects/x/y.md", "reglas": 12}])
+    );
+}
