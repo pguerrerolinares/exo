@@ -1,6 +1,6 @@
 # Reglas literales al arranque: la KB llega como reglas, no como mapa (#184, diseño A)
 
-**Fecha:** 2026-10-25 · **Estado:** aprobada en brainstorming, pendiente de review de la spec escrita
+**Fecha:** 2026-10-25 · **Estado:** aprobada en brainstorming; revisada por dos consultores (§11), pendiente de review del dueño
 **Origen:** issue #184 (dilución del bloque de arranque), campaña M, debate con dos consultores (rastro en §9)
 
 ## 1. Qué se quiere
@@ -29,7 +29,7 @@ modelo las aplique (techo medido ≈ 0,86 con la regla sola).
 | Campaña M, `evals/campana-m/verdict.md` | A0 0,008 · O (regla sola por `SessionStart`) 0,858 · X (bloque `exo-recall.sh`, 6.166 B) 0,075 · N (`MEMORY.md`) 0,033. X buscó 0/120. Regla presente en el bloque: aplicada 2/5 (dilución) |
 | techo-reglas-2, `evals/techo-reglas-2/verdict.md` | regla en system prompt con framing: 6/10 frente a 0/10 (PASA); por `SessionStart` a pelo (v1): 4/11 |
 | Producción, `~/.claude/reflex-log.jsonl` | el canal de reglas está vacío: solo la nota de `exo` tiene `## Reglas duras` (1 regla); `bizkaia-now` da `sin_seccion` en cada arranque |
-| Reglas extraídas por M, `~/.cache/exo-campana-m/redaccion/reglas-g{0,1,2}.jsonl` | 541 reglas (`id, nota, cita, regla, ambito, proyecto, check, generica`): 256 transversales, el resto en ~25 proyectos; 18/25 proyectos tienen ≤10 candidatas accionables |
+| Reglas extraídas por M, `~/.cache/exo-campana-m/redaccion/reglas-g{0,1,2}.jsonl` | 541 reglas (`id, nota, cita, regla, ambito, proyecto, check, generica`): 261 transversales, el resto en ~25 proyectos; 18/25 proyectos tienen ≤10 candidatas accionables |
 
 ## 3. Enfoques considerados
 
@@ -59,7 +59,7 @@ El dueño eligió A primero y, para el nivel global, la posición del consultor
 ### 4.1 `ExcedeCap` deja de vaciar el proyecto
 
 Hoy, con más de 10 reglas, `resuelve` devuelve `skip excede_cap` y el
-proyecto se queda **sin ninguna regla** (`engine/src/reglas.rs:207-209`),
+proyecto se queda **sin ninguna regla** (`engine/src/reglas.rs:208-210`),
 avisado solo por un `systemMessage`.
 
 - `exo rules` entrega las **10 primeras** en orden de la sección y añade
@@ -75,23 +75,26 @@ avisado solo por un `systemMessage`.
 ### 4.2 Mapeo repo → nota con subdirectorios
 
 `candidatas` solo mira `projects/*.md` de primer nivel
-(`reglas.rs:139-168`). Los proyectos que viven en subdirectorio
-(`projects/pguerrero-music/`, `cge/`, `code-graph-engine/`, `code-graph-go/`,
-`finnk/`, `openwisdom/`) dan hoy `sin_nota`.
+(`reglas.rs:140-168`). Varias notas canónicas viven en subdirectorios
+(`projects/cge/`, `openwisdom/`, `finnk/`, `pguerrero-music/`…) y su nombre de
+directorio no siempre casa con la clave del repo: la canónica de
+`code-graph-engine` está en `cge/`, la de `open-wisdom` en `openwisdom/`.
 
-- Para `projects/<dir>/` cuyo nombre case con la clave del repo (misma regla
-  `slug` > stem que hoy), la candidata es la nota canónica del directorio: la
-  que lleva `slug: <clave>` en frontmatter o, si no hay ninguna, la que se
-  llama como el directorio. Si quedan varias, `ambigua`, como hoy.
-- Sin cambio para los proyectos de primer nivel.
+- Candidatas = `projects/*.md` ∪ `projects/*/*.md` (un nivel), con el mismo
+  ranking de hoy: `slug` > stem. **El nombre del directorio no cuenta.**
+- La siembra añade `slug: <clave del repo>` a la nota canónica de cada
+  proyecto que reciba reglas, así que el caso normal resuelve por `slug`.
+- Varias candidatas con el mejor rango: `ambigua`, como hoy.
 
 ### 4.3 Nivel global
 
 Hoy no existe canal para las reglas transversales.
 
-- Sección `## Reglas duras` en `core/core-index.md`, leída por el mismo
-  parser (`lee_seccion`), con el mismo `CAP` que las de proyecto (un solo
-  valor, §7.1).
+- Nota core propia, **`core/reglas-duras.md`**, con una sección `## Reglas
+  duras` leída por el mismo parser (`lee_seccion`) y el mismo `CAP` que las
+  de proyecto (un solo valor, §7.1). No va en `core-index.md`: está al
+  88,6 % de su presupuesto (4.432/5.000 B) y una sección intercalada se
+  colaría en la doctrina que `compose-inject.sh:74` extrae por awk.
 - `exo rules --json` devuelve `global` (lista) junto a `rules` (proyecto). Un
   repo sin nota o sin sección sigue recibiendo las globales.
 - El mod `prompt.compose` (`plugins/exo/hooks/register.ts`) mete las dos
@@ -99,25 +102,33 @@ Hoy no existe canal para las reglas transversales.
   `compose-inject.sh` hace lo mismo para subagentes.
 - El latido (`hb-<sid>`) y el testigo de Stop cuentan las dos listas (§10, D3).
 
-### 4.4 Presupuesto de reglas en subagentes
+### 4.4 Reglas en subagentes
 
-`bloque_reglas` corta a `1024 − framing − 80` B (≈ 800 B,
-`compose-inject.sh:104`). Con dos listas de hasta 10 no caben. El
-presupuesto sube para que quepan las dos listas al `CAP` vigente, y el
-`inject-rules-truncated` existente vigila que no se corte. El valor exacto se
-fija en el plan, medido con las reglas reales sembradas.
+Hoy `bloque_reglas` corta a `1024 − framing − 80` B (≈ 800 B,
+`compose-inject.sh:104`) y va fuera del cap de 2.048 B del resto del bloque.
+Dos listas al `CAP` con dos encabezados son ≈ 2,4 KB: sumadas sin más, el
+bloque de `SubagentStart` llegaría a 4,5–5 KB, el tamaño del bloque X que
+diluyó en M.
+
+- Los subagentes reciben **las dos listas completas** (globales y de
+  proyecto), igual que el padre.
+- Cuando hay reglas, el perfil deja de inyectar `doctrina_compacta` y
+  `rutas` (las reglas ocupan su papel) y conserva la cabecera y la doctrina
+  de `executor.md`.
+- Tope total del bloque de `SubagentStart`: **3.072 B**. Si no cabe, se
+  cortan reglas por el final de cada lista, con `inject-rules-truncated`.
 
 ### 4.5 Arranque podado
 
 `exo-recall.sh` deja de inyectar el core-index entero y los punteros de
 actividad reciente.
 
-- Inyecta como máximo **1.500 B**: el contrato de memoria reducido (qué es
-  la KB, cómo buscar, `/document` al cerrar) y los avisos operativos que ya
+- Inyecta como máximo **1.500 B**: la sección `## Contrato de memoria` del
+  core-index (≈ 990 B tal como la sirve `exo recall --content`) y los avisos operativos que ya
   emite (gate pendiente, superpowers, reglas no entregadas).
 - **`core/core-index.md` no se edita** por este cambio: `compose-inject.sh`
   lee por awk sus secciones `## Doctrina compacta` y `## Cores` para los
-  subagentes (`compose-inject.sh:73` y siguientes). Lo que cambia es qué
+  subagentes (`compose-inject.sh:74`). Lo que cambia es qué
   inyecta `exo-recall.sh`, no el fichero.
 - Los escritores no dependen del bloque de arranque (`/document` usa `exo
   search`/`recall`; `/distill` edita core-index como nota). Sí hay que
@@ -136,8 +147,12 @@ revisado por diff; no hay lint aparte.
 
 ### 5.2 Proyecto: ranking determinista
 
-Candidatas: reglas de M con `proyecto` = clave del repo, `generica=false` y
-`ambito` ∈ {`codigo`, `git`, `dominio-proyecto`}. Orden:
+Candidatas: reglas de M con `generica=false` y `ambito` ∈ {`codigo`, `git`,
+`dominio-proyecto`}, asignadas a su repo por una **tabla `proyecto` → repo
+explícita** en el script de siembra: el campo `proyecto` del JSONL no es la
+clave del repo en al menos 7 casos (`pguerrero.me`, `open-wisdom`, `cge` y
+`code-graph-engine` que son el mismo repo, `lighthouses_aicontest`, `CV`,
+`ai-news-platform`, `kbi-broker`). Orden:
 
 1. primero las que A0 **no** cumple sin regla (criba de M; definición fija:
    una regla se considera «A0 ya cumple» cuando todas las réplicas a0 de su
@@ -148,8 +163,14 @@ Candidatas: reglas de M con `proyecto` = clave del repo, `generica=false` y
 4. tier `core` antes que `stable` (según la nota de origen);
 5. orden de fichero.
 
-Se toman las `CAP` primeras. En los 18 proyectos con ≤10 candidatas entran
-todas. En los 7 que desbordan, el dueño revisa el corte en el PR.
+Se toman las `CAP` primeras. En los proyectos con ≤10 candidatas entran
+todas; en los que desbordan (al menos 7, más `cge` + `code-graph-engine`
+fundidos), el dueño revisa el corte en el PR.
+
+**Presupuestos de nota.** Sembrar desborda notas que ya van justas
+(`llm-apps` 11.869/12.500 B, `ocr-ml-docs` 11.941 B; `cge` y `kbx` se quedan
+sin aire). Esas notas se parten antes de sembrar, según la doctrina de la KB;
+el plan lo cuenta como paso previo, no como sorpresa del precommit.
 
 La exclusión «A0 ya cumple» depende del modelo con el que se hizo la criba.
 Al cambiar de modelo por defecto, una regla excluida no se borra: baja al
@@ -157,7 +178,7 @@ final del ranking hasta que se rehaga la criba.
 
 ### 5.3 Global: elige el dueño
 
-Las 76 candidatas transversales accionables no caben en 10 plazas, y el
+Las 76 candidatas transversales accionables (de 261) no caben en 10 plazas, y el
 script ciego cubre solo 2 de las 16 sondas transversales de M. El dueño elige
 las `CAP` globales con el ranking de §5.2 como propuesta.
 
@@ -184,6 +205,9 @@ aplican. No hay cola de curación humana.
   precommit impide que sea el estado normal.
 - Subagentes: si el presupuesto corta, `inject-rules-truncated` lleva
   `session_id`/`agent_id` (#188).
+- Cuentas con la política de Team/Enterprise: el mod cae al canal
+  `prompt.submit`, que entrega las reglas como contexto de usuario, no en el
+  system prompt. El 6/10 de techo-reglas-2 no aplica a ese canal.
 
 ## 7. Testing y medición
 
@@ -192,14 +216,19 @@ aplican. No hay cola de curación humana.
 Mismas 10 tareas de techo-reglas-2, canal system prompt con el framing
 actual. Brazos: regla gold sola / gold + 9 distractoras reales / gold + 19,
 k=2, unas 60 corridas (≈ 5 USD). Distractoras: reglas reales de las 541,
-del mismo nivel y sin relación con la tarea. Pre-registro antes de correr.
-**Su resultado fija el `CAP` antes de poblar:**
+sin relación con la tarea, repartidas bajo los dos encabezados como en
+producción. Pre-registro antes de correr. **Adjudica el brazo gold + 19**,
+que es lo que se despliega con dos listas al `CAP` 10. Su resultado fija el
+`CAP` antes de sembrar:
 
-| gold + 9 | `CAP` |
+| gold + 19 | `CAP` |
 |---|---|
 | ≥ 5/10 | 10 |
 | 4/10 | 7 |
 | ≤ 3/10 | 5 |
+
+Si el pre-registro y la corrida no caben en la semana del código, se siembra
+con `CAP` 10 y se baja después (bajar el `CAP` reordena, no borra).
 
 ### 7.2 Brazo `Ap` en el harness de M
 
@@ -209,10 +238,16 @@ dentro) y **aplicación dada cobertura**. `Ap` cae si la aplicación dada
 cobertura < 0,60. La cobertura de las globales no es interpretable (el dueño
 diseñó M y eligió las globales); se reporta aparte y no adjudica.
 
-### 7.3 Condición que invalida A en conjunto
+### 7.3 Condiciones que invalidan A
 
-**techo-reglas-3 < 5/10 con gold + 9 y `Ap` < 0,60 a la vez.** Si pasa, las
-reglas estáticas no compensan su dilución y el siguiente paso es E.
+Cada una basta por sí sola:
+
+- **Canal + dilución:** techo-reglas-3 ≤ 3/10 con gold + 9 (diluye incluso
+  con la mitad de reglas).
+- **Selección de proyecto:** `Ap` con aplicación dada cobertura < 0,60.
+
+Si se cumple alguna, las reglas estáticas no compensan y el siguiente paso es
+E.
 
 ### 7.4 Tests de código
 
@@ -259,8 +294,8 @@ orquestador, corregibles en la review.
 - **D1 · De dónde saca el precommit el `CAP`.** El `CAP` vive solo en el
   engine (`const`, un único valor para proyecto y global). `exo rules` gana
   un modo de validación sobre una raíz de KB (`exo rules --check --kb
-  <dir>`) que recorre las notas de `projects/` (primer nivel y canónicas de
-  subdirectorio) y `core/core-index.md`, y sale ≠ 0 si alguna sección supera
+  <dir>`) que recorre `projects/*.md`, `projects/*/*.md` y
+  `core/reglas-duras.md`, y sale ≠ 0 si alguna sección supera
   el `CAP`. `kb-precommit.sh` lo llama sobre su snapshot staged. No vale `exo
   lint` (exige índice, `kb-precommit.sh:72`). Superficie nueva del engine:
   entra en `contrato-engine`.
@@ -273,18 +308,22 @@ orquestador, corregibles en la review.
   (`register.ts`, `compose-inject.sh`, `exo-recall.sh`) leen `global` aunque
   `status` sea `skip`.
 - **D3 · Testigos.** `n` pasa a ser el total entregado (`rules` + `global`)
-  en `ss-<sid>` y en `hb-<sid>`, que es lo que compara
-  `document-remind.sh:38-56`. Se añade `n_global` informativo a los dos.
+  en `ss-<sid>` y en `hb-<sid>`, y se añade `n_global` a los dos. El testigo
+  de `document-remind.sh:38-56` deja de decidir por `status` (que con D2
+  habla solo del proyecto) y decide por `n`: **`n > 0` en `ss` y `n = 0` en
+  `hb` es «no entregó»**. Así se ven las globales perdidas en repos sin nota
+  (`sin_seccion` en 314 de 339 arranques), que hoy el testigo calla.
 - **D4 · Fuente del contrato reducido.** `exo-recall.sh` extrae la sección
   `## Contrato de memoria` del core-index servido por `exo recall --content`
   (la ruta, el índice y los fallbacks actuales se mantienen) y descarta el
   resto. La verdad sigue en la KB y `/distill` la ve. Hoy esa sección ocupa
-  974 B; si crece, el cap de D5 la recorta con aviso.
+  ≈ 990 B servida; si crece, el cap de D5 la recorta con aviso.
 - **D5 · Qué cubren los 1.500 B.** Contrato + avisos operativos, con cap en
   código y evento `recall-truncated` si actúa. La reafirmación de reflejos
   en `source=compact` va fuera del cap (solo tras compactar). El golden
   fija el caso normal.
-- **D6 · Siembra.** Orden: código → techo-reglas-3 (fija `CAP`) → siembra.
+- **D6 · Siembra.** Orden: código → techo-reglas-3 (fija `CAP`) → siembra
+  (con la salvedad de calendario de §7.1).
   La siembra es una puerta humana (el dueño elige las globales y revisa el
   corte de los 7 proyectos que desbordan), no una tarea de ejecutor; el plan
   la deja como paso manual con el script del ranking como ayuda. Si una nota
@@ -297,15 +336,30 @@ orquestador, corregibles en la review.
   datos (el siguiente paso previsto es la spec de E). Las medidas §7.1 y
   §7.2 tienen pre-registro propio; el plan de código las referencia, no las
   incluye.
-- **D8 · Subdirectorios.** Un nivel de profundidad. Cada `projects/<dir>/`
-  aporta como mucho una candidata: su nota con `slug` igual a la clave o, si
-  no hay, la que se llama como el directorio. Esa candidata entra en el
-  mismo ranking `slug > stem` que las de primer nivel (el nombre del
-  directorio cuenta como stem). Si `projects/foo.md` y `projects/foo/` casan
-  a la vez con el mismo rango: `ambigua`, visible.
+- **D8 · Subdirectorios.** Sustituida por §4.2 tras la review: candidatas
+  `projects/*.md` ∪ `projects/*/*.md`, `slug` > stem, sin mirar el nombre
+  del directorio; la siembra añade `slug:`.
 - **D9 · Formato de cada regla.** Una línea `- ` por regla, una sola línea,
   ≤ 300 B. Los wikilinks se dejan como texto. Una cita de varias líneas o
   más larga se reescribe a mano en el PR de siembra (§5.1).
 - **D10 · Framing.** Dos encabezados con el mismo cuerpo de autoridad:
   «Reglas duras del dueño» (globales, primero) y «Reglas duras del proyecto»
-  (las actuales). El presupuesto de §4.4 se calcula con los dos.
+  (las actuales). El tope de §4.4 cuenta los dos.
+
+## 11. Review de la spec escrita (dos consultores)
+
+Notas: `review-spec-184-c1.md` y `review-spec-184-c3.md` en el scratchpad de
+la sesión. Ambos dieron «no lista para plan» con dos bloqueos coincidentes,
+ya aplicados:
+
+- **Globales fuera de `core-index.md`** → `core/reglas-duras.md` (§4.3).
+- **Mapeo de subdirectorios** que resolvía 0 de los 2 proyectos reales con
+  repo → `slug` en `projects/**` sin mirar el directorio, y la siembra añade
+  `slug:` (§4.2).
+
+IMPORTA aplicados: techo-reglas-3 adjudica con gold + 19 (§7.1); las
+condiciones de invalidación son independientes (§7.3); bloque de subagentes
+acotado a 3.072 B (§4.4); testigo decide por `n` (D3); tabla `proyecto` →
+repo y notas a partir antes de sembrar (§5.2); canal degradado de Team
+(§6). Descartado: lint de existencia de la cita (el PR revisado por diff lo
+cubre, posición del consultor 3).
