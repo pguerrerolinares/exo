@@ -51,16 +51,17 @@ clausula Framing "framing\.txt.*sha256.*${FSHA:-sin-framing}"
 clausula Bloques 'generar-bloques\.py.*20261025.*bloques\.sha256'
 clausula 'Brazos' 'arp1.*arp10.*arp20.*k=2.*60'
 clausula Cumple 'check\.rc == 0.*>=1 de sus 2'
-clausula Replica 'arp1. >= 5/10'
+clausula Replica 'arp1. >= 5/10.*0,986'
 clausula CAP '>= 5/10 da .CAP. 10; 4/10 da 7; <= 3/10 da 5'
-clausula 'Invalidacion' 'arp10. <= 3/10.*7\.3'
+clausula 'Invalidacion' 'réplica.*arp10. <= 3/10.*7\.3'
 clausula Modelo 'claude-sonnet-5-5'
 clausula 'Version de' 'claude --version.*[0-9]+\.[0-9]+\.[0-9]+'
 clausula 'Re-intentos' 'cero.*exactamente una vez'
 clausula Breaker 'tanda es invalida.*no se adjudica'
 clausula 'Gold y prep' 'pins\.sha256.*restaurar-prep\.sh'
-clausula Potencia 'ruido'
+clausula Potencia 'moneda al aire'
 clausula 'Distractoras' 'optimista'
+clausula 'Inversiones' 'no es evidencia'
 grep -q 'semilla 20261025' "$P" || err "semilla 20261025 no fijada"
 { [ -s "$D/claude-version.txt" ] && grep -qF -- "$(cat "$D/claude-version.txt")" "$P"; } || err "claude-version.txt vacío o no citado en el pre-registro"
 

@@ -28,3 +28,4 @@ g2-154	g2-166	shape de la respuesta de una API: mismo terreno que la gold
 g2-97	g2-146	reglas del reto vigente: toca la tarea (reto de Hack It)
 g2-97	g1-175	premio Hack It: toca la tarea
 g0-149	g2-21	soft-delete de lo huérfano: choca con la tarea (limpiar audio huérfano)
+g0-33	g2-92	no descartar trabajo por tiempo: frente al «no me da tiempo» del prompt empuja hacia la gold (review del consultor)

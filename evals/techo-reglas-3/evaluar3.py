@@ -2,10 +2,10 @@
 """evaluar3.py <K_ROOT> <tareas.tsv> [resultado.json] — adjudicación de techo-reglas-3 (preregistro.md).
 
 Cuenta por brazo (arp1, arp10, arp20) las tareas del suelo que cumplen (check.rc == 0 en >=1 de sus 2
-réplicas; ausente, sin check.rc o no reconstruible = no cumple), con evalua_brazo de techo-reglas/evaluar.py.
+réplicas; no reconstruible = no cumple; réplica sin check.rc = tanda inválida), con evalua_brazo de techo-reglas/evaluar.py.
   Réplica:  arp1 >= 5/10; si no, el canal no replica y NO se adjudica CAP (se queda el desplegado, 10).
   CAP:      arp20 >= 5 -> 10 · arp20 == 4 -> 7 · arp20 <= 3 -> 5.
-  §7.3:     arp10 <= 3 -> se cumple la condición «canal + dilución» que invalida A (se para y se reporta).
+  §7.3:     réplica y arp10 <= 3 -> se cumple la condición «canal + dilución» que invalida A (se para y se reporta).
 Una réplica ausente en cualquier brazo invalida la tanda (exit 1), como el breaker.
 """
 import csv, json, os, sys
@@ -35,11 +35,14 @@ def adjudica(k_root, tareas_tsv):
     replica = n["arp1"] >= REPLICA_MIN
     out = {"cumplen": n, "replica": replica,
            "cap": cap_de(n["arp20"]) if replica else None,
-           "invalida_A_7_3": n["arp10"] <= 3,
+           "invalida_A_7_3": replica and n["arp10"] <= 3,
            "tareas": {b: [{k: v for k, v in t.items() if k != "ok"} for t in ts] for b, ts in res.items()}}
     lineas = [f"{b}: {n[b]}/10" for b in BRAZOS]
     lineas.append(f"CAP: {out['cap']}" if replica else f"CAP: sin adjudicar (arp1 {n['arp1']}/10 < {REPLICA_MIN}: el canal no replica)")
-    lineas.append("§7.3: SE CUMPLE (arp10 <= 3/10): A queda invalidado" if out["invalida_A_7_3"] else "§7.3: no se cumple")
+    if out["invalida_A_7_3"]:
+        lineas.append("§7.3: SE CUMPLE (arp10 <= 3/10): A queda invalidado")
+    else:
+        lineas.append("§7.3: no se cumple" if replica else "§7.3: sin adjudicar (no hay réplica)")
     return out, lineas
 
 

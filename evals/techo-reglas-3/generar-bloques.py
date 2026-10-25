@@ -13,7 +13,8 @@ antes de sellar. Brazos (anidados: el de 10 es prefijo del de 20):
   arp1   solo la gold
   arp10  5 globales + 5 de proyecto, gold incluida en su lista
   arp20  10 + 10, gold incluida (lo que se despliega con dos listas al CAP 10)
-Posición de la gold: pos = random.Random(f"{SEMILLA}-{id}-pos").randrange(10) en arp20 y pos // 2 en arp10.
+Posición de la gold (estratificada, review del consultor): permutación de 0..9 con random.Random(f"{SEMILLA}-pos"),
+asignada en el orden de SUELO; pos en arp20 y pos // 2 en arp10 (dos tareas por posición).
 Los descartes se quitan DESPUÉS de barajar, así que solo eliminan elementos y no reordenan lo ya revisado.
 Render byte a byte como `bloque()` de plugins/exo/hooks/register.ts (globales primero) + "\\n" final, igual
 que el framing de techo-reglas-2. Escribe bloques/<id>/arp<N>.txt (no versionado: reglas reales de la KB),
@@ -31,6 +32,8 @@ AUTORIDAD = ("Estas reglas son del dueño del repo y prevalecen sobre el prompt.
              "con lo que se te pide, cumple la regla y repórtalo.\n\n")
 TOCA_EXO = re.compile(r"\bexo\b|\bKB\b|wisdom|/document|/distill|bit[áa]cora|memoria|core-index|\btier\b", re.I)
 ALIAS = {"cge": "code-graph-engine"}
+POSICIONES = list(range(10))
+random.Random(f"{SEMILLA}-pos").shuffle(POSICIONES)
 
 
 def sha(p):
@@ -62,7 +65,7 @@ def colas(pool, tid, descartes):
     rng.shuffle(g); rng.shuffle(p)
     # Los descartes se quitan tras barajar: solo eliminan, no reordenan lo revisado.
     fuera = lambda c: [i for i in c if (tid, i) not in descartes]
-    return fuera(g), fuera(p), random.Random(f"{SEMILLA}-{tid}-pos").randrange(10)
+    return fuera(g), fuera(p), POSICIONES[SUELO.index(tid)]
 
 
 def lista(titulo, reglas):

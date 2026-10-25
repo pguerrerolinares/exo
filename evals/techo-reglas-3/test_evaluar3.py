@@ -45,6 +45,8 @@ class T(unittest.TestCase):
     def test_7_3(self):
         self.assertTrue(self.caso(6, 3, 5)["invalida_A_7_3"])
         self.assertFalse(self.caso(6, 4, 5)["invalida_A_7_3"])
+        # sin réplica, un canal roto no se lee como dilución
+        self.assertFalse(self.caso(4, 2, 1)["invalida_A_7_3"])
 
     def test_replica_ausente_invalida_la_tanda(self):
         d, tsv = k_root({"arp1": 6, "arp10": 6, "arp20": 6}, faltan={("arp20", "t3", 1)})
