@@ -28,6 +28,7 @@ modo=$brazo; [[ $brazo =~ ^arp[0-9]+$ ]] && modo=arp
 H="$(cd "$(dirname "$0")" && pwd)"
 K_ROOT="${K_ROOT:-$HOME/.cache/exo-ablacion-k}"; P="$K_ROOT/prep"
 PLUG="$(cd "$H/../../../plugins/exo/scripts" && pwd)"
+. "$H/sesion.sh"
 MODELO="${K_MODELO:-claude-sonnet-5-5}"
 [[ "${K_CORRIDAS:-corridas}" =~ ^corridas[A-Za-z0-9_-]*$ ]] || { echo "K_CORRIDAS inválida: ${K_CORRIDAS}" >&2; exit 2; }
 if [ "$brazo" = ar ] && [ ! -s "${K_REGLA_FILE:-}" ]; then
@@ -149,7 +150,7 @@ claude --version > "$O/claude-version.txt" 2>/dev/null
 # a2s: la sesión persistida (único rastro del aviso de search-first que vio el modelo) se mueve a $O/sesion.jsonl.
 if [ "$brazo" = a2s ]; then
   sdir="$HOME/.claude/projects/$(printf '%s' "$O/work" | sed 's#[^A-Za-z0-9]#-#g')"
-  cat "$sdir"/*.jsonl > "$O/sesion.jsonl" 2>/dev/null && rm -f "$sdir"/*.jsonl && rmdir "$sdir" 2>/dev/null
+  guardar_sesion "$sdir" "$O"
 fi
 jq -c --arg id "$id" --arg b "$brazo" --arg r "$rep" --arg rc "$rc" --arg s "$((t1-t0))" \
   'select(.type=="result") | {tarea:$id, brazo:$b, rep:($r|tonumber), rc:($rc|tonumber), seg:($s|tonumber),

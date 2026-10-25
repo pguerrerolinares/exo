@@ -60,6 +60,12 @@ def _domina(x, y):
            (x["valor"] >= y["valor"] and x["sobrecarga_bytes"] < y["sobrecarga_bytes"])
 
 
+def _desempate(m):
+    de = m["desempate"]
+    quien = "n" if _domina(de["n"], de["a2"]) else "a2" if _domina(de["a2"], de["n"]) else "ninguno"
+    return f"DESEMPATE: {quien}"
+
+
 def veredicto(m):
     if m["frac_sucia"] > 0.05:
         return ["NO ADJUDICABLE"]
@@ -76,7 +82,7 @@ def veredicto(m):
         sin_datos.append("SIN DATOS N-A0")
     if not m["d_a2_a0"]["lo"] > 0:
         if m["d_n_a0"] is not None and not m["d_n_a0"]["lo"] > 0:
-            return ["NI X NI N DEMOSTRARON EFECTO", "RECOMENDACIÓN: memoria mínima"] + dano + sin_datos
+            return ["NI X NI N DEMOSTRARON EFECTO", "RECOMENDACIÓN: memoria mínima", _desempate(m)] + dano + sin_datos
         return ["SOLO COSTE"] + dano + sin_datos
     tk = m["tokens_mediana"]
     if m["d_n_a2"] is None:
@@ -87,9 +93,7 @@ def veredicto(m):
     r2 = m["d_a2_n"] is not None and m["d_a2_n"]["lo"] > 0 and m["d_a2_n"]["media"] >= MARGEN
     if r1 or r2 or dano:
         return (["GANA N"] if r1 else []) + (["EXO SOBREVIVE"] if r2 else []) + dano + sin_datos
-    de = m["desempate"]
-    quien = "n" if _domina(de["n"], de["a2"]) else "a2" if _domina(de["a2"], de["n"]) else "ninguno"
-    return ["NO CONCLUYENTE", f"DESEMPATE: {quien}"] + sin_datos
+    return ["NO CONCLUYENTE", _desempate(m)] + sin_datos
 
 
 def _leer(path):
@@ -173,7 +177,7 @@ def _tokens_sonda(pb_brazo):
 
 def _coste(a, b):
     d = _deltas(a, b)
-    return {"d_tokens": sum(d.values()) / len(d) if d else None, "n_sondas": len(d)}
+    return {"d_tokens": statistics.median(d.values()) if d else None, "n_sondas": len(d)}
 
 
 def analizar(k_root, sondas_path, neutras_path, semilla=SEMILLA):

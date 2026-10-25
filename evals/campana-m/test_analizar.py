@@ -101,7 +101,7 @@ def test_r3_dano_independiente_y_multiple():
 
 
 def test_ni_x_ni_n_demostraron_efecto():
-    ni = ["NI X NI N DEMOSTRARON EFECTO", "RECOMENDACIÓN: memoria mínima"]
+    ni = ["NI X NI N DEMOSTRARON EFECTO", "RECOMENDACIÓN: memoria mínima", "DESEMPATE: ninguno"]
     # positivo, y el borde lo == 0 también cuenta como sin efecto
     assert A.veredicto(mk(d_a2_a0=ci(0.0, -0.1, 0.1), d_n_a0=ci(0.0, -0.2, 0.1))) == ni
     assert A.veredicto(mk(d_a2_a0=ci(0.05, 0.0, 0.1), d_n_a0=ci(0.0, 0.0, 0.1))) == ni
@@ -113,6 +113,18 @@ def test_ni_x_ni_n_demostraron_efecto():
     assert v[0] not in ni and "SIN DATOS N-A0" in v
     # el cuello manda sobre este veredicto
     assert A.veredicto(mk(oraculo_ok=11, d_a2_a0=ci(0, -0.1, 0.1), d_n_a0=ci(0, -0.1, 0.1)))[0] == "CUELLO = CUMPLIMIENTO"
+
+
+def test_ni_x_ni_n_reporta_desempate():
+    gana_n = {"a2": {"valor": 0.001, "sobrecarga_bytes": 9000}, "n": {"valor": 0.002, "sobrecarga_bytes": 6000}}
+    v = A.veredicto(mk(d_a2_a0=ci(0.0, -0.1, 0.1), d_n_a0=ci(0.0, -0.2, 0.1), desempate=gana_n))
+    assert v == ["NI X NI N DEMOSTRARON EFECTO", "RECOMENDACIÓN: memoria mínima", "DESEMPATE: n"]
+
+
+def test_coste_es_mediana_de_deltas(monkeypatch):
+    # media = 40; mediana = 10. El texto del verdict usa la mediana (la media la infla una cola).
+    monkeypatch.setattr(A, "_deltas", lambda a, b: {"s1": 10, "s2": 10, "s3": 100})
+    assert A._coste(None, None) == {"d_tokens": 10, "n_sondas": 3}
 
 
 def test_no_adjudicable_en_veredicto():

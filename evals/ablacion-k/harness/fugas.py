@@ -18,6 +18,8 @@ SNAP = os.path.join(K_ROOT, "prep", "kb")
 PROD = ["/home/paul/Documentos/proyectos/wisdom-paul", "/home/paul/.exo", "~/.exo"]
 EXO = re.compile(r"(^|[\s;&|(`$])(\S*/)?exo\s+(search|recall|targets|index|rebuild|write|config|budget|lint|ratchet|rotate|doctor|stale|init|rules)\b")
 STUB = "exo: orden no encontrada"
+# Claude Code deniega la llamada entera: no se ejecuta nada, así que no es un acceso (g2-160/n-r2).
+DENEGADO = re.compile(r"Permission to use .* has been denied", re.S)
 # Escritura por Bash: redirección, tee, sed -i, cp/mv/install con destino en el objetivo, rm/touch/truncate.
 def _escribe(objetivo):
     return re.compile("|".join([
@@ -44,13 +46,15 @@ with open(os.path.join(d, "transcript.jsonl"), encoding="utf-8") as f:
         except ValueError:
             pass
 # tool_use_id -> texto del tool_result, para saber si un intento de exo lo bloqueó el stub
-resultados = {}
+resultados, con_error = {}, set()
 for e in eventos:
     if e.get("type") == "user":
         for b in (e.get("message") or {}).get("content") or []:
             if isinstance(b, dict) and b.get("type") == "tool_result":
                 c = b.get("content")
                 resultados[b.get("tool_use_id")] = c if isinstance(c, str) else json.dumps(c, ensure_ascii=False)
+                if b.get("is_error"):
+                    con_error.add(b.get("tool_use_id"))
 for e in eventos:
     if e.get("type") == "system" and str(e.get("subtype", "")).startswith("hook"):
         ev = e.get("hook_event") or e.get("hook_event_name") or str(e.get("hook_name", "")).split(":")[0]
@@ -60,6 +64,9 @@ for e in eventos:
         continue
     for b in (e.get("message") or {}).get("content") or []:
         if b.get("type") != "tool_use":
+            continue
+        if b.get("id") in con_error and DENEGADO.search(resultados.get(b.get("id"), "")):
+            avisos.append("intento denegado por permisos")
             continue
         entrada = json.dumps(b.get("input"), ensure_ascii=False)
         if brazo in ("n", "a0", "a1", "ar", "arp", "ars") and b.get("name") == "Bash" and EXO.search((b.get("input") or {}).get("command", "")):
