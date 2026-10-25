@@ -43,7 +43,7 @@ Plan: 45 min, 30 turnos, 21 KB
 
 ## Recursos compartidos
 
-- Ninguna tarea toca la KB real (`~/Documentos/proyectos/wisdom-paul`) ni `~/.claude/reflex-log.jsonl`: los tests usan `mktemp -d`, `REFLEX_LOG_FILE` y `--kb` a fixtures.
+- Ninguna tarea toca la KB real del usuario ni `~/.claude/reflex-log.jsonl`: los tests usan `mktemp -d`, `REFLEX_LOG_FILE` y `--kb` a fixtures.
 - `engine/src/reglas.rs`, `engine/src/main.rs` y `engine/tests/reglas_cli.rs`: Tasks 1 y 2, en olas distintas.
 - `plugins/exo/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `engine/Cargo.toml`, `engine/Cargo.lock`: solo la Task 8.
 
