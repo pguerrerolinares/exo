@@ -27,7 +27,9 @@
 # Qué entra: todo fichero versionado que termina en .sh, más los ejecutables
 # sin extensión cuyo shebang es sh/bash (skills/orchestrate/scripts/*), más
 # los bloques `run: |` de `.github/workflows/*.yml` (F4). Los .sh se
-# descubren por el índice de git, no por lista: un script nuevo entra solo.
+# descubren por el índice de git, no por lista: un script nuevo entra solo,
+# también sin `git add` (--con-nuevos suma los no trackeados no ignorados;
+# en CI, con checkout limpio, no hay ninguno).
 # Qué NO entra: evals/ (harness congelado de gates ya firmados: tocarlo
 # invalida la corrida que certifica), docs/, y de los workflows: `run:` de
 # una sola línea, `run: >` (folded scalar) y cualquier `run: |` bajo
@@ -62,7 +64,7 @@ fi
 cd "$RAIZ" || exit 1
 
 . "$(dirname "$0")/_bash-versionado.sh" || { echo "test-shellcheck: no puedo cargar scripts/_bash-versionado.sh" >&2; exit 1; }
-bash_versionado
+bash_versionado --con-nuevos
 
 if [ "${#ficheros[@]}" -eq 0 ]; then
   # Un recorrido que no encuentra nada daría verde sin haber mirado nada.
