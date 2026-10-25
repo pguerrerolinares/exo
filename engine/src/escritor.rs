@@ -253,9 +253,13 @@ pub fn solape_slug(a: &str, b: &str) -> f64 {
 /// `pguerrero.me — Hub personal / portfolio con Lab explorable de LLMs` vive
 /// en el fichero `…Hub personal - portfolio…md`, con el `title` del
 /// frontmatter intacto. Sin esto, un título con barra crearía un
-/// subdirectorio accidental — hay un caso real en la KB.
+/// subdirectorio accidental — hay un caso real en la KB. Los reservados de
+/// Windows (`: * ? " < > |`) también colapsan a guion, como hacía basic-memory
+/// (`wisdom-paul- racionalización…`): la KB se sincroniza por git entre
+/// plataformas y un `:` en el nombre falla en Windows (os error 87). Los
+/// wikilinks resuelven por `title`/`permalink`, no por nombre de fichero.
 fn nombre_fichero(titulo: &str) -> String {
-    titulo.replace(['/', '\\'], "-")
+    titulo.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "-")
 }
 
 /// Rechaza segmentos de ruta que escaparían del árbol de la KB. Es una línea

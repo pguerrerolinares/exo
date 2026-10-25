@@ -693,6 +693,13 @@ fn nueva_con_titulo_de_caracteres_yaml_conflictivos_parsea_y_se_indexa() {
     })
     .unwrap();
 
+    // El nombre de fichero tiene que valer en Windows (la KB se sincroniza por
+    // git entre plataformas); el `title` del frontmatter queda intacto.
+    assert_eq!(
+        esc.ruta_rel,
+        "projects/frentes- app Android # UI 'con IA'.md"
+    );
+
     let nota = exo::nota::parsea_nota(&kb.path().join(&esc.ruta_rel))
         .unwrap()
         .expect("el indexer debe ver el permalink");
