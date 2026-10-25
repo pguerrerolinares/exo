@@ -54,7 +54,7 @@ if [ "${1:-}" = run ]; then
     fi
     echo "$tdir" > "$cache/basehash"; echo real > "$cache/basekind"
     n=$(cat "$cache/count" 2>/dev/null || echo 0)
-    if [ -n "${STUB_HANG_AFTER:-}" ] && [ "$n" -ge "$STUB_HANG_AFTER" ]; then sleep 31344; fi
+    if [ -n "${STUB_HANG_AFTER:-}" ] && [ "$n" -ge "$STUB_HANG_AFTER" ]; then sleep "$(( ${STUB_MARCA:-0} + 31344 ))"; fi
     echo $((n + 1)) > "$cache/count"
     [ -n "${STUB_ID_SLEEP:-}" ] && sleep "$STUB_ID_SLEEP"
     if [ "$n" -lt "${STUB_KILL_COUNT:-999999}" ]; then printf '\r1/1  🎉 1  ⏰ 0  🤔 0  🙁 0  🔇 0'; exit 0; fi
@@ -74,12 +74,12 @@ done
 # STUB_MODE=progresshang: imprime progreso (con \r, como el real) y se cuelga.
 if [ "${STUB_MODE:-}" = progresshang ]; then
   printf '\r3/7  🎉 2  ⏰ 0  🤔 0  🙁 1  🔇 0'
-  sleep 31339
+  sleep "$(( ${STUB_MARCA:-0} + 31339 ))"
 fi
 # STUB_MODE=progresshang2: como progresshang pero con un 🤔 (matado lento).
 if [ "${STUB_MODE:-}" = progresshang2 ]; then
   printf '\r4/7  🎉 2  ⏰ 0  🤔 1  🙁 1  🔇 0'
-  sleep 31342
+  sleep "$(( ${STUB_MARCA:-0} + 31342 ))"
 fi
 # STUB_MODE=suspicious: resultado final con 🤔 (2 matados lentos).
 if [ "${STUB_MODE:-}" = suspicious ]; then
@@ -94,7 +94,7 @@ if [ "${STUB_MODE:-}" = dirty ]; then
     fi
     prev=$a
   done
-  sleep 31338
+  sleep "$(( ${STUB_MARCA:-0} + 31338 ))"
 fi
 [ -n "${STUB_SLEEP:-}" ] && sleep "$STUB_SLEEP"
 echo "10/10  🎉 8  ⏰ 0  🤔 0  🙁 2  🔇 0"

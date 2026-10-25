@@ -12,6 +12,12 @@ STUBS="${SCRIPT_DIR}/testdata/review-package/bin"
 
 TMP="$(mktemp -d)"
 : > "$TMP/plan.md"
+
+# Los stubs cuelgan con `sleep <STUB_MARCA + 313xx>` y los casos de huérfanos
+# buscan/matan ese sleep por cmdline. Sin marca por corrida, dos copias de la
+# suite en paralelo (executors en worktrees) se veían y mataban los sleeps de
+# la otra: timeout_huerfanos, timeout y mutacion_no_ensucia_arbol en rojo.
+export STUB_MARCA=$(( ($$ % 90000 + 1) * 100000 ))
 trap 'rm -rf "$TMP"' EXIT
 
 PASS=0
@@ -106,10 +112,10 @@ if contains "$OUT" "MUTACIÓN: no disponible (cargo-mutants no instalado)"; then
 case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) DT_MAX=15 ;; *) DT_MAX=5 ;; esac
 mkrepo tmo Cargo.toml src/lib.rs; r=$REPO
 t0=$SECONDS
-corre "$r" "$(stubs_para tmo cargo-mutants)" EXO_MUTATION_TIMEOUT=1 STUB_SLEEP=31337
+corre "$r" "$(stubs_para tmo cargo-mutants)" EXO_MUTATION_TIMEOUT=1 STUB_SLEEP=$((STUB_MARCA + 31337))
 dt=$((SECONDS - t0))
 if contains "$OUT" "MUTACIÓN: parcial (timeout 1s)" && [ "$dt" -lt "$DT_MAX" ]; then pass timeout; else fail timeout "dt=${dt}s: $(seccion)"; fi
-if pgrep -f "sleep 31337" >/dev/null 2>&1; then fail timeout_huerfanos "queda un sleep 31337 vivo"; pkill -f "sleep 31337" 2>/dev/null; else pass timeout_huerfanos; fi
+if pgrep -f "^sleep $((STUB_MARCA + 31337))$" >/dev/null 2>&1; then fail timeout_huerfanos "queda un sleep 31337 vivo"; pkill -f "^sleep $((STUB_MARCA + 31337))$" 2>/dev/null; else pass timeout_huerfanos; fi
 
 # ---- rust_ok
 mkrepo rust Cargo.toml src/lib.rs; r=$REPO
@@ -158,7 +164,7 @@ if contains "$OUT" "MUTACIÓN: 8/10" && not_contains "$OUT" "árbol sucio" \
 # ---- mutacion_no_ensucia_arbol (C1): mutmut 2.x muta en sitio y se cuelga hasta el timeout
 mkrepo nodirty setup.py src/m.py; r=$REPO
 corre "$r" "$(stubs_para nodirty mutmut)" STUB_MUTMUT=2 STUB_MODE=dirty EXO_MUTATION_TIMEOUT=1
-if pgrep -f "sleep 31338" >/dev/null 2>&1; then pkill -f "sleep 31338" 2>/dev/null; fi
+if pgrep -f "^sleep $((STUB_MARCA + 31338))$" >/dev/null 2>&1; then pkill -f "^sleep $((STUB_MARCA + 31338))$" 2>/dev/null; fi
 if contains "$OUT" "MUTACIÓN: parcial (timeout 1s)" && [ -z "$(git -C "$r" status --porcelain)" ] \
    && [ "$(git -C "$r" worktree list | wc -l | tr -d ' ')" = 1 ] && [ -z "$(ls "$r/.git/worktrees" 2>/dev/null)" ]; then
   pass mutacion_no_ensucia_arbol
@@ -301,15 +307,15 @@ if contains "$OUT" "MUTACIÓN: no disponible (diff sin líneas añadidas ni modi
 # (grano de 1 s); con TIMEOUT=1 un tic de reloj deja resta=0 y el progreso sale "no disponible".
 mkrepo parpy setup.py src/m.py; r=$REPO
 corre "$r" "$(stubs_para parpy mutmut)" STUB_MUTMUT=2 STUB_MODE=progresshang EXO_MUTATION_TIMEOUT=1 EXO_MUTATION_SAMPLE=0
-if pgrep -f "sleep 31339" >/dev/null 2>&1; then pkill -f "sleep 31339" 2>/dev/null; fi
+if pgrep -f "^sleep $((STUB_MARCA + 31339))$" >/dev/null 2>&1; then pkill -f "^sleep $((STUB_MARCA + 31339))$" 2>/dev/null; fi
 if contains "$OUT" "MUTACIÓN: parcial (timeout 1s) — progreso: 3/7 evaluados, 2 caught, 1 supervivientes"; then pass parcial_progreso_mutmut; else fail parcial_progreso_mutmut "$(seccion)"; fi
 mkrepo parjs package.json src/a.js; r=$REPO
 echo '{"devDependencies":{"@stryker-mutator/core":"9"}}' > "$r/package.json"; git -C "$r" commit -qam pkg; HEAD=$(git -C "$r" rev-parse HEAD)
 corre "$r" "$(stubs_para parjs npx)" STUB_MODE=progresshang EXO_MUTATION_TIMEOUT=1
-if pgrep -f "sleep 31340" >/dev/null 2>&1; then pkill -f "sleep 31340" 2>/dev/null; fi
+if pgrep -f "^sleep $((STUB_MARCA + 31340))$" >/dev/null 2>&1; then pkill -f "^sleep $((STUB_MARCA + 31340))$" 2>/dev/null; fi
 if contains "$OUT" "MUTACIÓN: parcial (timeout 1s) — progreso: 4/7 evaluados, 3 caught, 1 supervivientes"; then pass parcial_progreso_stryker; else fail parcial_progreso_stryker "$(seccion)"; fi
 corre "$r" "$(stubs_para parjs2 npx)" STUB_MODE=silenciohang EXO_MUTATION_TIMEOUT=1
-if pgrep -f "sleep 31341" >/dev/null 2>&1; then pkill -f "sleep 31341" 2>/dev/null; fi
+if pgrep -f "^sleep $((STUB_MARCA + 31341))$" >/dev/null 2>&1; then pkill -f "^sleep $((STUB_MARCA + 31341))$" 2>/dev/null; fi
 if contains "$OUT" "MUTACIÓN: parcial (timeout 1s) — progreso: no disponible"; then pass parcial_sin_progreso; else fail parcial_sin_progreso "$(seccion)"; fi
 
 # ---- timeout_por_mutante: EXO_MUTATION_MUTANT_TIMEOUT aplica SOLO a mutmut (envuelve --runner);
@@ -342,7 +348,7 @@ mkrepo susps setup.py src/m.py; r=$REPO
 corre "$r" "$(stubs_para susps mutmut)" STUB_MUTMUT=2 STUB_MODE=suspicious
 if contains "$OUT" "MUTACIÓN: 8/10 (80%) — 2 superviviente(s)"; then pass mutmut_sospechoso_cuenta_stub; else fail mutmut_sospechoso_cuenta_stub "$(seccion)"; fi
 corre "$r" "$(stubs_para susps2 mutmut)" STUB_MUTMUT=2 STUB_MODE=progresshang2 EXO_MUTATION_TIMEOUT=1 EXO_MUTATION_SAMPLE=0
-if pgrep -f "sleep 31342" >/dev/null 2>&1; then pkill -f "sleep 31342" 2>/dev/null; fi
+if pgrep -f "^sleep $((STUB_MARCA + 31342))$" >/dev/null 2>&1; then pkill -f "^sleep $((STUB_MARCA + 31342))$" 2>/dev/null; fi
 if contains "$OUT" "progreso: 4/7 evaluados, 3 caught, 1 supervivientes"; then pass parcial_progreso_sospechoso; else fail parcial_progreso_sospechoso "$(seccion)"; fi
 
 # ---- gitconfig_hostil: el git del usuario no rompe rangos ni patches
@@ -433,7 +439,7 @@ t0=$SECONDS; corre "$r" "$(stubs_para cache2 mutmut)" STUB_MUTMUT=2 EXO_MUTATION
 if [ "$d1" -ge 1 ] && [ "$d2" -ge 1 ] && contains "$c1" "3/5 (60,0%)" && contains "$c2" "3/5 (60,0%)"; then pass sin_cache_previa; else fail sin_cache_previa "d1=$d1 d2=$d2 $c1 | $c2"; fi
 # timeout global dentro de la muestra: parcial con el progreso de la muestra
 corre "$r" "$(stubs_para mues6 mutmut)" STUB_MUTMUT=2 STUB_MUTANTS=400 EXO_MUTATION_SAMPLE=5 STUB_HANG_AFTER=2 EXO_MUTATION_TIMEOUT=3
-if pgrep -f "sleep 31344" >/dev/null 2>&1; then pkill -f "sleep 31344" 2>/dev/null; fi
+if pgrep -f "^sleep $((STUB_MARCA + 31344))$" >/dev/null 2>&1; then pkill -f "^sleep $((STUB_MARCA + 31344))$" 2>/dev/null; fi
 if contains "$OUT" "MUTACIÓN: parcial (timeout 3s) — progreso: 2/5 evaluados, 2 caught, 0 supervivientes (muestra de 5/400, semilla 20260929)"; then pass timeout_en_muestra; else fail timeout_en_muestra "$(seccion)"; fi
 # valores inválidos: aviso visible y se usan los de siempre
 if [ "$N150" = 1 ]; then
