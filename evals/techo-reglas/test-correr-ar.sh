@@ -68,4 +68,19 @@ if [ $rc = 0 ] && [ "$(jq -r .fuga <<<"$out")" = false ]; then ok fugas_ar_sessi
 printf '%s\n%s\n' "$hook" "$tool" > "$F/transcript.jsonl"
 out=$(python3 "$FUG" "$F" ar 2>&1); rc=$?
 if [ $rc = 1 ] && [ "$(jq -r .fuga <<<"$out")" = true ]; then ok fugas_ar_snapshot_es_fuga; else ko "fugas_ar_snapshot_es_fuga rc=$rc out=$out"; fi
+
+# ap/ap1 (Ap, #190): modo arp con directorio propio; sin regla/framing fallan ruidosos como arp
+echo "# claude-md" > "$P/claude-md.md"; echo '{{REGLA}}' > "$T/fr.txt"; printf 'regla de ap\n' > "$T/rg.txt"
+for b in ap ap1 arp1; do
+  K_FRAMING_FILE="$T/fr.txt" K_REGLA_FILE="$T/rg.txt" bash "$CORRER" "$tarea" $b 1 >/dev/null 2>&1; rc=$?
+  O="$K_ROOT/corridas/tt/$b-r1"
+  if [ $rc = 0 ] && grep -qxF -- "regla de ap" "$O/sysprompt.md"; then
+    ok "${b}_es_modo_arp_con_dir_propio"; else ko "${b}_es_modo_arp_con_dir_propio rc=$rc"; fi
+done
+[ "$(ls "$K_ROOT/corridas/tt" | grep -cE '^(ap|ap1|arp1)-r1$')" = 3 ] && ok ap_dirs_separados || ko ap_dirs_separados
+for b in ap ap1; do
+  msg=$(env -u K_REGLA_FILE K_FRAMING_FILE="$T/fr.txt" bash "$CORRER" "$tarea" $b 2 2>&1); rc=$?
+  [ $rc = 2 ] && [[ $msg == *"arp requiere K_REGLA_FILE"* ]] && ok "${b}_sin_regla_falla" || ko "${b}_sin_regla_falla rc=$rc"
+done
+diff <(sed "s/ap-r1/X/g" "$K_ROOT/corridas/tt/ap-r1/cmdline.txt") <(sed "s/arp1-r1/X/g" "$K_ROOT/corridas/tt/arp1-r1/cmdline.txt") >/dev/null && ok ap_cmdline_igual_que_arp1 || ko ap_cmdline_igual_que_arp1
 exit $fail

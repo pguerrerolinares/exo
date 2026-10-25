@@ -13,6 +13,9 @@
 # en el erratas.md del experimento antes de seguir (v2: la tanda es inválida y no se adjudica). Exit 0 = tanda completa sin breakers; 2 = precondición.
 # K_ENSAYO=1 pasa a correr.sh (no lanza claude; sin breakers ni tarball); exit 0 solo si cada par lanzado dejó cmdline.txt.
 # TECHO_P: prefijo del estado ($K_ROOT/<P>-orden, -cola, -STOP, -resumen.txt); def. el de TECHO_EXP. Otro ORDEN sobre un P ya usado aborta (exit 2).
+# `{K_ROOT}` en la ruta de regla se sustituye por $K_ROOT y una ruta absoluta se usa tal cual (Ap: bloques fuera del repo).
+# ORDEN: de TECHO_ORDEN (fichero con el bloque ORDEN-BEGIN/END) si existe; si no, de $PREREG, y si este no trae ORDEN
+# pero $EXP/orden.txt sí, de ese (Ap: el preregistro está sellado y el orden va aparte). K_TOPE_USD sale del entorno.
 # Overrides de test: TECHO_CORRER, TECHO_TAREAS, TECHO_PREREG, TECHO_TARBALL.
 set -uo pipefail
 par=${1:-4}
@@ -36,7 +39,10 @@ if [ -f "$EXP/pins.sha256" ]; then
 fi
 [ -f "$EXP/framing.txt" ] && export K_FRAMING_FILE="$EXP/framing.txt"
 
-orden=$(sed -n '/^<!-- ORDEN-BEGIN -->$/,/^<!-- ORDEN-END -->$/p' "$PREREG" | grep -E '^([a-z0-9]+ )?[a-z0-9-]+ [0-9]+$' | awk 'NF==2{print "ar "$0; next} {print}')
+ORDEN_SRC="${TECHO_ORDEN:-$PREREG}"
+if [ -z "${TECHO_ORDEN:-}" ] && ! grep -q '^<!-- ORDEN-BEGIN -->$' "$PREREG" 2>/dev/null && [ -f "$EXP/orden.txt" ]; then ORDEN_SRC="$EXP/orden.txt"; fi
+[ -f "$ORDEN_SRC" ] || die "no existe el fichero del ORDEN: $ORDEN_SRC"
+orden=$(sed -n '/^<!-- ORDEN-BEGIN -->$/,/^<!-- ORDEN-END -->$/p' "$ORDEN_SRC" | grep -E '^([a-z0-9]+ )?[a-z0-9-]+ [0-9]+$' | awk 'NF==2{print "ar "$0; next} {print}')
 esperado=$(awk -F'\t' '{b=($4!=""?$4:($2=="suelo"?"ar:2":"ar:1")); n=split(b,a,","); for(i=1;i<=n;i++){split(a[i],c,":"); for(r=1;r<=c[2];r++) print c[1]" "$1" "r}}' "$TAREAS" | sort)
 [ -n "$esperado" ] && [ "$(printf '%s\n' "$orden" | sort)" = "$esperado" ] || die "el bloque ORDEN no es exactamente el conjunto de pares (brazo, id, rep) de $TAREAS"
 
@@ -47,9 +53,10 @@ mkdir -p "$K_ROOT"; : > "$Q"; rm -f "$STOP"; printf '%s\n' "$orden" > "$ORDEN_F"
 lanzadas=0; omitidas=0; previas=0
 while read -r brazo id rep; do
   regla=$(awk -F'\t' -v i="$id" '$1==i{print $3}' "$TAREAS")
-  regla=${regla//\{brazo\}/$brazo}
+  regla=${regla//\{brazo\}/$brazo}; regla=${regla//\{K_ROOT\}/$K_ROOT}
   [ -n "$regla" ] || die "$id no está en $TAREAS"
-  [ -s "$ROOT/$regla" ] || die "regla vacía o ausente: $ROOT/$regla"
+  case "$regla" in /*) ;; *) regla="$ROOT/$regla";; esac
+  [ -s "$regla" ] || die "regla vacía o ausente: $regla"
   [ -d "$K_ROOT/gold/s1/$id" ] || die "sin $K_ROOT/gold/s1/$id"
   if [ "$(awk -F'\t' -v i="$id" '$1==i{print $2}' "$K_ROOT/reconstruccion.tsv")" != si ]; then
     echo "omitida (no reconstruible): $id r$rep${brazo:+ ($brazo)}"; omitidas=$((omitidas+1)); continue
@@ -58,7 +65,7 @@ while read -r brazo id rep; do
     previas=$((previas+1))
     [ "$K_REANUDAR" = 1 ] && continue
   fi
-  printf '%s %s %s %s\n' "$brazo" "$id" "$rep" "$ROOT/$regla" >> "$Q"; lanzadas=$((lanzadas+1))
+  printf '%s %s %s %s\n' "$brazo" "$id" "$rep" "$regla" >> "$Q"; lanzadas=$((lanzadas+1))
 done <<< "$orden"
 [ "$previas" = 0 ] || [ "$K_REANUDAR" = 1 ] || die "$previas corridas ya tienen meta.json; cero re-intentos (K_REANUDAR=1 para saltarlas)"
 
