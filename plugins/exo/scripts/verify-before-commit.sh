@@ -49,7 +49,7 @@ esac
 
 command -v jq >/dev/null 2>&1 || exit 0
 
-CMD="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)" || CMD=""
+CMD="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null | tr -d '\r')" || CMD=""
 [ -z "$CMD" ] && exit 0
 
 # 1. Solo actuar en git commit.
@@ -60,11 +60,11 @@ printf '%s' "$CMD" | grep -Eq "$PATRON" || exit 0
 printf '%s' "$CMD" | grep -q -- '--no-verify' && exit 0
 
 # 3. Filtro codigo-vs-docs: ejecuta git diff --cached para ver que hay staged.
-SID="$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)" || SID=""
+SID="$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null | tr -d '\r')" || SID=""
 SID="${SID:-nosession}"
 
 # Intentar obtener el cwd del INPUT para correr git en el directorio correcto.
-CWD_INPUT="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)" || CWD_INPUT=""
+CWD_INPUT="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null | tr -d '\r')" || CWD_INPUT=""
 if [ -n "$CWD_INPUT" ]; then
   STAGED="$(git -C "$CWD_INPUT" diff --cached --name-only --diff-filter=ACM 2>/dev/null)" || STAGED=""
 else
@@ -85,7 +85,7 @@ CODE_FILES="$(printf '%s' "$STAGED" | grep -E '\.(ts|tsx|js|jsx|py|go|rs|rb|java
 #    comportamiento previo de "sin estado -> avisa".
 SHOULD_WARN=1
 
-TRANSCRIPT="$(printf '%s' "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/null)" || TRANSCRIPT=""
+TRANSCRIPT="$(printf '%s' "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/null | tr -d '\r')" || TRANSCRIPT=""
 
 if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
   # Regexes test-runner (copiados de test-run-tracker.sh).
@@ -115,6 +115,7 @@ if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
         else (if $errmap[$tr.id] == false then "green" else "warn" end)
         end
     ' 2>/dev/null)" || RESULT="warn"
+  RESULT="${RESULT%$'\r'}"
 
   [ "$RESULT" = "green" ] && SHOULD_WARN=0
 fi

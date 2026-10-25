@@ -47,7 +47,7 @@ esac
 
 command -v jq >/dev/null 2>&1 || exit 0
 
-CMD="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)" || CMD=""
+CMD="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null | tr -d '\r')" || CMD=""
 [ -z "$CMD" ] && exit 0
 
 # Patron: git add seguido de -A, --all, o . (con espacio o fin de string tras el argumento).

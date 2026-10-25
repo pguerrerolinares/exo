@@ -6,8 +6,8 @@ set -uo pipefail
 
 INPUT="$(cat)"
 
-SESSION_ID="$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)"
-TRANSCRIPT="$(printf '%s' "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/null)"
+SESSION_ID="$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null | tr -d '\r')"
+TRANSCRIPT="$(printf '%s' "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/null | tr -d '\r')"
 
 # Sin session_id no podemos deduplicar; salimos sin molestar.
 [ -z "$SESSION_ID" ] && exit 0
@@ -47,8 +47,8 @@ if [ ! -f "$WSENT" ]; then
     # hb de 1.6.1 sin via = compose; corrupto no se lee.
     HB_VIA=""; HB_ORG=""
     if [ "$HB_ST" != "corrupto" ]; then
-      HB_VIA="$(jq -r '.via // ""' "$HB" 2>/dev/null)" || HB_VIA=""
-      HB_ORG="$(jq -r '.org // ""' "$HB" 2>/dev/null)" || HB_ORG=""
+      HB_VIA="$(jq -r '.via // ""' "$HB" 2>/dev/null | tr -d '\r')" || HB_VIA=""
+      HB_ORG="$(jq -r '.org // ""' "$HB" 2>/dev/null | tr -d '\r')" || HB_ORG=""
     fi
     if [ "$HB_VIA" = "none" ] && [ "${SS_N:-0}" -gt 0 ] 2>/dev/null; then
       WREASON="sin_canal"
@@ -64,7 +64,7 @@ if [ ! -f "$WSENT" ]; then
       # cambiar a mitad de sesión. Solo el engine adjudica quién tiene razón.
       . "$SCRIPT_DIR/_timeout.sh" 2>/dev/null
       EXO_BIN="${EXO_BIN:-$(command -v exo 2>/dev/null || echo "$HOME/.local/bin/exo")}"
-      WCWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)"
+      WCWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null | tr -d '\r')"
       WCWD="${WCWD:-$PWD}"
       WERR_TMP="$(mktemp)"
       WOUT="$(con_timeout "${EXO_RULES_TIMEOUT:-3}" "$EXO_BIN" rules --cwd "$WCWD" --json 2>"$WERR_TMP")" && WRC=0 || WRC=$?

@@ -44,8 +44,57 @@ corre 'IFS=, read -r a b <<< "$(jq -r ".x" <<< "$J")"
 b="${b%$'"'"'\r'"'"'}"'
 if [ $rc -eq 0 ]; then ok read_aqui_string_limpio_pasa; else bad "read_aqui_string_limpio_pasa (rc=$rc out=$out)"; fi
 
-corre 'v="$(jq -r .a <<< "$J")"; echo "$v"'
-if [ $rc -eq 0 ]; then ok jq_sin_read_pasa; else bad "jq_sin_read_pasa (rc=$rc out=$out)"; fi
+corre 'jq -r .a <<< "$J" | sort -u'
+if [ $rc -eq 0 ]; then ok jq_sin_read_ni_asignacion_pasa; else bad "jq_sin_read_ni_asignacion_pasa (rc=$rc out=$out)"; fi
+# Asignación VAR="$(… jq …)": la sustitución quita el \n pero no el \r.
+corre 'v="$(printf %s "$J" | jq -r .a)"; echo "$v"'
+if [ $rc -eq 1 ] && printf '%s' "$out" | grep -q 'x.sh:1:'; then ok asignacion_comillas_rojo; else bad "asignacion_comillas_rojo (rc=$rc out=$out)"; fi
+
+corre 'v=$(printf %s "$J" | jq -r .a)'
+if [ $rc -eq 1 ]; then ok asignacion_sin_comillas_rojo; else bad "asignacion_sin_comillas_rojo (rc=$rc out=$out)"; fi
+
+corre 'v="${v:-$(printf %s "$J" | jq -r .a)}"'
+if [ $rc -eq 1 ]; then ok asignacion_default_expansion_rojo; else bad "asignacion_default_expansion_rojo (rc=$rc out=$out)"; fi
+
+corre 'v="$(printf %s "$J" \
+  | jq -r .a)"'
+if [ $rc -eq 1 ] && printf '%s' "$out" | grep -q 'x.sh:1:'; then ok asignacion_continuacion_rojo; else bad "asignacion_continuacion_rojo (rc=$rc out=$out)"; fi
+
+corre 'n="$(printf %s "$J" | jq -nc ".a|length")"'
+if [ $rc -eq 1 ]; then ok asignacion_jq_nc_no_objeto_rojo; else bad "asignacion_jq_nc_no_objeto_rojo (rc=$rc out=$out)"; fi
+
+corre 'v="$(printf %s "$J" | jq -j .a)"'
+if [ $rc -eq 0 ]; then ok asignacion_jq_j_verde; else bad "asignacion_jq_j_verde (rc=$rc out=$out)"; fi
+
+corre 'v="$(printf %s "$J" | jq -r .a | tr -d "\r")"'
+if [ $rc -eq 0 ]; then ok asignacion_tr_verde; else bad "asignacion_tr_verde (rc=$rc out=$out)"; fi
+
+corre 'v="$(printf %s "$J" \
+  | jq -r .a | tr -d "\r")"'
+if [ $rc -eq 0 ]; then ok asignacion_continuacion_tr_verde; else bad "asignacion_continuacion_tr_verde (rc=$rc out=$out)"; fi
+
+corre 'v="$(printf %s "$J" | jq -r .a)"
+v="${v%$'"'"'\r'"'"'}"'
+if [ $rc -eq 0 ]; then ok asignacion_limpieza_explicita_verde; else bad "asignacion_limpieza_explicita_verde (rc=$rc out=$out)"; fi
+
+corre 'v="$(printf %s "$J" | jq -r .a)"
+w="${w%$'"'"'\r'"'"'}"'
+if [ $rc -eq 1 ]; then ok limpieza_de_otra_variable_rojo; else bad "limpieza_de_otra_variable_rojo (rc=$rc out=$out)"; fi
+
+corre 'j="$(jq -nc --arg a "$A" '"'"'{x:$a}'"'"')"'
+if [ $rc -eq 0 ]; then ok asignacion_objeto_json_verde; else bad "asignacion_objeto_json_verde (rc=$rc out=$out)"; fi
+
+corre 'j="$(printf %s "$T" | jq -Rs '"'"'{x:.}'"'"')"'
+if [ $rc -eq 0 ]; then ok asignacion_jq_Rs_objeto_verde; else bad "asignacion_jq_Rs_objeto_verde (rc=$rc out=$out)"; fi
+
+# Los test-*.sh son fixtures, no hooks: la regla de asignación no los mira.
+P="$T/p"; rm -rf "$P"; mkdir -p "$P"
+printf '%s\n' 'v="$(printf %s "$J" | jq -r .a)"' > "$P/test-x.sh"
+out="$(bash "$CHECK" "$P" 2>&1)"; rc=$?
+if [ $rc -eq 0 ]; then ok test_fixture_exento_de_asignacion; else bad "test_fixture_exento_de_asignacion (rc=$rc out=$out)"; fi
+printf '%s\n' 'echo "$J" | jq -r .a | while read -r l; do :; done' > "$P/test-x.sh"
+out="$(bash "$CHECK" "$P" 2>&1)"; rc=$?
+if [ $rc -eq 1 ]; then ok test_fixture_sigue_vigilado_en_read; else bad "test_fixture_sigue_vigilado_en_read (rc=$rc out=$out)"; fi
 }
 
 out="$(bash "$CHECK" 2>&1)"; rc=$?

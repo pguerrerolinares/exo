@@ -92,8 +92,8 @@ elif [ "$RULES_ENGINE" = ok ]; then
   # sobre la causa.
   CONFIG_ERR_TMP="$(mktemp)"
   CONFIG_JSON="$("$EXO_BIN" config --json 2>"$CONFIG_ERR_TMP")"
-  EXO_KB_NAME="${EXO_KB_NAME:-$(printf '%s' "$CONFIG_JSON" | jq -r '.data.kb.name // empty' 2>/dev/null)}"
-  CONFIG_KB_PATH="$(printf '%s' "$CONFIG_JSON" | jq -r '.data.kb.path // empty' 2>/dev/null)"
+  EXO_KB_NAME="${EXO_KB_NAME:-$(printf '%s' "$CONFIG_JSON" | jq -r '.data.kb.name // empty' 2>/dev/null | tr -d '\r')}"
+  CONFIG_KB_PATH="$(printf '%s' "$CONFIG_JSON" | jq -r '.data.kb.path // empty' 2>/dev/null | tr -d '\r')"
   if [ -z "${EXO_RECALL_NOTA:-}" ] && [ -z "$EXO_KB_NAME" ]; then
     # Sin config no hay prefijo de proyecto: la nota cae a `core/core-index`
     # pelado, que no resuelve. Degradación aceptable, pero no muda: distinta
@@ -165,7 +165,7 @@ if [ "$SOURCE" = "compact" ] && [ -n "$SID" ] && [ -f "$HOME/.claude/reflex-log.
   # líneas son ~74 días al ritmo actual. No se rota nada, porque el análisis
   # (reflex-fp-review) necesita la historia entera.
   FIRED="$(tail -n "${EXO_RECALL_COMPACT_LINEAS:-2000}" "$HOME/.claude/reflex-log.jsonl" 2>/dev/null \
-            | jq -r --arg sid "$SID" 'select(.session_id==$sid) | .reflex' 2>/dev/null | sort -u)"
+            | jq -r --arg sid "$SID" 'select(.session_id==$sid) | .reflex' 2>/dev/null | sort -u | tr -d '\r')"
   if [ -n "$FIRED" ]; then
     PIN=""
     for id in $FIRED; do
@@ -291,7 +291,7 @@ VISIBLE=""
 if [ "$SOURCE" != "compact" ] && [ -n "$RULES_ENGINE" ]; then
   RULES_DIR="$HOME/.claude/exo-rules"
   find "$RULES_DIR" -maxdepth 1 -type f \( -name 'ss-*' -o -name 'hb-*' \) -mtime +7 -delete 2>/dev/null
-  RCWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)"
+  RCWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null | tr -d '\r')"
   RCWD="${RCWD:-$PWD}"
   RSTATUS=""; RREASON=""; RREPO=""; RN=0; RNG=0; RTRUNC=0; RERR=""
   if [ "$RULES_ENGINE" = stale ]; then

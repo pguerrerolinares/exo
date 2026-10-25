@@ -114,7 +114,8 @@ jobs:
         if: always()
         run: bash scripts/test-check-prosa-cli.sh
       # Mantiene cierto el `ok` de `exo doctor` sobre el CRLF de jq: si un
-      # script lee jq línea a línea sin -j, este gate se pone rojo.
+      # script lee jq línea a línea o lo asigna con $(…) sin -j ni limpiar
+      # el \r, este gate se pone rojo.
       - name: Ningún script del plugin lee jq con read sin -j ni tr -d '\r'
         if: always()
         run: bash scripts/check-jq-crlf.sh

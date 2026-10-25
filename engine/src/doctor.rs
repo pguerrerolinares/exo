@@ -676,8 +676,9 @@ fn check_dispositivo(entorno: &Entorno, cfg: Option<&crate::config::Config>) -> 
 ///
 /// Dos trampas medidas, ambas del runbook de W11: el `jq` de la Store es un
 /// **alias de ejecución** bajo `WindowsApps` que no es un jq, y el `jq`
-/// nativo de winget emite **CRLF**, que solo muerde leyendo con `while read`.
-/// Ningún script vivo lo hace (`scripts/check-jq-crlf.sh` lo vigila en CI),
+/// nativo de winget emite **CRLF**, que muerde leyendo con `while read` y
+/// asignando `VAR="$(… jq …)"` (la sustitución quita el `\n`, no el `\r`).
+/// Ningún script del plugin lo hace (`scripts/check-jq-crlf.sh` lo vigila en CI),
 /// así que el CRLF va en el detalle de un `ok`, no baja el check a `warn`.
 fn check_jq(entorno: &Entorno) -> Check {
     let Some(ruta) = busca_en_path(&entorno.path, "jq") else {
