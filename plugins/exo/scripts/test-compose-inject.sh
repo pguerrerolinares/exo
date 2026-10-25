@@ -786,6 +786,58 @@ n_eventos() { grep -c "\"reflex\":\"$1\"" "$REFLEX_LOG_FILE" 2>/dev/null || true
   fi
 }
 
+# I1 (review T4): canario + reglas que llenan el tope. Barrido de longitud de regla
+# para que algún caso caiga a <2 B del tope; el canario nunca se recorta.
+{
+  CAN_R="$TMP/canario-reglas"; printf 'RFX-ZZ-9Q9Q\n' > "$CAN_R"
+  MAL=""; MAXB=0
+  for L in 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35; do
+    OUT="$(reglas_custom general-purpose ok '[]' "$(gen_reglas P 80 $L)" "$SCRIPT_DIR/../agents/executor.md" "$CAN_R")"
+    B="$(printf '%s' "$OUT" | wc -c)"; [ "$B" -gt "$MAXB" ] && MAXB=$B
+    { [ "$B" -le 3072 ] && contains "$OUT" "RFX-ZZ-9Q9Q" && contains "$OUT" "- P0 "; } || MAL="$MAL L=$L:$B"
+  done
+  if [ -z "$MAL" ] && [ "$MAXB" -ge 3060 ]; then
+    pass "caso_canario_con_reglas: canario + reglas al tope ⇒ ≤3072B y token presente (max=$MAXB)"
+  else
+    fail "caso_canario_con_reglas: canario + reglas al tope ⇒ ≤3072B y token presente" "mal=$MAL max=$MAXB"
+  fi
+}
+# I2: reglas de 4B (granularidad fina) y canarios de 4 longitudes: barre el residuo
+# del recorte para que el -2 del separador entre reglas y resto importe.
+{
+  MALF=""
+  for tk in AAAA AAAAA AAAAAA AAAAAAA; do
+    CF="$TMP/canario-f"; printf '%s\n' "$tk" > "$CF"
+    OUT="$(reglas_custom general-purpose ok '[]' "$(jq -cn '[range(900)|"r"]')" "$SCRIPT_DIR/../agents/executor.md" "$CF")"
+    b="$(printf '%s' "$OUT" | wc -c)"; { [ "$b" -le 3072 ] && [ "$b" -ge 3060 ]; } || MALF="$MALF $tk:$b"
+  done
+  if [ -z "$MALF" ]; then pass "caso_separador_exacto: reglas finas + canario ⇒ 3060..3072B en los 4 residuos"
+  else fail "caso_separador_exacto: reglas finas + canario ⇒ 3060..3072B en los 4 residuos" "mal=$MALF"; fi
+}
+# I2: Cores enorme + reglas (reducido). El contenido no deja sitio: el bloque entero
+# sigue ≤3072B; y con holgura entre ~60B y un encabezado, solo sale el aviso.
+{
+  KBC="$TMP/kb-cores"; mkdir -p "$KBC/core"
+  mkcores() {  # mkcores <n lineas de 50B>
+    { printf '# CI\n\n## Cores\n'; i=0; while [ "$i" -lt "$1" ]; do printf -- '- core-%02d: %s\n' "$i" "$(printf 'x%.0s' $(seq 1 38))"; i=$((i+1)); done; } > "$KBC/core/core-index.md"
+  }
+  run_c() { FAKE_STATUS=ok FAKE_G='[]' FAKE_P='["P1 regla"]' FAKE_RULES_MODE=custom EXO_BIN="$FAKE_RULES_DIR/exo" EXO_KB="$KBC" \
+      REFLEX_EXECUTOR_MD="$EXEC_MD" REFLEX_CANARY_FILE="$NO_CANARY" "$COMPOSE" --type exo:executor "${CWDX[@]}" 2>/dev/null; }
+  mkcores 100
+  OUTC="$(run_c)"; BC="$(printf '%s' "$OUTC" | wc -c)"
+  SOLO=0; MALC=""
+  for n in $(seq 40 70); do
+    mkcores "$n"; : > "$REFLEX_LOG_FILE"; O="$(run_c)"; b="$(printf '%s' "$O" | wc -c)"
+    [ "$b" -le 3072 ] || MALC="$MALC n=$n:$b"
+    if contains "$O" "reglas más no caben aquí" && not_contains "$O" "## Reglas duras" \
+       && grep -q inject-rules-truncated "$REFLEX_LOG_FILE"; then SOLO=$((SOLO+1)); fi
+  done
+  if [ "$BC" -le 3072 ] && [ -z "$MALC" ] && [ "$SOLO" -ge 1 ]; then
+    pass "caso_cores_grande_con_reglas: ≤3072B siempre; rama de solo aviso alcanzada ($SOLO veces)"
+  else
+    fail "caso_cores_grande_con_reglas: ≤3072B siempre; rama de solo aviso alcanzada" "bc=$BC mal=$MALC solo=$SOLO"
+  fi
+}
 echo ""
 TOTAL=$((PASS+FAIL))
 echo "=== Resultado: ${PASS}/${TOTAL} pasaron ==="
