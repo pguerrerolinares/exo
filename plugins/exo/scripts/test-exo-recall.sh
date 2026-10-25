@@ -69,6 +69,7 @@ JSON_SIN_SOURCE='{"session_id":"sess-solo-id"}'
 # razonamiento de este fix antes de tocar nada más.
 SOURCE_TAB=""; SID_TAB=""
 IFS=$'\t' read -r SOURCE_TAB SID_TAB <<< "$(printf '%s' "$JSON_SIN_SOURCE" | jq -r '[(.source // ""), (.session_id // "")] | @tsv')"
+SID_TAB="${SID_TAB%$'\r'}"
 if [ "$SOURCE_TAB" = "sess-solo-id" ] && [ "$SID_TAB" = "" ]; then
   pass "contraprueba: @tsv + IFS=tab SÍ desalinea (por eso este hook usa \\x1f, no @tsv)"
 else
@@ -242,13 +243,14 @@ fi
 # ------------------- 2d: reglas de proyecto (ss-<sid>, gritos) ---------------
 # El stub registra cada llamada a `exo rules` y devuelve lo que diga RULES_MODE.
 RULES_CALLS="$TMP/rules-calls"
+RECALL_CALLS="$TMP/recall-calls"
 STUB_REGLAS="$TMP/exo-stub-reglas"
 cat > "$STUB_REGLAS" <<EOF
 #!/usr/bin/env bash
 case "\$1" in
   --version) echo "exo \${STUB_VER:-9.0.0}" ;;
   config) echo '{"schema_version":2,"command":"config","data":{"kb":{"name":"kb-test","path":"/tmp/kb-test"}}}' ;;
-  recall) echo "Contrato de memoria: bloque de prueba camino feliz." ;;
+  recall) echo "\$*" >> "$RECALL_CALLS"; echo "Contrato de memoria: bloque de prueba camino feliz." ;;
   rules)
     echo "\$*" >> "$RULES_CALLS"
     case "\${RULES_MODE:-ok}" in
@@ -557,6 +559,23 @@ reglas_hook '{"session_id":"r-trunc"}' ok STUB_TRUNC=4
 if [ "$SYSMSG" = "⚠ 4 reglas duras recortadas al máximo de 10 (corre «exo rules --check»)" ] && ! contains "$SYSMSG" "excede_cap"; then
   pass "sin_excede_cap: truncated>0 ⇒ aviso de recorte sin atribuirlo al repo"
 else fail "sin_excede_cap" "sys='$SYSMSG'"; fi
+# jq falso con CRLF (jq nativo de Windows): el último campo del `read` no puede perder el aviso.
+JQ_REAL="$(command -v jq)"
+mkdir -p "$TMP/jq-crlf"
+printf '#!/usr/bin/env bash\nset -o pipefail\n"%s" "$@" | sed "s/$/\\r/"\n' "$JQ_REAL" > "$TMP/jq-crlf/jq"
+chmod +x "$TMP/jq-crlf/jq"
+reglas_hook '{"session_id":"r-trunc-crlf"}' ok STUB_TRUNC=4 PATH="$TMP/jq-crlf:$PATH"
+if contains "$SYSMSG" "4 reglas duras recortadas"; then
+  pass "recorte_con_crlf: jq con CRLF ⇒ el aviso de recorte sale igual"
+else fail "recorte_con_crlf" "sys='$SYSMSG'"; fi
+
+# EXO_RECALL_CAP es el --cap-bytes que recibe el engine (no se baja al del bloque).
+rm -f "$RECALL_CALLS"
+reglas_hook '{"session_id":"r-cap"}' ok EXO_RECALL_CAP=7777
+if grep -q -- '--cap-bytes 7777' "$RECALL_CALLS" 2>/dev/null; then
+  pass "recall_cap_al_engine: EXO_RECALL_CAP llega como --cap-bytes"
+else fail "recall_cap_al_engine" "calls=$(cat "$RECALL_CALLS" 2>/dev/null)"; fi
+
 reglas_hook '{"session_id":"r-trunc2"}' skip:excede_cap
 if [ -z "$SYSMSG" ]; then pass "sin_excede_cap: el engine ya no lo emite; sin aviso propio"
 else fail "sin_excede_cap (reason legado)" "sys='$SYSMSG'"; fi

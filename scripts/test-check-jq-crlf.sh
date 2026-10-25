@@ -37,6 +37,13 @@ if [ $rc -eq 0 ]; then ok jq_j_pasa; else bad "jq_j_pasa (rc=$rc out=$out)"; fi
 corre 'echo "$J" | jq -r ".[]" | tr -d "\r" | while read -r l; do echo "$l"; done'
 if [ $rc -eq 0 ]; then ok tr_d_cr_pasa; else bad "tr_d_cr_pasa (rc=$rc out=$out)"; fi
 
+corre 'IFS=, read -r a b <<< "$(jq -r ".x" <<< "$J")"'
+if [ $rc -eq 1 ] && printf '%s' "$out" | grep -q 'x.sh:1:'; then ok read_aqui_string_sin_limpiar; else bad "read_aqui_string_sin_limpiar (rc=$rc out=$out)"; fi
+
+corre 'IFS=, read -r a b <<< "$(jq -r ".x" <<< "$J")"
+b="${b%$'"'"'\r'"'"'}"'
+if [ $rc -eq 0 ]; then ok read_aqui_string_limpio_pasa; else bad "read_aqui_string_limpio_pasa (rc=$rc out=$out)"; fi
+
 corre 'v="$(jq -r .a <<< "$J")"; echo "$v"'
 if [ $rc -eq 0 ]; then ok jq_sin_read_pasa; else bad "jq_sin_read_pasa (rc=$rc out=$out)"; fi
 }

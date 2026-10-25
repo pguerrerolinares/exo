@@ -838,6 +838,17 @@ n_eventos() { grep -c "\"reflex\":\"$1\"" "$REFLEX_LOG_FILE" 2>/dev/null || true
     fail "caso_cores_grande_con_reglas: ≤3072B siempre; rama de solo aviso alcanzada" "bc=$BC mal=$MALC solo=$SOLO"
   fi
 }
+# caso_aplana_saltos: una regla con \n en el JSON sale en UNA línea `- `; si no, la
+# segunda mitad se leería como texto suelto fuera de la lista.
+{
+  OUTF="$(reglas_custom general-purpose ok '["G-a\nG-b"]' '["P-a\nP-b\r\nP-c"]')"
+  if contains "$OUTF" "- G-a G-b" && contains "$OUTF" "- P-a P-b" \
+     && ! printf '%s\n' "$OUTF" | grep -q '^G-b\|^P-b\|^P-c'; then
+    pass "caso_aplana_saltos: \\n dentro de una regla ⇒ una sola línea de lista (global y proyecto)"
+  else
+    fail "caso_aplana_saltos: \\n dentro de una regla ⇒ una sola línea de lista (global y proyecto)" "out=$OUTF"
+  fi
+}
 echo ""
 TOTAL=$((PASS+FAIL))
 echo "=== Resultado: ${PASS}/${TOTAL} pasaron ==="

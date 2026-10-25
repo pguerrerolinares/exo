@@ -247,5 +247,19 @@ else
     "r1=$R1 o1=$O1 m1=$M1 rc2=$RC m2=$MARCA_VISTA"
 fi
 
+# Sin snapshot (checkout-index falla): mismo aviso que antes, no bloquea y no
+# llama a `rules --check` (no hay --kb que pasarle).
+mkdir -p "$TMP/git-shim"
+printf '#!/usr/bin/env bash\ncase " $* " in *" checkout-index "*) exit 1 ;; esac\nexec "%s" "$@"\n' "$(command -v git)" > "$TMP/git-shim/git"
+chmod +x "$TMP/git-shim/git"
+K="$TMP/r-sin-snap"; prep_reglas "$K" 11
+rm -f "$TMP/marca-reglas"
+OUT="$(cd "$K" && PATH="$TMP/git-shim:$PATH" EXO_BIN="$EXO_REGLAS" EXO_FAKE_MARCA="$TMP/marca-reglas" "$HOOK" 2>&1)"; RC=$?
+if [ "$RC" -eq 0 ] && contains "$OUT" "kb-precommit: no pude materializar el index; presupuestos no verificados" && [ ! -e "$TMP/marca-reglas" ]; then
+  pass "precommit_sin_snapshot: checkout-index falla ⇒ aviso, exit 0 y sin rules --check"
+else
+  fail "precommit_sin_snapshot: checkout-index falla ⇒ aviso, exit 0 y sin rules --check" "rc=$RC out=$OUT marca=$(cat "$TMP/marca-reglas" 2>/dev/null)"
+fi
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -36,6 +36,7 @@ if [ ! -f "$WSENT" ]; then
   else
     SS_ST="$(jq -r '.status // ""' "$SS" 2>/dev/null)"
     SS_N="$(jq -r '.n // 0' "$SS" 2>/dev/null)"
+    SS_ST="${SS_ST%$'\r'}"; SS_N="${SS_N%$'\r'}"
     if HB_ROW="$(jq -r '[(.status // ""), (.n // 0)] | @tsv' "$HB" 2>/dev/null)" && [ -n "$HB_ROW" ]; then
       HB_ROW="${HB_ROW%$'\r'}"
       HB_ST="${HB_ROW%%$'\t'*}"; HB_N="${HB_ROW##*$'\t'}"

@@ -156,6 +156,7 @@ TEXTO="$BASE"
 REAFIRMA=""
 SOURCE=""; SID=""
 IFS=$'\x1f' read -r SOURCE SID <<< "$(printf '%s' "$INPUT" | jq -r '[(.source // ""), (.session_id // "")] | join("\u001f")' 2>/dev/null)"
+SID="${SID%$'\r'}"
 
 if [ "$SOURCE" = "compact" ] && [ -n "$SID" ] && [ -f "$HOME/.claude/reflex-log.jsonl" ]; then
   . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && reflex_log "compact" "$INPUT" "compact" || true
@@ -304,6 +305,7 @@ if [ "$SOURCE" != "compact" ] && [ -n "$RULES_ENGINE" ]; then
     rm -f "$RERR_TMP"
     if [ "$RRC" -eq 0 ]; then
       IFS=$'\x1f' read -r RSTATUS RREASON RREPO RN RNG RTRUNC <<< "$(printf '%s' "$ROUT" | jq -r '[(.data.status // ""), (.data.reason // ""), (.data.repo // ""), ((.data.rules // []) | length | tostring), ((.data.global // []) | length | tostring), ((.data.truncated // 0) | tostring)] | join("\u001f")' 2>/dev/null)"
+      RTRUNC="${RTRUNC%$'\r'}"
     fi
     case "$RSTATUS" in
       ok|skip) ;;

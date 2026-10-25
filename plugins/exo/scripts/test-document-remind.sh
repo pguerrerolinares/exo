@@ -381,5 +381,19 @@ if [ -z "$OUT" ] && contains "$(witness_reasons)" "reason=kb_cambio" \
    && [ "$(jq -r '[.status,.n,.n_global]|@tsv' "$RULES/ss-rg" | tr -d '\r')" = "$(printf 'skip\t2\t2')" ]; then pass "reresolucion_cuenta_global"
 else fail "reresolucion_cuenta_global" "out=$OUT log=$(witness_reasons) ss=$(cat "$RULES/ss-rg")"; fi
 
+# globales_perdidas_con_crlf: jq con CRLF no puede silenciar el caso de arriba
+mkdir -p "$TMP/jq-crlf"
+# CRLF solo en lo leído de ficheros (ss/hb): el session_id del input no es lo que se prueba.
+printf '#!/usr/bin/env bash\nset -o pipefail\n"%s" "$@" | if [ -f "${!#}" ]; then sed "s/$/\\r/"; else cat; fi\n' "$(command -v jq)" > "$TMP/jq-crlf/jq"
+chmod +x "$TMP/jq-crlf/jq"
+: > "$REFLEX_LOG_FILE"; stub_reset
+echo '{"status":"skip","reason":"sin_seccion","n":2,"n_global":2,"repo":"exo"}' > "$RULES/ss-gc"
+hbraw gc '{"status":"error","n":0,"via":"compose","error":"x"}'
+OLD_PATH="$PATH"; PATH="$TMP/jq-crlf:$PATH"
+run gc "$SMALL"
+PATH="$OLD_PATH"
+if [ "$(msg)" = "$EXP" ] && contains "$(witness_reasons)" "reason=no_entrego"; then pass "globales_perdidas_con_crlf: no_entrego con aviso"
+else fail "globales_perdidas_con_crlf: no_entrego con aviso" "out=$OUT log=$(witness_reasons)"; fi
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
