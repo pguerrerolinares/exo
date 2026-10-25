@@ -154,4 +154,25 @@ esp=$(printf '%s\n' "arp10 g0-122 1 framing=$T/expb/framing.txt regla=arp10.txt"
 rm "$BL/g0-122/arp10.txt"; mk "$T/k21"
 out=$(TECHO_CORRER="$T/falso3.sh" TECHO_EXP="$T/expb" K_ROOT="$T/k21" TECHO_TARBALL= bash "$CT" 1 2>&1); rc=$?
 [ $rc = 2 ] && [[ $out == *"regla vacía o ausente:"*"/g0-122/arp10.txt"* ]] && [ ! -e "$T/k21/lanzadas3.log" ] && ok regla_por_brazo_ausente_aborta || ko "regla_por_brazo_ausente rc=$rc: $out"
+
+# ORDEN fuera del preregistro (Ap): orden.txt junto a tareas.tsv si el preregistro no trae ORDEN; TECHO_ORDEN manda siempre;
+# rutas con {K_ROOT} y absolutas. Un fichero de ORDEN inexistente aborta.
+mkdir -p "$T/expo"; printf 'g0-122\tproyecto\t{K_ROOT}/bl/g0-122/{brazo}.txt\tap:2,ap1:1\n' > "$T/expo/tareas.tsv"
+echo 'sin orden aquí' > "$T/expo/preregistro.md"; echo '{{REGLA}}' > "$T/expo/framing.txt"
+ORDA=("ap1 g0-122 1" "ap g0-122 2" "ap g0-122 1")
+{ echo '# comentario'; echo '<!-- ORDEN-BEGIN -->'; printf '%s\n' "${ORDA[@]}"; echo '<!-- ORDEN-END -->'; } > "$T/expo/orden.txt"
+mk "$T/k22"; mkdir -p "$T/k22/bl/g0-122"; for b in ap ap1; do echo "bloque $b" > "$T/k22/bl/g0-122/$b.txt"; done
+out=$(TECHO_CORRER="$T/falso3.sh" TECHO_EXP="$T/expo" K_ROOT="$T/k22" TECHO_TARBALL= bash "$CT" 1 2>&1); rc=$?
+esp=$(printf '%s\n' "ap1 g0-122 1 framing=$T/expo/framing.txt regla=ap1.txt" "ap g0-122 2 framing=$T/expo/framing.txt regla=ap.txt" "ap g0-122 1 framing=$T/expo/framing.txt regla=ap.txt")
+[ $rc = 0 ] && [ "$(cat "$T/k22/lanzadas3.log")" = "$esp" ] && ok orden_txt_y_ruta_K_ROOT || ko "orden.txt rc=$rc: $out"
+{ echo '<!-- ORDEN-BEGIN -->'; printf '%s\n' "ap g0-122 1" "ap g0-122 2" "ap1 g0-122 1"; echo '<!-- ORDEN-END -->'; } > "$T/orden-otro.txt"
+mk "$T/k23"; mkdir -p "$T/k23/bl/g0-122"; for b in ap ap1; do echo "bloque $b" > "$T/k23/bl/g0-122/$b.txt"; done
+out=$(TECHO_ORDEN="$T/orden-otro.txt" TECHO_CORRER="$T/falso3.sh" TECHO_EXP="$T/expo" K_ROOT="$T/k23" TECHO_TARBALL= bash "$CT" 1 2>&1); rc=$?
+[ $rc = 0 ] && [ "$(awk '{print $1,$2,$3}' "$T/k23/lanzadas3.log")" = "$(printf '%s\n' "ap g0-122 1" "ap g0-122 2" "ap1 g0-122 1")" ] && ok techo_orden_override || ko "TECHO_ORDEN rc=$rc: $out"
+mk "$T/k24"; out=$(TECHO_ORDEN="$T/no-existe.txt" TECHO_CORRER="$T/falso3.sh" TECHO_EXP="$T/expo" K_ROOT="$T/k24" bash "$CT" 1 2>&1); rc=$?
+[ $rc = 2 ] && [[ $out == *"no existe el fichero del ORDEN"* ]] && [ ! -e "$T/k24/lanzadas3.log" ] && ok techo_orden_inexistente_aborta || ko "TECHO_ORDEN ausente rc=$rc"
+# con ORDEN en el preregistro, orden.txt no se usa (techo-reglas-3 y v1 no cambian)
+cp "$T/expo/orden.txt" "$T/exp/orden.txt"; mk "$T/k25"
+out=$(TECHO_CORRER="$T/falso3.sh" TECHO_EXP="$T/exp" K_ROOT="$T/k25" TECHO_TARBALL= bash "$CT" 1 2>&1); rc=$?
+[ $rc = 0 ] && ok orden_txt_ignorado_si_el_preregistro_trae_ORDEN || ko "orden.txt ignorado rc=$rc: $out"
 exit $fail

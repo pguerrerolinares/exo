@@ -14,6 +14,7 @@
 #   arp    a0 exacto + sysprompt.md (claude-md.md + framing con la regla) por --append-system-prompt-file;
 #          requiere K_REGLA_FILE y K_FRAMING_FILE (techo-reglas-2)
 #   arp<N> alias de arp con directorio propio (techo-reglas-3: K_REGLA_FILE trae el bloque entero)
+#   ap, ap1 igual (Ap, #190: bloque desplegado de la sonda / la gold sola)
 #   n      a0 exacto (sin exo, sin snapshot) + memoria nativa de Claude Code activa sobre $O/memoria, copia fresca
 #          de $K_MEMORIA_DIR (default $P/memoria) en cada corrida (campaña M)
 #   ars    a0 exacto (claude-md.md sin framing) + solo el mod register.ts por --plugin-dir con EXO_RULES_FORZAR_SUBMIT=1:
@@ -23,8 +24,8 @@
 # cmdline.txt (deny, PATH, append) se escribe siempre. K_ENSAYO=1: sale tras generarlo, sin lanzar claude.
 set -uo pipefail
 tarea=$1; brazo=$2; rep=$3
-# arp<N> (techo-reglas-3): mismo brazo que arp con su propio directorio de corrida; el N solo distingue el bloque de reglas.
-modo=$brazo; [[ $brazo =~ ^arp[0-9]+$ ]] && modo=arp
+# arp<N> (techo-reglas-3) y ap/ap1 (Ap, #190): mismo brazo que arp con su propio directorio de corrida; solo cambia el bloque de reglas.
+modo=$brazo; [[ $brazo =~ ^(arp[0-9]+|ap1?)$ ]] && modo=arp
 H="$(cd "$(dirname "$0")" && pwd)"
 K_ROOT="${K_ROOT:-$HOME/.cache/exo-ablacion-k}"; P="$K_ROOT/prep"
 PLUG="$(cd "$H/../../../plugins/exo/scripts" && pwd)"
