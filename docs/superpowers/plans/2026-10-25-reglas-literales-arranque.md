@@ -19,6 +19,11 @@
 - Arranque (`exo-recall.sh`): ≤ 1.500 B = sección `## Contrato de memoria` + avisos operativos; reafirmación de `source=compact` fuera del cap; evento `recall-truncated` si el cap actúa (§4.5, §10-D4, D5).
 - Bloque de `SubagentStart`: tope total 3.072 B; con reglas, sin `doctrina_compacta` ni `rutas` (§4.4).
 - Hooks warn-only y never-break (exit 0) en todo el plugin salvo `kb-precommit.sh`, que es fail-closed.
+- Rutas de nota en JSON y mensajes, siempre relativas a la KB y con `/`, también en Windows (CI corre matriz con Windows).
+- Salidas de `jq` leídas con `read` en bash se limpian de `\r` (patrón del repo, `check-jq-crlf.sh`).
+- `ENGINE_MIN` **no sube**: todos los consumidores toleran un engine sin `global`/`truncated`/`--check`. Subirlo mandaría `exo-recall.sh` a `engine-stale` hasta que el usuario actualice el binario.
+
+**Fuera de este plan:** la siembra de reglas y su script de ranking con la tabla `proyecto` → repo (spec §5, §10-D6) van en un plan propio, después de techo-reglas-3; son una puerta humana.
 
 ## Cierre de ola
 
@@ -26,6 +31,7 @@
 - `cargo clippy --manifest-path engine/Cargo.toml --all-targets --locked -- -D warnings` → verde = exit 0.
 - `cargo test --manifest-path engine/Cargo.toml --locked` → verde = `test result: ok` en todos los binarios, 0 failed.
 - `bash scripts/test-plugin.sh` → verde = `test-plugin: OK — N/N suites del plugin en verde`.
+- `EXO_REQUIRE_CLAUDE=1 bash plugins/exo/scripts/test-reglas-mod.sh` → verde = `test-reglas-mod: OK` (sin `claude` en PATH falla en vez de saltar).
 - `bash scripts/test-versiones.sh && bash scripts/test-hooks-json.sh && bash scripts/check-jq-crlf.sh` → verde = exit 0.
 
 ## Mutación
@@ -37,7 +43,7 @@
 
 - Ninguna tarea toca la KB real (`~/Documentos/proyectos/wisdom-paul`) ni `~/.claude/reflex-log.jsonl`: los tests usan `mktemp -d`, `REFLEX_LOG_FILE` y `--kb` a fixtures.
 - `engine/src/reglas.rs`, `engine/src/main.rs` y `engine/tests/reglas_cli.rs`: Tasks 1 y 2, en olas distintas.
-- `plugins/exo/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `engine/Cargo.toml`, `engine/Cargo.lock`, `plugins/exo/ENGINE_MIN`: solo la Task 8.
+- `plugins/exo/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `engine/Cargo.toml`, `engine/Cargo.lock`: solo la Task 8.
 
 ## Olas
 
@@ -62,6 +68,7 @@
 - `excede_cap_entrega_las_diez_primeras`: sección con 12 reglas `r1`…`r12` da `status=ok`, `rules` = `r1`…`r10` y `truncated=2`. Falla si sigue devolviendo `skip excede_cap` o si recorta por el final equivocado.
 - `nota_en_subdirectorio_resuelve_por_slug`: repo `code-graph-engine`, nota `projects/cge/cge — motor.md` con `slug: code-graph-engine` y `## Reglas duras\n- a` da `status=ok`, `note="projects/cge/cge — motor.md"`. Falla si exige que el nombre del directorio case con la clave.
 - `subdirectorio_por_stem`: repo `pm`, única nota `projects/pm/pm — guía.md` sin slug da `ok` con esa nota. Falla si los subdirectorios no compiten.
+- `excede_cap` (existente, `reglas_cli.rs:274-286`): se reescribe como `excede_cap_entrega_las_diez_primeras`; nada en los tests asierta ya `reason=excede_cap`.
 - `subcarpeta_no_compite` (existente, se mantiene): `projects/pm.md` con `slug: pm` gana a `projects/pm/pm — guía.md`. Falla si el slug deja de mandar sobre el stem.
 - `ambigua_entre_raiz_y_subdirectorio`: `projects/foo.md` y `projects/x/foo — b.md`, ambas sin slug, dan `skip ambigua` con las dos en `candidates`. Falla si elige una en silencio.
 - `dos_niveles_no_cuentan`: nota en `projects/a/b/foo.md` no es candidata (`sin_nota`). Falla si recorre más de un nivel.
@@ -97,6 +104,8 @@
 - `check_exceso_sale_3`: nota `projects/foo.md` con 11 reglas → exit 3 y stdout contiene `projects/foo.md tiene 11 reglas duras (máximo 10)`. Falla si no bloquea o si el mensaje no nombra la nota.
 - `check_cubre_subdirectorio_y_global`: 11 reglas en `projects/x/y.md` y 11 en `core/reglas-duras.md` → exit 3 con las dos notas listadas. Falla si `--check` solo mira el primer nivel.
 - `check_sin_git`: `--check --kb <dir>` en un directorio sin repo → funciona (exit según contenido). Falla si `--check` invoca git.
+- `check_kb_sin_projects`: KB sin `projects/` ni `core/reglas-duras.md` → exit 0. Falla si una KB mínima hace fallar (y bloquear) el precommit.
+- `check_ruta_con_barra`: la nota de un subdirectorio sale como `projects/x/y.md` (con `/`) en texto y en JSON. Falla en Windows si usa el separador del sistema.
 
 **Verificación:** `cargo test --manifest-path engine/Cargo.toml --locked` → verde; luego el cierre de ola completo.
 
@@ -122,6 +131,7 @@
 - `compose_sin_nada`: stub `skip` con `global=[]` → no se añade sección; latido `n=0`. Falla si se emite un bloque vacío.
 - `submit_lleva_las_dos_listas`: con `composeHook=false`, el contexto de `prompt.submit` lleva el mismo bloque que compose. Falla si el canal degradado pierde las globales.
 - `engine_viejo_sin_global`: stub sin campo `global` → se comporta como `global=[]`. Falla si revienta con un engine anterior.
+- Los `toEqual` existentes sobre el latido se actualizan con `n_global` (el engine se stubbea por `on("process.run")`, `register.test.ts:58-60`).
 
 **Verificación:** `bash plugins/exo/scripts/test-reglas-mod.sh` → `test-reglas-mod: OK`; luego `bash scripts/test-plugin.sh`.
 
@@ -144,12 +154,14 @@
 - `caso_orden`: proyecto `["P1"]` y global `["G1"]` → `G1` aparece antes que `P1`. Falla si el orden se invierte.
 - `caso_sin_doctrina_compacta_con_reglas`: con reglas presentes, el bloque no contiene `## Doctrina compacta` ni `Notas canonicas`, y sí la doctrina de `executor.md`. Falla si sigue sumando las secciones que las reglas sustituyen.
 - `caso_sin_reglas_conserva_doctrina`: sin reglas, el perfil `ejecucion` sigue igual que hoy (doctrina compacta y rutas presentes). Falla si se quitan también sin reglas.
-- `caso_tope_3072`: 10 + 10 reglas de 300 B → bloque total ≤ 3.072 B y un evento `inject-rules-truncated`. Falla si se pasa del tope o recorta sin rastro.
+- `caso_realista_cabe`: 10 + 10 reglas de 120 B (p90 de las citas reales) con perfil `ejecucion` → bloque ≤ 3.072 B, las 20 reglas presentes y **ningún** `inject-rules-truncated`. Falla si el reparto de presupuesto corta reglas que caben (spec §7.4).
+- `caso_tope_3072`: 10 + 10 reglas de 300 B → bloque total ≤ 3.072 B y un evento `inject-rules-truncated`; las de proyecto están todas y el recorte cae al final de las globales. Falla si se pasa del tope, recorta sin rastro o corta primero las de proyecto.
+- `caso_reducido_con_reglas`: perfil `reducido` (`exo:executor`) con reglas → contiene la sección `## Cores` y las reglas, y no contiene `Notas canonicas`. Falla si `reducido` no aplica la misma sustitución.
 
 **Verificación:** `bash plugins/exo/scripts/test-compose-inject.sh` → `=== Resultado: N/N pasaron ===`; luego `bash scripts/test-plugin.sh`.
 
 **Review Focus:**
-- El presupuesto de 3.072 B incluye cabecera, encabezados, reglas y doctrina, y el canario si lo hay.
+- Un solo tope de 3.072 B sobre el bloque entero (cabecera, encabezados, reglas, doctrina, canario) sustituye a los dos caps actuales (2.048 B en `:144` y 1.024 B en `:104`). Orden de recorte si no cabe: primero el final de las globales, después el final de las de proyecto (las de proyecto son las más específicas para el subagente). Decisión del orquestador.
 - Perfiles `divergente` y `doctrina` no reciben reglas (comportamiento actual de `bloque_reglas`): sin cambio.
 - Reglas con saltos de línea se aplanan como hoy (`gsub("\n"; " ")`).
 
@@ -167,12 +179,14 @@
 - Produces: evento `recall-truncated` (payload `bytes=<antes> cap=1500`) cuando el cap actúa.
 
 **Tests:**
+- `bloque_empieza_por_contrato`: el `additionalContext` empieza por la sección `## Contrato de memoria`. Falla si la extracción deja vacío o reordena.
+- `bloque_sin_encabezado`: si lo que sirve `exo recall` no tiene `## Contrato de memoria` como encabezado (los stubs actuales responden una sola línea), el bloque es lo servido entero, capado a 1.500 B; el guard `no-contract` (busca el texto «Contrato de memoria») sigue decidiendo el fallback. Falla si la extracción deja un bloque vacío sin evento.
 - `bloque_solo_contrato`: con un core-index de fixture que tiene `## Contrato de memoria`, `## Doctrina compacta` y `## Cores`, el `additionalContext` contiene la sección de contrato y no contiene `## Doctrina compacta`, `## Cores` ni `Actividad reciente`. Falla si sigue inyectando el mapa.
 - `bloque_cap_1500`: con un contrato de 2.000 B, el bloque ≤ 1.500 B y hay un evento `recall-truncated`. Falla si se pasa del cap o recorta sin rastro.
 - `compact_fuera_del_cap`: `source=compact` con reflejos disparados → la sección `--- Reglas reforzadas tras compactacion` aparece aunque el contrato ocupe 1.500 B. Falla si el cap se come la reafirmación.
 - `ss_cuenta_global`: engine stub `skip sin_nota` con `global=["g1","g2"]` → `ss-<sid>` con `n=2`, `n_global=2`. Falla si `n` sigue contando solo el proyecto.
-- `sin_excede_cap`: el aviso visible ya no menciona `excede_cap`; con `truncated>0`, aviso `⚠ reglas recortadas al máximo de 10 en <repo>`. Falla si el recorte pasa sin aviso.
-- Golden actualizado al bloque nuevo (`test-exo-recall-golden.sh`).
+- `sin_excede_cap`: el aviso visible ya no menciona `excede_cap`; con `truncated>0`, aviso `⚠ <n> reglas duras recortadas al máximo de 10 (corre «exo rules --check»)`. Falla si el recorte pasa sin aviso. No atribuye el recorte al repo: puede venir de las globales.
+- Golden actualizado al bloque nuevo (`test-exo-recall-golden.sh`), recapturado después de que los demás tests estén en verde.
 
 **Verificación:** `bash plugins/exo/scripts/test-exo-recall.sh && bash plugins/exo/scripts/test-exo-recall-golden.sh && bash plugins/exo/scripts/test-exo-recall-superpowers.sh` → todos en verde; luego `bash scripts/test-plugin.sh`.
 
@@ -180,6 +194,7 @@
 - El guard «Contrato de memoria» y los fallbacks (`no-engine`, `no-index`, `no-contract`) siguen igual.
 - Los avisos operativos (gate pendiente, superpowers, reglas no entregadas) entran dentro de los 1.500 B y se recortan después del contrato, no antes.
 - La extracción de la sección acaba en el siguiente encabezado `## `.
+- El cap de 1.500 B es una variable propia del bloque final (`RECALL_BLOQUE_CAP`, defecto 1500), aplicada **después** de extraer. `EXO_RECALL_CAP` sigue siendo el `--cap-bytes` que se pasa al engine y no se baja: cortaría antes de extraer.
 
 ### Task 6: testigo de Stop decide por `n`
 
@@ -189,13 +204,16 @@
 
 **Interfaces:**
 - Consumes: `ss-<sid>.n`/`n_global` @Task 5 y `hb-<sid>.n`/`n_global` @Task 3
+- Consumes: `data.global` de `exo rules --json` @Task 1
 - Produces: `WREASON=no_entrego` cuando `ss.n > 0` y `hb.n = 0`, con independencia de `status`.
+- Produces: la re-resolución de `document-remind.sh:60-96` cuenta `rules + global` (también en `skip`) y, al refrescar `ss-<sid>`, escribe `n` total y `n_global`.
 
 **Tests:**
 - `globales_perdidas_en_skip`: `ss={status:skip,n:2,n_global:2}`, `hb={status:error,n:0,via:compose}` → `WREASON=no_entrego` y aviso visible. Falla si el testigo sigue callando por `status=skip` (el caso `hb_error`).
 - `sin_reglas_no_avisa`: `ss={status:skip,n:0}`, `hb={status:error,n:0}` → `hb_error` sin aviso. Falla si avisa cuando no había nada que entregar.
 - `entrega_completa`: `ss.n=3`, `hb={status:ok,n:3}` → sin aviso. Falla si da falso positivo.
 - `hb_viejo_sin_n_global`: `hb` sin `n_global` se lee igual. Falla si un latido de la versión anterior rompe el testigo.
+- `reresolucion_cuenta_global`: `ss` desfasado, `hb={status:skip,n:2,n_global:2}` y `exo rules` falso que devuelve `skip` con `global=["g1","g2"]` → sin aviso, y `ss` refrescado con `n=2`, `n_global=2`. Falla si la re-resolución sigue contando solo `.data.rules` (`skip ⇒ 0`) y da `no_entrego` falso.
 
 **Verificación:** `bash plugins/exo/scripts/test-document-remind.sh` → verde; luego `bash scripts/test-plugin.sh`.
 
@@ -212,7 +230,7 @@
 **Interfaces:**
 - Consumes: `exo rules --check --kb <dir>` (exit 0 / 3) @Task 2
 
-**Tests:**
+**Tests:** (el `exo` falso actual, `test-kb-precommit.sh:31-35`, sale 0 sin mirar argumentos: estos tests usan uno nuevo que, ante `rules --check --kb <dir>`, cuenta las líneas `- ` bajo `## Reglas duras` en `<dir>/projects/**.md` y `<dir>/core/reglas-duras.md`, sale 3 con el mensaje de @Task 2 si alguna pasa de 10 y 0 si no; con `EXO_FAKE_SIN_CHECK=1` sale 2; el resto de subcomandos, 0)
 - `precommit_rechaza_exceso`: snapshot staged con una nota de 11 reglas → commit bloqueado (exit 1) y stderr con `tiene 11 reglas duras (máximo 10)`. Falla si el exceso pasa.
 - `precommit_pasa_con_cap`: 10 reglas → sin bloqueo por reglas. Falla si el límite es estricto de más.
 - `precommit_engine_viejo`: `exo` falso que sale con 2 ante `--check` → aviso `kb-precommit: el engine no conoce «rules --check»; reglas duras sin verificar` y **no** bloquea por esto. Falla si un engine anterior bloquea todos los commits de la KB.
@@ -233,7 +251,6 @@
 - Modify: `plugins/exo/skills/distill/consolidacion.md`
 - Modify: `engine/Cargo.toml`
 - Modify: `engine/Cargo.lock`
-- Modify: `plugins/exo/ENGINE_MIN`
 - Modify: `plugins/exo/.claude-plugin/plugin.json`
 - Modify: `.claude-plugin/marketplace.json`
 
@@ -244,7 +261,7 @@
 **Tests:**
 - `contrato rules: global y truncated`: en `test-contrato-engine.sh`, el envelope `rules` de un repo sin nota tiene `.data.global` array y `.data.truncated` número. Falla si un consumidor recibe un campo ausente.
 - `contrato rules --check`: `exo rules --check --kb <fixture limpia>` sale 0. Falla si la superficie nueva no existe en el binario publicado.
-- `bash scripts/test-versiones.sh`: verde con engine `0.10.0`, `ENGINE_MIN` `0.10.0` y plugin `1.19.0`. Falla si las versiones no casan.
+- `bash scripts/test-versiones.sh`: verde con engine `0.10.0`, `ENGINE_MIN` sin cambio y plugin `1.19.0`. Falla si las versiones no casan.
 
 **Verificación:** `bash plugins/exo/scripts/test-contrato-engine.sh && bash scripts/test-versiones.sh && BASE=main bash scripts/plugin-bump-gate.sh` → verde; luego el cierre de ola completo.
 
@@ -252,4 +269,5 @@
 - `routing.md:25`: la fila de reglas duras pasa a cubrir dos destinos (regla mecánica de un repo → `## Reglas duras` de su nota canónica; regla transversal → `core/reglas-duras.md`), una línea `- ` de ≤ 300 B, máximo 10, **insertada en su posición de prioridad y desplazando la última si la sección está llena; nunca anexada al final de una sección llena** (spec §4.1, §5.4, §10-D9).
 - `consolidacion.md:23`: `/distill` poda las reglas duras que ya no aplican (spec §5.4), sin dejar de proteger la sección frente a la compresión.
 - `chequeos.md:85-93`: el chequeo «arranque servido incompleto» se reescribe para el bloque nuevo (cap 1.500 B, evento `recall-truncated`); ya no menciona 6.144 ni el recorte de punteros recientes.
-- `ENGINE_MIN` sube porque el precommit y el testigo dependen de campos nuevos; los consumidores siguen tolerando un engine anterior (Tasks 3, 4, 7).
+- `ENGINE_MIN` no se toca (Global Constraints): los consumidores toleran un engine anterior (Tasks 3–7).
+- `test-contrato-engine.sh` solo corre en CI: verifícalo localmente con el binario recién compilado (`EXO_BIN=engine/target/release/exo`).
