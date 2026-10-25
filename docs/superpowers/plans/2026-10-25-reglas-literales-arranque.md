@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-25-reglas-literales-arranque-design.md`
 
+Plan: 45 min, 30 turnos, 21 KB
+
 **Global Constraints:**
 - `CAP = 10`, un único valor para proyecto y global, `const` en `engine/src/reglas.rs` (§10-D1, D7).
 - Nota de reglas globales: `core/reglas-duras.md`, sección `## Reglas duras` (§4.3).
