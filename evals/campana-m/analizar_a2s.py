@@ -16,7 +16,7 @@ from analizar import SEMILLA, _ci, _congelado, _corrida, _deltas, exito_por_sond
 
 UMBRAL_BUSCA = 0.5
 # Mismo patrón que search-first.sh, más `recall` (también recupera de la KB).
-BUSCA = re.compile(r"(^|[;&|/\s])exo(\.exe)?\s+(search|targets|recall)(\s|$)")
+BUSCA = re.compile(r"(^|[;&|/\s])exo(\.exe)?\s+(search|targets|recall)(?=\s|$)(?![^;&|\n]*\s(--help|-h)(\s|$))")
 
 
 def busca(transcript):

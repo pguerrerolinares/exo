@@ -114,7 +114,8 @@ jobs:
         if: always()
         run: bash scripts/test-check-prosa-cli.sh
       # Mantiene cierto el `ok` de `exo doctor` sobre el CRLF de jq: si un
-      # script lee jq línea a línea sin -j, este gate se pone rojo.
+      # script lee jq línea a línea o lo asigna con $(…) sin -j ni limpiar
+      # el \r, este gate se pone rojo.
       - name: Ningún script del plugin lee jq con read sin -j ni tr -d '\r'
         if: always()
         run: bash scripts/check-jq-crlf.sh
@@ -276,6 +277,96 @@ jobs:
       - name: La prosa del plugin solo cita subcomandos y flags que existen
         if: always()
         run: bash scripts/check-prosa-cli.sh
+
+  # Detector de cambios del engine. Un `paths:` a nivel de workflow saltaría
+  # TODO el CI en los PR de docs; aquí solo decide si corre `test-windows`.
+  # `git diff` y no una action de terceros: cero pins nuevos que mantener.
+  # Ante cualquier duda (evento sin base, SHA no resoluble) devuelve `true`:
+  # el fallo seguro es correr Windows de más, no saltarlo. No corre en PR:
+  # ver `test-windows`.
+  cambios-engine:
+    name: ¿cambia el engine?
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      engine: ${{ steps.diff.outputs.engine }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        shell: bash
+        env:
+          EVENTO: ${{ github.event_name }}
+          BASE_PR: ${{ github.event.pull_request.base.sha }}
+          BASE_PUSH: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          base=""
+          case "$EVENTO" in
+            pull_request) base="$BASE_PR" ;;
+            push) base="$BASE_PUSH" ;;
+          esac
+          if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo "sin base resoluble ($EVENTO): se asume que cambia el engine"
+            echo "engine=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Dos puntos contra la base: en `pull_request` HEAD es el merge
+          # commit, así que el diff es exactamente lo que trae el PR.
+          cambiados="$(git diff --name-only "$base" HEAD)"
+          echo "$cambiados"
+          if printf '%s\n' "$cambiados" | grep -qE '^(engine/|\.github/workflows/ci\.yml$)'; then
+            echo "engine=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "engine=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Suite del engine en Windows en push a main (y workflow_dispatch), solo si
+  # el diff toca `engine/**` (o este workflow). NO corre en PR: cuesta ~4-5 min
+  # frente a los ~130 s del CI de PR y el dueño no quiere alargarlo (#198,
+  # opción B). El rojo llega tras el merge pero antes del tag: #197
+  # (`os error 87` con `:` en el nombre de fichero) solo lo vio el tag porque
+  # ahí era el único sitio donde la suite corría en Windows. Los pasos son los
+  # de `build` en release.yml (mismo toolchain, misma caché del modelo, mismo
+  # gate hermético). Antes de empujar un tag, este job tiene que estar en
+  # verde en el commit de main que se etiqueta.
+  test-windows:
+    name: test (windows-latest)
+    needs: cambios-engine
+    if: github.event_name != 'pull_request' && needs.cambios-engine.outputs.engine == 'true'
+    runs-on: windows-latest
+    # Medido el 2026-10-04 con --release: 629 s. Ahora es debug y sin los
+    # tests de `exo init`; el margen cubre una caché fría del modelo.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+          key: dev
+      # Misma clave que el job `test` y que release.yml; si se bumpea la
+      # revisión del modelo (REVISION_JINA_ES) hay que bumpearla en las tres.
+      - name: Caché del modelo jina-es (revisión pineada)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface/hub/models--jinaai--jina-embeddings-v2-base-es
+          key: hf-jina-es-8e2d780d-${{ runner.os }}
+      - name: Gate hermético — suite completa sin ~/.exo/config.toml
+        id: gate
+        shell: bash
+        env:
+          EXO_HERMETICO_LOG: ${{ github.workspace }}/hermetico.log
+        run: ./engine/scripts/test-hermetico.sh
+      - name: Subir el log completo del gate hermético
+        if: always() && steps.gate.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hermetico-log-windows-latest
+          path: hermetico.log
+          if-no-files-found: error
 
   plugin-tests:
     name: tests del plugin (${{ matrix.os }})

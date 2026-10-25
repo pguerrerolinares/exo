@@ -177,6 +177,10 @@ modo texto y termina las líneas con `\r\n`. La mayoría del repo es inmune porq
 captura `jq` con `$(...)`, y bash **sí** elimina el `\r` final en sustitución de
 comando. El patrón que no sobrevive es `while read` desde *process substitution*:
 
+> Corrección posterior: la premisa del párrafo anterior era falsa. `$(...)` quita
+> solo el `\n` final, no el `\r`; `VAR="$(… jq -r …)"` deja el `\r` en la variable.
+> `scripts/check-jq-crlf.sh` vigila también esa asignación (ver su cabecera).
+
 ```bash
 while IFS=$'\t' read -r sid aid; do …; done < <(jq -r '…|@tsv' …)
 # aid vale "a1\r" → el glob agent-${aid}.jsonl busca agent-a1<CR>.jsonl

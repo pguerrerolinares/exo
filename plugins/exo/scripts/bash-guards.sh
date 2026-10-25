@@ -209,11 +209,12 @@ if printf '%s' "$CMD" | grep -Eq "$PATRON_ZR"; then
   # sesion (el agente da vueltas) => log. Un "zero-residuo" plano en medio
   # (add con pathspec, /tmp) rompe la racha.
   if [ "$ZR_ID" = "zero-residuo-deny" ]; then
-    ZR_AID="$(printf '%s' "$INPUT" | jq -r '.agent_id // ""' 2>/dev/null)"
+    ZR_AID="$(printf '%s' "$INPUT" | jq -r '.agent_id // ""' 2>/dev/null | tr -d '\r')"
     ZR_RACHA="$(tail -n 500 "${REFLEX_LOG_FILE:-/dev/null}" 2>/dev/null | jq -rs --arg s "$SID" --arg a "$ZR_AID" '
         [ .[] | select(type=="object" and .session_id==$s and .agent_id==$a
                        and (.reflex | IN("zero-residuo","zero-residuo-deny","zero-residuo-backoff"))) ]
         | reverse | (map(.reflex != "zero-residuo") | index(false)) // length' 2>/dev/null)" || ZR_RACHA=0
+    ZR_RACHA="${ZR_RACHA%$'\r'}"
     if [ "${ZR_RACHA:-0}" -ge 3 ] 2>/dev/null; then
       ZR_ID="zero-residuo-backoff"
     else
@@ -275,6 +276,7 @@ if printf '%s' "$CMD" | grep -Eq "$PATRON_VBD" \
                 else "green"
                 end
             ' 2>/dev/null)" || RESULT="warn"
+        RESULT="${RESULT%$'\r'}"
 
         [ "$RESULT" = "green" ] && SHOULD_WARN=0
         # stale: el verde no describe el arbol que se commitea (Edit/Write

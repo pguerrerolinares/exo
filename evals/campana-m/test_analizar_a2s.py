@@ -30,4 +30,6 @@ def test_busca_solo_invocaciones_reales(tmp_path):
     assert busca(_transcript(tmp_path, ["cd x && /usr/bin/exo recall --query y"]))
     assert busca(_transcript(tmp_path, ["exo targets foo --json"]))
     assert not busca(_transcript(tmp_path, ["exo --help", "exo lint", "echo 'usa exo-search'"]))
+    assert not busca(_transcript(tmp_path, ["exo targets --help", "exo search -h", "exo recall x --help"]))
+    assert busca(_transcript(tmp_path, ["exo targets --help; exo search foo"]))
     assert not busca(str(tmp_path / "no-existe.jsonl"))

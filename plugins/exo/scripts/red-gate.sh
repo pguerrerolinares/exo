@@ -19,6 +19,7 @@ INPUT="$(cat)"
 command -v jq >/dev/null 2>&1 || exit 0
 
 ROW="$(printf '%s' "$INPUT" | jq -r '[(.agent_type // ""), (.cwd // ""), ((.tool_input.message // "") | gsub("[\n\r]"; " "))] | join("\u001f")' 2>/dev/null)" || exit 0
+ROW="${ROW%$'\r'}"
 IFS=$'\x1f' read -r ATYPE CWD MSG <<< "$ROW"
 
 [ "$ATYPE" = "exo:executor" ] || exit 0

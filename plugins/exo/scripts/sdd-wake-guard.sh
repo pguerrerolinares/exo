@@ -34,6 +34,7 @@ ROW="$(printf '%s' "$INPUT" | jq -r '[
     ((.session_crons // []) | length),
     ([(.background_tasks // [])[] | select(.type != "teammate" and .status == "running") | (.id // "?")] | join(", "))
   ] | map(tostring) | join("\u001f")' 2>/dev/null)" || exit 0
+ROW="${ROW%$'\r'}"
 # Separador no-blanco: con tab, un cwd vacío desplazaría los campos.
 IFS=$'\x1f' read -r ACTIVE CWD NCRONS LIVE <<< "$ROW"
 

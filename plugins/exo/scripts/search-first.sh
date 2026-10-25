@@ -97,7 +97,7 @@ avisa() {
   printf '%s' "$MSG" | jq -Rs '{hookSpecificOutput:{hookEventName:"PreToolUse",additionalContext:.}}'
 }
 
-TRANSCRIPT="$(printf '%s' "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/null)"
+TRANSCRIPT="$(printf '%s' "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/null | tr -d '\r')"
 
 if [ -z "$TRANSCRIPT" ]; then
   avisa "motivo=sin-transcript_path"

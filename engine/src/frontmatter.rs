@@ -93,6 +93,59 @@ pub fn valor(contenido: &str, clave: &str) -> Option<String> {
     salida
 }
 
+/// Los elementos de la lista `clave`, en flow (`[a, b]`) o en bloque (`- a`),
+/// sin comillas. Ausente o con forma de escalar da lista vacía. Escalar suelto
+/// no cuenta: `repos: a/x` no es una lista.
+pub fn lista(contenido: &str, clave: &str) -> Vec<String> {
+    let mut lineas = contenido.lines();
+    if !lineas.next().is_some_and(es_delimitador) {
+        return Vec::new();
+    }
+    let quita = |s: &str| {
+        let s = s.trim();
+        for q in ['"', '\''] {
+            if let Some(i) = s.strip_prefix(q).and_then(|r| r.strip_suffix(q)) {
+                return i.to_string();
+            }
+        }
+        s.to_string()
+    };
+    let mut salida = Vec::new();
+    let mut en_bloque = false;
+    for linea in lineas {
+        if es_delimitador(linea) {
+            break;
+        }
+        if en_bloque {
+            if let Some(item) = linea.trim_start().strip_prefix("- ") {
+                salida.push(quita(item));
+                continue;
+            }
+            if linea.trim().is_empty() {
+                continue;
+            }
+            break;
+        }
+        let Some((k, crudo)) = linea.split_once(':') else {
+            continue;
+        };
+        if k.trim() != clave {
+            continue;
+        }
+        let crudo = crudo.trim();
+        if crudo.is_empty() {
+            en_bloque = true;
+        } else if let Some(interior) = crudo.strip_prefix('[').and_then(|r| r.strip_suffix(']')) {
+            salida = interior.split(',').map(quita).collect();
+            break;
+        } else {
+            break;
+        }
+    }
+    salida.retain(|e| !e.is_empty());
+    salida
+}
+
 /// El techo declarado en `kbx_budget_max`.
 ///
 /// `Some` **solo** con un entero positivo: `0`, negativo, vacío o no numérico
@@ -117,6 +170,16 @@ pub fn orphan_ok(contenido: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lista_lee_flow_bloque_y_descarta_escalar() {
+        let flow = "---\nrepos: [a/x, \"b/y\"]\n---\n";
+        assert_eq!(lista(flow, "repos"), ["a/x", "b/y"]);
+        let bloque = "---\nrepos:\n  - a/x\n  - 'b/y'\nslug: s\n---\n";
+        assert_eq!(lista(bloque, "repos"), ["a/x", "b/y"]);
+        assert!(lista("---\nrepos: a/x\n---\n", "repos").is_empty());
+        assert!(lista("---\nrepos:\n---\n- a/x\n", "repos").is_empty());
+    }
 
     #[test]
     fn tier_lee_el_valor_del_frontmatter() {

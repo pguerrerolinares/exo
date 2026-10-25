@@ -69,7 +69,8 @@ for b in por_brazo:
 if fugas: parar.append(f"fuga: {fugas}")
 if tope:
     gastado = 0.0
-    for f in glob.glob(f"{root}/corridas*/*/*/meta.json"):
+    # Un symlink (corridas -> corridas-principal) llevaría al mismo meta.json dos veces.
+    for f in sorted({os.path.realpath(f) for f in glob.glob(f"{root}/corridas*/*/*/meta.json")}):
         try:
             u = json.load(open(f)).get("usd")
         except Exception:

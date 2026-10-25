@@ -199,6 +199,81 @@ fn slug_desempata_frente_a_stem() {
 }
 
 #[test]
+fn repos_resuelve_cada_repo_de_la_lista_flow_y_bloque() {
+    let m = Mundo::nuevo();
+    m.nota(
+        "projects/canon.md",
+        "---\nrepos: [a/x, \"a/Y\"]\n---\n## Reglas duras\n- a\n",
+    );
+    m.nota(
+        "projects/otra.md",
+        "---\nrepos:\n  - b/z\n  - 'b/w'\ntitle: t\n---\n## Reglas duras\n- b\n",
+    );
+    for (repo, nota) in [
+        ("x", "projects/canon.md"),
+        ("y", "projects/canon.md"),
+        ("z", "projects/otra.md"),
+        ("w", "projects/otra.md"),
+    ] {
+        let v = m.rules(&m.repo(repo));
+        assert_eq!(data(&v)["status"], "ok", "{repo}");
+        assert_eq!(data(&v)["note"], nota, "{repo}");
+    }
+}
+
+#[test]
+fn repos_como_url_con_git_o_barra_final() {
+    let m = Mundo::nuevo();
+    m.nota(
+        "projects/canon.md",
+        "---\nrepos:\n  - https://github.com/o/uno.git\n  - https://github.com/o/dos/\n---\n## Reglas duras\n- a\n",
+    );
+    for repo in ["uno", "dos"] {
+        let v = m.rules(&m.repo(repo));
+        assert_eq!(data(&v)["status"], "ok", "{repo}");
+        assert_eq!(data(&v)["note"], "projects/canon.md", "{repo}");
+    }
+}
+
+#[test]
+fn slug_gana_a_repos_y_repos_gana_a_stem() {
+    let m = Mundo::nuevo();
+    let r = m.repo("foo");
+    m.nota(
+        "projects/a.md",
+        "---\nrepos: [o/foo]\n---\n## Reglas duras\n- a\n",
+    );
+    m.nota(
+        "projects/b.md",
+        "---\nslug: foo\n---\n## Reglas duras\n- b\n",
+    );
+    m.nota("projects/foo.md", "## Reglas duras\n- c\n");
+    assert_eq!(data(&m.rules(&r))["note"], "projects/b.md");
+    std::fs::remove_file(m.kb().join("projects/b.md")).unwrap();
+    assert_eq!(data(&m.rules(&r))["note"], "projects/a.md");
+}
+
+#[test]
+fn ambigua_por_repos() {
+    let m = Mundo::nuevo();
+    let r = m.repo("foo");
+    m.nota(
+        "projects/a.md",
+        "---\nrepos: [o/foo]\n---\n## Reglas duras\n- a\n",
+    );
+    m.nota(
+        "projects/b.md",
+        "---\nrepos:\n  - p/foo\n---\n## Reglas duras\n- b\n",
+    );
+    let v = m.rules(&r);
+    assert_eq!(data(&v)["reason"], "ambigua");
+    assert_eq!(
+        data(&v)["candidates"],
+        serde_json::json!(["projects/a.md", "projects/b.md"])
+    );
+}
+
+#[test]
 fn ambigua_por_stem() {
     let m = Mundo::nuevo();
     let r = m.repo("foo");

@@ -17,9 +17,9 @@ set -uo pipefail
 INPUT="$(cat)"
 command -v jq >/dev/null 2>&1 || exit 0
 
-SESSION_ID="$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)" || SESSION_ID=""
-TOOL="$(printf '%s' "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)" || TOOL=""
-AGENT_ID="$(printf '%s' "$INPUT" | jq -r '.agent_id // empty' 2>/dev/null)" || AGENT_ID=""
+SESSION_ID="$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null | tr -d '\r')" || SESSION_ID=""
+TOOL="$(printf '%s' "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null | tr -d '\r')" || TOOL=""
+AGENT_ID="$(printf '%s' "$INPUT" | jq -r '.agent_id // empty' 2>/dev/null | tr -d '\r')" || AGENT_ID=""
 
 # Dentro de un subagente (agent_id no vacio): la investigacion web YA esta delegada,
 # que es el patron deseado. Abstencion total: ni avisa (seria FP) ni consume el sentinel
@@ -31,7 +31,7 @@ AGENT_ID="$(printf '%s' "$INPUT" | jq -r '.agent_id // empty' 2>/dev/null)" || A
 # primera búsqueda web real de la sesión siga avisando. Solo mira `url`:
 # WebSearch trae `query` y get_page_text no trae url, así que esos siguen
 # el camino normal.
-URL="$(printf '%s' "$INPUT" | jq -r '.tool_input.url // empty' 2>/dev/null)" || URL=""
+URL="$(printf '%s' "$INPUT" | jq -r '.tool_input.url // empty' 2>/dev/null | tr -d '\r')" || URL=""
 
 # `mcp__claude-in-chrome__navigate` con url:"back"/"forward" es navegación
 # por historial del propio navegador, no una URL: no es investigación web.

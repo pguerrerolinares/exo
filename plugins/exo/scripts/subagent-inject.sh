@@ -10,19 +10,19 @@ set -uo pipefail
 INPUT="$(cat)"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECTS_DIR="${REFLEX_PROJECTS_DIR:-$HOME/.claude/projects}"
-TYPE="$(printf '%s' "$INPUT" | jq -r '.agent_type // empty' 2>/dev/null)" || TYPE=""
+TYPE="$(printf '%s' "$INPUT" | jq -r '.agent_type // empty' 2>/dev/null | tr -d '\r')" || TYPE=""
 if [ -z "$TYPE" ]; then
   . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && reflex_log "inject-abstained" "$INPUT" "sin agent_type" || true
   exit 0
 fi
-PERFIL="$(jq -r --arg t "$TYPE" '.[$t] // ._default' "$SCRIPT_DIR/inject-profiles.json" 2>/dev/null)" || PERFIL=""
-SID="$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)" || SID=""
-AID="$(printf '%s' "$INPUT" | jq -r '.agent_id // empty' 2>/dev/null)" || AID=""
+PERFIL="$(jq -r --arg t "$TYPE" '.[$t] // ._default' "$SCRIPT_DIR/inject-profiles.json" 2>/dev/null | tr -d '\r')" || PERFIL=""
+SID="$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null | tr -d '\r')" || SID=""
+AID="$(printf '%s' "$INPUT" | jq -r '.agent_id // empty' 2>/dev/null | tr -d '\r')" || AID=""
 if [ -n "$SID" ] && [ -n "$AID" ]; then
   # shellcheck disable=SC2140 # glob `*` entre tramos entrecomillados: intencionado
   for m in "$PROJECTS_DIR"/*/"$SID"/subagents/"agent-${AID}.meta.json"; do
     [ -f "$m" ] || continue
-    d="$(jq -r '.spawnDepth // 1' "$m" 2>/dev/null)" || d=1
+    d="$(jq -r '.spawnDepth // 1' "$m" 2>/dev/null | tr -d '\r')" || d=1
     case "$d" in (*[!0-9]*) d=1 ;; esac
     if [ "$d" -gt 1 ]; then
       . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && reflex_log "inject-skipped-depth" "$INPUT" "type=$TYPE depth=$d" || true
@@ -33,7 +33,7 @@ fi
 KB_ARGS=()
 [ -n "${REFLEX_INJECT_KB:-}" ] && KB_ARGS=(--kb "$REFLEX_INJECT_KB")
 # #116: el cwd del payload resuelve el repo cuyas reglas duras se inyectan.
-CWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)" || CWD=""
+CWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null | tr -d '\r')" || CWD=""
 KB_ARGS+=(--cwd "${CWD:-$PWD}")
 JSON=""
 # Si mktemp falla (disco lleno, /tmp no escribible, etc.) el hook sigue

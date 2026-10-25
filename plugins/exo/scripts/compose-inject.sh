@@ -15,7 +15,7 @@ while [ $# -gt 0 ]; do case "$1" in
   *) shift ;;
 esac; done
 [ -n "$TYPE" ] || exit 1
-PERFIL="$(jq -r --arg t "$TYPE" '.[$t] // ._default // empty' "$PROFILES" 2>/dev/null)" || exit 1
+PERFIL="$(jq -r --arg t "$TYPE" '.[$t] // ._default // empty' "$PROFILES" 2>/dev/null | tr -d '\r')" || exit 1
 [ -n "$PERFIL" ] || exit 1
 # Seam (M6-03c): resuelve KB en orden --kb explícito (ya en $KB arriba) >
 # $EXO_KB > `exo config --json`. Mismo patrón de seams por variable de entorno
@@ -27,7 +27,7 @@ fi
 if [ -z "$KB" ]; then
   # Antes caía a `~/.basic-memory/config.json` con jq. Ese era el cordón: el
   # sustituto pidiéndole la ruta al sustituido. Ahora se la pide al engine.
-  KB="$(exo config --json 2>/dev/null | jq -r '.data.kb.path // empty')" || KB=""
+  KB="$(exo config --json 2>/dev/null | jq -r '.data.kb.path // empty' | tr -d '\r')" || KB=""
 fi
 
 blen() { printf '%s' "$1" | wc -c; }  # longitud en BYTES (no caracteres; UTF-8 seguro)

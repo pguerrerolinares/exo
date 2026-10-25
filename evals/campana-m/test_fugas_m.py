@@ -117,3 +117,24 @@ def test_lectura_memoria_n_permitida(mundo):
     assert r["motivos"] == [SNAP_MSG, "toca el snapshot de la KB"]
     rc, r = correr(mundo, "n", [tool("Read", file_path=f"{o}/memoria/MEMORY.md")])
     assert (rc, r["motivos"]) == (0, [])
+
+
+def resultado(texto, is_error=True, id="t1"):
+    return {"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": id, "is_error": is_error, "content": texto}]}}
+
+
+DENEGADO = "Permission to use Bash with command ls ~/.exo 2>&1 | head has been denied."
+
+
+def test_intento_denegado_no_es_fuga(mundo):
+    rc, r = correr(mundo, "n", [tool("Bash", command="ls ~/.exo 2>&1 | head"), resultado(DENEGADO)])
+    assert (rc, r["fuga"]) == (0, False)
+    assert r["avisos"] == ["intento denegado por permisos"]
+
+
+def test_acceso_real_a_exo_sigue_siendo_fuga(mundo):
+    ok = resultado("config.toml", is_error=False)
+    rc, r = correr(mundo, "n", [tool("Bash", command="ls ~/.exo"), ok])
+    assert rc == 1 and r["motivos"] == ["toca la KB de producción o ~/.exo"]
+    rc, r = correr(mundo, "n", [tool("Bash", command="ls ~/.exo"), resultado("ls: No such file")])
+    assert rc == 1
