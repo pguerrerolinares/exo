@@ -109,12 +109,14 @@ fn sin_comillas(s: &str) -> &str {
     s
 }
 
-/// Cómo casa una nota con la clave del repo. `Slug` gana a `Stem`: el slug se
-/// declara a propósito; el stem también lo lleva la nota hermana que nace al
+/// Cómo casa una nota con la clave del repo: `Slug` > `Repos` > `Stem`. El slug
+/// y `repos:` se declaran a propósito (`repos:` cubre las notas de varios
+/// repos, que solo pueden llevar un slug); el stem también lo lleva la nota hermana que nace al
 /// partir el canon (`foo — reglas android.md`).
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Casa {
     Stem,
+    Repos,
     Slug,
 }
 
@@ -124,6 +126,12 @@ fn casa(clave: &str, contenido: &str, fichero: &Path) -> Option<Casa> {
         && sin_comillas(&slug).to_lowercase() == clave
     {
         return Some(Casa::Slug);
+    }
+    let en_repos = crate::frontmatter::lista(contenido, "repos")
+        .iter()
+        .any(|r| r.rsplit('/').next().unwrap_or(r).to_lowercase() == clave);
+    if en_repos {
+        return Some(Casa::Repos);
     }
     let stem = fichero
         .file_stem()
@@ -170,7 +178,7 @@ fn notas_de_proyecto(kb: &Path) -> Result<Vec<(String, PathBuf)>> {
 }
 
 /// Candidatas ordenadas de `notas_de_proyecto` que casan con `clave`. Si
-/// alguna casa por slug, solo cuentan esas; si no, las que casan por stem.
+/// el mejor rango presente (slug > `repos:` > stem) y solo cuentan las de ese rango.
 fn candidatas(kb: &Path, clave: &str) -> Result<Vec<(String, PathBuf)>> {
     // KB mal apuntada ≠ repo sin nota: sin `projects/` legible todo daría
     // `sin_nota` en silencio.

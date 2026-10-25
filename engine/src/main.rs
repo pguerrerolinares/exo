@@ -72,7 +72,10 @@ enum Comando {
     /// cabeceras y último commit. Solo lectura.
     Targets(ArgsTargets),
     /// Reglas duras del proyecto del cwd, leídas de su nota en la KB. Solo
-    /// lectura; un skip sale con 0.
+    /// lectura; un skip sale con 0. La nota se busca por el basename del repo
+    /// git, sin distinguir mayúsculas: `slug` > último segmento de una entrada
+    /// de `repos:` (`owner/nombre`) > nombre de fichero hasta ` — `. Dos notas
+    /// al mismo rango son `ambigua`.
     Rules(ArgsRules),
     /// Comprueba el presupuesto de bytes por tier. Imprime el informe entero y
     /// sale con 3 si alguna nota lo rebasa o no declara un tier válido.
