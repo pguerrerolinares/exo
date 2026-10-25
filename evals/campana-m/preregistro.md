@@ -139,3 +139,52 @@ No cambia ninguna regla de §4, que estaban fijadas en el plan antes del
 piloto; esas 5 corridas no entran en el análisis.
 
 Gasto total antes de la principal: 30,09 USD de 130.
+
+## 7. Enmienda 1 — brazo `a2s` (X + reflejo search-first), 2026-10-25
+
+> **Congelada antes de la primera corrida de `a2s` sobre sondas.** Motivo: el
+> verdict de la etapa 1 (`verdict.md` §5 y §7.3) señala como amenaza principal
+> que X no era exo de producción: le faltaba el reflejo `search-first.sh`
+> (`PreToolUse`, matcher `^(Agent|Task|Edit|Write|NotebookEdit)$`), y X buscó en
+> 1/120 corridas. El veredicto de la principal se mantiene; esta enmienda solo
+> decide si lo invalida a favor de exo.
+
+- **Visto antes de congelar:** el resultado completo de la principal (todos los
+  brazos, `verdict.md`) y 3 canarios `a2s` sobre neutras (`nm-01..03`, r1, en
+  `corridas-canario-a2s/`, rc 0/0/0). Ninguna corrida `a2s` sobre sondas.
+- **Brazo `a2s`:** `a2` exacto (bloque `exo-recall.sh` en `SessionStart`, exo
+  sobre el snapshot) + `search-first.sh` del repo (idéntico al de la caché del
+  plugin 1.18.5) en `PreToolUse` con el matcher de producción. Sentinel por
+  corrida (`SEARCH_FIRST_SENTINEL_DIR=$O`).
+- **Hallazgo de plataforma que obliga a una diferencia:** con
+  `--no-session-persistence` el hook no puede leer `transcript_path` y calla
+  (`search-first-skip motivo=transcript-ilegible`, canario `nm-01`). `a2s`
+  corre **sin** ese flag; la sesión persistida se mueve a `$O/sesion.jsonl`, que
+  es el único rastro del aviso que ve el modelo (`system-reminder` adjunto al
+  primer Edit/Write/Agent). Ninguna otra diferencia con `a2`.
+- **Corridas:** las 40 sondas-suelo × `a2s` × 3 = 120, serie, paralelo 1,
+  tandas de 40 con el breaker de `tanda.sh`, orden barajado con
+  `random.Random(20261025)`: `orden-a2s.txt` sha256
+  `e8b5570c715e022bb30260e6960f6b7334c69bb31636f3e69ba48788139e0977`.
+  Congelación: `congelacion-a2s.txt` (mismos snapshot, gold, modelo
+  `claude-sonnet-5-5` y Claude Code 2.1.310 que la principal).
+- **Comparación:** contra `a0` (y `a2` como contexto) de `corridas-principal/`,
+  no intercalados. Desviación declarada: se corren ~10 h después, misma versión
+  y modelo. Sin neutras: en la principal salieron al techo en todos los brazos
+  y no tienen sensibilidad.
+- **Medidas:** éxito por sonda como en §4; `busca` = la corrida hace un
+  `tool_use` Bash con `exo search|targets|recall` (regex de `search-first.sh` +
+  `recall`); bootstrap de Δ(a2s − a0) y Δ(a2s − a2) con la semilla de §4; test de
+  signos; Δ de tokens_in emparejada frente a a0 (media y mediana).
+- **Condición pre-registrada** (`verdict.md` §7.3):
+  - busca en ≥ 50 % de las corridas **y** límite inferior del IC95 de
+    Δ(a2s − a0) > 0 ⇒ `EXO CON SEARCH-FIRST DEMOSTRÓ EFECTO` ·
+    `RECOMENDACIÓN 1 INVALIDADA`;
+  - busca ≥ 50 % y límite inferior ≤ 0 ⇒ `BUSCA Y NO APLICA` · `MEMORIA MÍNIMA
+    CONFIRMADA`;
+  - busca < 50 % ⇒ `EL REFLEJO NO HACE BUSCAR` (o `EFECTO SIN BÚSQUEDA` si el
+    límite inferior > 0) · `MEMORIA MÍNIMA CONFIRMADA`;
+  - > 5 % de corridas con escritura fuera de lo previsto ⇒ `NO ADJUDICABLE`.
+- **Análisis:** `python3 evals/campana-m/analizar_a2s.py ~/.cache/exo-campana-m
+  ~/.cache/exo-campana-m/sondas.tsv`, escrito y testeado antes de correr.
+- **Tope:** 130 USD de campaña; gastados antes de la enmienda 82,02 USD.
