@@ -13,6 +13,7 @@
 #   ar     a0 exacto + SessionStart que inyecta la regla literal de $K_REGLA_FILE (techo de reglas)
 #   arp    a0 exacto + sysprompt.md (claude-md.md + framing con la regla) por --append-system-prompt-file;
 #          requiere K_REGLA_FILE y K_FRAMING_FILE (techo-reglas-2)
+#   arp<N> alias de arp con directorio propio (techo-reglas-3: K_REGLA_FILE trae el bloque entero)
 #   n      a0 exacto (sin exo, sin snapshot) + memoria nativa de Claude Code activa sobre $O/memoria, copia fresca
 #          de $K_MEMORIA_DIR (default $P/memoria) en cada corrida (campaña M)
 #   ars    a0 exacto (claude-md.md sin framing) + solo el mod register.ts por --plugin-dir con EXO_RULES_FORZAR_SUBMIT=1:
@@ -22,6 +23,8 @@
 # cmdline.txt (deny, PATH, append) se escribe siempre. K_ENSAYO=1: sale tras generarlo, sin lanzar claude.
 set -uo pipefail
 tarea=$1; brazo=$2; rep=$3
+# arp<N> (techo-reglas-3): mismo brazo que arp con su propio directorio de corrida; el N solo distingue el bloque de reglas.
+modo=$brazo; [[ $brazo =~ ^arp[0-9]+$ ]] && modo=arp
 H="$(cd "$(dirname "$0")" && pwd)"
 K_ROOT="${K_ROOT:-$HOME/.cache/exo-ablacion-k}"; P="$K_ROOT/prep"
 PLUG="$(cd "$H/../../../plugins/exo/scripts" && pwd)"
@@ -33,10 +36,10 @@ fi
 if [ "$brazo" = ars ] && [ ! -s "${K_REGLA_FILE:-}" ]; then
   echo "ars requiere K_REGLA_FILE no vacío" >&2; exit 2
 fi
-if [ "$brazo" = arp ] && { [ ! -s "${K_REGLA_FILE:-}" ] || [ ! -s "${K_FRAMING_FILE:-}" ]; }; then
+if [ "$modo" = arp ] && { [ ! -s "${K_REGLA_FILE:-}" ] || [ ! -s "${K_FRAMING_FILE:-}" ]; }; then
   echo "arp requiere K_REGLA_FILE y K_FRAMING_FILE no vacíos" >&2; exit 2
 fi
-if [ "$brazo" = arp ] && [ "$(grep -o '{{REGLA}}' "$K_FRAMING_FILE" | wc -l)" != 1 ]; then
+if [ "$modo" = arp ] && [ "$(grep -o '{{REGLA}}' "$K_FRAMING_FILE" | wc -l)" != 1 ]; then
   echo "arp: K_FRAMING_FILE debe contener {{REGLA}} exactamente una vez" >&2; exit 2
 fi
 [ -f "$P/manifiesto.txt" ] || { echo "falta $P (preparar.sh)" >&2; exit 2; }
@@ -57,7 +60,7 @@ git -C "$O/work" rev-parse HEAD > "$O/inicio.txt" 2>/dev/null || true
 # Settings del brazo.
 hooks='{}'; append="$P/claude-md.md"
 # a3 usa recall-inject.sh, borrado tras la campaña K; reproducir a3 desde el commit b94ed74.
-case $brazo in
+case $modo in
   a1) hooks=$(jq -n --arg c "cat $P/a1-inicio.json" '{SessionStart:[{hooks:[{type:"command",command:$c}]}]}') ;;
   a2) hooks=$(jq -n --arg c "$PLUG/exo-recall.sh" '{SessionStart:[{hooks:[{type:"command",command:$c}]}]}') ;;
   a2s) hooks=$(jq -n --arg c "$PLUG/exo-recall.sh" --arg s "$PLUG/search-first.sh" \
@@ -103,8 +106,8 @@ esac
 
 deny=("Read(//home/paul/Documentos/proyectos/wisdom-paul/**)" "Read(//home/paul/.exo/**)"
       "Grep(//home/paul/Documentos/proyectos/wisdom-paul/**)" "Grep(//home/paul/.exo/**)")
-{ [ "$brazo" = a0 ] || [ "$brazo" = n ] || [ "$brazo" = ar ] || [ "$brazo" = arp ] || [ "$brazo" = ars ]; } && deny+=("Read(/$P/kb/**)" "Grep(/$P/kb/**)")
-ruta="$PATH"; case $brazo in a0|a1|n|ar|arp) ruta="$P/stub:$PATH" ;; ars) ruta="$O/stub-ars:$P/stub:$PATH" ;; esac
+{ [ "$brazo" = a0 ] || [ "$brazo" = n ] || [ "$brazo" = ar ] || [ "$modo" = arp ] || [ "$brazo" = ars ]; } && deny+=("Read(/$P/kb/**)" "Grep(/$P/kb/**)")
+ruta="$PATH"; case $modo in a0|a1|n|ar|arp) ruta="$P/stub:$PATH" ;; ars) ruta="$O/stub-ars:$P/stub:$PATH" ;; esac
 
 # S2: el agente usa el venv del repo (solo lectura) y el código de su workdir.
 extra_env=(); plugin_args=(); persist=(--no-session-persistence)
@@ -159,7 +162,7 @@ if [ -x "$tarea/check.sh" ]; then
   bash "$tarea/check.sh" "$O/work" "$O/transcript.jsonl" "$(cat "$O/inicio.txt" 2>/dev/null)" > "$O/check.log" 2>&1
   echo $? > "$O/check.rc"
 fi
-python3 "$H/fugas.py" "$O" "$brazo" > "$O/fugas.json" 2>/dev/null
+python3 "$H/fugas.py" "$O" "$modo" > "$O/fugas.json" 2>/dev/null
 { git -C "$P/kb" status --porcelain; git -C "$P/kb" log --format='C %h %s' "$kb_base..HEAD"; } > "$O/kb-sucia.txt" 2>/dev/null
 restaura=0
 git -C "$P/kb" reset -q --hard "$kb_base" || restaura=1

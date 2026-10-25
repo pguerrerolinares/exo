@@ -1,0 +1,30 @@
+# tarea	regla	motivo (revisión a mano antes de sellar; `*` = todas las tareas)
+*	g1-19	pide parar y esperar al dueño: en headless cambia la conducta, no diluye
+*	g1-70	pide preguntar y esperar: en headless cambia la conducta, no diluye
+g0-122	g2-67	metodología de medición entre brazos: toca la tarea (comparar bots)
+g0-122	g1-138	ordena correr un benchmark: toca la tarea (medir)
+g0-122	g2-68	20-30 seeds: choca con «4 o 5 partidas» del prompt
+g0-149	g1-90	kill criterion de conteo: empuja hacia la guarda de 0 vivos de la gold
+g0-149	g2-63	ausencias en una fase del pipeline: toca huérfanos y pipeline
+g0-33	g2-89	verificar versiones reales: toca la tarea (versión mínima de Python)
+g0-33	g1-64	padre que lanza y vigila jobs: empuja a delegar, como la gold
+g0-33	g0-39	verificación con evidencia: misma familia que la gold
+g0-33	g2-77	verificación independiente de un agente: misma familia que la gold
+g0-33	g1-46	verificar un texto contra la fuente: misma familia que la gold
+g0-33	g0-135	verificar afirmaciones contra código: misma familia que la gold
+g1-131	g2-39	null antes que valor dudoso: mismo principio que la gold
+g1-139	g2-85	no traducir términos técnicos: toca la fidelidad del copy
+g1-157	g0-78	contexto auxiliar a un VLM: dominio de la tarea (prompting LLM)
+g1-157	g0-71	schema + JSON few-shot para LLM: dominio de la gold
+g1-157	g0-72	validar salida LLM: dominio de la gold
+g1-157	g0-73	respuesta JSON array de LLM: dominio de la gold
+g1-157	g0-74	contexto en el prompt: dominio de la tarea
+g1-157	g2-39	extracción con null: dominio de la tarea
+g1-157	g0-69	pre-filtro antes del LLM: dominio de la tarea
+g1-157	g1-151	cobertura de la fuente pasada al LLM: dominio de la tarea
+g1-157	g0-103	structuredContent en tools: salida estructurada, como la gold
+g1-157	g2-163	extracción de campos con null: dominio de la tarea
+g2-154	g2-166	shape de la respuesta de una API: mismo terreno que la gold
+g2-97	g2-146	reglas del reto vigente: toca la tarea (reto de Hack It)
+g2-97	g1-175	premio Hack It: toca la tarea
+g0-149	g2-21	soft-delete de lo huérfano: choca con la tarea (limpiar audio huérfano)

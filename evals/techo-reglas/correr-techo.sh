@@ -3,6 +3,7 @@
 # TECHO_EXP (def. evals/techo-reglas; relativa = contra la raíz del repo) trae tareas.tsv (4.ª col. opcional
 # `brazos` = brazo:k,... ; def. ar:2 suelo / ar:1 control), preregistro.md y, si existen, pins.sha256 (se verifica
 # antes de lanzar nada, rutas relativas a $K_ROOT) y framing.txt (K_FRAMING_FILE: se exporta a todos los brazos; solo arp lo lee en correr.sh). ORDEN: `brazo id rep` o, v1, `id rep` (= brazo ar).
+# `{brazo}` en la ruta de regla (3.ª col.) se sustituye por el brazo de cada par: un bloque por (tarea, brazo), techo-reglas-3.
 # Política sellada: cero re-intentos. Cada corrida se ejecuta una vez; correr.sh hace rm -rf de su dir,
 # así que nunca se lanza una corrida que ya tenga meta.json. K_REANUDAR=1 tras un corte solo SALTA las
 # que ya tienen meta.json (completas o no); sin K_REANUDAR, si ya hay alguna, aborta (exit 2).
@@ -46,6 +47,7 @@ mkdir -p "$K_ROOT"; : > "$Q"; rm -f "$STOP"; printf '%s\n' "$orden" > "$ORDEN_F"
 lanzadas=0; omitidas=0; previas=0
 while read -r brazo id rep; do
   regla=$(awk -F'\t' -v i="$id" '$1==i{print $3}' "$TAREAS")
+  regla=${regla//\{brazo\}/$brazo}
   [ -n "$regla" ] || die "$id no está en $TAREAS"
   [ -s "$ROOT/$regla" ] || die "regla vacía o ausente: $ROOT/$regla"
   [ -d "$K_ROOT/gold/s1/$id" ] || die "sin $K_ROOT/gold/s1/$id"

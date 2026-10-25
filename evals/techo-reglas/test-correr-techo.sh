@@ -142,4 +142,16 @@ out=$(K_ENSAYO=1 TECHO_CORRER="$T/falso3.sh" TECHO_EXP="$T/exp" K_ROOT="$T/k18" 
 # tar fallido: exit != 0 y aviso
 mk "$T/k19"; out=$(TECHO_CORRER="$T/falso3.sh" TECHO_EXP="$T/exp" K_ROOT="$T/k19" TECHO_TARBALL=/proc/no/puede.tgz bash "$CT" 1 2>&1); rc=$?
 [ $rc != 0 ] && [[ $out == *"FALLO el tarball"* ]] && ok tar_fallido_sale_distinto_de_0 || ko "tar rc=$rc"
+# {brazo} en la ruta de regla: cada par recibe el bloque de su brazo; si falta uno, aborta sin lanzar nada (techo-reglas-3)
+BL="$T/bloques"; mkdir -p "$BL/g0-122"; for b in arp1 arp10; do echo "bloque $b" > "$BL/g0-122/$b.txt"; done
+relbl=$(realpath --relative-to="$(cd "$HERE/../.." && pwd)" "$BL")
+mkdir -p "$T/expb"; printf 'g0-122\tsuelo\t%s/g0-122/{brazo}.txt\tarp1:1,arp10:1\n' "$relbl" > "$T/expb/tareas.tsv"
+{ echo '<!-- ORDEN-BEGIN -->'; printf '%s\n' "arp10 g0-122 1" "arp1 g0-122 1"; echo '<!-- ORDEN-END -->'; } > "$T/expb/preregistro.md"
+echo '{{REGLA}}' > "$T/expb/framing.txt"; mk "$T/k20"
+out=$(TECHO_CORRER="$T/falso3.sh" TECHO_EXP="$T/expb" K_ROOT="$T/k20" TECHO_TARBALL= bash "$CT" 1 2>&1); rc=$?
+esp=$(printf '%s\n' "arp10 g0-122 1 framing=$T/expb/framing.txt regla=arp10.txt" "arp1 g0-122 1 framing=$T/expb/framing.txt regla=arp1.txt")
+[ $rc = 0 ] && [ "$(cat "$T/k20/lanzadas3.log")" = "$esp" ] && ok regla_por_brazo || ko "regla_por_brazo rc=$rc: $out"
+rm "$BL/g0-122/arp10.txt"; mk "$T/k21"
+out=$(TECHO_CORRER="$T/falso3.sh" TECHO_EXP="$T/expb" K_ROOT="$T/k21" TECHO_TARBALL= bash "$CT" 1 2>&1); rc=$?
+[ $rc = 2 ] && [[ $out == *"regla vacía o ausente:"*"/g0-122/arp10.txt"* ]] && [ ! -e "$T/k21/lanzadas3.log" ] && ok regla_por_brazo_ausente_aborta || ko "regla_por_brazo_ausente rc=$rc: $out"
 exit $fail
