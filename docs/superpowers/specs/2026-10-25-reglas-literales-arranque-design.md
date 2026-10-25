@@ -90,13 +90,14 @@ avisado solo por un `systemMessage`.
 Hoy no existe canal para las reglas transversales.
 
 - Sección `## Reglas duras` en `core/core-index.md`, leída por el mismo
-  parser (`lee_seccion`), con su propio `CAP` global.
+  parser (`lee_seccion`), con el mismo `CAP` que las de proyecto (un solo
+  valor, §7.1).
 - `exo rules --json` devuelve `global` (lista) junto a `rules` (proyecto). Un
   repo sin nota o sin sección sigue recibiendo las globales.
 - El mod `prompt.compose` (`plugins/exo/hooks/register.ts`) mete las dos
-  listas bajo el framing actual: globales primero, luego las de proyecto.
+  listas, globales primero, cada una con su encabezado (§10, D10).
   `compose-inject.sh` hace lo mismo para subagentes.
-- El latido (`hb-<sid>`) y el testigo de Stop cuentan las dos listas.
+- El latido (`hb-<sid>`) y el testigo de Stop cuentan las dos listas (§10, D3).
 
 ### 4.4 Presupuesto de reglas en subagentes
 
@@ -248,3 +249,63 @@ reglas estáticas no compensan su dilución y el siguiente paso es E.
   BM25 top-3 (10, 12, 12, 17/40), cobertura ciega (19/24 proyecto, 2/16
   transversal), `ExcedeCap`, subdirectorios, cap de subagentes. La exclusión
   «A0 ya cumple» dio 43, 57 y 67 según el criterio; §5.2 fija la definición.
+
+## 10. Decisiones cerradas tras el builder check (del orquestador)
+
+Un builder fresco leyó la spec como quien tiene que planificarla. Sus 10
+preguntas se cierran sin cambiar lo que pidió el dueño; son decisiones del
+orquestador, corregibles en la review.
+
+- **D1 · De dónde saca el precommit el `CAP`.** El `CAP` vive solo en el
+  engine (`const`, un único valor para proyecto y global). `exo rules` gana
+  un modo de validación sobre una raíz de KB (`exo rules --check --kb
+  <dir>`) que recorre las notas de `projects/` (primer nivel y canónicas de
+  subdirectorio) y `core/core-index.md`, y sale ≠ 0 si alguna sección supera
+  el `CAP`. `kb-precommit.sh` lo llama sobre su snapshot staged. No vale `exo
+  lint` (exige índice, `kb-precommit.sh:72`). Superficie nueva del engine:
+  entra en `contrato-engine`.
+- **D2 · Forma del JSON.** `global: [..]` y `truncated: <n>` (0 si no hay
+  recorte) van en `data` en **las dos** variantes, `ok` y `skip`. `status` y
+  `reason` siguen hablando solo del nivel de proyecto, así que `sin_seccion`,
+  `seccion_vacia` y sus avisos no cambian de significado. `excede_cap`
+  desaparece como salida (ahora es `ok` + `truncated`); el `case` de
+  `exo-recall.sh` que lo menciona se limpia. Los tres consumidores
+  (`register.ts`, `compose-inject.sh`, `exo-recall.sh`) leen `global` aunque
+  `status` sea `skip`.
+- **D3 · Testigos.** `n` pasa a ser el total entregado (`rules` + `global`)
+  en `ss-<sid>` y en `hb-<sid>`, que es lo que compara
+  `document-remind.sh:38-56`. Se añade `n_global` informativo a los dos.
+- **D4 · Fuente del contrato reducido.** `exo-recall.sh` extrae la sección
+  `## Contrato de memoria` del core-index servido por `exo recall --content`
+  (la ruta, el índice y los fallbacks actuales se mantienen) y descarta el
+  resto. La verdad sigue en la KB y `/distill` la ve. Hoy esa sección ocupa
+  974 B; si crece, el cap de D5 la recorta con aviso.
+- **D5 · Qué cubren los 1.500 B.** Contrato + avisos operativos, con cap en
+  código y evento `recall-truncated` si actúa. La reafirmación de reflejos
+  en `source=compact` va fuera del cap (solo tras compactar). El golden
+  fija el caso normal.
+- **D6 · Siembra.** Orden: código → techo-reglas-3 (fija `CAP`) → siembra.
+  La siembra es una puerta humana (el dueño elige las globales y revisa el
+  corte de los 7 proyectos que desbordan), no una tarea de ejecutor; el plan
+  la deja como paso manual con el script del ranking como ayuda. Si una nota
+  supera su presupuesto de bytes al añadir reglas, se aplica la doctrina de
+  la KB (partir o consolidar), nunca subir el techo. El presupuesto de
+  subagentes (§4.4) se fija tras la siembra, con las reglas reales.
+- **D7 · Gates.** El código se construye con `CAP = 10` y techo-reglas-3
+  solo puede bajarlo (cambio de una constante). Si se cumple §7.3, no se
+  revierte nada automáticamente: se para, se reporta y se decide con los
+  datos (el siguiente paso previsto es la spec de E). Las medidas §7.1 y
+  §7.2 tienen pre-registro propio; el plan de código las referencia, no las
+  incluye.
+- **D8 · Subdirectorios.** Un nivel de profundidad. Cada `projects/<dir>/`
+  aporta como mucho una candidata: su nota con `slug` igual a la clave o, si
+  no hay, la que se llama como el directorio. Esa candidata entra en el
+  mismo ranking `slug > stem` que las de primer nivel (el nombre del
+  directorio cuenta como stem). Si `projects/foo.md` y `projects/foo/` casan
+  a la vez con el mismo rango: `ambigua`, visible.
+- **D9 · Formato de cada regla.** Una línea `- ` por regla, una sola línea,
+  ≤ 300 B. Los wikilinks se dejan como texto. Una cita de varias líneas o
+  más larga se reescribe a mano en el PR de siembra (§5.1).
+- **D10 · Framing.** Dos encabezados con el mismo cuerpo de autoridad:
+  «Reglas duras del dueño» (globales, primero) y «Reglas duras del proyecto»
+  (las actuales). El presupuesto de §4.4 se calcula con los dos.
