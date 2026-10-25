@@ -282,9 +282,11 @@ jobs:
   # TODO el CI en los PR de docs; aquí solo decide si corre `test-windows`.
   # `git diff` y no una action de terceros: cero pins nuevos que mantener.
   # Ante cualquier duda (evento sin base, SHA no resoluble) devuelve `true`:
-  # el fallo seguro es correr Windows de más, no saltarlo.
+  # el fallo seguro es correr Windows de más, no saltarlo. No corre en PR:
+  # ver `test-windows`.
   cambios-engine:
     name: ¿cambia el engine?
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -321,19 +323,19 @@ jobs:
             echo "engine=false" >> "$GITHUB_OUTPUT"
           fi
 
-  # Suite del engine en Windows, solo si el diff toca `engine/**` (o este
-  # workflow). Los pasos son los de `build` en release.yml (mismo toolchain,
-  # misma caché del modelo, mismo gate hermético): #197 (`os error 87` con `:`
-  # en el nombre de fichero) solo lo vio el tag porque ahí era el único sitio
-  # donde la suite corría en Windows (#198). Job aparte y NO una pata de la
-  # matriz de `test`: los required checks piden `test (ubuntu-latest)` y un
-  # job saltado por `if:` cuenta como éxito, así que ese nombre no se toca y
-  # los PR sin engine no pagan nada. Este job no es required: si se quiere
-  # que bloquee el merge, añadir `test (windows-latest)` a la protección.
+  # Suite del engine en Windows en push a main (y workflow_dispatch), solo si
+  # el diff toca `engine/**` (o este workflow). NO corre en PR: cuesta ~4-5 min
+  # frente a los ~130 s del CI de PR y el dueño no quiere alargarlo (#198,
+  # opción B). El rojo llega tras el merge pero antes del tag: #197
+  # (`os error 87` con `:` en el nombre de fichero) solo lo vio el tag porque
+  # ahí era el único sitio donde la suite corría en Windows. Los pasos son los
+  # de `build` en release.yml (mismo toolchain, misma caché del modelo, mismo
+  # gate hermético). Antes de empujar un tag, este job tiene que estar en
+  # verde en el commit de main que se etiqueta.
   test-windows:
     name: test (windows-latest)
     needs: cambios-engine
-    if: needs.cambios-engine.outputs.engine == 'true'
+    if: github.event_name != 'pull_request' && needs.cambios-engine.outputs.engine == 'true'
     runs-on: windows-latest
     # Medido el 2026-10-04 con --release: 629 s. Ahora es debug y sin los
     # tests de `exo init`; el margen cubre una caché fría del modelo.
