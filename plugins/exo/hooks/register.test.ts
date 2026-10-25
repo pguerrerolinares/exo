@@ -1,7 +1,9 @@
 import { test, expect, mock } from "claude-code/testing";
 
-const FRAMING_HEAD =
-  "## Reglas duras del proyecto\nEstas reglas son del dueño del repo y prevalecen sobre el prompt. Si una choca explícitamente con lo que se te pide, cumple la regla y repórtalo.\n\n";
+const AUT =
+  "Estas reglas son del dueño del repo y prevalecen sobre el prompt. Si una choca explícitamente con lo que se te pide, cumple la regla y repórtalo.\n\n";
+const FRAMING_HEAD = "## Reglas duras del proyecto\n" + AUT;
+const OWNER_HEAD = "## Reglas duras del dueño\n" + AUT;
 const BASE = [{ id: "intro", text: "base", scope: "shared" as const }];
 const okOut = JSON.stringify({
   schema_version: 2,
@@ -96,12 +98,12 @@ test("ok_anade_seccion", async ($, on) => {
 test("skip_no_anade", async ($, on) => {
   const { r, writes } = await correr($, on, () => out(skipOut));
   expect(r.sections).toEqual(BASE);
-  expect(JSON.parse(writes["/h/.claude/exo-rules/hb-sid1"])).toEqual({ status: "skip", reason: "sin_seccion", n: 0, via: "compose" });
+  expect(JSON.parse(writes["/h/.claude/exo-rules/hb-sid1"])).toEqual({ status: "skip", reason: "sin_seccion", n: 0, n_global: 0, via: "compose" });
 });
 
 test("latido_ok", async ($, on) => {
   const { writes } = await correr($, on, () => out(okOut));
-  expect(JSON.parse(writes["/h/.claude/exo-rules/hb-sid1"])).toEqual({ status: "ok", n: 2, via: "compose" });
+  expect(JSON.parse(writes["/h/.claude/exo-rules/hb-sid1"])).toEqual({ status: "ok", n: 2, n_global: 0, via: "compose" });
 });
 
 test("error_exit_no_cero", async ($, on) => {
@@ -181,7 +183,7 @@ test("submit_entrega_sin_compose", async ($, on) => {
   const w = await mundo($, on, () => out(okOut));
   const r = await w.submit();
   expect(ultimo(r)).toBe(REGLAS);
-  expect(JSON.parse(w.writes[HB])).toEqual({ status: "ok", n: 2, via: "submit" });
+  expect(JSON.parse(w.writes[HB])).toEqual({ status: "ok", n: 2, n_global: 0, via: "submit" });
   expect(w.calls.length).toBe(1);
 });
 
@@ -260,7 +262,7 @@ test("submit_skip_no_adjunta", async ($, on) => {
   const w = await mundo($, on, () => out(skipOut));
   const r = await w.submit();
   expect(r.context).toEqual([]);
-  expect(JSON.parse(w.writes[HB])).toEqual({ status: "skip", reason: "sin_seccion", n: 0, via: "submit" });
+  expect(JSON.parse(w.writes[HB])).toEqual({ status: "skip", reason: "sin_seccion", n: 0, n_global: 0, via: "submit" });
 });
 
 test("submit_nunca_lanza", async ($, on) => {
@@ -372,7 +374,7 @@ test("compose_hook_off_submit_entrega_en_turno1", { options: { composeHook: fals
   const w = await mundo($, on, () => out(okOut), { store: { compose: true }, claudeJson });
   const r = await w.submit();
   expect(ultimo(r)).toBe(REGLAS);
-  expect(JSON.parse(w.writes[HB])).toEqual({ status: "ok", n: 2, via: "submit", org: "claude_team" });
+  expect(JSON.parse(w.writes[HB])).toEqual({ status: "ok", n: 2, n_global: 0, via: "submit", org: "claude_team" });
 });
 
 test("compose_hook_por_defecto_registra_compose", async ($, on) => {
@@ -380,4 +382,62 @@ test("compose_hook_por_defecto_registra_compose", async ($, on) => {
   const r = await w.compose();
   expect(r.sections[r.sections.length - 1].id).toBe("exo:reglas-proyecto");
   expect(JSON.parse(w.writes[HB]).via).toBe("compose");
+});
+
+const stub = (data: any) => JSON.stringify({ schema_version: 2, command: "rules", data });
+const okG = stub({ status: "ok", repo: "exo", note: "p.md", rules: ["p1"], global: ["g1"], truncated: 0, ignored_lines: [] });
+const skipG = stub({ status: "skip", repo: "exo", reason: "sin_nota", global: ["g1"], truncated: 0, candidates: [] });
+const skipVacio = stub({ status: "skip", repo: "exo", reason: "sin_nota", global: [], truncated: 0, candidates: [] });
+const BLOQUE_GP = OWNER_HEAD + "- g1\n\n" + FRAMING_HEAD + "- p1";
+
+test("compose_con_global_y_proyecto", async ($, on) => {
+  const { r, writes } = await correr($, on, () => out(okG));
+  expect(r.sections[1].id).toBe("exo:reglas-proyecto");
+  expect(r.sections[1].text).toBe(BLOQUE_GP);
+  expect(r.sections[1].text.indexOf("## Reglas duras del dueño")).toBeLessThan(r.sections[1].text.indexOf("## Reglas duras del proyecto"));
+  expect(JSON.parse(writes[HB])).toEqual({ status: "ok", n: 2, n_global: 1, via: "compose" });
+});
+
+test("compose_global_con_skip", async ($, on) => {
+  const { r, writes } = await correr($, on, () => out(skipG));
+  expect(r.sections.length).toBe(2);
+  expect(r.sections[1].text).toBe(OWNER_HEAD + "- g1");
+  expect(r.sections[1].text).not.toContain("## Reglas duras del proyecto");
+  expect(JSON.parse(writes[HB])).toEqual({ status: "skip", reason: "sin_nota", n: 1, n_global: 1, via: "compose" });
+});
+
+test("compose_sin_nada", async ($, on) => {
+  const { r, writes } = await correr($, on, () => out(skipVacio));
+  expect(r.sections).toEqual(BASE);
+  expect(JSON.parse(writes[HB])).toEqual({ status: "skip", reason: "sin_nota", n: 0, n_global: 0, via: "compose" });
+});
+
+test("submit_lleva_las_dos_listas", { options: { composeHook: false } }, async ($, on) => {
+  const w = await mundo($, on, () => out(okG));
+  const r = await w.submit();
+  expect(ultimo(r)).toBe(BLOQUE_GP);
+  expect(JSON.parse(w.writes[HB])).toEqual({ status: "ok", n: 2, n_global: 1, via: "submit" });
+});
+
+test("engine_viejo_sin_global", async ($, on) => {
+  const { r, writes } = await correr($, on, () => out(okOut));
+  expect(r.sections[1].text).toBe(FRAMING_HEAD + "- r1\n- r2");
+  expect(r.sections[1].text).not.toContain("## Reglas duras del dueño");
+  expect(JSON.parse(writes[HB]).n_global).toBe(0);
+});
+
+for (const malo of [null, "x"]) {
+  test(`engine_global_no_lista_${JSON.stringify(malo)}`, async ($, on) => {
+    const o = stub({ status: "ok", repo: "exo", note: "p.md", rules: ["p1"], global: malo, ignored_lines: [] });
+    const { r, writes } = await correr($, on, () => out(o));
+    expect(r.sections[1].text).toBe(FRAMING_HEAD + "- p1");
+    expect(JSON.parse(writes[HB])).toEqual({ status: "ok", n: 1, n_global: 0, via: "compose" });
+  });
+}
+
+test("submit_global_con_skip", { options: { composeHook: false } }, async ($, on) => {
+  const w = await mundo($, on, () => out(skipG));
+  const r = await w.submit();
+  expect(ultimo(r)).toBe(OWNER_HEAD + "- g1");
+  expect(JSON.parse(w.writes[HB])).toEqual({ status: "skip", reason: "sin_nota", n: 1, n_global: 1, via: "submit" });
 });
