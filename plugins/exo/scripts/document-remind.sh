@@ -37,6 +37,7 @@ if [ ! -f "$WSENT" ]; then
     SS_ST="$(jq -r '.status // ""' "$SS" 2>/dev/null)"
     SS_N="$(jq -r '.n // 0' "$SS" 2>/dev/null)"
     if HB_ROW="$(jq -r '[(.status // ""), (.n // 0)] | @tsv' "$HB" 2>/dev/null)" && [ -n "$HB_ROW" ]; then
+      HB_ROW="${HB_ROW%$'\r'}"
       HB_ST="${HB_ROW%%$'\t'*}"; HB_N="${HB_ROW##*$'\t'}"
     else
       HB_ST="corrupto"; HB_N="?"
@@ -48,10 +49,10 @@ if [ ! -f "$WSENT" ]; then
       HB_VIA="$(jq -r '.via // ""' "$HB" 2>/dev/null)" || HB_VIA=""
       HB_ORG="$(jq -r '.org // ""' "$HB" 2>/dev/null)" || HB_ORG=""
     fi
-    if [ "$HB_VIA" = "none" ] && [ "$SS_ST" = "ok" ]; then
+    if [ "$HB_VIA" = "none" ] && [ "${SS_N:-0}" -gt 0 ] 2>/dev/null; then
       WREASON="sin_canal"
-      WITNESS_MSG="⚠ el mod de reglas de proyecto cargó pero ningún canal entregó (via=none): SessionStart vio ok n=${SS_N}; ¿política de la org nueva o exo rules falla?"
-    elif [ "$HB_ST" = "corrupto" ] || { [ "$HB_ST" = "error" ] && [ "$SS_ST" = "ok" ]; }; then
+      WITNESS_MSG="⚠ el mod de reglas de proyecto cargó pero ningún canal entregó (via=none): SessionStart vio ${SS_ST} n=${SS_N}; ¿política de la org nueva o exo rules falla?"
+    elif [ "$HB_ST" = "corrupto" ] || { [ "$HB_ST" = "error" ] && [ "${SS_N:-0}" -gt 0 ] 2>/dev/null; }; then
       WREASON="no_entrego"
       WITNESS_MSG="⚠ el mod de reglas de proyecto no entregó: SessionStart vio ${SS_ST} n=${SS_N}, el latido dice ${HB_ST} n=${HB_N}"
     elif [ "$HB_ST" = "error" ]; then
@@ -68,24 +69,26 @@ if [ ! -f "$WSENT" ]; then
       WOUT="$(con_timeout "${EXO_RULES_TIMEOUT:-3}" "$EXO_BIN" rules --cwd "$WCWD" --json 2>"$WERR_TMP")" && WRC=0 || WRC=$?
       WERR="$(head -c 200 "$WERR_TMP" 2>/dev/null | tr '\n' ' ')"
       rm -f "$WERR_TMP"
-      TR_ST=""; TR_REASON=""; TR_REPO=""; TR_N=""
+      TR_ST=""; TR_REASON=""; TR_REPO=""; TR_N=""; TR_G=0
       if [ "$WRC" -eq 0 ]; then
-        IFS=$'\x1f' read -r TR_ST TR_REASON TR_REPO TR_N <<< "$(printf '%s' "$WOUT" | jq -r '[(.data.status // ""), (.data.reason // ""), (.data.repo // ""), ((.data.rules // []) | length | tostring)] | join("\u001f")' 2>/dev/null)"
+        IFS=$'\x1f' read -r TR_ST TR_REASON TR_REPO TR_N TR_G <<< "$(printf '%s' "$WOUT" | jq -r '[(.data.status // ""), (.data.reason // ""), (.data.repo // ""), (((.data.rules // []) | length) + ((.data.global // []) | length) | tostring), ((.data.global // []) | length | tostring)] | join("\u001f")' 2>/dev/null)"
+        TR_G="${TR_G%$'\r'}"
       fi
       case "$TR_ST" in
         ok) ;;
-        skip) TR_N=0 ;;
+        skip) ;;
         *) TR_ST="" ;;
       esac
       case "${TR_N:-}" in ''|*[!0-9]*) TR_ST="" ;; esac
+      case "${TR_G:-}" in ''|*[!0-9]*) TR_G=0 ;; esac
       if [ -z "$TR_ST" ]; then
         WREASON="sin_verdad"; WTOUCH=0
         WITNESS_LOG="${WERR:+ err=$WERR}"
       elif [ "$TR_ST" = "$HB_ST" ] && [ "$TR_N" = "$HB_N" ]; then
         WREASON="kb_cambio"; WTOUCH=0
         if [ -n "$SESSION_ID" ] && [ "${SESSION_ID#*/}" = "$SESSION_ID" ]; then
-          jq -cn --arg st "$TR_ST" --arg rs "$TR_REASON" --arg repo "$TR_REPO" --argjson n "$TR_N" \
-            '{status:$st} + (if $rs=="" then {} else {reason:$rs} end) + {n:$n, repo:(if $repo=="" then null else $repo end)}' \
+          jq -cn --arg st "$TR_ST" --arg rs "$TR_REASON" --arg repo "$TR_REPO" --argjson n "$TR_N" --argjson ng "$TR_G" \
+            '{status:$st} + (if $rs=="" then {} else {reason:$rs} end) + {n:$n, n_global:$ng, repo:(if $repo=="" then null else $repo end)}' \
             > "$SS.tmp" 2>/dev/null && mv -f "$SS.tmp" "$SS" 2>/dev/null
         fi
       else
