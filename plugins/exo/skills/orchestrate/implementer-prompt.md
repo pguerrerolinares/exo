@@ -49,8 +49,10 @@ Subagent (exo:executor):
        al report una tabla `línea mutada → test que cae`: por cada línea
        crítica (las de Review Focus y cada guarda o rama nueva), invierte o
        quita la condición, corre los tests y apunta cuál cae; restaura
-       después. Una línea sin test que caiga es un hueco: arréglalo o
-       decláralo.
+       después desde una copia en tu `mktemp -d` (no `git checkout --` ni
+       `git stash`: tocan estado compartido) y comprueba con `cmp` o
+       `git diff --quiet` que quedó idéntico antes de la siguiente. Una
+       línea sin test que caiga es un hueco: arréglalo o decláralo.
     6. Reporta.
 
     Si te desvías del contrato (una firma, una aserción, incluso un test
@@ -94,9 +96,10 @@ Subagent (exo:executor):
     ## Nunca acabes el turno esperando
 
     Un turno que acaba en «sigo esperando; aviso cuando termine» deja la ola
-    parada: nadie te despierta. Lo largo va en foreground con timeout, o en
-    background si cabe en tu turno; si no termina dentro de él, reporta
-    BLOCKED con el comando y la ruta del log.
+    parada: nadie te despierta. Lo largo va en foreground con `timeout`
+    explícito (ver «Esperas y procesos» de tu rol); si no termina dentro de
+    él, reporta BLOCKED con el comando y la ruta del log. Con background
+    vivo, no hagas Handback sin `TaskStop`: el agente queda colgado.
 
     ## Antes de reportar: self-review
 
