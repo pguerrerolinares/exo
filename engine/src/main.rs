@@ -75,7 +75,8 @@ enum Comando {
     /// lectura; un skip sale con 0. La nota se busca por el basename del repo
     /// git, sin distinguir mayúsculas: `slug` > último segmento de una entrada
     /// de `repos:` (`owner/nombre`) > nombre de fichero hasta ` — `. Dos notas
-    /// al mismo rango son `ambigua`.
+    /// al mismo rango son `ambigua`. `--check` es el gate del máximo de reglas;
+    /// `--coverage`, el informe de cobertura de todas las notas.
     Rules(ArgsRules),
     /// Comprueba el presupuesto de bytes por tier. Imprime el informe entero y
     /// sale con 3 si alguna nota lo rebasa o no declara un tier válido.
@@ -341,8 +342,14 @@ struct ArgsRules {
     json: bool,
     /// Solo comprueba que ninguna nota supera el máximo de reglas duras
     /// (exit 3 si alguna lo supera). Ignora `--cwd` y no invoca git.
-    #[arg(long)]
+    #[arg(long, conflicts_with = "coverage")]
     check: bool,
+    /// Informe de cobertura: por nota de proyecto (y la global), cuántas
+    /// reglas duras declara y su estado (`ok`, `al_cap`, `excede`,
+    /// `sin_seccion`, `seccion_vacia`). Solo informa: sale 0 aunque haya
+    /// excesos (el gate es `--check`). Ignora `--cwd` y no invoca git.
+    #[arg(long)]
+    coverage: bool,
 }
 
 #[derive(clap::Args)]
@@ -1213,6 +1220,26 @@ fn targets_cmd(args: ArgsTargets) -> Result<()> {
 
 fn rules_cmd(args: ArgsRules) -> Result<()> {
     let kb = resuelve_kb(args.kb)?;
+    if args.coverage {
+        let notas = exo::reglas::cobertura(&kb)?;
+        if args.json {
+            envelope::emite(
+                "rules-coverage",
+                serde_json::json!({ "cap": exo::reglas::CAP, "notas": notas }),
+            );
+        } else {
+            for c in &notas {
+                println!(
+                    "{}\t{}/{}\t{}",
+                    c.estado.como_str(),
+                    c.reglas,
+                    exo::reglas::CAP,
+                    c.nota
+                );
+            }
+        }
+        return Ok(());
+    }
     if args.check {
         let excesos = exo::reglas::check(&kb)?;
         if args.json {

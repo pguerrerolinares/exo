@@ -154,5 +154,15 @@ rmdir "$KB_C" 2>/dev/null
 if [ "$RC_C" -eq 0 ]; then pass "contrato rules --check: KB limpia sale 0"
 else fail "contrato rules --check: KB limpia sale 0" "rc=$RC_C"; fi
 
+# `rules --coverage` (#207): informativo, sale 0 y emite `rules-coverage` con
+# `data.notas` array. Un engine sin la flag sale 2 (clap).
+KB_V="$(mktemp -d)"
+SALIDA_V="$(con_timeout "${EXO_CONTRATO_TIMEOUT:-15}" "$EXO_BIN" rules --coverage --json --kb "$KB_V" 2>/dev/null)"
+RC_V=$?
+rmdir "$KB_V" 2>/dev/null
+if [ "$RC_V" -eq 0 ] && printf '%s' "$SALIDA_V" | jq -e '.command == "rules-coverage" and (.data.notas|type) == "array" and (.data.cap|type) == "number"' >/dev/null 2>&1; then
+  pass "contrato rules --coverage: envelope rules-coverage con notas y cap"
+else fail "contrato rules --coverage: envelope" "rc=$RC_V $SALIDA_V"; fi
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -106,6 +106,10 @@ Corre `$EXO_BIN budget --json` y `$EXO_BIN ratchet --kb $KB_ROOT --json`. exit 3
 
 Corre `$EXO_BIN lint --json` y `$EXO_BIN stale --json`. Señales de inyección rota: `chequeos.md`.
 
+### 1c. Cobertura de reglas duras
+
+Corre `../../scripts/cobertura-reglas.sh` (relativo al directorio de este skill), con `EXO_BIN` y `EXO_KB=$KB_ROOT`. Es informativo: lista las notas al `CAP` y los repos donde hubo sesiones sin reglas. Qué hacer con cada fila: `chequeos.md`.
+
 ### 2. Split canon/bitácora por cada core/stable obeso
 
 La nota canónica es el **estado vivo**; todo lo fechado/histórico se mueve a

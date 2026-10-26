@@ -303,10 +303,43 @@ pub struct Exceso {
     pub reglas: usize,
 }
 
+/// Estado de la sección `## Reglas duras` de una nota frente al `CAP`.
+/// `AlCap`: lo siguiente que entre desplaza a otra regla.
+#[derive(Debug, Serialize, PartialEq, Eq, Clone, Copy)]
+#[serde(rename_all = "snake_case")]
+pub enum Estado {
+    Ok,
+    AlCap,
+    Excede,
+    SinSeccion,
+    SeccionVacia,
+}
+
+impl Estado {
+    pub fn como_str(self) -> &'static str {
+        match self {
+            Estado::Ok => "ok",
+            Estado::AlCap => "al_cap",
+            Estado::Excede => "excede",
+            Estado::SinSeccion => "sin_seccion",
+            Estado::SeccionVacia => "seccion_vacia",
+        }
+    }
+}
+
+/// Cobertura de una nota: cuántas reglas duras declara y su estado.
+#[derive(Debug, Serialize, PartialEq, Eq)]
+pub struct Cobertura {
+    pub nota: String,
+    pub reglas: usize,
+    pub estado: Estado,
+}
+
 /// Notas de `projects/*.md`, `projects/*/*.md` y `core/reglas-duras.md` con
-/// más de `CAP` reglas, ordenadas por ruta. Sin sección o vacía no es exceso;
-/// una KB sin `projects/` ni global tampoco. No toca git.
-pub fn check(kb: &Path) -> Result<Vec<Exceso>> {
+/// su número de reglas duras y su estado, ordenadas por ruta. Informativo:
+/// incluye las notas sin sección. Una KB sin `projects/` ni global da vacío.
+/// No toca git.
+pub fn cobertura(kb: &Path) -> Result<Vec<Cobertura>> {
     let mut notas = if kb.join("projects").is_dir() {
         notas_de_proyecto(kb)?
     } else {
@@ -316,20 +349,38 @@ pub fn check(kb: &Path) -> Result<Vec<Exceso>> {
     if global.is_file() {
         notas.push((une_con_barra(&["core", "reglas-duras.md"]), global));
     }
-    let mut excesos = Vec::new();
+    let mut filas = Vec::new();
     for (nota, ruta) in notas {
         let bytes = std::fs::read(&ruta).with_context(|| format!("leer {}", ruta.display()))?;
-        if let Some((reglas, _)) = lee_seccion(&String::from_utf8_lossy(&bytes))
-            && reglas.len() > CAP
-        {
-            excesos.push(Exceso {
-                nota,
-                reglas: reglas.len(),
-            });
-        }
+        let reglas = lee_seccion(&String::from_utf8_lossy(&bytes)).map(|(r, _)| r.len());
+        let estado = match reglas {
+            None => Estado::SinSeccion,
+            Some(0) => Estado::SeccionVacia,
+            Some(n) if n > CAP => Estado::Excede,
+            Some(CAP) => Estado::AlCap,
+            Some(_) => Estado::Ok,
+        };
+        filas.push(Cobertura {
+            nota,
+            reglas: reglas.unwrap_or(0),
+            estado,
+        });
     }
-    excesos.sort_by(|a, b| a.nota.cmp(&b.nota));
-    Ok(excesos)
+    filas.sort_by(|a, b| a.nota.cmp(&b.nota));
+    Ok(filas)
+}
+
+/// Notas de `cobertura` con más de `CAP` reglas. Sin sección o vacía no es
+/// exceso; una KB sin `projects/` ni global tampoco. No toca git.
+pub fn check(kb: &Path) -> Result<Vec<Exceso>> {
+    Ok(cobertura(kb)?
+        .into_iter()
+        .filter(|c| c.estado == Estado::Excede)
+        .map(|c| Exceso {
+            nota: c.nota,
+            reglas: c.reglas,
+        })
+        .collect())
 }
 
 #[cfg(test)]

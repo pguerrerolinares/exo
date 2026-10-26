@@ -657,3 +657,77 @@ fn check_json_un_envelope_con_ruta_con_barra() {
         serde_json::json!([{"nota": "projects/x/y.md", "reglas": 12}])
     );
 }
+
+fn coverage(m: &Mundo, json: bool) -> std::process::Output {
+    let mut c = Command::new(bin());
+    c.args(["rules", "--coverage", "--kb"]).arg(m.kb());
+    if json {
+        c.arg("--json");
+    }
+    c.env("GIT_CONFIG_GLOBAL", &m.cfg)
+        .env("GIT_CONFIG_SYSTEM", &m.cfg)
+        .output()
+        .unwrap()
+}
+
+fn mundo_cobertura() -> Mundo {
+    let m = Mundo::nuevo();
+    m.nota("projects/ok.md", &con_reglas("r", 3));
+    m.nota("projects/x/llena.md", &con_reglas("r", 10));
+    m.nota("projects/sobra.md", &con_reglas("r", 11));
+    m.nota("projects/sin.md", "# sin sección\n");
+    m.nota("projects/vacia.md", "## Reglas duras\n");
+    m.nota("core/reglas-duras.md", &con_reglas("g", 5));
+    // `.git` roto: --coverage no invoca git.
+    std::fs::write(m.dir.path().join("kb/.git"), "gitdir: /no/existe\n").unwrap();
+    m
+}
+
+#[test]
+fn coverage_json_estados_por_nota_y_sale_0_aunque_exceda() {
+    let m = mundo_cobertura();
+    let o = coverage(&m, true);
+    assert_eq!(
+        o.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&o.stderr)
+    );
+    let linea = String::from_utf8(o.stdout).unwrap();
+    assert_eq!(linea.trim().lines().count(), 1);
+    let v: Value = serde_json::from_str(linea.trim()).unwrap();
+    assert_eq!(v["command"], "rules-coverage");
+    assert_eq!(
+        data(&v),
+        &serde_json::json!({"cap": 10, "notas": [
+            {"nota": "core/reglas-duras.md", "reglas": 5, "estado": "ok"},
+            {"nota": "projects/ok.md", "reglas": 3, "estado": "ok"},
+            {"nota": "projects/sin.md", "reglas": 0, "estado": "sin_seccion"},
+            {"nota": "projects/sobra.md", "reglas": 11, "estado": "excede"},
+            {"nota": "projects/vacia.md", "reglas": 0, "estado": "seccion_vacia"},
+            {"nota": "projects/x/llena.md", "reglas": 10, "estado": "al_cap"},
+        ]})
+    );
+}
+
+#[test]
+fn coverage_texto_una_linea_por_nota() {
+    let m = mundo_cobertura();
+    let o = coverage(&m, false);
+    assert_eq!(o.status.code(), Some(0));
+    let t = String::from_utf8_lossy(&o.stdout);
+    assert_eq!(t.lines().count(), 6, "{t}");
+    assert!(t.contains("al_cap\t10/10\tprojects/x/llena.md\n"), "{t}");
+    assert!(t.contains("sin_seccion\t0/10\tprojects/sin.md\n"), "{t}");
+}
+
+#[test]
+fn coverage_y_check_son_excluyentes() {
+    let m = Mundo::nuevo();
+    let o = Command::new(bin())
+        .args(["rules", "--coverage", "--check", "--kb"])
+        .arg(m.kb())
+        .output()
+        .unwrap();
+    assert_eq!(o.status.code(), Some(2));
+}

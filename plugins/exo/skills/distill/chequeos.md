@@ -94,3 +94,25 @@ solo mientras kbx y exo convivían contra el mismo schema,
       exo rules --check --kb <kb>
 
   Sale 3 y lista `excesos` (nota y nº de reglas) si alguna sección pasa de 10.
+
+## Cobertura de reglas duras (#207)
+
+`cobertura-reglas.sh` cruza dos caras. Lo declarado sale de
+`exo rules --coverage --kb <kb>` (envelope `rules-coverage`, `data.notas`:
+nota, nº de reglas y estado `ok`/`al_cap`/`excede`/`sin_seccion`/
+`seccion_vacia`; sale 0 siempre, el gate es `--check`). Lo no declarado sale
+de los `project-rules-skip` del reflex-log: repos donde arrancó una sesión y
+`exo rules` no entregó. Hoy esos skips no se le muestran a nadie en la sesión.
+
+- **`al_cap`**: la nota tiene 10 reglas y lo siguiente que entre desplaza a
+  otra. No es un fallo. Si en el periodo se decidió algo que debería ser regla
+  dura, la elección de cuál sale es del dueño: proponla, no la hagas.
+- **`sin_nota` / `sin_seccion` con arranques recientes**: hay sesiones en ese
+  repo que vuelven al default. Propón una nota, o una nota hermana
+  `<repo> — reglas.md` con `slug: <repo>` y solo `## Reglas duras` cuando el
+  repo comparte nota con otros. Si el dueño ya decidió dejarlo fuera, no lo
+  repropongas.
+- **El último skip anterior a la nota o sección que lo tapó** es un hueco ya
+  cerrado; no cuenta.
+- Las notas `sin_seccion` que no casan con ningún repo (decisiones, runbooks)
+  solo se cuentan en el resumen: no son huecos.
