@@ -30,7 +30,7 @@ class TestViolaciones(unittest.TestCase):
         self.assertEqual(d.violaciones("git -C x status"), [])
 
     def test_cd_git_negativos(self):
-        for c in ("git -C x status", "cd x && make", "echo cd && gitk"):
+        for c in ("git -C x status", "cd x && make", "echo cd && gitk", "echo cd && git status"):
             self.assertEqual(d.violaciones(c), [], c)
         self.assertEqual(d.violaciones("cd x && git status"), ["cd-git"])
 
@@ -55,7 +55,7 @@ class TestCuenta(unittest.TestCase):
     def test_comandos_bash_ignora_no_bash(self):
         p = _jsonl([
             _linea_asistente({"type": "text", "text": "cd x && git status"}, _bash("ls")),
-            _linea_asistente({"type": "tool_use", "name": "Read", "input": {"file_path": "x"}}),
+            _linea_asistente({"type": "tool_use", "name": "Read", "input": {"command": "rm y"}}),
             json.dumps({"type": "user", "message": {"content": [_bash("git stash")]}}),
         ])
         self.assertEqual(d.comandos_bash(p), ["ls"])
