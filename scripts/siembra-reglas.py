@@ -64,11 +64,15 @@ def tier(kb, nota):
         return "stable"
 
 
+def es_candidata(r):
+    return not r["generica"] and r["ambito"] in AMBITOS and r["proyecto"] != "transversal"
+
+
 def propuesta(pool_dir, criba, kb):
     reglas = [json.loads(l) for f in sorted(glob.glob(os.path.join(pool_dir, "reglas-g*.jsonl"))) for l in open(f) if l.strip()]
     por_repo, sin_repo, desconocidos = {}, {}, set()
     for r in reglas:
-        if r["generica"] or r["ambito"] not in AMBITOS or r["proyecto"] == "transversal":
+        if not es_candidata(r):
             continue
         if r["proyecto"] not in REPO:
             desconocidos.add(r["proyecto"]); continue
