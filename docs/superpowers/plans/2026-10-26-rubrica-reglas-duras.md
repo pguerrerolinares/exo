@@ -26,7 +26,7 @@
 
 - `python3 -m unittest discover -s evals/rubrica-reglas -p "test_*.py"` → verde = `OK`
 - `bash scripts/check-skill-refs.sh && bash scripts/check-prosa-cli.sh` → verde = exit 0
-- `for t in plugins/exo/scripts/test-*.sh; do bash "$t" </dev/null >/dev/null 2>&1 || echo "FALLA $t"; done` → verde = ninguna línea `FALLA`
+- `f=0; for t in plugins/exo/scripts/test-*.sh; do bash "$t" </dev/null >/dev/null 2>&1 || { echo "FALLA $t"; f=1; }; done; exit $f` → verde = ninguna línea `FALLA`
 
 ## Mutación
 
