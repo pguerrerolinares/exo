@@ -13,6 +13,11 @@ d = os.environ["FAKE_DIR"]
 prompt = sys.argv[-1]
 with open(os.path.join(d, "calls.jsonl"), "a") as f:
     f.write(json.dumps({"argv": sys.argv[1:], "cwd": os.getcwd(), "prompt": prompt}) + "\\n")
+if os.environ.get("FAKE_RC"):
+    print(json.dumps({"type": "result", "result": "{}", "total_cost_usd": 0.01}))
+    print("boom", file=sys.stderr); sys.exit(int(os.environ["FAKE_RC"]))
+if os.environ.get("FAKE_RAW"):
+    print(os.environ["FAKE_RAW"]); sys.exit(0)
 n = sum(1 for _ in open(os.path.join(d, "calls.jsonl")))
 if n <= int(os.environ.get("FAKE_BASURA", "0")):
     result = "esto no es json"
@@ -164,6 +169,24 @@ class TestEtiquetar(Base):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(self.publico(), [{"id": "g0-1", "sin_etiqueta": True}])
 
+    def test_fallo_de_proceso_para_con_4(self):
+        self.escribe_pool([regla("g0-1"), regla("g0-2")])
+        for env in ({"FAKE_RC": "1"}, {"FAKE_RAW": "no es json"}, {"FAKE_RAW": '{"is_error": true}'}):
+            shutil.rmtree(self.fakedir); os.makedirs(self.fakedir)
+            r = self.etiqueta(["g0-1", "g0-2"], **env)
+            self.assertEqual(r.returncode, 4, (env, r.stderr))
+            self.assertEqual(len(self.llamadas()), 1, env)
+            self.assertFalse(os.path.exists(self.salida), env)
+            self.assertTrue(os.path.exists(self.salida + ".parcial"), env)
+
+    def test_salida_previa_se_borra(self):
+        self.escribe_pool([regla("g0-1")])
+        with open(self.salida, "w") as f:
+            f.write("viejo\n")
+        r = self.etiqueta(["g0-1"], FAKE_RC="1")
+        self.assertEqual(r.returncode, 4)
+        self.assertFalse(os.path.exists(self.salida))
+
     def test_tope_para_sin_completar(self):
         self.escribe_pool([regla("g0-1"), regla("g0-2"), regla("g0-3")])
         r = self.etiqueta(["g0-1", "g0-2", "g0-3"], ["--tope-usd", "5"], FAKE_COSTE="3.0")
@@ -199,14 +222,14 @@ class TestEtiquetar(Base):
 
 class TestSellar(Base):
     def test_sellar_universo(self):
-        self.escribe_pool([regla("g0-10"), regla("g0-9"), regla("g1-1"),
+        self.escribe_pool([regla("g0-10"), regla("g0-9"), regla("g1-1"), regla("g10-1"), regla("g2-1"),
                            regla("g0-11"),                                  # sin criba
                            regla("g0-12", proyecto="transversal"),          # transversal
                            regla("g0-13", proyecto="CV"),                   # REPO=None
                            regla("g0-14", generica=True),                   # no candidata
                            regla("g0-15", ambito="otro")])                  # ámbito fuera
         criba = os.path.join(self.tmp, "criba")
-        for i in ("g0-10", "g0-9", "g1-1", "g0-12", "g0-13", "g0-14", "g0-15"):
+        for i in ("g0-10", "g0-9", "g1-1", "g10-1", "g2-1", "g0-12", "g0-13", "g0-14", "g0-15"):
             os.makedirs(os.path.join(criba, i, "a0-r1"))
             with open(os.path.join(criba, i, "a0-r1", "check.rc"), "w") as f:
                 f.write("0")
@@ -217,7 +240,7 @@ class TestSellar(Base):
         self.assertEqual(r.returncode, 0, r.stderr)
         with open(os.path.join(out, "universo.txt")) as f:
             texto = f.read()
-        self.assertEqual(texto, "g0-9\ng0-10\ng1-1\n")
+        self.assertEqual(texto, "g0-9\ng0-10\ng1-1\ng2-1\ng10-1\n")
         with open(os.path.join(out, "sello.json")) as f:
             sello = json.load(f)
         self.assertEqual(sello["n"], len(texto.splitlines()))

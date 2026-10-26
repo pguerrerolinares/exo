@@ -4,7 +4,7 @@ import argparse, glob, hashlib, json, os, sys
 
 H = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, H)
-import etiquetar
+import etiquetar, rubrica
 sr = etiquetar.sr
 
 
@@ -25,7 +25,7 @@ def universo(pool, criba):
                 ids.append(r["id"])
     if desconocidos:
         sys.exit(f"sellar: proyectos sin entrada en REPO: {sorted(desconocidos)}")
-    return sorted(ids, key=sr.orden_id)
+    return sorted(ids, key=rubrica._orden_id)
 
 
 def main():

@@ -2,7 +2,8 @@
 """Etiquetador sellado de la rúbrica (spec 2026-10-26, §5.2): una llamada `claude -p` aislada por regla.
 
 Salida pública (--salida): solo id, choque, coste y cita_recortada. Justificación y ruta van a --cache (repo público).
-Códigos de salida: 0 termina, 1 entrada inválida, 2 el sello no casa, 3 tope de coste alcanzado."""
+Códigos de salida: 0 termina, 1 entrada inválida, 2 el sello no casa, 3 tope de coste alcanzado,
+4 fallo de proceso de claude (rc != 0, timeout o salida que no es el envelope JSON)."""
 import argparse, glob, hashlib, importlib.util, json, os, re, subprocess, sys, tempfile
 
 H = os.path.dirname(os.path.abspath(__file__))
@@ -36,13 +37,18 @@ def construye_entrada(regla, nota_recortada, prompt):
     return re.sub(r"\{REGLA\}|\{NOTA\}", lambda m: valores[m[0]], prompt)
 
 
+class FalloProceso(Exception):
+    pass
+
+
 def parsea_salida(stdout):
+    """(etiqueta | None, coste). Etiqueta inválida -> None; envelope inválido -> FalloProceso."""
     try:
         env = json.loads(stdout)
         coste = float(env.get("total_cost_usd") or 0)
-        res = env.get("result")
-    except (ValueError, TypeError, AttributeError):
-        return None, 0.0
+        res = env["result"]
+    except (ValueError, TypeError, AttributeError, KeyError):
+        raise FalloProceso("la salida de claude no es el envelope JSON con result")
     try:
         return rubrica.valida_etiqueta(json.loads(res.strip())), coste
     except (ValueError, AttributeError):
@@ -58,7 +64,9 @@ def llama(entrada, por_llamada):
         try:
             p = subprocess.run(argv, cwd=cwd, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=600)
         except subprocess.TimeoutExpired:
-            return None, 0.0
+            raise FalloProceso("claude agotó el timeout")
+    if p.returncode != 0:
+        raise FalloProceso(f"claude salió con rc {p.returncode}")
     return parsea_salida(p.stdout)
 
 
@@ -102,6 +110,8 @@ def main():
     prompt = sr.leer(PROMPT)
     os.makedirs(a.cache, exist_ok=True)
     parcial, total = a.salida + ".parcial", 0.0
+    if os.path.exists(a.salida):
+        os.remove(a.salida)
     with open(parcial, "w") as pub, open(os.path.join(a.cache, "etiquetas.jsonl"), "a") as priv:
         for i in ids:
             r = pool[i]
@@ -109,7 +119,11 @@ def main():
             entrada = construye_entrada(r, nota, prompt)
             et = None
             for _ in range(2):
-                et, coste = llama(entrada, a.por_llamada_usd)
+                try:
+                    et, coste = llama(entrada, a.por_llamada_usd)
+                except FalloProceso as e:
+                    print(f"etiquetar: {e}; queda {parcial}", file=sys.stderr)
+                    return 4
                 total += coste
                 if et is not None and et["id"] != i:
                     et = None
