@@ -274,8 +274,7 @@ dato]. El plan lo comprueba con una llamada de humo antes de sellar.
 
 ## 9. Rastro del consultor
 
-Nota completa (dos rondas):
-`/tmp/claude-1000/-home-paul-Documentos-proyectos-exo/bd693538-8b15-45a8-a47d-3ae0a53daf3d/scratchpad/consultor-rubrica.md`
+Nota completa (dos rondas) en el scratchpad de la sesión, `consultor-rubrica.md`
 (efímera; lo que importa está en §2–§5).
 
 - Ronda 1: tumbó el criterio «genérica/convención» con los datos y propuso D.
