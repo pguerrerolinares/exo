@@ -163,8 +163,8 @@ Decisiones del mantenedor (2026-09-30), distintas de las Divergencias: no son "n
 | #2388 | orchestrate | no aplica | — | sin equivalente: executing-plans/scripts/task-done (D8) | — |
 | #2361 | orchestrate | no aplica | — | solo cambia un ejemplo de BASE_SHA que exo no tiene | — |
 | #2380 | debug | no aplica | — | solo cambia un ejemplo de diagnóstico que exo no tiene | — |
-| #2560 | brainstorm | parcial | propuesto | — | bcd2d1a |
-| #2571 | brainstorm | parcial | propuesto | — | f2a5563 |
-| #2571 | brainstorm | ya cubierto | pendiente | respondida | — |
-| #2565 | orchestrate | ya cubierto | pendiente | respondida | — |
+| #2560 | brainstorm | parcial | portado | — | bcd2d1a |
+| #2571 | brainstorm | parcial | portado | — | f2a5563 |
+| #2571 | brainstorm | ya cubierto | — | respondida por el mantenedor: ya cubierto | — |
+| #2565 | orchestrate | ya cubierto | — | respondida por el mantenedor: ya cubierto | — |
 | #2563 | orchestrate | no aplica | — | sin equivalente: executing-plans/SKILL.md (D8): solo elimina el Example Workflow del modo inline | — |
