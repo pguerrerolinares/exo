@@ -184,7 +184,8 @@ veredicto no citan texto de reglas: solo ids o descripciones genéricas.
     remuestreos de reglas, semilla fija) e IC95 por percentiles;
   - kappa y precisión de cada uno;
   - matriz de confusión;
-  - kappa por tipo de choque;
+  - proporción de `no_cumple` por tipo de choque (kappa por grupo no sirve:
+    dentro de un grupo la predicción es de una sola clase);
   - recortes de cita hechos y no encontrados.
 - Coste esperado: < 1 USD. Salida: `evals/rubrica-reglas/verdict.md` +
   `resultado.json`.
