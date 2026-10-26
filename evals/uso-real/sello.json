@@ -2,11 +2,11 @@
   "sesiones_sha256": "5acdcf1fc339ff7bac1ffc5b2d13f4e1ff516c4cf13b289098b5830cffcc9c8f",
   "n_sesiones": 99,
   "desde": "2026-10-06",
-  "hasta": "2026-10-26T22:02:57Z",
+  "hasta": "2026-10-26T22:35:13Z",
   "kb_commit": "36c94c4b03b69e78fdd02ca7d017c34ffb154c5a",
   "prompt_detector_sha256": "d4db3ec6f43bc2acb32304532cfa1de141e44db916b6042b9c6c86aa6095020a",
   "prompt_atribuidor_sha256": "44ccf51ec90ab3e9bb225dcd1fa028fa5300a1e46933fc5bad762bf2f524935d",
-  "claude_version": "2.1.310 (Claude Code)",
+  "claude_version": "2.1.311 (Claude Code)",
   "modelos": {
     "detector": "claude-haiku-5-5",
     "atribuidor": "claude-sonnet-5-5"
