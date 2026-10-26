@@ -24,7 +24,7 @@ python3 $R/validar.py --etapa 1 --etiquetas $C/etiquetar-etapa1.jsonl --deteccio
 
 # 6. Resultado
 python3 $R/resultado.py --detecciones $R/detecciones.jsonl --validacion $R/validacion.json \
-  --proyectos $P --sello $R/sello.json --salida $R/resultado.json
+  --proyectos $P --sello $R/sello.json --cache $C --salida $R/resultado.json
 ```
 
 Si `resultado.json` trae `puerta.estado == "etapa2"`:
@@ -41,7 +41,7 @@ python3 $R/validar.py --etapa 2 --etiquetas $C/etiquetar-etapa2.jsonl --atribuci
 # 9. Resultado final
 python3 $R/resultado.py --detecciones $R/detecciones.jsonl --atribuciones $R/atribuciones.jsonl \
   --validacion $R/validacion.json --validacion2 $R/validacion2.json \
-  --proyectos $P --sello $R/sello.json --salida $R/resultado.json
+  --proyectos $P --sello $R/sello.json --cache $C --salida $R/resultado.json
 ```
 
 `sellar.py` cierra la población con `--hasta` (por defecto, el instante de sellar en UTC): las sesiones que empiezan
@@ -71,11 +71,13 @@ más del 10 % de los positivos, `final.estado` es `incompleto`; se declaran en `
 
 ## Antes de commitear un resultado
 
-`resultado.json` usa como clave de `deterministas.por_repo` el basename del `cwd` de la sesión (`desconocido` si falta), no
-el directorio de `~/.claude/projects`, que lleva el usuario. Comprueba que no se cuela ninguna ruta personal; no debe haber salida (los corchetes evitan que el grep case con su propia línea):
+`deterministas.por_repo` de `resultado.json` se indexa por `sha256(cwd)[:8]`: ni el directorio de `~/.claude/projects` ni el
+basename del `cwd` salen al repo (pueden ser el usuario o un repo privado). Para leer el desglose, `resultado.py` escribe
+`$C/repos.json` (`{hash: basename}`, privado, en la cache): consúltalo aquí, nunca lo copies al repo. Comprueba que no se
+cuela ninguna ruta personal; no debe haber salida (los corchetes evitan que el grep case con su propia línea):
 
 ```
-grep -n "/hom[e]/\|-hom[e]-\|wisdo[m]" evals/uso-real/*.json evals/uso-real/*.md
+grep -rn --include="*.json" --include="*.jsonl" --include="*.md" "/hom[e]/\|-hom[e]-\|wisdo[m]" evals/uso-real
 ```
 
 `resultado.py` sale con 1 si una fila de `--atribuciones` no es un positivo de la etapa 1 o está duplicada por (sesion, id).

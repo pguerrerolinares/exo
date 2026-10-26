@@ -2,10 +2,11 @@
 """Resultado público de la medición (spec 2026-10-26 §4.3-§4.6): solo conteos, ids y veredictos.
 
 La población se rehace con el `desde` del sello y se compara con `sesiones_sha256`; si no casa, sello_ok=false y exit 2.
+`por_repo` se indexa por sha256(cwd)[:8]; el mapa hash -> basename va a <cache>/repos.json (privado).
 `final` solo se calcula si la puerta abre la etapa 2 y hay --atribuciones. --validacion2 se copia tal cual.
 Atribuciones duplicadas o de mensajes que no son positivos de la etapa 1: exit 1.
 Códigos de salida: 0 ok, 1 entrada inválida, 2 el sello no casa."""
-import argparse, glob, json, os, sys
+import argparse, collections, glob, hashlib, json, os, sys
 
 FRACCION_SIN_VEREDICTO = 0.10
 H = os.path.dirname(os.path.abspath(__file__))
@@ -26,7 +27,7 @@ def _json(path):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    for x in ("detecciones", "proyectos", "sello", "salida"):
+    for x in ("detecciones", "proyectos", "sello", "salida", "cache"):
         ap.add_argument("--" + x, required=True)
     for x in ("atribuciones", "validacion", "validacion2"):
         ap.add_argument("--" + x)
@@ -55,7 +56,7 @@ def main():
     positivos = {(d.get("sesion"), d.get("id")) for d in dets if d.get("correccion") == "si"}
     atribs = _jsonl(a.atribuciones) if a.atribuciones else []
     claves = [(x.get("sesion"), x.get("id")) for x in atribs]
-    repetidas = sorted({str(c[1]) for c in claves if claves.count(c) > 1})
+    repetidas = sorted(str(c[1]) for c, n in collections.Counter(claves).items() if n > 1)
     if repetidas:
         print(f"resultado: atribuciones duplicadas por (sesion, id), p. ej. {repetidas[0]}", file=sys.stderr)
         return 1
@@ -84,11 +85,14 @@ def main():
             final["estado"] = "incompleto"
 
     hasta = sello.get("hasta")
-    por_repo = {}
+    por_repo, nombres = {}, {}
     for s in sesiones:
         base = os.path.join(a.proyectos, s["repo_dir"])
-        # repo_dir lleva el nombre de usuario (-home-<usuario>-...): la clave pública es solo el basename del cwd.
-        r = por_repo.setdefault(os.path.basename(s["cwd"] or "") or "desconocido", ([], []))
+        # repo_dir y basename(cwd) pueden ser el usuario o un repo privado: la clave pública es un hash y el mapa va a --cache.
+        cwd = s["cwd"] or ""
+        h = hashlib.sha256(cwd.encode()).hexdigest()[:8]
+        nombres[h] = os.path.basename(cwd) or "desconocido"
+        r = por_repo.setdefault(h, ([], []))
         r[0].append(os.path.join(base, s["id"] + ".jsonl"))
         r[1].extend(sorted(glob.glob(os.path.join(base, s["id"], "subagents", "*.jsonl"))))
 
@@ -113,6 +117,10 @@ def main():
     }
     if a.validacion2:
         out["validacion2"] = _json(a.validacion2)
+    os.makedirs(a.cache, exist_ok=True)
+    with open(os.path.join(a.cache, "repos.json"), "w") as f:
+        json.dump(nombres, f, indent=2, sort_keys=True)
+        f.write("\n")
     with open(a.salida, "w") as f:
         json.dump(out, f, indent=2)
         f.write("\n")

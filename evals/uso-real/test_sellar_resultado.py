@@ -1,5 +1,5 @@
 """Tests de sellar.py y resultado.py con transcripts sintéticos y un `claude` falso que solo imprime una versión."""
-import json, os, shutil, stat, subprocess, sys, tempfile, unittest
+import json, os, re, shutil, stat, subprocess, sys, tempfile, unittest
 
 H = os.path.dirname(os.path.abspath(__file__))
 
@@ -40,6 +40,7 @@ class Base(unittest.TestCase):
         self.env = {**os.environ, "CLAUDE_BIN": self.claude}
         self.sello = os.path.join(self.tmp, "sello.json")
         self.res = os.path.join(self.tmp, "resultado.json")
+        self.cache = os.path.join(self.tmp, "cache")
 
     def escribe(self, sid, lineas, sub=None, repo="repo"):
         d = os.path.join(self.proy, repo)
@@ -71,7 +72,7 @@ class Base(unittest.TestCase):
 
     def resultado(self, dets, atribs=None, validacion=None, validacion2=None):
         args = ["--detecciones", self.jsonl("det.jsonl", dets), "--proyectos", self.proy,
-                "--sello", self.sello, "--salida", self.res]
+                "--sello", self.sello, "--salida", self.res, "--cache", self.cache]
         if atribs is not None:
             args += ["--atribuciones", self.jsonl("atr.jsonl", atribs)]
         for flag, v, n in (("--validacion", validacion, "val1.json"), ("--validacion2", validacion2, "val2.json")):
@@ -224,6 +225,14 @@ class TestResultado(Base):
         self.assertEqual(o["puerta"]["estado"], "estabilizar")
         self.assertIsNone(o["final"])
 
+    def test_final_solo_si_la_puerta_abre_etapa2(self):
+        # Un positivo con su atribución, pero juez inválido: la puerta no abre la etapa 2 y no hay final.
+        self.resultado(self.dets(1), atribs=[{"sesion": "s0", "id": "s0-m0", "atribucion": "nueva", "nota_ausente": False,
+                                              "commit_kb": "c"}], validacion={"juez_valido": False})
+        o = self.lee(self.res)
+        self.assertEqual(o["puerta"]["estado"], "juez_invalido")
+        self.assertIsNone(o["final"])
+
     def test_resultado_sello_cambiado(self):
         r = self.resultado(self.dets(1))
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -355,29 +364,39 @@ class TestResultado(Base):
         self.resultado(self.dets(0))
         d = self.lee(self.res)["deterministas"]
         self.assertEqual(d["principales"]["llamadas_bash"], 3)
-        pr = d["por_repo"]
-        self.assertEqual(set(pr), {"x", "repo", "otro"})
+        import hashlib
+        h = lambda c: hashlib.sha256(c.encode()).hexdigest()[:8]
+        pr = {n: d["por_repo"][h("/w/" + n)] for n in ("repo", "otro")}
+        self.assertEqual(len(d["por_repo"]), 3)
         self.assertEqual(pr["repo"]["principales"]["por_regla"], {"cd-git": 1})
         self.assertEqual(pr["repo"]["subagentes"]["por_regla"], {"git-stash": 1})
         self.assertEqual((pr["otro"]["principales"]["llamadas_bash"], pr["otro"]["principales"]["por_regla"]), (2, {}))
         self.assertEqual(pr["otro"]["subagentes"]["llamadas_bash"], 0)
 
-    def test_por_repo_no_publica_rutas_personales(self):
-        self.escribe("s0", sesion("s0", extra=["ls"], cwd="/home/alguien/x/miproyecto"), repo="-home-alguien-x-miproyecto")
+    def test_por_repo_solo_lleva_hashes_y_la_cache_los_resuelve(self):
+        import hashlib
+        self.escribe("h0", sesion("h0", cwd="/home/alguien"), repo="-home-alguien")
+        self.escribe("k0", sesion("k0", cwd="/home/alguien/x/kb-privada"), repo="-home-alguien-x-kb-privada")
         self.sella("--forzar")
         self.resultado(self.dets(0))
+        h = lambda c: hashlib.sha256(c.encode()).hexdigest()[:8]
+        pr = self.lee(self.res)["deterministas"]["por_repo"]
+        self.assertTrue(all(re.fullmatch(r"[0-9a-f]{8}", k) for k in pr), list(pr))
+        self.assertIn(h("/home/alguien"), pr)
         with open(self.res) as f:
             txt = f.read()
-        self.assertEqual(set(self.lee(self.res)["deterministas"]["por_repo"]), {"x", "miproyecto"})
-        self.assertNotIn("home", txt)
-        self.assertNotIn("alguien", txt)
+        for t in ("home", "alguien", "kb-privada"):
+            self.assertNotIn(t, txt)
+        repos = self.lee(os.path.join(self.cache, "repos.json"))
+        self.assertEqual((repos[h("/home/alguien")], repos[h("/home/alguien/x/kb-privada")], repos[h("/w/x")]),
+                         ("alguien", "kb-privada", "x"))
 
     def test_por_repo_sin_cwd_es_desconocido(self):
         self.escribe("s0", [{k: v for k, v in l.items() if k != "cwd"} for l in sesion("s0")], repo="-home-alguien-x")
         self.sella("--forzar")
         self.resultado(self.dets(0))
-        pr = self.lee(self.res)["deterministas"]["por_repo"]
-        self.assertIn("desconocido", pr)
+        repos = self.lee(os.path.join(self.cache, "repos.json"))
+        self.assertIn("desconocido", repos.values())
         with open(self.res) as f:
             self.assertNotIn("alguien", f.read())
 
