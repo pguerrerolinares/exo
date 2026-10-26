@@ -46,12 +46,14 @@ def parsea_salida(stdout):
     try:
         env = json.loads(stdout)
         coste = float(env.get("total_cost_usd") or 0)
-        res = env["result"]
+        res, error = env["result"], env.get("is_error")
     except (ValueError, TypeError, AttributeError, KeyError):
         raise FalloProceso("la salida de claude no es el envelope JSON con result")
+    if error or not isinstance(res, str):
+        raise FalloProceso("el envelope de claude trae is_error o un result que no es texto")
     try:
         return rubrica.valida_etiqueta(json.loads(res.strip())), coste
-    except (ValueError, AttributeError):
+    except ValueError:
         return None, coste
 
 

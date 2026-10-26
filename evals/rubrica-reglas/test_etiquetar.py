@@ -1,4 +1,5 @@
 """Tests de etiquetar.py y sellar.py con un `claude` falso y datos sintéticos inventados."""
+from unittest import mock
 import hashlib, json, os, re, shutil, stat, subprocess, sys, tempfile, unittest
 
 H = os.path.dirname(os.path.abspath(__file__))
@@ -171,13 +172,20 @@ class TestEtiquetar(Base):
 
     def test_fallo_de_proceso_para_con_4(self):
         self.escribe_pool([regla("g0-1"), regla("g0-2")])
-        for env in ({"FAKE_RC": "1"}, {"FAKE_RAW": "no es json"}, {"FAKE_RAW": '{"is_error": true}'}):
+        for env in ({"FAKE_RC": "1"}, {"FAKE_RAW": "no es json"}, {"FAKE_RAW": '{"is_error": true}'},
+                    {"FAKE_RAW": '{"type":"result","is_error":true,"result":"Error: x","total_cost_usd":0.01}'},
+                    {"FAKE_RAW": '{"type":"result","result":null,"total_cost_usd":0.01}'}):
             shutil.rmtree(self.fakedir); os.makedirs(self.fakedir)
             r = self.etiqueta(["g0-1", "g0-2"], **env)
             self.assertEqual(r.returncode, 4, (env, r.stderr))
             self.assertEqual(len(self.llamadas()), 1, env)
             self.assertFalse(os.path.exists(self.salida), env)
             self.assertTrue(os.path.exists(self.salida + ".parcial"), env)
+
+    def test_timeout_es_fallo_de_proceso(self):
+        with mock.patch.object(etiquetar.subprocess, "run", side_effect=subprocess.TimeoutExpired("claude", 600)):
+            with self.assertRaises(etiquetar.FalloProceso):
+                etiquetar.llama("prompt", "0.10")
 
     def test_salida_previa_se_borra(self):
         self.escribe_pool([regla("g0-1")])
