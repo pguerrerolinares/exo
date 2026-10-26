@@ -1,5 +1,6 @@
 """Tests de muestra.py y validar.py con datos sintéticos."""
 import json, os, subprocess, sys, tempfile, unittest
+from unittest import mock
 
 H = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, H)
@@ -64,7 +65,7 @@ class TestMuestra(unittest.TestCase):
         self.assertTrue(it["previo"].endswith("cola"))
 
     def test_estratos_etapa2(self):
-        at = [{"id": f"a{i:03d}", "atribucion": k, "previo": "p", "texto": "t", "nota": "n", "linea": "L", "contexto_kb": {"nota": "NOTA", "core": {}}}
+        at = [{"id": f"a{i:03d}", "atribucion": k, "previo": "p", "texto": "t", "nota": "n", "linea": "L", "contexto_kb": {"nota": "NOTA", "core": {}}, "reglas_canal": "R", "anteriores": "A"}
               for i, k in enumerate(["nueva"] * 60 + ["canon-kb"] * 30 + ["regla-canal"])]
         res = muestra.etapa2(at)
         ids = [x["id"] for x in res]
@@ -78,7 +79,7 @@ class TestMuestra(unittest.TestCase):
         self.assertLessEqual(abs(por["nueva"] - 20), 1)
         self.assertLessEqual(abs(por["canon-kb"] - 10), 1)
         for it in res:
-            self.assertEqual(set(it), {"id", "previo", "texto", "etiqueta", "contexto_kb", "atribucion_dueño"})
+            self.assertEqual(set(it), {"id", "previo", "texto", "etiqueta", "reglas_canal", "anteriores", "contexto_kb", "atribucion_dueño"})
 
 
 class TestValidar(unittest.TestCase):
@@ -138,10 +139,13 @@ class TestValidar(unittest.TestCase):
         self.assertFalse(out["juez_valido"])
 
 
-def escribe_sesion(proyectos, sid, filas):
+def escribe_sesion(proyectos, sid, filas, reglas=None):
     """filas: [(uuid, texto)]; cada mensaje va precedido de un turno del asistente `previo-<n>`."""
     os.makedirs(f"{proyectos}/p", exist_ok=True)
     with open(f"{proyectos}/p/{sid}.jsonl", "w") as f:
+        if reglas:
+            f.write(json.dumps({"type": "attachment", "timestamp": "2026-10-10T09:59:00Z", "cwd": "/w/x", "entrypoint": "cli",
+                                "attachment": {"type": "prompt_snapshot", "systemPrompt": [reglas]}}) + "\n")
         for n, (u, t) in enumerate(filas):
             base = {"timestamp": f"2026-10-10T10:00:{n:02d}Z", "cwd": "/w/x", "entrypoint": "cli"}
             f.write(json.dumps({**base, "type": "assistant", "uuid": f"a{n}", "message": {
@@ -179,6 +183,73 @@ class TestCLIMuestra(unittest.TestCase):
             self.assertNotIn("SECRETA", bruto)
             self.assertNotIn("canon-kb", bruto)
             self.assertEqual(items[0]["contexto_kb"], {"nota": None, "core": {}})
+
+    def test_etapa2_reglas_canal_y_mensajes_anteriores(self):
+        with tempfile.TemporaryDirectory() as d:
+            escribe_sesion(f"{d}/pr", "s1", [("u0", "PRIMERO"), ("u1", "SEGUNDO"), ("u2", "tres")],
+                           reglas="## Reglas duras del proyecto\n- X")
+            escribe_sesion(f"{d}/pr", "s2", [("v0", "solo")])
+            escribe_sesion(f"{d}/pr", "s3", [("w0", "B" * 9000 + "FIN"), ("w1", "z")])
+            jsonl(f"{d}/atrib.jsonl", [
+                {"sesion": "s1", "id": "u2", "atribucion": "nueva", "nota_ausente": True, "commit_kb": None},
+                {"sesion": "s2", "id": "v0", "atribucion": "nueva", "nota_ausente": True, "commit_kb": None},
+                {"sesion": "s3", "id": "w1", "atribucion": "nueva", "nota_ausente": True, "commit_kb": None}])
+            os.makedirs(f"{d}/c")
+            jsonl(f"{d}/c/atribuidor.jsonl", [{"id": "u2", "texto": "tres", "nota": "N", "linea": "L"},
+                                              {"id": "w1", "texto": "z"},
+                                              {"id": "v0", "texto": "solo", "nota": "N", "linea": "L"}])
+            r = corre("muestra.py", "--etapa", "2", "--cache", f"{d}/c", "--proyectos", f"{d}/pr", "--atribuciones", f"{d}/atrib.jsonl")
+            self.assertEqual(r.returncode, 0, r.stderr)
+            items = {i["id"]: i for i in map(json.loads, open(f"{d}/c/etiquetar-etapa2.jsonl"))}
+            self.assertIn("- X", items["u2"]["reglas_canal"])
+            self.assertEqual(items["u2"]["anteriores"], "PRIMERO\nSEGUNDO")
+            self.assertEqual((items["v0"]["reglas_canal"], items["v0"]["anteriores"]), ("ninguna", "ninguno"))
+            self.assertEqual(len(items["w1"]["anteriores"]), muestra.MAX_ANTERIORES)
+            self.assertTrue(items["w1"]["anteriores"].endswith("FIN"))
+            for k in ("atribucion", "nota", "linea"):
+                self.assertNotIn(k, items["u2"])
+
+    def test_etapa2_contexto_kb_sale_del_commit_pedido(self):
+        def git(d, fecha, *args):
+            env = {**os.environ, "GIT_COMMITTER_DATE": fecha, "GIT_AUTHOR_DATE": fecha}
+            return subprocess.run(["git", "-C", d, "-c", "user.name=t", "-c", "user.email=t@t", *args],
+                                  check=True, capture_output=True, text=True, env=env).stdout.strip()
+
+        with tempfile.TemporaryDirectory() as d:
+            kbd = f"{d}/kb"
+            os.makedirs(f"{kbd}/core")
+            git(kbd, "2026-10-01T00:00:00+0000", "init", "-q")
+            for ver, fecha in (("VIEJA", "2026-10-05T00:00:00+0000"), ("NUEVA", "2026-10-20T00:00:00+0000")):
+                for ruta in ("proy.md", "core/reglas-duras.md"):
+                    with open(f"{kbd}/{ruta}", "w") as f:
+                        f.write(f"{ruta} {ver}")
+                git(kbd, fecha, "add", "proy.md", "core/reglas-duras.md")
+                git(kbd, fecha, "commit", "-q", "-m", ver)
+                if ver == "VIEJA":
+                    viejo = git(kbd, fecha, "rev-parse", "HEAD")
+            exo = f"{d}/exo"
+            with open(exo, "w") as f:
+                f.write('#!/bin/sh\necho \'{"data": {"note": "proy.md"}}\'\n')
+            os.chmod(exo, 0o755)
+            escribe_sesion(f"{d}/pr", "s1", [("u0", "uno")])
+            jsonl(f"{d}/atrib.jsonl", [{"sesion": "s1", "id": "u0", "atribucion": "canon-kb", "nota_ausente": False, "commit_kb": viejo}])
+            os.makedirs(f"{d}/c")
+            jsonl(f"{d}/c/atribuidor.jsonl", [{"id": "u0", "texto": "uno"}])
+            with mock.patch.dict(os.environ, {"EXO_BIN": exo}):
+                r = corre("muestra.py", "--etapa", "2", "--cache", f"{d}/c", "--proyectos", f"{d}/pr",
+                          "--atribuciones", f"{d}/atrib.jsonl", "--kb", kbd)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            ctx = json.loads(open(f"{d}/c/etiquetar-etapa2.jsonl").readline())["contexto_kb"]
+            self.assertEqual(ctx["nota"], "proy.md VIEJA")
+            self.assertEqual(ctx["core"], {"core/reglas-duras.md": "core/reglas-duras.md VIEJA"})
+
+    def test_constantes_como_atribuir(self):
+        try:
+            import atribuir
+        except ImportError:
+            self.skipTest("atribuir.py aún no está en esta rama")
+        self.assertEqual(muestra.MAX_ANTERIORES, atribuir.MAX_ANTERIORES)
+        self.assertEqual((detectar.MAX_TEXTO, detectar.MAX_PREVIO), (atribuir.MAX_TEXTO, atribuir.MAX_PREVIO))
 
     def test_etapa2_sin_cache_para_un_positivo_exit_1(self):
         with tempfile.TemporaryDirectory() as d:

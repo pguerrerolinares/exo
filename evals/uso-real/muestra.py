@@ -10,6 +10,7 @@ sys.path.insert(0, H)
 import detectar, juez, kb, transcripts
 
 SEMILLA = 20261026
+MAX_ANTERIORES = 8000  # igual que atribuir.MAX_ANTERIORES (test_constantes_como_atribuir lo vigila cuando atribuir.py está en la rama)
 REGEX = re.compile(r"no uses|otra vez|siempre|nunca|esta mal|dejate de")
 
 
@@ -59,8 +60,9 @@ def etapa2(atribuidos, semilla=SEMILLA, n=30):
     cuotas = _cuotas({k: len(v) for k, v in por.items()}, n)
     sel = [a for k in sorted(por) for a in rng.sample(por[k], cuotas[k])]
     rng.shuffle(sel)
-    # `contexto_kb` es lo que vio el juez; `atribucion`, `nota` y `linea` son su veredicto y no salen.
-    return [{**_item(a), "contexto_kb": a.get("contexto_kb"), "atribucion_dueño": None} for a in sel]
+    # reglas_canal, anteriores y contexto_kb son lo que vio el juez (atribuir.construye_entrada); `atribucion`, `nota` y `linea` son su veredicto y no salen.
+    return [{**_item(a), "reglas_canal": a.get("reglas_canal"),
+             "anteriores": a.get("anteriores"), "contexto_kb": a.get("contexto_kb"), "atribucion_dueño": None} for a in sel]
 
 
 def _lee_jsonl(path):
@@ -91,7 +93,11 @@ def atribuidos(salida_atribuir, cache, proyectos, desde, kbdir):
             raise ValueError(f"{p['sesion']}/{p['id']} no está en el transcript o en la cache de atribuir")
         if p["commit_kb"] is not None and not kbdir:
             raise ValueError("falta --kb (o $EXO_KB): hace falta para reconstruir el contexto de KB")
+        msgs = sorted(s["mensajes"], key=lambda m: m["ts"] or "")
+        k = next(i for i, x in enumerate(msgs) if x["id"] == p["id"])
         out.append({"id": p["id"], "atribucion": p["atribucion"], "texto": reg["texto"], "previo": m["previo"],
+                    "reglas_canal": s["reglas_canal"] or "ninguna",
+                    "anteriores": "\n".join(x["texto"] for x in msgs[:k])[-MAX_ANTERIORES:] or "ninguno",
                     "contexto_kb": _contexto_kb(s, p["commit_kb"], kbdir)})
     return out
 
