@@ -68,3 +68,15 @@ y el modelo (y `lote` en detectar) de cada uno; `resultado.py` además rehace la
 `resultado.py` sale con 1 si una detección no está en la población, y marca `puerta.estado == "incompleto"` si faltan
 detecciones de mensajes de la población (corrida a medias o fichero obsoleto). En la etapa 2, si los `sin_veredicto` son
 más del 10 % de los positivos, `final.estado` es `incompleto`; se declaran en `n_sin_veredicto_etapa2`.
+
+## Antes de commitear un resultado
+
+`resultado.json` usa como clave de `deterministas.por_repo` el basename del `cwd` de la sesión (`desconocido` si falta), no
+el directorio de `~/.claude/projects`, que lleva el usuario. Comprueba que no se cuela ninguna ruta personal; no debe haber salida (los corchetes evitan que el grep case con su propia línea):
+
+```
+grep -n "/hom[e]/\|-hom[e]-\|wisdo[m]" evals/uso-real/*.json evals/uso-real/*.md
+```
+
+`resultado.py` sale con 1 si una fila de `--atribuciones` no es un positivo de la etapa 1 o está duplicada por (sesion, id).
+Los positivos sin fila se declaran en `n_atribuciones_faltantes` y, junto a los `sin_veredicto`, cuentan para el 10 % de `incompleto`.

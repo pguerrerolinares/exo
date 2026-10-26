@@ -3,6 +3,7 @@
 
 La población se rehace con el `desde` del sello y se compara con `sesiones_sha256`; si no casa, sello_ok=false y exit 2.
 `final` solo se calcula si la puerta abre la etapa 2 y hay --atribuciones. --validacion2 se copia tal cual.
+Atribuciones duplicadas o de mensajes que no son positivos de la etapa 1: exit 1.
 Códigos de salida: 0 ok, 1 entrada inválida, 2 el sello no casa."""
 import argparse, glob, json, os, sys
 
@@ -51,6 +52,19 @@ def main():
               file=sys.stderr)
         return 1
     faltan = len(poblacion - vistas)
+    positivos = {(d.get("sesion"), d.get("id")) for d in dets if d.get("correccion") == "si"}
+    atribs = _jsonl(a.atribuciones) if a.atribuciones else []
+    claves = [(x.get("sesion"), x.get("id")) for x in atribs]
+    repetidas = sorted({str(c[1]) for c in claves if claves.count(c) > 1})
+    if repetidas:
+        print(f"resultado: atribuciones duplicadas por (sesion, id), p. ej. {repetidas[0]}", file=sys.stderr)
+        return 1
+    no_positivas = sorted(str(c[1]) for c in set(claves) - positivos)
+    if no_positivas:
+        print(f"resultado: {len(no_positivas)} atribuciones de mensajes que no son positivos de la etapa 1, p. ej. {no_positivas[0]}",
+              file=sys.stderr)
+        return 1
+    n_atrib_faltantes = len(positivos - set(claves)) if a.atribuciones else None
     validacion = _json(a.validacion) if a.validacion else None
     p = puerta.decide(sum(d.get("correccion") == "si" for d in dets), sello["n_sesiones"])
     # Un juez sin validar no estabiliza ni abre la etapa 2: solo juez_valido True deja pasar la puerta.
@@ -61,20 +75,20 @@ def main():
     if faltan:
         p["estado"] = "incompleto"
 
-    atribs = _jsonl(a.atribuciones) if a.atribuciones else []
     final = None
     n_sin_etapa2 = sum(bool(x.get("sin_veredicto")) for x in atribs)
     if atribs and p["estado"] == "etapa2":
         final = puerta.final([x["atribucion"] for x in atribs if "atribucion" in x], sello["n_sesiones"])
-        # Un positivo sin atribución no es «decidido»: si son muchos, la tasa final sesgaría hacia estabilizar.
-        if n_sin_etapa2 > FRACCION_SIN_VEREDICTO * p["k"]:
+        # Un positivo sin atribución (sin veredicto o sin fila) no es «decidido»: si son muchos, la tasa final sesgaría hacia estabilizar.
+        if n_sin_etapa2 + n_atrib_faltantes > FRACCION_SIN_VEREDICTO * p["k"]:
             final["estado"] = "incompleto"
 
     hasta = sello.get("hasta")
     por_repo = {}
     for s in sesiones:
         base = os.path.join(a.proyectos, s["repo_dir"])
-        r = por_repo.setdefault(s["repo_dir"], ([], []))
+        # repo_dir lleva el nombre de usuario (-home-<usuario>-...): la clave pública es solo el basename del cwd.
+        r = por_repo.setdefault(os.path.basename(s["cwd"] or "") or "desconocido", ([], []))
         r[0].append(os.path.join(base, s["id"] + ".jsonl"))
         r[1].extend(sorted(glob.glob(os.path.join(base, s["id"], "subagents", "*.jsonl"))))
 
@@ -90,6 +104,7 @@ def main():
         "n_sin_veredicto": sum(bool(d.get("sin_veredicto")) for d in dets),
         "n_sin_veredicto_etapa2": n_sin_etapa2,
         "n_detecciones_faltantes": faltan,
+        "n_atribuciones_faltantes": n_atrib_faltantes,
         "n_nota_ausente": sum(bool(x.get("nota_ausente")) for x in atribs),
         "validacion": validacion,
         "desde": sello.get("desde", "2026-10-06"),

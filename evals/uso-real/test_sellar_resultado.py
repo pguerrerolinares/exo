@@ -13,8 +13,8 @@ print(json.dumps({"type": "result", "total_cost_usd": 0.01,
 '''
 
 
-def sesion(sid, n_msgs=1, ts="2026-10-10T10:00:00Z", extra=()):
-    base = {"timestamp": ts, "cwd": "/w/x", "entrypoint": "cli"}
+def sesion(sid, n_msgs=1, ts="2026-10-10T10:00:00Z", extra=(), cwd="/w/x"):
+    base = {"timestamp": ts, "cwd": cwd, "entrypoint": "cli"}
     out = []
     for n in range(n_msgs):
         out.append({**base, "type": "user", "uuid": f"{sid}-m{n}", "message": {"role": "user", "content": f"msg {n}"}})
@@ -218,8 +218,8 @@ class TestResultado(Base):
         self.assertEqual(o["final"]["por_atribucion"], {"nueva": 5})
         self.assertEqual(o["n_nota_ausente"], 1)
         self.assertEqual(o["validacion2"], {"n": 30, "acuerdo": 0.7})
-        # Negativo: puerta "estabilizar" con atribuciones no calcula final.
-        self.resultado(self.dets(0), atribs=atribs, validacion={"juez_valido": True})
+        # Negativo: puerta "estabilizar" no calcula final (con k=0 no puede haber atribuciones válidas).
+        self.resultado(self.dets(0), atribs=[], validacion={"juez_valido": True})
         o = self.lee(self.res)
         self.assertEqual(o["puerta"]["estado"], "estabilizar")
         self.assertIsNone(o["final"])
@@ -299,6 +299,46 @@ class TestResultado(Base):
         self.resultado(self.dets(5), atribs=atribs(5, 0), validacion=v)
         self.assertEqual(self.lee(self.res)["n_sin_veredicto_etapa2"], 0)
 
+    def poblacion40(self):
+        for n in range(10, 40):
+            self.escribe(f"s{n}", sesion(f"s{n}"))
+        self.sella("--forzar")
+        return [det(f"s{n}", f"s{n}-m0", si=True) for n in range(40)]
+
+    @staticmethod
+    def atr(n):
+        return {"sesion": f"s{n}", "id": f"s{n}-m0", "atribucion": "nueva", "nota_ausente": False, "commit_kb": "c"}
+
+    def test_positivos_sin_atribucion_son_incompleto(self):
+        dets = self.poblacion40()
+        v = {"juez_valido": True}
+        # 30 de 40: faltan 10 (25 % > 10 %).
+        self.resultado(dets, atribs=[self.atr(n) for n in range(30)], validacion=v)
+        o = self.lee(self.res)
+        self.assertEqual((o["n_atribuciones_faltantes"], o["final"]["estado"]), (10, "incompleto"))
+        # 39 de 40: falta 1 (2,5 %): no incompleto, pero declarado.
+        self.resultado(dets, atribs=[self.atr(n) for n in range(39)], validacion=v)
+        o = self.lee(self.res)
+        self.assertEqual(o["n_atribuciones_faltantes"], 1)
+        self.assertNotEqual(o["final"]["estado"], "incompleto")
+        # Los sin_veredicto y los faltantes suman: 2 + 3 de 40 > 10 %.
+        sv = [{"sesion": f"s{n}", "id": f"s{n}-m0", "sin_veredicto": True} for n in range(2)]
+        self.resultado(dets, atribs=sv + [self.atr(n) for n in range(2, 37)], validacion=v)
+        self.assertEqual(self.lee(self.res)["final"]["estado"], "incompleto")
+
+    def test_atribucion_que_no_es_positivo_exit_1(self):
+        dets = self.poblacion40()
+        dets[5] = det("s5", "s5-m0", si=False)
+        r = self.resultado(dets, atribs=[self.atr(n) for n in range(40)], validacion={"juez_valido": True})
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("s5-m0", r.stderr)
+
+    def test_atribucion_duplicada_exit_1(self):
+        dets = self.poblacion40()
+        r = self.resultado(dets, atribs=[self.atr(n) for n in range(40)] + [self.atr(3)], validacion={"juez_valido": True})
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("s3-m0", r.stderr)
+
     def test_sello_filtro_cambiado(self):
         s = self.lee(self.sello)
         s["filtro_sha256"] = "0" * 64
@@ -309,18 +349,37 @@ class TestResultado(Base):
         self.assertFalse(self.lee(self.res)["sello_ok"])
 
     def test_deterministas_por_repo(self):
-        self.escribe("s0", sesion("s0", extra=["cd x && git status"]), sub={"ag": sesion("ag", extra=["git stash"])})
-        self.escribe("r1", sesion("r1", extra=["ls", "ls"]), repo="otro")
+        self.escribe("s0", sesion("s0", extra=["cd x && git status"], cwd="/w/repo"), sub={"ag": sesion("ag", extra=["git stash"])})
+        self.escribe("r1", sesion("r1", extra=["ls", "ls"], cwd="/w/otro"), repo="otro")
         self.sella("--forzar")
         self.resultado(self.dets(0))
         d = self.lee(self.res)["deterministas"]
         self.assertEqual(d["principales"]["llamadas_bash"], 3)
         pr = d["por_repo"]
-        self.assertEqual(set(pr), {"repo", "otro"})
+        self.assertEqual(set(pr), {"x", "repo", "otro"})
         self.assertEqual(pr["repo"]["principales"]["por_regla"], {"cd-git": 1})
         self.assertEqual(pr["repo"]["subagentes"]["por_regla"], {"git-stash": 1})
         self.assertEqual((pr["otro"]["principales"]["llamadas_bash"], pr["otro"]["principales"]["por_regla"]), (2, {}))
         self.assertEqual(pr["otro"]["subagentes"]["llamadas_bash"], 0)
+
+    def test_por_repo_no_publica_rutas_personales(self):
+        self.escribe("s0", sesion("s0", extra=["ls"], cwd="/home/alguien/x/miproyecto"), repo="-home-alguien-x-miproyecto")
+        self.sella("--forzar")
+        self.resultado(self.dets(0))
+        with open(self.res) as f:
+            txt = f.read()
+        self.assertEqual(set(self.lee(self.res)["deterministas"]["por_repo"]), {"x", "miproyecto"})
+        self.assertNotIn("home", txt)
+        self.assertNotIn("alguien", txt)
+
+    def test_por_repo_sin_cwd_es_desconocido(self):
+        self.escribe("s0", [{k: v for k, v in l.items() if k != "cwd"} for l in sesion("s0")], repo="-home-alguien-x")
+        self.sella("--forzar")
+        self.resultado(self.dets(0))
+        pr = self.lee(self.res)["deterministas"]["por_repo"]
+        self.assertIn("desconocido", pr)
+        with open(self.res) as f:
+            self.assertNotIn("alguien", f.read())
 
     def test_deterministas_respetan_hasta(self):
         tarde = {"timestamp": "2026-10-21T10:00:00Z", "type": "assistant", "uuid": "t",
