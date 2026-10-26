@@ -54,3 +54,11 @@ N  | P(cae): nula · moderada · fuerte · pierde3 · pierde5 | P(sin réplica |
 - **Si `Ap` pasa**, se reporta además la cota inferior del intervalo del Δ (percentil 2,5), para que «no cae» no se lea como «no hay dilución».
 
 **Sesgo declarado.** Entre las 8 sondas que se caen hay dos de las duras del brazo O (`g1-136` y `g1-15`, las dos 2/3). Las 16 cubiertas son algo más fáciles que la base de 24, y la Beta se ajustó sobre las 24. Con una base más alta, el gate absoluto es algo más conservador, mientras que el pareado no depende del nivel. Ninguna de las 16 cubiertas tiene 0/3 en O; `g0-110` y `g0-66` tienen 1/3.
+
+## E2 — 27 corridas no arrancaron por un fallo de E/S de WSL (2026-10-25 23:22–23:23; se registra después de la tanda, antes de adjudicar)
+
+**Qué pasó.** 27 de las 280 corridas (19 de 200 en `ap` y 8 de 80 en `ap1`) terminaron sin `result`, en un intervalo de dos minutos. Las 27 tienen el transcript vacío y el mismo `err.log`: `/mnt/c/Program Files/ClaudeCode/managed-settings.json: Settings file could not be read: EIO: i/o error`. `claude` no llegó a arrancar y no gastó tokens. Es un fallo de E/S del montaje `/mnt/c` de WSL, no del modelo ni del harness. Quedó por debajo del breaker de «>10 % sin result» (27/280 = 9,6 %).
+
+**Cómo se adjudica.** No cambia nada: se aplica la política sellada (cero re-intentos; un crash cuenta como no cumple). El fallo cayó en los dos brazos en la misma proporción (~10 %). Como sensibilidad, que no adjudica, `verdict.md` reporta también el resultado sin esas corridas.
+
+**Para la próxima tanda.** Un fallo de arranque sin tokens no informa sobre la regla. En la próxima campaña conviene pre-registrar que una corrida con transcript vacío y error de arranque se relanza, o fijar las managed settings fuera de `/mnt/c`.

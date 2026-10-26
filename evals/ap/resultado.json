@@ -1,0 +1,377 @@
+{
+ "N": 16,
+ "K": 5,
+ "N_MIN": 16,
+ "ap_pasan": 15,
+ "ap1_pasan": 15,
+ "ap_exito_corrida": 0.8250000000000001,
+ "ap1_exito_corrida": 0.825,
+ "exito": {
+  "g0-101": {
+   "ap": 1.0,
+   "ap1": 0.6
+  },
+  "g0-110": {
+   "ap": 1.0,
+   "ap1": 0.8
+  },
+  "g0-147": {
+   "ap": 0.8,
+   "ap1": 0.8
+  },
+  "g0-149": {
+   "ap": 0.8,
+   "ap1": 0.8
+  },
+  "g0-66": {
+   "ap": 0.8,
+   "ap1": 1.0
+  },
+  "g0-67": {
+   "ap": 0.8,
+   "ap1": 0.6
+  },
+  "g0-96": {
+   "ap": 0.8,
+   "ap1": 1.0
+  },
+  "g1-110": {
+   "ap": 1.0,
+   "ap1": 1.0
+  },
+  "g1-140": {
+   "ap": 0.2,
+   "ap1": 0.0
+  },
+  "g1-147": {
+   "ap": 0.8,
+   "ap1": 0.6
+  },
+  "g1-157": {
+   "ap": 0.8,
+   "ap1": 1.0
+  },
+  "g1-82": {
+   "ap": 0.8,
+   "ap1": 1.0
+  },
+  "g2-141": {
+   "ap": 1.0,
+   "ap1": 1.0
+  },
+  "g2-154": {
+   "ap": 0.8,
+   "ap1": 1.0
+  },
+  "g2-160": {
+   "ap": 1.0,
+   "ap1": 1.0
+  },
+  "g2-186": {
+   "ap": 0.8,
+   "ap1": 1.0
+  }
+ },
+ "delta": {
+  "media": 2.42861286636753e-17,
+  "p2_5": -0.08749999999999997,
+  "p97_5": 0.1
+ },
+ "primario_cae": false,
+ "r": 13,
+ "k": 13,
+ "s": 15,
+ "replica": true,
+ "secundario_aplica": true,
+ "secundario_cae": false,
+ "banda_ap1": null,
+ "adjudica": true,
+ "veredicto": "Ap PASA",
+ "sensibilidad_por_proyecto": {
+  "proyectos": 13,
+  "media": 2.42861286636753e-17,
+  "p2_5": -0.07999999999999997,
+  "p97_5": 0.09333333333333335,
+  "nota": "no adjudica"
+ },
+ "cobertura": {
+  "g0-101": {
+   "id": "g0-101",
+   "proyecto": "ai-news-platform",
+   "ambito": "proyecto",
+   "cubierta": "si",
+   "status": "ok",
+   "reason": "",
+   "n_global": "5",
+   "n_proyecto": "7",
+   "bytes": "1787",
+   "pos": "4",
+   "sim_max": "0.369",
+   "en_global": ""
+  },
+  "g0-110": {
+   "id": "g0-110",
+   "proyecto": "kbi-broker",
+   "ambito": "proyecto",
+   "cubierta": "si",
+   "status": "ok",
+   "reason": "",
+   "n_global": "5",
+   "n_proyecto": "4",
+   "bytes": "1447",
+   "pos": "2",
+   "sim_max": "0.362",
+   "en_global": ""
+  },
+  "g0-147": {
+   "id": "g0-147",
+   "proyecto": "pguerrero-music",
+   "ambito": "proyecto",
+   "cubierta": "si",
+   "status": "ok",
+   "reason": "",
+   "n_global": "5",
+   "n_proyecto": "10",
+   "bytes": "1981",
+   "pos": "1",
+   "sim_max": "0.339",
+   "en_global": ""
+  },
+  "g0-149": {
+   "id": "g0-149",
+   "proyecto": "pguerrero-music",
+   "ambito": "proyecto",
+   "cubierta": "si",
+   "status": "ok",
+   "reason": "",
+   "n_global": "5",
+   "n_proyecto": "10",
+   "bytes": "1981",
+   "pos": "2",
+   "sim_max": "0.299",
+   "en_global": ""
+  },
+  "g0-66": {
+   "id": "g0-66",
+   "proyecto": "exo",
+   "ambito": "proyecto",
+   "cubierta": "si",
+   "status": "ok",
+   "reason": "",
+   "n_global": "5",
+   "n_proyecto": "10",
+   "bytes": "2056",
+   "pos": "1",
+   "sim_max": "0.376",
+   "en_global": ""
+  },
+  "g0-67": {
+   "id": "g0-67",
+   "proyecto": "exo",
+   "ambito": "proyecto",
+   "cubierta": "si",
+   "status": "ok",
+   "reason": "",
+   "n_global": "5",
+   "n_proyecto": "10",
+   "bytes": "2056",
+   "pos": "2",
+   "sim_max": "0.415",
+   "en_global": ""
+  },
+  "g0-96": {
+   "id": "g0-96",
+   "proyecto": "a11y-crawler",
+   "ambito": "proyecto",
+   "cubierta": "si",
+   "status": "ok",
+   "reason": "",
+   "n_global": "5",
+   "n_proyecto": "7",
+   "bytes": "1679",
+   "pos": "4",
+   "sim_max": "0.312",
+   "en_global": ""
+  },
+  "g1-110": {
+   "id": "g1-110",
+   "proyecto": "agent-develop",
+   "ambito": "proyecto",
+   "cubierta": "si",
+   "status": "ok",
+   "reason": "",
+   "n_global": "5",
+   "n_proyecto": "4",
+   "bytes": "1477",
+   "pos": "2",
+   "sim_max": "0.274",
+   "en_global": ""
+  },
+  "g1-140": {
+   "id": "g1-140",
+   "proyecto": "finnk-publica-react",
+   "ambito": "proyecto",
+   "cubierta": "si",
+   "status": "ok",
+   "reason": "",
+   "n_global": "5",
+   "n_proyecto": "8",
+   "bytes": "1861",
+   "pos": "1",
+   "sim_max": "0.308",
+   "en_global": ""
+  },
+  "g1-147": {
+   "id": "g1-147",
+   "proyecto": "jev-shadow",
+   "ambito": "proyecto",
+   "cubierta": "si",
+   "status": "ok",
+   "reason": "",
+   "n_global": "5",
+   "n_proyecto": "8",
+   "bytes": "1766",
+   "pos": "1",
+   "sim_max": "0.398",
+   "en_global": ""
+  },
+  "g1-157": {
+   "id": "g1-157",
+   "proyecto": "llm-apps",
+   "ambito": "proyecto",
+   "cubierta": "si",
+   "status": "ok",
+   "reason": "",
+   "n_global": "5",
+   "n_proyecto": "8",
+   "bytes": "1788",
+   "pos": "0",
+   "sim_max": "0.360",
+   "en_global": ""
+  },
+  "g1-82": {
+   "id": "g1-82",
+   "proyecto": "lighthouses-bot",
+   "ambito": "proyecto",
+   "cubierta": "si",
+   "status": "ok",
+   "reason": "",
+   "n_global": "5",
+   "n_proyecto": "10",
+   "bytes": "2018",
+   "pos": "2",
+   "sim_max": "0.308",
+   "en_global": ""
+  },
+  "g2-141": {
+   "id": "g2-141",
+   "proyecto": "foss-jam-kit",
+   "ambito": "proyecto",
+   "cubierta": "si",
+   "status": "ok",
+   "reason": "",
+   "n_global": "5",
+   "n_proyecto": "6",
+   "bytes": "1523",
+   "pos": "2",
+   "sim_max": "0.386",
+   "en_global": ""
+  },
+  "g2-154": {
+   "id": "g2-154",
+   "proyecto": "kbx",
+   "ambito": "proyecto",
+   "cubierta": "si",
+   "status": "ok",
+   "reason": "",
+   "n_global": "5",
+   "n_proyecto": "10",
+   "bytes": "1929",
+   "pos": "5",
+   "sim_max": "0.326",
+   "en_global": ""
+  },
+  "g2-160": {
+   "id": "g2-160",
+   "proyecto": "kbx",
+   "ambito": "proyecto",
+   "cubierta": "si",
+   "status": "ok",
+   "reason": "",
+   "n_global": "5",
+   "n_proyecto": "10",
+   "bytes": "1929",
+   "pos": "8",
+   "sim_max": "0.346",
+   "en_global": ""
+  },
+  "g2-186": {
+   "id": "g2-186",
+   "proyecto": "recon",
+   "ambito": "proyecto",
+   "cubierta": "si",
+   "status": "ok",
+   "reason": "",
+   "n_global": "5",
+   "n_proyecto": "6",
+   "bytes": "1562",
+   "pos": "0",
+   "sim_max": "0.318",
+   "en_global": ""
+  }
+ },
+ "estrato_>=8_reglas": {
+  "n": 10,
+  "ids": [
+   "g0-147",
+   "g0-149",
+   "g0-66",
+   "g0-67",
+   "g1-140",
+   "g1-147",
+   "g1-157",
+   "g1-82",
+   "g2-154",
+   "g2-160"
+  ],
+  "delta_media": -0.01999999999999997,
+  "ap_pasan": 9,
+  "ap1_pasan": 9
+ },
+ "por_tipo": {
+  "I": {
+   "n": 5,
+   "ap": 0.8,
+   "ap1": 0.8400000000000001,
+   "delta_media": -0.039999999999999945,
+   "ap_pasan": 5,
+   "ap1_pasan": 5
+  },
+  "R": {
+   "n": 11,
+   "ap": 0.8363636363636364,
+   "ap1": 0.8181818181818182,
+   "delta_media": 0.01818181818181819,
+   "ap_pasan": 10,
+   "ap1_pasan": 10
+  }
+ },
+ "transversales_ap": {
+  "g0-12": 0.0,
+  "g0-33": 0.0,
+  "g0-43": 0.0,
+  "g0-44": 0.0,
+  "g0-55": 0.0,
+  "g0-78": 0.0,
+  "g1-102": 0.0,
+  "g1-152": 1.0,
+  "g1-21": 0.0,
+  "g1-32": 0.0,
+  "g1-46": 0.0,
+  "g1-47": 0.0,
+  "g1-57": 0.0,
+  "g2-23": 0.0,
+  "g2-27": 0.0,
+  "g2-48": 0.0
+ }
+}
