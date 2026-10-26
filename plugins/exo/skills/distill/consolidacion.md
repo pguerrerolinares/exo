@@ -23,7 +23,7 @@
 > (`## For agents`, `## Reglas duras`) ni decisiones vivas, no se fuerza: se
 > parte (test del título abajo). Aparte, `/distill` poda las reglas duras que
 > ya no aplican (repo archivado, herramienta retirada, regla superada): las
-> borra con su cita, pero la sección sigue protegida de la compresión. Viva = no pasa el test de salida de
+> borra con su cita, pero la sección sigue protegida de la compresión. Al podar o reordenar `## Reglas duras` se aplica la rúbrica de `document/routing.md`. Viva = no pasa el test de salida de
 > `document/auto-distill.md` (paso 3): sale solo lo *cerrado* por su propio
 > texto o lo *superado*, con la cita; la edad nunca es motivo. Nunca se recorta prosa viva para llegar.
 >

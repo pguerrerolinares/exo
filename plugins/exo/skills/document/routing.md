@@ -22,8 +22,17 @@ placeholders entre corchetes.
 | Decisión, patrón u opinión sobre el propio dueño | `[nota de perfil del dueño]` | edita — nunca nota nueva |
 | Proyecto o tema nuevo | nota nueva en su directorio de proyectos | crea |
 | Research standalone | nota nueva en su directorio de research | crea |
-| Regla **mecánica** (verificable, sin juicio) | además, `## Reglas duras`: la de un repo, en su nota canónica; la transversal, en `core/reglas-duras.md` | una línea `- ` de ≤300 B, máximo 10 por sección; se inserta en su posición de prioridad (la primera manda) y, si la sección está llena, desplaza a la última — nunca se anexa al final de una sección llena |
+| Regla **mecánica** (verificable, sin juicio) | además, `## Reglas duras`: la de un repo, en su nota canónica; la transversal, en `core/reglas-duras.md` | una línea `- ` de ≤300 B, máximo 10 por sección; si la sección está llena, la rúbrica de abajo decide cuál sale — nunca se anexa al final de una sección llena |
 | Decisión que merece nota canónica propia | nota nueva | crea — es la excepción, no la regla |
+
+## Rúbrica de reglas duras (sección llena)
+
+Sustituye a «posición de prioridad»: decide cuál sale. Cada regla lleva coste (alto > medio > bajo) y el orden de fichero desempata.
+1. **Veto:** solo entra una regla con una violación observada en la transcripción de la sesión.
+2. **Choque con la última del fichero:** P (paso extra) > D (prohíbe el default) > E (el repo la encarna); si hay dato de criba A0, manda.
+3. Coste alto > medio > bajo; a igual coste, orden de fichero. Una P de coste bajo va por encima de una D de coste alto.
+4. La desplazada se queda en la prosa; anota en la bitácora «salió `<regla>` por `<criterio>`».
+5. Si el choque no se puede responder (regla ambigua), la nueva entra por coste y orden de fichero, y la bitácora lo dice.
 
 ## Frontmatter
 

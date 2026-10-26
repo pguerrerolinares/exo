@@ -138,6 +138,11 @@ jobs:
         if: always()
         run: python3 -m unittest discover -s evals/retrieval-heldout/harness -p "test_*.py"
 
+      # Stdlib pura y offline, como el de arriba.
+      - name: Rúbrica de reglas duras (suite Python, offline)
+        if: always()
+        run: python3 -m unittest discover -s evals/rubrica-reglas -p "test_*.py"
+
   plugin-bump:
     name: el plugin no cambia sin subir de versión
     runs-on: ubuntu-latest
