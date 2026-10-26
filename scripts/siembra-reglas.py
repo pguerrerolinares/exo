@@ -52,13 +52,18 @@ def orden_id(i):
 
 
 def a0_cumple(criba, i):
-    rcs = [open(f).read().strip() for f in glob.glob(os.path.join(criba, i, "a0-r*", "check.rc"))]
+    rcs = [leer(f).strip() for f in glob.glob(os.path.join(criba, i, "a0-r*", "check.rc"))]
     return bool(rcs) and all(r == "0" for r in rcs)
+
+
+def leer(path):
+    with open(path) as f:
+        return f.read()
 
 
 def tier(kb, nota):
     try:
-        m = re.search(r"^tier:\s*(\S+)", open(os.path.join(kb, nota)).read(), re.M)
+        m = re.search(r"^tier:\s*(\S+)", leer(os.path.join(kb, nota)), re.M)
         return m.group(1) if m else "stable"
     except OSError:
         return "stable"
@@ -69,7 +74,7 @@ def es_candidata(r):
 
 
 def propuesta(pool_dir, criba, kb):
-    reglas = [json.loads(l) for f in sorted(glob.glob(os.path.join(pool_dir, "reglas-g*.jsonl"))) for l in open(f) if l.strip()]
+    reglas = [json.loads(l) for f in sorted(glob.glob(os.path.join(pool_dir, "reglas-g*.jsonl"))) for l in leer(f).splitlines() if l.strip()]
     por_repo, sin_repo, desconocidos = {}, {}, set()
     for r in reglas:
         if not es_candidata(r):

@@ -66,6 +66,20 @@ class TestOrden(unittest.TestCase):
     def test_sin_etiqueta_al_final(self):
         ambas(self, [item("g0-1"), item("g0-2", "E", "bajo")], ["g0-2", "g0-1"])
 
+    def test_criba_entra_en_el_orden(self):
+        # P con criba cumple cuenta como E; D sin criba queda delante
+        ambas(self, [item("g0-1", "P", "bajo", criba=True), item("g0-2", "D", "bajo")], ["g0-2", "g0-1"])
+        # E con criba no_cumple cuenta como D; sale delante de una E sin criba
+        ambas(self, [item("g0-1", "E", "bajo"), item("g0-2", "E", "bajo", criba=False)], ["g0-2", "g0-1"])
+
+    def test_sin_etiqueta_con_criba(self):
+        # ids elegidos para que el desempate por id fallaría: la sin etiqueta tiene el id menor
+        sin_et = item("g0-1", criba=False)
+        items = [sin_et, item("g0-2", "D", "bajo"), item("g0-3", "E", "alto"), item("g0-4")]
+        ambas(self, items, ["g0-2", "g0-1", "g0-3", "g0-4"])
+        ambas(self, [item("g0-1", criba=False), item("g0-2", "D", "alto")], ["g0-2", "g0-1"])
+        ambas(self, [item("g0-1", criba=True), item("g0-2", "E", "bajo")], ["g0-2", "g0-1"])
+
     def test_empate_por_orden_de_id(self):
         items = [item("g0-10", "D"), item("g1-1", "D"), item("g0-9", "D")]
         self.assertEqual(ids(items), ["g0-9", "g0-10", "g1-1"])

@@ -38,6 +38,7 @@ def clave(id, etiqueta, criba, vetada):
     return (not vetada,
             CHOQUES.index(choque) if choque else len(CHOQUES),
             COSTES.index(etiqueta["coste"]) if etiqueta else len(COSTES),
+            etiqueta is None,
             _orden_id(id), id)
 
 
