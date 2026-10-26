@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""siembra-reglas.py <pool_dir> <criba_dir> <kb> [--json] — propuesta de siembra de `## Reglas duras` (#184, spec §5.2).
+"""siembra-reglas.py <pool_dir> <criba_dir> <kb> [--etiquetas <jsonl>] [--json] — propuesta de siembra de `## Reglas duras` (#184, spec §5.2).
 
 Candidatas: reglas del pool de la campaña M con generica=false y ambito ∈ {codigo, git, dominio-proyecto}, asignadas a
 un repo por la tabla REPO (el campo `proyecto` del pool no es la clave del repo en varios casos). Orden por repo:
@@ -9,9 +9,13 @@ un repo por la tabla REPO (el campo `proyecto` del pool no es la clave del repo 
   3. git/codigo antes que dominio-proyecto
   4. nota de origen tier core antes que stable
   5. orden de fichero (g0 < g1 < g2, id numérico)
-Se proponen las CAP primeras; el corte de los repos que desbordan lo revisa el dueño. Solo lee: no toca la KB.
+Con --etiquetas (JSONL de etiquetar.py --salida) el orden por repo es el de la rúbrica (evals/rubrica-reglas/rubrica.py,
+spec 2026-10-26 §4) y sustituye a 1-4. Se proponen las CAP primeras; el corte de los repos que desbordan lo revisa el dueño. Solo lee: no toca la KB.
 """
 import glob, json, os, re, sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "evals", "rubrica-reglas"))
+import rubrica
 
 CAP = 10
 AMBITOS = {"codigo", "git", "dominio-proyecto"}
@@ -51,9 +55,26 @@ def orden_id(i):
     return (g, int(n))
 
 
-def a0_cumple(criba, i):
+def criba_estado(criba, i):
+    """True = A0 cumple, False = no cumple, None = sin corrida."""
     rcs = [leer(f).strip() for f in glob.glob(os.path.join(criba, i, "a0-r*", "check.rc"))]
-    return bool(rcs) and all(r == "0" for r in rcs)
+    return all(r == "0" for r in rcs) if rcs else None
+
+
+def a0_cumple(criba, i):
+    return criba_estado(criba, i) is True
+
+
+def lee_etiquetas(path):
+    out = {}
+    for n, l in enumerate(leer(path).split("\n"), 1):
+        if not l.strip():
+            continue
+        e = rubrica.valida_etiqueta(json.loads(l))
+        if e is None:
+            sys.exit(f"siembra-reglas: etiqueta inválida en {path}:{n}")
+        out[e["id"]] = e
+    return out
 
 
 def leer(path):
@@ -73,8 +94,8 @@ def es_candidata(r):
     return not r["generica"] and r["ambito"] in AMBITOS and r["proyecto"] != "transversal"
 
 
-def propuesta(pool_dir, criba, kb):
-    reglas = [json.loads(l) for f in sorted(glob.glob(os.path.join(pool_dir, "reglas-g*.jsonl"))) for l in leer(f).splitlines() if l.strip()]
+def propuesta(pool_dir, criba, kb, etiquetas=None):
+    reglas = [json.loads(l) for f in sorted(glob.glob(os.path.join(pool_dir, "reglas-g*.jsonl"))) for l in leer(f).split("\n") if l.strip()]
     por_repo, sin_repo, desconocidos = {}, {}, set()
     for r in reglas:
         if not es_candidata(r):
@@ -91,7 +112,12 @@ def propuesta(pool_dir, criba, kb):
         sys.exit(f"siembra-reglas: proyectos sin entrada en REPO: {sorted(desconocidos)}")
     out = []
     for (repo, nota), cs in sorted(por_repo.items()):
-        cs.sort(key=lambda x: x[0])
+        if etiquetas is None:
+            cs.sort(key=lambda x: x[0])
+        else:
+            items = [{"id": r["id"], "etiqueta": etiquetas.get(r["id"]), "criba": criba_estado(criba, r["id"]),
+                      "k": k, "r": r} for k, r in cs]
+            cs = [(i["k"], i["r"]) for i in rubrica.orden(items)]
         out.append({"repo": repo, "nota": nota, "candidatas": len(cs), "desborda": len(cs) > CAP,
                     "reglas": [{"id": r["id"], "a0_cumple": k[0], "ambito": r["ambito"], "cita": r["cita"],
                                 "regla": r["regla"], "entra": n < CAP} for n, (k, r) in enumerate(cs)]})
@@ -101,7 +127,15 @@ def propuesta(pool_dir, criba, kb):
 def main():
     if len(sys.argv) < 4:
         sys.exit(__doc__)
-    out, sin_repo = propuesta(*sys.argv[1:4])
+    args = sys.argv[1:]
+    etiquetas = None
+    if "--etiquetas" in args:
+        k = args.index("--etiquetas")
+        if k + 1 >= len(args):
+            sys.exit(__doc__)
+        etiquetas = lee_etiquetas(args[k + 1])
+        del args[k:k + 2]
+    out, sin_repo = propuesta(*args[:3], etiquetas)
     if "--json" in sys.argv:
         json.dump({"repos": out, "sin_repo": sin_repo}, sys.stdout, ensure_ascii=False, indent=1); return
     for p in out:
