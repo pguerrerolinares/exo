@@ -28,7 +28,7 @@ placeholders entre corchetes.
 ## Rúbrica de reglas duras (sección llena)
 
 Se ordena la sección entera más la nueva con estas claves, en este orden, y sale la última. Sustituye a «posición de prioridad».
-1. **Veto:** una regla, nueva o ya presente, con violación observada en la transcripción de la sesión no sale y va por encima de las que no la tienen.
+1. **Veto:** una regla, nueva o ya presente, con violación observada en la transcripción de la sesión no sale y va por encima de las que no la tienen. Si todas las candidatas lo tienen, el veto deja de decidir: sale la última por choque, coste y fichero, y la bitácora dice «veto saturado: salió `<regla>` pese a violación observada» y propone al dueño convertirla en gate o partir la nota.
 2. **Choque:** P (paso extra) > D (prohíbe el default) > E (el repo la encarna). Si hay criba A0 medida, el dato sustituye al juicio: `no_cumple` cuenta como P/D (conserva la etiqueta de juicio si es P/D; si no, D) y `cumple` como E.
 3. **Coste:** alto > medio > bajo. Una P de coste bajo va por encima de una D de coste alto.
 4. **Orden de fichero** desempata. La desplazada se queda en la prosa; anota en la bitácora «salió `<regla>` por `<criterio>`».
