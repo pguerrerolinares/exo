@@ -199,6 +199,27 @@ class TestSiembra(unittest.TestCase):
                                capture_output=True, text=True, stdin=subprocess.DEVNULL)
         self.assertNotEqual(r.returncode, 0)
 
+    def test_sin_etiqueta_cuenta_como_ausente(self):
+        rs = [regla("g0-1"), regla("g0-2"), regla("g0-3")]
+        with tempfile.TemporaryDirectory() as tmp:
+            pool, criba, kb = monta(tmp, rs)
+            jl = os.path.join(tmp, "etq.jsonl")
+            escribe(jl, json.dumps({"id": "g0-3", "choque": "E", "coste": "alto"}) + "\n"
+                    + json.dumps({"id": "g0-2", "sin_etiqueta": True}) + "\n")
+            sal = corre(pool, criba, kb, "--etiquetas", jl)
+        self.assertEqual([r["id"] for r in sal["repos"][0]["reglas"]], ["g0-3", "g0-1", "g0-2"])
+
+    def test_json_roto_falla_con_ruta_y_linea(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            pool, criba, kb = monta(tmp, [regla("g0-1")])
+            jl = os.path.join(tmp, "etq.jsonl")
+            escribe(jl, json.dumps({"id": "g0-1", "sin_etiqueta": True}) + "\n{roto\n")
+            r = subprocess.run([sys.executable, "-I", SCRIPT, pool, criba, kb, "--json", "--etiquetas", jl],
+                               capture_output=True, text=True, stdin=subprocess.DEVNULL)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn(jl + ":2", r.stderr)
+        self.assertNotIn("Traceback", r.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

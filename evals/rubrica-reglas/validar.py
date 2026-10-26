@@ -1,6 +1,7 @@
 """Veredicto de la validación pre-registrada (spec 2026-10-26, §5.3). Salida sin texto de reglas."""
 import argparse
 import glob
+import hashlib
 import importlib.util
 import json
 import os
@@ -85,7 +86,16 @@ def main(argv=None):
     ap = argparse.ArgumentParser()
     for a in ("etiquetas", "universo", "pool", "criba", "salida"):
         ap.add_argument("--" + a, required=True)
+    ap.add_argument("--sello")
     a = ap.parse_args(argv)
+
+    if a.sello:
+        with open(a.sello) as f:
+            esperado = json.load(f).get("universo_sha256")
+        with open(a.universo, "rb") as f:
+            if hashlib.sha256(f.read()).hexdigest() != esperado:
+                print("validar: el universo no casa con universo_sha256 del sello", file=sys.stderr)
+                sys.exit(2)
 
     siembra = _siembra()
     with open(a.universo) as f:
@@ -97,7 +107,12 @@ def main(argv=None):
                 if l.strip():
                     r = json.loads(l)
                     ambito[r["id"]] = r["ambito"]
-    cumple = {i: siembra.a0_cumple(a.criba, i) for i in universo}
+    cumple = {}
+    for i in universo:
+        estado = siembra.criba_estado(a.criba, i)
+        if estado is None:
+            print(f"aviso: {i} sin check.rc en la criba, cuenta como no_cumple", file=sys.stderr)
+        cumple[i] = estado is True
     resultado = calcula(_lee_etiquetas(a.etiquetas), universo, ambito, cumple)
     with open(a.salida, "w") as f:
         json.dump(resultado, f, indent=2)

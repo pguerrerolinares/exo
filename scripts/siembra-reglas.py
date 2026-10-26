@@ -70,7 +70,13 @@ def lee_etiquetas(path):
     for n, l in enumerate(leer(path).split("\n"), 1):
         if not l.strip():
             continue
-        e = rubrica.valida_etiqueta(json.loads(l))
+        try:
+            obj = json.loads(l)
+        except ValueError:
+            sys.exit(f"siembra-reglas: JSON roto en {path}:{n}")
+        if isinstance(obj, dict) and obj.get("sin_etiqueta") is True:
+            continue
+        e = rubrica.valida_etiqueta(obj)
         if e is None:
             sys.exit(f"siembra-reglas: etiqueta inválida en {path}:{n}")
         out[e["id"]] = e

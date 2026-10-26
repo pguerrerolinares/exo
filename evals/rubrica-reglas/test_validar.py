@@ -1,4 +1,5 @@
 import contextlib
+import hashlib
 import io
 import json
 import os
@@ -125,7 +126,8 @@ class TestCalcula(unittest.TestCase):
                 f.write("".join(json.dumps(e) + "\n" for e in et.values()))
             with open(uni, "w") as f:
                 f.write("\n".join(ids) + "\n")
-            V.main(["--etiquetas", etq, "--universo", uni, "--pool", pool, "--criba", criba, "--salida", sal])
+            with contextlib.redirect_stdout(io.StringIO()):
+                V.main(["--etiquetas", etq, "--universo", uni, "--pool", pool, "--criba", criba, "--salida", sal])
             with open(sal) as f:
                 crudo = f.read()
             res = json.loads(crudo)
@@ -137,6 +139,55 @@ class TestCalcula(unittest.TestCase):
             self.assertEqual(res["n_analizado"], len(ids))
             esperado = V.calcula(et, ids, ambito, cumple)
             self.assertEqual(res["kappa_b"], esperado["kappa_b"])
+
+    def _entorno(self, d, sin_rc=()):
+        pool, criba = os.path.join(d, "pool"), os.path.join(d, "criba")
+        os.makedirs(pool)
+        et, ids, ambito, cumple = caso()
+        with open(os.path.join(pool, "reglas-g1.jsonl"), "w") as f:
+            for i in ids:
+                f.write(json.dumps({"id": i, "ambito": ambito[i], "regla": "r", "cita": "c"}) + "\n")
+        for i in ids:
+            if i in sin_rc:
+                continue
+            p = os.path.join(criba, i, "a0-r1")
+            os.makedirs(p)
+            with open(os.path.join(p, "check.rc"), "w") as f:
+                f.write("0\n" if cumple[i] else "1\n")
+        etq, uni, sal = (os.path.join(d, n) for n in ("e.jsonl", "u.txt", "r.json"))
+        with open(etq, "w") as f:
+            f.write("".join(json.dumps(e) + "\n" for e in et.values()))
+        with open(uni, "w") as f:
+            f.write("\n".join(ids) + "\n")
+        args = ["--etiquetas", etq, "--universo", uni, "--pool", pool, "--criba", criba, "--salida", sal]
+        return args, uni, sal, ids
+
+    def test_sello_del_universo(self):
+        with tempfile.TemporaryDirectory() as d:
+            args, uni, sal, _ = self._entorno(d)
+            with open(uni, "rb") as f:
+                sha = hashlib.sha256(f.read()).hexdigest()
+            malo, bueno = os.path.join(d, "malo.json"), os.path.join(d, "bueno.json")
+            with open(malo, "w") as f:
+                json.dump({"universo_sha256": "0" * 64}, f)
+            with open(bueno, "w") as f:
+                json.dump({"universo_sha256": sha}, f)
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit) as cm:
+                    V.main(args + ["--sello", malo])
+                self.assertEqual(cm.exception.code, 2)
+                self.assertFalse(os.path.exists(sal))
+                V.main(args + ["--sello", bueno])
+            self.assertTrue(os.path.exists(sal))
+
+    def test_id_sin_rc_se_avisa(self):
+        with tempfile.TemporaryDirectory() as d:
+            args, _, _, ids = self._entorno(d, sin_rc=("g1-0",))
+            err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+                V.main(args)
+        self.assertIn("g1-0", err.getvalue())
+        self.assertNotIn(ids[2], err.getvalue())
 
 
 if __name__ == "__main__":

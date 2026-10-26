@@ -125,6 +125,7 @@ def main():
                     et, coste = llama(entrada, a.por_llamada_usd)
                 except FalloProceso as e:
                     print(f"etiquetar: {e}; queda {parcial}", file=sys.stderr)
+                    print(f"coste_total_usd={total:g}")
                     return 4
                 total += coste
                 if et is not None and et["id"] != i:
@@ -141,8 +142,10 @@ def main():
             pub.flush(); priv.flush()
             if total >= a.tope_usd:
                 print(f"etiquetar: tope de {a.tope_usd} USD alcanzado ({total:.2f}); queda {parcial}", file=sys.stderr)
+                print(f"coste_total_usd={total:g}")
                 return 3
     os.replace(parcial, a.salida)
+    print(f"coste_total_usd={total:g}")
     return 0
 
 

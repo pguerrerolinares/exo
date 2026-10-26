@@ -203,6 +203,18 @@ class TestEtiquetar(Base):
         self.assertTrue(os.path.exists(self.salida + ".parcial"))
         self.assertFalse(os.path.exists(self.salida))
 
+    def test_imprime_coste_total(self):
+        self.escribe_pool([regla("g0-1"), regla("g0-2"), regla("g0-3")])
+        r = self.etiqueta(["g0-1", "g0-2"], FAKE_COSTE="0.25")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("coste_total_usd=0.5", r.stdout)
+        r = self.etiqueta(["g0-1", "g0-2", "g0-3"], ["--tope-usd", "5"], FAKE_COSTE="3.0")
+        self.assertEqual(r.returncode, 3, r.stderr)
+        self.assertIn("coste_total_usd=6", r.stdout)
+        r = self.etiqueta(["g0-1"], FAKE_RC="1")
+        self.assertEqual(r.returncode, 4)
+        self.assertIn("coste_total_usd=0", r.stdout)
+
     def test_sello_no_casa(self):
         self.escribe_pool([regla("g0-1"), regla("g0-2"), regla("g0-3")])
         bueno = {"prompt_sha256": etiquetar.sha256_fichero(etiquetar.PROMPT), "claude_version": "9.9.9 (Fake)",
