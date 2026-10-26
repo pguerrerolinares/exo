@@ -13,7 +13,8 @@ import juez, transcripts
 PROMPT = os.path.join(H, "detector.prompt.md")
 MODELO = "claude-haiku-5-5"
 LOTE = 10
-MAX_TEXTO = 6000
+MAX_TEXTO = 2000  # principio del mensaje: la corrección suele ir al inicio
+MAX_PREVIO = 4000  # final del turno del asistente
 TIPOS = ("rechaza-propuesta", "contradice-hecho", "repite-instruccion", "redirige")
 
 
@@ -22,13 +23,15 @@ def valida(obj):
     if not isinstance(obj, dict) or not isinstance(obj.get("id"), str) or not obj["id"]:
         return None
     c, t = obj.get("correccion"), obj.get("tipo")
+    if t == "null":
+        t = None
     if c == "si" and t in TIPOS or c == "no" and t is None:
         return {"id": obj["id"], "correccion": c, "tipo": t}
     return None
 
 
 def construye_entrada(lote, prompt):
-    lineas = "\n".join("MSG " + json.dumps({"id": m["id"], "previo": m["previo"], "texto": m["texto"][:MAX_TEXTO]},
+    lineas = "\n".join("MSG " + json.dumps({"id": m["id"], "previo": m["previo"][-MAX_PREVIO:], "texto": m["texto"][:MAX_TEXTO]},
                                            ensure_ascii=False) for m in lote)
     return re.sub(r"\{LOTE\}", lambda _: lineas, prompt)
 
@@ -62,12 +65,14 @@ def main():
     # Orden determinista: sesión (poblacion ya ordena por id) y luego ts, para que cache y lotes sean reproducibles.
     msgs = [{**m, "sesion": s["id"]} for s in sesiones for m in sorted(s["mensajes"], key=lambda m: m["ts"] or "")]
 
-    prompt = open(PROMPT).read()
+    with open(PROMPT) as f:
+        prompt = f.read()
+    sha = juez.sha256_fichero(PROMPT)
     cache = juez.Cache(os.path.join(a.cache, "detector.jsonl"))
     res = {}  # id -> veredicto | None (sin_veredicto)
     for m in msgs:
         c = cache.get(m["id"])
-        if c is not None:
+        if c is not None and c.get("prompt_sha256") == sha:
             res[m["id"]] = valida(c)
     pendientes = [m for m in msgs if m["id"] not in res]
 
@@ -104,7 +109,7 @@ def main():
             for i_, v in juez.parsea_lote(texto, [m["id"] for m in lote], valida).items():
                 m = next(m for m in lote if m["id"] == i_)
                 res[i_] = v
-                cache.put(i_, {**v, "sesion": m["sesion"], "texto": m["texto"], "previo": m["previo"]})
+                cache.put(i_, {**v, "sesion": m["sesion"], "texto": m["texto"], "previo": m["previo"], "prompt_sha256": sha})
             lote = [m for m in lote if m["id"] not in res]
             if total >= a.tope_usd:
                 return termina(3, f"detectar: tope de {a.tope_usd} USD alcanzado ({total:.2f}); queda {parcial}")

@@ -65,6 +65,8 @@ class TestValida(unittest.TestCase):
         self.assertEqual(detectar.valida({"id": "a", "correccion": "si", "tipo": "redirige", "x": 1}),
                          {"id": "a", "correccion": "si", "tipo": "redirige"})
         self.assertEqual(detectar.valida({"id": "a", "correccion": "no", "tipo": None})["tipo"], None)
+        self.assertIsNone(detectar.valida({"id": "a", "correccion": "no", "tipo": "null"})["tipo"])
+        self.assertIsNone(detectar.valida({"id": "a", "correccion": "si", "tipo": "null"}))
         for malo in ({"id": "a", "correccion": "si", "tipo": "otro"}, {"id": "a", "correccion": "no", "tipo": "redirige"},
                      {"id": "a", "correccion": "quizá", "tipo": None}, {"correccion": "no", "tipo": None}):
             self.assertIsNone(detectar.valida(malo), malo)
@@ -234,6 +236,37 @@ class TestDetectar(Base):
         self.assertEqual(self.corre().returncode, 0)
         msg = [json.loads(l[4:]) for l in self.calls()[0]["prompt"].splitlines() if l.startswith("MSG ")][0]
         self.assertEqual(msg, {"id": "u1", "previo": "", "texto": "hola"})
+
+    def entradas(self):
+        return [json.loads(l[4:]) for l in self.calls()[0]["prompt"].splitlines() if l.startswith("MSG ")]
+
+    def test_truncado_texto_principio_previo_final(self):
+        self.escribe("s1", [("m0", "a" * 5000 + "FIN", "2026-10-10T10:00:00Z")])
+        p = os.path.join(self.proy, "p1", "s1.jsonl")
+        lineas = [json.loads(l) for l in open(p)]
+        lineas[0]["message"]["content"][0]["text"] = "x" * 1000 + "y" * 4000 + "ULTIMO"
+        with open(p, "w") as f:
+            for l in lineas:
+                f.write(json.dumps(l) + "\n")
+        self.assertEqual(self.corre().returncode, 0)
+        m = self.entradas()[0]
+        self.assertEqual(m["texto"], "a" * 2000)
+        self.assertNotIn("FIN", m["texto"])
+        self.assertTrue(m["previo"].endswith("ULTIMO"))
+        self.assertEqual(len(m["previo"]), 4000)
+        self.assertNotIn("x", m["previo"])
+
+    def test_cache_se_invalida_con_otro_prompt(self):
+        self.escribe("s1", self.mensajes(2))
+        prompt = os.path.join(H, "detector.prompt.md")
+        orig = open(prompt).read()
+        self.addCleanup(lambda: open(prompt, "w").write(orig))
+        self.assertEqual(self.corre().returncode, 0)
+        self.assertEqual(len(self.calls()), 1)
+        with open(prompt, "w") as f:
+            f.write(orig + "\nNota extra.\n")
+        self.assertEqual(self.corre().returncode, 0)
+        self.assertEqual(len(self.calls()), 2)
 
     def test_invocacion_aislada(self):
         self.escribe("s1", self.mensajes(1))
