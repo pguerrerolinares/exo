@@ -131,6 +131,28 @@ class TestValida(unittest.TestCase):
             self.assertIsNone(atribuir.valida(malo), malo)
 
 
+class TestPrompt(unittest.TestCase):
+    def setUp(self):
+        with open(os.path.join(H, "atribuidor.prompt.md")) as f:
+            self.prompt = f.read()
+
+    def test_seis_etiquetas_en_el_prompt(self):
+        for e in atribuir.ATRIBUCIONES:
+            self.assertIn(f"- `{e}`:", self.prompt, e)
+        self.assertEqual(len(atribuir.ATRIBUCIONES), 6)
+
+    def test_un_placeholder_de_contexto(self):
+        self.assertEqual(self.prompt.count("{CONTEXTO}"), 1)
+
+    def test_cabeceras_de_entrada_nombradas_en_el_prompt(self):
+        ctx = {"nota": "N", "reglas_globales": None, "core": {}, "nota_ausente": False}
+        e = atribuir.construye_entrada({"id": "m", "texto": "t", "previo": "p"}, [], ctx, "R", "{CONTEXTO}")
+        cab = [l[3:] for l in e.splitlines() if l.startswith("## ") and l[3:].startswith("Reglas en el system prompt")]
+        self.assertEqual(len(cab), 1)
+        self.assertIn("Reglas en el system prompt", self.prompt)
+        self.assertIn("«Reglas en el system prompt»", self.prompt)
+
+
 class TestEntrada(unittest.TestCase):
     MSG = {"id": "m1", "texto": "texto del dueño", "previo": "lo que dijo el agente"}
     CTX = {"nota": "NOTA-X", "reglas_globales": "GLOBALES-X", "core": {"core/reglas-duras.md": "GLOBALES-X", "core/perfil.md": "PERFIL-X"},
