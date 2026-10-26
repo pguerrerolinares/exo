@@ -59,7 +59,8 @@ def main():
             print(f"detectar: el sello no casa en {malos}", file=sys.stderr)
             return 2
 
-    sesiones, _ = transcripts.poblacion(a.proyectos, a.desde)
+    desde, hasta = transcripts.cortes(a.sello, a.desde)
+    sesiones, _ = transcripts.poblacion(a.proyectos, desde, hasta)
     if a.solo_sesion:
         sesiones = [s for s in sesiones if s["id"] == a.solo_sesion]
     # Orden determinista: sesión (poblacion ya ordena por id) y luego ts, para que cache y lotes sean reproducibles.

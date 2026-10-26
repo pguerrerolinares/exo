@@ -79,9 +79,9 @@ def _contexto_kb(sesion, commit, kbdir):
     return {"nota": ctx["nota"], "core": ctx["core"]}
 
 
-def atribuidos(salida_atribuir, cache, proyectos, desde, kbdir):
+def atribuidos(salida_atribuir, cache, proyectos, desde, kbdir, hasta=None):
     """Une la salida pública de atribuir.py, su cache (`atribuidor.jsonl`: texto) y el transcript (previo)."""
-    sesiones = {s["id"]: s for s in transcripts.poblacion(proyectos, desde)[0]}
+    sesiones = {s["id"]: s for s in transcripts.poblacion(proyectos, desde, hasta)[0]}
     c = juez.Cache(os.path.join(cache, "atribuidor.jsonl"))
     out = []
     for p in _lee_jsonl(salida_atribuir):
@@ -111,19 +111,21 @@ def main():
     ap.add_argument("--atribuciones", help="etapa 2: --salida de atribuir.py (su cache es <cache>/atribuidor.jsonl)")
     ap.add_argument("--kb", default=os.environ.get("EXO_KB"), help="etapa 2: repo de la KB (o $EXO_KB)")
     ap.add_argument("--semilla", type=int, default=SEMILLA)
+    ap.add_argument("--sello", help="usa desde y hasta del sello para la población")
     a = ap.parse_args()
+    desde, hasta = transcripts.cortes(a.sello, a.desde)
 
     if a.etapa == "2":
         if not a.atribuciones:
             print("muestra: la etapa 2 necesita --atribuciones", file=sys.stderr)
             return 1
         try:
-            items = etapa2(atribuidos(a.atribuciones, a.cache, a.proyectos, a.desde, a.kb), a.semilla)
+            items = etapa2(atribuidos(a.atribuciones, a.cache, a.proyectos, desde, a.kb, hasta), a.semilla)
         except ValueError as e:
             print(f"muestra: {e}", file=sys.stderr)
             return 1
     else:
-        sesiones, _ = transcripts.poblacion(a.proyectos, a.desde)
+        sesiones, _ = transcripts.poblacion(a.proyectos, desde, hasta)
         msgs = [m for s in sesiones for m in sorted(s["mensajes"], key=lambda m: m["ts"] or "")]
         items = etapa1(msgs, a.semilla) if a.etapa == "1" else [_item(m) for m in msgs if candidato_regex(m["texto"])]
     os.makedirs(a.cache, exist_ok=True)

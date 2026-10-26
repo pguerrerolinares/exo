@@ -223,6 +223,35 @@ class TestResultado(Base):
         o = self.lee(self.res)
         self.assertEqual((o["puerta"]["n"], o["puerta"]["k"], o["n_sin_veredicto"]), (10, 1, 1))
 
+    def test_hasta_cierra_la_poblacion_sellada(self):
+        self.escribe("futura", sesion("futura", ts="2026-10-25T10:00:00Z"))
+        self.assertEqual(self.sella("--forzar", "--hasta", "2026-10-20T00:00:00Z").returncode, 0)
+        self.assertEqual(self.lee(self.sello)["n_sesiones"], 10)
+        self.assertEqual(self.lee(self.sello)["hasta"], "2026-10-20T00:00:00Z")
+        # Sesión nueva posterior y mensaje nuevo (ts posterior) en una sesión sellada.
+        self.escribe("nueva", sesion("nueva", ts="2026-10-21T10:00:00Z"))
+        with open(os.path.join(self.proy, "repo", "s0.jsonl"), "a") as f:
+            f.write(json.dumps({"timestamp": "2026-10-21T11:00:00Z", "cwd": "/w/x", "entrypoint": "cli", "type": "user",
+                                "uuid": "s0-tarde", "message": {"role": "user", "content": "tarde"}}) + "\n")
+        r = self.resultado(self.dets(1))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        o = self.lee(self.res)
+        self.assertTrue(o["sello_ok"])
+        self.assertEqual((o["puerta"]["n"], o["hasta"]), (10, "2026-10-20T00:00:00Z"))
+
+    def test_detectar_con_sello_no_juzga_lo_posterior(self):
+        self.sella("--forzar", "--hasta", "2026-10-20T00:00:00Z")
+        self.escribe("nueva", sesion("nueva", ts="2026-10-21T10:00:00Z"))
+        with open(os.path.join(self.proy, "repo", "s0.jsonl"), "a") as f:
+            f.write(json.dumps({"timestamp": "2026-10-21T11:00:00Z", "cwd": "/w/x", "entrypoint": "cli", "type": "user",
+                                "uuid": "s0-tarde", "message": {"role": "user", "content": "tarde"}}) + "\n")
+        salida = os.path.join(self.tmp, "d.jsonl")
+        r = self.corre("detectar.py", "--proyectos", self.proy, "--cache", os.path.join(self.tmp, "c"),
+                       "--salida", salida, "--sello", self.sello)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        ids = {json.loads(l)["id"] for l in open(salida)}
+        self.assertEqual(ids, {f"s{n}-m0" for n in range(10)})
+
     def test_deterministas_principales_y_subagentes(self):
         self.escribe("s0", sesion("s0", extra=["cd x && git status", "ls"]),
                      sub={"ag": sesion("ag", extra=["git stash", "git stash", "ls", "ls"])})

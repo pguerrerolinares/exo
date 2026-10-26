@@ -83,7 +83,8 @@ def main():
             print(f"atribuir: el sello no casa en {malos}", file=sys.stderr)
             return 2
 
-    sesiones = {s["id"]: s for s in transcripts.poblacion(a.proyectos, a.desde)[0]}
+    desde, hasta = transcripts.cortes(a.sello, a.desde)
+    sesiones = {s["id"]: s for s in transcripts.poblacion(a.proyectos, desde, hasta)[0]}
     positivos = []
     with open(a.detecciones) as f:
         for l in f:

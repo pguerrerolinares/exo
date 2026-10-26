@@ -31,7 +31,7 @@ def main():
     a = ap.parse_args()
 
     sello = _json(a.sello)
-    sesiones, _ = transcripts.poblacion(a.proyectos, sello.get("desde", "2026-10-06"))
+    sesiones, _ = transcripts.poblacion(a.proyectos, sello.get("desde", "2026-10-06"), sello.get("hasta"))
     sello_ok = sha_sesiones(sesiones) == sello["sesiones_sha256"] and len(sesiones) == sello["n_sesiones"]
     if not sello_ok:
         with open(a.salida, "w") as f:
@@ -69,6 +69,7 @@ def main():
         "n_nota_ausente": sum(bool(x.get("nota_ausente")) for x in atribs),
         "validacion": validacion,
         "desde": sello.get("desde", "2026-10-06"),
+        "hasta": sello.get("hasta"),
         "sello_ok": True,
     }
     if a.validacion2:

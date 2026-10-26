@@ -90,11 +90,31 @@ def lee_sesion(path):
     return s if visto else None
 
 
-def poblacion(proyectos, desde="2026-10-06"):
+def _epoch(ts):
+    d = datetime.datetime.fromisoformat(ts.replace("Z", "+00:00"))
+    if d.tzinfo is None:
+        d = d.replace(tzinfo=datetime.timezone.utc)
+    return d.timestamp()
+
+
+def cortes(sello, desde="2026-10-06"):
+    """(desde, hasta) de la población: los del sello si hay ruta de sello, si no (desde, None)."""
+    if not sello:
+        return desde, None
+    with open(sello) as f:
+        s = json.load(f)
+    return s.get("desde", desde), s.get("hasta")
+
+
+def poblacion(proyectos, desde="2026-10-06", hasta=None):
     """Sesiones `cli` con inicio >= desde y >= 1 mensaje humano, ordenadas por id.
 
     `inicio` se compara como cadena ISO: `desde` sin hora ("2026-10-06") queda
     por debajo de "2026-10-06T00:00:00Z", así que vale.
+
+    Con `hasta` la población se cierra: solo sesiones con inicio < hasta y, en cada una, mensajes con ts < hasta
+    (sin ts, fuera). Una sesión que se queda sin mensajes cuenta como vacía. Se compara en epoch: los ts pueden
+    venir con offset.
     """
     corte = datetime.datetime.fromisoformat(desde).replace(tzinfo=datetime.timezone.utc).timestamp()
     cuentas = {"sdk": 0, "vacias": 0, "reserva": 0}
@@ -113,6 +133,11 @@ def poblacion(proyectos, desde="2026-10-06"):
             if (s["entrypoint"] or "").startswith("sdk"):
                 cuentas["sdk"] += 1
             continue
+        if hasta:
+            tope = _epoch(hasta)
+            if _epoch(s["inicio"]) >= tope:
+                continue
+            s["mensajes"] = [m for m in s["mensajes"] if m["ts"] and _epoch(m["ts"]) < tope]
         if not s["mensajes"]:
             cuentas["vacias"] += 1
             continue

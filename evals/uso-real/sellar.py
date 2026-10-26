@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Sella la medición antes de correrla (spec 2026-10-26 §4.6): población, KB, prompts, versión, umbrales y modelos.
 
-Si --salida ya existe se niega (exit 2) salvo --forzar. `--desde` es la palanca de la reserva (§4.1) y queda en el sello."""
-import argparse, hashlib, inspect, json, os, subprocess, sys
+Si --salida ya existe se niega (exit 2) salvo --forzar. `--desde` es la palanca de la reserva (§4.1); `--hasta` cierra la población (sesiones y mensajes posteriores quedan fuera). Ambos quedan en el sello."""
+import argparse, datetime, hashlib, inspect, json, os, subprocess, sys
 
 H = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, H)
@@ -23,6 +23,7 @@ def main():
     ap.add_argument("--kb", default=os.environ.get("EXO_KB"))
     ap.add_argument("--salida", required=True)
     ap.add_argument("--desde", default="2026-10-06")
+    ap.add_argument("--hasta", help="cierre de la población (ISO 8601 con Z); por defecto, ahora en UTC")
     ap.add_argument("--forzar", action="store_true")
     a = ap.parse_args()
     if not a.kb:
@@ -35,11 +36,13 @@ def main():
     if r.returncode != 0:
         print(f"sellar: {a.kb} no es un repo git con commits", file=sys.stderr)
         return 1
-    sesiones, _ = transcripts.poblacion(a.proyectos, a.desde)
+    hasta = a.hasta or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    sesiones, _ = transcripts.poblacion(a.proyectos, a.desde, hasta)
     sello = {
         "sesiones_sha256": sha_sesiones(sesiones),
         "n_sesiones": len(sesiones),
         "desde": a.desde,
+        "hasta": hasta,
         "kb_commit": r.stdout.strip(),
         "prompt_detector_sha256": juez.sha256_fichero(detectar.PROMPT),
         "prompt_atribuidor_sha256": juez.sha256_fichero(atribuir.PROMPT),

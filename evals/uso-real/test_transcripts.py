@@ -144,6 +144,27 @@ class TestPoblacion(unittest.TestCase):
             self.assertEqual([m["id"] for m in ses[0]["mensajes"]], ["m1", "m2"])
             self.assertEqual(c, {"sdk": 1, "vacias": 1, "reserva": 1})
 
+    def test_hasta_cierra_poblacion(self):
+        hasta = "2026-10-10T12:00:00Z"
+        base = {"cwd": "/w/x", "entrypoint": "cli"}
+
+        def msg(u, ts):
+            return {**base, **user("x", uuid=u), "timestamp": ts}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            r = lambda n: os.path.join(tmp, "r", n + ".jsonl")
+            escribe(r("a"), [msg("a1", "2026-10-10T11:59:59Z"), msg("a2", hasta), msg("a3", "2026-10-10T13:00:00Z")])
+            escribe(r("b"), [msg("b1", "2026-10-10T12:30:00Z")])  # empieza después
+            escribe(r("c"), [msg("c1", hasta)])  # borde: inicio == hasta, fuera
+            escribe(r("d"), [msg("d1", "2026-10-10T14:30:00+02:00")])  # 12:30Z con offset, fuera
+            # empieza antes pero su único mensaje humano es posterior: vacía
+            escribe(r("e"), [{**base, **asist("hola"), "timestamp": "2026-10-10T11:00:00Z"}, msg("e1", "2026-10-10T12:30:00Z")])
+            ses, c = transcripts.poblacion(tmp, hasta=hasta)
+            self.assertEqual([(s["id"], [m["id"] for m in s["mensajes"]]) for s in ses], [("a", ["a1"])])
+            self.assertEqual(c["vacias"], 1)
+            ses, _ = transcripts.poblacion(tmp)
+            self.assertEqual([s["id"] for s in ses], ["a", "b", "c", "d", "e"])
+
 
 if __name__ == "__main__":
     unittest.main()
