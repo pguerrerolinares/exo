@@ -27,6 +27,8 @@ def _biseccion(f, lo, hi):
 
 def ic_poisson(k, alfa=0.05):
     """IC exacto (Garwood) de la media de un recuento k; no divide por exposición."""
+    if k < 0:
+        raise ValueError("k debe ser >= 0")
     cota = 2 * k + 10 * math.sqrt(k + 1) + 20
     mitad = math.log(alfa / 2)
     hi = _biseccion(lambda lam: _log_cdf(k, lam) - mitad, 1e-12, cota)

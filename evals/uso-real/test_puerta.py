@@ -87,6 +87,15 @@ class TestFinal(unittest.TestCase):
         self.assertEqual(r["estado"], "seguir")
         self.assertEqual(r["tasa_decididas"], 0.3)
 
+    def test_final_borde_estricto(self):
+        with mock.patch.object(puerta, "ic_poisson", return_value=(0.0, 40.0)):
+            r = puerta.final(["canon-kb"] * 5, 100)
+        self.assertEqual(r["estado"], "seguir")
+
+    def test_ic_k_negativo(self):
+        with self.assertRaises(ValueError):
+            puerta.ic_poisson(-1)
+
     def test_decididas_const(self):
         self.assertEqual(
             puerta.DECIDIDAS,
