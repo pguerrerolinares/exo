@@ -1,0 +1,23 @@
+# Espejo GitHub -> GitLab interno (gitlab.norbolsa.com/poc-ia/plantillas/exo).
+# GitLab 18.0 Free no trae pull mirroring: lo hace este job desde un pipeline
+# programado. Solo avanza main en fast-forward y añade tags nuevos; si GitLab
+# diverge (commit directo, tag movido) el push falla en vez de pisar.
+# Alta del token y del schedule: docs/espejo-gitlab.md
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" || $CI_PIPELINE_SOURCE == "web"
+
+espejo-github:
+  image: alpine/git:v2.49.1
+  variables:
+    GIT_STRATEGY: none
+    GITHUB_REPO: https://github.com/pguerrerolinares/exo.git
+  script:
+    - test -n "$MIRROR_PUSH_TOKEN" || { echo "ERROR: falta la variable MIRROR_PUSH_TOKEN"; exit 1; }
+    - git init -q --bare espejo && cd espejo
+    # CA interna del GitLab (la inyecta el runner), solo para el push.
+    - if [ -n "$CI_SERVER_TLS_CA_FILE" ]; then git config "http.${CI_SERVER_URL}/.sslCAInfo" "$CI_SERVER_TLS_CA_FILE"; fi
+    - git fetch --no-tags "$GITHUB_REPO" '+refs/heads/main:refs/heads/main' '+refs/tags/*:refs/tags/*'
+    - git log -1 --format='GitHub main = %h %s' main
+    - git push "${CI_SERVER_PROTOCOL}://oauth2:${MIRROR_PUSH_TOKEN}@${CI_SERVER_FQDN}/${CI_PROJECT_PATH}.git" 'refs/heads/main:refs/heads/main' 'refs/tags/*:refs/tags/*'
