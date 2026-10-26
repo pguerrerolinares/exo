@@ -62,7 +62,35 @@ class TestCommitAntes(Repo):
         self.assertEqual(kb.commit_antes(d, "2026-10-10T12:30:00+02:00"), c1)
 
 
+    def test_commit_antes_fecha_no_monotona(self):
+        d = self.d
+        escribe(d, "a.md", "1")
+        commit(d, "c1", "2026-10-10T10:00:00+0000")
+        escribe(d, "a.md", "2")
+        commit(d, "c2", "2026-10-10T12:00:00+0000")
+        escribe(d, "a.md", "3")
+        commit(d, "c3", "2026-10-10T11:00:00+0000")
+        c2 = subprocess.run(["git", "-C", d, "rev-parse", "HEAD~1"], capture_output=True,
+                            text=True, check=True).stdout.strip()
+        self.assertEqual(kb.commit_antes(d, "2026-10-10T12:30:00Z"), c2)
+
+
 class TestRutaEn(Repo):
+    def test_ruta_en_renombre_encadenado(self):
+        d = self.d
+        escribe(d, "projects/a.md", "contenido de la nota\nlinea 2\nlinea 3\n")
+        commit(d, "c1", "2026-10-10T10:00:00+0000")
+        git(d, "mv", "projects/a.md", "projects/b.md", fecha="2026-10-10T12:00:00+0000")
+        commit(d, "c2", "2026-10-10T12:00:00+0000")
+        git(d, "mv", "projects/b.md", "projects/c.md", fecha="2026-10-10T14:00:00+0000")
+        commit(d, "c3", "2026-10-10T14:00:00+0000")
+        rev = lambda n: subprocess.run(
+            ["git", "-C", d, "rev-parse", f"HEAD~{n}"], capture_output=True,
+            text=True, check=True).stdout.strip()
+        self.assertEqual(kb.ruta_en(d, "projects/c.md", rev(2)), "projects/a.md")
+        self.assertEqual(kb.ruta_en(d, "projects/c.md", rev(1)), "projects/b.md")
+
+
     def test_ruta_en_renombre(self):
         d = self.d
         escribe(d, "projects/base.md", "x")
@@ -104,6 +132,8 @@ class TestContexto(Repo):
         escribe(d, "core/a.md", "version vieja")
         escribe(d, "core/reglas-duras.md", "reglas viejas")
         escribe(d, "otro/b.md", "fuera de core")
+        escribe(d, "core/sub/x.md", "anidado")
+        escribe(d, "core/z.txt", "no md")
         commit(d, "c1", "2026-10-10T10:00:00+0000")
         viejo = subprocess.run(["git", "-C", d, "rev-parse", "HEAD"], capture_output=True,
                                text=True, check=True).stdout.strip()
@@ -114,6 +144,8 @@ class TestContexto(Repo):
         self.assertEqual(ctx["core"]["core/a.md"], "version vieja")
         self.assertEqual(ctx["reglas_globales"], "reglas viejas")
         self.assertNotIn("otro/b.md", ctx["core"])
+        self.assertNotIn("core/sub/x.md", ctx["core"])
+        self.assertNotIn("core/z.txt", ctx["core"])
         self.assertEqual(set(ctx["core"]), {"core/a.md", "core/reglas-duras.md"})
         self.assertIsNone(ctx["nota"])
 
