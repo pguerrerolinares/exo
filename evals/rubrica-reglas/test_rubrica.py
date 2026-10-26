@@ -121,6 +121,17 @@ class TestRecorte(unittest.TestCase):
         self.assertIn("Antes.", t)
         self.assertIn("Después.", t)
 
+    def test_cita_compara_solo_los_primeros_60(self):
+        cabeza = "no uses la libreria estandar para esto sino el wrapper del repo siempre"[:60]
+        t, ok = rb.recorta_nota("Antes.\n" + cabeza + " y luego otra cosa\nDespués.\n", cabeza + " cola que no aparece en la nota")
+        self.assertTrue(ok)
+        self.assertNotIn("libreria", t)
+
+    def test_cita_vacia_no_recorta(self):
+        t, ok = rb.recorta_nota("Una línea.\n\nOtra línea.\n", "")
+        self.assertFalse(ok)
+        self.assertEqual(t, "Una línea.\n\nOtra línea.\n")
+
     def test_cita_no_encontrada(self):
         t, ok = rb.recorta_nota(NOTA, "esta frase no aparece en ninguna parte de la nota")
         self.assertFalse(ok)
