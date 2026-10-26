@@ -22,8 +22,17 @@ placeholders entre corchetes.
 | Decisión, patrón u opinión sobre el propio dueño | `[nota de perfil del dueño]` | edita — nunca nota nueva |
 | Proyecto o tema nuevo | nota nueva en su directorio de proyectos | crea |
 | Research standalone | nota nueva en su directorio de research | crea |
-| Regla **mecánica** (verificable, sin juicio) | además, `## Reglas duras`: la de un repo, en su nota canónica; la transversal, en `core/reglas-duras.md` | una línea `- ` de ≤300 B, máximo 10 por sección; se inserta en su posición de prioridad (la primera manda) y, si la sección está llena, desplaza a la última — nunca se anexa al final de una sección llena |
+| Regla **mecánica** (verificable, sin juicio) | además, `## Reglas duras`: la de un repo, en su nota canónica; la transversal, en `core/reglas-duras.md` | una línea `- ` de ≤300 B, máximo 10 por sección; se inserta en su posición según la rúbrica de abajo y, si la sección está llena, la rúbrica decide cuál sale — nunca se anexa al final de una sección llena |
 | Decisión que merece nota canónica propia | nota nueva | crea — es la excepción, no la regla |
+
+## Rúbrica de reglas duras (sección llena)
+
+Se ordena la sección entera más la nueva con estas claves, en este orden, y sale la última. Sustituye a «posición de prioridad».
+1. **Veto:** una regla, nueva o ya presente, con violación observada en la transcripción de la sesión no sale y va por encima de las que no la tienen. Si todas las candidatas lo tienen, el veto deja de decidir: sale la última por choque, coste y fichero, y la bitácora dice «veto saturado: salió `<regla>` pese a violación observada» y propone al dueño convertirla en gate o partir la nota.
+2. **Choque:** P (paso extra) > D (prohíbe el default) > E (el repo la encarna). Si hay criba A0 medida, el dato sustituye al juicio: `no_cumple` cuenta como P/D (conserva la etiqueta de juicio si es P/D; si no, D) y `cumple` como E.
+3. **Coste:** alto > medio > bajo. Una P de coste bajo va por encima de una D de coste alto.
+4. **Orden de fichero** desempata. La desplazada se queda en la prosa; anota en la bitácora «salió `<regla>` por `<criterio>`».
+5. Si el choque no se puede responder (regla ambigua), la nueva entra por coste y orden de fichero, y la bitácora lo dice.
 
 ## Frontmatter
 

@@ -106,7 +106,8 @@ de los `project-rules-skip` del reflex-log: repos donde arrancó una sesión y
 
 - **`al_cap`**: la nota tiene 10 reglas y lo siguiente que entre desplaza a
   otra. No es un fallo. Si en el periodo se decidió algo que debería ser regla
-  dura, la elección de cuál sale es del dueño: proponla, no la hagas.
+  dura, la rúbrica de `document/routing.md` decide cuál sale: aplícala y anota
+  la bitácora «salió `<regla>` por `<criterio>`».
 - **`sin_nota` / `sin_seccion` con arranques recientes**: hay sesiones en ese
   repo que vuelven al default. Propón una nota, o una nota hermana
   `<repo> — reglas.md` con `slug: <repo>` y solo `## Reglas duras` cuando el
