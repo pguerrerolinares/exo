@@ -146,6 +146,15 @@ class TestSiembra(unittest.TestCase):
             sal = corre(*monta(tmp, reglas_viejo(), RCS_VIEJO))
         self.assertEqual(sal, FIXTURE)
 
+    def test_separador_unicode_dentro_de_json_no_parte_la_linea(self):
+        r = regla("g0-1")
+        r["regla"] = "texto con \u2028 y \x85 inventados"
+        with tempfile.TemporaryDirectory() as tmp:
+            pool, criba, kb = monta(tmp, [])
+            escribe(os.path.join(pool, "reglas-g0.jsonl"), json.dumps(r, ensure_ascii=False) + "\n")
+            sal = corre(pool, criba, kb)
+        self.assertEqual(sal["repos"][0]["reglas"][0]["regla"], r["regla"])
+
     def test_con_etiquetas_ordena_por_rubrica(self):
         # g0-1/g0-2: orden viejo X(g0-2: check, core) antes que Y(g0-1); la rúbrica pone Y(P) antes que X(E)
         # g0-3 (sin corrida, E, alto) vs g0-4 (no cumple, E->D, bajo): la rúbrica pone g0-4 antes
