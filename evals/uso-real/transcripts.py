@@ -23,7 +23,7 @@ def texto(d):
 def es_mensaje_humano(d):
     if d.get("type") != "user":
         return False
-    if d.get("isMeta") or d.get("isCompactSummary") or d.get("toolUseResult"):
+    if d.get("isMeta") or d.get("isCompactSummary") or "toolUseResult" in d:
         return False
     if "origin" in d and (d["origin"] or {}).get("kind") != "human":
         return False

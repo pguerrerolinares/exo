@@ -39,7 +39,8 @@ def sesion(ts="2026-10-10T10:00:00Z", entry="cli", humano=True):
 class TestEsMensajeHumano(unittest.TestCase):
     def test_filtra_meta_compact_toolresult(self):
         self.assertTrue(transcripts.es_mensaje_humano(user("un mensaje normal")))
-        for extra in ({"isMeta": True}, {"isCompactSummary": True}, {"toolUseResult": {"x": 1}}):
+        for extra in ({"isMeta": True}, {"isCompactSummary": True}, {"toolUseResult": {"x": 1}},
+                      {"toolUseResult": ""}, {"toolUseResult": {}}):
             self.assertFalse(transcripts.es_mensaje_humano(user("texto", **extra)), extra)
 
     def test_prefijos_excluidos(self):
@@ -106,6 +107,17 @@ class TestLeeSesion(unittest.TestCase):
         self.assertNotIn("- b", s["reglas_canal"])
         escribe(self.p("r", "s3.jsonl"), sesion())
         self.assertIsNone(transcripts.lee_sesion(self.p("r", "s3.jsonl"))["reglas_canal"])
+
+    def test_reglas_canal_dos_bloques_y_primer_snapshot(self):
+        def snap(txt):
+            return {"type": "attachment", "attachment": {"type": "prompt_snapshot", "systemPrompt": [txt]}}
+        dos = "## Reglas duras del dueño\n- d\n## Reglas duras del proyecto\n- p\n## Otra\n- o"
+        escribe(self.p("r", "s5.jsonl"), [snap(dos), snap("## Reglas duras del proyecto\n- segundo")] + sesion())
+        r = transcripts.lee_sesion(self.p("r", "s5.jsonl"))["reglas_canal"]
+        self.assertIn("- d", r)
+        self.assertIn("- p", r)
+        self.assertNotIn("## Otra", r)
+        self.assertNotIn("- segundo", r)
 
     def test_sin_json_valido_none(self):
         escribe(self.p("r", "s4.jsonl"), [], crudo="{roto\n")
