@@ -63,12 +63,31 @@ esa noche y una lectura sin fecha lo contaría como decidido.
 
 ### 4.1 Población
 - Transcripts `~/.claude/projects/*/<sesion>.jsonl` (no los de
-  `subagents/`), `entrypoint = cli`, mtime ≥ 2026-10-06.
-- **Mensaje humano:** `type = user`, sin `isMeta`, sin `toolUseResult`, con
-  texto no vacío que no empieza por `<command-`, `<local-command`,
-  `<task-notification>`, `<bash-stdout>`, `Another Claude session` ni
-  `[Request interrupted`. Los pastes (`<pasted_content>`) cuentan como
-  mensaje humano: el texto que rodea al paste es del dueño.
+  `subagents/`), `entrypoint = cli`, **primer `timestamp` del fichero
+  ≥ 2026-10-06**. El primer timestamp es también el ancla de la guarda de
+  fecha. Las 2 sesiones con mtime posterior y arranque anterior pasan a la
+  reserva.
+- **Sesión (denominador)** = conversación con al menos 1 mensaje humano. Las
+  continuaciones por compactación (primer mensaje «This session is being
+  continued…», 22 casos) se unen a la sesión de la que vienen, si el jsonl
+  permite enlazarlas (`parentUuid`/`leafUuid` o el `sessionId` citado). Si no
+  se pueden enlazar, cuentan como sesiones aparte y el resultado lo declara.
+  Las sesiones cortas (24 con ≤ 3 mensajes) **no se excluyen**. *Decisión del
+  orquestador:* el dueño eligió la tasa por sesión, y unir las
+  continuaciones evita inflar el denominador, que es el error que favorece
+  estabilizar.
+- **Repo de la sesión** = directorio de `~/.claude/projects/` (el `cwd` de
+  arranque). Si el `cwd` cambia dentro de la sesión, no se reatribuye.
+- **Mensaje humano:** `type = user`, sin `isMeta`, sin `toolUseResult`,
+  `origin.kind = human` y `promptSource ∈ {typed, queued}` cuando los campos
+  existen. Sin esos campos (formato viejo, 44 casos) decide el filtro por
+  texto. El texto no puede estar vacío ni empezar por `<command-`,
+  `<local-command`, `<task-notification>`, `<bash-stdout>`, `Another Claude
+  session`, `[Request interrupted` o `This session is being continued`.
+  - `suggestion_accepted` (271 casos) queda **fuera**: es una sugerencia del
+    harness aceptada, no texto del dueño. *Decisión del orquestador.*
+  - Los pastes (`<pasted_content>`) cuentan como mensaje humano.
+  - El filtro entra en el sello: cambiarlo después es una errata.
 - Las ~47 sesiones anteriores al 10-06 son reserva. Solo entran si la
   etapa 1 da menos de 30 correcciones, para tener n suficiente en la
   etapa 2, y se declara en el resultado.
@@ -83,6 +102,18 @@ esa noche y una lectura sin fecha lo contaría como decidido.
   a ciegas, sin ver la etiqueta del juez: 40 positivos de regex
   (`no uses|otra vez|siempre|nunca|está mal|déjate de`) y 40 al azar. Se
   sella `kappa(juez, dueño) ≥ 0,4`.
+- El kappa se calcula sobre la muestra mixta de 80 tal cual, sin ponderar.
+  Es un criterio de «el juez separa», no una estimación poblacional. Con
+  ~0,03 correcciones por mensaje, 40 al azar no estiman el recall. Además se
+  informa la precisión y el recall del juez frente al dueño en esos 80.
+  *Decisión del orquestador.*
+- **Contrato de etiquetado:** el sello (prompts, umbrales y lista de
+  sesiones) se congela **antes** de etiquetar. Las 80 se entregan como
+  fichero jsonl en `~/.cache/exo-uso-real/`, con id, mensaje y turno previo,
+  sin el veredicto del juez y en orden aleatorio con semilla sellada. El
+  dueño rellena `etiqueta: si|no`. El script de validación es nuevo:
+  reutiliza `estadistica.py` (kappa) pero no el esquema de reglas de
+  `validar.py`. Sin etiquetas no hay veredicto.
 - Si `kappa < 0,4`: el juez no sirve. El dueño etiqueta a mano los
   candidatos de regex y el resultado se declara como cota inferior.
 
@@ -104,6 +135,16 @@ Tasa = correcciones / sesiones, con IC 95 % de Poisson exacto.
     (resuelta por `slug`/repo, como `exo rules`), `core/reglas-duras.md` y
     `core/` de perfil;
   - el bloque de reglas del `prompt_snapshot` de la sesión, si existe.
+- La ruta del repo de la KB es un argumento o una variable de entorno,
+  nunca una constante del repo público. La nota se resuelve en el commit de
+  la fecha, con `git log --follow` si se renombró. Si la nota de proyecto
+  no existía en esa fecha, el contexto de proyecto va vacío y la sesión se
+  marca `nota_ausente`.
+- Las notas canónicas existían antes de la siembra del 10-25; esa siembra
+  solo añadió `## Reglas duras`. Por eso el canon sí está disponible en todo
+  el periodo. Aun así, el resultado declara cuántas sesiones fueron
+  `nota_ausente`: si son muchas, la invalidación del 10 % podría ser un
+  artefacto.
 - Juez Sonnet, salida
   `{atribucion: regla-canal|regla-fuera-canal|canon-kb|perfil-core|dicho-en-sesion|nueva, nota, linea}`.
 - **Decidida** = `regla-canal`, `regla-fuera-canal`, `canon-kb` o
@@ -124,6 +165,11 @@ Conteo mecánico, sin LLM, de las reglas globales con patrón comprobable
 (`cd … && git`, `git add -A`, `git stash`, `git checkout --`) sobre los
 `tool_use` de Bash de las sesiones principales y de `subagents/`, por repo.
 No cuestan correcciones, cuestan permisos y retrabajo. Es el insumo de (b).
+Se informan los conteos crudos y la tasa por cada 100 llamadas a Bash,
+separando sesiones principales y subagentes. Los patrones van con tests de
+falsos positivos: `git -C`, `git stash list`/`show`, `git checkout -b` y
+`git add <ruta>` no son violaciones; `cd x && git` y `cd x; git` sí. Son
+regex de shell, no un parser, y lo que no casa no cuenta.
 
 ### 4.6 Sellado y repo público
 - Antes de correr se sella en `sello.json`:
@@ -135,7 +181,11 @@ No cuestan correcciones, cuestan permisos y retrabajo. Es el insumo de (b).
 - Al repo (público) solo van código, ids de sesión, hashes, conteos y el
   veredicto. El texto de los mensajes, los fragmentos de la KB y las
   etiquetas del dueño con su texto viven en `~/.cache/exo-uso-real/`.
-- Se registra el coste de cada etapa.
+- Se registra el coste de cada etapa. Hay un tope de coste por etapa con el
+  mismo mecanismo que `evals/rubrica-reglas`: 3 USD en la etapa 1 y 25 USD
+  en la etapa 2. Al alcanzarlo se para con exit 3. Los veredictos se
+  cachean por id de mensaje en `~/.cache/exo-uso-real/`, así que la etapa se
+  reanuda sin repetir llamadas. *Decisión del orquestador.*
 
 ### 4.7 Testing
 TDD con fixtures sintéticas de jsonl, sin datos reales en el repo:
