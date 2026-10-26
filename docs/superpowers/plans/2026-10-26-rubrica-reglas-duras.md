@@ -61,19 +61,19 @@
 - Produces: `siembra-reglas.es_candidata(r: dict) -> bool` (el filtro de `propuesta()`: `generica` falso, `ambito` en `AMBITOS`, proyecto ≠ `transversal`; `propuesta()` pasa a usarlo)
 
 **Tests:**
-- `test_valida_rechaza_fuera_de_dominio`: `choque: "X"`, `coste: "altísimo"`, falta `id` o JSON no dict → `None`. Falla si un valor fuera de dominio pasa.
+- `test_valida_rechaza_fuera_de_dominio`: `choque: "X"`, `coste: "altísimo"`, falta `id` o JSON no dict → `None`; control positivo en el mismo test: una etiqueta válida devuelve un dict (no `None`) con `choque` y `coste` intactos. Falla si un valor fuera de dominio pasa o si todo se rechaza.
 - `test_valida_ruta_opcional`: `choque: "E"` sin `ruta` o con `ruta: null` → válida. Falla si `E` exige `ruta` (spec §5.2).
 - `test_valida_formato_publico`: `{"id", "choque", "coste", "cita_recortada": true}`, sin `justificacion` → válida. Falla si el JSONL público de @Task 3 queda entero como `sin_etiqueta` al leerlo en @Task 5.
 - `test_criba_sustituye_juicio`: `choque_efectivo({"choque": "P"}, True) == "E"`; `({"choque": "E"}, False) == "D"`; `({"choque": "P"}, False) == "P"`; `(None, False) == "D"`. Falla si el dato no manda.
-- `test_veto_gana_a_todo`: una `E` de coste `bajo` vetada va antes que una `P` de coste `alto`. Falla si el veto no es la primera clave.
-- `test_choque_pesa_mas_que_coste`: `P`+`bajo` antes que `D`+`alto`. Falla si el coste se evalúa antes que el choque.
-- `test_sin_etiqueta_al_final`: un item con `etiqueta: None` y sin criba va detrás de una `E`+`bajo`. Falla si cae en medio.
-- `test_empate_por_orden_de_id`: `g0-9` antes que `g0-10` y que `g1-1`, con etiquetas iguales. Falla si se ordena como texto (`g0-10` < `g0-9`).
-- `test_orden_no_depende_de_la_entrada`: la misma lista barajada con 5 semillas da el mismo orden. Falla si el sort no es total.
+- `test_veto_gana_a_todo`: una `E` de coste `bajo` vetada sale antes que una `P` de coste `alto`, con las dos permutaciones de la entrada (el test asevera ambas). Falla si el veto no es la primera clave.
+- `test_choque_pesa_mas_que_coste`: sale `P`+`bajo` antes que `D`+`alto`, con las dos permutaciones de la entrada. Falla si el coste se evalúa antes que el choque.
+- `test_sin_etiqueta_al_final`: con las dos permutaciones de la entrada, un item con `etiqueta: None` y sin criba va detrás de una `E`+`bajo`. Falla si cae en medio.
+- `test_empate_por_orden_de_id`: con entrada `g0-10`, `g1-1`, `g0-9` y etiquetas iguales, sale `g0-9`, `g0-10`, `g1-1`. Falla si se ordena como texto (`g0-10` < `g0-9`).
+- `test_orden_no_depende_de_la_entrada`: una lista con etiquetas mezcladas, una vetada y una `sin_etiqueta`, cuyo orden esperado (escrito explícito en el test) no coincide con el orden por id, sale igual a ese esperado con 5 barajados de semilla fija. Falla si el sort no es total o ignora las etiquetas.
 - `test_recorta_seccion_reglas_duras`: el texto de `## Reglas duras` hasta el siguiente `## ` desaparece y el resto queda. Falla si se come la sección siguiente o deja viñetas.
 - `test_recorta_linea_con_cita`: con la cita en una línea (espacios y mayúsculas distintos), esa línea desaparece y el bool es `True`. Con la cita partida entre dos líneas del mismo párrafo, desaparece el párrafo. Falla si la cita sobrevive.
 - `test_cita_no_encontrada`: con la cita ausente, el texto solo pierde la sección y el bool es `False`. Falla si recorta algo más.
-- `test_es_candidata`: casos sintéticos de `generica`, `ambito` y `transversal`; `propuesta()` sobre un pool sintético devuelve lo mismo que antes del refactor. Falla si el filtro diverge.
+- `test_es_candidata`: casos sintéticos de `generica`, `ambito` y `transversal`; `propuesta()` sobre un pool sintético devuelve lo mismo que antes del refactor, y con `es_candidata` sustituida en el módulo por `lambda r: False` devuelve cero repos. Falla si el filtro diverge o si `propuesta()` no usa `es_candidata`.
 
 **Verificación:** `python3 -m unittest discover -s evals/rubrica-reglas -p "test_*.py"` → `OK`; `python3 scripts/siembra-reglas.py` sin argumentos sigue imprimiendo el docstring.
 
@@ -96,14 +96,14 @@
 - Produces: `estadistica.bootstrap_delta(pred_b: list[bool], pred_base: list[bool], verdad: list[bool], n: int = 10000, semilla: int = 20261026) -> dict` → `{"delta": float|None, "ic95": [lo, hi], "descartados": int}`
 
 **Tests:**
-- `test_kappa_perfecta`: `pred == verdad` con las dos clases → `1.0`. Falla si la fórmula está mal.
-- `test_kappa_degenerada`: `verdad` toda `True` y `pred` toda `True` → `None`, sin `ZeroDivisionError`. Falla si divide por cero.
+- `test_kappa_perfecta`: `pred == verdad` con las dos clases → `1.0`; `pred` = negación de `verdad` (clases equilibradas) → `-1.0`. Falla si la fórmula está mal.
+- `test_kappa_degenerada`: `verdad` toda `True` y `pred` toda `True` → `None`, sin `ZeroDivisionError`; `pred` constante con `verdad` mixta → `0.0` (definido, no `None`). Falla si divide por cero o si descarta casos con kappa definido.
 - `test_kappa_conocida`: un caso a mano (p. ej. 10 reglas con po = 0,7 y pe = 0,5 → 0,4). Falla si se usan los marginales equivocados.
 - `test_decide_kappa_cero_cae`: `decide(0.0, 0)` y `decide(None, 0)` → `criterio_2: false`, `rubrica: "veto + dato + coste + fichero"`. `decide(0.01, 0)` → `criterio_2: true`, `rubrica: "D"`. Falla si el umbral es `< 0` en vez de `≤ 0`.
 - `test_decide_nula`: `decide(0.5, 4)` → `estado: "nula"`; `decide(0.5, 3)` → `"valida"`. Falla si el corte de más de 3 está desplazado.
-- `test_bootstrap_identicos_contiene_cero`: `pred_b == pred_base` → `ic95 == [0.0, 0.0]` y `delta == 0`. Falla si el remuestreo no es pareado.
-- `test_bootstrap_reproducible`: dos llamadas con la misma semilla dan el mismo `ic95` al bit. Falla si se usa el RNG global.
-- `test_bootstrap_cuenta_descartados`: con una verdad que en muchos remuestreos queda de una sola clase (n = 4), `descartados > 0` y no lanza excepción. Falla si los degenerados se cuentan como 0 o rompen.
+- `test_bootstrap_identicos_contiene_cero`: `pred_b == pred_base` → `ic95 == [0.0, 0.0]` y `delta == 0`; con predictores distintos, `delta == kappa(pred_b) - kappa(pred_base)` sobre los datos completos e `ic95[0] < ic95[1]`. Falla si el remuestreo no es pareado o el delta es constante.
+- `test_bootstrap_reproducible`: con predictores distintos, dos llamadas con la misma semilla (precedidas de `random.seed(1)` y `random.seed(2)`) dan el mismo `ic95` al bit, y otra semilla da otro `ic95`. Falla si se usa el RNG global o el resultado es constante.
+- `test_bootstrap_cuenta_descartados`: n = 4, `verdad` `[T,T,T,F]`, `pred_b` = `verdad` y `pred_base` toda `T`. Un remuestreo es degenerado si cualquiera de los dos kappas da `None`; la probabilidad es 82/256 ≈ 0,32, así que `descartados` cae en [2.500, 4.000] con `n=10000` y en [500, 800] con `n=2000`. Además `delta == 1.0` e `ic95 == [1.0, 1.0]`. Falla si los degenerados se cuentan como 0 o rompen.
 
 **Verificación:** `python3 -m unittest discover -s evals/rubrica-reglas -p "test_*.py"` → `OK`
 
@@ -155,15 +155,16 @@
 
 **Interfaces:**
 - Consumes: `estadistica.kappa`, `estadistica.decide`, `estadistica.bootstrap_delta` @Task 2
+- Consumes: `rubrica.valida_etiqueta` @Task 1
 - Produces: `validar.py --etiquetas <jsonl> --universo <txt> --pool <dir> --criba <dir> --salida <json>`, que escribe `resultado.json`: `{"n_universo", "n_analizado", "sin_etiqueta", "citas_no_encontradas", "kappa_b", "kappa_base", "precision_b", "precision_base", "confusion_b", "no_cumple_por_choque", "delta", "decision"}`. `no_cumple_por_choque` = por cada `P`/`D`/`E`, `{"n", "no_cumple", "proporcion"}`. Kappa por grupo no sirve: dentro de un grupo la predicción es de una sola clase.
 - Produces: `validar.calcula(etiquetas: dict[str, dict], universo: list[str], ambito: dict[str, str], cumple: dict[str, bool]) -> dict`
 
 **Tests:**
 - `test_baseline_git_codigo`: con `ambito` `git`/`codigo` → se queda y `dominio-proyecto` → sale, `kappa_base` coincide con `estadistica.kappa` aplicado a mano. Falla si el baseline usa la criba o el `check`.
-- `test_sin_etiqueta_excluida_de_ambos`: 2 reglas `sin_etiqueta` → `n_analizado == n_universo - 2` para `kappa_b` y para `kappa_base`, y `sin_etiqueta == 2`. Falla si se cuentan como «se queda» o solo se excluyen de un brazo.
-- `test_decision_cableada`: con etiquetas que dan `kappa_b ≤ 0` → `decision.criterio_2 == false`; con 4 `sin_etiqueta` → `decision.estado == "nula"`. Falla si `validar` decide por su cuenta en vez de llamar a `decide`.
+- `test_sin_etiqueta_excluida_de_ambos`: 2 reglas `sin_etiqueta` → `n_analizado == n_universo - 2` para `kappa_b` y para `kappa_base`, y `sin_etiqueta == 2`; además `kappa_b` y `kappa_base` son iguales a `estadistica.kappa(...)` calculado a mano solo sobre las etiquetadas, con un fixture en el que incluir las 2 cambiaría ese valor. Falla si se cuentan como «se queda» o solo se excluyen de un brazo.
+- `test_decision_cableada`: con etiquetas que dan `kappa_b ≤ 0` → `decision.criterio_2 == false`; con 4 `sin_etiqueta` → `decision.estado == "nula"`. Además, con `estadistica.decide` sustituida en el módulo por una función que devuelve un centinela, `resultado["decision"]` es ese centinela. Falla si `validar` decide por su cuenta en vez de llamar a `decide`.
 - `test_id_fuera_de_universo`: una etiqueta con un id que no está en `universo.txt` se ignora y se cuenta en un aviso a stderr, y un id del universo sin etiqueta cuenta como `sin_etiqueta`. Falla si el universo sellado no manda.
-- `test_resultado_sin_texto`: `resultado.json` no contiene ninguna cadena del campo `regla` ni de `cita` del pool sintético. Falla si filtra texto privado.
+- `test_resultado_sin_texto`: `set(resultado)` es exactamente el conjunto de claves de Produces, y `resultado.json` no contiene ninguna cadena del campo `regla` ni de `cita` del pool sintético. Falla si filtra texto privado.
 
 **Verificación:** `python3 -m unittest discover -s evals/rubrica-reglas -p "test_*.py"` → `OK`
 
@@ -184,12 +185,13 @@
 
 **Tests:**
 - `test_sin_etiquetas_no_cambia`: la salida `--json` sobre un pool, una criba y una KB sintéticos (tmpdir con `core/` y `projects/`, porque `tier()` lee la nota de origen) es idéntica al fixture. El fixture se genera corriendo el script de HEAD **antes** de tocarlo y se guarda en el test. Falla si se rompe la siembra vieja.
-- `test_con_etiquetas_ordena_por_rubrica`: en un repo con 12 candidatas sintéticas, `entra` marca las 10 primeras de `rubrica.orden`, y una `cumple` etiquetada `P` queda por detrás de una `no_cumple` `D`. Falla si se mezclan las claves viejas (check, ámbito, tier) con la rúbrica.
+- `test_con_etiquetas_ordena_por_rubrica`: en un repo con 12 candidatas sintéticas, `entra` marca las 10 primeras de `rubrica.orden`, con pares en los que el orden viejo y la rúbrica discrepan: una `E`/`alto` con `check`, `ambito` `git` y nota core sale detrás de una `P`/`bajo` sin `check`, `dominio-proyecto` y stable (ambas sin corrida); y una regla sin corrida etiquetada `E`, con id menor y coste `alto`, sale detrás de una `no_cumple` etiquetada `E` con coste `bajo` (que cuenta como `D`). Falla si se mezclan las claves viejas (check, ámbito, tier) con la rúbrica o si se confunde «sin corrida» con «no cumple».
 - `test_etiqueta_ausente`: una candidata sin línea en el JSONL va al final de su repo como `sin_etiqueta`. Falla si el script lanza `KeyError`.
 
 **Verificación:** `python3 -m unittest discover -s evals/rubrica-reglas -p "test_*.py"` → `OK`; `python3 -I scripts/siembra-reglas.py ~/.cache/exo-campana-m/redaccion ~/.cache/exo-campana-m/corridas-criba "$EXO_KB" --json | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["repos"]))'` → el mismo número que en main.
 
 **Review Focus:**
+- `siembra-reglas.py` importa `rubrica` añadiendo `evals/rubrica-reglas` (ruta relativa al propio script) a `sys.path`: con `python3 -I` el directorio del script no basta. La Verificación con `-I` lo cubre.
 - La criba que entra en `rubrica.orden` es tri-estado (`True`, `False` o `None` sin corrida), no el booleano `a0_cumple` de hoy, que confunde «sin corrida» con «no cumple». Cubierto por `test_con_etiquetas_ordena_por_rubrica`.
 
 ### Task 6: doctrina, CI y versión del plugin
