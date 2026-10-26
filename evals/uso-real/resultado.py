@@ -43,7 +43,10 @@ def main():
     dets = _jsonl(a.detecciones)
     validacion = _json(a.validacion) if a.validacion else None
     p = puerta.decide(sum(d.get("correccion") == "si" for d in dets), sello["n_sesiones"])
-    if validacion is not None and validacion.get("juez_valido") is False:
+    # Un juez sin validar no estabiliza ni abre la etapa 2: solo juez_valido True deja pasar la puerta.
+    if validacion is None:
+        p["estado"] = "sin_validar"
+    elif validacion.get("juez_valido") is not True:
         p["estado"] = "juez_invalido"
 
     atribs = _jsonl(a.atribuciones) if a.atribuciones else []
@@ -65,6 +68,7 @@ def main():
         "n_sin_veredicto": sum(bool(d.get("sin_veredicto")) for d in dets),
         "n_nota_ausente": sum(bool(x.get("nota_ausente")) for x in atribs),
         "validacion": validacion,
+        "desde": sello.get("desde", "2026-10-06"),
         "sello_ok": True,
     }
     if a.validacion2:

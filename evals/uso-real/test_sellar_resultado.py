@@ -179,6 +179,13 @@ class TestResultado(Base):
         self.resultado(self.dets(0), validacion={"juez_valido": True, "kappa": 0.8, "n": 80})
         self.assertEqual(self.lee(self.res)["puerta"]["estado"], "estabilizar")
 
+    def test_resultado_juez_sin_validar(self):
+        for v in ({"kappa": 0.9}, {"juez_valido": None}):
+            self.resultado(self.dets(0), validacion=v)
+            self.assertEqual(self.lee(self.res)["puerta"]["estado"], "juez_invalido", v)
+        self.resultado(self.dets(0))
+        self.assertEqual(self.lee(self.res)["puerta"]["estado"], "sin_validar")
+
     def test_resultado_sin_etapa2(self):
         k = 5
         self.resultado(self.dets(k), validacion={"juez_valido": True})
@@ -194,6 +201,11 @@ class TestResultado(Base):
         self.assertEqual(o["final"]["por_atribucion"], {"nueva": 5})
         self.assertEqual(o["n_nota_ausente"], 1)
         self.assertEqual(o["validacion2"], {"n": 30, "acuerdo": 0.7})
+        # Negativo: puerta "estabilizar" con atribuciones no calcula final.
+        self.resultado(self.dets(0), atribs=atribs, validacion={"juez_valido": True})
+        o = self.lee(self.res)
+        self.assertEqual(o["puerta"]["estado"], "estabilizar")
+        self.assertIsNone(o["final"])
 
     def test_resultado_sello_cambiado(self):
         r = self.resultado(self.dets(1))
@@ -205,9 +217,9 @@ class TestResultado(Base):
         self.assertFalse(self.lee(self.res)["sello_ok"])
 
     def test_denominador_es_la_poblacion_sellada(self):
-        # s9 solo tiene sin_veredicto: sigue en el denominador (10, no 9).
-        dets = [det(f"s{n}", f"s{n}-m0", si=n == 0) for n in range(9)] + [det("s9", "s9-m0", sin=True)]
-        self.resultado(dets)
+        # s8 solo tiene sin_veredicto y s9 ninguna fila: ambas siguen en el denominador (10).
+        dets = [det(f"s{n}", f"s{n}-m0", si=n == 0) for n in range(8)] + [det("s8", "s8-m0", sin=True)]
+        self.resultado(dets, validacion={"juez_valido": True})
         o = self.lee(self.res)
         self.assertEqual((o["puerta"]["n"], o["puerta"]["k"], o["n_sin_veredicto"]), (10, 1, 1))
 
@@ -232,6 +244,7 @@ class TestResultado(Base):
         r = self.resultado(self.dets(1))
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(self.lee(self.res)["puerta"]["n"], 11)
+        self.assertEqual(self.lee(self.res)["desde"], "2026-09-01")
 
 
 if __name__ == "__main__":
