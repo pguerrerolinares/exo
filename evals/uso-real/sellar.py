@@ -2,7 +2,7 @@
 """Sella la medición antes de correrla (spec 2026-10-26 §4.6): población, KB, prompts, versión, umbrales y modelos.
 
 Si --salida ya existe se niega (exit 2) salvo --forzar. `--desde` es la palanca de la reserva (§4.1); `--hasta` cierra la población (sesiones y mensajes posteriores quedan fuera). Ambos quedan en el sello."""
-import argparse, datetime, hashlib, inspect, json, os, subprocess, sys
+import argparse, datetime, hashlib, json, os, subprocess, sys
 
 H = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, H)
@@ -23,7 +23,7 @@ def main():
     ap.add_argument("--kb", default=os.environ.get("EXO_KB"))
     ap.add_argument("--salida", required=True)
     ap.add_argument("--desde", default="2026-10-06")
-    ap.add_argument("--hasta", help="cierre de la población (ISO 8601 con Z); por defecto, ahora en UTC")
+    ap.add_argument("--hasta", help="cierre de la población (ISO 8601 con Z); por defecto, ahora en UTC (con --forzar, el del sello previo)")
     ap.add_argument("--forzar", action="store_true")
     a = ap.parse_args()
     if not a.kb:
@@ -36,7 +36,15 @@ def main():
     if r.returncode != 0:
         print(f"sellar: {a.kb} no es un repo git con commits", file=sys.stderr)
         return 1
-    hasta = a.hasta or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    previo = {}
+    if not a.hasta and os.path.exists(a.salida):
+        # La reserva (--desde anterior) amplía la población hacia atrás; el cierre no se mueve.
+        try:
+            with open(a.salida) as f:
+                previo = json.load(f)
+        except ValueError:
+            pass
+    hasta = a.hasta or previo.get("hasta") or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     sesiones, _ = transcripts.poblacion(a.proyectos, a.desde, hasta)
     sello = {
         "sesiones_sha256": sha_sesiones(sesiones),
@@ -51,7 +59,7 @@ def main():
         "umbrales": UMBRALES,
         "lote": LOTE,
         "semilla": SEMILLA,
-        "filtro_sha256": hashlib.sha256(inspect.getsource(transcripts.es_mensaje_humano).encode()).hexdigest(),
+        "filtro_sha256": transcripts.filtro_sha256(),
     }
     with open(a.salida, "w") as f:
         json.dump(sello, f, indent=2)

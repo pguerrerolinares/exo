@@ -41,8 +41,8 @@ class Base(unittest.TestCase):
         self.sello = os.path.join(self.tmp, "sello.json")
         self.res = os.path.join(self.tmp, "resultado.json")
 
-    def escribe(self, sid, lineas, sub=None):
-        d = os.path.join(self.proy, "repo")
+    def escribe(self, sid, lineas, sub=None, repo="repo"):
+        d = os.path.join(self.proy, repo)
         os.makedirs(d, exist_ok=True)
         with open(os.path.join(d, sid + ".jsonl"), "w") as f:
             f.writelines(json.dumps(l) + "\n" for l in lineas)
@@ -151,6 +151,23 @@ class TestSellar(Base):
                        os.path.join(self.tmp, "d.jsonl"), "--sello", self.sello)
         self.assertEqual(r.returncode, 2)
 
+    def test_resellar_con_forzar_conserva_el_hasta(self):
+        self.escribe("s1", sesion("s1"))
+        self.escribe("vieja", sesion("vieja", ts="2026-10-01T10:00:00Z"))
+        self.assertEqual(self.sella("--hasta", "2026-10-20T00:00:00Z").returncode, 0)
+        self.escribe("tarde", sesion("tarde", ts="2026-10-21T10:00:00Z"))
+        self.assertEqual(self.sella("--forzar", "--desde", "2026-09-01").returncode, 0)
+        s = self.lee(self.sello)
+        self.assertEqual((s["hasta"], s["n_sesiones"], s["desde"]), ("2026-10-20T00:00:00Z", 2, "2026-09-01"))
+        # Un --hasta explícito manda sobre el del sello previo.
+        self.sella("--forzar", "--hasta", "2026-10-22T00:00:00Z")
+        self.assertEqual(self.lee(self.sello)["n_sesiones"], 2)  # s1 y tarde; vieja queda fuera por el desde por defecto
+
+    def test_sellar_nuevo_sin_hasta_es_ahora(self):
+        self.escribe("s1", sesion("s1"))
+        self.sella()
+        self.assertRegex(self.lee(self.sello)["hasta"], r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+
 
 def det(sesion_, i, si=False, sin=False):
     if sin:
@@ -222,6 +239,7 @@ class TestResultado(Base):
         self.resultado(dets, validacion={"juez_valido": True})
         o = self.lee(self.res)
         self.assertEqual((o["puerta"]["n"], o["puerta"]["k"], o["n_sin_veredicto"]), (10, 1, 1))
+        self.assertEqual(o["puerta"]["estado"], "incompleto")  # a s9 le faltan detecciones
 
     def test_hasta_cierra_la_poblacion_sellada(self):
         self.escribe("futura", sesion("futura", ts="2026-10-25T10:00:00Z"))
@@ -262,6 +280,77 @@ class TestResultado(Base):
         self.assertEqual(d["principales"]["por_regla"], {"cd-git": 1})
         self.assertEqual(d["subagentes"]["llamadas_bash"], 4)
         self.assertEqual(d["subagentes"]["por_regla"], {"git-stash": 2})
+
+    def test_sin_veredicto_etapa2_se_declara(self):
+        def atribs(n, sin):
+            return [{"sesion": f"s{i}", "id": f"s{i}-m0", "sin_veredicto": True} if i < sin else
+                    {"sesion": f"s{i}", "id": f"s{i}-m0", "atribucion": "nueva", "nota_ausente": False, "commit_kb": "c"}
+                    for i in range(n)]
+        v = {"juez_valido": True}
+        # 1 de 5 (20 % > 10 %): final incompleto y declarado, no se estabiliza.
+        self.resultado(self.dets(5), atribs=atribs(5, 1), validacion=v)
+        o = self.lee(self.res)
+        self.assertEqual((o["n_sin_veredicto_etapa2"], o["final"]["n_correcciones"], o["final"]["estado"]), (1, 4, "incompleto"))
+        # 1 de 10 (10 % exacto): no es > 10 %, el estado sale de la puerta.
+        self.resultado(self.dets(10), atribs=atribs(10, 1), validacion=v)
+        o = self.lee(self.res)
+        self.assertEqual(o["n_sin_veredicto_etapa2"], 1)
+        self.assertNotEqual(o["final"]["estado"], "incompleto")
+        self.resultado(self.dets(5), atribs=atribs(5, 0), validacion=v)
+        self.assertEqual(self.lee(self.res)["n_sin_veredicto_etapa2"], 0)
+
+    def test_sello_filtro_cambiado(self):
+        s = self.lee(self.sello)
+        s["filtro_sha256"] = "0" * 64
+        with open(self.sello, "w") as f:
+            json.dump(s, f)
+        r = self.resultado(self.dets(1))
+        self.assertEqual(r.returncode, 2)
+        self.assertFalse(self.lee(self.res)["sello_ok"])
+
+    def test_deterministas_por_repo(self):
+        self.escribe("s0", sesion("s0", extra=["cd x && git status"]), sub={"ag": sesion("ag", extra=["git stash"])})
+        self.escribe("r1", sesion("r1", extra=["ls", "ls"]), repo="otro")
+        self.sella("--forzar")
+        self.resultado(self.dets(0))
+        d = self.lee(self.res)["deterministas"]
+        self.assertEqual(d["principales"]["llamadas_bash"], 3)
+        pr = d["por_repo"]
+        self.assertEqual(set(pr), {"repo", "otro"})
+        self.assertEqual(pr["repo"]["principales"]["por_regla"], {"cd-git": 1})
+        self.assertEqual(pr["repo"]["subagentes"]["por_regla"], {"git-stash": 1})
+        self.assertEqual((pr["otro"]["principales"]["llamadas_bash"], pr["otro"]["principales"]["por_regla"]), (2, {}))
+        self.assertEqual(pr["otro"]["subagentes"]["llamadas_bash"], 0)
+
+    def test_deterministas_respetan_hasta(self):
+        tarde = {"timestamp": "2026-10-21T10:00:00Z", "type": "assistant", "uuid": "t",
+                 "message": {"content": [{"type": "tool_use", "name": "Bash", "input": {"command": "git stash"}}]}}
+        self.escribe("s0", sesion("s0", extra=["ls"]) + [tarde], sub={"ag": sesion("ag", extra=["ls", "ls"]) + [tarde]})
+        self.sella("--forzar", "--hasta", "2026-10-20T00:00:00Z")
+        self.resultado(self.dets(0))
+        d = self.lee(self.res)["deterministas"]["principales"]
+        self.assertEqual((d["llamadas_bash"], d["por_regla"]), (1, {}))
+        d = self.lee(self.res)["deterministas"]["subagentes"]
+        self.assertEqual((d["llamadas_bash"], d["por_regla"]), (2, {}))
+
+    def test_deteccion_fuera_de_la_poblacion_exit_1(self):
+        for extra in ([det("sX", "sX-m0")], [det("s0", "s0-ajeno")]):
+            if os.path.exists(self.res):
+                os.remove(self.res)
+            r = self.resultado(self.dets(1) + extra)
+            self.assertEqual(r.returncode, 1, extra)
+            self.assertIn("población", r.stderr)
+            self.assertFalse(os.path.exists(self.res))
+
+    def test_detecciones_incompletas_es_incompleto(self):
+        v = {"juez_valido": True}
+        self.resultado(self.dets(0)[:7], validacion=v)
+        o = self.lee(self.res)
+        self.assertEqual(o["puerta"]["estado"], "incompleto")
+        self.assertEqual((o["puerta"]["n"], o["n_detecciones_faltantes"]), (10, 3))
+        # Contraparte: completo, y un sin_veredicto cuenta como cubierto.
+        self.resultado(self.dets(0)[:9] + [det("s9", "s9-m0", sin=True)], validacion=v)
+        self.assertEqual(self.lee(self.res)["puerta"]["estado"], "estabilizar")
 
     def test_desde_del_sello(self):
         # Una sesión anterior al default solo entra si el sello se hizo con --desde anterior.

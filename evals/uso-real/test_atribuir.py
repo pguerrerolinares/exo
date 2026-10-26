@@ -3,7 +3,7 @@ import json, os, shutil, stat, subprocess, sys, tempfile, unittest
 
 H = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, H)
-import atribuir, juez
+import atribuir, juez, transcripts
 
 FAKE_CLAUDE = '''#!/usr/bin/env python3
 import json, os, sys
@@ -274,13 +274,12 @@ class TestAtribuir(Base):
         self.assertEqual(self.corre().returncode, 0)
         self.assertEqual(len(self.calls()), 1)
         self.assertEqual(open(self.salida).read(), primera)
-        prompt = os.path.join(H, "atribuidor.prompt.md")
-        orig = open(prompt).read()
-        self.addCleanup(lambda: open(prompt, "w").write(orig))
-        with open(prompt, "w") as f:
-            f.write(orig + "\nNota extra.\n")
+        prompt = os.path.join(self.tmp, "atribuidor.prompt.md")
+        shutil.copy(os.path.join(H, "atribuidor.prompt.md"), prompt)
+        with open(prompt, "a") as f:
+            f.write("\nNota extra.\n")
         os.remove(self.salida)
-        self.assertEqual(self.corre().returncode, 0)
+        self.assertEqual(self.corre("--prompt", prompt).returncode, 0)
         self.assertEqual(len(self.calls()), 2)
 
     def test_salida_invalida_reintenta_y_sin_veredicto(self):
@@ -329,10 +328,13 @@ class TestAtribuir(Base):
         self.detecciones([("s1", "m0", "si")])
         sello = os.path.join(self.tmp, "sello.json")
         bueno = {"prompt_atribuidor_sha256": juez.sha256_fichero(os.path.join(H, "atribuidor.prompt.md")),
-                 "claude_version": "9.9.9 (Fake)"}
-        json.dump({**bueno, "prompt_atribuidor_sha256": "0" * 64}, open(sello, "w"))
-        self.assertEqual(self.corre("--sello", sello).returncode, 2)
-        self.assertEqual(self.calls(), [])
+                 "claude_version": "9.9.9 (Fake)", "filtro_sha256": transcripts.filtro_sha256(),
+                 "modelos": {"detector": "x", "atribuidor": atribuir.MODELO}}
+        for malo in ({**bueno, "prompt_atribuidor_sha256": "0" * 64}, {**bueno, "filtro_sha256": "0" * 64},
+                     {**bueno, "modelos": {"atribuidor": "otro"}}):
+            json.dump(malo, open(sello, "w"))
+            self.assertEqual(self.corre("--sello", sello).returncode, 2)
+            self.assertEqual(self.calls(), [])
         json.dump(bueno, open(sello, "w"))
         self.assertEqual(self.corre("--sello", sello).returncode, 0)
 

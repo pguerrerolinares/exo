@@ -66,6 +66,7 @@ def main():
         ap.add_argument("--" + a, required=True)
     ap.add_argument("--kb", default=os.environ.get("EXO_KB"))
     ap.add_argument("--sello")
+    ap.add_argument("--prompt", default=PROMPT)
     ap.add_argument("--tope-usd", type=float, default=25)
     ap.add_argument("--por-llamada-usd", default="0.50")
     ap.add_argument("--desde", default="2026-10-06")
@@ -77,8 +78,9 @@ def main():
     if a.sello:
         with open(a.sello) as f:
             sello = json.load(f)
-        actual = {"prompt_atribuidor_sha256": juez.sha256_fichero(PROMPT), "claude_version": juez.claude_version()}
-        malos = [k for k, v in actual.items() if sello.get(k) != v]
+        actual = {"prompt_atribuidor_sha256": juez.sha256_fichero(a.prompt), "claude_version": juez.claude_version(),
+                  "filtro_sha256": transcripts.filtro_sha256(), "modelos.atribuidor": MODELO}
+        malos = juez.comprueba_sello(sello, actual)
         if malos:
             print(f"atribuir: el sello no casa en {malos}", file=sys.stderr)
             return 2
@@ -97,9 +99,9 @@ def main():
                 return 1
             positivos.append(d)
 
-    with open(PROMPT) as f:
+    with open(a.prompt) as f:
         prompt = f.read()
-    sha = juez.sha256_fichero(PROMPT)
+    sha = juez.sha256_fichero(a.prompt)
     cache = juez.Cache(os.path.join(a.cache, "atribuidor.jsonl"))
     res = {}  # id -> registro de cache | None (sin_veredicto)
     for d in positivos:

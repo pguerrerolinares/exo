@@ -41,6 +41,7 @@ def main():
     for a in ("proyectos", "cache", "salida"):
         ap.add_argument("--" + a, required=True)
     ap.add_argument("--sello")
+    ap.add_argument("--prompt", default=PROMPT)
     ap.add_argument("--tope-usd", type=float, default=3)
     ap.add_argument("--por-llamada-usd", default="0.10")
     ap.add_argument("--desde", default="2026-10-06")
@@ -53,8 +54,9 @@ def main():
     if a.sello:
         with open(a.sello) as f:
             sello = json.load(f)
-        actual = {"prompt_detector_sha256": juez.sha256_fichero(PROMPT), "claude_version": juez.claude_version()}
-        malos = [k for k, v in actual.items() if sello.get(k) != v]
+        actual = {"prompt_detector_sha256": juez.sha256_fichero(a.prompt), "claude_version": juez.claude_version(),
+                  "filtro_sha256": transcripts.filtro_sha256(), "modelos.detector": MODELO, "lote": LOTE}
+        malos = juez.comprueba_sello(sello, actual)
         if malos:
             print(f"detectar: el sello no casa en {malos}", file=sys.stderr)
             return 2
@@ -66,9 +68,9 @@ def main():
     # Orden determinista: sesión (poblacion ya ordena por id) y luego ts, para que cache y lotes sean reproducibles.
     msgs = [{**m, "sesion": s["id"]} for s in sesiones for m in sorted(s["mensajes"], key=lambda m: m["ts"] or "")]
 
-    with open(PROMPT) as f:
+    with open(a.prompt) as f:
         prompt = f.read()
-    sha = juez.sha256_fichero(PROMPT)
+    sha = juez.sha256_fichero(a.prompt)
     cache = juez.Cache(os.path.join(a.cache, "detector.jsonl"))
     res = {}  # id -> veredicto | None (sin_veredicto)
     for m in msgs:

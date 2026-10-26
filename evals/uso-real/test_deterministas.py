@@ -76,6 +76,19 @@ class TestCuenta(unittest.TestCase):
         self.assertEqual(r["por_100"]["cd-git"], 12.5)
         self.assertEqual(r["por_100"]["git-stash"], 12.5)
 
+    def test_hasta_deja_fuera_lo_posterior(self):
+        def ev(ts, cmd):
+            return json.dumps({"type": "assistant", "timestamp": ts, "message": {"content": [_bash(cmd)]}})
+        p = _jsonl([ev("2026-10-10T10:00:00Z", "ls"), ev("2026-10-10T12:00:00+02:00", "ls"),
+                    ev("2026-10-10T10:30:00Z", "git stash"), ev("2026-10-10T10:00:01Z", "ls"),
+                    json.dumps({"type": "assistant", "message": {"content": [_bash("sin ts")]}}),
+                    ev("basura", "x")])
+        self.assertEqual(d.comandos_bash(p, "2026-10-10T10:00:01Z"), ["ls", "ls"])
+        self.assertEqual(len(d.comandos_bash(p)), 6)
+        r = d.cuenta([p], "2026-10-10T10:20:00Z")
+        self.assertEqual((r["llamadas_bash"], r["por_regla"]), (3, {}))
+        self.assertEqual(d.cuenta([p], "2026-10-10T11:00:00Z")["por_regla"], {"git-stash": 1})
+
     def test_cuenta_vacia(self):
         self.assertEqual(d.cuenta([]), {"llamadas_bash": 0, "por_regla": {}, "por_100": {}})
 

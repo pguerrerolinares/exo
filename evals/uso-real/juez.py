@@ -13,6 +13,16 @@ def sha256_fichero(path):
         return hashlib.sha256(f.read()).hexdigest()
 
 
+def comprueba_sello(sello, actual):
+    """Claves de `actual` que no casan con el sello; `a.b` entra en el dict anidado `a`."""
+    def valor(k):
+        v = sello
+        for parte in k.split("."):
+            v = v.get(parte) if isinstance(v, dict) else None
+        return v
+    return [k for k, v in actual.items() if valor(k) != v]
+
+
 def claude_bin():
     return os.environ.get("CLAUDE_BIN", "claude")
 

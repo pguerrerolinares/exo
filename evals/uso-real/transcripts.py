@@ -1,6 +1,8 @@
 """Lectura de transcripts de Claude Code: población de sesiones y mensajes humanos."""
 import datetime
 import glob
+import hashlib
+import inspect
 import json
 import os
 
@@ -31,6 +33,10 @@ def es_mensaje_humano(d):
         return False
     t = texto(d).lstrip()
     return bool(t) and not t.startswith(PREFIJOS)
+
+
+def filtro_sha256():
+    return hashlib.sha256(inspect.getsource(es_mensaje_humano).encode()).hexdigest()
 
 
 def _lineas(path):

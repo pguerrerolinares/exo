@@ -3,7 +3,7 @@ import json, os, shutil, stat, subprocess, sys, tempfile, unittest
 
 H = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, H)
-import detectar, juez
+import detectar, juez, transcripts
 
 FAKE = '''#!/usr/bin/env python3
 import json, os, re, sys
@@ -177,13 +177,21 @@ class TestDetectar(Base):
         self.escribe("s1", self.mensajes(2))
         sello = os.path.join(self.tmp, "sello.json")
         bueno = {"prompt_detector_sha256": juez.sha256_fichero(os.path.join(H, "detector.prompt.md")),
-                 "claude_version": "9.9.9 (Fake)"}
-        for malo in ({**bueno, "prompt_detector_sha256": "0" * 64}, {**bueno, "claude_version": "1.0.0"}):
+                 "claude_version": "9.9.9 (Fake)", "filtro_sha256": transcripts.filtro_sha256(),
+                 "modelos": {"detector": detectar.MODELO, "atribuidor": "x"}, "lote": detectar.LOTE}
+        for malo in ({**bueno, "prompt_detector_sha256": "0" * 64}, {**bueno, "claude_version": "1.0.0"},
+                     {**bueno, "filtro_sha256": "0" * 64}, {**bueno, "lote": 5},
+                     {**bueno, "modelos": {"detector": "otro"}}, {k: v for k, v in bueno.items() if k != "modelos"}):
             json.dump(malo, open(sello, "w"))
             r = self.corre("--sello", sello)
             self.assertEqual(r.returncode, 2, r.stderr)
             self.assertEqual(self.calls(), [])
         json.dump(bueno, open(sello, "w"))
+        otro = os.path.join(self.tmp, "otro.prompt.md")
+        shutil.copy(os.path.join(H, "detector.prompt.md"), otro)
+        with open(otro, "a") as f:
+            f.write("\nNota extra.\n")
+        self.assertEqual(self.corre("--sello", sello, "--prompt", otro).returncode, 2)
         r = self.corre("--sello", sello)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(len(self.calls()), 1)
@@ -258,14 +266,13 @@ class TestDetectar(Base):
 
     def test_cache_se_invalida_con_otro_prompt(self):
         self.escribe("s1", self.mensajes(2))
-        prompt = os.path.join(H, "detector.prompt.md")
-        orig = open(prompt).read()
-        self.addCleanup(lambda: open(prompt, "w").write(orig))
-        self.assertEqual(self.corre().returncode, 0)
+        prompt = os.path.join(self.tmp, "detector.prompt.md")
+        shutil.copy(os.path.join(H, "detector.prompt.md"), prompt)
+        self.assertEqual(self.corre("--prompt", prompt).returncode, 0)
         self.assertEqual(len(self.calls()), 1)
-        with open(prompt, "w") as f:
-            f.write(orig + "\nNota extra.\n")
-        self.assertEqual(self.corre().returncode, 0)
+        with open(prompt, "a") as f:
+            f.write("\nNota extra.\n")
+        self.assertEqual(self.corre("--prompt", prompt).returncode, 0)
         self.assertEqual(len(self.calls()), 2)
 
     def test_invocacion_aislada(self):

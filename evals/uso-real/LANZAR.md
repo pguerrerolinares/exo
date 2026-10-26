@@ -52,10 +52,19 @@ puerta no estabiliza ni abre la etapa 2 hasta que haya `validacion.json` (paso 5
 ## Ramas
 
 - **`juez_invalido`** (kappa < 0,4): el juez no sirve y el resultado no estabiliza nada. Genera la muestra por regex
-  para medir sin juez: `python3 $R/muestra.py --etapa regex --proyectos $P --cache $C`
+  para medir sin juez: `python3 $R/muestra.py --etapa regex --proyectos $P --cache $C --sello $R/sello.json`
   (escribe `$C/etiquetar-regex.jsonl`).
 - **Menos de 30 correcciones** en la etapa 1: la población es corta. Re-sella incluyendo la reserva con un `--desde`
   anterior y repite desde el paso 2:
   `python3 $R/sellar.py --proyectos $P --kb $EXO_KB --salida $R/sello.json --desde <fecha anterior> --forzar`
-  (con `--sello`, `detectar.py`, `muestra.py` y `atribuir.py` toman `desde` del sello). Declara el cambio en el informe:
+  (`--forzar` sin `--hasta` conserva el `hasta` del sello previo: la reserva amplía la población hacia atrás, nunca
+  hacia delante. Con `--sello`, `detectar.py`, `muestra.py` y `atribuir.py` toman `desde` del sello). Declara el cambio en el informe:
   el sello guarda el `desde` usado y `resultado.py` lo lee de ahí.
+
+## Qué comprueba el sello
+
+`detectar.py`, `atribuir.py` y `resultado.py` salen con 2 si el sello no casa: prompt, `claude_version`, `filtro_sha256`
+y el modelo (y `lote` en detectar) de cada uno; `resultado.py` además rehace la población y compara `sesiones_sha256`.
+`resultado.py` sale con 1 si una detección no está en la población, y marca `puerta.estado == "incompleto"` si faltan
+detecciones de mensajes de la población (corrida a medias o fichero obsoleto). En la etapa 2, si los `sin_veredicto` son
+más del 10 % de los positivos, `final.estado` es `incompleto`; se declaran en `n_sin_veredicto_etapa2`.
