@@ -1,0 +1,46 @@
+{
+  "n_universo": 53,
+  "n_analizado": 53,
+  "sin_etiqueta": 0,
+  "citas_no_encontradas": 12,
+  "kappa_b": 0.1548974943052391,
+  "kappa_base": 0.10894418291862808,
+  "precision_b": 0.6037735849056604,
+  "precision_base": 0.5283018867924528,
+  "confusion_b": {
+    "tp": 26,
+    "fp": 18,
+    "fn": 3,
+    "tn": 6
+  },
+  "no_cumple_por_choque": {
+    "P": {
+      "n": 30,
+      "no_cumple": 18,
+      "proporcion": 0.6
+    },
+    "D": {
+      "n": 14,
+      "no_cumple": 8,
+      "proporcion": 0.5714285714285714
+    },
+    "E": {
+      "n": 9,
+      "no_cumple": 3,
+      "proporcion": 0.3333333333333333
+    }
+  },
+  "delta": {
+    "delta": 0.04595331138661103,
+    "ic95": [
+      -0.24702401396213822,
+      0.31994784637275786
+    ],
+    "descartados": 0
+  },
+  "decision": {
+    "estado": "valida",
+    "criterio_2": true,
+    "rubrica": "D"
+  }
+}
