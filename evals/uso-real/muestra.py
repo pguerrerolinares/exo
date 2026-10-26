@@ -7,7 +7,7 @@ import argparse, json, os, random, re, sys, unicodedata
 
 H = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, H)
-import detectar, transcripts
+import detectar, juez, kb, transcripts
 
 SEMILLA = 20261026
 REGEX = re.compile(r"no uses|otra vez|siempre|nunca|esta mal|dejate de")
@@ -31,7 +31,7 @@ def etapa1(mensajes, semilla=SEMILLA):
     casan = [m for m in mensajes if candidato_regex(m["texto"])]
     resto = [m for m in mensajes if not candidato_regex(m["texto"])]
     pos = rng.sample(casan, min(40, len(casan)))
-    azar = rng.sample(resto, min(80 - len(pos) if len(casan) < 40 else 40, len(resto)))
+    azar = rng.sample(resto, min(80 - len(pos), len(resto)))
     sel = pos + azar
     rng.shuffle(sel)
     return [_item(m) for m in sel]
@@ -59,8 +59,8 @@ def etapa2(atribuidos, semilla=SEMILLA, n=30):
     cuotas = _cuotas({k: len(v) for k, v in por.items()}, n)
     sel = [a for k in sorted(por) for a in rng.sample(por[k], cuotas[k])]
     rng.shuffle(sel)
-    # `nota` es el contexto de KB que vio el juez; `atribucion` y `linea` son su veredicto y no salen.
-    return [{**_item(a), "nota": a.get("nota"), "atribucion_dueño": None} for a in sel]
+    # `contexto_kb` es lo que vio el juez; `atribucion`, `nota` y `linea` son su veredicto y no salen.
+    return [{**_item(a), "contexto_kb": a.get("contexto_kb"), "atribucion_dueño": None} for a in sel]
 
 
 def _lee_jsonl(path):
@@ -68,25 +68,55 @@ def _lee_jsonl(path):
         return [json.loads(l) for l in f if l.strip()]
 
 
+def _contexto_kb(sesion, commit, kbdir):
+    """Reconstruye lo que vio el juez de atribuir.py: nota de proyecto y core/ en `commit` (como atribuir.contexto)."""
+    if commit is None:
+        return {"nota": None, "core": {}}
+    head = kb.nota_head(sesion["cwd"], kbdir) if sesion["cwd"] else None
+    ctx = kb.contexto(kbdir, commit, kb.ruta_en(kbdir, head, commit) if head else None)
+    return {"nota": ctx["nota"], "core": ctx["core"]}
+
+
+def atribuidos(salida_atribuir, cache, proyectos, desde, kbdir):
+    """Une la salida pública de atribuir.py, su cache (`atribuidor.jsonl`: texto) y el transcript (previo)."""
+    sesiones = {s["id"]: s for s in transcripts.poblacion(proyectos, desde)[0]}
+    c = juez.Cache(os.path.join(cache, "atribuidor.jsonl"))
+    out = []
+    for p in _lee_jsonl(salida_atribuir):
+        if p.get("sin_veredicto"):
+            continue
+        s, reg = sesiones.get(p["sesion"]), c.get(p["id"])
+        m = next((m for m in s["mensajes"] if m["id"] == p["id"]), None) if s else None
+        if m is None or reg is None:
+            raise ValueError(f"{p['sesion']}/{p['id']} no está en el transcript o en la cache de atribuir")
+        if p["commit_kb"] is not None and not kbdir:
+            raise ValueError("falta --kb (o $EXO_KB): hace falta para reconstruir el contexto de KB")
+        out.append({"id": p["id"], "atribucion": p["atribucion"], "texto": reg["texto"], "previo": m["previo"],
+                    "contexto_kb": _contexto_kb(s, p["commit_kb"], kbdir)})
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--etapa", required=True, choices=("1", "2", "regex"))
     ap.add_argument("--cache", default=os.path.expanduser("~/.cache/exo-uso-real"))
-    ap.add_argument("--proyectos", help="etapas 1 y regex: directorio de transcripts")
+    ap.add_argument("--proyectos", required=True, help="directorio de transcripts")
     ap.add_argument("--desde", default="2026-10-06")
-    ap.add_argument("--positivos", help="etapa 2: cache de atribuir.py (jsonl con atribucion, nota, texto, previo)")
+    ap.add_argument("--atribuciones", help="etapa 2: --salida de atribuir.py (su cache es <cache>/atribuidor.jsonl)")
+    ap.add_argument("--kb", default=os.environ.get("EXO_KB"), help="etapa 2: repo de la KB (o $EXO_KB)")
     ap.add_argument("--semilla", type=int, default=SEMILLA)
     a = ap.parse_args()
 
     if a.etapa == "2":
-        if not a.positivos:
-            print("muestra: la etapa 2 necesita --positivos", file=sys.stderr)
+        if not a.atribuciones:
+            print("muestra: la etapa 2 necesita --atribuciones", file=sys.stderr)
             return 1
-        items = etapa2(_lee_jsonl(a.positivos), a.semilla)
+        try:
+            items = etapa2(atribuidos(a.atribuciones, a.cache, a.proyectos, a.desde, a.kb), a.semilla)
+        except ValueError as e:
+            print(f"muestra: {e}", file=sys.stderr)
+            return 1
     else:
-        if not a.proyectos:
-            print("muestra: las etapas 1 y regex necesitan --proyectos", file=sys.stderr)
-            return 1
         sesiones, _ = transcripts.poblacion(a.proyectos, a.desde)
         msgs = [m for s in sesiones for m in sorted(s["mensajes"], key=lambda m: m["ts"] or "")]
         items = etapa1(msgs, a.semilla) if a.etapa == "1" else [_item(m) for m in msgs if candidato_regex(m["texto"])]

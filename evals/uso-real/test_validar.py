@@ -11,7 +11,9 @@ def msg(i, texto, previo="prev"):
 
 
 def corre(script, *args):
-    return subprocess.run([sys.executable, os.path.join(H, script), *args], capture_output=True, text=True)
+    # cwd ajeno: los imports de los CLI no pueden depender del directorio de trabajo.
+    return subprocess.run([sys.executable, os.path.join(H, script), *args], capture_output=True, text=True,
+                          cwd=tempfile.gettempdir())
 
 
 def jsonl(path, objs):
@@ -62,7 +64,7 @@ class TestMuestra(unittest.TestCase):
         self.assertTrue(it["previo"].endswith("cola"))
 
     def test_estratos_etapa2(self):
-        at = [{"id": f"a{i:03d}", "atribucion": k, "previo": "p", "texto": "t", "nota": "n", "linea": "L"}
+        at = [{"id": f"a{i:03d}", "atribucion": k, "previo": "p", "texto": "t", "nota": "n", "linea": "L", "contexto_kb": {"nota": "NOTA", "core": {}}}
               for i, k in enumerate(["nueva"] * 60 + ["canon-kb"] * 30 + ["regla-canal"])]
         res = muestra.etapa2(at)
         ids = [x["id"] for x in res]
@@ -76,7 +78,7 @@ class TestMuestra(unittest.TestCase):
         self.assertLessEqual(abs(por["nueva"] - 20), 1)
         self.assertLessEqual(abs(por["canon-kb"] - 10), 1)
         for it in res:
-            self.assertEqual(set(it), {"id", "previo", "texto", "etiqueta", "nota", "atribucion_dueño"})
+            self.assertEqual(set(it), {"id", "previo", "texto", "etiqueta", "contexto_kb", "atribucion_dueño"})
 
 
 class TestValidar(unittest.TestCase):
@@ -136,14 +138,102 @@ class TestValidar(unittest.TestCase):
         self.assertFalse(out["juez_valido"])
 
 
+def escribe_sesion(proyectos, sid, filas):
+    """filas: [(uuid, texto)]; cada mensaje va precedido de un turno del asistente `previo-<n>`."""
+    os.makedirs(f"{proyectos}/p", exist_ok=True)
+    with open(f"{proyectos}/p/{sid}.jsonl", "w") as f:
+        for n, (u, t) in enumerate(filas):
+            base = {"timestamp": f"2026-10-10T10:00:{n:02d}Z", "cwd": "/w/x", "entrypoint": "cli"}
+            f.write(json.dumps({**base, "type": "assistant", "uuid": f"a{n}", "message": {
+                "role": "assistant", "content": [{"type": "text", "text": f"previo-{n}"}]}}) + "\n")
+            f.write(json.dumps({**base, "type": "user", "uuid": u, "message": {"role": "user", "content": t}}) + "\n")
+
+
 class TestCLIMuestra(unittest.TestCase):
-    def test_etapa1_escribe_en_cache(self):
+    def test_etapa1_y_regex_escriben_en_cache(self):
         with tempfile.TemporaryDirectory() as d:
-            at = [{"id": f"a{i}", "atribucion": "nueva", "previo": "p", "texto": "t", "nota": None} for i in range(5)]
-            jsonl(f"{d}/pos.jsonl", at)
-            r = corre("muestra.py", "--etapa", "2", "--cache", f"{d}/c", "--positivos", f"{d}/pos.jsonl")
+            escribe_sesion(f"{d}/pr", "s1", [(f"u{i}", "no uses eso" if i < 3 else "vale") for i in range(6)])
+            for etapa, n in (("1", 6), ("regex", 3)):
+                r = corre("muestra.py", "--etapa", etapa, "--cache", f"{d}/c", "--proyectos", f"{d}/pr")
+                self.assertEqual(r.returncode, 0, r.stderr)
+                fich = open(f"{d}/c/etiquetar-{'etapa1' if etapa == '1' else 'regex'}.jsonl").readlines()
+                self.assertEqual(len(fich), n)
+            self.assertEqual(set(json.loads(fich[0])), {"id", "previo", "texto", "etiqueta"})
+
+    def test_etapa2_lee_salida_y_cache_de_atribuir(self):
+        with tempfile.TemporaryDirectory() as d:
+            escribe_sesion(f"{d}/pr", "s1", [("u0", "uno"), ("u1", "dos"), ("u2", "tres")])
+            jsonl(f"{d}/atrib.jsonl", [
+                {"sesion": "s1", "id": "u0", "atribucion": "nueva", "nota_ausente": True, "commit_kb": None},
+                {"sesion": "s1", "id": "u1", "atribucion": "canon-kb", "nota_ausente": True, "commit_kb": None},
+                {"sesion": "s1", "id": "u2", "sin_veredicto": True}])
+            jsonl(f"{d}/c/atribuidor.jsonl", [
+                {"id": "u0", "atribucion": "nueva", "nota": "SECRETA", "linea": "L", "texto": "uno"},
+                {"id": "u1", "atribucion": "canon-kb", "nota": "SECRETA", "linea": "L", "texto": "dos"}]) if os.makedirs(f"{d}/c") is None else 0
+            r = corre("muestra.py", "--etapa", "2", "--cache", f"{d}/c", "--proyectos", f"{d}/pr", "--atribuciones", f"{d}/atrib.jsonl")
             self.assertEqual(r.returncode, 0, r.stderr)
-            self.assertEqual(len(open(f"{d}/c/etiquetar-etapa2.jsonl").readlines()), 5)
+            bruto = open(f"{d}/c/etiquetar-etapa2.jsonl").read()
+            items = [json.loads(l) for l in bruto.splitlines()]
+            self.assertEqual(sorted((i["id"], i["texto"], i["previo"]) for i in items),
+                             [("u0", "uno", "previo-0"), ("u1", "dos", "previo-1")])
+            self.assertNotIn("SECRETA", bruto)
+            self.assertNotIn("canon-kb", bruto)
+            self.assertEqual(items[0]["contexto_kb"], {"nota": None, "core": {}})
+
+    def test_etapa2_sin_cache_para_un_positivo_exit_1(self):
+        with tempfile.TemporaryDirectory() as d:
+            escribe_sesion(f"{d}/pr", "s1", [("u0", "uno")])
+            jsonl(f"{d}/atrib.jsonl", [{"sesion": "s1", "id": "u0", "atribucion": "nueva", "nota_ausente": True, "commit_kb": None}])
+            r = corre("muestra.py", "--etapa", "2", "--cache", f"{d}/c", "--proyectos", f"{d}/pr", "--atribuciones", f"{d}/atrib.jsonl")
+            self.assertEqual(r.returncode, 1)
+
+
+class TestValidarExtra(unittest.TestCase):
+    def test_validar_funciona_desde_cwd_ajeno(self):
+        with tempfile.TemporaryDirectory() as d:
+            jsonl(f"{d}/d", [{"sesion": "s", "id": "a", "correccion": "si", "tipo": "redirige"}])
+            jsonl(f"{d}/e", [{"id": "a", "etiqueta": "si"}])
+            r = subprocess.run([sys.executable, os.path.join(H, "validar.py"), "--etapa", "1", "--etiquetas", f"{d}/e",
+                                "--detecciones", f"{d}/d", "--salida", f"{d}/o"], capture_output=True, text=True, cwd=d)
+            self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_id_sin_deteccion_exit_1(self):
+        with tempfile.TemporaryDirectory() as d:
+            jsonl(f"{d}/d", [])
+            jsonl(f"{d}/e", [{"id": "a", "etiqueta": "si"}])
+            r = corre("validar.py", "--etapa", "1", "--etiquetas", f"{d}/e", "--detecciones", f"{d}/d", "--salida", f"{d}/o")
+            self.assertEqual(r.returncode, 1)
+            self.assertIn("a", r.stderr)
+
+    def test_etapa2_id_sin_atribucion_exit_1(self):
+        with tempfile.TemporaryDirectory() as d:
+            jsonl(f"{d}/j", [{"sesion": "s", "id": "z", "sin_veredicto": True}])
+            jsonl(f"{d}/e", [{"id": "z", "atribucion_dueño": "nueva"}])
+            r = corre("validar.py", "--etapa", "2", "--etiquetas", f"{d}/e", "--atribuciones", f"{d}/j", "--salida", f"{d}/o")
+            self.assertEqual(r.returncode, 1)
+            self.assertIn("sin atribución del juez: z", r.stderr)  # mensaje, no traceback
+
+    def test_validar_etapa2(self):
+        with tempfile.TemporaryDirectory() as d:
+            juez_ = [("a", "canon-kb"), ("b", "canon-kb"), ("c", "nueva"), ("d", "regla-canal")]
+            jsonl(f"{d}/j", [{"sesion": "s", "id": i, "atribucion": k, "nota_ausente": False, "commit_kb": "x"} for i, k in juez_])
+            dueño = ["canon-kb", "perfil-core", "canon-kb", None]
+            jsonl(f"{d}/e", [{"id": i, "atribucion_dueño": v} for (i, _), v in zip(juez_, dueño)])
+            args = ("--etapa", "2", "--etiquetas", f"{d}/e", "--atribuciones", f"{d}/j", "--salida", f"{d}/o")
+            r = corre("validar.py", *args)
+            self.assertEqual(r.returncode, 2)
+            self.assertIn("d", r.stderr.split(":")[-1])
+            self.assertFalse(os.path.exists(f"{d}/o"))
+            dueño[3] = "regla-canal"
+            jsonl(f"{d}/e", [{"id": i, "atribucion_dueño": v} for (i, _), v in zip(juez_, dueño)])
+            r = corre("validar.py", *args)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            out = json.load(open(f"{d}/o"))
+            self.assertEqual(out["n"], 4)
+            self.assertEqual(out["acuerdo"], 0.5)            # a y d
+            self.assertEqual(out["acuerdo_decidida"], 0.75)  # b coincide en decidida aunque no en valor; c no
+            self.assertEqual(out["por_atribucion"]["canon-kb"], {"n": 2, "coinciden": 1})
+            self.assertEqual(out["por_atribucion"]["nueva"], {"n": 1, "coinciden": 0})
 
 
 if __name__ == "__main__":
