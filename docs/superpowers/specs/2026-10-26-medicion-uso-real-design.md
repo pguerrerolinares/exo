@@ -67,18 +67,15 @@ esa noche y una lectura sin fecha lo contaría como decidido.
   ≥ 2026-10-06**. El primer timestamp es también el ancla de la guarda de
   fecha. Las 2 sesiones con mtime posterior y arranque anterior pasan a la
   reserva.
-- **Sesión (denominador)** = conversación con al menos 1 mensaje humano. Las
-  continuaciones por compactación (primer mensaje «This session is being
-  continued…», 22 casos) se unen a la sesión de la que vienen, si el jsonl
-  permite enlazarlas (`parentUuid`/`leafUuid` o el `sessionId` citado). Si no
-  se pueden enlazar, cuentan como sesiones aparte y el resultado lo declara.
+- **Sesión (denominador)** = fichero jsonl con al menos 1 mensaje humano.
+  La compactación **no** abre fichero nuevo: el resumen queda en el mismo
+  jsonl, con `isCompactSummary: true` y un único `sessionId` (comprobado en
+  12 ficheros). No hay continuaciones que enlazar: solo se filtra el resumen.
   Las sesiones cortas (24 con ≤ 3 mensajes) **no se excluyen**. *Decisión del
-  orquestador:* el dueño eligió la tasa por sesión, y unir las
-  continuaciones evita inflar el denominador, que es el error que favorece
-  estabilizar.
+  orquestador:* el dueño eligió la tasa por sesión.
 - **Repo de la sesión** = directorio de `~/.claude/projects/` (el `cwd` de
   arranque). Si el `cwd` cambia dentro de la sesión, no se reatribuye.
-- **Mensaje humano:** `type = user`, sin `isMeta`, sin `toolUseResult`,
+- **Mensaje humano:** `type = user`, sin `isMeta`, sin `isCompactSummary`, sin `toolUseResult`,
   `origin.kind = human` y `promptSource ∈ {typed, queued}` cuando los campos
   existen. Sin esos campos (formato viejo, 44 casos) decide el filtro por
   texto. El texto no puede estar vacío ni empezar por `<command-`,
@@ -98,6 +95,12 @@ esa noche y una lectura sin fecha lo contaría como decidido.
 - Juez aislado con el patrón de `evals/rubrica-reglas`: `claude -p`, sin
   herramientas y sin contexto de la KB, en Haiku. Salida JSON
   `{correccion: si|no, tipo: rechaza-propuesta|contradice-hecho|repite-instruccion|redirige|null}`.
+- **Lotes de 10 mensajes por llamada**, cada uno con su id y su veredicto
+  en un array JSON. Lo evalúan el sello y la validación. *Decisión del
+  orquestador:* la rúbrica costó ~0,025 USD por llamada en Sonnet. Con ~960
+  mensajes y una llamada por mensaje, ni siquiera en Haiku se cabe en el
+  tope de 3 USD. Si falta un id en la salida, el lote se reintenta una vez;
+  si vuelve a faltar, ese mensaje queda `sin_veredicto` y se declara.
 - **Validación (antes de usar el resultado):** el dueño etiqueta 80 mensajes
   a ciegas, sin ver la etiqueta del juez: 40 positivos de regex
   (`no uses|otra vez|siempre|nunca|está mal|déjate de`) y 40 al azar. Se
