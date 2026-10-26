@@ -77,6 +77,16 @@ class TestBootstrap(unittest.TestCase):
             self.assertEqual(r["delta"], 1.0)
             self.assertEqual(r["ic95"], [1.0, 1.0])
 
+    def test_ic95_percentiles(self):
+        # 1..100 desordenado: percentil 2,5 -> índice 2 (valor 3), 97,5 -> índice 97 (valor 98)
+        self.assertEqual(E._ic95(list(range(100, 0, -1))), [3, 98])
+
+    def test_bootstrap_todo_descartado(self):
+        r = E.bootstrap_delta([T] * 4, [T] * 4, [T] * 4, n=50)
+        self.assertIsNone(r["delta"])
+        self.assertEqual(r["ic95"], [None, None])
+        self.assertEqual(r["descartados"], 50)
+
 
 if __name__ == "__main__":
     unittest.main()

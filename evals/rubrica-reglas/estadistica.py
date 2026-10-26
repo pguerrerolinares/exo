@@ -43,8 +43,10 @@ def bootstrap_delta(pred_b, pred_base, verdad, n=10000, semilla=20261026):
             deltas.append(k1 - k2)
     if not deltas:
         return {"delta": delta, "ic95": [None, None], "descartados": descartados}
-    deltas.sort()
+    return {"delta": delta, "ic95": _ic95(deltas), "descartados": descartados}
+
+
+def _ic95(deltas):
+    deltas = sorted(deltas)
     m = len(deltas)
-    lo = deltas[int(0.025 * m)]
-    hi = deltas[min(m - 1, int(0.975 * m))]
-    return {"delta": delta, "ic95": [lo, hi], "descartados": descartados}
+    return [deltas[int(0.025 * m)], deltas[int(0.975 * m)]]
