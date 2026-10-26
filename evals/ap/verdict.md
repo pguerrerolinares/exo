@@ -17,6 +17,7 @@ La condición «selección de proyecto» de §7.3 **no** se cumple. Las reglas d
 ## Sensibilidades y descriptivos (no adjudican)
 
 - **Sin las 27 corridas que no arrancaron** (E2): son 144 corridas cubiertas. `ap` 0,925, `ap1` 0,912, Δ +0,013 [−0,050, +0,088]. Los dos brazos vuelven al nivel de O (0,903), lo que confirma que el canal system prompt replica en estas sondas.
+- **Completitud, con las 27 relanzadas** (2026-10-26, `corridas-e2/`; mismo `claude` 2.1.310, mismos bloques y pins; 27/27 con `result`, 2,47 USD, sin fugas): sustituyendo cada corrida fallida por su relanzamiento, `ap` 0,925, `ap1` 0,925, Δ **+0,000 [−0,050, +0,062]**, 15 de 16 sondas pasan en los dos brazos. Por tipo: iniciación `ap` 0,92 frente a `ap1` 1,00 (n = 5); restricción 0,93 frente a 0,89 (n = 11). Las no cubiertas siguen en 2/40. Es la mejor estimación del efecto; el veredicto sigue siendo el de la regla sellada.
 - **Bootstrap por proyecto** (13 proyectos): Δ +0,000 [−0,080, +0,093].
 - **Listas de proyecto con ≥ 8 reglas** (n = 10): Δ −0,020; 9 de 10 pasan en los dos brazos. Con la lista casi llena (`CAP` 10) no se ve dilución.
 - **Por tipo** (`tipos.tsv`, etiquetado a ciegas): iniciación, n = 5: `ap` 0,80, `ap1` 0,84, Δ −0,040. Restricción, n = 11: `ap` 0,84, `ap1` 0,82, Δ +0,018. La dirección es la que predice #193, pero con n = 5 no se distingue del ruido.

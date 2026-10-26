@@ -61,4 +61,6 @@ N  | P(cae): nula · moderada · fuerte · pierde3 · pierde5 | P(sin réplica |
 
 **Cómo se adjudica.** No cambia nada: se aplica la política sellada (cero re-intentos; un crash cuenta como no cumple). El fallo cayó en los dos brazos en la misma proporción (~10 %). Como sensibilidad, que no adjudica, `verdict.md` reporta también el resultado sin esas corridas.
 
+**Relanzamiento (2026-10-26, después de adjudicar).** Las 27 se relanzaron con el mismo `correr.sh`, `claude` 2.1.310, bloques y pins verificados, en `$K_ROOT/corridas-e2/`. Los originales no se tocaron. Las 27 completaron. Solo sirven como sensibilidad de completitud en `verdict.md`; no cambian la adjudicación.
+
 **Para la próxima tanda.** Un fallo de arranque sin tokens no informa sobre la regla. En la próxima campaña conviene pre-registrar que una corrida con transcript vacío y error de arranque se relanza, o fijar las managed settings fuera de `/mnt/c`.
