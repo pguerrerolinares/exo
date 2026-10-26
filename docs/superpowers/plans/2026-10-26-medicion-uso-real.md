@@ -101,7 +101,7 @@ Encima, `juez.py` (llamada aislada a `claude -p`, lotes y cache) y CLIs finos: `
 - `test_ic_valores_referencia`: `ic_poisson(0)` = `(0.0, 3.6889)`, `ic_poisson(10)` = `(4.7954, 18.3904)` e `ic_poisson(40)` = `(28.5766, 54.4686)`, con 3 decimales. Falla si se usa la aproximación normal.
 - `test_decide_por_debajo`: `decide(10, 100)` da `estado = "estabilizar"` (IC superior 0,1839).
 - `test_decide_cruza`: `decide(40, 100)` da `"etapa2"` (IC 0,2858-0,5447). Falla si la puerta mira la tasa puntual (0,40) en vez del IC superior.
-- `test_decide_borde`: `decide(31, 100)`, con IC superior por encima de 0,4, da `"etapa2"`; `decide(25, 100)` da el estado que corresponda a su IC superior frente a `< 0.4` estricto.
+- `test_decide_borde`: `decide(27, 100)` da `"estabilizar"` (IC superior 0,3928) y `decide(28, 100)` da `"etapa2"` (IC superior 0,4047). Falla si la puerta usa `<=`, el IC del 90 % o el límite inferior.
 - `test_final_unidad_vacia`: 30 atribuciones con 2 `canon-kb` y 28 `nueva` dan `"unidad_vacia"` (2/30 < 0,10); con 29, la regla no aplica (n < 30). Falla si la invalidación se dispara con n pequeño.
 - `test_final_decididas`: 4 decididas sobre 100 sesiones dan `"estabilizar"`; 60 sobre 100 dan `"seguir"`.
 
