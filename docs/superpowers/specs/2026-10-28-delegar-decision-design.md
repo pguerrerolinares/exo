@@ -56,35 +56,56 @@ desde el primer día.
 ### 4.1 Hook
 
 Script nuevo: `plugins/exo/scripts/delegar-decision.sh`, registrado en
-`hooks.json` → `Stop`, **antes** de `document-remind.sh`. El precedente que
-sigue es `sdd-wake-guard.sh`.
+`hooks.json` → `Stop`. El precedente que sigue es `sdd-wake-guard.sh`. Los
+hooks Stop corren en paralelo y su orden no está documentado
+(https://code.claude.com/docs/en/hooks-guide#combine-results-from-multiple-hooks),
+así que no se impone ninguno.
+
+El detector vive en un helper Python, `plugins/exo/scripts/delegar-decision.py`,
+que el hook bash invoca con `python3 -I`. *Decisión del orquestador.*
+
+**Hechos verificados de la plataforma:**
+- Stop solo corre en el agente principal; los subagentes disparan
+  SubagentStop. La abstención por `agent_id` es defensiva.
+- `decision: block` con `reason` hace que Claude continúe el turno.
+- Hay un tope de 8 continuaciones por bloqueo (`CLAUDE_CODE_STOP_HOOK_BLOCK_CAP`).
+  No nos afecta, porque el tope propio es 1 (§4.3).
 
 **Abstención** (sale con 0 y sin salida):
 - hay `agent_id` (es un subagente);
 - `stop_hook_active` es true;
-- falta jq;
+- faltan python3 o jq;
 - el transcript no se puede leer;
 - el sentinel (§4.3) ya está consumido para este mensaje humano.
 
 **Hecho que dispara.** El segmento empieza en el último input, sea humano o un
 input no humano que abre turno (hand-back de subagente con `isMeta` u
 `origin.kind`, o una task-notification). La segmentación es la de `turnos()`
-en `backtest-b/backtest.py`. El hook dispara si se cumplen las tres cosas:
+en `backtest-b/backtest.py`. El helper la reimplementa con la lógica de
+`es_mensaje_humano` de `evals/uso-real/transcripts.py`, sin importarlo, y lleva
+un test de paridad contra el original (§7). *Decisión del orquestador.* El hook
+dispara si se cumplen las tres cosas:
 
 1. en el segmento no hay ningún `tool_use` de `Agent` ni de `Task`;
-2. el último texto del asistente casa **P2 o P3**, la variante que se midió:
-   - `tail` = los últimos 700 caracteres del último mensaje;
+2. el último bloque `text` del segmento casa **P2 o P3**, la variante que se midió:
+   - `tail` = sus últimos 700 caracteres;
    - **P2**: `PERM.search(tail)`;
-   - **P3**: `PROP.search(último mensaje)` y además hay `?` en `tail`;
+   - **P3**: `PROP.search(último texto) and ("?" in tail or ask)`, donde `ask`
+     indica que el segmento termina en `AskUserQuestion`. Es la misma
+     expresión de `patrones.py`, por paridad;
    - `PERM` y `PROP` son literales de `turnos-8/patrones.py`:7-8;
-3. el último texto no casa la exclusión de reserva (§4.2) ni lleva la etiqueta `[reserva: …]`.
+3. el último texto no casa la exclusión de reserva (§4.2) ni **empieza** por la
+   etiqueta `[reserva: …]`. Si la etiqueta aparece en otra posición, no cuenta.
+   *Decisión del orquestador.*
 
 **No se amplían** PERM ni PROP sin medirlo antes. Los cierres que casan P1
 (cualquier `?`) y no P2∨P3 van solo a log, para poder etiquetarlos después.
 
-**Fuente del texto:** `transcript_path` (JSONL). Si el input trae
-`last_assistant_message`, se usa ese campo para el texto y el transcript solo
-para la segmentación. *Decisión del redactor.*
+**Fuente del texto:** el último bloque `text` del segmento, leído de
+`transcript_path` (JSONL), por paridad con el backtest. El campo
+`last_assistant_message` está documentado
+(https://code.claude.com/docs/en/hooks#stop-input), pero no se usa para el
+detector. *Decisión del orquestador*: revierte la del redactor.
 
 **No se excluye** el caso «ya corrió un Agent desde el último humano». En la
 muestra quitaría 4 positivos (9, 16, 18, 29) a cambio de 1 negativo.
@@ -95,7 +116,9 @@ muestra quitaría 4 positivos (9, 16, 18, 29) a cambio de 1 negativo.
 ```
 
 **Telemetría:** `_reflex-log.sh`, con id `delegar-decision` y payload
-`patron=P2|P3 tail=<200c>`. Es best-effort (`|| true`) y nunca rompe el hook.
+`kind=disparo|p1_log|banda patron=P2|P3 tail=<200c>`. El campo `kind` evita que
+los logs informativos contaminen la medición de FP. Es best-effort (`|| true`) y
+nunca rompe el hook. *Decisión del orquestador.*
 
 ### 4.2 Reserva: lo que sí sube a Paul
 
@@ -118,9 +141,13 @@ un comentario», §Régimen de gates delegado):
 bloqueo y cada consultor que provoca consumen cuota de la suscripción. La
 carga estimada es de 2,65 bloqueos por sesión (§4.3), y se vigila en el kill.
 
-**Exclusión regex** (en `tail`, sin distinguir mayúsculas): `hago push`, `subo`,
-`abro (el )?(PR|issue)`, `merge`, `mergeo`, `deploy`, `despliego`, `commit`,
-`commiteo`, `/document`, `lo borro`, `borro`. Se calibró in-sample (§8).
+**Exclusión regex.** Todavía no existe como código: el consultor la calculó
+sobre la marcha. Escribirla es la **tarea 1 del plan**. Se aplica a `tail`, sin
+distinguir mayúsculas y con `\b`, y cubre push, PR/issue, merge, deploy, commit,
+`/document` y borrar. La tarea tiene que reproducir **18/22** sobre los 30 ítems
+etiquetados y **unos 262 bloqueos** en las 99 sesiones (con el tope de §4.3). Si
+no se reproduce dentro de ±10 %, se para y se vuelve al orquestador.
+*Decisión del orquestador.* La calibración es in-sample (§8).
 
 ### 4.3 Tope: un bloqueo por mensaje humano
 
@@ -131,8 +158,9 @@ segmento dentro del mismo mensaje humano. La escritura del sentinel es
 best-effort: si falla, el hook se comporta como si no hubiera sentinel, y
 `stop_hook_active` sigue evitando el bucle.
 
-Carga sobre las 99 sesiones con exclusión y tope: **262 bloqueos (2,65 por
-sesión, mediana 1, máximo 14)**.
+Carga sobre las 99 sesiones con exclusión y tope, según el cálculo del
+consultor: **262 bloqueos (2,65 por sesión, mediana 1, máximo 14)**. Está sin
+reproducir; lo valida la tarea 1 (§4.2).
 
 ### 4.4 Banda no declarada (solo informativa)
 
@@ -161,8 +189,9 @@ reescritura:
   detector.
 
 Por la regla de cutover, hay que actualizar también la doctrina que anuncia el
-comportamiento viejo: la nota «El padre integra, no implementa» y cualquier
-mención en `consultor-brief.md`.
+comportamiento viejo: cualquier mención en `consultor-brief.md` dentro del plan,
+y la nota de la KB «El padre integra, no implementa» con `/document` al cerrar
+(§10).
 
 ## 5. Intersección de reglas del gate: bandas sin salida
 
@@ -183,9 +212,13 @@ reescribir el cierre sin pregunta, (d) el segundo Stop con `stop_hook_active`.
   que lo lanzó, la condición 1 no se cumple y no hay bloqueo. Si el aviso llega
   como hand-back y el padre pregunta en ese segmento nuevo, sí hay bloqueo, y
   es correcto (positivos 9, 16, 18, 29). No hay estado imposible.
-- **F4 — choque con `sdd-wake-guard.sh`.** Los dos pueden bloquear en el mismo
-  Stop. Claude Code agrega los motivos y el agente puede cumplir los dos
-  (armar un cron y lanzar un Agent, o etiquetar). No hay estado imposible.
+- **F4 — bloqueos simultáneos (riesgo abierto).** Los hooks Stop corren en
+  paralelo. `delegar-decision` puede bloquear en el mismo Stop que
+  `sdd-wake-guard.sh` o `document-remind.sh`. No está documentado cómo se
+  combinan dos `decision: block`. Las peticiones son compatibles en principio
+  (cron + Agent, `/document` + Agent o etiqueta), pero no está verificado.
+  **El plan incluye una prueba manual** en la que se fuerzan los dos bloqueos y
+  se observa qué recibe el agente.
 
 ## 6. Medición y kill
 
@@ -211,8 +244,13 @@ log (sin bloqueo) si pasa **cualquiera** de estas:
   script reproducible en `evals/uso-real/`. Fija los 262 bloqueos y el recall
   7/8 sobre los 8 turnos conocidos. Lo corre a mano quien cambie PERM, PROP o
   la exclusión, porque los transcripts no están en el repo.
-- **Paridad:** el detector bash y el backtest Python tienen que dar la misma
-  decisión sobre los 30 ítems de la muestra.
+- **Paridad del detector:** `delegar-decision.py` y el backtest
+  (`patrones.py` + `backtest.py`) tienen que dar la misma decisión sobre los 30
+  ítems de la muestra y sobre los 8 turnos conocidos.
+- **Paridad de segmentación:** la reimplementación del helper frente a
+  `es_mensaje_humano` de `evals/uso-real/transcripts.py`, sobre los mismos
+  transcripts.
+- **Manual:** el bloqueo simultáneo con `document-remind.sh` (F4).
 
 ## 8. Caveats honestos
 
@@ -239,5 +277,7 @@ no la conducta. El mecanismo se degrada a solo log.
 ## 10. Al implementar
 
 - Subir `version` en `plugins/exo/.claude-plugin/plugin.json` (hoy 1.25.0), o el gate falla.
-- Actualizar `--help`, mensajes y doctrina que anuncian el brainstorm viejo (§4.5).
+- Actualizar `--help`, mensajes y la doctrina del repo que anuncian el brainstorm
+  viejo (§4.5). La nota de la KB «El padre integra, no implementa» queda fuera
+  del plan: se actualiza con `/document` al cerrar.
 - Llevar `patrones.py` y el backtest del scratchpad al repo (`evals/uso-real/`) sin rutas personales.
