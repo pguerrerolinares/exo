@@ -461,7 +461,7 @@ Detalles que el diagrama no cuenta:
   `docs/superpowers/specs/2026-09-30-exo-recorte-mecanismo-design.md`.
 - **`subagent-inject.sh` + `compose-inject.sh`** (SubagentStart) componen un
   bloque por perfil de tipo de agente (`inject-profiles.json`:
-  `exo:executor` → `reducido`, `general-purpose`/`claude` → `ejecucion`,
+  `exo:executor` y `exo:consultor` → `reducido`, `general-purpose`/`claude` → `ejecucion`,
   `Explore`/`Plan` → `divergente`, resto → `doctrina`), mezclando la doctrina
   de `executor.md`, secciones del core-index y rutas reales de la KB.
   En `reducido` y `ejecucion` el bloque abre con las `## Reglas duras` del

@@ -117,6 +117,9 @@ la capa de reflejos que lo activa en el punto de acción. Sustituye a
 Agente: `plugins/exo/agents/executor.md` (`exo:executor`) — ejecutor de tareas de
 implementación acotadas, despachado por `orchestrate` (subagent-driven
 development).
+Agente: `plugins/exo/agents/consultor.md` (`exo:consultor`) — consultor de
+solo lectura para decisiones de diseño; su brief sale de
+`skills/brainstorm/consultor-brief.md`.
 
 Hooks (doce, cableados en `plugins/exo/hooks/hooks.json`; tabla completa con
 qué hace cada uno y su abstención en `plugins/exo/README.md`):
