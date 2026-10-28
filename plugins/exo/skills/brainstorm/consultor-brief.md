@@ -14,16 +14,18 @@ comprobaba en un minuto; cifras de contraste erróneas que llegaron al diseño;
 una propuesta imposible en el plan gratuito de la forja; el consultor
 alineándose con la propuesta que le pasó el orquestador.
 
-**Dispatch:** subagente genérico, solo lectura, `model` explícito (sonnet de
-suelo; top si la decisión es cara). Lecturas obligatorias como rutas de
-fichero: al consultor no le llega perfil de inyección.
+**Dispatch:** `subagent_type: exo:consultor` (solo lectura; trae la disciplina
+y el formato de retorno, el brief trae la decisión y los datos). `model`
+explícito solo para subir del sonnet por defecto cuando la decisión es cara.
+Le llega el perfil `reducido` (reglas duras y cores); aun así, las lecturas
+obligatorias van como rutas de fichero.
 
 ## Consulta
 
 ```
-Subagent (general-purpose):
+Agent (subagent_type: exo:consultor):
   description: "Consultor: [TEMA]"
-  model: [MODEL]
+  model: [MODEL]   # omítelo para el sonnet por defecto
   prompt: |
     Eres consultor de [DOMINIO]. Tu nota decide algo real: discrepa si los
     datos lo piden, también de este brief. Alinearte con lo que intuyes que
@@ -55,17 +57,10 @@ Subagent (general-purpose):
     [rutas de fichero]
 
     ## Entrega
-    Escribe la nota completa en [NOTE_FILE], como mucho [N] caracteres, en
-    este orden:
-    1. Recomendación (arriba, una frase) y por qué.
-    2. Condición que la invalidaría, medible (qué valor, de qué instrumento).
-    3. Qué medir para confirmarla, con receta cerrada.
-    4. Análisis por opción. Etiqueta cada afirmación: [E] evidencia (di si
-       leíste la fuente entera o solo el abstract), [O] opinión, [sin dato].
-    5. Desacuerdos con este brief, si los hay.
-
-    Tu mensaje final: menos de 15 líneas — recomendación, condición de
-    invalidación, premisas que no pudiste verificar y la ruta de la nota.
+    Tu mensaje final es la nota completa, como mucho [N] caracteres, en el
+    formato de tu perfil: recomendación, invalidación medible, qué medir,
+    opciones con [E]/[O]/[sin dato], desacuerdos con este brief. No escribes
+    ficheros: la nota la guarda quien te despacha.
 ```
 
 ## Reconsulta con datos
@@ -82,6 +77,7 @@ Mismo template, con estos cambios:
 
 ## Al recibir la nota
 
+- Guarda la nota tú en [NOTE_FILE]; el consultor es de solo lectura.
 - Las cifras críticas del consultor (contrastes, tamaños, umbrales,
   versiones) son estado declarado: recalcúlalas con una herramienta antes de
   que entren en la spec.
@@ -90,6 +86,7 @@ Mismo template, con estos cambios:
 - La condición de invalidación va a la spec tal cual: es lo que se
   pre-registra, no un estadístico elegido en frío.
 
-**Placeholders:** `[TEMA]`, `[DOMINIO]`, `[MODEL]` — REQUIRED. `[NOTE_FILE]` —
-REQUIRED: fichero en el scratchpad o junto a la spec. `[N]` — tope de
-caracteres (por defecto 6000).
+**Placeholders:** `[TEMA]`, `[DOMINIO]` — REQUIRED. `[MODEL]` — opcional:
+quita la línea `model:` para el sonnet por defecto. `[NOTE_FILE]` — REQUIRED,
+solo para ti: dónde guardas la nota (scratchpad o junto a la spec). `[N]` —
+tope de caracteres (por defecto 6000).

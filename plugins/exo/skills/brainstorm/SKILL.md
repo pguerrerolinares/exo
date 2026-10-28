@@ -71,7 +71,7 @@ repreguntar. Cada tramo es breve; importa que sea exacta y corregible.
 - Enfoques: cuando entiendas lo que quiere y antes de escribir nada, idea
   varias alternativas reales y descarta las débiles (también las que van
   contra su porqué y las que el trabajo existente excluye). Antes del mensaje,
-  despacha SIEMPRE un consultor con `consultor-brief.md` que elija entre las
+  despacha SIEMPRE un consultor (`exo:consultor`) con `consultor-brief.md` que elija entre las
   2-3 que queden, ancladas en lo que el proyecto ya hace; el padre no puede
   juzgar si el usuario tiene criterio (UX, a11y, rendimiento, CI incluidos).
   El mensaje, propio, lleva el veredicto del consultor, el trade-off de las
@@ -136,7 +136,7 @@ exploración de solo lectura del proyecto sigue permitida.
   preguntas del check. Sin herramienta de subagentes, léela tú como ese builder.
 - Si la spec descansa en hechos comprobables (defaults de librería, cifras,
   límites de plataforma o de la forja), review adversarial con ejecutables
-  antes del plan: consultor fresco con `consultor-brief.md` que verifique esas
+  antes del plan: consultor fresco (`exo:consultor`) con `consultor-brief.md` que verifique esas
   premisas (fuente, bytecode, recalcular) en vez de leerlas.
 - Gate de review del usuario: pídele que revise la spec escrita y espera su
   respuesta antes de seguir.

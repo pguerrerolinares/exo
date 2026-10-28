@@ -786,6 +786,16 @@ n_eventos() { grep -c "\"reflex\":\"$1\"" "$REFLEX_LOG_FILE" 2>/dev/null || true
   fi
 }
 
+{
+  OUT="$(reglas_custom exo:consultor ok '["G1"]' '["P1"]')"
+  if contains "$OUT" "## Cores" && contains "$OUT" "- G1" && contains "$OUT" "- P1" \
+     && not_contains "$OUT" "Notas canonicas"; then
+    pass "caso_consultor_reducido: exo:consultor cae en reducido (Cores y reglas, sin rutas)"
+  else
+    fail "caso_consultor_reducido: exo:consultor cae en reducido (Cores y reglas, sin rutas)" "out=$OUT"
+  fi
+}
+
 # I1 (review T4): canario + reglas que llenan el tope. Barrido de longitud de regla
 # para que algún caso caiga a <2 B del tope; el canario nunca se recorta.
 {

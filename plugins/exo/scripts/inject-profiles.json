@@ -1,5 +1,6 @@
 {
   "exo:executor": "reducido",
+  "exo:consultor": "reducido",
   "general-purpose": "ejecucion",
   "claude": "ejecucion",
   "Explore": "divergente",
