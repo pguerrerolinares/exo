@@ -72,10 +72,12 @@ BIN="$TMP/bin"; mkdir -p "$BIN"
 for c in cat dirname mkdir tr date head; do ln -s "$(command -v $c)" "$BIN/$c"; done
 sin_path() {  # $1 = herramienta a incluir además de las básicas
   rm -f "$BIN/jq" "$BIN/python3"
-  [ -n "${1:-}" ] && ln -s "$(command -v "$1")" "$BIN/$1"
+  for t in "$@"; do [ -n "$t" ] && ln -s "$(command -v "$t")" "$BIN/$t"; done
   OUT="$(printf '{"session_id":"s1","transcript_path":"%s"}' "$DATA/p2.jsonl" | PATH="$BIN" "$BASH_BIN" "$HOOK" 2>/dev/null)"
   RC=$?
 }
+sin_path jq python3
+if [ "$(decision)" = "block" ]; then pass "PATH recortado con jq y python3: control positivo, bloquea"; else fail "PATH recortado: control positivo" "out=$OUT rc=$RC"; fi
 sin_path jq
 if [ -z "$OUT" ] && [ "$RC" -eq 0 ]; then pass "calla: PATH sin python3"; else fail "calla: PATH sin python3" "out=$OUT rc=$RC"; fi
 sin_path python3
@@ -107,6 +109,15 @@ jq -nc '{type:"user",uuid:"n1",timestamp:"2026-10-10T10:02:00Z",isMeta:true,prom
 jq -nc '{type:"assistant",uuid:"a3",timestamp:"2026-10-10T10:03:00Z",message:{role:"assistant",content:[{type:"text",text:"Mi recomendación: seguir. ¿Te parece?"}]}}' >> "$TMP/t3.jsonl"
 hook "$TMP/t3.jsonl" s1
 if [ -z "$OUT" ] && [ "$RC" -eq 0 ]; then pass "tope: un hand-back posterior no reabre el tope"; else fail "tope: un hand-back posterior no reabre el tope" "out=$OUT rc=$RC"; fi
+
+# Sin ningún mensaje humano no hay uuid con el que topar: bloquea y no escribe sentinel (stop_hook_active evita el bucle).
+reset
+jq -nc '{type:"assistant",uuid:"a",timestamp:"2026-10-10T10:01:00Z",message:{role:"assistant",content:[{type:"text",text:"Mi recomendación: seguir. ¿Te parece?"}]}}' > "$TMP/t-sh.jsonl"
+hook "$TMP/t-sh.jsonl" s1
+D1="$(decision)"
+hook "$TMP/t-sh.jsonl" s1
+if [ "$D1" = "block" ] && [ "$(decision)" = "block" ] && [ ! -e "$SENT/s1" ]; then pass "uuid vacío: bloquea y no escribe sentinel"
+else fail "uuid vacío: bloquea y no escribe sentinel" "d1=$D1 out=$OUT sent=$(find "$SENT" 2>&1 | tr '\n' ' ')"; fi
 
 # --- session_id saneado ---
 reset
