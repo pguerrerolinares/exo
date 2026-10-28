@@ -137,6 +137,10 @@ class TestEvalua(unittest.TestCase):
         self.assertEqual(ev(texto("Primero ¿Hago push? y luego ¿Te parece?"))["dispara"], True)
         self.assertFalse(ev(texto("¿Te parece? Y además ¿hago push?"))["dispara"])
 
+    def test_ultima_linea_ignora_lineas_en_blanco_finales(self):
+        r = ev(texto("Mi recomendación: X.\nHago push ahora.\n\n  \n"), tool("AskUserQuestion"))
+        self.assertEqual(r["excluido"], "reserva")
+
     def test_hago_push_no_dispara(self):
         self.assertEqual(ev(texto("¿Hago push?"))["excluido"], "reserva")
 
@@ -178,7 +182,8 @@ class TestEvalua(unittest.TestCase):
         self.assertIsNone(r["kind"])
 
     def test_el_detector_no_importa_transcripts(self):
-        src = open(DETECTOR, encoding="utf-8").read()
+        with open(DETECTOR, encoding="utf-8") as f:
+            src = f.read()
         self.assertIsNone(re.search(r"(?m)^\s*(import|from)\s+transcripts", src))
 
     def test_mismo_input_bloquea_sin_abstencion(self):
@@ -236,6 +241,17 @@ class TestSegmentacion(unittest.TestCase):
         textos = [[b.get("text") for b in bl if b.get("type") == "text"] for _, bl in segs]
         self.assertEqual(textos, [[], ["uno"], ["dos", "tres"], ["cuatro"], ["final"]])
 
+    def test_tool_result_solo_no_corta_pero_mixto_o_vacio_si(self):
+        res = {"type": "tool_result", "tool_use_id": "t", "content": "ok"}
+        base = [humano("u1"), asist("a1", texto("uno"))]
+        solo = {"type": "user", "uuid": "x", "origin": {"kind": "peer"}, "message": {"content": [res]}}
+        mixto = {"type": "user", "uuid": "x", "origin": {"kind": "peer"}, "message": {"content": [res, texto("aviso")]}}
+        vacio = {"type": "user", "uuid": "x", "origin": {"kind": "peer"}, "message": {"content": []}}
+        claves = lambda extra: [k for k, _ in D.segmentar(base + [extra, asist("a2", texto("dos"))])]
+        self.assertEqual(claves(solo), ["u1", None])
+        self.assertEqual(claves(mixto), ["u1", "NOHUMANO", None])
+        self.assertEqual(claves(vacio), ["u1", "NOHUMANO", None])
+
     def test_tope_corta_por_epoch(self):
         lineas = [humano("u1"), asist("a1", texto("antes"), timestamp="2026-10-10T09:00:00Z"),
                   asist("a2", texto("despues"), timestamp="2026-10-10T11:00:00+00:00")]
@@ -274,8 +290,10 @@ class TestPuertaDatosReales(unittest.TestCase):
             self.skipTest("falta referencia/backtest.py")
         import backtest_delegar as B
         g = {"__file__": os.path.join(ref, "backtest.py")}
-        exec(open(g["__file__"]).read().split("paths = {}")[0], g)
-        ps = open(os.path.join(ref, "patrones.py")).read()
+        with open(g["__file__"]) as f:
+            exec(f.read().split("paths = {}")[0], g)
+        with open(os.path.join(ref, "patrones.py")) as f:
+            ps = f.read()
         cuerpo = ps[ps.index("PERM="):ps.index("pats={")]
         h = {"g": g, "re": re}
         exec(cuerpo.replace('ASKOPC=g["evalua"]', ""), h)

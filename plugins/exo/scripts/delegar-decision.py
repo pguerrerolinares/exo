@@ -86,8 +86,7 @@ def _ambito_exclusion(tail):
     preguntas = PREGUNTA.findall(tail)
     if preguntas:
         return preguntas[-1]
-    lineas = [x for x in tail.splitlines() if x.strip()]
-    return lineas[-1] if lineas else ""
+    return tail.rstrip().splitlines()[-1]
 
 
 def evalua(bloques):

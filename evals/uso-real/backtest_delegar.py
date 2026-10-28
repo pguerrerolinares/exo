@@ -61,6 +61,11 @@ def segmentos_por_id(proyectos, sello, ids):
     return out
 
 
+def _json(p):
+    with open(p, encoding="utf-8") as f:
+        return json.load(f)
+
+
 def resumen(xs):
     return {"media": round(statistics.mean(xs), 2), "mediana": statistics.median(xs), "max": max(xs)}
 
@@ -72,11 +77,11 @@ def main(argv=None):
     ap.add_argument("--sello", default=os.path.join(AQUI, "sello.json"))
     a = ap.parse_args(argv)
 
-    muestra = json.load(open(os.path.join(a.datos, "muestra.json")))["muestra"]
-    ocho = set(json.load(open(os.path.join(a.datos, "ocho.json"))))
+    muestra = _json(os.path.join(a.datos, "muestra.json"))["muestra"]
+    ocho = set(_json(os.path.join(a.datos, "ocho.json")))
     etiqueta = {}
     for f in glob.glob(os.path.join(a.datos, "db", "etiquetas", "*.json")):
-        d = json.load(open(f))
+        d = _json(f)
         etiqueta[d["id"]] = d["etiqueta"]
 
     sesiones, bloqueos, banda, por_id = {}, {}, {}, {}
