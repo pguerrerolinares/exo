@@ -118,7 +118,7 @@ Agente: `plugins/exo/agents/executor.md` (`exo:executor`) — ejecutor de tareas
 implementación acotadas, despachado por `orchestrate` (subagent-driven
 development).
 
-Hooks (once, cableados en `plugins/exo/hooks/hooks.json`; tabla completa con
+Hooks (doce, cableados en `plugins/exo/hooks/hooks.json`; tabla completa con
 qué hace cada uno y su abstención en `plugins/exo/README.md`):
 
 | Reflejo | Evento | Fichero |
@@ -130,10 +130,13 @@ qué hace cada uno y su abstención en `plugins/exo/README.md`):
 | exo-recall | `SessionStart` | `plugins/exo/scripts/exo-recall.sh` |
 | estilo-directo | `SessionStart` | `plugins/exo/scripts/estilo-directo.sh` |
 | sdd-wake-guard | `Stop` | `plugins/exo/scripts/sdd-wake-guard.sh` |
+| delegar-decision | `Stop` | `plugins/exo/scripts/delegar-decision.sh` |
 | document-remind | `Stop` | `plugins/exo/scripts/document-remind.sh` |
 | exo-index | `Stop` | `plugins/exo/scripts/exo-index.sh` |
 | subagent-inject | `SubagentStart` | `plugins/exo/scripts/subagent-inject.sh` |
 | subagent-bg-guard | `SubagentStop` | `plugins/exo/scripts/subagent-bg-guard.sh` |
+
+`delegar-decision` bloquea el cierre de turno si el padre cierra con propuesta + petición de visto bueno sin lanzar `Agent`/`Task`; escapa con `[reserva: externo|irreversible|re-scope|hecho-de-Paul|pedido]` al inicio del cierre; tope de un bloqueo por mensaje humano (sin mensaje humano, p. ej. `claude -p`, no hay tope).
 
 Este repo es la **fuente de verdad** del plugin (co-evoluciona con el engine y con
 sus evals de paridad en `evals/prep-m3/`) y además es su propio marketplace:

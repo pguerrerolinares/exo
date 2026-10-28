@@ -73,6 +73,10 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/exo-index.sh"
+          },
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/delegar-decision.sh"
           }
         ]
       }

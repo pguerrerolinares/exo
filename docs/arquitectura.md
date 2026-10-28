@@ -421,7 +421,7 @@ flowchart TD
         SS --> EDS["estilo-directo.sh"]
         SA["SubagentStart"] --> SIS["subagent-inject.sh"]
         SS2["SubagentStop"] --> SBG["subagent-bg-guard.sh"]
-        ST["Stop"] --> EIS["exo-index.sh"] & DRS["document-remind.sh"] & SWG["sdd-wake-guard.sh"]
+        ST["Stop"] --> EIS["exo-index.sh"] & DRS["document-remind.sh"] & SWG["sdd-wake-guard.sh"] & DDC["delegar-decision.sh"]
     end
 
     ERS -->|"exo recall --content --note (kb)/core/core-index --cap-bytes 6144"| ENG["binario exo"]
@@ -481,6 +481,19 @@ Detalles que el diagrama no cuenta:
   `CronCreate` one-shot que siga `skills/orchestrate/despertar.md`. El cron
   sobrevive a `/compact` y dispara con teammates ocupados; no sobrevive a
   cerrar la sesión.
+- **`delegar-decision.sh`** (Stop) ataca la corrección más repetida del
+  dueño (0,99 por sesión): el padre que cierra con propuesta + «¿te parece?»
+  sin delegar. Si el último texto del turno casa el detector y no hubo
+  `Agent`/`Task` en el segmento, bloquea el cierre y pide lanzar el consultor
+  o el ejecutor. Si la pregunta es de Paul, el cierre empieza por
+  `[reserva: externo|irreversible|re-scope|hecho-de-Paul|pedido]`. Tope: un
+  bloqueo por mensaje humano (sentinel por sesión), y una ola SDD lanzada
+  por un mensaje humano se bloquea una sola vez; sin mensaje humano
+  (`claude -p`/SDK) no hay tope: bloquea en cada cierre que casa, salvo el
+  segundo Stop (`stop_hook_active`). El último texto evaluado es
+  `last_assistant_message` (el transcript aún no tiene esa línea durante el
+  Stop). Verificado E2E en `claude -p`; el doble bloqueo con
+  `sdd-wake-guard` en interactivo sigue pendiente de observar.
 - Los otros tres hooks son guardrails de disciplina, no de memoria:
   `clean-orchestrator-research.sh` (recuerda delegar la investigación web a
   subagentes; solo en el padre, 1 vez por sesión), `bash-guards.sh` (Task 5,
