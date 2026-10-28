@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etiquetador ciego</title>
+<style>
+/* Plantilla de etiquetador.py: una columna de fichas, barra fija de progreso arriba. Sin red: abre como file://. */
+:root {
+  --bg: #f3f4f1; --surface: #ffffff; --ink: #1b2124; --muted: #5d676c; --line: #d9ddd8;
+  --accent: #1f5f73; --accent-soft: #dcebef;
+  --del: #2f6b3a; --del-soft: #e1efe2; --con: #7a4b12; --con-soft: #f6e9d6;
+  --mia: #4a4f8a; --mia-soft: #e5e6f4; --unk: #6b6b6b; --unk-soft: #ececea;
+  --err: #a3271f;
+  --f-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121618; --surface: #1a2023; --ink: #e4e8e6; --muted: #9aa5a9; --line: #2d363a;
+  --accent: #7fc0d3; --accent-soft: #1d3640;
+  --del: #8fd19c; --del-soft: #1d3322; --con: #e9b56f; --con-soft: #3a2b16;
+  --mia: #aeb3f0; --mia-soft: #272a48; --unk: #b5b5b5; --unk-soft: #2a2c2c; --err: #ff8a80;
+  color-scheme: dark } }
+* { box-sizing: border-box }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body); }
+.wrap { max-width: 760px; margin: 0 auto; padding-inline: 16px }
+header.top { position: sticky; top: 0; z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+header.top .wrap { padding-block: 12px; display: grid; gap: 10px }
+h1 { font: 600 1.35rem/1.2 var(--f-display); margin: 0; text-wrap: balance; letter-spacing: .01em }
+.instr { margin: 0; font-weight: 600; color: var(--accent) }
+.stats { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; font-variant-numeric: tabular-nums }
+.stat b { font: 600 1.25rem var(--f-display) }
+.stat span { color: var(--muted); font-size: .85rem }
+.acciones { margin-left: auto; display: flex; gap: 8px }
+.acciones button { font: 500 .85rem var(--f-body); min-height: 36px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent-soft); color: var(--ink); cursor: pointer }
+.bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s }
+.cortes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; font-size: .78rem }
+.corte { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; color: var(--muted); min-width: 0 }
+.corte strong { display: block; font: 600 .82rem var(--f-mono); color: var(--ink) }
+.corte.on { border-color: var(--accent); background: var(--accent-soft); color: var(--ink) }
+.estado { font-size: .8rem; color: var(--muted) }
+.estado.err { color: var(--err) }
+main .wrap { padding-block: 16px 48px; display: grid; gap: 14px }
+article { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: grid; gap: 10px; min-width: 0 }
+article.done { border-color: var(--accent) }
+.cab { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap }
+.num { font: 600 1.1rem var(--f-display); font-variant-numeric: tabular-nums }
+.tema { font: 500 .72rem var(--f-mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px }
+.sid { margin-left: auto; font: .72rem var(--f-mono); color: var(--muted) }
+dl { margin: 0; display: grid; gap: 8px }
+dt { font: 500 .7rem var(--f-mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted) }
+dd { margin: 2px 0 0; min-width: 0; overflow-wrap: anywhere }
+dd.cierre { font-size: .92rem; border-left: 2px solid var(--line); padding-left: 10px }
+dd.previo { font-size: .88rem; border-left: 2px solid var(--line); padding-left: 10px; white-space: pre-wrap; max-height: 14em; overflow-y: auto; color: var(--muted) }
+dd.texto { white-space: pre-wrap; font-weight: 600 }
+dd.resp { font-weight: 600 }
+code { font: .85em var(--f-mono); background: var(--bg); padding: 0 3px; border-radius: 3px }
+.ops { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px }
+@media (min-width: 620px) { .ops.n4 { grid-template-columns: 1fr 1fr 1fr auto } }
+.ops button { font: 500 .9rem var(--f-body); min-height: 44px; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; text-align: center }
+.ops button:hover { border-color: var(--muted) }
+.ops button:focus-visible, textarea:focus-visible, .acciones button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.ops button[aria-pressed="true"][data-v="delegar"], .ops button[aria-pressed="true"][data-v="si"] { background: var(--del-soft); border-color: var(--del); color: var(--del); font-weight: 600 }
+.ops button[aria-pressed="true"][data-v="consultor"] { background: var(--con-soft); border-color: var(--con); color: var(--con); font-weight: 600 }
+.ops button[aria-pressed="true"][data-v="mia"], .ops button[aria-pressed="true"][data-v="no"] { background: var(--mia-soft); border-color: var(--mia); color: var(--mia); font-weight: 600 }
+.ops button[aria-pressed="true"][data-v="?"] { background: var(--unk-soft); border-color: var(--unk); color: var(--unk); font-weight: 600 }
+textarea { width: 100%; font: .9rem var(--f-body); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; resize: vertical; min-height: 40px }
+@media (prefers-reduced-motion: reduce) { .bar i { transition: none } }
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <h1 id="titulo"></h1>
+  <p class="instr" id="instr"></p>
+  <div class="stats">
+    <div class="stat"><b id="prog"></b> <span>etiquetados</span></div>
+    <div class="stat"><b id="met">—</b> <span id="metdet"></span></div>
+    <div class="acciones"><button type="button" id="exportar">Exportar JSONL</button></div>
+  </div>
+  <div class="bar"><i id="barra"></i></div>
+  <div class="cortes" id="cortes" hidden></div>
+  <div class="estado" id="estado"></div>
+</div></header>
+
+<main><div class="wrap" id="lista"></div></main>
+
+<script>
+const CFG = /*__CFG__*/{};
+const ITEMS = CFG.items, N = ITEMS.length;
+const CLAVE_LS = "etiquetador:" + CFG.modo + ":" + CFG.lote;
+const state = {};   // id -> {etiqueta, nota}
+let sucio = false;  // cambios desde la última exportación
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const fmt = s => esc(s).replace(/`([^`\n]+)`/g,"<code>$1</code>").replace(/\*\*([^*\n]+)\*\*/g,"<strong>$1</strong>");
+
+function lsLee() { try { return JSON.parse(localStorage.getItem(CLAVE_LS) || "{}"); } catch { return {}; } }
+function lsEscribe() {
+  try { localStorage.setItem(CLAVE_LS, JSON.stringify(state)); return true; } catch { return false; }
+}
+
+function render() {
+  $("#titulo").textContent = CFG.titulo;
+  $("#instr").textContent = CFG.instr;
+  if (CFG.cortes) {
+    $("#cortes").hidden = false;
+    $("#cortes").innerHTML = CFG.cortes.map(([id, rango, txt]) => `<div class="corte" id="c-${id}"><strong>${esc(rango)}</strong>${esc(txt)}</div>`).join("");
+  }
+  $("#lista").innerHTML = ITEMS.map((it, i) => `
+    <article id="item-${i}">
+      <div class="cab"><span class="num">${i + 1}.</span>${CFG.cab && it[CFG.cab] ? `<span class="tema">${esc(it[CFG.cab])}</span>` : ""}<span class="sid">${esc(it.id.slice(0, 8))}</span></div>
+      <dl>${CFG.campos.map(([k, dt, cls]) => `<div><dt>${esc(dt)}</dt><dd class="${cls}">${fmt(it[k] || "")}</dd></div>`).join("")}</dl>
+      <div class="ops n${CFG.ops.length}" role="group" aria-label="Etiqueta del ítem ${i + 1}">
+        ${CFG.ops.map(([v, l]) => `<button type="button" data-i="${i}" data-v="${esc(v)}" aria-pressed="false">${esc(l)}</button>`).join("")}
+      </div>
+      <textarea data-i="${i}" rows="1" placeholder="Nota (opcional)"></textarea>
+    </article>`).join("");
+  // El final del turno previo es lo que importa: lo deja a la vista.
+  document.querySelectorAll("dd.previo").forEach(dd => { dd.scrollTop = dd.scrollHeight; });
+  $("#lista").addEventListener("click", e => {
+    const b = e.target.closest("button[data-v]"); if (!b) return;
+    const id = ITEMS[+b.dataset.i].id, cur = state[id] || {};
+    // Pulsar la etiqueta ya marcada la quita.
+    set(id, { etiqueta: cur.etiqueta === b.dataset.v ? null : b.dataset.v, nota: cur.nota || "" });
+  });
+  $("#lista").addEventListener("change", e => {
+    const t = e.target.closest("textarea[data-i]"); if (!t) return;
+    const id = ITEMS[+t.dataset.i].id, cur = state[id] || {};
+    if ((cur.nota || "") !== t.value) set(id, { etiqueta: cur.etiqueta || null, nota: t.value });
+  });
+  $("#exportar").addEventListener("click", exportar);
+  window.addEventListener("beforeunload", e => { if (sucio) e.preventDefault(); });
+}
+
+function paint(i) {
+  const s = state[ITEMS[i].id] || {};
+  document.querySelectorAll(`button[data-i="${i}"]`).forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === s.etiqueta)));
+  const ta = document.querySelector(`textarea[data-i="${i}"]`);
+  if (document.activeElement !== ta) ta.value = s.nota || "";
+  $("#item-" + i).classList.toggle("done", !!s.etiqueta);
+}
+
+function stats() {
+  const vals = ITEMS.map(it => (state[it.id] || {}).etiqueta).filter(Boolean);
+  const k = vals.length, pos = vals.filter(v => CFG.positivas.includes(v)).length;
+  $("#prog").textContent = `${k}/${N}`;
+  $("#barra").style.width = (k / N * 100) + "%";
+  if (CFG.cortes) {
+    document.querySelectorAll(".corte").forEach(c => c.classList.remove("on"));
+    if (!k) { $("#met").textContent = "—"; $("#metdet").textContent = CFG.metrica; return; }
+    const p = pos / k * 100;
+    $("#met").textContent = p.toFixed(0) + " %";
+    $("#metdet").textContent = `${CFG.metrica} = ${pos}/${k}`;
+    $("#c-" + (p >= 50 ? "alto" : p <= 20 ? "bajo" : "medio")).classList.add("on");
+  } else {
+    $("#met").textContent = String(pos);
+    $("#metdet").textContent = CFG.metrica;
+  }
+}
+
+function estado(txt, err) { const e = $("#estado"); e.textContent = txt; e.classList.toggle("err", !!err); }
+
+function set(id, body) {
+  state[id] = body; sucio = true;
+  paint(ITEMS.findIndex(it => it.id === id)); stats();
+  if (lsEscribe()) estado("Guardado en este navegador. Exporta al terminar (o a menudo): el navegador puede borrarlo.");
+  else estado("No se puede guardar en este navegador: exporta antes de cerrar o perderás las etiquetas.", true);
+}
+
+function exportar() {
+  const lineas = ITEMS.map(it => {
+    const s = state[it.id] || {};
+    // completo: el registro tal cual con la etiqueta rellena (mismo formato que el lote); minimo: {id, etiqueta, nota}.
+    const r = CFG.exporta === "completo" ? { ...it, etiqueta: s.etiqueta || null } : { id: it.id, etiqueta: s.etiqueta || null, nota: s.nota || "" };
+    if (CFG.exporta === "completo") { delete r.nota; if (s.nota) r.nota = s.nota; }
+    return JSON.stringify(r);
+  });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([lineas.join("\n") + "\n"], { type: "application/x-ndjson" }));
+  a.download = CFG.fichero;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  sucio = false;
+  estado(`Exportado ${CFG.fichero}. Cópialo a la cache (ver LANZAR.md).`);
+}
+
+render();
+// Etiquetas previas: las del fichero de origen y, encima, las de este navegador (más recientes).
+ITEMS.forEach(it => { if (it.etiqueta) state[it.id] = { etiqueta: it.etiqueta, nota: it.nota || "" }; });
+const previo = lsLee();
+Object.keys(previo).forEach(id => { if (ITEMS.some(it => it.id === id)) state[id] = previo[id]; });
+ITEMS.forEach((_, i) => paint(i)); stats();
+estado(Object.keys(previo).length ? "Recuperadas las etiquetas guardadas en este navegador." : "Las etiquetas se guardan en este navegador al pulsar; exporta al terminar.");
+</script>
+</body>
+</html>
