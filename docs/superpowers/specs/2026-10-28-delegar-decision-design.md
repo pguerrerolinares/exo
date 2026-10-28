@@ -32,7 +32,7 @@ Los scripts y los datos están en el scratchpad de la sesión 2026-10-28: `backt
 | Detector P2∨P3 (`turnos-8/patrones.py`) | recall 7/8 in-sample, 365 disparos en 99 sesiones (3,7/sesión) |
 | Etiquetado del dueño, 30 disparos al azar (semilla 20261028, sellados en `muestra.json`) | 13 consultor + 5 delegar = **18/30 = 60 %** (CP 41–77 %); 12 «?», 0 «mía» |
 | Los «?» según las notas del dueño | 6 push/PR/merge/deploy/`/document` (reserva ya firmada), 5 cierres de sesión, 1 ruido |
-| Con exclusión regex de reserva | 18/22 = **82 %** (CP ≈ 60–95 %); 68 % sin los 3 positivos flojos (11, 13, 20) |
+| Con exclusión regex de reserva | 17/22 = **77 %** (CP 55–92 %, LOO 75 %); el 82 % (18/22) no es reproducible con los términos de §4.2: el ámbito estaba mal transcrito y solo daba 18/22 tratando un ítem como mención; la cifra sellada pasa a 17/22 (R12, firmado por Paul 2026-10-28) |
 | Recall fuera de muestra (158 órdenes «lanza consultor/subagente») | 27 % (43/158); 40 % sobre las 108 sin Agent en el turno |
 
 ## 3. Enfoques
@@ -46,7 +46,7 @@ Los scripts y los datos están en el scratchpad de la sesión 2026-10-28: `backt
 
 Cortes firmados por el dueño antes de etiquetar: precisión ≥ 50 % → gate con
 bloqueo; ≤ 20 % → sin hook; entre medias → solo registrar durante ~30
-sesiones. Con 60 % en bruto y 82 % con exclusión, toca **gate con bloqueo**.
+sesiones. Con 60 % en bruto y 77 % con exclusión, toca **gate con bloqueo**.
 La decisión se aplicó sobre la estimación puntual. La cota baja del CP en
 bruto (41 %) queda por debajo del corte, y por eso el kill (§6) está activo
 desde el primer día.
@@ -142,10 +142,10 @@ bloqueo y cada consultor que provoca consumen cuota de la suscripción. La
 carga estimada es de 2,65 bloqueos por sesión (§4.3), y se vigila en el kill.
 
 **Exclusión regex.** Todavía no existe como código: el consultor la calculó
-sobre la marcha. Escribirla es la **tarea 1 del plan**. Se aplica a `tail`, sin
+sobre la marcha. Escribirla es la **tarea 1 del plan**. Se aplica a la última pregunta `¿…?` de `tail` (fallback: última línea) (R12, firmado por Paul 2026-10-28), sin
 distinguir mayúsculas y con `\b`, y cubre push, PR/issue, merge, deploy, commit,
-`/document` y borrar. La tarea tiene que reproducir **18/22** sobre los 30 ítems
-etiquetados y **unos 262 bloqueos** en las 99 sesiones (con el tope de §4.3). Si
+`/document` y borrar. La tarea tiene que reproducir **17/22** sobre los 30 ítems
+etiquetados y **256 bloqueos** en las 99 sesiones (con el tope de §4.3). Si
 no se reproduce dentro de ±10 %, se para y se vuelve al orquestador.
 *Decisión del orquestador.* La calibración es in-sample (§8).
 
@@ -159,7 +159,7 @@ best-effort: si falla, el hook se comporta como si no hubiera sentinel, y
 `stop_hook_active` sigue evitando el bucle.
 
 Carga sobre las 99 sesiones con exclusión y tope, según el cálculo del
-consultor: **262 bloqueos (2,65 por sesión, mediana 1, máximo 14)**. Está sin
+consultor: **256 bloqueos (R12, firmado por Paul 2026-10-28) (2,59 por sesión, mediana 1, máximo 14)**. Está sin
 reproducir; lo valida la tarea 1 (§4.2).
 
 ### 4.4 Banda no declarada (solo informativa)
@@ -226,7 +226,8 @@ Ventana de **~30 sesiones** del padre con el hook activo. Se degrada a solo
 log (sin bloqueo) si pasa **cualquiera** de estas:
 
 1. `[reserva]` aparece en más del 50 % de los cierres posteriores a un bloqueo.
-2. Paul re-etiqueta 30 bloqueos al azar con la misma hoja y la precisión baja del 50 %.
+2. Paul re-etiqueta los primeros 30 bloqueos reales con la misma hoja y la precisión baja del 55 % (R12, firmado por Paul 2026-10-28).
+   Informativo (no degrada solo): más del 10 % de los bloqueos con un término de reserva fuera de la pregunta indica que el ámbito de la exclusión está equivocado (R12, firmado por Paul 2026-10-28).
 3. Las correcciones de delegación no bajan de **0,41 por sesión**, la cota baja del IC actual, con el mismo protocolo de `evals/uso-real/`.
 4. La banda no declarada sube sobre su tasa base: el bloqueo cambió la redacción, no la conducta.
 
@@ -241,7 +242,7 @@ log (sin bloqueo) si pasa **cualquiera** de estas:
   - el JSON del block es exacto;
   - un fallo del log no rompe el hook.
 - **Regresión del detector:** el backtest sobre las 99 sesiones selladas, como
-  script reproducible en `evals/uso-real/`. Fija los 262 bloqueos y el recall
+  script reproducible en `evals/uso-real/`. Fija los 256 bloqueos (R12, firmado por Paul 2026-10-28) y el recall
   7/8 sobre los 8 turnos conocidos. Lo corre a mano quien cambie PERM, PROP o
   la exclusión, porque los transcripts no están en el repo.
 - **Paridad del detector:** `delegar-decision.py` y el backtest
@@ -254,7 +255,7 @@ log (sin bloqueo) si pasa **cualquiera** de estas:
 
 ## 8. Caveats honestos
 
-- El **82 % es in-sample**: la regex de exclusión se diseñó mirando los mismos
+- El **77 % (17/22) es in-sample**: la regex de exclusión se diseñó mirando los mismos
   30 ítems. La cifra honesta está más cerca de la cota baja; el kill 2 la valida.
 - El **recall fuera de muestra es del 27–40 %**. El gate cubre menos de la
   mitad de B. El objetivo realista es pasar de ~1 a ~0,6 correcciones por
