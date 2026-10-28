@@ -52,7 +52,7 @@ verificar ni cómo commitear.
 
 ## Hooks
 
-Tabla exacta al cableado vivo de `hooks/hooks.json` (once comandos):
+Tabla exacta al cableado vivo de `hooks/hooks.json` (doce comandos):
 
 | Reflejo | Evento | Fichero | Qué hace | Abstención |
 |---|---|---|---|---|
@@ -63,6 +63,7 @@ Tabla exacta al cableado vivo de `hooks/hooks.json` (once comandos):
 | exo-recall | `SessionStart` | `scripts/exo-recall.sh` | inyecta instrucción de memoria + digest 7d, servido por el engine `exo` (SQLite) | — (PUSH); degrada al fallback embebido si el engine instalado es < `ENGINE_MIN`. Añade una línea de aviso si `superpowers@*` está habilitado (settings de usuario, proyecto o local; sin spawns extra) |
 | estilo-directo | `SessionStart` | `scripts/estilo-directo.sh` | inyecta una directiva de estilo de respuesta estática (`estilo-directo.md`) | sin fichero `.md` legible, o si `jq` falla al construir el JSON |
 | sdd-wake-guard | `Stop` | `scripts/sdd-wake-guard.sh` | con un ledger SDD activo, bloquea el cierre de turno si hay tareas de fondo vivas y ningún cron: pide un `CronCreate` one-shot que siga `skills/orchestrate/despertar.md` (#111: el aviso de una tarea de un teammate idle no reinvoca a nadie) | subagentes, `stop_hook_active`, sin `jq`, ledger de más de 6 h, solo teammates, o ya hay un cron |
+| delegar-decision | `Stop` | `scripts/delegar-decision.sh` | bloquea el cierre de turno si el último texto cierra con propuesta + petición de visto bueno (detector P2∨P3) y el segmento no lanzó `Agent`/`Task`: pide lanzar consultor/ejecutor o reescribir el cierre empezando por `[reserva: externo\|irreversible\|re-scope\|hecho-de-Paul\|pedido]`. Tope: 1 bloqueo por mensaje humano (sentinel por sesión) | subagentes (`agent_id`), `stop_hook_active`, sin `python3` o `jq`, transcript ilegible, sentinel ya consumido, o texto que empieza por `[reserva: …]` o casa la exclusión de reserva |
 | document-remind | `Stop` | `scripts/document-remind.sh` | recuerda `/document` al cerrar | 1×/sesión + umbral de transcript |
 | exo-index | `Stop` | `scripts/exo-index.sh` | reindexa la KB al cierre de sesión | best-effort, fallback logueado |
 | subagent-inject | `SubagentStart` | `scripts/subagent-inject.sh` | inyecta doctrina/contexto al arrancar un subagente; a `exo:executor`, `general-purpose` y `claude`, también las reglas duras del repo (`exo rules`) | — (PUSH) |
