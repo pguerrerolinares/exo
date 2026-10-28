@@ -82,3 +82,30 @@ grep -rn --include="*.json" --include="*.jsonl" --include="*.md" "/hom[e]/\|-hom
 
 `resultado.py` sale con 1 si una fila de `--atribuciones` no es un positivo de la etapa 1 o está duplicada por (sesion, id).
 Los positivos sin fila se declaran en `n_atribuciones_faltantes` y, junto a los `sin_veredicto`, cuentan para el 10 % de `incompleto`.
+
+## Kill 3 de delegar-decision (spec 2026-10-28 §6.3, R27; issue #217)
+
+Cuando la ventana llegue a ~30 sesiones del padre con el hook activo. `--hasta` no tiene default a propósito (un «ahora»
+movería la población entre corridas): elige el instante de cierre y no lo cambies. La ventana empieza en el primer evento
+`delegar-decision` del reflex-log (`kill3.VENTANA_DESDE`, 2026-10-28T21:34Z). El lote mezcla hits de la base y de la ventana
+con 40 no-hits de la ventana, barajado con semilla fija, sin fecha ni repo en el ítem.
+
+```bash
+P=~/.claude/projects
+C=~/.cache/exo-uso-real
+R=evals/uso-real
+
+# 1. Lote (se niega si $C/kill3-clave.json existe: rehacerlo invalida las etiquetas)
+python3 $R/kill3.py lote --proyectos $P --sello $R/sello.json --cache $C --hasta <ISO 8601 con Z>
+
+# 2. [el dueño rellena "etiqueta": si|no en $C/etiquetar-kill3.jsonl, ciego al periodo; mismo formato que etapa 1]
+
+# 3. Resultado (exit 0 kill/no_kill, 3 incompleto, 1 entrada inválida, 2 la base no casa con el sello)
+python3 $R/kill3.py resultado --clave $C/kill3-clave.json --etiquetas $C/etiquetar-kill3.jsonl --salida $R/kill3-resultado.json
+```
+
+`veredicto` es `kill` si RR = tasa_ventana / tasa_base >= 0,80. Es `incompleto` (nunca `no_kill`) si hay ítems sin etiquetar,
+la ventana tiene menos de 30 sesiones, la tasa base es 0, hay menos de 40 no-hits o salta el tripwire (>= 2 delegaciones
+entre los no-hits: el prefiltro pierde casos y se vuelve al censo completo de la ventana). Los motivos van en
+`motivos_incompleto`. `por_repo` se indexa por `sha256(cwd)[:8]`; aplica la misma comprobación de rutas personales de arriba
+antes de commitear `kill3-resultado.json`.
