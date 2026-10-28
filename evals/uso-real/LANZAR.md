@@ -98,11 +98,20 @@ R=evals/uso-real
 # 1. Lote (se niega si $C/kill3-clave.json existe: rehacerlo invalida las etiquetas)
 python3 $R/kill3.py lote --proyectos $P --sello $R/sello.json --cache $C --hasta <ISO 8601 con Z>
 
-# 2. [el dueño rellena "etiqueta": si|no en $C/etiquetar-kill3.jsonl, ciego al periodo; mismo formato que etapa 1]
+# 2. Etiquetado si|no, ciego al periodo: página local en la cache (lleva el texto de los mensajes; nunca al repo)
+python3 $R/etiquetador.py kill3 --items $C/etiquetar-kill3.jsonl --salida $C/etiquetador-kill3.html
+#    Ábrela desde Windows en \\wsl.localhost\<distro>\home\<usuario>\.cache\exo-uso-real\ (el loopback no sirve con
+#    WSL `mirrored`). Guarda en el localStorage del navegador; «Exportar JSONL» descarga
+#    etiquetar-kill3.etiquetado.jsonl (el lote con "etiqueta" rellena). Cópialo a $C. Para retomar en otro navegador,
+#    regenera la página con --items $C/etiquetar-kill3.etiquetado.jsonl.
 
 # 3. Resultado (exit 0 kill/no_kill, 3 incompleto, 1 entrada inválida, 2 la base no casa con el sello)
-python3 $R/kill3.py resultado --clave $C/kill3-clave.json --etiquetas $C/etiquetar-kill3.jsonl --salida $R/kill3-resultado.json
+python3 $R/kill3.py resultado --clave $C/kill3-clave.json --etiquetas $C/etiquetar-kill3.etiquetado.jsonl --salida $R/kill3-resultado.json
 ```
+
+El re-etiquetado del kill 2 (30 disparos P2|P3, delegar|consultor|mia|?) usa la misma página:
+`python3 $R/etiquetador.py kill2 --hoja <hoja.md> --muestra <muestra.json> --salida $C/etiquetador-kill2.html`; exporta
+`etiquetas-kill2.jsonl` con `{id, etiqueta, nota}`.
 
 `veredicto` es `kill` si RR = tasa_ventana / tasa_base >= 0,80. Es `incompleto` (nunca `no_kill`) si hay ítems sin etiquetar,
 la ventana tiene menos de 30 sesiones, la tasa base es 0, hay menos de 40 no-hits o salta el tripwire (>= 2 delegaciones
