@@ -86,7 +86,7 @@ Con ojos frescos contra la spec, checklist propio (no dispatch):
    inequívoca.
 
 Si una decisión del plan depende de un hecho de plataforma sin verificar o
-de una pregunta de diseño sin criterio, consultor con
+de una decisión de diseño sin consultar, consultor con
 `../brainstorm/consultor-brief.md` antes de fijarla.
 
 Fix inline. Antes de pedir confirmación corre

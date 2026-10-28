@@ -68,17 +68,18 @@ repreguntar. Cada tramo es breve; importa que sea exacta y corregible.
   sensatos, dichos en voz alta (un default que no oyó no pudo rechazarlo).
   Con trabajo existente, construye sobre lo que ya usa. Toda elección tuya va
   en el diseño como decisión tuya, nunca como algo acordado.
-- Enfoques: cuando entiendas lo que quiere y antes de escribir nada, pon las
-  formas de construirlo en un mensaje propio. Idea varias alternativas reales
-  y descarta las débiles (también las que van contra su porqué y las que el
-  trabajo existente excluye); presenta las 2-3 que queden, ancladas en lo que
-  el proyecto ya hace y con su trade-off; recomienda una con su porqué y
-  pregunta cuál prefiere. Si solo hay una vía sensata, dilo y explica por qué
-  las demás no encajan. Es para el cómo; el qué lo describe él primero.
-- Si el usuario no tiene criterio en una pregunta de diseño (UX, a11y,
-  rendimiento, CI), despacha un consultor con `consultor-brief.md` ANTES de
-  preguntarle, y la pregunta lleva sus opciones y su condición de
-  invalidación.
+- Enfoques: cuando entiendas lo que quiere y antes de escribir nada, idea
+  varias alternativas reales y descarta las débiles (también las que van
+  contra su porqué y las que el trabajo existente excluye). Antes del mensaje,
+  despacha SIEMPRE un consultor con `consultor-brief.md` que elija entre las
+  2-3 que queden, ancladas en lo que el proyecto ya hace; el padre no puede
+  juzgar si el usuario tiene criterio (UX, a11y, rendimiento, CI incluidos).
+  El mensaje, propio, lleva el veredicto del consultor, el trade-off de las
+  demás vías y su condición de invalidación: el usuario firma o corrige, no
+  elige de un menú. Si solo hay una vía sensata, dilo y explica por qué las
+  demás no encajan. Es para el cómo; el qué (la intención) lo describe él
+  primero y sigue siendo suyo: esas preguntas llevan `[reserva: hecho-de-Paul]`
+  si casan el detector.
 - Presenta el diseño por secciones escaladas a su complejidad; valida cada
   sección con el usuario antes de seguir a la siguiente. Cubre: arquitectura,
   componentes, data flow, error handling, testing.

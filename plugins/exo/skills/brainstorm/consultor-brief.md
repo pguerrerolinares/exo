@@ -1,7 +1,8 @@
 # Brief de consultor de campo
 
-**Cuándo usar:** antes de preguntar al humano una decisión de diseño en la
-que no tiene criterio (la pregunta lleva luego las opciones del consultor), y
+**Cuándo usar:** antes de presentar al humano los Enfoques de una decisión de diseño
+(siempre; el mensaje lleva el veredicto del consultor y su condición de
+invalidación), y
 antes de pasar de spec a plan cuando la spec descansa en hechos comprobables
 (defaults de librería, cifras, límites de plataforma): review adversarial con
 ejecutables. También al reconsultar con mediciones.
