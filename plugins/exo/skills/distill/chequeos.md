@@ -39,8 +39,8 @@ dilo en el resumen.
 
     git -C $KB_ROOT log --since=7.days --fixed-strings --grep='Gate: <ruta>' --format=%h
 
-≥2 commits (trailers `Gate:` de `/document`) en 7 días, sin rama
-`distill/auto/` mergeada entre medias, indica que el auto-distill no basta:
+≥2 commits (trailers `Gate:` de `/document`) en 7 días, sin commit
+`docs(kb): auto-distill` entre medias, indica que el auto-distill no basta:
 partición con juicio (test del título, `consolidacion.md`), no otra evicción.
 **`--fixed-strings` es obligatorio**: las rutas con ` — ` y paréntesis no
 casan como regex y el disparador calla sin avisar.

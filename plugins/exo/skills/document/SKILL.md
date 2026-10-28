@@ -135,18 +135,19 @@ detalle en la bitácora y deja la poda o la partición a
 
 ## Paso 5 · Auto-distill (solo si el gate mordió)
 
-Tras el commit, y solo si el gate mordió en alguna nota y no existe ya la rama
-`distill/auto/<slug>` (`slug` = último segmento del permalink;
-`git -C <kb> branch --list 'distill/auto/<slug>'`): lanza un subagente
+Tras el commit, y solo si el gate mordió en alguna nota: lanza un subagente
 (`model: sonnet`, contexto limpio) con el brief de `auto-distill.md` y **espéralo**
 (síncrono, tope 10 min). Nunca en segundo plano: el harness mata el process group
-al cerrar la sesión. Rama ya existente = ya lanzado, no un error: sigue. El tope es best-effort: al
-vencer el subagente no commitea y deja su informe; el trailer `Gate:` ya está en
-main, así que `/distill` lo recoge. Cuando el subagente vuelva (o falle),
-comprueba `git -C <kb> log --oneline HEAD..distill/auto/<slug>`: si sale vacío no
-hubo commit ⇒ `git -C <kb> worktree remove --force <wt>` (si existe) y
-`git -C <kb> branch -D distill/auto/<slug>`, o la rama bloquearía la nota.
+al cerrar la sesión. Trabaja en un worktree sin rama y aterriza su commit
+directo en la rama principal de la KB (fast-forward, sin push); `<wt>` ya
+existente = ya lanzado, no un error: sigue. El tope es best-effort: al vencer
+(o si no aterriza) no hay commit y deja su informe; el trailer `Gate:` ya está
+en main, así que `/distill` lo recoge. Cuando el subagente vuelva (o falle),
+`git -C <kb> worktree remove --force <wt>` (si existe). Si aterrizó un commit
+con bloques movidos (`<kb>/.distill/<slug>-moved.md` existe), aplica el sidecar
+a la bitácora con `exo write append --from` (relativo al cwd), verifica que
+cada bloque quedó literal, borra el sidecar y commitea con rutas explícitas.
 
 Resumen final: qué notas se crearon o editaron, dónde quedaron, el hash del
-commit y, si hubo auto-distill, en qué rama `distill/auto/<slug>` quedó o que
-venció el tope.
+commit y, si hubo auto-distill, el hash que aterrizó en la rama principal o que
+se abstuvo (tope, verificación o ff fallido).
