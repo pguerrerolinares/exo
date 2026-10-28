@@ -134,6 +134,11 @@ if [ -z "$OUT" ] && [ "$RC" -eq 0 ]; then pass "last_assistant_message limpio + 
 reset
 hook "$TMP/t-lam2.jsonl" s1 ',"last_assistant_message":5'
 if [ "$(decision)" = "block" ]; then pass "last_assistant_message no-str ⇒ fallback al transcript"; else fail "last_assistant_message no-str ⇒ fallback" "out=$OUT"; fi
+for VAC in "" "   "; do
+  reset
+  hook "$TMP/t-lam2.jsonl" s1 ",$(jq -nc --arg v "$VAC" '{last_assistant_message:$v}' | sed 's/^{//; s/}$//')"
+  if [ "$(decision)" = "block" ]; then pass "last_assistant_message vacío/en blanco (len ${#VAC}) ⇒ fallback al transcript"; else fail "last_assistant_message vacío/en blanco (len ${#VAC})" "out=$OUT"; fi
+done
 
 # --- session_id saneado ---
 reset

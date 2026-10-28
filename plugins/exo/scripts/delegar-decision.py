@@ -136,7 +136,7 @@ def _cli(ruta, stop_input=None):
         bloques = segs[-1][1]
         # R23: durante el Stop el transcript aún no tiene la línea assistant final; last_assistant_message sí.
         last = stop_input.get("last_assistant_message") if isinstance(stop_input, dict) else None
-        if isinstance(last, str):
+        if isinstance(last, str) and last.strip():
             bloques = bloques + [{"type": "text", "text": last}]
         r = evalua(bloques)
         # R15: el informativo de R12 (>10 % con término de reserva fuera de la pregunta) se mide con esto.
