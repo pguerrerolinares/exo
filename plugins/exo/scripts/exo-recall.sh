@@ -215,11 +215,11 @@ fi
 
 # --- Aviso: gate de /document pendiente (sin auto-distill que lo resuelva) ---
 # /document deja un trailer `Gate: <ruta> bytes=… limit=… routed=bitacora` cuando
-# una nota supera su presupuesto y delega la evicción a un auto-distill en rama
-# distill/auto/. Una ruta está pendiente si su commit Gate más reciente (en
+# una nota supera su presupuesto y delega la evicción a un auto-distill que
+# commitea directo en la rama principal. Una ruta está pendiente si su commit Gate más reciente (en
 # distill/last..HEAD; sin tag, últimos 7 días) es posterior al auto-distill más
-# reciente que toca esa ruta en CUALQUIER rama (--all). Si la rama se descarta
-# sin merge deja de salir en --all y el aviso vuelve: correcto por diseño.
+# reciente que toca esa ruta (--all: también lo ve en otra rama). Si el
+# auto-distill no aterriza, no hay commit y el aviso sigue: correcto por diseño.
 # El Gate se lee del cuerpo (%B), no de %(trailers): git solo parsea trailers
 # del último párrafo y la atribución (Co-Authored-By…) va en otro. Una ruta
 # también se da por resuelta por una línea `Nota: <ruta>` en un auto-distill
@@ -270,7 +270,7 @@ avisos_gate_pendiente() {
       tam="$(wc -c < "$kb/$ruta")" || tam=""
       [ -n "$tam" ] && [ $(( tam * 100 )) -lt $(( lim * 85 )) ] && continue
     fi
-    printf 'AVISO exo: gate pendiente en %s, sin rama distill/auto/ (corre /distill)\n' "$ruta"
+    printf 'AVISO exo: gate pendiente en %s, sin auto-distill que lo resuelva (corre /distill)\n' "$ruta"
   done <<< "$pend"
 }
 if [ "$SOURCE" != "compact" ]; then

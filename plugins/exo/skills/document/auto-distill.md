@@ -1,7 +1,6 @@
 # Auto-distill (brief del subagente)
 
-**Cuándo cargar:** en el paso 5 de `SKILL.md`, cuando el gate mordió y no existe
-`distill/auto/<slug>`. Quien corre `/document` lanza el subagente (`model:
+**Cuándo cargar:** en el paso 5 de `SKILL.md`, cuando el gate mordió. Quien corre `/document` lanza el subagente (`model:
 sonnet`, contexto limpio, síncrono, tope 10 min) y le pasa el bloque de abajo
 literal, sustituyendo `<kb>`, `<ruta>`, `<slug>`, `<techo>` y `<wt>`. `<ruta>` va
 **relativa a la raíz de la KB** (la `path` de `search` y el trailer `Gate:` ya
@@ -17,11 +16,11 @@ del checkout principal) (techo `<techo>` B:
 Objetivo: dejarla en ≤60 % del techo **sin perder nada**: mueves bloques
 enteros verbatim; no resumes ni reescribes prosa.
 
-1. Si ya existe la rama `distill/auto/<slug>`, es «ya lanzado»: termina sin
-   error. Si no, crea un worktree en esa rama desde `HEAD`
-   (`git -C <kb> worktree add <wt> -b distill/auto/<slug>`). **`--kb <wt>` en
+1. Crea un worktree sin rama desde `HEAD`
+   (`git -C <kb> worktree add --detach <wt> HEAD`). Si `<wt>` ya existe el
+   `worktree add` falla: es «ya lanzado», termina sin error. **`--kb <wt>` en
    todo comando `exo`**: sin él `exo write` escribe en el checkout principal.
-   Nunca escribas en la rama principal, ni merge, ni push.
+   Hasta el paso 7 no escribas en el checkout principal; nunca push.
 2. Lee `<wt>/<ruta>` y `git -C <wt> log -p -n 10 -- <ruta>` (solo 10: el histórico
    entero pesa cientos de KB). Sin el log evictarías por edad, que es rotación
    por orden de llegada.
@@ -44,8 +43,9 @@ enteros verbatim; no resumes ni reescribes prosa.
    verbatim, bajo su propia cabecera `## AAAA-MM-DD — movido del canon: <tema
    concreto>` (una por bloque; nunca varios bajo una genérica). **No toques la
    bitácora**: main sigue haciendo append a la bitácora y dos appends en EOF
-   conflictan en cada merge. En la rama solo cambian el canon, el sidecar y,
-   si hay partición mecánica (paso 5), la hija nueva.
+   conflictan en cada rebase (la aplica el padre, paso 5 de `SKILL.md`). En
+   el commit solo cambian el canon, el sidecar y, si hay partición mecánica
+   (paso 5), la hija nueva.
 5. Mueve TODO lo que pase el test de salida, llegues o no al 60 %. Si con eso
    no llegas, no fuerces ni recortes: la salida es la **partición**. Subir el
    techo (`kbx_budget_max`) no es alternativa y no la propongas. Diséñala
@@ -53,7 +53,7 @@ enteros verbatim; no resumes ni reescribes prosa.
    secciones van a cada hija, bytes resultantes) y decide si es **mecánica**:
    solo mueve secciones `##` o párrafos enteros, verbatim, a **una** hija, y
    con eso la madre queda ≤60 % y la hija ≤60 % de su techo.
-   - **Mecánica → ejecútala en tu rama.** Escribe el cuerpo de la hija con tu
+   - **Mecánica → ejecútala en tu worktree.** Escribe el cuerpo de la hija con tu
      tool `Write` en `${TMPDIR:-/tmp}/exo-distill-auto-<slug>-hija.md`, fuera de
      `<wt>`: frontmatter con los `tags` de la madre, los bloques verbatim en su
      orden original y `## Relations` con `- capitulo_de [[<título madre>]]`.
@@ -68,8 +68,8 @@ enteros verbatim; no resumes ni reescribes prosa.
      entre varias hijas) → no la ejecutes: la propuesta va en el cuerpo del
      commit, como hasta ahora.
 
-   En los dos casos, partir es decisión del mantenedor. Tú no haces merge;
-   solo le dejas la rama hecha o la propuesta.
+   Una propuesta de partición aterriza igual en main (paso 7); `/distill` la
+   ejecuta o la descarta.
 6. Verifica antes de commitear: (a) conservación: todo bloque que sale del
    canon aparece literal en el sidecar, o en la hija si fue por partición
    (compáralo con `grep -F` bloque a bloque, no a ojo); (b) **solo si llegaste
@@ -80,7 +80,7 @@ enteros verbatim; no resumes ni reescribes prosa.
    y la nota tocada no pesa más que antes (`wc -c` ≤ el de `<kb>`); si llegaste
    al 60 % tampoco es offender. Seguir sobre el techo sin crecer es válido
    (evicción parcial, solo propuesta); (d) `exo lint
-   --kb <wt> --baseline <kb>` sale 0 (exit 3 = hallazgos que tu rama introduce:
+   --kb <wt> --baseline <kb>` sale 0 (exit 3 = hallazgos que tu cambio introduce:
    no commitees). Es mecánico: solo cuentan los hallazgos que `<kb>` no tiene;
    una nota que ya excedía y sigue excediendo (con otro tamaño) es el mismo
    hallazgo; los previos **no bloquean**: cita en una línea del cuerpo del commit
@@ -92,7 +92,7 @@ enteros verbatim; no resumes ni reescribes prosa.
    intacta), (c) y (d) trivialmente. Si una partición mecánica falla (a) o (b),
    deshazla (borra la hija, devuelve los bloques a la madre) y sigue por la
    propuesta. Si falla otra cosa, **no commitees**: deja el informe.
-7. Commit en tu rama, con rutas explícitas (`git -C <wt> add <ruta>
+7. Aterrizaje. Commit en `<wt>` (detached), con rutas explícitas (`git -C <wt> add <ruta>
    .distill/<slug>-moved.md <ruta hija>`, solo lo que exista): subject `docs(kb): auto-distill
    <slug> — <evicción|partición|propuesta de partición|evicción + partición|evicción + propuesta de partición>`;
    cuerpo con una línea `Nota: <ruta>` (relativa a la KB; es lo que resuelve el
@@ -101,28 +101,31 @@ enteros verbatim; no resumes ni reescribes prosa.
    movido: `Movido: <tema> — cerrado|superado: «<cita literal>»`, o `Movido:
    <tema> — partición → <título hija>`. Una propuesta de partición sin bloques
    movidos no tiene nada que añadir: `git -C <wt> commit
-   --allow-empty`. Después quita el worktree
-   (`git -C <kb> worktree remove --force <wt>`); la rama se queda.
+   --allow-empty`. Después, si la rama principal avanzó desde `HEAD` de
+   partida, `git -C <wt> rebase <rama principal>`; con conflicto,
+   `git -C <wt> rebase --abort` y abstención (paso 8). Luego
+   `git -C <kb> merge --ff-only <sha>` (sin push), con `<sha>` =
+   `git -C <wt> rev-parse HEAD` leído tras el rebase (el rebase cambia el sha). Si el ff falla (checkout
+   sucio en esas rutas, etc.), abstención ruidosa con el `<sha>` en el
+   informe. Siempre, al terminar, `git -C <kb> worktree remove --force <wt>`.
 8. Tope 10 min, best-effort (nada te corta): anota `date +%s` al arrancar y
    abstente si pasan 600 s. Si vence, o si no puedes verificar, abstención ruidosa: no
-   commitees y devuelve un informe con qué hiciste, qué falló y el estado del
-   worktree. Antes de terminar quita el worktree
-   (`git -C <kb> worktree remove --force <wt>`) y, como no hay commit tuyo,
-   borra la rama (`git -C <kb> branch -D distill/auto/<slug>`): si no, «rama
-   existe = ya lanzado» bloquearía para siempre el siguiente gate. Tu mensaje
-   final es ese informe, o el hash del commit y la rama.
+   aterrices nada y devuelve un informe con qué hiciste, qué falló y el estado
+   del worktree. Antes de terminar quita el worktree
+   (`git -C <kb> worktree remove --force <wt>`): si queda, «`<wt>` existe =
+   ya lanzado» bloquearía el siguiente gate. Sin commit aterrizado el trailer
+   `Gate:` sigue en main y el aviso de recall lo recoge para `/distill`. Tu
+   mensaje final es ese informe, o el hash del commit aterrizado.
 
 ## Después (no es del subagente)
 
-El mantenedor, o `/distill` al revisar las ramas `distill/auto/*`, decide el
-merge. En main, tras mergear (el conflicto esperado es la línea de estado del
-canon, a mano): `exo write append --from $KB_ROOT/.distill/<slug>-moved.md
+Quien corre `/document` (paso 5 de `SKILL.md`) aplica el sidecar a la
+bitácora: `exo write append --from $KB_ROOT/.distill/<slug>-moved.md
 <permalink-bitacora>` (`--from` es relativo al cwd; idempotente por el rechazo
 de cabecera duplicada, engine ≥ 0.7.0: con uno anterior la doble aplicación
-duplica sin avisar) y borrar el sidecar. Tras el merge,
-`git -C $KB_ROOT branch -d distill/auto/<slug>`: la rama viva bloquea el
-siguiente auto-distill de la nota. Una partición mecánica ya ejecutada se
-revisa y se mergea igual (la hija entra con el merge; `/distill` la añade a
-`[[core-index]]` si la madre está listada). Una propuesta de partición la
-ejecuta el mantenedor o el distill manual; ejecutada o descartada,
-`git -C $KB_ROOT branch -D distill/auto/<slug>`.
+duplica sin avisar), verifica que cada bloque quedó literal, borra el sidecar y
+commitea con rutas explícitas. Los sidecars que el padre no llegó a aplicar los
+recoge `/distill`, que también audita las líneas `Movido:` de los commits
+aterrizados. Una partición mecánica ya ejecutada es un commit más en main (`/distill` añade la
+hija a `[[core-index]]` si la madre está listada). Una propuesta de partición
+la ejecuta o descarta `/distill`.

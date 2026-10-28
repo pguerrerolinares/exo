@@ -23,7 +23,7 @@ recorta prosa viva para llegar.
 vivir en su sitio original, se mueve a `archive/` o `log/`, nunca se elimina. El commit
 final es el registro de qué se movió y por qué.
 
-## Procedimiento (6 pasos, más la revisión de ramas)
+## Procedimiento (6 pasos, más la revisión de sidecars)
 
 ### Resolución de rutas — antes de cualquier paso
 
@@ -51,34 +51,31 @@ paso de este procedimiento depende ya de `kbx`.
 Todos los comandos de las secciones siguientes usan `$KB_ROOT` y `$EXO_BIN`
 — ninguna ruta literal, y ningún `$KBX_BIN`.
 
-### Primero — ramas `distill/auto/*` pendientes
+### Primero — sidecars `.distill/*-moved.md` pendientes
 
-Primer paso de cada pasada, antes de rotar: `git -C $KB_ROOT branch --list 'distill/auto/*'`.
-Por cada rama (la dejó el auto-distill de `/document`; formato en
-`plugins/exo/skills/document/auto-distill.md`): lee su commit y decide con el
-dueño de la KB. Cada bloque movido trae su línea `Movido: … — cerrado|superado:
-«<cita>»`; un bloque sin cita, o cuya cita no lo cierra de verdad, vuelve al
-canon antes del merge.
+Primer paso de cada pasada, antes de rotar: `ls $KB_ROOT/.distill/*-moved.md`.
+Los deja el auto-distill de `/document` (formato en
+`plugins/exo/skills/document/auto-distill.md`), que commitea directo en la rama
+principal; el padre de `/document` aplica el sidecar, y los que quedan son los
+que no llegó a aplicar. Por cada uno: `exo write append --from` en la bitácora
+(relativo al cwd; idempotente por el rechazo de cabeceras duplicadas, engine ≥
+0.7.0: con uno anterior la doble aplicación duplica sin avisar), verifica que cada
+bloque quedó literal en destino, borra el sidecar y commitea.
 
-- **Merge:** `git -C $KB_ROOT merge distill/auto/<slug>`. Solo cambia el canon;
-  el conflicto esperado es la línea de estado, a mano. Luego aplica el sidecar
-  `$KB_ROOT/.distill/<slug>-moved.md` en la bitácora con `exo write append
-  --from` (relativo al cwd; idempotente por el rechazo de cabeceras duplicadas,
-  engine ≥ 0.7.0: con uno anterior la doble aplicación duplica sin avisar), verifica que cada bloque quedó
-  literal en destino, borra el sidecar y commitea; luego
-  `git -C $KB_ROOT branch -d distill/auto/<slug>` (si no, la rama bloquea el
-  siguiente auto-distill de la nota). Si la rama trae una **partición** ya
-  ejecutada (línea `Hija:` en el commit), revisa el título de la hija con el
-  test de `consolidacion.md` y que cada puntero `→ [[hija]]` de la madre apunta
-  a bloques literales en ella; mergea como arriba y lista la hija en
-  `[[core-index]]` si la madre está. Si el commit de la rama es una
-  **propuesta de partición**, no hay nada que mergear: ejecútala aquí con el
-  test del título (`consolidacion.md`) o descártala, y en ambos casos
-  `git -C $KB_ROOT branch -D distill/auto/<slug>`.
-- **Descartar:** `git -C $KB_ROOT branch -D distill/auto/<slug>` si el canon ya
-  cambió tanto que la evicción no aplica. Los bloques seguirán en el canon: la
-  pasada actual hace la evicción a mano.
-- **Nunca rehacerlas automáticamente:** quemaría una pasada por semana por
+Después audita los commits aterrizados desde `distill/last`:
+`git -C $KB_ROOT log --fixed-strings --grep='docs(kb): auto-distill' distill/last..HEAD`.
+Cada bloque movido trae su línea `Movido: … — cerrado|superado: «<cita>»`; un
+bloque sin cita, o cuya cita no lo cierra de verdad, se devuelve al canon con un
+commit (desde el sidecar o la bitácora).
+
+- **Partición ya ejecutada** (línea `Hija:` en el commit): revisa el título de
+  la hija con el test de `consolidacion.md` y que cada puntero `→ [[hija]]` de la
+  madre apunta a bloques literales en ella; lista la hija en `[[core-index]]`
+  si la madre está.
+- **Propuesta de partición** (commit `--allow-empty`): ejecútala aquí con el
+  test del título (`consolidacion.md`) o descártala.
+- **Un fallo se revierte** con `git revert` del commit.
+- **Nunca rehacerlos automáticamente:** quemaría una pasada por semana por
   nota caliente.
 
 Con el árbol limpio tras esto, sigue al paso 0.
