@@ -24,6 +24,9 @@ yaml_serde = "0.10.4"
 # que el `ExecutionProviderDispatch` que se le pasa sea el mismo tipo.
 ort = { version = "=2.0.0-rc.12", default-features = false, features = ["cuda"], optional = true }
 
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [features]
 # Embeddings en GPU NVIDIA para `exo index`/`rebuild` (onnxruntime + CUDA EP).
 # Off por defecto: exige en el sistema el runtime CUDA y cuDNN 9 de la rama que
