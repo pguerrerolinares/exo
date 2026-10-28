@@ -234,7 +234,14 @@ log (sin bloqueo) si pasa **cualquiera** de estas:
 1. `[reserva]` aparece en más del 50 % de los cierres posteriores a un bloqueo.
 2. Paul re-etiqueta los primeros 30 bloqueos reales con la misma hoja y la precisión baja del 55 % (R12, firmado por Paul 2026-10-28).
    Informativo (no degrada solo): más del 10 % de los bloqueos con un término de reserva fuera de la pregunta indica que el ámbito de la exclusión está equivocado (R12, firmado por Paul 2026-10-28).
-3. Las correcciones de delegación no bajan de **0,41 por sesión**, la cota baja del IC actual, con el mismo protocolo de `evals/uso-real/`.
+3. La razón de tasas de correcciones de delegación por sesión, **RR̂ = tasa_ventana / tasa_base, es ≥ 0,80** (R27, firmado por Paul 2026-10-28; sustituye al «no bajan de 0,41», que no era alcanzable). Receta cerrada:
+   - Prefiltro léxico `consultor|subagente|agente|deleg|lanza|despach|executor|ejecutor|fork|paralel` sobre el texto normalizado como en `muestra._normaliza` (caza 8/8 delegaciones conocidas; 148/914 mensajes de la base).
+   - Base re-medida por censo: los 148 hits de las 99 sesiones selladas. Ventana: todos los hits de las sesiones del padre con el hook activo (~45 esperados en 30 sesiones).
+   - Un solo lote: hits de base + hits de ventana + 40 no-hits al azar de la ventana, barajados con semilla fija, con `previo`, sin fecha ni repo. Paul etiqueta «corrección de delegación sí/no» con la definición de la relectura del 2026-10-27, ciego al periodo.
+   - tasa = sí / sesiones del periodo. Se informa también por mensaje humano y por repo (hash), porque el 69 % de los disparos son de un repo.
+   - Potencia simulada, 30 sesiones (Poisson a binomial negativa k = 0,5): P(kill) 0,71–0,84 si la tasa real sigue en 0,99; 0,40–0,42 a 0,75 (zona gris, declarada); 0,12–0,21 a 0,6. Ampliar a 45 sesiones apenas cambia.
+   - Invalidación del instrumento: si en la auditoría de 40 no-hits de la ventana salen **≥ 2** correcciones de delegación (base: 0 de ~56), el prefiltro perdió recall; se vuelve al censo completo de la ventana. Tripwire débil (P ≈ 0,34 con un 3 % de fallos).
+   - Por qué no 0,41: el 0,99 es 7/64 × 898/99 con IC Clopper-Pearson sobre 7/64. Con 64 mensajes al azar, leído como estimador puntual el kill salta el 80 % de las veces si el gate funciona (0,6); leído como cota baja, el 56 % aunque no haga nada. La lectura era además ambigua.
 4. La banda no declarada sube sobre su tasa base: el bloqueo cambió la redacción, no la conducta.
 
 ## 7. Testing
@@ -277,9 +284,9 @@ log (sin bloqueo) si pasa **cualquiera** de estas:
 
 ## 9. Condición de invalidación
 
-Si tras ~30 sesiones las órdenes «lanza consultor/subagente» no bajan de 0,41
-por sesión, o el padre esquiva la regex (§6.4), el bloqueo cambió la redacción y
-no la conducta. El mecanismo se degrada a solo log.
+Si tras ~30 sesiones la razón de tasas de §6.3 queda en RR̂ ≥ 0,80 (R27, firmado
+por Paul 2026-10-28), o el padre esquiva la regex (§6.4), el bloqueo cambió la
+redacción y no la conducta. El mecanismo se degrada a solo log.
 
 ## 10. Al implementar
 
