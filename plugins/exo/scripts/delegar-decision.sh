@@ -31,9 +31,12 @@ IFS=$'\x1f' read -r ACTIVE TRANSCRIPT SID <<< "$ROW"
 [ -n "$TRANSCRIPT" ] && [ -r "$TRANSCRIPT" ] || exit 0
 
 RES="$(printf '%s' "$INPUT" | python3 -I "$SCRIPT_DIR/delegar-decision.py" "$TRANSCRIPT" --stdin 2>/dev/null)" || exit 0
-IFS=$'\x1f' read -r DISPARA KIND PATRON UUID FUERA TAIL < <(printf '%s' "$RES" | jq -r '
+ROW="$(printf '%s' "$RES" | jq -r '
   [(.dispara // false), (.kind // ""), (.patron // ""), (.uuid // ""), (if .reserva_fuera then 1 else 0 end),
-   ((.tail // "")[0:200] | gsub("[\n\r\u001f]"; " "))] | map(tostring) | join("\u001f")' 2>/dev/null) || exit 0
+   ((.tail // "")[0:200] | gsub("[\n\r\u001f]"; " "))] | map(tostring) | join("\u001f")' 2>/dev/null)" || exit 0
+ROW="${ROW%$'\r'}"
+[ -n "$ROW" ] || exit 0
+IFS=$'\x1f' read -r DISPARA KIND PATRON UUID FUERA TAIL <<< "$ROW"
 
 # shellcheck source=_reflex-log.sh
 . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null || true
