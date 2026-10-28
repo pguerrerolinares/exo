@@ -5,7 +5,9 @@ Reimplementa `es_mensaje_humano` y `_epoch` de evals/uso-real/transcripts.py sin
 `filtro_sha256` del sello cubre el original y este módulo corre en el hook, sin evals/ a mano.
 """
 import datetime
+import json
 import re
+import sys
 
 PERM = re.compile(r"(?i)¿\s*(te parece|te vale|te cuadra|lo lanzo|los lanzo|lanzo|lo hago|los hago|hago|procedo|sigo|arranco|empiezo|aplico|abro|quieres que|lo copio|los copio|arreglo|preparo|escribo|implemento|lo implemento|lo aplico|vamos|seguimos|arrancamos|lo dejo|commiteo|lo commiteo|lo subo|le doy|doy)\b")
 PROP = re.compile(r"(?i)\b(mi recomendaci[oó]n|te propongo|lo que propongo|propongo|recomiendo|yo har[ií]a|har[ií]a)\b")
@@ -116,3 +118,34 @@ def evalua(bloques):
     elif textos and not tools:
         r["kind"] = "banda"
     return r
+
+
+def _cli(ruta):
+    with open(ruta, encoding="utf-8", errors="replace") as f:
+        lineas = []
+        for ln in f:
+            try:
+                d = json.loads(ln)
+            except ValueError:
+                continue
+            if isinstance(d, dict):
+                lineas.append(d)
+    try:
+        segs = segmentar(lineas)
+        uuid = next((k for k, _ in reversed(segs) if k not in (None, "NOHUMANO")), None)
+        r = evalua(segs[-1][1])
+        # R15: el informativo de R12 (>10 % con término de reserva fuera de la pregunta) se mide con esto.
+        fuera = bool(r["dispara"] and EXCLUSION.search(r["tail"]))
+        return {"uuid": uuid, "dispara": r["dispara"], "kind": r["kind"], "patron": r["patron"],
+                "tail": r["tail"], "reserva_fuera": fuera}
+    except Exception:  # R16: la excepción del detector es abstención (kind=error), nunca un fallo del hook
+        return {"uuid": None, "dispara": False, "kind": "error", "patron": None, "tail": "",
+                "reserva_fuera": False}
+
+
+if __name__ == "__main__":
+    try:
+        res = _cli(sys.argv[1])
+    except (OSError, IndexError):
+        sys.exit(2)
+    print(json.dumps(res, ensure_ascii=False))
