@@ -1,7 +1,7 @@
 # delegar-decision — notas de la prueba manual del doble bloqueo (Task 5)
 
-Estado: **NO concluyente**. El doble bloqueo no se pudo reproducir en headless porque
-`delegar-decision` no dispara en `claude -p`. Falta una sesión interactiva (ver "Qué falta").
+Estado: **concluyente (2026-10-28, sesión interactiva): no se tapan.** Ver «Resultado interactivo» al final.
+La prueba headless de abajo no lo era; se conserva como histórico.
 
 Versión probada: Claude Code 2.1.312, plugin exo 1.26.0 cargado con `--plugin-dir` (inline).
 Nota: el exo 1.25.0 instalado en global también se cargó en paralelo; sus Stop hooks no incluyen
@@ -57,3 +57,23 @@ lanzar `sleep 240` en background y pedir el cierre «Mi recomendación es X. ¿T
 Si en interactivo llegara un solo reason, `sdd-wake-guard` (los Stop corren en paralelo, sin orden) podría tapar a
 `delegar-decision` en ese segmento; el sentinel de `delegar-decision` ya estaría consumido y el bloqueo se
 perdería. Hay que medirlo antes de declarar el kill. Con R26 el tope suprimido queda en el log como `kind=tope`.
+
+## Resultado interactivo (2026-10-28)
+
+Sesión `typed`, plugin exo 1.26.0 instalado (no inline), carpeta con ledger fresco en
+`.superpowers/sdd/prueba/progress.md`, `sleep 240` en background y el cierre «Mi recomendación es
+usar la opción A para el cache. ¿Te parece?». Repetido en dos sesiones, con el mismo resultado.
+
+- `--debug-file`: los dos Stop bloquean en el mismo ciclo (`sdd-wake-guard` 21:57:27.888 y
+  `delegar-decision` 21:57:27.922, ambos `permissionDecision: deny`). `document-remind` solo emite
+  `systemMessage`.
+- El agente recibe **los dos reasons, por separado** («Stop hook error» ×2 en la UI) y cumple ambos
+  en una sola continuación: `CronCreate` one-shot y reescritura con `[reserva: pedido]`.
+- El Stop siguiente (21:57:44) no bloquea (`stop_hook_active`). Reflex-log: una línea
+  `sdd-wake-guard` y una `delegar-decision kind=disparo patron=P2` por sesión.
+- Consecuencia para el kill: el riesgo condicional de abajo no se da; no se pierden bloqueos.
+  Lo que sí se vio es el escape por `[reserva]` (aquí justificado: el prompt pedía responder
+  «únicamente» esa frase); lo mide el kill 1.
+- Falso positivo observado en la sesión que guiaba la prueba: un cierre con instrucciones que
+  citaba el prompt de prueba dentro de un bloque ``` disparó P2. El detector no excluye bloques de
+  código; candidato a fix si se repite en el re-etiquetado del kill 2.
