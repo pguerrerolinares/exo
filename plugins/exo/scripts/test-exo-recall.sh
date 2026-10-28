@@ -350,7 +350,7 @@ else fail "session_id con '/'" "dir=$(ls "$RULES_DIR/ss-sub")"; fi
 # ------------------- gate pendiente (trailer Gate: de /document) --------------
 NOTA_G='projects/a — b (c).md'
 GATE_TRAILER="Gate: $NOTA_G bytes=11000 limit=12500 routed=bitacora"
-AVISO_G="AVISO exo: gate pendiente en $NOTA_G, sin rama distill/auto/ (corre /distill)"
+AVISO_G="AVISO exo: gate pendiente en $NOTA_G, sin auto-distill que lo resuelva (corre /distill)"
 ahora=$(date +%s)
 kbgit() { git -C "$KBG" -c user.name=t -c user.email=t@t "$@"; }
 kbcommit() {  # $1=segundos atrás, $2=mensaje; commit vacío con fecha fija
@@ -385,15 +385,23 @@ GIT_AUTHOR_DATE="$(( ahora - 2000 )) +0000" GIT_COMMITTER_DATE="$(( ahora - 2000
 kbgit checkout -q main
 gate_hook
 if ! contains "$CTX_G" "gate pendiente en projects/a" && contains "$CTX_G" "gate pendiente en projects/z.md,"; then
-  pass "gate_resuelto_por_rama_no_avisa: auto-distill en otra rama (--all) resuelve solo su ruta"
-else fail "gate_resuelto_por_rama_no_avisa" "ctx='$CTX_G'"; fi
+  pass "gate_resuelto_en_otra_rama_no_avisa: auto-distill en otra rama (--all) resuelve solo su ruta"
+else fail "gate_resuelto_en_otra_rama_no_avisa" "ctx='$CTX_G'"; fi
 
-# rama descartada sin merge: deja de salir en --all ⇒ el aviso vuelve
+# auto-distill que no aterriza (rama borrada, sin commit) ⇒ el aviso vuelve
 kbgit branch -q -D distill/auto/x
 kbgit reflog expire --expire=now --all; kbgit gc -q --prune=now 2>/dev/null
 gate_hook
-if contains "$CTX_G" "$AVISO_G"; then pass "gate_rama_descartada_vuelve_a_avisar"
-else fail "gate_rama_descartada_vuelve_a_avisar" "ctx='$CTX_G'"; fi
+if contains "$CTX_G" "$AVISO_G"; then pass "gate_autodistill_sin_aterrizar_vuelve_a_avisar"
+else fail "gate_autodistill_sin_aterrizar_vuelve_a_avisar" "ctx='$CTX_G'"; fi
+
+# auto-distill aterrizado en la rama principal (caso normal tras #216) ⇒ resuelto
+nuevo_kb main
+kbcommit 4000 "$(printf 'docs(kb): nota grande\n\n%s' "$GATE_TRAILER")"
+kbcommit 2000 "$(printf 'docs(kb): auto-distill a — evicción\n\nNota: %s' "$NOTA_G")"
+gate_hook
+if ! contains "$CTX_G" "gate pendiente"; then pass "gate_resuelto_por_commit_en_main_no_avisa"
+else fail "gate_resuelto_por_commit_en_main_no_avisa" "ctx='$CTX_G'"; fi
 
 # Gate en un párrafo y la atribución estándar en otro: %(trailers) no lo vería
 nuevo_kb atrib
