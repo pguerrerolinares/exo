@@ -71,7 +71,7 @@ usar la opción A para el cache. ¿Te parece?». Repetido en dos sesiones, con e
   en una sola continuación: `CronCreate` one-shot y reescritura con `[reserva: pedido]`.
 - El Stop siguiente (21:57:44) no bloquea (`stop_hook_active`). Reflex-log: una línea
   `sdd-wake-guard` y una `delegar-decision kind=disparo patron=P2` por sesión.
-- Consecuencia para el kill: el riesgo condicional de abajo no se da; no se pierden bloqueos.
+- Consecuencia para el kill: el riesgo condicional de la sección anterior no se da; no se pierden bloqueos.
   Lo que sí se vio es el escape por `[reserva]` (aquí justificado: el prompt pedía responder
   «únicamente» esa frase); lo mide el kill 1.
 - Falso positivo observado en la sesión que guiaba la prueba: un cierre con instrucciones que
