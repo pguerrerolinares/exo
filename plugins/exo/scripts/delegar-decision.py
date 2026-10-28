@@ -9,7 +9,8 @@ import re
 
 PERM = re.compile(r"(?i)¿\s*(te parece|te vale|te cuadra|lo lanzo|los lanzo|lanzo|lo hago|los hago|hago|procedo|sigo|arranco|empiezo|aplico|abro|quieres que|lo copio|los copio|arreglo|preparo|escribo|implemento|lo implemento|lo aplico|vamos|seguimos|arrancamos|lo dejo|commiteo|lo commiteo|lo subo|le doy|doy)\b")
 PROP = re.compile(r"(?i)\b(mi recomendaci[oó]n|te propongo|lo que propongo|propongo|recomiendo|yo har[ií]a|har[ií]a)\b")
-EXCLUSION = re.compile(r"(?i)(?<!\w)(?:push\w*|prs?|issues?|merge\w*|deploy\w*|commit(?:s|e\w*)?|/document|borr\w*)\b")
+EXCLUSION = re.compile(r"(?i)(?<!\w)(?:push|prs?|issues?|merge|deploy|commit|/document|borrar)\b")
+PREGUNTA = re.compile(r"¿[^?]*\?")
 ETIQUETA = re.compile(r"\[reserva:\s*(?:externo|irreversible|re-scope|hecho-de-Paul|pedido)\s*\]")
 
 PREFIJOS = ("<command-", "<local-command", "<task-notification>", "<bash-stdout>",
@@ -81,6 +82,14 @@ def segmentar(lineas, tope=None):
     return out
 
 
+def _ambito_exclusion(tail):
+    preguntas = PREGUNTA.findall(tail)
+    if preguntas:
+        return preguntas[-1]
+    lineas = [x for x in tail.splitlines() if x.strip()]
+    return lineas[-1] if lineas else ""
+
+
 def evalua(bloques):
     tools = [b for b in bloques if b.get("type") == "tool_use"]
     textos = [b.get("text") or "" for b in bloques if b.get("type") == "text"]
@@ -98,7 +107,7 @@ def evalua(bloques):
     if r["patron"]:
         if ETIQUETA.match(last.lstrip()):
             r["excluido"] = "etiqueta"
-        elif EXCLUSION.search(tail):
+        elif EXCLUSION.search(_ambito_exclusion(tail)):
             r["excluido"] = "reserva"
         else:
             r["dispara"], r["kind"] = True, "disparo"

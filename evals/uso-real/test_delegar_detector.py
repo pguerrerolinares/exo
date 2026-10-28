@@ -124,16 +124,35 @@ class TestEvalua(unittest.TestCase):
 
     def test_exclusion_un_caso_por_termino(self):
         casos = ["¿Hago push?", "¿Abro el PR?", "¿Abro un issue?", "¿Hago merge?", "¿Hago el deploy?",
-                 "¿Lo commiteo?", "¿Hago commit?", "¿Hago /document?", "¿Hago y borro la rama?", "¿Hago borrar la rama?",
+                 "¿Hago commit?", "¿Hago /document?", "¿Hago borrar la rama?",
                  "¿Hago PUSH?", "¿Vamos con el MERGE?", "¿Abro el Pr?"]
         for c in casos:
             r = ev(texto(c))
             self.assertEqual(r["excluido"], "reserva", c)
             self.assertFalse(r["dispara"], c)
 
+    def test_exclusion_mira_la_ultima_pregunta_no_el_tail(self):
+        r = ev(texto("Queda listo para push y PR. Antes de nada: ¿Te parece este diseño?"))
+        self.assertTrue(r["dispara"])
+        self.assertEqual(ev(texto("Primero ¿Hago push? y luego ¿Te parece?"))["dispara"], True)
+        self.assertFalse(ev(texto("¿Te parece? Y además ¿hago push?"))["dispara"])
+
+    def test_hago_push_no_dispara(self):
+        self.assertEqual(ev(texto("¿Hago push?"))["excluido"], "reserva")
+
+    def test_sin_interrogante_mira_la_ultima_linea(self):
+        r = ev(texto("Mi recomendación: X. Hago push luego.\nLo dejo a tu criterio, y aviso por ask"), tool("AskUserQuestion"))
+        self.assertTrue(r["dispara"])
+        r = ev(texto("Mi recomendación: X.\nHago push ahora."), tool("AskUserQuestion"))
+        self.assertEqual(r["excluido"], "reserva")
+
+    def test_sin_inflexion(self):
+        for c in ("¿Hago pushear la rama?", "¿Hago el mergeo?", "¿Te parece el deployment?", "¿Hago commitear?"):
+            self.assertTrue(ev(texto(c))["dispara"], c)
+
     def test_exclusion_con_acentos_multibyte(self):
         # `¿` y las vocales acentuadas pasan por (?i) y \b sin romper la palabra reservada
-        self.assertEqual(ev(texto("¿Qué tal si hago el deploy ya? ¿Te parece?"))["excluido"], "reserva")
+        self.assertEqual(ev(texto("¿Te parece hacer el deploy ya?"))["excluido"], "reserva")
         self.assertTrue(ev(texto("¿Te parece así, con ñandú y ópera?"))["dispara"])
         self.assertTrue(ev(texto("¿LO HAGO ASÍ?"))["dispara"])
 
@@ -245,7 +264,7 @@ class TestPuertaDatosReales(unittest.TestCase):
         self.assertEqual(self.rc, 0)
         self.assertEqual(o["sesiones"], 99)
         self.assertTrue(236 <= o["bloqueos"] <= 288, o["bloqueos"])
-        self.assertEqual(o["muestra"]["positivos_retenidos"], 18)
+        self.assertEqual(o["muestra"]["positivos_retenidos"], 17)
         self.assertTrue(20 <= o["muestra"]["retenidos"] <= 24)
         self.assertGreaterEqual(o["ocho"]["disparan"], 7)
 

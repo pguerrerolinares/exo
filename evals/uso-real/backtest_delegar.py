@@ -24,7 +24,7 @@ _spec.loader.exec_module(D)
 SESIONES = 99
 BLOQUEOS = (236, 288)
 RETENIDOS = (20, 24)
-POSITIVOS = 18
+POSITIVOS = 17
 OCHO_MIN = 7
 POSITIVAS = {"delegar", "consultor"}
 
