@@ -470,6 +470,13 @@ struct ArgsRotate {
 }
 
 fn main() {
+    // Rust arranca con SIGPIPE ignorada y `println!` entra en pánico con EPIPE
+    // (`exo … | head`). Con el default el proceso muere en silencio, como cat.
+    #[cfg(unix)]
+    // SAFETY: `signal` con SIG_DFL, antes de crear hilos ni escribir a stdout.
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
     let cli = Cli::parse();
     // El flag sale del parseo de clap, no de un escaneo de argv: un valor de
     // otro flag que fuese literalmente "--json" (p.ej. `--title "--json"`)

@@ -493,6 +493,7 @@ dependencies = [
  "dirs",
  "fastembed",
  "hf-hub",
+ "libc",
  "ort",
  "regex",
  "rusqlite",
