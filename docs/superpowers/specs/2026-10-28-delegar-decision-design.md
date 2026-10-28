@@ -156,7 +156,12 @@ El sentinel vive en `~/.cache/exo/delegar-decision/<session_id>` y guarda el
 cubre lo que `stop_hook_active` no cubre: los hand-backs posteriores reabren
 segmento dentro del mismo mensaje humano. La escritura del sentinel es
 best-effort: si falla, el hook se comporta como si no hubiera sentinel, y
-`stop_hook_active` sigue evitando el bucle.
+`stop_hook_active` sigue evitando el bucle. Sin mensaje humano (`claude -p`/SDK,
+`promptSource` ajeno) no hay uuid y por tanto no hay tope: bloquea en cada Stop
+no activo que case P2/P3 (R25). Cuando el sentinel suprime un disparo se loguea
+`kind=tope` (R26). El último texto evaluado es `last_assistant_message` del input
+del Stop, con fallback al del transcript (R23): durante el Stop el transcript
+aún no contiene la línea assistant final.
 
 Carga sobre las 99 sesiones con exclusión y tope, según el cálculo del
 consultor: **256 bloqueos (R12, firmado por Paul 2026-10-28) (2,59 por sesión, mediana 1, máximo 14)**. Está sin
@@ -214,7 +219,8 @@ reescribir el cierre sin pregunta, (d) el segundo Stop con `stop_hook_active`.
   es correcto (positivos 9, 16, 18, 29). No hay estado imposible.
 - **F4 — bloqueos simultáneos (riesgo abierto).** Los hooks Stop corren en
   paralelo. `delegar-decision` puede bloquear en el mismo Stop que
-  `sdd-wake-guard.sh` o `document-remind.sh`. No está documentado cómo se
+  `sdd-wake-guard.sh` (`document-remind.sh` solo emite `systemMessage`, no
+  bloquea: observado en T5). No está documentado cómo se
   combinan dos `decision: block`. Las peticiones son compatibles en principio
   (cron + Agent, `/document` + Agent o etiqueta), pero no está verificado.
   **El plan incluye una prueba manual** en la que se fuerzan los dos bloqueos y
@@ -251,7 +257,7 @@ log (sin bloqueo) si pasa **cualquiera** de estas:
 - **Paridad de segmentación:** la reimplementación del helper frente a
   `es_mensaje_humano` de `evals/uso-real/transcripts.py`, sobre los mismos
   transcripts.
-- **Manual:** el bloqueo simultáneo con `document-remind.sh` (F4).
+- **Manual:** el bloqueo simultáneo con `sdd-wake-guard.sh` (F4); `document-remind.sh` no bloquea.
 
 ## 8. Caveats honestos
 

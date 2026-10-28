@@ -120,7 +120,7 @@ def evalua(bloques):
     return r
 
 
-def _cli(ruta):
+def _cli(ruta, stop_input=None):
     with open(ruta, encoding="utf-8", errors="replace") as f:
         lineas = []
         for ln in f:
@@ -133,7 +133,12 @@ def _cli(ruta):
     try:
         segs = segmentar(lineas)
         uuid = next((k for k, _ in reversed(segs) if k not in (None, "NOHUMANO")), None)
-        r = evalua(segs[-1][1])
+        bloques = segs[-1][1]
+        # R23: durante el Stop el transcript aún no tiene la línea assistant final; last_assistant_message sí.
+        last = stop_input.get("last_assistant_message") if isinstance(stop_input, dict) else None
+        if isinstance(last, str):
+            bloques = bloques + [{"type": "text", "text": last}]
+        r = evalua(bloques)
         # R15: el informativo de R12 (>10 % con término de reserva fuera de la pregunta) se mide con esto.
         fuera = bool(r["dispara"] and EXCLUSION.search(r["tail"]))
         return {"uuid": uuid, "dispara": r["dispara"], "kind": r["kind"], "patron": r["patron"],
@@ -145,7 +150,13 @@ def _cli(ruta):
 
 if __name__ == "__main__":
     try:
-        res = _cli(sys.argv[1])
+        entrada = None
+        if "--stdin" in sys.argv[2:]:
+            try:
+                entrada = json.loads(sys.stdin.read())
+            except ValueError:
+                pass
+        res = _cli(sys.argv[1], entrada)
     except (OSError, IndexError):
         sys.exit(2)
     print(json.dumps(res, ensure_ascii=False))

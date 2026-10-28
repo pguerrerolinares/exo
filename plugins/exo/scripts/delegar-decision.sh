@@ -6,7 +6,8 @@
 # docs/superpowers/specs/2026-10-28-delegar-decision-design.md.
 #
 # Qué hace: delega la decisión en delegar-decision.py (detector sobre el último segmento del
-# transcript, no sobre last_assistant_message: paridad con la medición). Si dispara y no se
+# transcript; el último texto es last_assistant_message, porque en el Stop el transcript aún no
+# tiene la línea final: ver R23). Si dispara y no se
 # ha bloqueado ya para ese mensaje humano, emite `decision: block`.
 #
 # Abstención (exit 0, sin salida): subagente (`agent_id`), `stop_hook_active`, sin jq o
@@ -29,7 +30,7 @@ IFS=$'\x1f' read -r ACTIVE TRANSCRIPT SID <<< "$ROW"
 [ "$ACTIVE" = "true" ] && exit 0
 [ -n "$TRANSCRIPT" ] && [ -r "$TRANSCRIPT" ] || exit 0
 
-RES="$(python3 -I "$SCRIPT_DIR/delegar-decision.py" "$TRANSCRIPT" 2>/dev/null)" || exit 0
+RES="$(printf '%s' "$INPUT" | python3 -I "$SCRIPT_DIR/delegar-decision.py" "$TRANSCRIPT" --stdin 2>/dev/null)" || exit 0
 IFS=$'\x1f' read -r DISPARA KIND PATRON UUID FUERA TAIL < <(printf '%s' "$RES" | jq -r '
   [(.dispara // false), (.kind // ""), (.patron // ""), (.uuid // ""), (if .reserva_fuera then 1 else 0 end),
    ((.tail // "")[0:200] | gsub("[\n\r\u001f]"; " "))] | map(tostring) | join("\u001f")' 2>/dev/null) || exit 0
@@ -49,7 +50,10 @@ fi
 SAFE_SID="$(printf '%s' "$SID" | tr -c 'A-Za-z0-9_-' '_')"
 SENTINEL="$HOME/.cache/exo/delegar-decision/${SAFE_SID:-sin-sesion}"
 if [ -n "$UUID" ]; then
-  [ "$(cat "$SENTINEL" 2>/dev/null)" = "$UUID" ] && exit 0
+  if [ "$(cat "$SENTINEL" 2>/dev/null)" = "$UUID" ]; then
+    log "delegar-decision" "kind=tope patron=${PATRON}"
+    exit 0
+  fi
   { mkdir -p "$(dirname "$SENTINEL")" && printf '%s' "$UUID" > "$SENTINEL"; } 2>/dev/null || true
 fi
 

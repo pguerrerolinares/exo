@@ -35,10 +35,13 @@ echo "<prompt>" | REFLEX_LOG_FILE=<scratch>/reflex.jsonl claude -p \
   (`stop_hook_active`) no bloqueó. Una petición, satisfecha en la continuación.
 - **document-remind**: no bloquea nunca; emite `systemMessage` («💾 ¿Cierras sesión?...»). No sirve para el doble bloqueo.
   El único par bloqueante real es `sdd-wake-guard` + `delegar-decision`.
-- **delegar-decision no dispara en -p**. Causa, verificada ejecutando `delegar-decision.py` sobre el transcript:
-  el prompt del usuario queda con `promptSource: "sdk"`, y `es_mensaje_humano` solo acepta `typed`/`queued`.
-  Sin mensaje humano no hay segmento: `{"uuid": null, "dispara": false, "kind": null}`. Es la R19 de la spec,
-  pero con consecuencia más fuerte: en headless/SDK el gate es inerte, no "un bloqueo por segmento".
+- **delegar-decision no disparó en -p (corregido en la ronda final, R23/R25)**. La conclusión original («inerte en
+  -p por `promptSource: "sdk"`») era un artefacto: se diagnosticó sobre un transcript sin la línea assistant final.
+  Experimento stop-race (volcado del input y del transcript en el Stop): durante el Stop el transcript todavía no
+  tiene la línea assistant final, mientras que `last_assistant_message` del input sí la trae (`"MARCADOR-XYZ-42"`
+  en las dos corridas; evidencia en el scratchpad de la sesión, `stop-race/dump.txt`). `promptSource: "sdk"` solo
+  quita el uuid (no hay tope); el segmento abierto se evalúa igual. Fix: el hook evalúa `last_assistant_message`.
+  Sin mensaje humano el gate bloquea en cada Stop no activo con P2/P3.
 - Qué reason llega con doble bloqueo (uno / ambos concatenados / solo el primero): **no observado**.
 
 ## Qué falta
@@ -51,7 +54,6 @@ lanzar `sleep 240` en background y pedir el cierre «Mi recomendación es X. ¿T
 
 ## Riesgo para el kill (condicional)
 
-Si en interactivo llegara un solo reason, `sdd-wake-guard` (primero en el orden de hooks.json) taparía a
+Si en interactivo llegara un solo reason, `sdd-wake-guard` (los Stop corren en paralelo, sin orden) podría tapar a
 `delegar-decision` en ese segmento; el sentinel de `delegar-decision` ya estaría consumido y el bloqueo se
-perdería. Hay que medirlo antes de declarar el kill. Adicional ya confirmado: en `claude -p`/SDK el gate nunca
-actúa, así que la medición de bloqueos en esos modos saldrá a cero.
+perdería. Hay que medirlo antes de declarar el kill. Con R26 el tope suprimido queda en el log como `kind=tope`.

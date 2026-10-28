@@ -119,6 +119,22 @@ hook "$TMP/t-sh.jsonl" s1
 if [ "$D1" = "block" ] && [ "$(decision)" = "block" ] && [ ! -e "$SENT/s1" ]; then pass "uuid vacío: bloquea y no escribe sentinel"
 else fail "uuid vacío: bloquea y no escribe sentinel" "d1=$D1 out=$OUT sent=$(find "$SENT" 2>&1 | tr '\n' ' ')"; fi
 
+# --- R23: el último texto sale de last_assistant_message, no del transcript ---
+# Durante el Stop el transcript aún no tiene la línea assistant final (stop-race, R23).
+reset
+jq -nc '{type:"user",uuid:"hl",timestamp:"2026-10-10T10:00:00Z",message:{role:"user",content:"haz la cosa"}}' > "$TMP/t-lam.jsonl"
+LAM="$(jq -nc '{last_assistant_message:"Mi recomendación: seguir. ¿Te parece?"}' | sed 's/^{//; s/}$//')"
+hook "$TMP/t-lam.jsonl" s1 ",${LAM}"
+if [ "$(decision)" = "block" ]; then pass "last_assistant_message: transcript sin línea final + cierre P2 ⇒ bloquea"; else fail "last_assistant_message: transcript sin línea final + P2" "out=$OUT"; fi
+reset
+mk "$TMP/t-lam2.jsonl" hm "Mi recomendación: seguir. ¿Te parece?"
+LAM="$(jq -nc '{last_assistant_message:"Hecho. Cambios aplicados."}' | sed 's/^{//; s/}$//')"
+hook "$TMP/t-lam2.jsonl" s1 ",${LAM}"
+if [ -z "$OUT" ] && [ "$RC" -eq 0 ]; then pass "last_assistant_message limpio + P2 viejo en el transcript ⇒ no bloquea"; else fail "last_assistant_message limpio + P2 viejo" "out=$OUT rc=$RC"; fi
+reset
+hook "$TMP/t-lam2.jsonl" s1 ',"last_assistant_message":5'
+if [ "$(decision)" = "block" ]; then pass "last_assistant_message no-str ⇒ fallback al transcript"; else fail "last_assistant_message no-str ⇒ fallback" "out=$OUT"; fi
+
 # --- session_id saneado ---
 reset
 hook "$DATA/p2.jsonl" "../x"
@@ -148,7 +164,10 @@ case "$P" in *"kind=disparo"*"patron=P2"*"reserva_fuera=0"*"tail=Mi recomendaci�
   *) fail "log: disparo con patron=P2, reserva_fuera=0 y tail real" "payload=$P" ;; esac
 hook "$DATA/p2.jsonl"
 N="$(jq -c 'select(.reflex=="delegar-decision")' "$REFLEX_LOG_FILE" | wc -l)"
-if [ "$N" -eq 1 ]; then pass "log: el disparo suprimido por el tope no se loguea"; else fail "log: el disparo suprimido por el tope no se loguea" "lineas=$N"; fi
+if [ "$N" -eq 2 ] && [ "$(jq -r 'select(.reflex=="delegar-decision") | .payload' "$REFLEX_LOG_FILE" | tail -n1 | grep -c '^kind=tope')" -eq 1 ]; then
+  pass "log: segundo Stop con mismo uuid ⇒ sin salida y una línea kind=tope (R26)"
+else fail "log: kind=tope al suprimir por sentinel" "lineas=$N out=$OUT"; fi
+[ -z "$OUT" ] || fail "log: tope no emite salida" "out=$OUT"
 
 reset
 mk "$TMP/t-rf.jsonl" hr "Mi recomendación: seguir. ¿Te parece? Antes hice push de la rama."

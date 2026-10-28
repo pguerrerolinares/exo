@@ -81,7 +81,9 @@ repreguntar. Cada tramo es breve; importa que sea exacta y corregible.
   primero y sigue siendo suyo: esas preguntas llevan `[reserva: hecho-de-Paul]`
   si casan el detector.
 - Presenta el diseño por secciones escaladas a su complejidad; valida cada
-  sección con el usuario antes de seguir a la siguiente. Cubre: arquitectura,
+  sección con el usuario antes de seguir a la siguiente (el cierre de esa
+  validación empieza por `[reserva: pedido]`: lo pide este skill, no el
+  hilo). Cubre: arquitectura,
   componentes, data flow, error handling, testing.
 - Diseña para aislamiento: unidades con un propósito claro, interfaces bien
   definidas, comprensibles y testeables por separado.
@@ -104,7 +106,9 @@ ni instales dependencias de producto, hasta que el usuario apruebe el diseño y
 luego revise la spec escrita; y no escribas la spec sin haber puesto antes los
 enfoques en su propio mensaje. Aplica a TODO proyecto, sin importar cuán simple
 parezca — "demasiado simple para necesitar diseño" es la trampa más común: el
-diseño puede ser corto, pero se presenta y se aprueba siempre.
+diseño puede ser corto, pero se presenta y se aprueba siempre. Los cierres
+que piden esa aprobación (diseño, spec escrita) empiezan por
+`[reserva: pedido]`: es este gate quien pide la firma.
 
 Una respuesta aprueba la etapa que realmente se presentó: aprobar una idea o
 su alcance no aprueba artefactos que aún no existen; el visto bueno del

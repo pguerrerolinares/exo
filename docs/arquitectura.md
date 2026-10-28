@@ -487,8 +487,12 @@ Detalles que el diagrama no cuenta:
   `Agent`/`Task` en el segmento, bloquea el cierre y pide lanzar el consultor
   o el ejecutor. Si la pregunta es de Paul, el cierre empieza por
   `[reserva: externo|irreversible|re-scope|hecho-de-Paul|pedido]`. Tope: un
-  bloqueo por mensaje humano (sentinel por sesión); sin mensaje humano
-  (SDD, `-p`) bloquea una vez por segmento.
+  bloqueo por mensaje humano (sentinel por sesión), y una ola SDD lanzada
+  por un mensaje humano se bloquea una sola vez; sin mensaje humano
+  (`claude -p`/SDK) no hay tope: bloquea en cada cierre que casa, salvo el
+  segundo Stop (`stop_hook_active`). El último texto evaluado es
+  `last_assistant_message` (el transcript aún no tiene esa línea durante el
+  Stop). Pendiente de verificar E2E que dispara.
 - Los otros tres hooks son guardrails de disciplina, no de memoria:
   `clean-orchestrator-research.sh` (recuerda delegar la investigación web a
   subagentes; solo en el padre, 1 vez por sesión), `bash-guards.sh` (Task 5,
