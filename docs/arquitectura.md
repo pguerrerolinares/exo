@@ -492,7 +492,8 @@ Detalles que el diagrama no cuenta:
   (`claude -p`/SDK) no hay tope: bloquea en cada cierre que casa, salvo el
   segundo Stop (`stop_hook_active`). El último texto evaluado es
   `last_assistant_message` (el transcript aún no tiene esa línea durante el
-  Stop). Pendiente de verificar E2E que dispara.
+  Stop). Verificado E2E en `claude -p`; el doble bloqueo con
+  `sdd-wake-guard` en interactivo sigue pendiente de observar.
 - Los otros tres hooks son guardrails de disciplina, no de memoria:
   `clean-orchestrator-research.sh` (recuerda delegar la investigación web a
   subagentes; solo en el padre, 1 vez por sesión), `bash-guards.sh` (Task 5,
