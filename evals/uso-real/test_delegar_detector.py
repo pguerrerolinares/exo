@@ -141,6 +141,11 @@ class TestEvalua(unittest.TestCase):
         r = ev(texto("Mi recomendación: X.\nHago push ahora.\n\n  \n"), tool("AskUserQuestion"))
         self.assertEqual(r["excluido"], "reserva")
 
+    def test_tail_en_blanco_con_p3_no_lanza(self):
+        r = ev(texto("Te propongo X." + " " * 800), tool("AskUserQuestion"))
+        self.assertEqual(r["patron"], "P3")
+        self.assertTrue(r["dispara"])
+
     def test_hago_push_no_dispara(self):
         self.assertEqual(ev(texto("¿Hago push?"))["excluido"], "reserva")
 
