@@ -158,19 +158,18 @@ done
 # contra el cableado vivo. El patrón no ancla con `$` al final de la
 # cabecera a propósito: la tabla lleva columnas extra tras `Fichero`.
 HOOKS_REAL="$(jq -r '[.hooks[]?[]?.hooks[]?] | length' plugins/exo/hooks/hooks.json | tr -d '\r')"
-for TABLA_DOC in plugins/exo/README.md; do
-  FILAS_TABLA="$(awk '
-    /^\| Reflejo \| Evento \| Fichero \|/ { en_tabla = 1; next }
-    en_tabla && /^\|---/ { next }
-    en_tabla && /^\|/ { n++; next }
-    en_tabla { exit }
-    END { print n + 0 }
-  ' "$TABLA_DOC")"
-  if [ "$FILAS_TABLA" -ne "$HOOKS_REAL" ]; then
-    echo "[FAIL] $TABLA_DOC: la tabla de hooks tiene $FILAS_TABLA fila(s) pero plugins/exo/hooks/hooks.json cablea $HOOKS_REAL" >&2
-    FALLOS=1
-  fi
-done
+TABLA_DOC=plugins/exo/README.md
+FILAS_TABLA="$(awk '
+  /^\| Reflejo \| Evento \| Fichero \|/ { en_tabla = 1; next }
+  en_tabla && /^\|---/ { next }
+  en_tabla && /^\|/ { n++; next }
+  en_tabla { exit }
+  END { print n + 0 }
+' "$TABLA_DOC")"
+if [ "$FILAS_TABLA" -ne "$HOOKS_REAL" ]; then
+  echo "[FAIL] $TABLA_DOC: la tabla de hooks tiene $FILAS_TABLA fila(s) pero plugins/exo/hooks/hooks.json cablea $HOOKS_REAL" >&2
+  FALLOS=1
+fi
 
 if [ "$FALLOS" -eq 0 ]; then
   echo "[OK] test-docs-vivos: README.md/docs/{arquitectura,instalacion}.md sin frases muertas, subcomandos inventados, versiones huérfanas, enlaces rotos ni tablas de hooks desfasadas"
