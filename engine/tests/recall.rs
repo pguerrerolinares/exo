@@ -225,6 +225,48 @@ fn recall_consulta_snippet_es_el_fragmento_que_casa() {
     });
 }
 
+/// La ruta y el título salen de la fila de `notas` de CADA resultado: se
+/// asevera la ruta entera y el título exacto, no solo el prefijo de la KB.
+#[test]
+fn recall_consulta_trae_la_ruta_y_el_titulo_de_su_nota() {
+    let kb = kb_arranque();
+    let (_db_dir, db) = db_temporal();
+
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
+        let mut bruto =
+            recall_consulta(&db, "contenido nuevo", 5, Some(0.0), 0.0, 0.6, kb.path()).unwrap();
+        resuelve_rutas_absolutas(&mut bruto, kb.path());
+        let nuevo = bruto
+            .notas
+            .iter()
+            .find(|n| n.permalink == "kb-test/r-nuevo")
+            .unwrap_or_else(|| panic!("r-nuevo debe salir: {:?}", bruto.notas));
+        assert!(nuevo.ruta.ends_with("/r-nuevo.md"), "{}", nuevo.ruta);
+        assert_eq!(nuevo.titulo, "Reciente nuevo");
+    });
+}
+
+/// Una nota que llega sin fragmento FTS que case (solo por el arm vector)
+/// lleva de snippet su primer trozo, no nada.
+#[test]
+fn recall_consulta_sin_fragmento_que_case_sirve_el_primer_trozo() {
+    let kb = kb_arranque();
+    let (_db_dir, db) = db_temporal();
+
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
+        let bruto = recall_consulta(&db, "zzqxv", 10, Some(0.0), 0.0, 0.6, kb.path()).unwrap();
+        let nuevo = bruto
+            .notas
+            .iter()
+            .find(|n| n.permalink == "kb-test/r-nuevo")
+            .unwrap_or_else(|| panic!("el arm vector debe traer r-nuevo: {:?}", bruto.notas));
+        let snippet = nuevo.snippet.as_deref().unwrap_or_default();
+        assert!(snippet.contains("contenido nuevo"), "snippet: {snippet:?}");
+    });
+}
+
 #[test]
 fn recall_consulta_sin_hits_da_notas_vacias_no_error() {
     let kb = kb_arranque();

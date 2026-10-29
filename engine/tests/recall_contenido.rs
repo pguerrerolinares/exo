@@ -331,6 +331,42 @@ fn contenido_respeta_el_cap_de_bytes() {
     });
 }
 
+/// El borde que `contenido_respeta_el_cap_de_bytes` deja fuera: un cap que
+/// solo da para la cabecera y la línea en blanco que la separa del cuerpo no
+/// sirve contenido, y el recall falla igual que con la KB vacía.
+#[test]
+fn contenido_falla_si_el_cap_solo_da_para_cabecera_y_blanco() {
+    let kb = kb_de_prueba();
+    let (_d, db) = db_temporal();
+
+    common::con_config(kb.path(), "kb-test", &db, || {
+        indexa(kb.path(), &db).unwrap();
+        let completo = recall_arranque_contenido(&db, kb.path(), 5, 8192, None).unwrap();
+        let primer_contenido = completo
+            .lines()
+            .position(|l| l.starts_with("# "))
+            .expect("el bloque debe traer al menos un core con cuerpo");
+        assert!(
+            completo
+                .lines()
+                .nth(primer_contenido - 1)
+                .unwrap()
+                .trim()
+                .is_empty(),
+            "precondición: la línea anterior al primer core es la de en blanco:\n{completo}"
+        );
+        let cap: usize = completo
+            .split_inclusive('\n')
+            .take(primer_contenido)
+            .map(str::len)
+            .sum();
+        assert!(
+            recall_arranque_contenido(&db, kb.path(), 5, cap, None).is_err(),
+            "con {cap} bytes solo cabe cabecera + blanco: no hay contenido que servir"
+        );
+    });
+}
+
 #[test]
 fn contenido_falla_si_no_hay_nada_que_servir() {
     let kb = TempDir::new().unwrap();
