@@ -12,7 +12,7 @@ Un fallo con mensaje de error, test en rojo o exit distinto de cero se detecta
 solo. El peligroso tiene forma válida, no dispara ninguna alarma y se descubre
 tarde, por casualidad. **El modo de fallo más caro no es el que revienta, es el
 que devuelve algo plausible**: se cuela en el índice, el informe y la decisión.
-Los mecanismos son seis; esta nota trata de diseñar comprobaciones que fallen
+Los mecanismos son siete; esta nota trata de diseñar comprobaciones que fallen
 cuando deben.
 
 ## 1. Degradar devolviendo algo válido es corromper
@@ -74,7 +74,10 @@ La variante de la prosa está en
 Lo exclusivo: dos detectores del mismo concepto con tolerancias distintas
 pierden datos en el borde entre ambos. **Un solo detector por concepto, o un
 test de acoplamiento que falle cuando diverjan; si el contrato viaja como
-texto, que viaje como identificador estable, no como frase.**
+texto, que viaje como identificador estable, no como frase.** Tampoco compila el texto que anuncia un comportamiento: **cambiar un default
+es tocar una superficie de usuario**. Ayuda, errores y docs que describen el
+valor anterior siguen en pie y ningún gate los ve; se corrigen en el mismo
+cambio.
 
 ## 4. Exit 0 mide terminación, no efecto
 
@@ -82,7 +85,10 @@ Un job con una dependencia caducada terminaba en exit 0 (degradación elegante)
 sin haber producido nada. **Verifica contra el estado** (un `select count(*)`,
 el fichero en disco), no contra la salida de la operación. Con cron o procesos
 detached, **prueba con `env -i`**: un `jq` invisible en el PATH lo mata sin
-ruido.
+ruido. Hay un primo: **el hook que se apaga solo cuando falta un input**. Si en un
+modo headless no llega el dato que necesita, anota el motivo en su log y termina
+bien; el efecto que prometía desaparece sin rastro visible. Un canario que lo
+corra en ese modo y compruebe el efecto lo caza.
 
 ## 5. Dos cambios correctos pueden componer un fallo
 
@@ -101,6 +107,26 @@ Un negativo solo vale si el instrumento puede ver: ver
   exactamente el esperado, no solo que traiga filas.
 - **Telemetría de todo "unresolved" con su razón**: así el hueco tiene nombre
   y tamaño en vez de ser un cero.
+
+## 7. Un gate también se diseña para lo que no mira
+
+Tres huecos de diseño, ninguno es un check roto.
+
+- **Reglas cuya intersección no tiene salida.** Dos umbrales escritos por
+  separado pueden no compartir ningún valor válido: uno exige menos de X, otro
+  más de Y, con Y > X en cierto rango. Quien cae ahí recibe consejos opuestos y
+  ningún mensaje le dice qué hacer de verdad. Al añadir una regla, **calcula
+  su intersección con las vigentes**; si hay un rango imposible, no relajes una
+  regla: dale su propio finding con la acción que sí sirve, y declara si eso
+  cambia una política existente.
+- **Gates que solo vigilan a quien se declaró.** Si el control salta solo
+  cuando alguien registra una excepción, lo no declarado pasa libre y declarar
+  sale caro. **Cubre también lo no declarado**; con que sea informativo basta,
+  porque da nombre a un hueco invisible.
+- **Señales que no separan baseline de deuda nueva.** Un sensor que cuenta el
+  total de hallazgos está siempre en rojo en un repo con historia, o siempre en
+  verde si se le sube el umbral hasta callarlo. Mide el **delta contra una
+  línea base fijada**: lo que este cambio añade.
 
 ## Cuándo no aplica
 
