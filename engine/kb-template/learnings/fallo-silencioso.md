@@ -125,8 +125,10 @@ Tres huecos de diseño, ninguno es un check roto.
   porque da nombre a un hueco invisible.
 - **Señales que no separan baseline de deuda nueva.** Un sensor que cuenta el
   total de hallazgos está siempre en rojo en un repo con historia, o siempre en
-  verde si se le sube el umbral hasta callarlo. Mide el **delta contra una
-  línea base fijada**: lo que este cambio añade.
+  verde si se le sube el umbral hasta callarlo. Compara
+  **por identidad de hallazgo** contra una línea base fijada, no por totales
+  (corregir una deuda y meter otra daría neto 0 en verde); sin línea base
+  (primera ejecución), informa todo como nuevo en vez de pasar.
 
 ## Cuándo no aplica
 
