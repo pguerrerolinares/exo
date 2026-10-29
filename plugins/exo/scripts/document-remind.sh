@@ -50,7 +50,7 @@ if [ ! -f "$WSENT" ]; then
       HB_VIA="$(jq -r '.via // ""' "$HB" 2>/dev/null | tr -d '\r')" || HB_VIA=""
       HB_ORG="$(jq -r '.org // ""' "$HB" 2>/dev/null | tr -d '\r')" || HB_ORG=""
       # El mod sobrescribe el latido en cada compose: si no se loguea aquí, la causa del fallo se pierde (#235).
-      HB_ERR="$(jq -r '.error // ""' "$HB" 2>/dev/null | tr '\r\n' '  ' | head -c 200)" || HB_ERR=""
+      HB_ERR="$(jq -r '.error // ""' "$HB" 2>/dev/null | tr -d '\r' | tr '\n' ' ' | head -c 200)" || HB_ERR=""
     fi
     # Punto ciego declarado: una sesión abierta y cerrada sin prompt deja el latido «sin entrega»
     # (siembra de session.start) pero no dispara Stop, así que nunca llega aquí como sin_canal.
