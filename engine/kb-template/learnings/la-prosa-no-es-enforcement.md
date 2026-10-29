@@ -15,6 +15,7 @@ Un contrato cuyo cumplimiento depende de que un modelo "haga lo correcto" no es 
 - **Saber la regla no es cumplirla.** Un contrato escrito en prosa, en el sitio correcto, se incumple de forma sistemática; se sustituye por inyección mecánica del mismo contenido.
 - **Una regla de parada no frena el grinding.** Los anuncios de parada se siguen de más continuaciones. Lo que rompe el bucle es delegar a un subagente fresco (sin sunk-cost) o un compromiso externo fijado antes de empezar. Ver [[En terreno desconocido, verificar el supuesto antes de seguir computando|learnings/recon-first]].
 - **Los modelos saben que necesitan la herramienta y no la llaman.** El fallo es de ejecución, no de conocimiento; por eso la corrección tiene que ser mecánica.
+- **Push > pull.** Lo que tiene que cumplirse sin pedirlo va al arranque, corto y literal; esperar a que el agente lo busque no funciona. Una regla suelta en el arranque se cumple mucho más que la misma enterrada en un bloque largo. Y no todas pesan igual: las que obligan a iniciar una acción opcional (buscar, consultar) se pierden entre otras reglas, mientras que las que restringen cómo se hace algo sobreviven.
 - **En conversaciones multi-turn la fiabilidad cae.** Estudios externos miden caídas notables: asumen pronto y, si fallan un turno, no se recuperan. Los benchmarks de instruction-following sobreestiman la adherencia real.
 
 ## Convierte la lección en mecanismo
@@ -31,6 +32,7 @@ Un contrato cuyo cumplimiento depende de que un modelo "haga lo correcto" no es 
 - **La misma regla literal rinde distinto según cómo llega.** Inyectada como contexto adicional, el agente la trata como una sugerencia. En el system prompt, con framing de autoridad, la cumple más y la cita como obligación. Orden de autoridad: system prompt > contexto adicional > prosa en un fichero.
 - **Las reglas mecánicas se cumplen por cualquier canal; las de principio o proceso mejoran con autoridad y aun así fallan más.** Por eso las segundas necesitan además medición.
 - **Transporte mecánico.** Doctrina y memoria que deben llegar a un subagente las inyecta un hook (`SubagentStart`), no el modelo que escribe el brief. En los briefs, los punteros van como rutas de fichero.
+- **Canal push de las reglas globales.** Viven en `core/reglas-duras.md`, en la sección `## Reglas duras`: como mucho 10 y solo mecánicas.
 - **Contract-first**: el agente ejecuta el contrato escrito, no el que pretendías. Ver [[El LLM es el operador de último recurso, y lo que no mide se aparca|learnings/construir-con-llms-y-descartar]].
 - **Hipótesis preliminar: las reglas blandas decaen tras compactar el contexto y fijarlas (pinning) sería barato.** Un estudio apunta a que las reglas que viven en el historial se pierden más que las duras; reinyectarlas es poco costoso. No aplica a las del system prompt. Sin validar en este entorno: evalúa un hook `PreCompact` antes de construir nada.
 
