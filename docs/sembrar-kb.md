@@ -5,12 +5,13 @@
 > ruta de la KB y la carpeta donde el usuario tiene sus repos.
 
 `exo init` deja la doctrina (`core/`, `learnings/`, `AGENTS.md`), pero
-`projects/` queda vacío: el agente arrancaría sin saber en qué trabaja el
-usuario. La siembra crea **una nota corta por proyecto activo**. No hace una
+`projects/` solo contiene `_template.md`: el agente arrancaría sin saber en
+qué trabaja el usuario. La siembra crea **una nota corta por proyecto activo**. No hace una
 por cada repo, por dos razones:
 
 - **El arranque tiene techo.** Cada proyecto ocupa una línea en
-  `core-index`, y la plantilla deja sitio para unas 10.
+  `core-index`, y la plantilla deja margen para pocas (del orden de 8-10;
+  `exo budget` dice el margen real).
 - **La semilla es solo la ficha.** "Estado actual" y "Decisiones vivas" no
   salen de leer un README: las rellena `exo:document` al cerrar sesiones
   reales.
@@ -52,12 +53,17 @@ uno lee solo esto de sus repos:
 - `docs/decisions/`, si existe
 - `git log -20 --format='%cs %s'`
 
-Escribe un fichero temporal con este formato exacto: el frontmatter con
-`tags` es obligatorio, porque sin él el pre-commit de la KB rechaza la nota.
+Escribe un fichero temporal con este formato exacto. El frontmatter con
+`tags` es obligatorio, porque sin él el pre-commit de la KB rechaza la nota;
+`repos:` lista el nombre de la carpeta de **cada** repo del proyecto (o su
+`owner/nombre`), porque así `exo rules` encuentra la nota desde cada repo:
+sin él, un repo cuyo nombre no coincide con el título del proyecto no
+resuelve a esta ficha y sus reglas duras no se inyectan.
 
 ```markdown
 ---
 tags: [proyecto, <slug-del-proyecto>]
+repos: [<carpeta-repo-1>, <carpeta-repo-2>]
 ---
 
 ## Qué es
@@ -69,12 +75,27 @@ tags: [proyecto, <slug-del-proyecto>]
 ## Cómo se trabaja
 <build, test y arranque, de README / CLAUDE.md.>
 
-## Repos y enlaces
-<rutas locales de los repos y docs del repo que merece la pena abrir.>
+## Reglas duras
+(Se rellena cuando el proyecto tenga reglas mecánicas; máximo 10.)
+
+## Decisiones vivas
+(Se rellena con `exo:document`.)
 
 ## Estado actual
 (Se rellena con `exo:document`.)
+
+## Frentes abiertos
+(Se rellena con `exo:document`.)
+
+## Enlaces
+<rutas locales de los repos y docs del repo que merece la pena abrir.>
 ```
+
+La forma sigue a `projects/_template.md` de la KB (`exo init` la deja ahí):
+qué es, estado actual, decisiones vivas, frentes abiertos y enlaces, más
+`## Reglas duras`, la sección que lee `exo rules`. Si la dejas vacía, el
+proyecto no inyecta reglas hasta que alguien las escriba; no inventes
+ninguna.
 
 Reglas:
 
@@ -111,8 +132,9 @@ Luego:
 exo index && exo budget && git -C "<ruta-kb>" add projects core/core-index.md && git -C "<ruta-kb>" commit -m "siembra: proyectos activos"
 ```
 
-Si el pre-commit rechaza por presupuesto, acorta la línea o la nota. Nunca
-subas un techo.
+Si el pre-commit rechaza por presupuesto, acorta la línea del índice; si es
+la nota la que no cabe, pártela (canon + bitácora) en vez de recortarla.
+Nunca subas un techo.
 
 ## 5. Cierre con el usuario
 
