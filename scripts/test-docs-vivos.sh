@@ -31,12 +31,11 @@
 #       por `plugins/`. `engine/` se añade por la misma razón: es el otro
 #       directorio de primer nivel citado por ruta en estos docs.
 #   (e) la tabla de hooks (`| Reflejo | Evento | Fichero |...`) tiene tantas
-#       filas como `hooks/hooks.json` cablea de verdad — en LOS DOS
-#       ficheros que la llevan, `README.md` y `plugins/exo/README.md` (I1,
-#       review final 2026-09-16: «nueve» en el README, diez en el JSON;
-#       campaña L Task 3: `plugins/exo/README.md` tenía la misma tabla sin
-#       gate — su cabecera lleva dos columnas más, `Qué hace` y
-#       `Abstención`, así que el patrón ya no puede anclar con `$`).
+#       filas como `hooks/hooks.json` cablea de verdad. Solo la lleva
+#       `plugins/exo/README.md`; el README raíz apunta allí y no la
+#       duplica (I1, review final 2026-09-16: «nueve» en el README, diez en
+#       el JSON). La cabecera trae columnas extra tras `Fichero`, así que
+#       el patrón no ancla con `$`.
 set -uo pipefail
 # Fix de la review final (2026-09-16): `cd "$(git rev-parse --show-toplevel)"`
 # directo tenía un fallo silencioso — si la sustitución sale vacía, `cd ""`
@@ -151,17 +150,15 @@ for doc in "${DOCS[@]}"; do
   done < <(grep -oE '`(docs|evals|scripts|plugins|engine)/[A-Za-z0-9_./-]*`' "$doc" | tr -d '`' | sort -u)
 done
 
-# --- (e) Las tablas de hooks (README.md Y plugins/exo/README.md) tienen ---
-#         tantas filas como hooks reales ---------------------------------
+# --- (e) La tabla de hooks de plugins/exo/README.md tiene tantas filas ---
+#         como hooks reales ---------------------------------------------
 # I1 (review final, 2026-09-16): el README llegó a decir «nueve hooks» con
-# `hooks.json` cableando diez — nadie lo comprobó hasta la review. Campaña L
-# Task 3: `plugins/exo/README.md` lleva la MISMA tabla (con dos columnas
-# extra, `Qué hace` y `Abstención`) y no tenía gate — el patrón ya no ancla
-# con `$` al final de la cabecera a propósito, para que haga match con las
-# dos formas. Cuenta filas (hasta la primera línea que ya no empieza por
-# `|`) en cada fichero y la compara contra el cableado vivo.
+# `hooks.json` cableando diez — nadie lo comprobó hasta la review. Cuenta
+# filas (hasta la primera línea que ya no empieza por `|`) y las compara
+# contra el cableado vivo. El patrón no ancla con `$` al final de la
+# cabecera a propósito: la tabla lleva columnas extra tras `Fichero`.
 HOOKS_REAL="$(jq -r '[.hooks[]?[]?.hooks[]?] | length' plugins/exo/hooks/hooks.json | tr -d '\r')"
-for TABLA_DOC in README.md plugins/exo/README.md; do
+for TABLA_DOC in plugins/exo/README.md; do
   FILAS_TABLA="$(awk '
     /^\| Reflejo \| Evento \| Fichero \|/ { en_tabla = 1; next }
     en_tabla && /^\|---/ { next }
