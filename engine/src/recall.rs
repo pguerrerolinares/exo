@@ -678,6 +678,13 @@ mod tests {
         assert_eq!(recortado, "é".repeat(7)); // 7*2=14 <= 15, el 8vo (byte 15-16) no cabe
     }
 
+    /// Frontera exacta: el carácter que termina JUSTO en `max_bytes` cabe.
+    #[test]
+    fn recorta_bytes_incluye_el_caracter_que_acaba_en_el_limite() {
+        let texto = "é".repeat(10);
+        assert_eq!(recorta_bytes(&texto, 14), "é".repeat(7));
+    }
+
     #[test]
     fn aplica_cap_todo_cabe_no_trunca() {
         let notas = vec![
@@ -713,6 +720,38 @@ mod tests {
         assert!(r.lineas_perdidas >= 1);
     }
 
+    /// Cada línea cuesta su longitud MÁS el `\n`: con un byte menos de lo que
+    /// pide la primera nota, no entra.
+    #[test]
+    fn aplica_cap_cuenta_el_salto_de_linea_de_cada_linea() {
+        let notas = vec![nota("a", "/kb/a.md", "A", None)];
+        let cabecera = format!("{CABECERA}\n");
+        let linea_a = "- /kb/a.md — A\n";
+        let r = aplica_cap("arranque", None, notas, cabecera.len() + linea_a.len() - 1);
+        assert!(r.recall.truncado);
+        assert_eq!(r.recall.notas.len(), 0);
+        assert_eq!(r.texto, cabecera);
+    }
+
+    /// `lineas_perdidas` (el número que publica el aviso del CLI) cuenta la
+    /// nota del corte y TODAS las líneas de las posteriores.
+    #[test]
+    fn aplica_cap_cuenta_exactas_las_lineas_perdidas() {
+        let notas = vec![
+            nota("a", "/kb/a.md", "A", None),
+            nota("b", "/kb/b.md", "B", None),
+            nota("c", "/kb/c.md", "C", Some("snippet de c")),
+        ];
+        let cabecera = format!("{CABECERA}\n");
+        let linea_a = "- /kb/a.md — A\n";
+        let r = aplica_cap("arranque", None, notas, cabecera.len() + linea_a.len());
+        assert_eq!(r.recall.notas.len(), 1);
+        assert_eq!(
+            r.lineas_perdidas, 3,
+            "b (1 línea) + c (principal + snippet)"
+        );
+    }
+
     #[test]
     fn aplica_cap_extremo_ni_cabecera_cabe() {
         let notas = vec![nota("a", "/kb/a.md", "A", None)];
@@ -720,6 +759,7 @@ mod tests {
         assert!(r.recall.truncado);
         assert_eq!(r.recall.notas.len(), 0);
         assert_eq!(r.texto, "");
+        assert_eq!(r.lineas_perdidas, 2, "la cabecera + la línea de a");
     }
 
     /// Modo consulta: nota con snippet cuya línea de snippet no cabe ⇒ la
