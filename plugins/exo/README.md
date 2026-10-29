@@ -1,82 +1,141 @@
 # plugin `exo`
 
-Framework de trabajo agéntico con memoria persistente. Fusiona los dos
-plugins previos (`process` y `reflex`) en uno solo: el proceso de trabajo
-completo (diseño, plan, ejecución, TDD, debug, verificación, cierre de
-sesión, consolidación) más la capa de reflejos que activa ese conocimiento
+Framework de trabajo agéntico con memoria persistente: el proceso de trabajo
+completo (diseño, plan, ejecución, TDD, debug, verificación, cierre de sesión,
+consolidación) más una capa de reflejos que activa ese conocimiento
 procedural **en el punto de acción**, no como prosa pasiva esperando recall.
 
-Formato de skill: frontmatter de disparo (`name` + `description`) + body
-router ~30-50 líneas + reference files empaquetados en el directorio de cada
-skill (progressive disclosure — la carne va ahí, no en la KB). Overlay
-personal con patrón único de degradación: probe del CLI → si no hay
-engine/KB, defaults + aviso visible en el output final → nunca bloquear la
-tarea.
+Cada skill es un `SKILL.md` de disparo (`name` + `description`) con reference
+files en su directorio (progressive disclosure). Patrón único de degradación:
+si no hay engine o KB, defaults y un aviso visible; nunca se bloquea la tarea.
 
-Diseño: `docs/superpowers/specs/2026-07-17-prep-m3-process-skills-design.md`
-y la nota *"Cerebro portable + capa de reflejos — design spec"* (proyecto
-`kb-demo`, engine `exo`). Gold de paridad de movimientos:
-`evals/prep-m3/gold/`.
+Diseño: `docs/superpowers/specs/2026-07-17-prep-m3-process-skills-design.md`.
+Gold de paridad de movimientos: `evals/prep-m3/gold/`. El detalle de cada
+script vive en su cabecera, que es lo que se mantiene al día; este README
+solo da el mapa.
 
-## Los ocho skills
+## Skills (8)
 
 | Skill | Qué hace |
 |---|---|
-| brainstorm | Explora intención, requisitos y diseño en diálogo antes de implementar; termina en spec escrita y aprobada. Trae la plantilla de consultor de campo (`consultor-brief.md`), que usan también plan y la review adversarial de spec. |
-| plan | De spec/requisitos a plan de tareas bite-sized con paths, código y comandos exactos para un ejecutor sin contexto. |
-| orchestrate | Ejecuta planes multi-tarea: despacha un ejecutor fresco por tarea, review en dos etapas por tarea y review final whole-branch. | Scripts propios: `task-dag` (olas desde Files/Interfaces) y `review-package` con mutación sobre el diff.
+| brainstorm | Explora intención, requisitos y diseño en diálogo antes de implementar; termina en spec escrita y aprobada. Trae la plantilla del consultor de campo (`consultor-brief.md`), que usan también plan y la review adversarial de spec. |
+| plan | De spec a plan-contrato: tareas con ficheros, interfaces y tests con aserciones, **sin cuerpos de código**, para un ingeniero capaz que conoce la interfaz y el test. |
+| orchestrate | Ejecuta planes multi-tarea: un ejecutor fresco por tarea, review en dos etapas por tarea y review final whole-branch, con ledger durable. Scripts en `skills/orchestrate/scripts/`: `task-dag`, `task-brief`, `sdd-workspace`, `red-witness`, `review-package`, `rulings-collect`. Referencias: `olas.md`, `despertar.md`. |
 | tdd | Test primero, verlo fallar por la razón esperada, código mínimo, verde, refactor. |
-| debug | Dos puertas: bug/test que falla, o atasco/pre-grind (mismo error ≥3 veces, terreno desconocido; absorbe el antiguo `recon-first`). Root cause y recon antes de computar. |
-| verify | Evidencia fresca del comando antes de cualquier claim de "completo" o "arreglado" — antes de commitear o aceptar el trabajo de un subagente. |
-| document | Extrae decisiones, aprendizajes y patrones de la sesión y los guarda en la KB siguiendo el contrato de routing; commit scoped al cerrar. |
+| debug | Dos puertas: bug o test que falla, y atasco o pre-grind (mismo error ≥3 veces, terreno desconocido). Root cause y recon antes de computar. |
+| verify | Evidencia fresca del comando antes de cualquier claim de «completo» o «arreglado», antes de commitear o aceptar el trabajo de un subagente. |
+| document | Extrae decisiones, aprendizajes y patrones de la sesión y los guarda en la KB según el contrato de routing; commit scoped al cerrar. Si el gate de presupuesto muerde, lanza el subagente de `auto-distill.md`. |
 | distill | Consolidación offline de la KB (sleep-time compute manual): colapsa bitácoras en destilados, chequea presupuestos, promueve doctrina a core. |
 
-## El agente `executor`
+Solo `document` y `distill` escriben en la KB; el resto no la tocan.
 
-`agents/executor.md` — ejecutor de tareas de implementación acotadas bajo
-doctrina de buena ingeniería. Despachado por `orchestrate` (subagent-driven
-development): trae modelo y disciplina de serie, no hay que recordarle
-verificar ni cómo commitear.
+## Agentes
 
-## Invariantes de todo reflejo
+- **`exo:executor`** (`agents/executor.md`): ejecutor de tareas de
+  implementación acotadas, con la doctrina de ingeniería en su system prompt
+  (verificar antes de declarar hecho, commits limpios, escalera
+  anti over-engineering). Lo despacha `orchestrate`.
+- **`exo:consultor`** (`agents/consultor.md`): consultor de **solo lectura**
+  (`disallowedTools: Edit, Write, NotebookEdit, Agent`) para decisiones de
+  diseño. Su brief sale de `skills/brainstorm/consultor-brief.md`; lo usan
+  brainstorm, plan y el reflejo `delegar-decision`.
 
-- **Never-block**: `exit 0` siempre; nunca `deny`. Dos mecanismos:
-  `additionalContext` (warn = telemetría) y, desde v0.6.0, **rewrite
-  silencioso** (`updatedInput`) SOLO sobre hechos parseados de alta
-  confianza — nunca sobre juicio.
+## Capa de reflejos
+
+Doce comandos cableados en `hooks/hooks.json`, más el mod `hooks/register.ts`
+(ver «Canal de reglas duras»). Agrupados por efecto:
+
+- **Solo log**: miden, no tocan al agente.
+- **Avisan**: inyectan `additionalContext` (recordatorio o contexto).
+- **Reescriben**: `updatedInput` silencioso, solo sobre hechos parseados de
+  alta confianza, nunca sobre juicio.
+- **Deniegan o bloquean**: `permissionDecision: deny` o `decision: block`.
+
+Invariantes:
+
 - **Abstención por defecto**: un falso positivo cuesta más que el silencio.
-  Solo disparan con trigger de alta confianza (sentinel 1×/sesión, umbral, o
-  match estricto).
-- **El logging nunca rompe el warn-only**: best-effort
-  (`>> log 2>/dev/null || true`).
+  Un reflejo dispara solo con un trigger de alta confianza (sentinel
+  1×/sesión, umbral o match estricto) y sale con `exit 0` y sin salida ante
+  cualquier duda (sin `jq`, transcript ilegible, subagente…).
+- **Bloquear solo en los hooks nombrados** (`bash-guards`, `sdd-wake-guard`,
+  `delegar-decision`, `subagent-bg-guard`), y siempre con tope y escape: un
+  bloqueo por mensaje humano o por parada, o backoff tras denies repetidos,
+  más un escape declarado (`[reserva: …]`, `--no-verify`, `/tmp`,
+  `stop_hook_active`).
+- **El logging nunca rompe**: best-effort (`>> log 2>/dev/null || true`).
 
-## Hooks
+El input de un hook `PreToolUse` trae `agent_id`/`agent_type` no vacíos solo
+dentro de un subagente (`session_id`/`transcript_path` se comparten con el
+padre), y es lo que permite declarar un reflejo parent-only o
+subagent-aware.
 
-Tabla exacta al cableado vivo de `hooks/hooks.json` (doce comandos):
+Tabla exacta al cableado vivo (una fila por comando de `hooks.json`):
 
-| Reflejo | Evento | Fichero | Qué hace | Abstención |
+| Reflejo | Evento | Fichero | Efecto | Qué hace |
 |---|---|---|---|---|
-| clean-orchestrator | `PreToolUse:WebSearch\|WebFetch\|navegación MCP` | `scripts/clean-orchestrator-research.sh` | recuerda delegar research a subagentes | parent-only + 1×/sesión + app local (`localhost`/`127.0.0.1`/`[::1]`/`0.0.0.0`, con o sin esquema, `file:` y `back`/`forward`) |
-| git-c + zero-residuo + verify-before-done | `PreToolUse:Bash` | `scripts/bash-guards.sh` | fusiona los tres guards de Bash (Task 5, campaña I): reescribe `cd <path> && git <read-only>` → `git -C <path> …`; `git add -A`/`--all`/`.` **sin pathspec**, en posición de comando y fuera de `/tmp`, se **deniega** (`zero-residuo-deny`; con pathspec o bajo `/tmp` solo se registra como `zero-residuo`; ≥3 denies seguidos del mismo `agent_id` en la sesión vuelven a log como `zero-residuo-backoff`); `git commit` sin test verde reciente **solo se registra** en `REFLEX_LOG_FILE` (medición; no avisa al agente, ver cabecera del script) | rewrite solo si patrón estricto; calla en `git add <ficheros>` explícito; escape hatch `--no-verify` y commits solo-docs (ver comentarios del script) |
-| search-first | `PreToolUse:Agent\|Task\|Edit\|Write\|NotebookEdit` | `scripts/search-first.sh` | avisa si el primer `Agent`/`Task`/`Edit`/`Write`/`NotebookEdit` de la sesión no fue precedido de `exo search`/`exo targets` en la transcripción | 1×/sesión (sentinel); exenta en subagentes (`agent_id`); sin `jq`, sin `transcript_path`/ilegible, o si el `jq` de detección falla → skip silencioso (igual crea el sentinel) |
-| red-gate | `PreToolUse:SubagentHandback` | `scripts/red-gate.sh` | **log-only** (#136): si un `exo:executor` entrega sin ninguna línea `exit=[1-9]` en `<toplevel>/.superpowers/sdd/red.log` (lo escribe `skills/orchestrate/scripts/red-witness`), loguea `red-gate` en `REFLEX_LOG_FILE`. Lee el report en `tool_input.message`; la promoción a deny va tras ≥10 executors con FP ≤20 % | `agent_type` ≠ `exo:executor`, mensaje con `BLOCKED`/`NEEDS_CONTEXT`/`RED: n/a`, sin `jq`, o `red.log` con algún `exit≠0` |
-| exo-recall | `SessionStart` | `scripts/exo-recall.sh` | inyecta instrucción de memoria + digest 7d, servido por el engine `exo` (SQLite) | — (PUSH); degrada al fallback embebido si el engine instalado es < `ENGINE_MIN`. Añade una línea de aviso si `superpowers@*` está habilitado (settings de usuario, proyecto o local; sin spawns extra) |
-| estilo-directo | `SessionStart` | `scripts/estilo-directo.sh` | inyecta una directiva de estilo de respuesta estática (`estilo-directo.md`) | sin fichero `.md` legible, o si `jq` falla al construir el JSON |
-| sdd-wake-guard | `Stop` | `scripts/sdd-wake-guard.sh` | con un ledger SDD activo, bloquea el cierre de turno si hay tareas de fondo vivas y ningún cron: pide un `CronCreate` one-shot que siga `skills/orchestrate/despertar.md` (#111: el aviso de una tarea de un teammate idle no reinvoca a nadie) | subagentes, `stop_hook_active`, sin `jq`, ledger de más de 6 h, solo teammates, o ya hay un cron |
-| delegar-decision | `Stop` | `scripts/delegar-decision.sh` | bloquea el cierre de turno si el último texto cierra con propuesta + petición de visto bueno (detector P2∨P3) y el segmento no lanzó `Agent`/`Task`: pide lanzar consultor/ejecutor o reescribir el cierre empezando por `[reserva: externo\|irreversible\|re-scope\|hecho-del-usuario\|pedido]`. Tope: 1 bloqueo por mensaje humano (sentinel por sesión; sin mensaje humano, `-p`/SDK, no hay tope; el disparo suprimido por el tope se loguea `kind=tope`) | subagentes (`agent_id`), `stop_hook_active`, sin `python3` o `jq`, transcript ilegible, sentinel ya consumido, o texto que empieza por `[reserva: …]` o casa la exclusión de reserva |
-| document-remind | `Stop` | `scripts/document-remind.sh` | recuerda `/document` al cerrar | 1×/sesión + umbral de transcript |
-| exo-index | `Stop` | `scripts/exo-index.sh` | reindexa la KB al cierre de sesión | best-effort, fallback logueado |
-| subagent-inject | `SubagentStart` | `scripts/subagent-inject.sh` | inyecta doctrina/contexto al arrancar un subagente; a `exo:executor`, `general-purpose` y `claude`, también las reglas duras del repo (`exo rules`) | — (PUSH) |
-| subagent-bg-guard | `SubagentStop` | `scripts/subagent-bg-guard.sh` | bloquea (una vez) el cierre de un subagente con tareas de fondo propias vivas (#170): ids sacados de su `agent_transcript_path` («moved to the background», «running in background», «Monitor started»), menos los que tienen `TaskStop`; viva = `running` en `background_tasks` o, sin él, `.output` sin `[exited with code`. El `reason` pide `TaskStop`, esperar sobre el log con timeout o BLOCKED. No cubre un Monitor sin `background_tasks` (no trae ruta de log) | sin `jq`, sin `agent_id`, `stop_hook_active`, transcript ilegible, o sin tareas propias vivas (las del padre no cuentan) |
+| red-gate | `PreToolUse:SubagentHandback` | `scripts/red-gate.sh` | solo log | Registra si un `exo:executor` entrega sin línea `exit=[1-9]` en `red.log`. Promoción a deny pendiente de medir. |
+| clean-orchestrator | `PreToolUse:WebSearch\|WebFetch\|navegación MCP` | `scripts/clean-orchestrator-research.sh` | avisa | Recuerda delegar el research a subagentes (parent-only, 1×/sesión, no en apps locales). |
+| search-first | `PreToolUse:Agent\|Task\|Edit\|Write\|NotebookEdit` | `scripts/search-first.sh` | avisa | Avisa si el primer `Agent`/`Task`/`Edit`/`Write` de la sesión no fue precedido de `exo search`/`exo targets` (1×/sesión, no en subagentes). |
+| exo-recall | `SessionStart` | `scripts/exo-recall.sh` | avisa (inyecta) | Inyecta el `core-index` y las notas recientes servidos por el engine; reafirma reflejos tras `compact`; avisa de un gate de `/document` pendiente y de superpowers habilitado; escribe el testigo `ss-<sid>`. Cae a un fallback embebido si el engine es < `ENGINE_MIN`. |
+| estilo-directo | `SessionStart` | `scripts/estilo-directo.sh` | avisa (inyecta) | Inyecta la directiva estática de estilo de `estilo-directo.md`. |
+| document-remind | `Stop` | `scripts/document-remind.sh` | avisa | Recuerda `/document` al cerrar (1×/sesión, con umbral de transcript) y hace de testigo de entrega de reglas (`ss-` vs `hb-`). |
+| subagent-inject | `SubagentStart` | `scripts/subagent-inject.sh` | avisa (inyecta) | Inyecta doctrina por perfil y, según el perfil, las reglas duras (ver abajo). |
+| exo-index | `Stop` | `scripts/exo-index.sh` | mantenimiento | Reindexa la KB al cerrar la sesión; best-effort. |
+| bash-guards | `PreToolUse:Bash` | `scripts/bash-guards.sh` | reescribe / deniega | Reescribe `cd <path> && git <lectura>` a `git -C`; **deniega** `git add -A`/`--all`/`.` sin pathspec; registra `git commit` sin test verde reciente (sin avisar). |
+| sdd-wake-guard | `Stop` | `scripts/sdd-wake-guard.sh` | bloquea | Con un ledger SDD activo y tareas de fondo vivas sin cron, pide un `CronCreate` que siga `skills/orchestrate/despertar.md`. |
+| delegar-decision | `Stop` | `scripts/delegar-decision.sh` | bloquea | Bloquea el cierre del padre si cierra con propuesta + petición de visto bueno sin lanzar `Agent`/`Task`. Escape `[reserva: externo\|irreversible\|re-scope\|hecho-del-usuario\|pedido]`; tope de un bloqueo por mensaje humano; requiere `python3`. |
+| subagent-bg-guard | `SubagentStop` | `scripts/subagent-bg-guard.sh` | bloquea | Bloquea una vez el cierre de un subagente con tareas de fondo propias vivas y pide `TaskStop` o esperar sobre el log. |
 
-**Cuentas Team/Enterprise**: el guard integrado `cc-plugin-sec-default` intercepta `prompt.compose` antes que el mod de exo y Claude Code avisa en cada turno (`its prompt.compose hook was skipped`). Sin pérdida funcional: las reglas del proyecto llegan por `prompt.submit`. Para quitar el aviso, pon la opción `composeHook` del plugin a `false` (la fila «Registrar el hook prompt.compose» de `/config`, que guarda `pluginConfigs["exo@exo"].options.composeHook` en `~/.claude/settings.json`; la opción aparece desde la 1.18.2): el mod deja de registrar `prompt.compose` y entrega por submit desde el turno 1. La org no se puede autodetectar en el registro (`register()` no tiene `$`).
+Hay además scripts huérfanos (`git-c-bash.sh`, `git-add-all-guard.sh`,
+`verify-before-commit.sh`) que ya no están cableados: sobreviven como red de
+regresión de `bash-guards.sh`.
 
-Nota: el README anterior de `reflex` documentaba también `cost-pyramid` y
-`stuck-loop` como reflejos independientes. Ninguno de los dos está cableado
-hoy en `hooks.json` como hook propio: `cost-pyramid` no tiene script en
-`scripts/`, y la técnica de `stuck-loop` vive absorbida como comentario/lógica
-dentro de `verify-before-commit.sh`. Se documenta la tabla real, no la
-aspiracional.
+## Canal de reglas duras
+
+Las reglas duras son las del dueño (globales, en `core/reglas-duras.md` de la
+KB) y las del repo (sección `## Reglas duras` de su nota de proyecto), con un
+máximo de 10 entre ambas listas. Llegan al agente por tres vías:
+
+- **El mod `hooks/register.ts`** (`"modules"` de `hooks.json`): registra
+  `session.start`, `prompt.submit`, `turn.complete` y `prompt.compose`, y en
+  cada prompt inyecta «Reglas duras del dueño» y «Reglas duras del proyecto»
+  (`exo rules --cwd`). Deja un latido `hb-<sid>` en `~/.claude/exo-rules/`.
+- **`subagent-inject.sh` + `compose-inject.sh`**: componen el bloque por
+  `agent_type` según `scripts/inject-profiles.json`. Las reglas duras entran
+  en los perfiles `reducido` (`exo:executor`, `exo:consultor`) y `ejecucion`
+  (`general-purpose`, `claude`); `Explore` y `Plan` reciben `divergente`, y el
+  resto `doctrina`.
+- **Testigo ss/hb**: `exo-recall` escribe `ss-<sid>` (lo que SessionStart
+  decidió entregar) y `document-remind` lo compara con `hb-<sid>` (lo que el
+  mod entregó). Si no coinciden, avisa de la degradación.
+
+`exo rules` es el comando del engine: sin flags resuelve las reglas del
+cwd; `--check` es el gate del máximo (exit 3 si una nota lo supera) y lo corre
+el pre-commit de la KB; `--coverage` informa de cuántas reglas declara cada
+nota. `scripts/cobertura-reglas.sh` suma a ese informe los repos con sesiones
+donde `exo rules` no entregó nada.
+
+**Cuentas Team/Enterprise**: el guard integrado `cc-plugin-sec-default`
+intercepta `prompt.compose` antes que el mod y Claude Code avisa en cada turno
+(`its prompt.compose hook was skipped`). No se pierde función: las reglas
+llegan por `prompt.submit`. Para quitar el aviso, pon la opción `composeHook`
+del plugin a `false` (fila «Registrar el hook prompt.compose» de `/config`,
+que guarda `pluginConfigs["exo@exo"].options.composeHook` en
+`~/.claude/settings.json`). La org no se puede autodetectar en el registro
+(`register()` no tiene `$`).
+
+## Pre-commit de la KB y auto-distill
+
+`scripts/kb-precommit.sh` es el pre-commit de la KB (se instala con
+`ln -sf <script> <kb>/.git/hooks/pre-commit`). Juzga el index, no el working
+tree, y corre `exo budget`, `exo ratchet --staged`, `exo rules --check` y las
+comprobaciones de `tier`, `tags` (obligatorio en notas nuevas, aviso en las
+modificadas) y wikilinks. Se salta con `git commit --no-verify`.
+
+Cuando `/document` choca con el gate de presupuesto de una nota,
+`skills/document/auto-distill.md` es el brief del subagente que la baja al
+≤60 % del techo moviendo bloques verbatim en un worktree aparte y commitea
+como `docs(kb): auto-distill`.
 
 ## Sustituir superpowers
 
@@ -96,38 +155,22 @@ si superpowers está habilitado en el scope de usuario; opt-out con
 SessionStart añade una línea de aviso (scopes usuario, proyecto y local; el
 scope managed no se mira).
 
-## Latencia del hook SessionStart
-
-`hook_ms` es el reloj de pared de `exo-recall.sh` entero (campaña I).
-Medido el 2026-09-24:
-
-| Máquina | `hook_ms` p95 |
-|---|---|
-| W11 (Windows 11, Git Bash, máquina de trabajo) | **1671 ms** |
-| Linux | 1035-1173 ms |
-
-W11 queda por encima del umbral de 1500 ms que se fijó. Lo que queda ya no es
-shell sino `exo recall` (~0,94 s); bajarlo exige un proceso residente.
-
 ## Medición de falsos positivos
 
-Cada **disparo** se loguea (best-effort) a `~/.claude/reflex-log.jsonl` vía
+Cada disparo se loguea (best-effort) a `~/.claude/reflex-log.jsonl` vía
 `scripts/_reflex-log.sh`. Para revisar:
 
 ```bash
 plugins/exo/scripts/reflex-fp-review.sh   # digest por reflejo
 ```
 
-y se pasa el volcado + `scripts/reflex-fp-adjudicate.prompt.md` a un agente
-que clasifica TP/FP → **FP-rate por reflejo**. Gate de escalado: review a
-≥10 disparos o ~2 semanas; FP <20% sano · 20–50% afinar · >50% retirar.
+Se pasa el volcado con `scripts/reflex-fp-adjudicate.prompt.md` a un agente
+que clasifica TP/FP y da el **FP-rate por reflejo**. Gate de escalado: review
+a ≥10 disparos o ~2 semanas; FP <20 % sano · 20–50 % afinar · >50 % retirar.
 
-## Primitivo útil
-
-El input de un hook `PreToolUse` trae **`agent_id`/`agent_type` no vacíos
-sii corre dentro de un subagente** (`session_id`/`transcript_path` son
-compartidos con el padre y no discriminan). Un reflejo puede así declararse
-parent-only, subagent-aware o indiferente.
+La latencia de `SessionStart` se midió el 2026-09-24 (p95 de `hook_ms`: 1671 ms
+en W11, 1035-1173 ms en Linux) y no se ha vuelto a medir desde que `exo-recall`
+resuelve reglas y avisos.
 
 ## Atribución
 
@@ -144,13 +187,13 @@ del review (tags `delete|stdlib|native|yagni|shrink`) derivan de
 [`ponytail`](https://github.com/DietrichGebert/ponytail) (MIT, © 2026
 DietrichGebert — copia literal en `LICENSES/ponytail.LICENSE`).
 
-| Skill | Absorbe de superpowers 6.1.1 + portes 6.2–6.4.2 (MIT) | Absorbe propio |
+| Skill | Absorbe de superpowers (MIT) | Absorbe propio |
 |---|---|---|
 | brainstorm | brainstorming | — |
 | plan | writing-plans | — |
-| orchestrate | subagent-driven-development, executing-plans, dispatching-parallel-agents | orchestrate-personal (cost pyramid, memory packet, blindspot pass) + reviewer-dispatch escalado al riesgo del diff + ponytail (escalera anti over-engineering, pase de review) |
-| tdd | test-driven-development + writing-good-tests (6.2.0) | — |
-| debug | systematic-debugging | recon-first, retirado en 1.8.0 (dos puertas: bug + stuck/pre-grind) |
-| verify | verification-before-completion | gate de validación del padre de orchestrate-personal |
-| document | — | `~/.claude/commands/documenta.md` |
+| orchestrate | subagent-driven-development, executing-plans, dispatching-parallel-agents | blindspot pass (de `orchestrate-personal`), reviewer-dispatch escalado al riesgo del diff, ponytail (escalera anti over-engineering, pase de review) |
+| tdd | test-driven-development + writing-good-tests | — |
+| debug | systematic-debugging | dos puertas: bug y stuck/pre-grind |
+| verify | verification-before-completion | gate de validación del padre de `orchestrate-personal` |
+| document | — | propio |
 | distill | — | sleep-time compute manual, propio |

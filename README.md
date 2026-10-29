@@ -21,14 +21,14 @@ separado:
 - **El engine** — `exo`, un binario sin runtime: indexa la KB y sirve búsqueda
   y recall (`exo --help`).
 - **El plugin de Claude Code** — `plugins/exo/`: hooks que inyectan el recall
-  al arrancar, y skills de proceso (plan, tdd, debug,
-  document…) que escriben en la KB.
+  al arrancar y las reglas duras del repo en cada prompt, skills de proceso
+  (plan, tdd, debug, document…; solo `document` y `distill` escriben en la KB)
+  y los agentes `executor` y `consultor`.
 
 ## Instalar
 
 **Con un agente (recomendado):** pide a Claude Code *«clona `<url de este
-repo>` y sigue su `docs/instalar-con-agente.md`»*. En KBI, la URL es la del
-espejo de `gitlab.norbolsa.com`. La guía es un runbook para el agente: qué
+repo>` y sigue su `docs/instalar-con-agente.md`»*. La guía es un runbook para el agente: qué
 preguntarte, binario, KB, plugin, reinicio y verificación. Después,
 [`docs/sembrar-kb.md`](docs/sembrar-kb.md) llena la KB nueva con tus
 proyectos activos.
@@ -39,7 +39,9 @@ A mano:
 curl -fsSL https://raw.githubusercontent.com/pguerrerolinares/exo/main/install.sh | bash
 ```
 
-Requisitos: `git` y `jq`. Ni Rust ni toolchain C. Detalle y camino desde
+Requisitos: `git` y `jq`; `curl` y `sha256sum` (o `shasum`) para `install.sh`;
+`python3` para el reflejo `delegar-decision` (sin él se abstiene en silencio).
+Ni Rust ni toolchain C. Detalle y camino desde
 fuente: [`docs/instalacion.md`](docs/instalacion.md).
 
 ## Ejemplo de extremo a extremo
@@ -50,8 +52,13 @@ fuente: [`docs/instalacion.md`](docs/instalacion.md).
 exo init --kb ~/mi-kb --name mi-kb
 
 # 2. Una decisión, como nota.
-printf 'Usamos SQLite con FTS5: el índice cabe en un fichero y no hay servidor que mantener.\n' > nota.md
-exo write new --dir learnings --title "Por qué SQLite" --from nota.md
+cat > nota.md <<'EOF'
+---
+tags: [sqlite, decision]
+---
+Usamos SQLite con FTS5: el índice cabe en un fichero y no hay servidor que mantener.
+EOF
+exo write new --dir learnings --title "Por qué SQLite" --tier stable --from nota.md
 
 # 3. `write` no indexa: lo hace `exo index` (con el plugin, lo refrescan sus hooks).
 exo index
@@ -72,15 +79,15 @@ flowchart TB
     subgraph host["Claude Code (host)"]
         direction TB
         skills["skills/<br/>exo:brainstorm · plan · orchestrate · tdd<br/>debug · verify · document · distill"]
-        agent["agents/<br/>exo:executor"]
-        hooks["hooks/<br/>SessionStart<br/>SubagentStart · SubagentStop · Stop · PreToolUse"]
+        agent["agents/<br/>exo:executor · exo:consultor"]
+        hooks["hooks/ + mod register.ts<br/>SessionStart · SubagentStart · SubagentStop<br/>Stop · PreToolUse · prompt.submit/compose"]
     end
 
     subgraph bin["exo — binario Rust, sin runtime"]
         direction TB
         c1["init · config · doctor"]
         c2["index · rebuild · search · recall · write"]
-        c3["targets · budget · lint · ratchet · rotate · stale"]
+        c3["targets · budget · lint · ratchet · rules · rotate · stale"]
     end
 
     cfg[("~/.exo/config.toml")]
@@ -90,7 +97,7 @@ flowchart TB
     pc["pre-commit de la KB"]
 
     host -->|"CLI, envelope JSON v2"| bin
-    pc -->|"budget · ratchet --staged"| bin
+    pc -->|"budget · ratchet --staged · rules --check"| bin
     bin -->|lee| cfg
     bin -->|lee/escribe| db
     bin -->|lee/escribe| kb
@@ -108,44 +115,21 @@ promesa**: nadie ha medido el retrieval de exo en otra lengua.
 
 ## Capa thin: el plugin `exo`
 
-`plugins/exo/` es la capa de skills. Ocho: brainstorm · plan · orchestrate ·
-tdd · debug · verify · document · distill. Fusiona los antiguos
-plugins `process` y `reflex` en uno solo — el proceso de trabajo completo más
-la capa de reflejos que lo activa en el punto de acción. Sustituye a
-`superpowers` y a `paul-profile:orchestrate-personal` en el uso diario.
+`plugins/exo/` reúne ocho skills de proceso (brainstorm · plan · orchestrate ·
+tdd · debug · verify · document · distill), dos agentes (`exo:executor`, que
+implementa tareas acotadas, y `exo:consultor`, de solo lectura, para decisiones
+de diseño) y una capa de reflejos: doce hooks de shell más un mod
+(`hooks/register.ts`) que entregan en el punto de acción el conocimiento
+procedural y las **reglas duras** (las del dueño, de `core/reglas-duras.md`, y
+las del repo, de su nota de proyecto; `exo rules` las resuelve y su `--check`
+las gatea en el pre-commit de la KB). Los reflejos se abstienen por defecto y
+solo bloquean en cuatro hooks, con tope y escape. La tabla de hooks, el canal
+de reglas y la atribución viven en
+[`plugins/exo/README.md`](plugins/exo/README.md).
 
-Agente: `plugins/exo/agents/executor.md` (`exo:executor`) — ejecutor de tareas de
-implementación acotadas, despachado por `orchestrate` (subagent-driven
-development).
-Agente: `plugins/exo/agents/consultor.md` (`exo:consultor`) — consultor de
-solo lectura para decisiones de diseño; su brief sale de
-`skills/brainstorm/consultor-brief.md`.
-
-Hooks (doce, cableados en `plugins/exo/hooks/hooks.json`; tabla completa con
-qué hace cada uno y su abstención en `plugins/exo/README.md`):
-
-| Reflejo | Evento | Fichero |
-|---|---|---|
-| clean-orchestrator | `PreToolUse:WebSearch\|WebFetch\|navegación MCP` | `plugins/exo/scripts/clean-orchestrator-research.sh` |
-| git-c + zero-residuo + verify-before-done | `PreToolUse:Bash` | `plugins/exo/scripts/bash-guards.sh` |
-| search-first | `PreToolUse:Agent\|Task\|Edit\|Write\|NotebookEdit` | `plugins/exo/scripts/search-first.sh` |
-| red-gate | `PreToolUse:SubagentHandback` | `plugins/exo/scripts/red-gate.sh` |
-| exo-recall | `SessionStart` | `plugins/exo/scripts/exo-recall.sh` |
-| estilo-directo | `SessionStart` | `plugins/exo/scripts/estilo-directo.sh` |
-| sdd-wake-guard | `Stop` | `plugins/exo/scripts/sdd-wake-guard.sh` |
-| delegar-decision | `Stop` | `plugins/exo/scripts/delegar-decision.sh` |
-| document-remind | `Stop` | `plugins/exo/scripts/document-remind.sh` |
-| exo-index | `Stop` | `plugins/exo/scripts/exo-index.sh` |
-| subagent-inject | `SubagentStart` | `plugins/exo/scripts/subagent-inject.sh` |
-| subagent-bg-guard | `SubagentStop` | `plugins/exo/scripts/subagent-bg-guard.sh` |
-
-`delegar-decision` bloquea el cierre de turno si el padre cierra con propuesta + petición de visto bueno sin lanzar `Agent`/`Task`; escapa con `[reserva: externo|irreversible|re-scope|hecho-del-usuario|pedido]` al inicio del cierre; tope de un bloqueo por mensaje humano (sin mensaje humano, p. ej. `claude -p`, no hay tope).
-
-Este repo es la **fuente de verdad** del plugin (co-evoluciona con el engine y con
-sus evals de paridad en `evals/prep-m3/`) y además es su propio marketplace:
-`.claude-plugin/marketplace.json` (en la raíz de este repo) sirve `plugins/exo/`
-directamente. Id de plugin: `exo@exo`. Ya no se publica vía `exo-plugins`/
-git-subdir — ese modelo de publicación quedó atrás con la fusión de plugins.
+Este repo es la **fuente de verdad** del plugin (co-evoluciona con el engine y
+con sus evals de paridad en `evals/prep-m3/`) y su propio marketplace:
+`.claude-plugin/marketplace.json` sirve `plugins/exo/`. Id de plugin: `exo@exo`.
 
 ## Documentación
 
