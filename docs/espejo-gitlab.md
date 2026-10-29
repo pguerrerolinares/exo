@@ -12,6 +12,20 @@ ejecución del schedule. Empujar al espejo es publicar: el bump de versión del
 plugin y el tag tienen que estar en `main` antes de mergear lo que dependa de
 ellos.
 
+**Tres advertencias:**
+
+- **Los borrados no se propagan.** El push es aditivo: borrar un tag o una
+  rama en GitHub no lo borra en GitLab. Un tag retirado hay que borrarlo a
+  mano en el espejo.
+- **Carrera tag-release.** El tag llega al espejo en cuanto lo ve el schedule,
+  pero los binarios de la release pueden no estar aún publicados en GitHub.
+  El runbook de instalación fija el binario al último tag del clon, así que en
+  esa ventana la descarga da 404. Se resuelve solo cuando termina el workflow
+  de release (inferido del diseño, no medido).
+- **El runner descarga `alpine/git:v2.49.1`** (la imagen del job). Si el
+  runner no sale a Docker Hub, configura un registry espejo o precarga la
+  imagen.
+
 ## Alta (una vez)
 
 En el proyecto de GitLab:

@@ -7,15 +7,17 @@
 > `<url-del-repo>` es la URL desde la que el usuario te pide clonar (en KBI,
 > el espejo de `gitlab.norbolsa.com`). El plugin se instala desde ese mismo
 > repo; el binario sale de las releases públicas de GitHub, en la versión del
-> último tag del clon, y se verifica por SHA256. Referencia completa: [`instalacion.md`](instalacion.md).
+> último tag del clon, y se verifica por SHA256. Este runbook da la secuencia;
+> los flags, las variables y el porqué de cada paso están en
+> [`instalacion.md`](instalacion.md).
 
 ## Reglas para el agente
 
 - **No compiles.** Nada de Rust ni Build Tools: hay binario precompilado.
 - **Comandos largos en background o con `timeout: 600000`.** `exo init`
   descarga el modelo de embeddings (~0,6 GB, ~6 min en frío).
-- **No desinstales nada.** El instalador *desactiva* superpowers; no lo
-  cambies por `uninstall`.
+- **No desinstales nada.** superpowers se *desactiva* (en Windows lo hace el
+  instalador, en Linux el paso 4); no lo cambies por `uninstall`.
 - **Un `exit 0` no es evidencia.** Cada paso tiene su check. Si uno falla,
   busca el síntoma en [Problemas conocidos en Windows 11](instalacion.md#8-problemas-conocidos-en-windows-11)
   antes de improvisar.
@@ -26,14 +28,20 @@
 
 ```bash
 git clone <url-del-repo> ~/.exo/repo
-git --version && claude --version && uname -s
+git --version && claude --version && uname -s && uname -m
 git config --global user.email
+jq --version
 ```
 
-- `uname -s` debe empezar por `MINGW64` (Windows) o ser `Linux`. En macOS o
-  ARM no hay binario: para y remite a `instalacion.md` §3.
+- `uname -s` debe empezar por `MINGW64` (Windows) o ser `Linux`, y en Linux
+  `uname -m` debe ser `x86_64`. En macOS o en Linux ARM no hay binario: para
+  y remite a `instalacion.md` §3.
 - **Sin `user.email`, para**: `exo init` commitea la KB y sin identidad el
   commit falla en silencio. Pide al usuario que la configure.
+- **`jq`**: en Linux el instalador no lo trae. Si `jq --version` falla, pide
+  al usuario que lo instale (`sudo apt install jq` o el equivalente de su
+  distro) antes de seguir; sin él los hooks se abstienen. En Windows lo deja
+  el instalador del paso 2.
 - `echo "${HTTPS_PROXY:-<vacío>}"`: el binario `exo` solo usa el proxy si
   está en esa variable (no el de Windows) y no confía en la CA corporativa.
   Si la red lo necesita y está vacía, avisa antes de seguir (en KBI:
@@ -52,26 +60,32 @@ git config --global user.email
    `tdd`, `debug` y `verify` los de sus homólogos. Revertir:
    `claude plugin enable <clave>`.
 
-## 2. Binario (`exo` + `jq`)
+## 2. Binario (`exo`)
 
 La versión del binario es la del último tag del clon, no la última de
-GitHub. Así binario y plugin salen del mismo punto del repo.
+GitHub. Ojo: eso fija el binario, no el plugin (paso 4).
 
-Windows:
+**Windows:**
 
 ```bash
 EXO_VERSION="$(git -C ~/.exo/repo describe --tags --abbrev=0 --match 'v[0-9]*')" powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w ~/.exo/repo/install.ps1)"
 ```
 
-Linux:
+Deja `~/.local/bin/exo.exe` (SHA256 verificado), un `jq.exe` real si no lo
+había, el directorio en el PATH de usuario y superpowers desactivado.
+
+**Linux:**
 
 ```bash
 EXO_VERSION="$(git -C ~/.exo/repo describe --tags --abbrev=0 --match 'v[0-9]*')" bash ~/.exo/repo/install.sh
 ```
 
-Deja `~/.local/bin/exo(.exe)` (SHA256 verificado), un `jq.exe` real si no lo
-había, el directorio en el PATH de usuario, superpowers desactivado y un
-`exo doctor` con filas `fail`: normal, aún no hay KB ni plugin.
+Deja `~/.local/bin/exo` (SHA256 verificado) y nada más: ni instala `jq`, ni
+toca el PATH (solo avisa si `~/.local/bin` no está), ni desactiva
+superpowers.
+
+En las dos plataformas el instalador cierra con un `exo doctor` con filas
+`fail`: normal, aún no hay KB ni plugin.
 
 Check: `~/.local/bin/exo --version`.
 
@@ -81,7 +95,8 @@ antepón `PATH="$HOME/.local/bin:$PATH"` a cada comando que use `exo` o `jq`.
 ## 3. KB
 
 Si el equipo dejó la caché del modelo en un recurso compartido, cópiala antes
-a `~/.cache/huggingface/hub/` y te ahorras la descarga. Luego, en background
+a `$HF_HOME/hub/` si esa variable está definida, y si no a
+`~/.cache/huggingface/hub/`, y te ahorras la descarga. Luego, en background
 o con `timeout: 600000`:
 
 ```bash
@@ -104,6 +119,12 @@ claude plugin install exo@exo
 Si `marketplace add` falla por política de la organización, **para** y
 díselo al usuario: no busques otra vía.
 
+**Binario y plugin no avanzan juntos.** El binario está fijado al último tag
+del clon; el plugin sigue `main` y, con el `autoUpdate` de abajo, avanza solo.
+Si un día el plugin exige un binario más nuevo (`ENGINE_MIN`), lo avisan
+`exo doctor` (`plugin_compat`) y el hook de arranque; se resuelve con
+«Actualizar», abajo.
+
 **Actualizaciones automáticas.** Un marketplace añadido así no tiene
 `autoUpdate`. Fusión no destructiva:
 
@@ -113,16 +134,30 @@ src="$(jq -c '.exo.source' ~/.claude/plugins/known_marketplaces.json)"
 jq --argjson src "$src" '.extraKnownMarketplaces.exo = ((.extraKnownMarketplaces.exo // {}) + {source: $src, autoUpdate: true})' "$S" > "$S.tmp" && mv "$S.tmp" "$S"
 ```
 
-**Solo cuentas Team/Enterprise** (si no, Claude Code avisa en cada turno de
-que `prompt.compose` se salta):
+**superpowers en Linux** (en Windows ya lo hizo el instalador). Busca la
+clave y desactívala en el scope de usuario:
 
 ```bash
-echo '{"composeHook":"false"}' | claude plugin configure exo@exo --values-stdin
+jq -r '.enabledPlugins // {} | keys[] | select(startswith("superpowers@"))' ~/.claude/settings.json
+claude plugin disable <clave-que-salga> --scope user
 ```
 
-**Gate de pre-commit de la KB** (presupuestos y trinquete; `exo init` no lo
-instala). Shim que delega en el script del plugin y sigue sus
-actualizaciones (en Windows `ln -s` copia en vez de enlazar):
+Si no sale ninguna clave, no hay nada que desactivar.
+
+**Solo cuentas Team/Enterprise** (si no, Claude Code avisa en cada turno de
+que `prompt.compose` se salta): pide al usuario que ponga a `false` la opción
+«Registrar el hook prompt.compose» del plugin en `/config`. La alternativa
+`echo '{"composeHook":"false"}' | claude plugin configure exo@exo --values-stdin`
+no está verificada (no se sabe si Claude Code convierte `"false"` en
+booleano); si la usas, comprueba después que el aviso desaparece. Detalle en
+[`instalacion.md` §5](instalacion.md#5-instalar-el-plugin-de-claude-code-capa-thin).
+
+**Gate de pre-commit de la KB** (`exo init` no lo instala). En cada commit
+corre los techos de bytes (`budget` y `ratchet`), `rules --check` y la
+validación de `tier` y `tags` del frontmatter. Shim que delega en el script
+del plugin y sigue sus actualizaciones (en Windows `ln -s` copia en vez de
+enlazar). **El `chmod +x` es obligatorio**: sin él git ignora el hook, el
+commit pasa sin gate y `exo doctor` no lo detecta.
 
 ```bash
 cat > "<ruta-kb>/.git/hooks/pre-commit" <<'EOF'
@@ -132,7 +167,12 @@ s="$(ls -d "$HOME"/.claude/plugins/cache/exo/exo/*/scripts/kb-precommit.sh 2>/de
 [ -n "$s" ] || { echo "kb-precommit: no encuentro el plugin exo; commit BLOQUEADO (escape: git commit --no-verify)" >&2; exit 1; }
 exec bash "$s" "$@"
 EOF
+chmod +x "<ruta-kb>/.git/hooks/pre-commit"
+test -x "<ruta-kb>/.git/hooks/pre-commit" && echo "gate ejecutable"
 ```
+
+Si `exo doctor` sugiere en cambio `ln -sf …/kb-precommit.sh`, ignóralo y usa
+este shim: es el que esta guía mantiene.
 
 **Check del arranque, ya en esta sesión** (detecta un modelo o un índice
 roto antes de reiniciar):
@@ -143,8 +183,17 @@ echo '{"session_id":"t","source":"startup"}' | bash "$(ls -d ~/.claude/plugins/c
 ```
 
 `1` = el arranque sirve la KB real. `0` = mira la última línea de
-`~/.claude/reflex-log.jsonl` con `recall-fallback` (`reason=no-engine`,
-`engine-stale`, `no-index`, `no-contract`).
+`~/.claude/reflex-log.jsonl` con `recall-fallback` y su `reason`:
+
+| `reason` | Qué pasó |
+|---|---|
+| `no-engine` | No hay binario `exo` ejecutable |
+| `engine-stale` | El binario es más viejo que `ENGINE_MIN` del plugin: actualízalo |
+| `no-index` | No existe el índice (`~/.exo/index.db`, o `$EXO_INDEX`) |
+| `no-config` | `exo config` falló: sin config no hay nombre de KB; el payload trae el error |
+| `truncated` | El engine avisó de que el bloque de arranque no cupo entero |
+| `empty` | `exo recall` no devolvió nada |
+| `no-contract` | Devolvió algo, pero no la nota con el «Contrato de memoria» |
 
 ## 5. Reinicio (obligatorio)
 
@@ -167,8 +216,12 @@ exo doctor
 ```
 
 Sin filas `fail`. Tienen que salir `ok`: `config`, `binary_on_path`,
-`kb_readable`, `index_db`, `embeddings_model`, `git_bash`,
-`kb_precommit_hook`, `plugin_compat` y `superpowers_disabled`.
+`kb_readable`, `index_db`, `embeddings_model`, `jq`, `kb_precommit_hook`,
+`plugin_compat` y `superpowers_disabled`; más `git_bash` en Windows (en
+Linux sale `na`, es lo esperado).
+
+`kb_precommit_hook ok` no prueba que el hook sea ejecutable: confirma con
+`test -x "<ruta-kb>/.git/hooks/pre-commit"`.
 
 ```bash
 exo search "doctrina" --type fts --limit 3
