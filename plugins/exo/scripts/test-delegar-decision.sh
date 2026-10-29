@@ -22,7 +22,7 @@ ok_if() {  # $1 = nombre, $2 = condición (0 = ok), $3 = detalle
   if [ "$2" -eq 0 ]; then pass "$1"; else fail "$1" "$3"; fi
 }
 
-REASON='Cerraste con propuesta + petición de visto bueno sin delegar. Lanza ahora el consultor (skills/brainstorm/consultor-brief.md) o el ejecutor y cierra con su resultado; o, si la pregunta es de Paul, reescribe el cierre empezando por [reserva: externo|irreversible|re-scope|hecho-de-Paul|pedido].'
+REASON='Cerraste con propuesta + petición de visto bueno sin delegar. Lanza ahora el consultor (skills/brainstorm/consultor-brief.md) o el ejecutor y cierra con su resultado; o, si la pregunta es del usuario, reescribe el cierre empezando por [reserva: externo|irreversible|re-scope|hecho-del-usuario|pedido].'
 
 hook() {  # $1 = transcript, $2 = session_id, $3 = extra (",k:v")
   OUT="$(printf '{"session_id":"%s","transcript_path":"%s"%s}' "${2:-s1}" "$1" "${3:-}" | "$HOOK" 2>/dev/null)"

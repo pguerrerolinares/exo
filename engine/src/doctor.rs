@@ -921,8 +921,9 @@ fn check_hook_precommit(entorno: &Entorno, cfg: Option<&crate::config::Config>) 
             "kb_precommit_hook",
             Estado::Warn,
             hook.display().to_string(),
-            "gate no instalado — instálalo con: \
-             ln -sf <repo>/plugins/exo/scripts/kb-precommit.sh <kb>/.git/hooks/pre-commit",
+            "gate no instalado — instala el shim de docs/instalar-con-agente.md \
+             («Gate de pre-commit de la KB») en <kb>/.git/hooks/pre-commit y \
+             dale chmod +x",
         );
     }
     // El hook existe. Un symlink se juzga por su destino; un fichero regular
@@ -947,6 +948,9 @@ fn check_hook_precommit(entorno: &Entorno, cfg: Option<&crate::config::Config>) 
                 "hay un pre-commit instalado, pero apunta a otro script: no es \
                  el gate de la KB",
             );
+        }
+        if let Some(muerto) = gate_no_ejecutable(&hook) {
+            return muerto;
         }
         let viejo = destino.components().any(|c| c.as_os_str() == "reflex");
         if viejo {
@@ -974,6 +978,9 @@ fn check_hook_precommit(entorno: &Entorno, cfg: Option<&crate::config::Config>) 
             "hay un pre-commit instalado, pero no menciona kb-precommit.sh: no es el gate de la KB",
         );
     }
+    if let Some(muerto) = gate_no_ejecutable(&hook) {
+        return muerto;
+    }
     match script_del_plugin(&entorno.home) {
         Some((script, true)) => Check::nuevo(
             "kb_precommit_hook",
@@ -994,6 +1001,26 @@ fn check_hook_precommit(entorno: &Entorno, cfg: Option<&crate::config::Config>) 
             "el shim está instalado pero no resuelve a ningún kb-precommit.sh: el gate de la KB no puede correr",
         ),
     }
+}
+
+/// Git ignora un hook sin bit de ejecución (solo deja un `hint`) y el commit
+/// pasa sin gate: mismo veredicto que el shim colgante. `metadata` sigue el
+/// symlink, que es lo que hace git al ejecutarlo. Se mira solo cuando ya se
+/// sabe que el hook ES el gate: a un pre-commit ajeno no se le receta chmod.
+fn gate_no_ejecutable(hook: &std::path::Path) -> Option<Check> {
+    if tiene_bit_de_ejecucion(hook) {
+        return None;
+    }
+    Some(Check::nuevo(
+        "kb_precommit_hook",
+        Estado::Fail,
+        hook.display().to_string(),
+        format!(
+            "el pre-commit no es ejecutable: git lo ignora y el commit pasa \
+             sin gate — arréglalo con: chmod +x {}",
+            hook.display()
+        ),
+    ))
 }
 
 /// ¿A qué `kb-precommit.sh` resolvería el shim? Replica el glob del shim real

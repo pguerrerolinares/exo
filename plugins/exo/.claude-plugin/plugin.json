@@ -1,7 +1,7 @@
 {
   "name": "exo",
   "description": "Framework de trabajo agéntico con memoria persistente. Ocho skills de proceso (brainstorm · plan · orchestrate · tdd · debug · verify · document · distill), los agentes `executor` (implementa con la doctrina en su system prompt) y `consultor` (solo lectura, decisiones de diseño), y la capa de reflejos: hooks deterministas y un mod que activan conocimiento procedural y reglas duras en el punto de acción. El recall lo sirve el engine `exo` desde SQLite. Abstención por defecto. Destila el catálogo de obra/superpowers (MIT, © 2025 Jesse Vincent) y parte de DietrichGebert/ponytail (MIT), más doctrina propia.",
-  "version": "1.28.1",
+  "version": "1.29.0",
   "userConfig": {
     "composeHook": {
       "type": "boolean",

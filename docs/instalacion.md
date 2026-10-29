@@ -286,12 +286,12 @@ orden, está en [`instalar-con-agente.md`](instalar-con-agente.md) (paso 4).
    delega en el `kb-precommit.sh` de la versión más alta del plugin
    instalado, de modo que sigue sus actualizaciones y funciona también en
    Windows (donde `ln -s` copia en vez de enlazar). **Tiene que llevar
-   `chmod +x`**: sin el bit de ejecución git ignora el hook, el commit pasa
-   sin gate y `exo doctor` aun así da `kb_precommit_hook ok`, porque solo
-   mira el contenido del shim. El shim exacto está en el runbook; si
-   `exo doctor` sugiere `ln -sf <repo>/plugins/exo/scripts/kb-precommit.sh`,
-   es una vía equivalente en Linux pero fijada a una ruta del clon, y esta
-   guía usa el shim.
+   `chmod +x`**: sin el bit de ejecución git ignora el hook y el commit pasa
+   sin gate; `exo doctor` lo marca `kb_precommit_hook fail` con el `chmod`.
+   El shim exacto está en el runbook, y es el que propone `exo doctor`. Un
+   engine hasta 0.13.0 da `ok` con el hook sin bit y sugiere
+   `ln -sf <repo>/plugins/exo/scripts/kb-precommit.sh`: vía equivalente en
+   Linux pero fijada a una ruta del clon; esta guía usa el shim.
 3. **superpowers.** `exo` lo sustituye y con los dos habilitados se duplican
    skills y hooks. `install.ps1` lo desactiva; en Linux se hace a mano, en el
    scope de usuario y nunca con `uninstall`:

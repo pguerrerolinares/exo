@@ -83,7 +83,7 @@ Tabla exacta al cableado vivo (una fila por comando de `hooks.json`):
 | exo-index | `Stop` | `scripts/exo-index.sh` | mantenimiento | Reindexa la KB al cerrar la sesión; best-effort. |
 | bash-guards | `PreToolUse:Bash` | `scripts/bash-guards.sh` | reescribe / deniega | Reescribe `cd <path> && git <lectura>` a `git -C`; **deniega** `git add -A`/`--all`/`.` sin pathspec; registra `git commit` sin test verde reciente (sin avisar). |
 | sdd-wake-guard | `Stop` | `scripts/sdd-wake-guard.sh` | bloquea | Con un ledger SDD activo y tareas de fondo vivas sin cron, pide un `CronCreate` que siga `skills/orchestrate/despertar.md`. |
-| delegar-decision | `Stop` | `scripts/delegar-decision.sh` | bloquea | Bloquea el cierre del padre si cierra con propuesta + petición de visto bueno sin lanzar `Agent`/`Task`. Escape `[reserva: externo\|irreversible\|re-scope\|hecho-de-Paul\|pedido]`; tope de un bloqueo por mensaje humano; requiere `python3`. |
+| delegar-decision | `Stop` | `scripts/delegar-decision.sh` | bloquea | Bloquea el cierre del padre si cierra con propuesta + petición de visto bueno sin lanzar `Agent`/`Task`. Escape `[reserva: externo\|irreversible\|re-scope\|hecho-del-usuario\|pedido]`; tope de un bloqueo por mensaje humano; requiere `python3`. |
 | subagent-bg-guard | `SubagentStop` | `scripts/subagent-bg-guard.sh` | bloquea | Bloquea una vez el cierre de un subagente con tareas de fondo propias vivas y pide `TaskStop` o esperar sobre el log. |
 
 Hay además scripts huérfanos (`git-c-bash.sh`, `git-add-all-guard.sh`,

@@ -78,7 +78,7 @@ repreguntar. Cada tramo es breve; importa que sea exacta y corregible.
   demás vías y su condición de invalidación: el usuario firma o corrige, no
   elige de un menú. Si solo hay una vía sensata, dilo y explica por qué las
   demás no encajan. Es para el cómo; el qué (la intención) lo describe él
-  primero y sigue siendo suyo: esas preguntas llevan `[reserva: hecho-de-Paul]`
+  primero y sigue siendo suyo: esas preguntas llevan `[reserva: hecho-del-usuario]`
   si casan el detector.
 - Presenta el diseño por secciones escaladas a su complejidad; valida cada
   sección con el usuario antes de seguir a la siguiente (el cierre de esa

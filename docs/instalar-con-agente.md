@@ -157,7 +157,8 @@ corre los techos de bytes (`budget` y `ratchet`), `rules --check` y la
 validación de `tier` y `tags` del frontmatter. Shim que delega en el script
 del plugin y sigue sus actualizaciones (en Windows `ln -s` copia en vez de
 enlazar). **El `chmod +x` es obligatorio**: sin él git ignora el hook, el
-commit pasa sin gate y `exo doctor` no lo detecta.
+commit pasa sin gate (`exo doctor` lo detecta desde la versión posterior a
+0.13.0; hasta 0.13.0 da `ok`).
 
 ```bash
 cat > "<ruta-kb>/.git/hooks/pre-commit" <<'EOF'
@@ -171,8 +172,9 @@ chmod +x "<ruta-kb>/.git/hooks/pre-commit"
 test -x "<ruta-kb>/.git/hooks/pre-commit" && echo "gate ejecutable"
 ```
 
-Si `exo doctor` sugiere en cambio `ln -sf …/kb-precommit.sh`, ignóralo y usa
-este shim: es el que esta guía mantiene.
+Si `exo doctor` (engine hasta 0.13.0) sugiere en cambio
+`ln -sf …/kb-precommit.sh`, ignóralo y usa este shim: es el que esta guía
+mantiene y el que proponen las versiones posteriores.
 
 **Check del arranque, ya en esta sesión** (detecta un modelo o un índice
 roto antes de reiniciar):

@@ -13,7 +13,7 @@ PERM = re.compile(r"(?i)¿\s*(te parece|te vale|te cuadra|lo lanzo|los lanzo|lan
 PROP = re.compile(r"(?i)\b(mi recomendaci[oó]n|te propongo|lo que propongo|propongo|recomiendo|yo har[ií]a|har[ií]a)\b")
 EXCLUSION = re.compile(r"(?i)(?<!\w)(?:push|prs?|issues?|merge|deploy|commit|/document|borrar)\b")
 PREGUNTA = re.compile(r"¿[^?]*\?")
-ETIQUETA = re.compile(r"\[reserva:\s*(?:externo|irreversible|re-scope|hecho-de-Paul|pedido)\s*\]")
+ETIQUETA = re.compile(r"\[reserva:\s*(?:externo|irreversible|re-scope|hecho-del-usuario|hecho-de-Paul|pedido)\s*\]")  # hecho-de-Paul: alias previo a 1.29.0
 
 PREFIJOS = ("<command-", "<local-command", "<task-notification>", "<bash-stdout>",
             "Another Claude session", "[Request interrupted", "This session is being continued")

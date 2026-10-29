@@ -101,7 +101,7 @@ class TestEvalua(unittest.TestCase):
         self.assertTrue(r["dispara"])
         r = ev(texto("[reserva: otra] ¿Te parece?"))
         self.assertTrue(r["dispara"])
-        for v in ("externo", "irreversible", "re-scope", "hecho-de-Paul", "pedido"):
+        for v in ("externo", "irreversible", "re-scope", "hecho-del-usuario", "hecho-de-Paul", "pedido"):
             for pre in ("", "  ", "\n\t "):
                 r = ev(texto(f"{pre}[reserva: {v}] ¿Te parece?"))
                 self.assertEqual(r["excluido"], "etiqueta", (v, pre))
