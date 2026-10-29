@@ -8,6 +8,9 @@ evals/retrieval-fase0/snapshot/reflex-retrieval-log.jsonl
 !.superpowers/fabrica/config.md
 __pycache__/
 engine/target/
+# Salida de cargo-mutants (scripts/mutantes-nocturnos.sh, o a mano).
+engine/mutants.out/
+engine/mutants.out.old/
 
 # Lo generan `claude plugin validate/test` al correr contra plugins/exo.
 plugins/exo/tsconfig.json

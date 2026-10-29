@@ -1,0 +1,68 @@
+name: mutantes nocturnos
+
+# cargo-mutants sobre las líneas de engine/src que entraron en main desde la
+# última corrida verde (scripts/mutantes-nocturnos.sh). No va en ci.yml a
+# propósito: cada mutante recompila y corre la suite entera (~2 min), y un PR
+# no puede esperar eso. Rojo = entró código cuyos tests no cazan un mutante;
+# como la base es la última VERDE, el tramo rojo se vuelve a mutar cada noche
+# hasta que se arregle.
+
+on:
+  schedule:
+    - cron: '23 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: mutantes-nocturnos
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  mutantes:
+    name: mutantes del día
+    # Un fork no tiene historial de corridas y mutaría por fecha cada noche.
+    if: github.repository == 'pguerrerolinares/exo'
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      # Historia completa: la base del diff puede ser cualquier commit de main.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+          key: mutantes
+      # Misma clave que el job `test` de ci.yml: si se bumpea la revisión del
+      # modelo (`REVISION_JINA_ES` en engine/src/lib.rs), se bumpea en los dos.
+      - name: Caché del modelo jina-es (revisión pineada)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface/hub/models--jinaai--jina-embeddings-v2-base-es
+          key: hf-jina-es-8e2d780d-${{ runner.os }}
+      - name: Instalar cargo-mutants (versión fijada)
+        run: cargo install --locked cargo-mutants@27.1.0
+      # Base = headSha de la última corrida verde de este workflow en main; sin
+      # ninguna (la primera noche), el último commit de hace más de 25 h.
+      - name: Mutar lo nuevo desde la última noche verde
+        shell: bash
+        run: |
+          set -euo pipefail
+          verde="$(gh run list --workflow mutantes-nocturnos.yml --branch main --status success --limit 1 --json headSha --jq '.[0].headSha // empty' | tr -d '\r')"
+          bash scripts/mutantes-nocturnos.sh run "${verde:--}" "$(date -u -d '25 hours ago' +%Y-%m-%dT%H:%M:%SZ)" 2
+      - name: Subir mutants.out
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants-out
+          path: engine/mutants.out/
+          if-no-files-found: ignore
