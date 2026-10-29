@@ -267,6 +267,18 @@ ahora es finding> — <coste si está mal>`.
 
 ## Métricas de la serie (al cerrar la rama)
 
-Las escribe el orquestador, una línea en el ledger: wall-clock y turnos de la fase plan (los lee del header del plan); KB del plan y
-fracción de código; mutation score por herramienta; % de tests basura
-(muestra clasificada por el reviewer final); nº y ancho de las olas.
+`sdd-workspace close` anexa al ledger, antes de archivarlo, una línea que se parsea con grep/awk:
+
+`Métricas: olas=N anchos=a,b,… plan_kb=K codigo=F mutacion=… wallclock=manual basura=manual turnos=manual`
+
+- `olas`/`anchos`: nº de olas y tareas por ola, de la salida de `task-dag`.
+- `plan_kb`/`codigo`: KB del fichero del plan y fracción de sus bytes dentro de bloques con valla (` ``` `/`~~~`).
+- `mutacion`: `<proyecto>:<p>%` separados por comas (`global` si el package no trae líneas por proyecto), el
+  PEOR score entre los `review-*.diff` del workspace; los muestreados (`IC95`) no cuentan. Sin packages o sin
+  ningún score (`no disponible`/`parcial`) ⇒ `sin-dato`: es «sin dato», no neutro. La línea no nombra la herramienta,
+  solo el proyecto.
+- `wallclock`: el ledger no lleva timestamps ni el header del plan lo declara, así que sale `manual`.
+- Un campo que no se pudo calcular sale `?` (p. ej. un package ilegible) y el close sigue igual: la métrica nunca rompe el cierre.
+
+Sigue siendo a mano del orquestador: wall-clock y turnos de la fase plan, y el % de tests basura (muestra clasificada
+por el reviewer final); los anexa al ledger como línea aparte (`Métricas manuales: wallclock=… turnos=… basura=…`) antes del close.

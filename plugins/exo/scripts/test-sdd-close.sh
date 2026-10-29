@@ -191,5 +191,39 @@ if [ "$RC" = 0 ] && [ ! -e "$WS" ]; then pass close_ola_verde_y_ci_verde; else f
 mkwave w5 '- `false`'; wclose 1; wclose 2; close --no-ci t
 if [ "$RC" = 1 ] && contains "$OUT" "Ola 2 sin cierre verde"; then pass close_ultima_ola_roja; else fail close_ultima_ola_roja "rc=$RC $OUT"; fi
 
+# 13. Métricas: una línea `Métricas: ` en el ledger archivado, antes de archivar
+metrica() { grep '^Métricas: ' "$ARCH/plan-$(date +%F)-progress.md" 2>/dev/null; }
+mkwave m1 '- `true`'; wclose 1; wclose 2
+printf '\n```\ncodigo\n```\n' >> "$REPO/docs/plan.md"
+kb=$(awk -v b="$(wc -c < "$REPO/docs/plan.md")" 'BEGIN { printf "%.1f", b / 1024 }')
+dagout=$("$SCRIPT_DIR/../skills/orchestrate/scripts/task-dag" "$REPO/docs/plan.md")
+close; M=$(metrica)
+if [ "$RC" = 0 ] && [ "$(printf '%s\n' "$M" | wc -l)" = 1 ] && contains "$M" 'olas=2 anchos=1,1 ' && contains "$dagout" '[[1], [2]]' \
+   && contains "$M" "plan_kb=$kb " && contains "$M" 'codigo=0.1' && contains "$M" ' mutacion=sin-dato ' \
+   && contains "$M" 'wallclock=manual basura=manual turnos=manual'; then
+  pass close_metricas_basicas; else fail close_metricas_basicas "rc=$RC M=$M dag=$dagout"; fi
+echo "# ejemplo: $M"
+
+# 13b. mutación: score del package (single y por proyecto, peor caso entre packages, muestreados fuera)
+mkwave m2 '- `true`'; wclose 1; wclose 2
+printf 'diff\n## MUTACIÓN\nMUTACIÓN: 5/6 (83%%) — 1 superviviente(s)\n' > "$WS/review-aaa..bbb.diff"
+printf 'diff\n## MUTACIÓN\nMUTACIÓN: 7/10 (70%%) — 3 superviviente(s)\nMUTACIÓN aviso: x (99%%)\n' > "$WS/review-ccc..ddd.diff"
+close; M=$(metrica)
+if [ "$RC" = 0 ] && contains "$M" ' mutacion=global:70% '; then pass close_metricas_mutacion_score; else fail close_metricas_mutacion_score "rc=$RC M=$M"; fi
+mkwave m3 '- `true`'; wclose 1; wclose 2
+printf '## MUTACIÓN\nMUTACIÓN: 9/10 (90%%) — 1 superviviente(s); 1 proyecto(s) sin score\nMUTACIÓN [api]: 9/10 (90%%) — 1 superviviente(s)\nMUTACIÓN [web]: parcial (timeout 5s)\nMUTACIÓN [py]: 10/20 (50%%) IC95 [30%%, 70%%] — muestra de 10/200 (semilla 1)\n' > "$WS/review-a..b.diff"
+close; M=$(metrica)
+if [ "$RC" = 0 ] && contains "$M" ' mutacion=api:90% '; then pass close_metricas_mutacion_por_proyecto; else fail close_metricas_mutacion_por_proyecto "rc=$RC M=$M"; fi
+mkwave m4 '- `true`'; wclose 1; wclose 2
+printf '## MUTACIÓN\nMUTACIÓN: no disponible (sin herramienta para este repo)\n' > "$WS/review-a..b.diff"
+close; M=$(metrica)
+if [ "$RC" = 0 ] && contains "$M" ' mutacion=sin-dato '; then pass close_metricas_mutacion_no_disponible; else fail close_metricas_mutacion_no_disponible "rc=$RC M=$M"; fi
+
+# 13c. un package ilegible => mutacion=? y el close sigue igual (exit 0, archiva, borra)
+mkwave m5 '- `true`'; wclose 1; wclose 2; mkdir "$WS/review-roto..x.diff"
+close; M=$(metrica)
+if [ "$RC" = 0 ] && contains "$M" ' mutacion=? ' && contains "$M" 'olas=2 ' && [ ! -e "$WS" ]; then
+  pass close_metricas_fallo_no_rompe_close; else fail close_metricas_fallo_no_rompe_close "rc=$RC M=$M $OUT"; fi
+
 printf '\n%d pass, %d fail\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

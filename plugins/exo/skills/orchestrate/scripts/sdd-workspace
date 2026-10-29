@@ -46,6 +46,10 @@
 # `Ola K: cierre — verde (n/n) @<sha>` o `— ROJO (m/n)`. Exit = nº de comandos rojos; sin
 # sección o sin comandos => 1. task-brief niega el brief de la ola K+1 sin ese `verde`.
 #
+# Antes de archivar, `close` anexa al ledger UNA línea `Métricas: clave=valor …` con lo calculable por
+# script (olas y anchos, KB del plan y fracción en código, mutación de los review packages, wallclock).
+# Un cálculo que falla da `?` en su campo y no cambia el exit ni el archivado del close.
+#
 # Usage: sdd-workspace PLAN_FILE
 #        sdd-workspace wave-close PLAN_FILE K
 #        sdd-workspace close PLAN_FILE [--archive DIR] [--prefix PREFIJO] [--no-ci MOTIVO]
@@ -162,7 +166,8 @@ if [ "$close" = 1 ]; then
   pending=0
 
   # Última ola del plan sin cierre verde (el último resumen de esa ola manda): hallazgo con el ledger vivo.
-  nwaves=$("$(dirname "$0")/task-dag" "$plan" | awk '{ s = $0; sub(/^\{"olas": \[/, "", s); sub(/\], "avisos".*/, "", s); n = (s == "") ? 0 : gsub(/\], \[/, "&", s) + 1; print n }')
+  dag=$("$(dirname "$0")/task-dag" "$plan")
+  nwaves=$(printf '%s\n' "$dag" | awk '{ s = $0; sub(/^\{"olas": \[/, "", s); sub(/\], "avisos".*/, "", s); n = (s == "") ? 0 : gsub(/\], \[/, "&", s) + 1; print n }')
   if [ "$nwaves" -gt 0 ]; then
     last=$(awk -v k="$nwaves" 'index($0, "Ola " k ": cierre — ") == 1 && ($0 ~ /cierre — (verde|ROJO) /) { l = $0 } END { print l }' "$dir/progress.md" 2>/dev/null || true)
     case "$last" in
@@ -204,6 +209,46 @@ if [ "$close" = 1 ]; then
       echo "no archivado: $1" >&2; archived_ok=0
     fi
   }
+  # Métricas de la serie: una línea al ledger. Cada campo es independiente y degrada a `?`:
+  # medir nunca cambia el exit ni el archivado.
+  metricas() {
+    local anchos kb cod mut f bad=0 todas="" una
+    anchos=$(printf '%s\n' "$dag" | awk '{ s = $0; sub(/^\{"olas": \[/, "", s); sub(/\], "avisos".*/, "", s)
+      if (s == "") { print "-"; exit }
+      gsub(/\], \[/, "|", s); gsub(/[\[\]" ]/, "", s); n = split(s, o, "|")
+      for (i = 1; i <= n; i++) printf "%s%d", (i > 1 ? "," : ""), gsub(/,/, ",", o[i]) + 1; print "" }') || anchos='?'
+    kb=$(LC_ALL=C awk '{ b += length($0) + 1 } END { printf "%.1f", b / 1024 }' "$plan") || kb='?'
+    cod=$(LC_ALL=C awk '{ n = length($0) + 1; t += n; if ($0 ~ /^[ \t]*(```|~~~)/) { dentro = !dentro; c += n } else if (dentro) c += n }
+      END { printf "%.2f", t ? c / t : 0 }' "$plan") || cod='?'
+    for f in "$dir"/review-*.diff; do
+      [ -e "$f" ] || continue
+      if [ -f "$f" ] && [ -r "$f" ] && una=$(LC_ALL=C awk '
+          /^## MUTACI/ { sec = 1; next }
+          /^## / { sec = 0 }
+          sec && index($0, "MUTACIÓN [") == 1 { l = substr($0, 12); l = substr(l, 1, index(l, "]") - 1); k = 1 }
+          sec && index($0, "MUTACIÓN: ") == 1 { l = "global"; k = 2 }
+          !k { next }
+          { if ($0 !~ /IC95 \[/ && match($0, /\([0-9]+%\)/)) { v = substr($0, RSTART + 1, RLENGTH - 3); if (k == 1) d[l] = v; else g = v }
+            k = 0 }
+          END { for (x in d) { print x, d[x]; nd++ } if (!nd && g != "") print "global", g }' "$f"); then
+        todas="$todas$una"$'\n'
+      else
+        bad=1
+      fi
+    done
+    if [ "$bad" = 1 ]; then mut='?'
+    else
+      mut=$(printf '%s' "$todas" | awk 'NF == 2 { if (!($1 in m) || $2 + 0 < m[$1]) m[$1] = $2 + 0 }
+        END { for (x in m) printf "%s%s:%d%%", (n++ ? "," : ""), x, m[x] }') || mut='?'
+      [ -n "$mut" ] || mut=sin-dato
+    fi
+    printf 'Métricas: olas=%s anchos=%s plan_kb=%s codigo=%s mutacion=%s wallclock=manual basura=manual turnos=manual\n' \
+      "$nwaves" "$anchos" "$kb" "$cod" "$mut"
+  }
+  if [ -f "$dir/progress.md" ]; then
+    { metricas >> "$dir/progress.md"; } 2>/dev/null || true
+  fi
+
   if [ -f "$dir/progress.md" ]; then
     archivar "$dir/progress.md" progress
   else
