@@ -75,8 +75,10 @@ enum Comando {
     /// lectura; un skip sale con 0. La nota se busca por el basename del repo
     /// git, sin distinguir mayúsculas: `slug` > último segmento de una entrada
     /// de `repos:` (`owner/nombre`) > nombre de fichero hasta ` — `. Dos notas
-    /// al mismo rango son `ambigua`. `--check` es el gate del máximo de reglas;
-    /// `--coverage`, el informe de cobertura de todas las notas.
+    /// al mismo rango son `ambigua`. Devuelve además las reglas globales de
+    /// `core/reglas-duras.md` (`global`), aparte de las del proyecto.
+    /// `--check` es el gate del máximo de reglas; `--coverage`, el informe de
+    /// cobertura de todas las notas.
     Rules(ArgsRules),
     /// Comprueba el presupuesto de bytes por tier. Imprime el informe entero y
     /// sale con 3 si alguna nota lo rebasa o no declara un tier válido.
@@ -263,8 +265,8 @@ struct ArgsSearch {
     /// efecto.
     #[arg(long = "min-similarity", value_name = "MIN_SIMILARITY")]
     min_similitud: Option<f64>,
-    /// Peso del canal más débil al fusionar (`max + bonus·min`). Solo
-    /// `--type hybrid`; si se omite, el default del engine.
+    /// Peso del canal más débil al fusionar (CombSUM: `v + f + bonus·min`).
+    /// Solo `--type hybrid`; si se omite, el default del engine.
     #[arg(long)]
     bonus: Option<f64>,
     /// Escala de normalización del score de texto completo antes de

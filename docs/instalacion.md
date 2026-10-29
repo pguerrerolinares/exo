@@ -8,10 +8,10 @@
 
 | Camino | Requisitos |
 |---|---|
+| **Desde release** (recomendado) | `git` y `jq`. **Ni Rust ni toolchain C.** |
 | **Desde fuente** | Rust estable (ver mínimo abajo) + toolchain C. En Windows, MSVC. |
 | **Primera indexación** | Red para descargar el modelo de embeddings (~0,6 GB); en frío tarda unos minutos. |
 | **Capa thin (plugin de Claude Code)** | `git` y `jq` ejecutables desde bash. En Windows, Git Bash (Claude Code lo usa para los hooks; no hacen falta wrappers `.cmd`). |
-| **Desde release** (recomendado) | `git` y `jq`. **Ni Rust ni toolchain C.** |
 
 - **Toolchain C obligatorio**: `rusqlite` (SQLite bundled) y `sqlite-vec`
   compilan C durante el build. Sin compilador C, `cargo build` falla — está
@@ -52,29 +52,34 @@ release, **verifican su SHA256 antes de copiar nada**, lo dejan en
 
 **Por qué `~/.local/bin` y no otro sitio del PATH:** es donde caen los dos
 instaladores, y como `~/.local/bin` suele estar en el `PATH`, el pre-commit
-de la KB (`plugins/exo/scripts/kb-precommit.sh:20-21`) lo resuelve por
-`command -v exo` — mismo orden que usan los hooks — antes de mirar el
-literal `$HOME/.local/bin/exo(.exe)` como fallback. Si ninguno de los dos
-resuelve un `exo` ejecutable, ese hook sale 1 y BLOQUEA el commit
-(fail-closed) — el escape consciente es `git commit --no-verify`. `exo
-doctor` tiene un check dedicado al literal (`hook_fallback_binary`).
+de la KB (`plugins/exo/scripts/kb-precommit.sh`) resuelve el binario en el
+mismo orden que los hooks: `$EXO_BIN`, `command -v exo` y, de fallback, el
+literal `$HOME/.local/bin/exo(.exe)`. Si ninguno resuelve un `exo`
+ejecutable, ese hook sale 1 y BLOQUEA el commit (fail-closed): el escape
+consciente es `git commit --no-verify`. `exo doctor` tiene un check
+dedicado al literal (`hook_fallback_binary`).
 
-`install.ps1` además deja un `jq.exe` oficial (jq 1.7.1, SHA256 verificado)
-junto a `exo.exe` si no hay ya un jq real en el PATH, y antepone el
-directorio al PATH de **usuario** (el alias de WindowsApps no es un jq).
-El SHA256 de jq 1.7.1 va fijado en el script. El PATH de usuario se reescribe
-conservando los `%VAR%` (REG_EXPAND_SZ).
-Si superpowers está habilitado en el scope de usuario, lo desactiva
-(`claude plugin disable <clave> --scope user`, nunca uninstall) y te dice cómo
-revertirlo (`claude plugin enable <clave>`). Opt-out: `-KeepSuperpowers` o
-`EXO_DISABLE_SUPERPOWERS=0` (el entorno es lo que llega por `irm | iex`). Sin
-`claude` en el PATH, imprime el comando y sigue.
+**Qué hace cada instalador además de bajar el binario:**
 
-Variables reconocidas: `EXO_DIR` (destino), `EXO_VERSION` (un tag concreto en
-vez de `latest`), `EXO_INIT_KB` + `EXO_INIT_NAME` (encadenan `exo init`; sin
-ellas el instalador imprime el comando, no inventa una KB), `EXO_FORCE=1`
-(`install.sh` reemplaza un wrapper de build con `cuda`, §3; sin ella aborta
-sin tocarlo).
+| | `install.sh` (Linux) | `install.ps1` (Windows) |
+|---|---|---|
+| `jq` | No lo instala: tiene que estar ya (`jq --version`) | Si no hay un jq real en el PATH, deja un `jq.exe` oficial (jq 1.7.1, SHA256 fijado en el script) junto a `exo.exe`; el alias de WindowsApps no cuenta como jq |
+| PATH | No lo toca: avisa si `~/.local/bin` no está | Antepone el directorio al PATH de **usuario**, conservando los `%VAR%` (REG_EXPAND_SZ) |
+| superpowers | No lo toca: se desactiva a mano (§5) | Lo desactiva en el scope de usuario si está habilitado (`claude plugin disable <clave> --scope user`, nunca uninstall) y dice cómo revertirlo (`claude plugin enable <clave>`). Opt-out: `-KeepSuperpowers` o `EXO_DISABLE_SUPERPOWERS=0` (el entorno es lo que llega por `irm \| iex`). Sin `claude` en el PATH, imprime el comando y sigue |
+
+Variables que leen los instaladores:
+
+| Variable | Efecto |
+|---|---|
+| `EXO_DIR` | Destino del binario (default `~/.local/bin`) |
+| `EXO_VERSION` | Un tag concreto en vez de `latest` |
+| `EXO_REPO` | Repo de GitHub del que bajar la release (default `pguerrerolinares/exo`) |
+| `EXO_CONFIG` | Config que el instalador comprueba (default `~/.exo/config.toml`); si existe, no se toca |
+| `EXO_INIT_KB` + `EXO_INIT_NAME` | Encadenan `exo init`; sin ellas el instalador imprime el comando, no inventa una KB |
+| `EXO_FORCE=1` | `install.sh` reemplaza un wrapper de build con `cuda` (§3); sin ella aborta sin tocarlo |
+
+Fuera de los instaladores, `EXO_BIN` fija el binario que usan el pre-commit y
+los hooks del plugin, con precedencia sobre el PATH.
 
 ### Verificar la instalación
 
@@ -82,7 +87,7 @@ sin tocarlo).
 exo doctor
 ```
 
-Trece checks de entorno; cada uno dice **el artefacto que miró**. `warn`
+Catorce checks de entorno; cada uno dice **el artefacto que miró**. `warn`
 informa, `fail` sale con código 3. Con `--json` emite el envelope v2.
 
 ## 3. Compilar el engine
@@ -177,9 +182,9 @@ error: este índice es de otra KB que sigue en disco: <ruta previa> (pediste <ru
 stderr con el mismo criterio si la DB que resuelven trae la ruta de otra KB
 que sigue en disco: una config con `[index] db` mal apuntado (o un `$EXO_DB`
 suelto) responde igual, pero deja de hacerlo en silencio. La KB contra la
-que se compara es la KB ACTIVA de cada comando — `$EXO_KB` > `[kb] path` de
-la config en `exo search` (no tiene `--kb`); `--kb` > `$EXO_KB` > config en
-`exo recall` — nunca una lectura aparte del disco.
+que se compara es la KB ACTIVA de cada comando, con la misma precedencia en
+`exo search` y `exo recall`: `--kb` > `$EXO_KB` > `[kb] path` de la config.
+Nunca una lectura aparte del disco.
 
 Una segunda KB en la misma máquina necesita, además, su propio fichero de
 **config** — `exo init` no tiene flag `--db`, así que la forma de indexar
@@ -199,25 +204,36 @@ EXO_CONFIG=~/.exo/otra-kb.toml exo index
 Una config sirve a una KB; para varias, una config (con su propio
 `EXO_DB` en el `init` que la crea) por KB.
 
+**Los hooks del plugin no siguen a la segunda KB por sí solos.** El hook de
+arranque (`exo-recall.sh`) y el de indexado (`exo-index.sh`) leen el índice
+de `$EXO_INDEX`, que por defecto es `~/.exo/index.db` (una ruta fija, no la
+de la config), y el nombre de la KB de `exo config`, que solo cambia si
+`EXO_CONFIG` está definida. Con la receta de arriba y nada más, la sesión
+sirve la KB por defecto o cae a `recall-fallback` con `no-index`. Para que
+Claude Code trabaje con la segunda KB, exporta las dos en el entorno desde
+el que lo lanzas:
+
+```bash
+export EXO_CONFIG=~/.exo/otra-kb.toml EXO_INDEX=~/.exo/otra-kb.db
+claude
+```
+
 La primera indexación descarga el modelo de embeddings
 (`jinaai/jina-embeddings-v2-base-es`, ~0,6 GB, pineado a una revisión
 concreta de HuggingFace) a la caché local. En frío son varios minutos
 (~6 medidos en la máquina de referencia); las corridas siguientes no
 vuelven a pagarlo.
 
-**La caché respeta `$HF_HOME`** (Task 13, G, 2026-09-16): si la variable
-está definida, el modelo se busca y se descarga bajo `$HF_HOME/hub`; si no,
-bajo `~/.cache/huggingface/hub` (el default de siempre). `exo doctor` mira
-la misma ruta que usa el engine para descargar, así que su check
-`embeddings_model` no puede quedarse mirando un directorio distinto. Si ya
-tenías el modelo cacheado en el default y ahora defines `HF_HOME` por
-primera vez, la próxima indexación vuelve a pagar la descarga completa una
-vez, porque busca en la ruta nueva. Dos efectos que vienen de leer el
-entorno como lo hace `hf-hub` y conviene conocer: el token de HuggingFace se
-busca junto a la caché (`$HF_HOME/token` en vez de
-`~/.cache/huggingface/token`), y si defines **`$HF_ENDPOINT`** el modelo se
-descarga de esa URL en vez de la de HuggingFace — antes esa variable se
-ignoraba.
+**La caché respeta `$HF_HOME`**: si la variable está definida, el modelo se
+busca y se descarga bajo `$HF_HOME/hub`; si no, bajo
+`~/.cache/huggingface/hub`. `exo doctor` mira la misma ruta que usa el
+engine para descargar (check `embeddings_model`). Si ya tenías el modelo
+cacheado en el default y defines `HF_HOME` después, la próxima indexación
+vuelve a pagar la descarga completa, porque busca en la ruta nueva. Dos
+efectos más, por leer el entorno como lo hace `hf-hub`: el token de
+HuggingFace se busca junto a la caché (`$HF_HOME/token` en vez de
+`~/.cache/huggingface/token`), y con **`$HF_ENDPOINT`** el modelo se
+descarga de esa URL en vez de la de HuggingFace.
 
 Comprobación rápida:
 
@@ -237,24 +253,74 @@ claude plugin marketplace add pguerrerolinares/exo
 claude plugin install exo@exo
 ```
 
-Los hooks del plugin necesitan el binario ya instalado (sección 3) y `jq`.
+Los hooks del plugin necesitan el binario ya instalado (§2 o §3) y `jq`.
 Si el engine no está, el plugin no rompe la sesión: degrada a fallbacks
-embebidos y lo deja anotado en `~/.claude/reflex-log.jsonl`. El desfase
-binario↔plugin (un binario más viejo que lo que el plugin instalado declara
-necesitar) sí tiene check dedicado en `exo doctor` (`plugin_compat`,
-campaña H) y en el hook `exo-recall.sh` (SessionStart) — ver
-`docs/backlog.md`.
+embebidos y lo deja anotado en `~/.claude/reflex-log.jsonl`.
 
 **Versiones.** El engine y el plugin versionan por separado: `exo --version`
 es la del binario (= tag de la release); el plugin lleva la suya en
-`plugins/exo/.claude-plugin/plugin.json`. `scripts/test-versiones.sh` impide
-que los ficheros se contradigan.
+`plugins/exo/.claude-plugin/plugin.json`, y `plugins/exo/ENGINE_MIN` declara
+el binario mínimo que necesita. `scripts/test-versiones.sh` impide que los
+ficheros se contradigan. No avanzan juntos: `marketplace add` sigue `main`
+y, con `autoUpdate`, el plugin se actualiza solo, mientras que el binario
+queda en la release que instalaste hasta que lo actualices a mano. El
+desfase (un binario más viejo que `ENGINE_MIN`) lo avisan `exo doctor`
+(check `plugin_compat`) y el hook de arranque `exo-recall.sh`.
+
+### Pasos que completan la instalación
+
+Cuatro cosas que el `install` anterior no hace. La secuencia ejecutable, en
+orden, está en [`instalar-con-agente.md`](instalar-con-agente.md) (paso 4).
+
+1. **`autoUpdate` del marketplace.** Un marketplace añadido con
+   `marketplace add` no lo trae activado. Se añade en `~/.claude/settings.json`
+   con un merge no destructivo (`extraKnownMarketplaces.exo.autoUpdate = true`,
+   copiando el `source` de `~/.claude/plugins/known_marketplaces.json`).
+   Alternativa manual: `claude plugin marketplace update exo` y
+   `claude plugin update exo@exo`, y reiniciar.
+2. **Gate de pre-commit de la KB.** `exo init` no lo instala. El gate corre
+   `exo ratchet --staged` (los techos solo bajan), `exo budget` y
+   `exo rules --check` sobre lo staged, y comprueba que cada nota `.md`
+   nueva o modificada declara `tier` (y `tags`, obligatorio en las nuevas).
+   Se instala como un shim ejecutable en `<kb>/.git/hooks/pre-commit` que
+   delega en el `kb-precommit.sh` de la versión más alta del plugin
+   instalado, de modo que sigue sus actualizaciones y funciona también en
+   Windows (donde `ln -s` copia en vez de enlazar). **Tiene que llevar
+   `chmod +x`**: sin el bit de ejecución git ignora el hook, el commit pasa
+   sin gate y `exo doctor` aun así da `kb_precommit_hook ok`, porque solo
+   mira el contenido del shim. El shim exacto está en el runbook; si
+   `exo doctor` sugiere `ln -sf <repo>/plugins/exo/scripts/kb-precommit.sh`,
+   es una vía equivalente en Linux pero fijada a una ruta del clon, y esta
+   guía usa el shim.
+3. **superpowers.** `exo` lo sustituye y con los dos habilitados se duplican
+   skills y hooks. `install.ps1` lo desactiva; en Linux se hace a mano, en el
+   scope de usuario y nunca con `uninstall`:
+
+   ```bash
+   jq -r '.enabledPlugins | keys[] | select(startswith("superpowers@"))' ~/.claude/settings.json
+   claude plugin disable <clave-que-salga> --scope user   # revertir: claude plugin enable <clave>
+   ```
+
+   Check: `exo doctor` (fila `superpowers_disabled`).
+4. **`composeHook` (solo cuentas Team/Enterprise).** El guard
+   `cc-plugin-sec-default` intercepta `prompt.compose` y Claude Code avisa
+   en cada turno; sin pérdida funcional, porque las reglas del proyecto
+   llegan igual por `prompt.submit`. La vía segura es la fila «Registrar el
+   hook prompt.compose» de `/config` en Claude Code. La alternativa por
+   línea de comandos,
+   `echo '{"composeHook":"false"}' | claude plugin configure exo@exo --values-stdin`,
+   respeta el formato que declara el help (objeto JSON de strings), pero
+   **no está verificado** que Claude Code convierta `"false"` al booleano
+   que el plugin compara de forma estricta (`options.composeHook === false`
+   en `register.ts`): si no lo hace, el comando no tiene efecto. Tras
+   usarla, comprueba que el aviso desaparece.
 
 ## 6. Correr los tests
 
 ```bash
 cd engine
 cargo test            # suite completa
+cargo test -- --include-ignored   # además, los tests marcados #[ignore]
 scripts/test-hermetico.sh   # gate: la suite entera sin ~/.exo/config.toml
 ```
 
@@ -265,17 +331,23 @@ Dos avisos honestos, ambos anotados en `docs/backlog.md`:
   corrida lo descarga (~0,6 GB); en un runner sin red ni caché, esas suites
   fallan. El gate de hermeticidad cubre la config, no esta segunda
   dependencia.
-- Dos tests van marcados `#[ignore]` precisamente por dependencias de
-  entorno (descarga del modelo, índice real); se corren explícitos con
-  `--ignored`.
+- Doce tests van marcados `#[ignore]`. Casi todos por lentos (nueve en
+  `engine/tests/inicia.rs`, porque `exo init` carga el modelo, y uno en
+  `buscador.rs`); `smoke.rs` descarga el modelo y `rechazo_envelope.rs`
+  necesita el `~/.exo/index.db` real. Los dos flags válidos son `--ignored`
+  (solo ellos) e `--include-ignored` (toda la suite más ellos).
 
 ## 7. Lo que NO hay todavía
 
-- **Binario para macOS (retirado el 2026-10-04) ni para Linux ARM.** Solo se
-  publican `x86_64-unknown-linux-gnu` y `x86_64-pc-windows-msvc`; en macOS o
-  en un Linux aarch64 toca compilar
-  desde fuente. Los instaladores lo detectan y abortan diciéndolo, en vez de
-  dejar un binario que no arranca.
+- **Binario para macOS ni para Linux ARM.** Solo se publican
+  `x86_64-unknown-linux-gnu` y `x86_64-pc-windows-msvc`; en macOS o en un
+  Linux aarch64 toca compilar desde fuente. Los instaladores lo detectan y
+  abortan diciéndolo, en vez de dejar un binario que no arranca.
+- **Adoptar una KB que no sea de basic-memory.** `exo init` solo vuelca la
+  semilla sobre una carpeta vacía o adopta una KB de basic-memory
+  (`--from-basic-memory`). `exo init --force` permite volcar la semilla sobre
+  una carpeta con contenido, pero **pisa lo que haya dentro**: no lo uses
+  para adoptar una KB existente.
 - **`exo diff-since` y `exo history`.** No se portan por decisión: se usan
   `git diff`/`git log` directamente (ver skill `distill`).
 
@@ -291,12 +363,12 @@ Encontrados en máquinas reales. El camino guiado está en
 | Hooks `.sh` no arrancan o corren en WSL | El `bash` del PATH es `System32\bash.exe` (WSL), no Git Bash | Git for Windows antes en el PATH, o `CLAUDE_CODE_GIT_BASH_PATH` a `Git\bin\bash.exe`. Check: `exo doctor` (fila `git_bash`) |
 | `exo init` falla al descargar el modelo | `exo` (ureq + rustls) solo ve el proxy por `HTTPS_PROXY`/`ALL_PROXY`, no el de Windows, y confía solo en `webpki-roots`, no en la CA corporativa | `HTTPS_PROXY` definido; o `HF_ENDPOINT` a un espejo interno; o copiar `~/.cache/huggingface/hub/models--jinaai--jina-embeddings-v2-base-es` de otra máquina (respeta `HF_HOME`) |
 | `exo init` muere a los 2 min | Timeout por defecto del Bash tool; la descarga en frío tarda ~6 min | Background o `timeout: 600000` |
-| `exo init`: «existe y no está vacía» | Por diseño: no pisa notas | Carpeta nueva o vacía; adoptar una KB existente solo se soporta desde basic-memory |
+| `exo init`: «existe y no está vacía» | Por diseño: no pisa notas | Carpeta nueva o vacía; adoptar una KB existente solo se soporta desde basic-memory (`exo init --force` la pisaría: no lo uses para esto, §7) |
 | La KB queda sin commits | `exo init` commitea best-effort y sin `user.email` falla en silencio | `git config --global user.email …` y commitear a mano |
 | `database is locked` | Dos indexados a la vez (`init` y el hook `Stop`) | Esperar a que termine uno; `ps -W` lista el binario como `exo`, sin `.exe` |
 | Commit de la KB bloqueado | El pre-commit no encuentra `exo` o el plugin (fail-closed) | Revisar PATH / plugin; escape consciente: `git commit --no-verify` |
 | `exo budget` o el pre-commit: «sin tier» / «falta tags» | Nota creada con `exo write new` sin `--tier` o sin `tags` en el frontmatter del `--from` | Añadir `tier` y `tags` al frontmatter |
-| Aviso «prompt.compose hook was skipped» en cada turno | Cuenta Team/Enterprise: el guard `cc-plugin-sec-default` lo intercepta | `echo '{"composeHook":"false"}' \| claude plugin configure exo@exo --values-stdin` |
+| Aviso «prompt.compose hook was skipped» en cada turno | Cuenta Team/Enterprise: el guard `cc-plugin-sec-default` lo intercepta | Poner `composeHook` a `false` en la fila de `/config` (vía segura); la alternativa por `claude plugin configure` no está verificada, §5 |
 | Skills o hooks duplicados | superpowers sigue habilitado | `claude plugin disable superpowers@<marketplace> --scope user`. Check: `exo doctor` (fila `superpowers_disabled`) |
 | Cada prompt tarda ~1,5 s más | Coste de los hooks bajo Git Bash (≈20 procesos por hook; W11 p50 ≈ 1,7 s) | Esperado |
 | PowerShell: `&&` no es válido | Windows PowerShell 5.1 no lo admite (sí `pwsh` 7) | Ejecutar desde Git Bash, o encadenar con `;` |
