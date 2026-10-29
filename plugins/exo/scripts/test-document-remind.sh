@@ -68,11 +68,14 @@ else fail "sin_latido: ss skip error_engine sin hb grita" "out=$OUT"; fi
 
 # no_entrego
 echo '{"status":"ok","n":3,"repo":"exo"}' > "$RULES/ss-b"
-echo '{"status":"error","n":0,"error":"x"}' > "$RULES/hb-b"
+printf '%s\n' '{"status":"error","n":0,"error":"exit 2: boom\nlinea2"}' > "$RULES/hb-b"
 run b "$SMALL"
 EXP='⚠ el mod de reglas de proyecto no entregó: SessionStart vio ok n=3, el latido dice error n=0'
 if [ "$(msg)" = "$EXP" ] && contains "$(witness_reasons)" "reason=no_entrego"; then pass "no_entrego: copy exacto"
 else fail "no_entrego: copy exacto" "out=$OUT"; fi
+# #235: el error del latido va al log (no a pantalla), en una línea
+if contains "$(witness_reasons)" " err=exit 2: boom linea2"; then pass "no_entrego: log lleva err= del latido"
+else fail "no_entrego: log lleva err= del latido" "log=$(witness_reasons)"; fi
 
 # n_distinto
 echo '{"status":"ok","n":3,"repo":"exo"}' > "$RULES/ss-c"
@@ -119,10 +122,10 @@ else fail "hb vacío: cuenta como corrupto" "out=$OUT"; fi
 # M2: ss skip + hb error: callado en pantalla, pero con rastro en el log
 : > "$REFLEX_LOG_FILE"
 echo '{"status":"skip","reason":"sin_nota","n":0,"repo":"exo"}' > "$RULES/ss-he"
-echo '{"status":"error","n":0,"error":"x"}' > "$RULES/hb-he"
+echo '{"status":"error","n":0,"error":"timeout"}' > "$RULES/hb-he"
 run he "$SMALL"
-if [ -z "$OUT" ] && contains "$(witness_reasons)" "reason=hb_error"; then pass "ss skip + hb error: calla en pantalla, log hb_error"
-else fail "ss skip + hb error: calla en pantalla, log hb_error" "out=$OUT log=$(witness_reasons)"; fi
+if [ -z "$OUT" ] && contains "$(witness_reasons)" "reason=hb_error err=timeout"; then pass "ss skip + hb error: calla en pantalla, log hb_error con err="
+else fail "ss skip + hb error: calla en pantalla, log hb_error con err=" "out=$OUT log=$(witness_reasons)"; fi
 
 # sin_ss_solo_log
 : > "$REFLEX_LOG_FILE"
