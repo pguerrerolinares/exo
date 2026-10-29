@@ -32,6 +32,12 @@ más fácil se hace mal si se improvisa.
   por si hace falta consultarlo. Un agente no debería necesitar leer aquí en
   el flujo normal de trabajo.
 
+## Reglas globales
+
+Si existe `core/reglas-duras.md`, sus reglas globales viven en la sección
+`## Reglas duras`: como mucho 10 y solo mecánicas (verificables por un hook o
+un gate). El fichero es opcional: sin él, `exo rules` no da reglas globales.
+
 ## `tier`: qué significa y qué valores tiene
 
 Todas las notas llevan un campo `tier` en el frontmatter que indica su
