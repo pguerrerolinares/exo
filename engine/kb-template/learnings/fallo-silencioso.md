@@ -74,10 +74,10 @@ La variante de la prosa está en
 Lo exclusivo: dos detectores del mismo concepto con tolerancias distintas
 pierden datos en el borde entre ambos. **Un solo detector por concepto, o un
 test de acoplamiento que falle cuando diverjan; si el contrato viaja como
-texto, que viaje como identificador estable, no como frase.** Y **un cambio de default es una
-superficie user-facing**: tras un cutover, el `--help`, los mensajes de error y
-la doctrina siguen anunciando el mundo viejo, y ningún gate lo caza porque no es
-código; se actualizan en el mismo cambio.
+texto, que viaje como identificador estable, no como frase.** Tampoco compila el texto que anuncia un comportamiento: **cambiar un default
+es tocar una superficie de usuario**. Ayuda, errores y docs que describen el
+valor anterior siguen en pie y ningún gate los ve; se corrigen en el mismo
+cambio.
 
 ## 4. Exit 0 mide terminación, no efecto
 
@@ -85,12 +85,10 @@ Un job con una dependencia caducada terminaba en exit 0 (degradación elegante)
 sin haber producido nada. **Verifica contra el estado** (un `select count(*)`,
 el fichero en disco), no contra la salida de la operación. Con cron o procesos
 detached, **prueba con `env -i`**: un `jq` invisible en el PATH lo mata sin
-ruido. Variante: **un hook que se desactiva sin avisar ante un input ausente**
-(un hook que lee la ruta de un transcript que en ciertos modos de ejecución no
-existe, registra un `skip` en su log y sale con 0). No se pone rojo: el
-comportamiento que daba desaparece, y el modelo no ve ningún aviso. Remedio: un
-canario que ejecute el hook en ese modo y compruebe que **el efecto está**, no
-que terminó.
+ruido. Hay un primo: **el hook que se apaga solo cuando falta un input**. Si en un
+modo headless no llega el dato que necesita, anota el motivo en su log y termina
+bien; el efecto que prometía desaparece sin rastro visible. Un canario que lo
+corra en ese modo y compruebe el efecto lo caza.
 
 ## 5. Dos cambios correctos pueden componer un fallo
 
@@ -110,24 +108,25 @@ Un negativo solo vale si el instrumento puede ver: ver
 - **Telemetría de todo "unresolved" con su razón**: así el hueco tiene nombre
   y tamaño en vez de ser un cero.
 
-## 7. Un gate se diseña también para lo que no mira
+## 7. Un gate también se diseña para lo que no mira
 
-Dos formas de que un gate falle callado sin ser un check roto.
+Tres huecos de diseño, ninguno es un check roto.
 
-- **Reglas cuya intersección no tiene salida.** Reglas añadidas en momentos
-  distintos pueden dejar una banda sin estado legal: un cap sobre la primera
-  declaración de un techo y una guarda de holgura mínima, sin solape en cierto
-  rango de tamaños. Una pieza de ese tamaño recibía a la vez "bájalo" y
-  "súbelo", y ningún mensaje decía lo único que funciona (adelgazar o partir).
-  Nadie decidió esa banda: es aritmética de dos constantes que nunca se miraron
-  juntas. **Al añadir una regla a un gate con otras, calcula la intersección**;
-  el remedio no es relajar una, es **nombrar el estado imposible con un finding
-  propio y accionable**. Si cambia una política vigente, decláralo.
-- **Gates que solo vigilan a quien se declaró.** Un control que se dispara
-  únicamente cuando alguien registra una excepción (un `--force`, una marca de
-  "esto es especial") no ve lo que nadie declaró, y eso es justo lo que se
-  cuela. **Cubre también lo no declarado**; con que sea informativo basta,
-  porque convierte un hueco invisible en uno con nombre.
+- **Reglas cuya intersección no tiene salida.** Dos umbrales escritos por
+  separado pueden no compartir ningún valor válido: uno exige menos de X, otro
+  más de Y, con Y > X en cierto rango. Quien cae ahí recibe consejos opuestos y
+  ningún mensaje le dice qué hacer de verdad. Al añadir una regla, **calcula
+  su intersección con las vigentes**; si hay un rango imposible, no relajes una
+  regla: dale su propio finding con la acción que sí sirve, y declara si eso
+  cambia una política existente.
+- **Gates que solo vigilan a quien se declaró.** Si el control salta solo
+  cuando alguien registra una excepción, lo no declarado pasa libre y declarar
+  sale caro. **Cubre también lo no declarado**; con que sea informativo basta,
+  porque da nombre a un hueco invisible.
+- **Señales que no separan baseline de deuda nueva.** Un sensor que cuenta el
+  total de hallazgos está siempre en rojo en un repo con historia, o siempre en
+  verde si se le sube el umbral hasta callarlo. Mide el **delta contra una
+  línea base fijada**: lo que este cambio añade.
 
 ## Cuándo no aplica
 
