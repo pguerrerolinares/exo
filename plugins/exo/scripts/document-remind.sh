@@ -45,20 +45,27 @@ if [ ! -f "$WSENT" ]; then
     fi
     [ -z "$HB_ST" ] && { HB_ST="corrupto"; HB_N="?"; }
     # hb de 1.6.1 sin via = compose; corrupto no se lee.
-    HB_VIA=""; HB_ORG=""
+    HB_VIA=""; HB_ORG=""; HB_ERR=""
     if [ "$HB_ST" != "corrupto" ]; then
       HB_VIA="$(jq -r '.via // ""' "$HB" 2>/dev/null | tr -d '\r')" || HB_VIA=""
       HB_ORG="$(jq -r '.org // ""' "$HB" 2>/dev/null | tr -d '\r')" || HB_ORG=""
+      # El mod sobrescribe el latido en cada compose: si no se loguea aquí, la causa del fallo se pierde (#235).
+      HB_ERR="$(jq -r '.error // ""' "$HB" 2>/dev/null | tr '\r\n' '  ' | head -c 200)" || HB_ERR=""
     fi
+    # Punto ciego declarado: una sesión abierta y cerrada sin prompt deja el latido «sin entrega»
+    # (siembra de session.start) pero no dispara Stop, así que nunca llega aquí como sin_canal.
+    # No pierde reglas: sin turno no hay system prompt que las lleve (#235).
     if [ "$HB_VIA" = "none" ] && [ "${SS_N:-0}" -gt 0 ] 2>/dev/null; then
       WREASON="sin_canal"
       WITNESS_MSG="⚠ el mod de reglas de proyecto cargó pero ningún canal entregó (via=none): SessionStart vio ${SS_ST} n=${SS_N}; ¿política de la org nueva o exo rules falla?"
     elif [ "$HB_ST" = "corrupto" ] || { [ "$HB_ST" = "error" ] && [ "${SS_N:-0}" -gt 0 ] 2>/dev/null; }; then
       WREASON="no_entrego"
       WITNESS_MSG="⚠ el mod de reglas de proyecto no entregó: SessionStart vio ${SS_ST} n=${SS_N}, el latido dice ${HB_ST} n=${HB_N}"
+      WITNESS_LOG="${HB_ERR:+ err=$HB_ERR}"
     elif [ "$HB_ST" = "error" ]; then
       # El mod falló pero no había reglas que entregar: sin ruido en pantalla, con rastro.
       WREASON="hb_error"
+      WITNESS_LOG="${HB_ERR:+ err=$HB_ERR}"
     elif [ "$HB_ST" != "$SS_ST" ] || [ "$HB_N" != "$SS_N" ]; then
       # ss es una foto de SessionStart y compose corre en cada prompt: la KB pudo
       # cambiar a mitad de sesión. Solo el engine adjudica quién tiene razón.
