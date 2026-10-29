@@ -18,6 +18,28 @@ fn rastros_caza_un_positivo_conocido() {
 }
 
 #[test]
+fn rastros_caza_cada_alternativa_por_separado() {
+    for palabra in [
+        "paul",
+        "bizkaia",
+        "kbx",
+        "lighthouses",
+        "fable",
+        "wisdom",
+        "2026-",
+        "exo#7",
+    ] {
+        let r = rastros(&format!("x {} y", palabra.to_uppercase()));
+        assert_eq!(r.len(), 1, "la regex no caza {palabra:?}; hubo {r:?}");
+    }
+}
+
+#[test]
+fn la_excepcion_no_se_traga_un_kbx_suelto() {
+    assert_eq!(rastros("kbx .kbx-ratchet.json").len(), 1);
+}
+
+#[test]
 fn rastros_no_cuenta_el_fichero_del_trinquete() {
     assert_eq!(
         rastros("sellado en .kbx-ratchet.json"),
