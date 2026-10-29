@@ -184,6 +184,9 @@ try {
         throw "install: el binario instalado en $destino no responde a --version (exit $LASTEXITCODE)."
     }
 
+    # Aqui `$HOME` (perfil) y NO `$env:HOME`, a diferencia de `$Dir`: exo
+    # resuelve su config con `dirs::home_dir()`, que en Windows es el perfil e
+    # ignora HOME. Mirar `$env:HOME` buscaria la config donde exo no la lee.
     $cfg = if ($env:EXO_CONFIG) { $env:EXO_CONFIG } else { Join-Path $HOME '.exo\config.toml' }
     if (Test-Path $cfg) {
         Write-Host "install: config ya existente en $cfg - no se toca"
@@ -220,6 +223,8 @@ try {
     } else {
         # Misma fuente que `exo doctor` (check superpowers_disabled): una clave
         # enabledPlugins 'superpowers@*' a true en el settings.json de usuario.
+        # `$HOME` (perfil) por lo mismo que `$cfg`: Claude Code lee su
+        # settings.json bajo `os.homedir()`, que en Windows es USERPROFILE.
         if ($env:EXO_CLAUDE_SETTINGS) { $claudeSettings = $env:EXO_CLAUDE_SETTINGS } else { $claudeSettings = Join-Path $HOME '.claude\settings.json' }
         $spKey = $null
         if (Test-Path $claudeSettings) {

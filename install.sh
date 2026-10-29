@@ -114,7 +114,10 @@ fi
 # El exit 3 de doctor significa «esta máquina tiene deuda», no «la instalación
 # falló», así que no se propaga — pero tampoco se traga en silencio:
 # install.ps1 lo dice, y este no puede ser el más callado de los dos.
-if ! "$EXO_DIR/$bin" doctor; then
-  ec=$?
+# `ec=$?` dentro de `if ! cmd` lee el de la negación (siempre 0): se captura
+# fuera del `if`. `|| ec=$?` además lo saca del alcance de `set -e`.
+ec=0
+"$EXO_DIR/$bin" doctor || ec=$?
+if [ "$ec" -ne 0 ]; then
   echo "install: doctor ha marcado deuda (exit $ec) — mira las filas 'fail' de arriba" >&2
 fi

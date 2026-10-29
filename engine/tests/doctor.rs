@@ -432,8 +432,13 @@ fn una_kb_sin_hook_instalado_avisa_con_el_comando_para_instalarlo() {
     let c = check(&informe, "kb_precommit_hook");
     assert_eq!(c.estado, Estado::Warn, "no instalado es deuda, no rotura");
     assert!(
-        c.detalle.contains("ln -sf"),
-        "dice cómo instalarlo: {}",
+        c.detalle.contains("instalar-con-agente.md") && c.detalle.contains("chmod +x"),
+        "dice cómo instalarlo, con el mismo shim que el runbook: {}",
+        c.detalle
+    );
+    assert!(
+        !c.detalle.contains("ln -sf"),
+        "el symlink no es el remedio (en Windows copia): {}",
         c.detalle
     );
 }
@@ -463,6 +468,17 @@ fn shim_precommit(kb: &Path, cuerpo: &str) {
     let hooks = kb.join(".git").join("hooks");
     fs::create_dir_all(&hooks).unwrap();
     fs::write(hooks.join("pre-commit"), cuerpo).unwrap();
+    hazlo_ejecutable(&hooks.join("pre-commit"));
+}
+
+/// Git ignora un hook sin bit de ejecución: los fixtures llevan el modo que
+/// tienen en la realidad (el script del plugin va 100755 en git).
+fn hazlo_ejecutable(_ruta: &Path) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(_ruta, fs::Permissions::from_mode(0o755)).unwrap();
+    }
 }
 
 /// Instala un `kb-precommit.sh` falso en el layout del plugin bajo `home`.
@@ -478,10 +494,51 @@ fn plugin_con_script(home: &Path, familia: &str, version: &str) -> PathBuf {
     fs::create_dir_all(&dir).unwrap();
     let ruta = dir.join("kb-precommit.sh");
     fs::write(&ruta, b"#!/usr/bin/env bash\nexit 0\n").unwrap();
+    hazlo_ejecutable(&ruta);
     ruta
 }
 
 const SHIM_DE_LA_KB: &str = "#!/usr/bin/env bash\nexec bash \"$script\" # kb-precommit.sh\n";
+
+/// #230: git ignora un pre-commit sin bit de ejecución y el commit pasa sin
+/// gate. Antes, el shim que resolvía al plugin daba `ok` igual.
+#[cfg(unix)]
+#[test]
+fn un_shim_sin_bit_de_ejecucion_es_fail_con_el_chmod() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let kb = dir.path().join("kb");
+    shim_precommit(&kb, SHIM_DE_LA_KB);
+    let hook = kb.join(".git").join("hooks").join("pre-commit");
+    fs::set_permissions(&hook, fs::Permissions::from_mode(0o644)).unwrap();
+    plugin_con_script(&dir.path().join("home"), "exo", "1.0.0");
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "kb_precommit_hook");
+    assert_eq!(c.estado, Estado::Fail, "git lo ignora: el gate no corre");
+    assert!(
+        c.detalle.contains("chmod +x"),
+        "da el remedio: {}",
+        c.detalle
+    );
+}
+
+/// Mismo caso por la rama symlink: git sigue el enlace, y lo que cuenta es el
+/// modo del destino.
+#[cfg(unix)]
+#[test]
+fn un_symlink_a_un_script_sin_bit_de_ejecucion_es_fail() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let hooks = dir.path().join("kb").join(".git").join("hooks");
+    fs::create_dir_all(&hooks).unwrap();
+    let script = plugin_con_script(&dir.path().join("home"), "exo", "1.1.1");
+    fs::set_permissions(&script, fs::Permissions::from_mode(0o644)).unwrap();
+    std::os::unix::fs::symlink(&script, hooks.join("pre-commit")).unwrap();
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "kb_precommit_hook");
+    assert_eq!(c.estado, Estado::Fail);
+    assert!(c.detalle.contains("chmod +x"), "detalle: {}", c.detalle);
+}
 
 #[test]
 fn un_shim_que_no_resuelve_a_ningun_script_es_fail() {

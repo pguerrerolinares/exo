@@ -116,5 +116,23 @@ else
   fallos=1
 fi
 
+# --- Caso 4 (#231): doctor con deuda (exit 3) -> la instalación sale 0, pero
+# el aviso nombra el exit real. `ec=$?` dentro de `if ! cmd` imprimía «exit 0».
+rel="$TMP/release-deuda"; dest="$TMP/bin-deuda"
+fabrica_release "$rel" '#!/bin/sh
+[ "$1" = doctor ] && exit 3
+echo exo-falso'
+if ! EXO_BASE_URL="$(file_url "$rel")" EXO_DIR="$dest" bash ./install.sh >"$TMP/deuda.log" 2>&1; then
+  echo "test-install: FALLO — la deuda de doctor tumbó la instalación" >&2
+  cat "$TMP/deuda.log" >&2
+  fallos=1
+elif ! grep -q 'deuda (exit 3)' "$TMP/deuda.log"; then
+  echo "test-install: FALLO — el aviso no nombra el exit 3 de doctor" >&2
+  cat "$TMP/deuda.log" >&2
+  fallos=1
+else
+  echo "test-install: OK — doctor con exit 3 avisa con su código y no aborta"
+fi
+
 [ "$fallos" -eq 0 ] || { echo "test-install: hay fallos" >&2; exit 1; }
-echo "test-install: OK — los tres casos"
+echo "test-install: OK — los cuatro casos"

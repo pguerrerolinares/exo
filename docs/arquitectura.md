@@ -485,8 +485,8 @@ Detalles que el diagrama no cuenta:
   dueño (0,99 por sesión): el padre que cierra con propuesta + «¿te parece?»
   sin delegar. Si el último texto del turno casa el detector y no hubo
   `Agent`/`Task` en el segmento, bloquea el cierre y pide lanzar el consultor
-  o el ejecutor. Si la pregunta es de Paul, el cierre empieza por
-  `[reserva: externo|irreversible|re-scope|hecho-de-Paul|pedido]`. Tope: un
+  o el ejecutor. Si la pregunta es del usuario, el cierre empieza por
+  `[reserva: externo|irreversible|re-scope|hecho-del-usuario|pedido]`. Tope: un
   bloqueo por mensaje humano (sentinel por sesión), y una ola SDD lanzada
   por un mensaje humano se bloquea una sola vez; sin mensaje humano
   (`claude -p`/SDK) no hay tope: bloquea en cada cierre que casa, salvo el

@@ -132,6 +132,7 @@ s="$(ls -d "$HOME"/.claude/plugins/cache/exo/exo/*/scripts/kb-precommit.sh 2>/de
 [ -n "$s" ] || { echo "kb-precommit: no encuentro el plugin exo; commit BLOQUEADO (escape: git commit --no-verify)" >&2; exit 1; }
 exec bash "$s" "$@"
 EOF
+chmod +x "<ruta-kb>/.git/hooks/pre-commit"   # sin el bit, git ignora el hook
 ```
 
 **Check del arranque, ya en esta sesión** (detecta un modelo o un índice

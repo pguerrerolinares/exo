@@ -10,7 +10,9 @@
 # Desde G4c (2026-09-10) el gate depende de `exo`, no de `kbx` — cutover de
 # invocaciones de binario, el formato de `.kbx-ratchet.json` no cambia.
 #
-# Instalar:  ln -sf <este fichero> <kb>/.git/hooks/pre-commit
+# Instalar:  el shim de docs/instalar-con-agente.md («Gate de pre-commit de la KB»)
+#            en <kb>/.git/hooks/pre-commit + chmod +x. Resuelve el plugin instalado:
+#            sigue sus actualizaciones y vale en Windows, donde `ln -s` copia.
 # Saltar:    git commit --no-verify   (declarado: es un gate contra el descuido)
 set -uo pipefail
 

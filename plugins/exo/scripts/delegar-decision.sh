@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Stop hook: el padre no cierra turno con propuesta + petición de visto bueno sin delegar.
 #
-# Por qué: medido sobre 99 sesiones, ~1 de cada 4 cierres del padre pide permiso a Paul
+# Por qué: medido sobre 99 sesiones reales, ~1 de cada 4 cierres del padre pide permiso al usuario
 # («¿te parece?») para algo que un consultor o un ejecutor podía resolver antes. Spec:
 # docs/superpowers/specs/2026-10-28-delegar-decision-design.md.
 #
@@ -62,5 +62,5 @@ fi
 
 log "delegar-decision" "kind=${KIND} patron=${PATRON} reserva_fuera=${FUERA} tail=${TAIL}"
 
-REASON='Cerraste con propuesta + petición de visto bueno sin delegar. Lanza ahora el consultor (skills/brainstorm/consultor-brief.md) o el ejecutor y cierra con su resultado; o, si la pregunta es de Paul, reescribe el cierre empezando por [reserva: externo|irreversible|re-scope|hecho-de-Paul|pedido].'
+REASON='Cerraste con propuesta + petición de visto bueno sin delegar. Lanza ahora el consultor (skills/brainstorm/consultor-brief.md) o el ejecutor y cierra con su resultado; o, si la pregunta es del usuario, reescribe el cierre empezando por [reserva: externo|irreversible|re-scope|hecho-del-usuario|pedido].'
 jq -n --arg r "$REASON" '{decision: "block", reason: $r}'
