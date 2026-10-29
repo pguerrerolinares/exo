@@ -119,6 +119,7 @@ fi
 # --- Caso 4 (#231): doctor con deuda (exit 3) -> la instalación sale 0, pero
 # el aviso nombra el exit real. `ec=$?` dentro de `if ! cmd` imprimía «exit 0».
 rel="$TMP/release-deuda"; dest="$TMP/bin-deuda"
+# shellcheck disable=SC2016 # el binario falso es texto literal del fixture
 fabrica_release "$rel" '#!/bin/sh
 [ "$1" = doctor ] && exit 3
 echo exo-falso'
