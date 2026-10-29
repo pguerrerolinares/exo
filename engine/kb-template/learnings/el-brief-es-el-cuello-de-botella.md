@@ -66,12 +66,13 @@ debe tener el resultado.
   afirmación no la corrobora: se copiaron entre sí, y la doc no verifica a la
   doc. Una función "existente" en el canon puede no estar en el código; un
   `grep` lo cierra en segundos.
-- **La reconsulta lleva los datos crudos y la regla de decisión, nunca tu
-  propuesta.** Si se la pasas, el consultor tiende a sumarse y no distingues
-  convicción de deferencia. Pídele que argumente por qué tu opción sería peor.
-- **Las cifras del consultor son estado declarado.** Contrastes, tamaños y
-  versiones se recalculan con una herramienta antes de entrar a la spec o al
-  diseño.
+- **Al reconsultar, entrega la evidencia sin procesar y el criterio con que
+  se decide, y reserva tu inclinación.** Si adelantas tu solución, el
+  consultor tiende a respaldarla y no sabrás si coincide o si cede. Pídele
+  que defienda por qué tu opción sería la peor.
+- **Trata sus números como afirmaciones sin comprobar.** Ratios, medidas y
+  versiones que cite se vuelven a calcular con una herramienta antes de
+  incorporarlos al diseño.
 - **Instancia no es contrato.** Al bootstrapear un artefacto con contrato
   (config, formato de skill), valídalo contra el contrato canónico, no contra la
   instancia de otro proyecto.
