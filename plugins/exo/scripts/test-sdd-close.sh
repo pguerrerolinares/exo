@@ -219,6 +219,15 @@ printf '## MUTACIÓN\nMUTACIÓN: no disponible (sin herramienta para este repo)\
 close; M=$(metrica)
 if [ "$RC" = 0 ] && contains "$M" ' mutacion=sin-dato '; then pass close_metricas_mutacion_no_disponible; else fail close_metricas_mutacion_no_disponible "rc=$RC M=$M"; fi
 
+# 13b'. protocolo manual (#114): el score vive en el report, no en el package => `proyecto:manual`, no sin-dato;
+# un score numérico del mismo proyecto en otro package gana
+mkwave m6 '- `true`'; wclose 1; wclose 2
+printf '## MUTACIÓN\nMUTACIÓN: manual (protocolo del report)\nMUTACIÓN [app]: manual (protocolo del report)\nMUTACIÓN [lib]: manual (protocolo del report)\n' > "$WS/review-a..b.diff"
+printf '## MUTACIÓN\nMUTACIÓN [lib]: 8/10 (80%%) — 2 superviviente(s)\n' > "$WS/review-c..d.diff"
+close; M=$(metrica)
+if [ "$RC" = 0 ] && contains "$M" 'app:manual' && contains "$M" 'lib:80%' && ! contains "$M" 'sin-dato'; then
+  pass close_metricas_mutacion_manual; else fail close_metricas_mutacion_manual "rc=$RC M=$M"; fi
+
 # 13c. un package ilegible => mutacion=? y el close sigue igual (exit 0, archiva, borra)
 mkwave m5 '- `true`'; wclose 1; wclose 2; mkdir "$WS/review-roto..x.diff"
 close; M=$(metrica)

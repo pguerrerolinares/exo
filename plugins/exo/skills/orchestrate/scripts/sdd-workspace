@@ -228,7 +228,11 @@ if [ "$close" = 1 ]; then
           sec && index($0, "MUTACIÓN [") == 1 { l = substr($0, 12); l = substr(l, 1, index(l, "]") - 1); k = 1 }
           sec && index($0, "MUTACIÓN: ") == 1 { l = "global"; k = 2 }
           !k { next }
-          { if ($0 !~ /IC95 \[/ && match($0, /\([0-9]+%\)/)) { v = substr($0, RSTART + 1, RLENGTH - 3); if (k == 1) d[l] = v; else g = v }
+          # Protocolo manual (#114): el score está en el report del ejecutor, no aquí.
+          { v = ""
+            if ($0 !~ /IC95 \[/ && match($0, /\([0-9]+%\)/)) v = substr($0, RSTART + 1, RLENGTH - 3)
+            else if (index($0, ": manual")) v = "manual"
+            if (v != "") { if (k == 1) d[l] = v; else g = v }
             k = 0 }
           END { for (x in d) { print x, d[x]; nd++ } if (!nd && g != "") print "global", g }' "$f"); then
         todas="$todas$una"$'\n'
@@ -238,8 +242,11 @@ if [ "$close" = 1 ]; then
     done
     if [ "$bad" = 1 ]; then mut='?'
     else
-      mut=$(printf '%s' "$todas" | awk 'NF == 2 { if (!($1 in m) || $2 + 0 < m[$1]) m[$1] = $2 + 0 }
-        END { for (x in m) printf "%s%s:%d%%", (n++ ? "," : ""), x, m[x] }') || mut='?'
+      # Peor score numérico por proyecto; `manual` solo si ese proyecto no tiene ninguno.
+      mut=$(printf '%s' "$todas" | awk 'NF == 2 { if ($2 == "manual") { man[$1] = 1; next }
+          if (!($1 in m) || $2 + 0 < m[$1]) m[$1] = $2 + 0 }
+        END { for (x in m) printf "%s%s:%d%%", (n++ ? "," : ""), x, m[x]
+              for (x in man) if (!(x in m)) printf "%s%s:manual", (n++ ? "," : ""), x }') || mut='?'
       [ -n "$mut" ] || mut=sin-dato
     fi
     printf 'Métricas: olas=%s anchos=%s plan_kb=%s codigo=%s mutacion=%s wallclock=manual basura=manual turnos=manual\n' \

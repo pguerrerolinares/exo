@@ -275,8 +275,9 @@ ahora es finding> — <coste si está mal>`.
 - `plan_kb`/`codigo`: KB del fichero del plan y fracción de sus bytes dentro de bloques con valla (` ``` `/`~~~`).
 - `mutacion`: `<proyecto>:<p>%` separados por comas (`global` si el package no trae líneas por proyecto), el
   PEOR score entre los `review-*.diff` del workspace; los muestreados (`IC95`) no cuentan. Sin packages o sin
-  ningún score (`no disponible`/`parcial`) ⇒ `sin-dato`: es «sin dato», no neutro. La línea no nombra la herramienta,
-  solo el proyecto.
+  ningún score (`no disponible`/`parcial`) ⇒ `sin-dato`: es «sin dato», no neutro. Un proyecto con protocolo
+  manual (#114) y sin score en ningún package sale `<proyecto>:manual`: el score está en el report del ejecutor y
+  lo copia el orquestador a `Métricas manuales:`. La línea no nombra la herramienta, solo el proyecto.
 - `wallclock`: el ledger no lleva timestamps ni el header del plan lo declara, así que sale `manual`.
 - Un campo que no se pudo calcular sale `?` (p. ej. un package ilegible) y el close sigue igual: la métrica nunca rompe el cierre.
 
