@@ -1,8 +1,8 @@
 use tempfile::TempDir;
 
 #[test]
-fn son_diecisiete_ficheros() {
-    assert_eq!(exo::plantilla::FICHEROS.len(), 17);
+fn son_dieciocho_ficheros() {
+    assert_eq!(exo::plantilla::FICHEROS.len(), 18);
 }
 
 #[test]
@@ -13,10 +13,10 @@ fn render_sustituye_el_placeholder() {
 }
 
 #[test]
-fn vuelca_escribe_los_diecisiete_y_no_deja_placeholders() {
+fn vuelca_escribe_los_dieciocho_y_no_deja_placeholders() {
     let dir = TempDir::new().unwrap();
     let escritos = exo::plantilla::vuelca(dir.path(), "mi-kb").expect("volcar");
-    assert_eq!(escritos.len(), 17);
+    assert_eq!(escritos.len(), 18);
     for f in &escritos {
         assert!(f.exists(), "no existe {}", f.display());
         if f.extension().is_some_and(|e| e == "md") {
@@ -101,4 +101,38 @@ fn todos_los_wikilinks_de_la_semilla_resuelven() {
         rotos.len(),
         rotos.join("\n")
     );
+}
+
+/// Los subagentes reciben solo los primeros 550 B de "Doctrina compacta":
+/// la nota nueva no puede desplazar a las dos líneas que ya viven ahí.
+#[test]
+fn la_nota_nueva_esta_enlazada_en_core_index_fuera_de_los_primeros_550_b() {
+    let alias = "learnings/el-consultor-dictamina-el-humano-firma";
+    let fichero = |ruta: &str| {
+        exo::plantilla::FICHEROS
+            .iter()
+            .find(|(r, _)| *r == ruta)
+            .unwrap_or_else(|| panic!("{ruta} no está embebido"))
+            .1
+    };
+    let index = fichero("core/core-index.md");
+    let off = index
+        .find(&format!("|{alias}]]"))
+        .expect("core-index enlaza la nota nueva con alias");
+    // Los 550 B se cuentan desde el inicio de "Doctrina compacta", no del fichero.
+    let off = off
+        - index
+            .find("## Doctrina compacta")
+            .expect("core-index tiene Doctrina compacta");
+    assert!(
+        off >= 550,
+        "la línea entra en los 550 B de subagentes: {off}"
+    );
+    let nota = fichero(&format!("{alias}.md"));
+    for a in [
+        "learnings/orquestador-limpio",
+        "learnings/el-brief-es-el-cuello-de-botella",
+    ] {
+        assert!(nota.contains(&format!("|{a}]]")), "la nota no enlaza {a}");
+    }
 }

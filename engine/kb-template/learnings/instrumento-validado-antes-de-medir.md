@@ -16,6 +16,7 @@ Un número solo significa lo que crees si el instrumento que lo produjo hace lo 
 - **"0 resultados" informa del instrumento, no del mundo.** Además, un negativo cerrado en falso deja señuelos: el fenómeno no detectado produce artefactos que se persiguen como señal.
 - **Un negativo heredado se re-verifica con el instrumento correcto**, no con el que lo produjo. Un subagente que dice "está roto" o "no hay dato" tras un error de acceso también es un instrumento sin validar: reprodúcelo con una llamada propia antes de diseñar alrededor.
 - **Calibra antes de medir, nunca después.** Un gate pre-registrado admite corrección con la ventana cerrada; abierta, cada ajuste es indistinguible de amañar. Señal de honestidad: que los ajustes vayan en direcciones opuestas. Y vigila que instrumento y sujeto no compartan canal (los smokes que validan el aparato escriben en el mismo log que la ventana que abren).
+- **Un negativo del harness no se hereda en producción.** Un entorno de eval aislado no reproduce las condiciones reales, así que su cero no predice la tasa de campo: contrástalo con el registro de producción, descontando lo que generan las propias pruebas. Y comprueba que lo medido es el sistema desplegado, con cada pieza activa, no una variante recortada: una prueba de humo por pieza (canario) lo demuestra.
 
 ## Cuando el instrumento es un juez
 
@@ -27,6 +28,7 @@ Un número solo significa lo que crees si el instrumento que lo produjo hace lo 
 - **Pipeline medido desde fuera: reconstruye el censo de la fase.** "No está en el resultado final" no dice qué fase lo causó: muchos elementos ni se extrajeron, otros cayeron por otro filtro, otros por deduplicación. Una métrica que parecía prometedora medía en realidad el momento en que actuaba la extracción; con el censo bien hecho el mismo modelo quedaba al nivel del azar. Mira qué entró a la fase, no qué salió del pipeline entero, y no cruces por claves truncadas.
 - **Verifica el control contra el código, no contra el nombre del flag.** Un "brazo text" que sin flag caía al default hybrid hizo que el criterio comparase hybrid contra sí mismo, y daba la respuesta opuesta a la real. **Mide la separación entre brazos**: dos "modos distintos" con salida casi idéntica son el mismo código.
 - **Valida la métrica desde la fuente, no la que tu instrumento hace fácil.** Un diseño puede construirse entero sobre una métrica relativa porque el banco de pruebas la ofrece de serie, cuando el objetivo real se puntúa con una absoluta: la métrica equivocada invierte el veredicto. Adjudica en el entorno de despliegue (la misma palanca puede ser null contra un entorno de prueba débil y dañina contra el real).
+- **Valida el gold con material que no haya visto.** Un umbral ajustado contra el propio gold hereda sus sesgos, y culpar al gold a ojo es igual de poco fiable. Reúne juicios ciegos sobre un conjunto mezclado de salidas y prueba el umbral con negativos recién obtenidos: lo que parecía separar bien suele aflojarse. Que el gold esté saturado se comprueba con ese pool, no se da por hecho.
 
 ## Estocástico, pre-registro y estado del mundo
 
