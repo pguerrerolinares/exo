@@ -84,3 +84,52 @@ fn combinar_concatena_razones_y_steers() {
 fn combinar_vacio_es_allow() {
     assert_eq!(combinar(vec![]), Decision::Allow);
 }
+
+#[test]
+fn combinar_block_gana_a_deny() {
+    let d = combinar(vec![
+        Decision::Block("b".into()),
+        Decision::Deny("d".into()),
+    ]);
+    assert_eq!(d, Decision::Block("b".into()));
+    let d = combinar(vec![
+        Decision::Deny("d".into()),
+        Decision::Block("b".into()),
+    ]);
+    assert_eq!(d, Decision::Block("b".into()));
+}
+
+#[test]
+fn combinar_rewrite_gana_a_steer() {
+    let rw = Decision::Rewrite {
+        input: json!({"a":1}),
+        razon: "r".into(),
+    };
+    for ds in [
+        vec![Decision::Steer("s".into()), rw.clone()],
+        vec![rw.clone(), Decision::Steer("s".into())],
+    ] {
+        assert_eq!(combinar(ds), rw);
+    }
+}
+
+#[test]
+fn combinar_varios_rewrite_gana_el_primero() {
+    let a = Decision::Rewrite {
+        input: json!({"a":1}),
+        razon: "r1".into(),
+    };
+    let b = Decision::Rewrite {
+        input: json!({"b":2}),
+        razon: "r2".into(),
+    };
+    assert_eq!(combinar(vec![a.clone(), b.clone()]), a);
+}
+
+#[test]
+fn combinar_allow_no_tapa_a_steer() {
+    assert_eq!(
+        combinar(vec![Decision::Allow, Decision::Steer("s".into())]),
+        Decision::Steer("s".into())
+    );
+}
