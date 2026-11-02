@@ -33,7 +33,7 @@ Plan: 240 min, 70 turnos, 30 KB
 
 ## Mutación
 
-- `engine`: manual (el `cargo-mutants` nocturno ya existente cubre `engine/src/hook/` cuando entra en main)
+- `engine`: manual
 - `plugins/exo/scripts`: manual
 
 ## Excluir de la review
