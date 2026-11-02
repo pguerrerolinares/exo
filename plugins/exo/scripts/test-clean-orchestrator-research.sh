@@ -75,10 +75,11 @@ fi
 MATCHER="$(jq -r '.hooks.PreToolUse[] | select(any(.hooks[]; .command | test("clean-orchestrator-research"))) | .matcher' "$HOOKS_JSON")"
 malos=""
 for t in WebSearch WebFetch mcp__claude-in-chrome__navigate mcp__claude-in-chrome__get_page_text \
+         mcp__Claude_Browser__navigate mcp__Claude_Browser__get_page_text \
          mcp__plugin_playwright_playwright__browser_navigate mcp__playwright__browser_navigate; do
   printf '%s' "$t" | grep -Eq -- "$MATCHER" || malos="$malos no-casa:$t"
 done
-for t in Bash WebSearchX mcp__claude-in-chrome__computer \
+for t in Bash WebSearchX mcp__claude-in-chrome__computer mcp__Claude_Browser__computer \
          mcp__plugin_playwright_playwright__browser_navigate_back \
          mcp__plugin_playwright_playwright__browser_click; do
   printf '%s' "$t" | grep -Eq -- "$MATCHER" && malos="$malos casa:$t"
@@ -113,6 +114,19 @@ if [ -z "$OUT7" ] && [ -z "$OUT7B" ] && avisa "$OUT7C"; then
   pass "caso7: navigate back/forward calla sin gastar el aviso"
 else
   fail "caso7: navigate back/forward calla sin gastar el aviso" "out7=$OUT7 out7b=$OUT7B out7c=$OUT7C"
+fi
+
+# Caso 8: el navegador integrado de la app desktop (mcp__Claude_Browser__*)
+# se comporta como claude-in-chrome: una web externa avisa; localhost y
+# back/forward callan sin gastar el aviso.
+OUT8="$(corre c8 mcp__Claude_Browser__navigate '{"url":"http://localhost:5173/"}')"
+OUT8B="$(corre c8 mcp__Claude_Browser__navigate '{"url":"back"}')"
+OUT8C="$(corre c8 mcp__Claude_Browser__navigate '{"url":"https://example.com"}')"
+OUT8D="$(corre c9 mcp__Claude_Browser__get_page_text '{}')"
+if [ -z "$OUT8" ] && [ -z "$OUT8B" ] && avisa "$OUT8C" && avisa "$OUT8D"; then
+  pass "caso8: Claude_Browser navigate externo avisa; localhost y back callan"
+else
+  fail "caso8: Claude_Browser navigate externo avisa; localhost y back callan" "out8=$OUT8 out8b=$OUT8B out8c=$OUT8C out8d=$OUT8D"
 fi
 
 echo ""

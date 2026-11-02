@@ -994,6 +994,80 @@ assert_no_deny "F4 grep 'git add .' → log, sin deny"      "grep -rn 'git add .
   fi
 }
 
+# ---------------------------------------------------------------------------
+# Sección G: tool PowerShell (Windows) -- mismo input {command}, tool_name
+# "PowerShell". Rewrite también (pwsh 7 tiene &&) salvo rutas con ~; warn con
+# Set-Location & co; deny de git add -A; verify-before-done cuenta PowerShell.
+# ---------------------------------------------------------------------------
+echo ""
+echo "--- Sección G: tool PowerShell ---"
+
+make_payload_ps() {
+  local cwd="$1" transcript="$2" cmd="$3"
+  jq -nc --arg c "$cmd" --arg cwd "$cwd" --arg t "$transcript" \
+    '{session_id:"test-sid",cwd:$cwd,tool_name:"PowerShell",tool_input:{command:$c},hook_event_name:"PreToolUse"}
+     + (if $t=="" then {} else {transcript_path:$t} end)'
+}
+
+ps_run() { # cmd [cwd] -> stdout; deja el log vacío
+  : > "$REFLEX_LOG_FILE"
+  make_payload_ps "${2:-/tmp/bash-guards-test}" "" "$1" | bash "$HOOK" 2>/dev/null
+}
+
+check_ps() { # name cond-result(0/1) detail
+  if [ "$2" = "0" ]; then printf '[PASS] %s\n' "$1"; PASS=$((PASS+1))
+  else printf '[FAIL] %s — %s\n' "$1" "$3"; FAIL=$((FAIL+1)); fi
+}
+
+OUT="$(ps_run 'cd C:/repo && git status')"
+# ruta con unidad/dos puntos: fuera del patrón literal => sin rewrite, solo warn
+check_ps "G1 PowerShell cd C:/... && git → sin rewrite (warn)" \
+  "$([ -z "$OUT" ] && jq -e 'select(.reflex=="git-c")' "$REFLEX_LOG_FILE" >/dev/null 2>&1 && echo 0 || echo 1)" "out=$OUT"
+
+OUT="$(ps_run 'cd /repo/sub && git log --oneline')"
+check_ps "G2 PowerShell cd /ruta && git log → rewrite" \
+  "$([ "$(printf '%s' "$OUT" | jq -r '.hookSpecificOutput.updatedInput.command // empty')" = "git -C /repo/sub log --oneline" ] && echo 0 || echo 1)" "out=$OUT"
+
+OUT="$(ps_run 'Set-Location /repo/sub && git status')"
+check_ps "G3 PowerShell Set-Location /ruta && git status → rewrite" \
+  "$([ "$(printf '%s' "$OUT" | jq -r '.hookSpecificOutput.updatedInput.command // empty')" = "git -C /repo/sub status" ] && echo 0 || echo 1)" "out=$OUT"
+
+OUT="$(ps_run 'cd ~/repo && git status')"
+check_ps "G4 PowerShell cd ~/ruta → NO rewrite (PS 5.1 no expande ~), warn" \
+  "$([ -z "$OUT" ] && jq -e 'select(.reflex=="git-c")' "$REFLEX_LOG_FILE" >/dev/null 2>&1 && echo 0 || echo 1)" "out=$OUT"
+
+OUT="$(ps_run 'cd ~/repo && git status')"
+OUT_B="$(: > "$REFLEX_LOG_FILE"; make_payload 'cd ~/repo && git status' | bash "$HOOK" 2>/dev/null)"
+check_ps "G5 Bash sigue reescribiendo cd ~/ruta" \
+  "$([ "$(printf '%s' "$OUT_B" | jq -r '.hookSpecificOutput.updatedInput.command // empty')" = "git -C ~/repo status" ] && echo 0 || echo 1)" "out=$OUT_B"
+
+for c in 'Set-Location C:\repo; git push' 'sl C:\repo && git commit -m x' 'Push-Location C:\repo; git pull' 'pushd C:\repo && git fetch' 'SET-LOCATION C:\repo; git status'; do
+  OUT="$(ps_run "$c" /tmp/x)"
+  check_ps "G6 PowerShell warn git-c: $c" \
+    "$([ -z "$OUT" ] && jq -e 'select(.reflex=="git-c")' "$REFLEX_LOG_FILE" >/dev/null 2>&1 && echo 0 || echo 1)" "out=$OUT"
+done
+
+# Bash no debe avisar por Set-Location (solo PowerShell)
+OUT="$(: > "$REFLEX_LOG_FILE"; make_payload 'Set-Location /x; git push' | bash "$HOOK" 2>/dev/null)"
+check_ps "G7 Bash + Set-Location → silencio (sin ramificación PS)" \
+  "$([ -z "$OUT" ] && [ ! -s "$REFLEX_LOG_FILE" ] && echo 0 || echo 1)" "out=$OUT"
+
+OUT="$(ps_run 'git add -A' "$REPO_REAL")"
+check_ps "G8 PowerShell git add -A → deny" \
+  "$([ "$(printf '%s' "$OUT" | jq -r '.hookSpecificOutput.permissionDecision // empty')" = "deny" ] && echo 0 || echo 1)" "out=$OUT"
+
+# verify-before-done: un test previo lanzado por PowerShell cuenta como verde
+{
+  REPO="$(make_repo caso-ps "foo.py:print('hi')")"
+  T="${TMPDIR_BASE}/t-ps.jsonl"
+  transcript_tool_use "t1" "mvn test" | sed 's/"name":"Bash"/"name":"PowerShell"/' > "$T"
+  transcript_tool_result "t1" "false" >> "$T"
+  BEFORE="$(wc -l < "$REFLEX_LOG_FILE" 2>/dev/null || echo 0)"
+  OUTPUT="$(make_payload_ps "$REPO" "$T" "git commit -m fix" | bash "$HOOK" 2>/dev/null)"
+  AFTER="$(wc -l < "$REFLEX_LOG_FILE" 2>/dev/null || echo 0)"
+  assert_vbd_silent "G9 test verde por PowerShell + commit → silencio" "$BEFORE" "$AFTER" "$OUTPUT"
+}
+
 echo ""
 TOTAL=$((PASS+FAIL))
 echo "=== Resultado: ${PASS}/${TOTAL} pasaron ==="

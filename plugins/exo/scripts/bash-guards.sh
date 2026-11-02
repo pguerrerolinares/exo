@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# PreToolUse (matcher: Bash): script UNICO que funde los tres guards de
-# PreToolUse:Bash -- git-c-bash.sh (reflejo "git -C"), git-add-all-guard.sh
+# PreToolUse (matcher: ^(Bash|PowerShell)$): script UNICO que funde los tres
+# guards de PreToolUse:Bash/PowerShell -- git-c-bash.sh (reflejo "git -C"), git-add-all-guard.sh
 # (reflejo "zero-residuo") y verify-before-commit.sh (reflejo
 # "verify-before-done"). Motivo: triple PreToolUse:Bash medido en W11 tras
 # la Task 4 de la campaña I = 587 ms > 200 ms, el umbral de fusion de
@@ -74,6 +74,14 @@
 #   rama 3 SI pueden dispararse juntas (`git add -A && git commit -m x`) --
 #   cubierto en test-bash-guards.sh.
 #
+#   PowerShell (Windows): Claude Code expone el tool `PowerShell` ademas de
+#   `Bash`, con el mismo input `{command}`. Las tres ramas corren igual; las
+#   diferencias estan marcadas con IS_PS: 1a no reescribe si la ruta empieza
+#   por `~` (PowerShell 5.1 no la expande en args nativos) y acepta
+#   `Set-Location` ademas de `cd`; 1b casa ademas Set-Location/sl/
+#   Push-Location/pushd; la rama 3 cuenta un test previo lanzado por
+#   PowerShell. `tool_name` sale de la misma extraccion jq (sin spawn extra).
+#
 #   Warn-only, nunca rompe: si jq falla o el INPUT no es JSON valido, exit
 #   0 sin salida -- igual que los tres scripts originales.
 set -uo pipefail
@@ -108,20 +116,25 @@ command -v jq >/dev/null 2>&1 || exit 0
 # separador de linea rompería. `read -r -d ''` consume hasta el NUL o EOF;
 # como jq emite un NUL final tras CADA campo (incluido el ultimo), las
 # cuatro lecturas siempre tienen delimitador explicito.
-CMD="" SID="" CWD="" TRANSCRIPT=""
+CMD="" SID="" CWD="" TRANSCRIPT="" TOOL=""
 {
   IFS= read -r -d '' CMD
   IFS= read -r -d '' SID
   IFS= read -r -d '' CWD
   IFS= read -r -d '' TRANSCRIPT
+  IFS= read -r -d '' TOOL
 } < <(printf '%s' "$INPUT" | jq -j '
     (.tool_input.command // ""), "\u0000",
     (.session_id // ""), "\u0000",
     (.cwd // ""), "\u0000",
-    (.transcript_path // ""), "\u0000"
+    (.transcript_path // ""), "\u0000",
+    (.tool_name // ""), "\u0000"
   ' 2>/dev/null)
 
 [ -z "$CMD" ] && exit 0
+
+IS_PS=0
+[ "$TOOL" = "PowerShell" ] && IS_PS=1
 
 REWRITE_JSON=""
 
@@ -135,18 +148,25 @@ REWRITE_JSON=""
 # (preservado como red de regresion) -- aqui se porta la logica tal cual.
 REWRITE_ALLOWLIST='status|log|diff|show|rev-parse|describe|ls-files|blame|shortlog|reflog|grep'
 REWRITE_RE='^cd[[:space:]]+([A-Za-z0-9._/~-]+)[[:space:]]*&&[[:space:]]*git[[:space:]]+(.+)$'
+if [ "$IS_PS" = "1" ]; then
+  REWRITE_RE='^([Cc]d|[Ss]et-[Ll]ocation)[[:space:]]+([A-Za-z0-9._/~-]+)[[:space:]]*&&[[:space:]]*git[[:space:]]+(.+)$'
+  RW_PATH=2 RW_REST=3
+else
+  RW_PATH=1 RW_REST=2
+fi
 NEW_CMD=""
 case "$CMD" in
   *$'\n'*) : ;;  # multiline: nunca rewrite
   *)
     if [[ "$CMD" =~ $REWRITE_RE ]]; then
-      CD_PATH="${BASH_REMATCH[1]}"
-      GIT_REST="${BASH_REMATCH[2]}"
+      CD_PATH="${BASH_REMATCH[$RW_PATH]}"
+      GIT_REST="${BASH_REMATCH[$RW_REST]}"
       REWRITE_OK=0
       case "$CD_PATH" in
         -*) : ;;
         ..|../*|*/..|*/../*) : ;;
         [!/~]*) [ -z "${CDPATH:-}" ] && REWRITE_OK=1 ;;
+        '~'*) [ "$IS_PS" = "0" ] && REWRITE_OK=1 ;;
         *) REWRITE_OK=1 ;;
       esac
       # shellcheck disable=SC2016 # `$` literal dentro de la clase de caracteres de grep
@@ -179,6 +199,8 @@ fi
 # nunca se alcanza. ----
 if [ "$GITC_REWROTE" -eq 0 ]; then
   if printf '%s' "$CMD" | grep -Eq 'cd[[:space:]]+[^&;|]+(&&|;)[[:space:]]*git([[:space:]]|$)'; then
+    . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && reflex_log "git-c" "$INPUT" "$CMD" || true
+  elif [ "$IS_PS" = "1" ]        && printf '%s' "$CMD" | grep -Eiq '(^|[^[:alnum:]_-])(set-location|sl|push-location|pushd)[[:space:]]+[^&;|]+(&&|;)[[:space:]]*git([[:space:]]|$)'; then
     . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && reflex_log "git-c" "$INPUT" "$CMD" || true
   fi
 fi
@@ -268,7 +290,7 @@ if printf '%s' "$CMD" | grep -Eq "$PATRON_VBD" \
                   ] | from_entries ) as $errmap
               | ( [ range(0; $uses | length) as $i
                     | $uses[$i]
-                    | select(.name=="Bash" and ((.cmd | test($re1)) or (.cmd | test($re2))))
+                    | select((.name=="Bash" or .name=="PowerShell") and ((.cmd | test($re1)) or (.cmd | test($re2))))
                     | $i ] | last ) as $ti
               | if $ti == null then "warn"
                 elif $errmap[$uses[$ti].id] != false then "warn"
