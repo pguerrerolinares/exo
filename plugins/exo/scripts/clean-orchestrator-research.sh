@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # PreToolUse (matcher: WebSearch, WebFetch y la navegación de los MCP de
-# navegador — claude-in-chrome y playwright; regex exacta en hooks/hooks.json):
+# navegador — claude-in-chrome, playwright y el navegador integrado de la app
+# desktop (mcp__Claude_Browser__navigate/get_page_text, mismo input `url`); regex exacta en hooks/hooks.json):
 # reflejo "orquestador limpio".
 # Warn-only, NUNCA bloquea (exit 0 siempre). Recuerda delegar la investigacion
 # web a un subagente (Explore / research con modelo barato) para no ensuciar el

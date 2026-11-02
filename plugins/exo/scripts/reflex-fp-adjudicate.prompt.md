@@ -53,7 +53,7 @@ qué hizo el agente justo después del aviso (¿lo aplicó? ¿lo ignoró con raz
     e intencional (p.ej. un retry con backoff de algo externo, o un test que se sabe
     rojo y se está iterando con cambios reales entre intentos).
 
-- **`verify-before-done`** — dispara en `PreToolUse:Bash` ante `git commit` de código
+- **`verify-before-done`** — dispara en `PreToolUse:Bash`/`PowerShell` ante `git commit` de código
   sin test verde reciente (< 30 min) en la sesión. El estado lo escribe `test-run-tracker.sh`.
   - **TP**: el agente iba a commitear código funcional sin haber corrido los tests (o
     habiéndolos corrido hace más de 30 min, o habiendo fallado el último). El recordatorio
@@ -64,7 +64,7 @@ qué hizo el agente justo después del aviso (¿lo aplicó? ¿lo ignoró con raz
     y el aviso es ruido estructural; **o** el commit contenía solo docs/markdown (filtro
     de extensiones debería haberlo callado — si disparó es un bug en el filtro).
 
-- **`zero-residuo`** — dispara en `PreToolUse:Bash` ante `git add -A`/`--all`/`.`.
+- **`zero-residuo`** — dispara en `PreToolUse:Bash`/`PowerShell` ante `git add -A`/`--all`/`.`.
   - **TP**: el agente iba a hacer un `git add -A` real que habría incluido ficheros no
     relacionados con el cambio en curso (residuo de otras tareas, ficheros generados,
     etc.). El recordatorio de añadir explícitamente era pertinente.

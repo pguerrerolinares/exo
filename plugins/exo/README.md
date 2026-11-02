@@ -74,14 +74,14 @@ Tabla exacta al cableado vivo (una fila por comando de `hooks.json`):
 | Reflejo | Evento | Fichero | Efecto | Qué hace |
 |---|---|---|---|---|
 | red-gate | `PreToolUse:SubagentHandback` | `scripts/red-gate.sh` | solo log | Registra si un `exo:executor` entrega sin línea `exit=[1-9]` en `red.log`. Promoción a deny pendiente de medir. |
-| clean-orchestrator | `PreToolUse:WebSearch\|WebFetch\|navegación MCP` | `scripts/clean-orchestrator-research.sh` | avisa | Recuerda delegar el research a subagentes (parent-only, 1×/sesión, no en apps locales). |
+| clean-orchestrator | `PreToolUse:WebSearch\|WebFetch\|navegación MCP (chrome, playwright, navegador de la app)` | `scripts/clean-orchestrator-research.sh` | avisa | Recuerda delegar el research a subagentes (parent-only, 1×/sesión, no en apps locales). |
 | search-first | `PreToolUse:Agent\|Task\|Edit\|Write\|NotebookEdit` | `scripts/search-first.sh` | avisa | Avisa si el primer `Agent`/`Task`/`Edit`/`Write` de la sesión no fue precedido de `exo search`/`exo targets` (1×/sesión, no en subagentes). |
 | exo-recall | `SessionStart` | `scripts/exo-recall.sh` | avisa (inyecta) | Inyecta el `core-index` y las notas recientes servidos por el engine; reafirma reflejos tras `compact`; avisa de un gate de `/document` pendiente y de superpowers habilitado; escribe el testigo `ss-<sid>`. Cae a un fallback embebido si el engine es < `ENGINE_MIN`. |
 | estilo-directo | `SessionStart` | `scripts/estilo-directo.sh` | avisa (inyecta) | Inyecta la directiva estática de estilo de `estilo-directo.md`. |
 | document-remind | `Stop` | `scripts/document-remind.sh` | avisa | Recuerda `/document` al cerrar (1×/sesión, con umbral de transcript) y hace de testigo de entrega de reglas (`ss-` vs `hb-`). |
 | subagent-inject | `SubagentStart` | `scripts/subagent-inject.sh` | avisa (inyecta) | Inyecta doctrina por perfil y, según el perfil, las reglas duras (ver abajo). |
 | exo-index | `Stop` | `scripts/exo-index.sh` | mantenimiento | Reindexa la KB al cerrar la sesión; best-effort. |
-| bash-guards | `PreToolUse:Bash` | `scripts/bash-guards.sh` | reescribe / deniega | Reescribe `cd <path> && git <lectura>` a `git -C`; **deniega** `git add -A`/`--all`/`.` sin pathspec; registra `git commit` sin test verde reciente (sin avisar). |
+| bash-guards | `PreToolUse:Bash\|PowerShell` | `scripts/bash-guards.sh` | reescribe / deniega | Reescribe `cd <path> && git <lectura>` a `git -C` (en PowerShell también `Set-Location`, y no si la ruta lleva `~`); **deniega** `git add -A`/`--all`/`.` sin pathspec; registra `git commit` sin test verde reciente (sin avisar). |
 | sdd-wake-guard | `Stop` | `scripts/sdd-wake-guard.sh` | bloquea | Con un ledger SDD activo y tareas de fondo vivas sin cron, pide un `CronCreate` que siga `skills/orchestrate/despertar.md`. |
 | delegar-decision | `Stop` | `scripts/delegar-decision.sh` | bloquea | Bloquea el cierre del padre si cierra con propuesta + petición de visto bueno sin lanzar `Agent`/`Task`. Escape `[reserva: externo\|irreversible\|re-scope\|hecho-del-usuario\|pedido]`; tope de un bloqueo por mensaje humano; requiere `python3`. |
 | subagent-bg-guard | `SubagentStop` | `scripts/subagent-bg-guard.sh` | bloquea | Bloquea una vez el cierre de un subagente con tareas de fondo propias vivas y pide `TaskStop` o esperar sobre el log. |
