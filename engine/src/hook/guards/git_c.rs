@@ -1,0 +1,1 @@
+//! Guard git -C.

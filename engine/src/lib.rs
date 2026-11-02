@@ -13,6 +13,7 @@ pub mod escritor;
 pub mod frontmatter;
 pub mod gate;
 pub mod gitx;
+pub mod hook;
 pub mod indexer;
 pub mod inicia;
 pub mod lint;

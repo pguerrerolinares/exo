@@ -1,0 +1,148 @@
+//! Tipos neutrales del hook: evento, herramienta, decisión y entorno.
+
+use serde_json::Value;
+use std::path::PathBuf;
+
+/// Única lectura de `std::env` de todo `hook/`; el resto recibe un `Entorno`.
+#[derive(Debug, Clone)]
+pub struct Entorno {
+    pub state_dir: PathBuf,
+    pub reflex_log: PathBuf,
+    pub cdpath_definido: bool,
+    pub panic_guard: Option<String>,
+}
+
+impl Entorno {
+    pub fn desde_env() -> Entorno {
+        let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+        let var = |k: &str| std::env::var_os(k).filter(|v| !v.is_empty());
+        Entorno {
+            state_dir: var("EXO_STATE_DIR")
+                .map(PathBuf::from)
+                .unwrap_or_else(|| home.join(".exo/state")),
+            reflex_log: var("REFLEX_LOG_FILE")
+                .map(PathBuf::from)
+                .unwrap_or_else(|| home.join(".claude/reflex-log.jsonl")),
+            cdpath_definido: var("CDPATH").is_some(),
+            // Solo en debug: en release un env no puede inyectar panics en los guards.
+            #[cfg(debug_assertions)]
+            panic_guard: std::env::var("EXO_HOOK_PANIC").ok(),
+            #[cfg(not(debug_assertions))]
+            panic_guard: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Harness {
+    Claude,
+}
+
+impl Harness {
+    pub fn nombre(&self) -> &'static str {
+        match self {
+            Harness::Claude => "claude",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EventoKind {
+    PreToolUse,
+    PostToolUse,
+    PostToolUseFailure,
+    Otro(String),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Clase {
+    Shell,
+    FileEdit,
+    Agent,
+    Web,
+    Mcp,
+    Other,
+}
+
+#[derive(Debug, Clone)]
+pub struct Tool {
+    pub nombre: String,
+    pub clase: Clase,
+    pub input: Value,
+    pub command: Option<String>,
+    pub paths: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Evento {
+    pub harness: Harness,
+    pub kind: EventoKind,
+    pub session_id: String,
+    pub cwd: String,
+    pub agent_id: String,
+    pub agent_type: String,
+    /// stdin tal cual: el pre-filtro de git lo necesita sin parsear.
+    pub crudo: String,
+    pub tool: Option<Tool>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Decision {
+    Allow,
+    Deny(String),
+    Rewrite { input: Value, razon: String },
+    Steer(String),
+    Block(String),
+}
+
+pub fn clasifica(nombre: &str, input: &Value) -> (Clase, Option<String>, Vec<String>) {
+    let campo = |k: &str| input.get(k).and_then(Value::as_str).map(str::to_string);
+    match nombre {
+        "Bash" | "PowerShell" => (Clase::Shell, campo("command"), vec![]),
+        "Edit" | "Write" | "NotebookEdit" => {
+            let clave = if nombre == "NotebookEdit" {
+                "notebook_path"
+            } else {
+                "file_path"
+            };
+            match campo(clave) {
+                Some(p) => (Clase::FileEdit, None, vec![p]),
+                // Sin ruta no hay nada que vigilar: se abstiene.
+                None => (Clase::Other, None, vec![]),
+            }
+        }
+        "Agent" | "Task" => (Clase::Agent, None, vec![]),
+        "WebFetch" | "WebSearch" => (Clase::Web, None, vec![]),
+        n if n.starts_with("mcp__") => (Clase::Mcp, None, vec![]),
+        _ => (Clase::Other, None, vec![]),
+    }
+}
+
+/// Precedencia Block > Deny > Rewrite > Steer > Allow; las razones del mismo
+/// rango se concatenan con línea en blanco.
+pub fn combinar(ds: Vec<Decision>) -> Decision {
+    let mut block = vec![];
+    let mut deny = vec![];
+    let mut steer = vec![];
+    let mut rewrite = None;
+    for d in ds {
+        match d {
+            Decision::Block(r) => block.push(r),
+            Decision::Deny(r) => deny.push(r),
+            Decision::Steer(r) => steer.push(r),
+            Decision::Rewrite { .. } if rewrite.is_none() => rewrite = Some(d),
+            Decision::Rewrite { .. } | Decision::Allow => {}
+        }
+    }
+    if !block.is_empty() {
+        Decision::Block(block.join("\n\n"))
+    } else if !deny.is_empty() {
+        Decision::Deny(deny.join("\n\n"))
+    } else if let Some(r) = rewrite {
+        r
+    } else if !steer.is_empty() {
+        Decision::Steer(steer.join("\n\n"))
+    } else {
+        Decision::Allow
+    }
+}
