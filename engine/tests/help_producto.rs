@@ -50,6 +50,7 @@ const PANTALLAS: &[&[&str]] = &[
     &["rotate"],
     &["stale"],
     &["doctor"],
+    &["hook"],
 ];
 
 /// Líneas de una sección (`Commands:`, `Options:`, `Arguments:`) hasta la
