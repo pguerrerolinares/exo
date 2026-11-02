@@ -428,8 +428,10 @@ struct ArgsDoctor {
 #[derive(clap::Args)]
 struct ArgsHook {
     /// Agente que invoca el hook (`claude`). Cualquier otro valor se ignora.
+    #[arg(default_value = "")]
     harness: String,
     /// Evento del agente (`PreToolUse`, `PostToolUse`, `PostToolUseFailure`).
+    #[arg(default_value = "")]
     evento: String,
 }
 
@@ -1565,21 +1567,24 @@ fn imprime_informe_ratchet(informe: &exo::trinquete::Informe) {
     }
 }
 
-/// `exo stale`: urgencia de actualización por nota (`obsolescencia::calcula`).
-/// Solo lectura — el único exit no-cero es 1, un error de IO/parseo; la
-/// obsolescencia en sí es información, no un veredicto de gate (kbx: "the
-/// only non-zero exit is 2 (IO/usage)" — misma idea, exit distinto porque
-/// en exo 2 es de clap).
+/// `exo hook`: nunca falla; ver `hook::runner::ejecutar`.
 fn hook_cmd(args: ArgsHook) {
     use std::io::{Read, Write};
     let mut stdin = Vec::new();
     // Sin stdin legible el hook degrada a una entrada vacía, que cuenta como ilegible.
     let _ = std::io::stdin().read_to_end(&mut stdin);
+    // Los panics se registran en el reflex-log; stderr queda vacío.
+    std::panic::set_hook(Box::new(|_| {}));
     let en = exo::hook::evento::Entorno::desde_env();
     let salida = exo::hook::runner::ejecutar(&en, &args.harness, &args.evento, &stdin);
     let _ = std::io::stdout().write_all(salida.as_bytes());
 }
 
+/// `exo stale`: urgencia de actualización por nota (`obsolescencia::calcula`).
+/// Solo lectura — el único exit no-cero es 1, un error de IO/parseo; la
+/// obsolescencia en sí es información, no un veredicto de gate (kbx: "the
+/// only non-zero exit is 2 (IO/usage)" — misma idea, exit distinto porque
+/// en exo 2 es de clap).
 fn stale_cmd(args: ArgsStale) -> Result<()> {
     let db_ruta = resuelve_db(args.db)?;
     if !db_ruta.exists() {

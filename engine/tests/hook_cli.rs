@@ -202,3 +202,58 @@ fn cli_panic_en_guard_no_rompe() {
         "{r:?}"
     );
 }
+
+#[test]
+fn cli_cdpath_definido_no_reescribe_relativo() {
+    let cmd = bash("PreToolUse", "cd repo && git status");
+    let e = Entorno::nuevo();
+    let o = e.corre(&["claude", "PreToolUse"], &cmd, &[("CDPATH", "/x")]);
+    assert_eq!(o.status.code(), Some(0));
+    assert!(
+        o.stdout.is_empty(),
+        "{}",
+        String::from_utf8_lossy(&o.stdout)
+    );
+    // Sin CDPATH la misma entrada sí se reescribe.
+    let o = e.corre(&["claude", "PreToolUse"], &cmd, &[]);
+    let v: Value = serde_json::from_slice(&o.stdout).unwrap();
+    assert_eq!(
+        v["hookSpecificOutput"]["updatedInput"]["command"],
+        "git -C repo status"
+    );
+}
+
+#[test]
+fn cli_sin_argumentos_sale_0_sin_stdout() {
+    let e = Entorno::nuevo();
+    for args in [&[][..], &["claude"][..]] {
+        let o = e.corre(args, b"{}", &[]);
+        assert_eq!(o.status.code(), Some(0), "{args:?}");
+        assert!(o.stdout.is_empty());
+        assert!(o.stderr.is_empty());
+    }
+}
+
+#[cfg(debug_assertions)]
+#[test]
+fn cli_panic_fuera_de_guards_sale_0() {
+    let e = Entorno::nuevo();
+    let o = e.corre(
+        &["claude", "PreToolUse"],
+        &bash("PreToolUse", "git add -A"),
+        &[("EXO_HOOK_PANIC", "runner")],
+    );
+    assert_eq!(o.status.code(), Some(0));
+    assert!(o.stdout.is_empty());
+    assert!(
+        o.stderr.is_empty(),
+        "{}",
+        String::from_utf8_lossy(&o.stderr)
+    );
+    let r = e.reflex();
+    assert!(
+        r.iter()
+            .any(|x| x["reflex"] == "hook-panic" && x["payload"] == "runner"),
+        "{r:?}"
+    );
+}

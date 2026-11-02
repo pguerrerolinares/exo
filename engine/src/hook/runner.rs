@@ -44,9 +44,19 @@ fn evento_vacio() -> Evento {
     }
 }
 
+/// Red final: un panic fuera de los guards (parse, render, journal) también
+/// degrada a stdout vacío; un exit 101 bloquearía la herramienta.
 pub fn ejecutar(en: &Entorno, harness: &str, evento: &str, stdin: &[u8]) -> String {
-    // Los panics de los guards se registran en el reflex-log, no en stderr.
-    std::panic::set_hook(Box::new(|_| {}));
+    catch_unwind(AssertUnwindSafe(|| interno(en, harness, evento, stdin))).unwrap_or_else(|_| {
+        registra(en, "hook-panic", &evento_vacio(), "runner");
+        String::new()
+    })
+}
+
+fn interno(en: &Entorno, harness: &str, evento: &str, stdin: &[u8]) -> String {
+    if en.panic_guard.as_deref() == Some("runner") {
+        panic!("EXO_HOOK_PANIC=runner");
+    }
     let h = match harness {
         "claude" => Harness::Claude,
         _ => return String::new(),
