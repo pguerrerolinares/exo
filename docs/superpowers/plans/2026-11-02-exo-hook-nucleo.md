@@ -2,6 +2,8 @@
 
 > For agentic workers: ejecución con `exo:orchestrate`.
 
+Plan: 240 min, 70 turnos, 30 KB
+
 **Goal:** `bash-guards` y `search-first` pasan a ejecutarse dentro del engine Rust, detrás de `exo hook claude <evento>`, alimentados por un journal propio. En Claude el comportamiento no cambia, salvo las divergencias de la spec §6.4.
 
 **Architecture:** Módulo nuevo `engine/src/hook/` con: tipos neutrales respecto al harness (`Evento`, `Decision`, `Entorno`), el adapter de Claude, el journal por sesión, el writer del reflex-log, cuatro guards como funciones puras `(&Evento, &Entorno) -> Decision` y un runner que lo une detrás del subcomando `exo hook`. Un oráculo de paridad corre las suites bash actuales contra el binario. El cutover cambia `hooks.json`, borra los `.sh` y añade la paridad a CI.
