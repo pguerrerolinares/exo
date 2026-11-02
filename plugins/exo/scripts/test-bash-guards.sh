@@ -1022,39 +1022,39 @@ check_ps() { # name cond-result(0/1) detail
 OUT="$(ps_run 'cd C:/repo && git status')"
 # ruta con unidad/dos puntos: fuera del patrón literal => sin rewrite, solo warn
 check_ps "G1 PowerShell cd C:/... && git → sin rewrite (warn)" \
-  "$([ -z "$OUT" ] && jq -e 'select(.reflex=="git-c")' "$REFLEX_LOG_FILE" >/dev/null 2>&1; echo $?)" "out=$OUT"
+  "$([ -z "$OUT" ] && jq -e 'select(.reflex=="git-c")' "$REFLEX_LOG_FILE" >/dev/null 2>&1 && echo 0 || echo 1)" "out=$OUT"
 
 OUT="$(ps_run 'cd /repo/sub && git log --oneline')"
 check_ps "G2 PowerShell cd /ruta && git log → rewrite" \
-  "$([ "$(printf '%s' "$OUT" | jq -r '.hookSpecificOutput.updatedInput.command // empty')" = "git -C /repo/sub log --oneline" ]; echo $?)" "out=$OUT"
+  "$([ "$(printf '%s' "$OUT" | jq -r '.hookSpecificOutput.updatedInput.command // empty')" = "git -C /repo/sub log --oneline" ] && echo 0 || echo 1)" "out=$OUT"
 
 OUT="$(ps_run 'Set-Location /repo/sub && git status')"
 check_ps "G3 PowerShell Set-Location /ruta && git status → rewrite" \
-  "$([ "$(printf '%s' "$OUT" | jq -r '.hookSpecificOutput.updatedInput.command // empty')" = "git -C /repo/sub status" ]; echo $?)" "out=$OUT"
+  "$([ "$(printf '%s' "$OUT" | jq -r '.hookSpecificOutput.updatedInput.command // empty')" = "git -C /repo/sub status" ] && echo 0 || echo 1)" "out=$OUT"
 
 OUT="$(ps_run 'cd ~/repo && git status')"
 check_ps "G4 PowerShell cd ~/ruta → NO rewrite (PS 5.1 no expande ~), warn" \
-  "$([ -z "$OUT" ] && jq -e 'select(.reflex=="git-c")' "$REFLEX_LOG_FILE" >/dev/null 2>&1; echo $?)" "out=$OUT"
+  "$([ -z "$OUT" ] && jq -e 'select(.reflex=="git-c")' "$REFLEX_LOG_FILE" >/dev/null 2>&1 && echo 0 || echo 1)" "out=$OUT"
 
 OUT="$(ps_run 'cd ~/repo && git status')"
 OUT_B="$(: > "$REFLEX_LOG_FILE"; make_payload 'cd ~/repo && git status' | bash "$HOOK" 2>/dev/null)"
 check_ps "G5 Bash sigue reescribiendo cd ~/ruta" \
-  "$([ "$(printf '%s' "$OUT_B" | jq -r '.hookSpecificOutput.updatedInput.command // empty')" = "git -C ~/repo status" ]; echo $?)" "out=$OUT_B"
+  "$([ "$(printf '%s' "$OUT_B" | jq -r '.hookSpecificOutput.updatedInput.command // empty')" = "git -C ~/repo status" ] && echo 0 || echo 1)" "out=$OUT_B"
 
 for c in 'Set-Location C:\repo; git push' 'sl C:\repo && git commit -m x' 'Push-Location C:\repo; git pull' 'pushd C:\repo && git fetch' 'SET-LOCATION C:\repo; git status'; do
   OUT="$(ps_run "$c" /tmp/x)"
   check_ps "G6 PowerShell warn git-c: $c" \
-    "$([ -z "$OUT" ] && jq -e 'select(.reflex=="git-c")' "$REFLEX_LOG_FILE" >/dev/null 2>&1; echo $?)" "out=$OUT"
+    "$([ -z "$OUT" ] && jq -e 'select(.reflex=="git-c")' "$REFLEX_LOG_FILE" >/dev/null 2>&1 && echo 0 || echo 1)" "out=$OUT"
 done
 
 # Bash no debe avisar por Set-Location (solo PowerShell)
 OUT="$(: > "$REFLEX_LOG_FILE"; make_payload 'Set-Location /x; git push' | bash "$HOOK" 2>/dev/null)"
 check_ps "G7 Bash + Set-Location → silencio (sin ramificación PS)" \
-  "$([ -z "$OUT" ] && [ ! -s "$REFLEX_LOG_FILE" ]; echo $?)" "out=$OUT"
+  "$([ -z "$OUT" ] && [ ! -s "$REFLEX_LOG_FILE" ] && echo 0 || echo 1)" "out=$OUT"
 
 OUT="$(ps_run 'git add -A' "$REPO_REAL")"
 check_ps "G8 PowerShell git add -A → deny" \
-  "$([ "$(printf '%s' "$OUT" | jq -r '.hookSpecificOutput.permissionDecision // empty')" = "deny" ]; echo $?)" "out=$OUT"
+  "$([ "$(printf '%s' "$OUT" | jq -r '.hookSpecificOutput.permissionDecision // empty')" = "deny" ] && echo 0 || echo 1)" "out=$OUT"
 
 # verify-before-done: un test previo lanzado por PowerShell cuenta como verde
 {
