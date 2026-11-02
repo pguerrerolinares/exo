@@ -135,7 +135,7 @@ exo no es un producto de seguridad. Sus guards son reflejos de disciplina, y la 
 
 ### 6.3 Oráculo de paridad
 
-`test-bash-guards.sh` (74 aserciones) y `test-search-first.sh` (15 casos) se ejecutan con `HOOK` apuntando a un wrapper. `EXO_STATE_DIR` apunta a un `mktemp -d` y el binario respeta `REFLEX_LOG_FILE` tal cual. Las aserciones sobre el reflex-log exigen **el mismo esquema y los mismos ids de reflejo** (`search-first-ok`, `git-c-rewrite`, `zero-residuo-backoff`…). Solo cambian los valores de `motivo` que eran propios de bash, como `sin-jq`, que desaparecen. `_zero-residuo-clasifica.sh` y `_truncate-payload.sh` se migran junto con bash-guards, porque determinan el payload que se loguea. Antes de cada caso, el wrapper hace dos cosas:
+`test-bash-guards.sh` (103 casos; 104 tras añadir el caso de §6.3) y `test-search-first.sh` (16 casos), medido el 2026-11-03, se ejecutan con `HOOK` apuntando a un wrapper. `EXO_STATE_DIR` apunta a un `mktemp -d` y el binario respeta `REFLEX_LOG_FILE` tal cual. Las aserciones sobre el reflex-log exigen **el mismo esquema y los mismos ids de reflejo** (`search-first-ok`, `git-c-rewrite`, `zero-residuo-backoff`…). Solo cambian los valores de `motivo` que eran propios de bash, como `sin-jq`, que desaparecen. `_zero-residuo-clasifica.sh` y `_truncate-payload.sh` se migran junto con bash-guards, porque determinan el payload que se loguea. Antes de cada caso, el wrapper hace dos cosas:
 
 1. **Cruza cada `tool_use` del transcript fixture con su `tool_result`.** Los que no tienen `is_error: true` se reinyectan como `PostToolUse` contra `exo hook claude`, y los que sí lo tienen, como `PostToolUseFailure`. Así se reproduce lo que pasa de verdad en Claude.
 2. Después invoca el evento que se está probando.
@@ -154,7 +154,7 @@ Si un `tool_use` ocurre dentro de un subagente, se reinyecta con su `agent_id`, 
 |---|---|---|
 | bash-guards caso 4; search-first 7a/7b (sin `transcript_path` / transcript ilegible) | El guard ya no lee el transcript | «sin journal» y «journal ilegible»: avisa igual (#182) |
 | search-first 15 (línea corrupta) | Ahora la línea corrupta está en el journal | Journal con una línea corrupta: se ignora esa línea |
-| Casos 6/8 (jq envenenado o ausente) | Eran degradaciones propias de bash | No aplican |
+| Casos que cuentan o envenenan jq: search-first casos 6 y 8, bash-guards Sección D | Eran degradaciones propias de bash | No aplican |
 | search-first casos 5 y 14 (existe el fichero sentinel en `SEARCH_FIRST_SENTINEL_DIR`, `test-search-first.sh:112-117,268`) | La regla «avisa una vez por sesión» pasa del sentinel a un registro `warn` en el journal | Aserción sobre el registro `warn` en el journal de la sesión |
 | Ventana `tail -n 400` | Se sustituye por la cota de 2 MiB | Equivalente para fixtures pequeños |
 | **Tools en paralelo** | Codex `exec_command` tiene `supports_parallel_tool_calls = true`, y en Claude los `PostToolUse` corren a la vez en llamadas paralelas: el `PreToolUse` de B puede leer el journal antes de que el `PostToolUse` de A lo escriba | Se documenta. Coste: como mucho un aviso falso por sesión en search-first, o un orden por finalización en verify |
@@ -163,7 +163,7 @@ Si un `tool_use` ocurre dentro de un subagente, se reinyecta con su `agent_id`, 
 ## 7. Condiciones de invalidación (pre-registradas)
 
 1. **Journal en Codex.** `PostToolUse` con `Bash` no trae `tool_input.command` o no se dispara con exit≠0. **Medido el 2026-11-02 con codex 0.166.0: no se cumple.** Se vuelve a comprobar con el smoke en cada actualización.
-2. **Paridad.** Con el mapeo de `is_error`, el oráculo no da 74/74 y 15/15 menos las divergencias de §6.4. Si pasa, el journal no sustituye al transcript y se reabre §2.
+2. **Paridad.** Con el mapeo de `is_error`, el oráculo no da 104/104 y 16/16 menos las divergencias de §6.4. Si pasa, el journal no sustituye al transcript y se reabre §2.
 3. **Latencia.** `exo hook claude PreToolUse` sobre un journal de 2 MiB da un p99 por encima de 300 ms (medido con hyperfine). Si pasa, vuelve el watchdog interno. Hoy `exo --version` tarda unos 3 ms en WSL2.
 4. **[B] Distribución por plugin.** Con el plugin instalado de verdad en Codex, un `deny` de `PreToolUse` no impide el Bash. Si pasa, cae la distribución por plugin.
 5. **[B] Windows.** `cmd /C "exo hook … || exit 0"` sin `exo` instalado devuelve ≠0. Si pasa, se sustituye por un wrapper `.cmd`.
