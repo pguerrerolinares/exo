@@ -666,6 +666,15 @@ done
   assert_vbd_silent "stale3: verde → commit sin edicion → silencio" "$BEFORE" "$AFTER" "$OUTPUT"
 }
 
+# verde -> rojo -> commit: manda el ULTIMO test (ids distintos), no el primero
+{
+  T="${TMPDIR_BASE}/vr1.jsonl"
+  { transcript_tool_use "t1" "pytest"; transcript_tool_result "t1" "false"
+    transcript_tool_use "t2" "pytest"; transcript_tool_result "t2" "true"; } > "$T"
+  run_stale_case vr1
+  assert_vbd_logged "verify: verde y luego rojo antes del commit avisa" "$BEFORE" "$AFTER" "$OUTPUT"
+}
+
 rm -rf "$TMPDIR_BASE" 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
