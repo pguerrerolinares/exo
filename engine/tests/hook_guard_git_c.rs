@@ -248,3 +248,13 @@ fn git_c_solo_shell_y_punto_punto_exacto() {
     assert_eq!(l[0]["reflex"], "git-c");
     assert_eq!(l[0]["payload"], "cd .. && git status");
 }
+
+#[test]
+fn git_c_cada_metacaracter_bloquea_el_rewrite() {
+    for m in ['&', ';', '|', '<', '>', '`', '$', '(', ')', '*', '?', '['] {
+        let d = tempfile::tempdir().unwrap();
+        let c = format!("cd r && git log a{m}b");
+        assert_eq!(git_c(&ev(&c), &entorno(&d), false), Decision::Allow, "{m}");
+        assert_eq!(reflexes(&d), ["git-c"], "{m}");
+    }
+}
