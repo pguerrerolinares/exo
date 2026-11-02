@@ -1,0 +1,1 @@
+{"session_id":"sess-123","transcript_path":"/home/u/.claude/projects/p/sess-123.jsonl","cwd":"/home/u/proj","permission_mode":"default","hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"echo hi"},"tool_response":{"stdout":"hi\n","stderr":"","interrupted":false},"tool_use_id":"toolu_01C"}

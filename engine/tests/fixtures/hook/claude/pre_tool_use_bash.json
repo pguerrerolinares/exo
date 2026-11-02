@@ -1,0 +1,1 @@
+{"session_id":"sess-123","transcript_path":"/home/u/.claude/projects/p/sess-123.jsonl","cwd":"/home/u/proj","permission_mode":"default","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cd repo && git status","description":"Estado del repo"},"tool_use_id":"toolu_01A","agent_id":"agent-9","agent_type":"general-purpose"}
