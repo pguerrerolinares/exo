@@ -214,6 +214,15 @@ fn session_id_no_escapa_del_dir() {
     let en = entorno(d.path());
     let p = ruta(&en, Harness::Claude, "../../x");
     assert_eq!(p.parent().unwrap(), d.path().join("sessions"));
+    let nombre = |sid: &str| {
+        ruta(&en, Harness::Claude, sid)
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned()
+    };
+    assert_eq!(nombre("a-B_9"), "claude-a-B_9.jsonl");
+    assert_eq!(nombre("a.b/c"), "claude-a_b_c.jsonl");
     registra_tool(&en, &bash("../../x", "", "z"), None).unwrap();
     assert!(p.exists());
 }
