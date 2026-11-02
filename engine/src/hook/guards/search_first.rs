@@ -1,0 +1,1 @@
+//! Guard search-first.
