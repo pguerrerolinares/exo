@@ -31,13 +31,13 @@ Al medir resultó que solo **4** scripts parsean de verdad el transcript (`bash-
 | Componente | Contrato |
 |---|---|
 | `exo hook <harness> <evento>` | Subcomando clap. Lee stdin, pasa por `parse → journal → guards → combinar → render` y escribe en stdout. **Siempre sale con exit 0.** |
-| `Evento` | Estructura neutral respecto al harness. Campos: `harness`, `session_id`, `cwd`, `kind` (evento) y `tool`, que es la tool clasificada (`Shell{command}`, `FileEdit{paths}`, `Agent`, `Web`, `Mcp{name}`, `Other{name}`) junto con su nombre e input crudos. Además `prompt`, `last_assistant_message`, `stop_hook_active` y `agent_id`. El clasificador **se abstiene**: un `FileEdit` cuyas rutas no se pueden extraer pasa a `Other`. En Codex, las rutas de `apply_patch` se sacan de las líneas `*** Add/Update/Delete File:` del patch en `tool_input.command`. |
+| `Evento` | Estructura neutral respecto al harness. Campos: `harness`, `session_id`, `cwd`, `kind` (evento) y `tool`, que es la tool clasificada (`Shell{command}`, `FileEdit{paths}`, `Agent`, `Web`, `Mcp{name}`, `Other{name}`) junto con su nombre e input crudos. Además `prompt`, `last_assistant_message`, `stop_hook_active`, `agent_id` y `agent_type`; este último hace falta para el reflex-log, `_reflex-log.sh:19-25`. El clasificador **se abstiene**: un `FileEdit` cuyas rutas no se pueden extraer pasa a `Other`. En Codex, las rutas de `apply_patch` se sacan de las líneas `*** Add/Update/Delete File:` del patch en `tool_input.command`. |
 | Adapter `claude` (A), `codex` [B], `pi` [C] | Dos funciones: `parse(&[u8]) -> Result<Evento>` y `render(Decision, &Evento) -> Salida`. **En Codex, `Allow` se renderiza como `{}`**: un `allow` o `ask` explícito en `PreToolUse` es inválido (`output_parser.rs:452-459`), y la salida no puede llevar campos desconocidos. |
-| `Decision` | `Allow`, `Deny(razón)`, `Steer(contexto)` o `Block(razón)` (este último en Stop/SubagentStop). Al combinar, un `Deny`/`Block` gana y sus razones se concatenan; los `Steer` también se concatenan. |
+| `Decision` | `Allow`, `Deny(razón)`, `Rewrite{input, razón}`, `Steer(contexto)` o `Block(razón)` (este último en Stop/SubagentStop). `Rewrite` es el reescrito de git-c (`bash-guards.sh:166-176`): en Claude se renderiza como `allow` + `updatedInput`; en Codex también, porque `allow` sin `updatedInput` es inválido y con él sí es válido (`output_parser.rs:443-455`). Prioridad al combinar: `Deny`/`Block` > `Rewrite` > `Steer` > `Allow` (igual que `bash-guards.sh:316-321`). Las razones de `Deny` se concatenan y los `Steer` también. |
 | Guard | Función pura `(&Evento, &Journal) -> Decision`. Cada guard declara qué evento necesita y qué decisiones puede devolver. |
 | Journal | Ver §4.2. |
 | Matriz | `match (Guard, Harness) -> Soporte` **sin comodín `_`**: si falta declarar una combinación, no compila. Los valores son `Soportado`, `Degradado(motivo)` y `NoSoportado(motivo)`. |
-| Estado | Todo cuelga de `~/.exo/state/`, que se puede redirigir con **`EXO_STATE_DIR`** (los tests la usan). `reflex-log.jsonl`, `exo-rules` y `exo-index.log` se mueven ahí desde `~/.claude/`. Durante la transición, si no existen en la ruta nueva, se leen de la vieja. |
+| Estado | **En A solo hay un estado nuevo, el journal**, en `~/.exo/state/`, que se puede redirigir con **`EXO_STATE_DIR`**. El estado heredado **no se mueve en A**: `reflex-log.jsonl`, `exo-rules` y `exo-index.log` siguen en `~/.claude/`. Moverlos solo en parte dejaría el log partido entre escritores Rust y `.sh` (unos 10 scripts más `register.ts`). El código Rust escribe el reflex-log en la ruta actual y **respeta `REFLEX_LOG_FILE`**, el contrato que ya usan los tests. **[B]** mueve todo el estado heredado a la vez, a través de un único resolvedor de ruta que usan Rust, los `.sh` y `register.ts`, porque un usuario que solo tiene Codex no tiene `~/.claude`. |
 
 **Guards que no se migran.** Su entrada en `hooks.json` sigue llamando a su `.sh` directamente, sin pasar por `exo hook`. Cuando un guard se migra, su entrada pasa a `exo hook claude …` y el `.sh` se borra. **A Codex solo va lo que ya está migrado.**
 
@@ -48,7 +48,7 @@ Al medir resultó que solo **4** scripts parsean de verdad el transcript (`bash-
 ### 4.1 Una invocación
 
 1. `adapter.parse(stdin)`. Si falla, se devuelve `Allow` y se registra un aviso (§5).
-2. Si el evento es `PostToolUse` o `UserPromptSubmit`, se hace `journal.append` en modo fail-open.
+2. Si el evento es `PostToolUse` o `PostToolUseFailure`, se hace `journal.append` en modo fail-open. `UserPromptSubmit` no se registra en A, porque ningún guard migrado lo usa; entrará cuando migre `delegar-decision`.
 3. Se ejecutan los guards de ese evento que la matriz marca como `Soportado` o `Degradado` para el harness, y sus decisiones se combinan.
 4. `adapter.render` escribe stdout y el proceso **sale con 0**.
 5. Se escribe una línea en `reflex-log.jsonl`, con el mismo esquema que hoy, para que `cobertura-reglas.sh` y `reflex-fp-review.sh` sigan funcionando.
@@ -56,13 +56,15 @@ Al medir resultó que solo **4** scripts parsean de verdad el transcript (`bash-
 ### 4.2 Journal
 
 - Hay un fichero por sesión: `$EXO_STATE_DIR/sessions/<harness>-<session_id>.jsonl`. Solo se añaden líneas.
-- Cada línea guarda el **evento canónico**, no el payload crudo: `{ts, kind, tool, cmd truncado a ~200 B o paths, agent_id?}`, más registros `{"kind":"warn","code":…}` para los avisos que solo se emiten una vez por sesión.
+- Cada línea guarda el **evento canónico**, no el payload crudo: `{ts, kind, tool, cmd truncado a ~200 B o paths, ok: bool|null, agent_id?}`, más registros `{"kind":"warn","code":…}` para los avisos que solo se emiten una vez por sesión.
+- **`ok`** vale `true` para un `PostToolUse` de Claude, `false` para un `PostToolUseFailure` de Claude y `null` en Codex, donde no hay exit code. Si no se registraran los fallos, la rama verify daría un falso verde en la secuencia «verde → rojo → commit»: hoy avisa, y con un journal que solo guardara éxitos callaría (builder check, pregunta 1).
 - **Regla de escritura: una línea = una llamada `write()`** sobre un fichero abierto con `O_APPEND` (en Rust, `OpenOptions::append`). Se midió con 8 procesos × 300 escrituras de 6 KB en ext4/WSL2 y salieron 0 líneas corruptas. `PIPE_BUF` no tiene nada que ver aquí, porque solo afecta a pipes.
 - **Lectura acotada:** como mucho los últimos 2 MiB. Si se trunca, el guard lo sabe.
-- **GC:** en `SessionStart` se borran los ficheros de más de 14 días.
+- **GC perezosa:** cuando se crea el fichero de una sesión nueva, se borran los de más de 14 días. No hace falta una entrada `SessionStart` solo para eso.
+- **Lectura filtrada por `agent_id`:** todos los guards leen únicamente los registros de su propio contexto (el padre, los del padre; un subagente, los suyos), igual que hace hoy la racha de zero-residuo (`bash-guards.sh:233-237`). El oráculo de paridad dirá si eso iguala el comportamiento actual de verify dentro de un subagente.
 - **Qué entra en el journal:**
-  - En Claude, `PostToolUse` solo se dispara cuando la tool tuvo éxito; los fallos van a `PostToolUseFailure`, que no se registra.
-  - En Codex, `PostToolUse` se dispara también con exit≠0, y en Bash `tool_response` es solo el stdout, **sin exit code** (medido: `false` y `exit 3` devuelven `""`). Por eso, en Codex, un registro de Bash en el journal **no prueba que el comando saliera bien**.
+  - En Claude, `PostToolUse` solo se dispara cuando la tool tuvo éxito y los fallos van a `PostToolUseFailure`. Los dos se registran.
+  - En Codex, `PostToolUse` se dispara también con exit≠0, y en Bash `tool_response` es solo el stdout, **sin exit code** (medido: `false` y `exit 3` devuelven `""`). Por eso, en Codex, un registro de Bash en el journal **no prueba que el comando saliera bien** (`ok: null`).
 
 ### 4.3 Exit 0 y engine viejo
 
@@ -74,7 +76,10 @@ Codex bloquea con exit 2 en `PreToolUse`/`PostToolUse` siempre que stderr no est
 
 ### 4.4 Instalación
 
-**Claude (A).** Sigue el mismo canal, el marketplace `.claude-plugin`. Las entradas de los guards migrados en `hooks.json` pasan a `exo hook claude <ev> || exit 0`, con `"timeout": 5`. El usuario no tiene que hacer nada nuevo.
+**Claude (A).** Sigue el mismo canal, el marketplace `.claude-plugin`, y el usuario no tiene que hacer nada nuevo. Todas las entradas de abajo llevan `"timeout": 5`. Cambios en `hooks.json`:
+- Las entradas de los guards migrados pasan a `exo hook claude <ev> || exit 0`. Es decir, `PreToolUse` `^(Bash|PowerShell)$` y `^(Agent|Task|Edit|Write|NotebookEdit)$`.
+- **Entradas nuevas** para alimentar el journal: `PostToolUse` y `PostToolUseFailure` con matcher `^(Bash|PowerShell|Edit|Write|NotebookEdit)$`. Es lo único que leen los guards migrados.
+- No hay entrada `UserPromptSubmit` ni `SessionStart` nuevas. Coste: un proceso de unos 3 ms por cada tool de esas cinco.
 
 **Codex [B].**
 - El repo ya funciona como marketplace de Codex, porque Codex lee `.claude-plugin/marketplace.json` (`core-plugins/src/marketplace.rs:20-25`).
@@ -114,9 +119,9 @@ exo no es un producto de seguridad. Sus guards son reflejos de disciplina, y la 
 
 | Guard | claude | codex |
 |---|---|---|
-| bash-guards (sin verify) | Soportado | Soportado |
-| bash-guards rama verify | Soportado | **Degradado**: sin exit code, avisa siempre. Leer `PostToolUse` como verde daría un falso verde. |
-| search-first | Soportado | Soportado (`PreToolUse` es genérico para todas las tools, `registry.rs:168`; `apply_patch` acepta los matchers `Write`/`Edit`, `spawn_agent` acepta `Agent`) |
+| bash-guards (git-c rewrite, git add -A, zero-residuo) | Soportado | Soportado (el rewrite se renderiza como `allow` + `updatedInput`) |
+| bash-guards rama verify | Soportado | **Degradado**: sin exit code (`ok: null`), siempre registra «sin evidencia de verde». Igual que hoy, verify **solo escribe en el log y no emite nada al agente** (`bash-guards.sh:22-35,296-301`); en Codex no se añade un `Steer`. Leer `PostToolUse` como verde daría un falso verde. |
+| search-first | Soportado | Soportado (`PreToolUse` es genérico para todas las tools, `registry.rs:168`; `apply_patch` acepta los matchers `Write`/`Edit`, `spawn_agent` acepta `Agent`). Igual que hoy, solo cuenta un `exo search` lanzado desde una tool `Shell` de nombre `Bash` (`search-first.sh:136`), que es también el nombre de la shell en Codex. |
 | guards no migrados | `.sh` directo | NoSoportado hasta que se migren |
 
 ### 6.2 Tests
@@ -130,14 +135,18 @@ exo no es un producto de seguridad. Sus guards son reflejos de disciplina, y la 
 
 ### 6.3 Oráculo de paridad
 
-`test-bash-guards.sh` (74 aserciones) y `test-search-first.sh` (15 casos) se ejecutan con `HOOK` apuntando a un wrapper y con `EXO_STATE_DIR` en un `mktemp -d`. Antes de cada caso, el wrapper hace dos cosas:
+`test-bash-guards.sh` (74 aserciones) y `test-search-first.sh` (15 casos) se ejecutan con `HOOK` apuntando a un wrapper. `EXO_STATE_DIR` apunta a un `mktemp -d` y el binario respeta `REFLEX_LOG_FILE` tal cual. Las aserciones sobre el reflex-log exigen **el mismo esquema y los mismos ids de reflejo** (`search-first-ok`, `git-c-rewrite`, `zero-residuo-backoff`…). Solo cambian los valores de `motivo` que eran propios de bash, como `sin-jq`, que desaparecen. `_zero-residuo-clasifica.sh` y `_truncate-payload.sh` se migran junto con bash-guards, porque determinan el payload que se loguea. Antes de cada caso, el wrapper hace dos cosas:
 
-1. **Cruza cada `tool_use` del transcript fixture con su `tool_result`.** Solo los que no tienen `is_error: true` se reinyectan como `PostToolUse` contra `exo hook claude`, porque eso es lo que pasa de verdad en Claude: un fallo va a `PostToolUseFailure`.
+1. **Cruza cada `tool_use` del transcript fixture con su `tool_result`.** Los que no tienen `is_error: true` se reinyectan como `PostToolUse` contra `exo hook claude`, y los que sí lo tienen, como `PostToolUseFailure`. Así se reproduce lo que pasa de verdad en Claude.
 2. Después invoca el evento que se está probando.
 
 Si un `tool_use` ocurre dentro de un subagente, se reinyecta con su `agent_id`, y el guard filtra por él: el padre no ve el `exo search` que hace un hijo, igual que hoy.
 
 **Criterio:** 100 % de los casos, menos las divergencias de §6.4.
+
+**Caso nuevo que tiene que existir antes de migrar:** la secuencia «pytest verde → pytest rojo → git commit» debe avisar. Hoy no hay ningún caso que la cubra (`test-bash-guards.sh:407-421,632-666`), así que se añade primero a la suite bash, se comprueba que pasa contra el `.sh` actual, y solo entonces pasa a formar parte del oráculo.
+
+**Los `.sh` huérfanos** que `bash-guards.sh:14-15` mantiene como red de regresión (los ejecuta `test-plugin.sh`) se borran junto con bash-guards, y `test-plugin.sh` se actualiza en el mismo cambio.
 
 ### 6.4 Divergencias intencionadas (cada una con un caso que la sustituye)
 
@@ -146,6 +155,7 @@ Si un `tool_use` ocurre dentro de un subagente, se reinyecta con su `agent_id`, 
 | bash-guards caso 4; search-first 7a/7b (sin `transcript_path` / transcript ilegible) | El guard ya no lee el transcript | «sin journal» y «journal ilegible»: avisa igual (#182) |
 | search-first 15 (línea corrupta) | Ahora la línea corrupta está en el journal | Journal con una línea corrupta: se ignora esa línea |
 | Casos 6/8 (jq envenenado o ausente) | Eran degradaciones propias de bash | No aplican |
+| search-first casos 5 y 14 (existe el fichero sentinel en `SEARCH_FIRST_SENTINEL_DIR`, `test-search-first.sh:112-117,268`) | La regla «avisa una vez por sesión» pasa del sentinel a un registro `warn` en el journal | Aserción sobre el registro `warn` en el journal de la sesión |
 | Ventana `tail -n 400` | Se sustituye por la cota de 2 MiB | Equivalente para fixtures pequeños |
 | **Tools en paralelo** | Codex `exec_command` tiene `supports_parallel_tool_calls = true`, y en Claude los `PostToolUse` corren a la vez en llamadas paralelas: el `PreToolUse` de B puede leer el journal antes de que el `PostToolUse` de A lo escriba | Se documenta. Coste: como mucho un aviso falso por sesión en search-first, o un orden por finalización en verify |
 | **Journal vacío tras actualizar** | En Claude, search-first no ve un `exo search` anterior a la instalación de la versión nueva dentro de la misma sesión | Se documenta. Coste: un aviso de más en la primera sesión |
@@ -163,4 +173,18 @@ Si un `tool_use` ocurre dentro de un subagente, se reinyecta con su `agent_id`, 
 - Migrar el resto de guards (`exo-recall`, `estilo-directo`, `delegar-decision`, `document-remind`, `exo-index`, `sdd-wake-guard`, `subagent-inject`, `clean-orchestrator-research`). Cada uno entra en iteraciones posteriores con este mismo patrón.
 - `clean-orchestrator-research` sobre WebSearch en Codex: `web_search` es una tool que se ejecuta en el servidor de OpenAI y no dispara hooks.
 - pi (C) tiene su propia spec. Su API cambia en casi cada versión, así que habrá que fijar una versión exacta.
-- Los guards `PostToolUseFailure` y `PermissionDenied` no existen en Codex.
+- Los eventos `PostToolUseFailure` y `PermissionDenied` no existen en Codex. El journal de Codex vive sin el primero (`ok: null`).
+
+## 9. Decisiones del autor tras el builder check
+
+Un reviewer leyó la spec como builder e hizo 8 preguntas. Todas se han cerrado como decisiones del autor (Claude); ninguna necesitaba al dueño. Están integradas en el texto, y aquí van resumidas para que se puedan corregir:
+
+1. El journal registra los fallos de Claude (`PostToolUseFailure`, `ok: false`), y se añade el caso «verde → rojo → commit» (§4.2, §6.3).
+2. Nueva variante `Rewrite{input, razón}`, soportada en los dos harness (§3).
+3. A no mueve el estado heredado; B lo mueve entero (§3).
+4. El binario respeta `REFLEX_LOG_FILE`; los casos del sentinel pasan a ser divergencias (§6.3, §6.4).
+5. Entradas nuevas de `hooks.json`: solo `PostToolUse`/`PostToolUseFailure` para cinco tools, con GC perezosa (§4.2, §4.4).
+6. Todos los guards filtran por `agent_id` (§4.2).
+7. verify Degradado en Codex significa solo log, como hoy (§6.1).
+8. Se mantienen el esquema del reflex-log y los ids de reflejo; `_zero-residuo-clasifica` y `_truncate-payload` se migran (§6.3).
+9. Menores: search-first sigue contando solo Bash; los `.sh` huérfanos se borran junto con bash-guards.
