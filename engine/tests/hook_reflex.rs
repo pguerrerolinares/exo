@@ -154,3 +154,44 @@ fn payload_truncado_umbral_de_match_y_vacios() {
     let p = payload_truncado(&format!("{}xx", "a".repeat(130)), &vacio);
     assert!(p.ends_with("⟨match⟩ xx"), "{p}");
 }
+
+#[test]
+fn registra_concurrente_no_intercala_lineas() {
+    let d = tempfile::tempdir().unwrap();
+    let en = entorno(d.path().join("log.jsonl"));
+    let (hilos, por_hilo) = (8, 200);
+    std::thread::scope(|sc| {
+        for h in 0..hilos {
+            let en = &en;
+            sc.spawn(move || {
+                for i in 0..por_hilo {
+                    registra(
+                        en,
+                        &format!("h{h}-{i}"),
+                        &evento(Some("Bash")),
+                        &"p".repeat(50),
+                    );
+                }
+            });
+        }
+    });
+    let txt = std::fs::read_to_string(&en.reflex_log).unwrap();
+    assert_eq!(txt.lines().count(), hilos * por_hilo);
+    for l in txt.lines() {
+        serde_json::from_str::<serde_json::Value>(l).unwrap_or_else(|e| panic!("{e}: {l}"));
+    }
+}
+
+#[test]
+fn lee_cola_salta_lineas_ilegibles() {
+    let d = tempfile::tempdir().unwrap();
+    let en = entorno(d.path().join("log.jsonl"));
+    registra(&en, "a", &evento(None), "");
+    let mut txt = std::fs::read_to_string(&en.reflex_log).unwrap();
+    txt.push_str("{roto\n");
+    std::fs::write(&en.reflex_log, txt).unwrap();
+    registra(&en, "b", &evento(None), "");
+    let cola = lee_cola(&en, 10);
+    let ids: Vec<_> = cola.iter().map(|v| v["reflex"].as_str().unwrap()).collect();
+    assert_eq!(ids, ["a", "b"]);
+}

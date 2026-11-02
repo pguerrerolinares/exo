@@ -36,7 +36,10 @@ pub fn registra(en: &Entorno, reflex: &str, ev: &Evento, payload: &str) {
             .create(true)
             .append(true)
             .open(&en.reflex_log)?;
-        writeln!(f, "{linea}")
+        // Una sola write(): con O_APPEND es atómica y las líneas de hooks concurrentes no se intercalan.
+        let mut bytes = linea.to_string().into_bytes();
+        bytes.push(b'\n');
+        f.write_all(&bytes)
     })();
 }
 
