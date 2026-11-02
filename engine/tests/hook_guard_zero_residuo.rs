@@ -168,3 +168,29 @@ fn zero_residuo_patron_casa_por_linea_como_grep() {
     zero_residuo(&evento("git add -A\nls", "/tmp/x", ""), &en);
     assert_eq!(reflexes(&en), ["zero-residuo"]);
 }
+
+#[test]
+fn zero_residuo_deniega_si_cualquier_dir_cae_fuera_de_tmp() {
+    let d = tempfile::tempdir().unwrap();
+    let en = entorno(d.path().join("log.jsonl"));
+    let cmd = "cd /tmp/x && git add -A; cd /home/r && git add -A";
+    assert!(matches!(
+        zero_residuo(&evento(cmd, "/tmp/x", ""), &en),
+        Decision::Deny(_)
+    ));
+    assert_eq!(reflexes(&en), ["zero-residuo-deny"]);
+}
+
+#[test]
+fn zero_residuo_frontera_tmp_exige_barra() {
+    let d = tempfile::tempdir().unwrap();
+    let en = entorno(d.path().join("log.jsonl"));
+    assert!(matches!(
+        zero_residuo(&evento("git add -A", "/tmpfoo", ""), &en),
+        Decision::Deny(_)
+    ));
+    assert_eq!(
+        zero_residuo(&evento("git add -A", "/tmp", ""), &en),
+        Decision::Allow
+    );
+}
