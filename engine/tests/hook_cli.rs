@@ -257,3 +257,21 @@ fn cli_panic_fuera_de_guards_sale_0() {
         "{r:?}"
     );
 }
+
+#[test]
+fn cli_premisa_4_2_false_real_registra_ok_false() {
+    let e = Entorno::nuevo();
+    let probe = fixture("claude-2.1.317-probe.jsonl");
+    let linea = String::from_utf8(probe)
+        .unwrap()
+        .lines()
+        .find(|l| l.contains("PostToolUseFailure") && l.contains(r#""command":"false""#))
+        .unwrap()
+        .to_string();
+    let o = e.corre(&["claude", "PostToolUseFailure"], linea.as_bytes(), &[]);
+    assert_eq!(o.status.code(), Some(0));
+    let j = e.journal();
+    assert_eq!(j.len(), 1, "{j:?}");
+    assert_eq!(j[0]["cmd"], "false");
+    assert_eq!(j[0]["ok"], false);
+}

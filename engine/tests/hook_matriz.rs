@@ -34,8 +34,12 @@ fn fixtures_claude() -> Vec<serde_json::Value> {
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/hook/claude");
     std::fs::read_dir(dir)
         .unwrap()
-        .map(|e| {
-            serde_json::from_str(&std::fs::read_to_string(e.unwrap().path()).unwrap()).unwrap()
+        .flat_map(|e| {
+            let texto = std::fs::read_to_string(e.unwrap().path()).unwrap();
+            texto
+                .lines()
+                .map(|l| serde_json::from_str(l).unwrap())
+                .collect::<Vec<serde_json::Value>>()
         })
         .collect()
 }
