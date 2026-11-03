@@ -286,7 +286,12 @@ En Codex la reafirmación tras compactar viaja con `ReglasInyecta` vía la marca
     - compactación forzada con `-c model_auto_compact_token_limit=3000` y luego `codex exec resume --last "di ok"`: `jq -r '.hook_event_name+" "+(.source//"-")' ev.jsonl | sort | uniq -c` tiene que mostrar `PostCompact` y 2× `UserPromptSubmit`, y el UPS posterior trae las reglas.
 
     El modo de volcado sigue regenerando el golden. El smoke depende de que el modelo obedezca y no es red de regresión.
-11. **Latencia:** `hyperfine -N --export-json` sobre `exo hook codex SessionStart --min 0.15.0` y sobre `exo hook claude SessionStart --min 0.15.0`, contra wisdom-paul.
+11. **Latencia:** `hyperfine -N --export-json` sobre `exo hook codex SessionStart --min 0.15.0` y sobre `exo hook claude SessionStart --min 0.15.0`, contra la KB real del dueño.
+
+12. **Golden recapturados (firmado por el dueño).** Antes de la ola de matriz:
+    - El modo de volcado de `smoke-codex.sh` fuerza una compactación (`-c model_auto_compact_token_limit=3000`) y un segundo turno (`codex exec resume --last`), para que el golden de Codex traiga `PostCompact`, `UserPromptSubmit` y, si existe, `SessionStart` con `source=compact`.
+    - Un `scripts/smoke-claude.sh` nuevo captura con hooks de volcado un golden de Claude con `SessionStart` (`startup` y `compact`, este último forzando `/compact` o por umbral) y `Stop`.
+    - Los dos los corre el dueño, fuera de CI. **Es una tarea del dueño que bloquea la ola de matriz.** El test de capacidad no admite excepciones.
 
 ## 8. Condiciones de invalidación (pre-registradas)
 
@@ -315,5 +320,21 @@ En Codex la reafirmación tras compactar viaja con `ReglasInyecta` vía la marca
 2. Umbral de `context-spill-risk` = 4 × `additionalContextLimit`.
 3. Un `source` desconocido de `SessionStart` se trata como `startup`.
 4. La marca post-compact la consume el primero que llega (`SessionStart(compact)` o UPS).
-5. Los roles TOML se derivan de `agents/*.md` con la sintaxis de Codex. Solo `developer_instructions`, `model` y `model_reasoning_effort`.
+5. Los roles TOML se derivan de `agents/*.md` con la sintaxis de Codex. Llevan solo `developer_instructions`, `model` y `model_reasoning_effort`.
+   - **Modelo (firmado por el dueño: equivalente en OpenAI).** Sonnet → `gpt-6.1-sol` («workhorse»), Opus/Fable → `gpt-6-astra` («frontier»), Haiku → `gpt-6-luna`, según `~/.codex/models_cache.json` del 2026-11-03. Los dos agents de Claude dicen `model: sonnet`, así que los dos roles usan `gpt-6.1-sol`. Esfuerzo (decisión mía): consultor `high`, executor `medium`.
+   - **Solo lectura del consultor:** la capa de rol de Codex no admite sandbox (`role.rs:37-113`), así que la restricción va como instrucción en `developer_instructions`. No se puede forzar; queda declarado.
+   - **Modelo rotado:** `exo doctor` gana un finding si el `model` de un rol no aparece en `$CODEX_HOME/models_cache.json`.
 6. `exo-rules/` no se migra, solo cambia de ruta.
+
+### 10.1 Builder check (decisiones del autor)
+7. **Reafirmación compartida.** Es una sola función, `reafirmacion(sid, rutas)`. La usa `RecallCompact` (Claude) y la usa `ReglasInyecta` cuando consume la marca, venga del UPS o de un `SessionStart(compact)` de Codex. En Codex, toda inyección tras compactar lleva reglas + reafirmación.
+8. **Doble inyección.** No se añade un consumo atómico. En Codex, `SessionStart` se espera antes del primer turno (`hook_runtime.rs:132-178`), así que no corre a la vez que un UPS de la misma sesión. Queda documentado «como mucho dos inyecciones» (misma clase que la divergencia de tools en paralelo de A §6.4).
+9. **`CODEX_HOME`.** `exo setup codex` escribe en `$CODEX_HOME/config.toml` y, si no está definido, en `~/.codex/config.toml`. Los `config_file` van siempre a `~/.exo/codex-agents/`, junto a `index.db`. No dependen de `EXO_STATE_DIR`, porque no son estado.
+10. **Seams que sobreviven al port.** `EXO_INDEX`, `EXO_KB`, `EXO_KB_NAME`, `EXO_RECALL_NOTA`, `EXO_RECALL_CAP`, `RECALL_BLOQUE_CAP`, `EXO_RECALL_LIMITE`, `EXO_RECALL_COMPACT_LINEAS`, `EXO_GIT_TIMEOUT` (pasa a ser el deadline global) y `CLAUDE_PROJECT_DIR`. `EXO_BIN` solo sirve ahora para el guard `Index`: lanza `EXO_BIN` si está definido y, si no, `std::env::current_exe()`. Es el seam del stub de §7.3. Desaparece `EXO_RULES_TIMEOUT`, porque las reglas son in-process. Los casos de los 61 que dependían de `EXO_BIN` como stub del engine van a divergencias y cuentan para la condición 4.
+11. **Texto de las reglas en Codex.** Rust tiene su copia del preámbulo y de las cabeceras («Reglas duras del dueño», «Reglas duras del proyecto»). Un test hace grep de esos literales en `register.ts` (`:2`, `:29`) y falla si divergen.
+12. **`exo setup codex` y las tablas.**
+    - El bloque se añade al final del fichero la primera vez. Si los marcadores ya existen, se reescribe en su sitio.
+    - Falla en voz alta si existe `[agents.exo-consultor]` o `[agents.exo-executor]` fuera de los marcadores.
+    - También falla si el resultado, al parsearlo, cambia el valor de cualquier clave ajena al bloque. Por ejemplo, contenido sin cabecera detrás de `# <<< exo`, que quedaría dentro de la última tabla del bloque.
+13. **`additionalContextLimit`.** Antes de fijar `codex.json`, el plan comprueba el nombre y la ubicación de la clave en el tag `rust-v0.166.0` de openai/codex. Además, el modo de volcado del smoke instala un `codex.json` con la clave y comprueba que Codex sigue cargando los hooks: Codex parsea con `deny_unknown_fields`, y una clave mal puesta lo tumba todo. Si no existe en 0.166.0, se quita y el canario usa 2.500 tokens.
+14. **`ENGINE_MIN`.** `plugins/exo/ENGINE_MIN` sigue siendo la única fuente de verdad, y la leen `doctor.rs:222` y `test-versiones.sh:56`. `SessionStart` no lee el fichero: recibe `--min` en la línea de la entrada. `test-versiones.sh` exige que los `--min` de `hooks.json` y `codex.json` sean iguales al fichero.
