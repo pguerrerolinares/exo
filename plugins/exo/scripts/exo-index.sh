@@ -26,7 +26,9 @@ if [ -t 0 ]; then INPUT=""; else INPUT="$(cat)"; fi
 
 EXO_BIN="${EXO_BIN:-$(command -v exo 2>/dev/null || echo "$HOME/.local/bin/exo")}"
 EXO_INDEX="${EXO_INDEX:-$HOME/.exo/index.db}"
-LOG="${EXO_INDEX_LOG:-$HOME/.claude/exo-index.log}"
+# shellcheck source=_state-dir.sh
+. "$SCRIPT_DIR/_state-dir.sh"
+LOG="$EXO_INDEX_LOG"
 
 # Seams de test (mismo patrón que EXO_BIN): permiten forzar cada rama de detach
 # sin cirugía de PATH. Sin seam, la mitad de las ramas serían intesteables en

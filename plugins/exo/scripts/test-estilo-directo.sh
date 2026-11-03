@@ -2,7 +2,7 @@
 # Test standalone para estilo-directo.sh (adaptador SessionStart, directiva de
 # estilo de respuesta estática, texto fijo en estilo-directo.md).
 # Never-break: exit 0 SIEMPRE. Sin .md legible => abstención silenciosa.
-# Fixtures en mktemp -d; nunca toca ~/.claude/reflex-log.jsonl real.
+# Fixtures en mktemp -d; nunca toca ~/.exo/state/reflex-log.jsonl real.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

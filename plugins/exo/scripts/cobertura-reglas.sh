@@ -15,7 +15,10 @@ set -uo pipefail
 
 command -v jq >/dev/null 2>&1 || { echo "cobertura-reglas: falta jq" >&2; exit 1; }
 EXO_BIN="${EXO_BIN:-$(command -v exo)}"
-LOG="${REFLEX_LOG_FILE:-$HOME/.claude/reflex-log.jsonl}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=_state-dir.sh
+. "$SCRIPT_DIR/_state-dir.sh"
+LOG="$REFLEX_LOG_FILE"
 DIAS="${EXO_COBERTURA_DIAS:-30}"
 case "$DIAS" in ''|*[!0-9]*) DIAS=30 ;; esac
 

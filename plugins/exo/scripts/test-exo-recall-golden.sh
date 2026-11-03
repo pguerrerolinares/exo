@@ -9,8 +9,8 @@ GOLD_DIR="${SCRIPT_DIR}/testdata/golden-exo-recall"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 export HOME="$TMP/home"
-mkdir -p "$HOME/.claude"
-LOGC="$HOME/.claude/reflex-log.jsonl"
+mkdir -p "$HOME/.claude" "$HOME/.exo/state"
+LOGC="$HOME/.exo/state/reflex-log.jsonl"
 export REFLEX_LOG_FILE="$LOGC"
 
 PASS=0; FAIL=0

@@ -79,7 +79,7 @@ async function correr($: any, on: any, run: Run, env: Record<string, string> = {
   return { r, writes: w.writes, calls: w.calls };
 }
 
-const HB = "/h/.claude/exo-rules/hb-sid1";
+const HB = "/h/.exo/state/exo-rules/hb-sid1";
 const REGLAS = FRAMING_HEAD + "- r1\n- r2";
 
 const out = (stdout: string, exitCode = 0) => ({ exitCode, stdout, stderr: "" });
@@ -98,18 +98,18 @@ test("ok_anade_seccion", async ($, on) => {
 test("skip_no_anade", async ($, on) => {
   const { r, writes } = await correr($, on, () => out(skipOut));
   expect(r.sections).toEqual(BASE);
-  expect(JSON.parse(writes["/h/.claude/exo-rules/hb-sid1"])).toEqual({ status: "skip", reason: "sin_seccion", n: 0, n_global: 0, via: "compose" });
+  expect(JSON.parse(writes["/h/.exo/state/exo-rules/hb-sid1"])).toEqual({ status: "skip", reason: "sin_seccion", n: 0, n_global: 0, via: "compose" });
 });
 
 test("latido_ok", async ($, on) => {
   const { writes } = await correr($, on, () => out(okOut));
-  expect(JSON.parse(writes["/h/.claude/exo-rules/hb-sid1"])).toEqual({ status: "ok", n: 2, n_global: 0, via: "compose" });
+  expect(JSON.parse(writes["/h/.exo/state/exo-rules/hb-sid1"])).toEqual({ status: "ok", n: 2, n_global: 0, via: "compose" });
 });
 
 test("error_exit_no_cero", async ($, on) => {
   const { r, writes } = await correr($, on, () => ({ exitCode: 1, stdout: "", stderr: "boom" }));
   expect(r.sections).toEqual(BASE);
-  const hb = JSON.parse(writes["/h/.claude/exo-rules/hb-sid1"]);
+  const hb = JSON.parse(writes["/h/.exo/state/exo-rules/hb-sid1"]);
   expect(hb.status).toBe("error");
   expect(hb.error.length > 0).toBe(true);
   expect(hb.n).toBe(0);
@@ -131,7 +131,7 @@ test("session_cwd_lanza", async ($, on) => {
   const { r, writes, calls } = await correr($, on, () => out(okOut), { HOME: "/h" }, ["session.cwd"]);
   expect(calls.length).toBe(0);
   expect(r.sections).toEqual(BASE);
-  const hb = JSON.parse(writes["/h/.claude/exo-rules/hb-sid1"]);
+  const hb = JSON.parse(writes["/h/.exo/state/exo-rules/hb-sid1"]);
   expect(hb.status).toBe("error");
 });
 
@@ -145,7 +145,7 @@ test("session_id_lanza", async ($, on) => {
 test("json_invalido", async ($, on) => {
   const { r, writes } = await correr($, on, () => out("no soy json"));
   expect(r.sections).toEqual(BASE);
-  expect(JSON.parse(writes["/h/.claude/exo-rules/hb-sid1"]).status).toBe("error");
+  expect(JSON.parse(writes["/h/.exo/state/exo-rules/hb-sid1"]).status).toBe("error");
 });
 
 test("timeout_3000", async ($, on) => {
@@ -169,12 +169,17 @@ test("fallback_agotado", async ($, on) => {
     throw new Error("ENOENT");
   });
   expect(r.sections).toEqual(BASE);
-  expect(JSON.parse(writes["/h/.claude/exo-rules/hb-sid1"]).status).toBe("error");
+  expect(JSON.parse(writes["/h/.exo/state/exo-rules/hb-sid1"]).status).toBe("error");
 });
 
 test("home_userprofile", async ($, on) => {
   const { writes } = await correr($, on, () => out(okOut), { USERPROFILE: "/u" });
-  expect(Object.keys(writes)).toEqual(["/u/.claude/exo-rules/hb-sid1"]);
+  expect(Object.keys(writes)).toEqual(["/u/.exo/state/exo-rules/hb-sid1"]);
+});
+
+test("hb_en_exo_state_dir", async ($, on) => {
+  const { writes } = await correr($, on, () => out(okOut), { HOME: "/h", EXO_STATE_DIR: "/s" });
+  expect(Object.keys(writes)).toEqual(["/s/exo-rules/hb-sid1"]);
 });
 
 const ultimo = (r: any) => r.context[r.context.length - 1];

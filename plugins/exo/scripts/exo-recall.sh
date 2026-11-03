@@ -15,6 +15,8 @@
 # SessionStart llega con source=compact.
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=_state-dir.sh
+. "$SCRIPT_DIR/_state-dir.sh"
 
 # stdin siempre trae el JSON del hook en harness; el guard -t evita colgarse en
 # debug manual.
@@ -158,13 +160,13 @@ SOURCE=""; SID=""
 IFS=$'\x1f' read -r SOURCE SID <<< "$(printf '%s' "$INPUT" | jq -r '[(.source // ""), (.session_id // "")] | join("\u001f")' 2>/dev/null)"
 SID="${SID%$'\r'}"
 
-if [ "$SOURCE" = "compact" ] && [ -n "$SID" ] && [ -f "$HOME/.claude/reflex-log.jsonl" ]; then
+if [ "$SOURCE" = "compact" ] && [ -n "$SID" ] && [ -f "$REFLEX_LOG_FILE" ]; then
   . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && reflex_log "compact" "$INPUT" "compact" || true
   # H5: el log crece sin cota (~11 KB/día medidos el 2026-09-13) y esto corre
   # en cada compactación. Los disparos de ESTA sesión están en la cola: 2.000
   # líneas son ~74 días al ritmo actual. No se rota nada, porque el análisis
   # (reflex-fp-review) necesita la historia entera.
-  FIRED="$(tail -n "${EXO_RECALL_COMPACT_LINEAS:-2000}" "$HOME/.claude/reflex-log.jsonl" 2>/dev/null \
+  FIRED="$(tail -n "${EXO_RECALL_COMPACT_LINEAS:-2000}" "$REFLEX_LOG_FILE" 2>/dev/null \
             | jq -r --arg sid "$SID" 'select(.session_id==$sid) | .reflex' 2>/dev/null | sort -u | tr -d '\r')"
   if [ -n "$FIRED" ]; then
     PIN=""
@@ -301,7 +303,7 @@ TEXTO="${TEXTO}${REAFIRMA}"
 # Sin engine/índice no se resuelve: ya lo registra recall-fallback.
 VISIBLE=""
 if [ "$SOURCE" != "compact" ] && [ -n "$RULES_ENGINE" ]; then
-  RULES_DIR="$HOME/.claude/exo-rules"
+  RULES_DIR="$EXO_RULES_DIR"
   find "$RULES_DIR" -maxdepth 1 -type f \( -name 'ss-*' -o -name 'hb-*' \) -mtime +7 -delete 2>/dev/null
   RCWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null | tr -d '\r')"
   RCWD="${RCWD:-$PWD}"

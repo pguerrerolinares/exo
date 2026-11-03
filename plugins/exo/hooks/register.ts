@@ -21,7 +21,11 @@ const submitMarcado = new Set<string>();
 // Sin hook compose registrado (opción composeHook=false) no hay marca de store que esperar: submit entrega desde el turno 1.
 let sinCompose = false;
 
-const hbPath = (home: string, sid: string) => `${home}/.claude/exo-rules/hb-${sid}`;
+// Mismo orden que _state-dir.sh y `exo config`: EXO_STATE_DIR (vacía = ausente) > ~/.exo/state.
+const hbPath = async ($: any, home: string, sid: string) => {
+  const estado = await Promise.resolve($.env.get("EXO_STATE_DIR")).catch(() => "");
+  return `${estado || `${home}/.exo/state`}/exo-rules/hb-${sid}`;
+};
 const lista = (titulo: string, reglas: string[]) =>
   reglas.length ? `## ${titulo}\n${AUTORIDAD}${reglas.map((x) => `- ${x}`).join("\n")}` : "";
 // Globales primero; un encabezado con su lista vacía no se emite.
@@ -78,7 +82,7 @@ async function consultar($: any, home: string, cwd: string): Promise<{ hb: Omit<
 
 async function escribirHb($: any, home: string, sid: string, hb: Latido): Promise<void> {
   try {
-    await $.fs.write(hbPath(home, sid), JSON.stringify(hb));
+    await $.fs.write(await hbPath($, home, sid), JSON.stringify(hb));
   } catch {
     // un latido no escrito no debe impedir la entrega
   }
@@ -97,7 +101,7 @@ async function fallbackSubmit($: any): Promise<string | null> {
   const entregar = forzar || sinCompose || (!vivo && (turno >= 2 || storeCompose !== true));
 
   if (!entregar) {
-    if (!vivo && !(await $.fs.exists(hbPath(home, sid)).catch(() => false))) {
+    if (!vivo && !(await $.fs.exists(await hbPath($, home, sid)).catch(() => false))) {
       const org = await leerOrg($, home);
       await escribirHb($, home, sid, { ...SIN_ENTREGA, ...(org ? { org } : {}) });
     }
@@ -122,7 +126,7 @@ export function register(on: any, options: any = {}) {
       if (sid && home) {
         const org = await leerOrg($, home);
         if (org) await $.store.set("org", org).catch(() => {});
-        if (!(await $.fs.exists(hbPath(home, sid)))) await escribirHb($, home, sid, SIN_ENTREGA);
+        if (!(await $.fs.exists(await hbPath($, home, sid)))) await escribirHb($, home, sid, SIN_ENTREGA);
       }
     } catch {
       // siembra best-effort: sin ella el testigo ve "no cargó" en vez de "sin canal"
@@ -187,7 +191,7 @@ export function register(on: any, options: any = {}) {
       // Sin sid o sin HOME no hay nombre de latido válido: no se escribe en una ruta inventada.
       if (!sid || !home) return r;
       try {
-        await $.fs.write(hbPath(home, sid), JSON.stringify(hb));
+        await $.fs.write(await hbPath($, home, sid), JSON.stringify(hb));
       } catch {
         return r;
       }
