@@ -5,8 +5,8 @@
 use anyhow::{Context, Result, bail};
 use std::path::Path;
 
-pub const ROL_CONSULTOR: &str = include_str!("../../plugins/exo/agents/codex/consultor.toml");
-pub const ROL_EXECUTOR: &str = include_str!("../../plugins/exo/agents/codex/executor.toml");
+pub const ROL_CONSULTOR: &str = include_str!("../assets/codex-agents/consultor.toml");
+pub const ROL_EXECUTOR: &str = include_str!("../assets/codex-agents/executor.toml");
 
 const ABRE: &str = "# >>> exo";
 const CIERRA: &str = "# <<< exo";

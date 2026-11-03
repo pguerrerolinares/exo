@@ -1,4 +1,4 @@
-# Capa de rol de Codex derivada de ../consultor.md. `exo setup codex` la copia a
+# Capa de rol de Codex derivada de plugins/exo/agents/consultor.md. `exo setup codex` la copia a
 # ~/.exo/codex-agents/ y la registra como [agents.exo-consultor].
 model = "gpt-6.1-sol"
 model_reasoning_effort = "high"

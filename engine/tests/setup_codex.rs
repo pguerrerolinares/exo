@@ -147,6 +147,14 @@ fn toml_valido() {
 #[test]
 fn roles_derivan_de_los_md() {
     let md = Path::new(env!("CARGO_MANIFEST_DIR")).join("../plugins/exo/agents");
+    if !md.is_dir() {
+        // El crate puede compilarse aislado (cargo-mutants copia solo engine/).
+        eprintln!(
+            "roles_derivan_de_los_md: omitido, no existe {}",
+            md.display()
+        );
+        return;
+    }
     for (f, rol) in [
         ("consultor.md", ROL_CONSULTOR),
         ("executor.md", ROL_EXECUTOR),
@@ -193,6 +201,9 @@ fn respeta_codex_home() {
     assert_eq!(fs::read_to_string(home.join("config.toml")).unwrap(), cfg);
 }
 
+// Solo unix: `dirs::home_dir()` en Windows ignora HOME/USERPROFILE del proceso
+// hijo y el test escribiría en el perfil real.
+#[cfg(unix)]
 #[test]
 fn cli_usa_codex_home_y_home_del_entorno() {
     let dir = tempfile::tempdir().unwrap();
