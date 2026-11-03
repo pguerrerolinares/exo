@@ -92,26 +92,82 @@ pub enum Migracion {
     Fallo(String),
 }
 
-/// `viejo` → `nuevo` (spec §4.2). Nunca borra el viejo: o se renombra o acaba en `.migrado-<ts>`.
+/// `viejo` → `nuevo` (spec §4.2). Nunca borra el viejo: o pasa a ser el nuevo o acaba en `.migrado-<ts>`.
 pub fn migra(viejo: &Path, nuevo: &Path, ts: &str) -> Migracion {
+    migra_con(viejo, nuevo, ts, || {})
+}
+
+/// `migra` con un gancho que corre justo antes de crear el nuevo: deja a un test
+/// simular un appender que lo crea en esa ventana sin depender del reloj.
+#[doc(hidden)]
+pub fn migra_con(viejo: &Path, nuevo: &Path, ts: &str, antes_del_link: impl FnOnce()) -> Migracion {
     if viejo == nuevo || !viejo.exists() {
         return Migracion::Nada;
     }
-    match migra_io(viejo, nuevo, ts) {
+    match migra_io(viejo, nuevo, ts, antes_del_link) {
         Ok(m) => m,
         Err(e) => Migracion::Fallo(format!("{}: {e}", viejo.display())),
     }
 }
 
-fn migra_io(viejo: &Path, nuevo: &Path, ts: &str) -> std::io::Result<Migracion> {
+fn migra_io(
+    viejo: &Path,
+    nuevo: &Path,
+    ts: &str,
+    antes_del_link: impl FnOnce(),
+) -> std::io::Result<Migracion> {
+    use std::io::ErrorKind::{AlreadyExists, NotFound};
     if let Some(padre) = nuevo.parent() {
         std::fs::create_dir_all(padre)?;
     }
-    if !nuevo.exists() {
-        std::fs::rename(viejo, nuevo)?;
-        return Ok(Migracion::Renombrado);
+    antes_del_link();
+    // `hard_link` no reemplaza un destino existente; `rename(2)` sí, y pisaría las
+    // líneas de un hook que creó el nuevo entre el `stat` y el rename. Los fds que
+    // el viejo tenga abiertos siguen escribiendo en el mismo inodo, ya nuevo.
+    match std::fs::hard_link(viejo, nuevo) {
+        Ok(()) => {
+            return match std::fs::remove_file(viejo) {
+                Ok(()) => Ok(Migracion::Renombrado),
+                Err(e) if e.kind() == NotFound => Ok(Migracion::Renombrado),
+                Err(e) => Err(e),
+            };
+        }
+        Err(e) if e.kind() == NotFound => return Ok(Migracion::Nada),
+        Err(e) if e.kind() == AlreadyExists => {}
+        // FS sin hard links: cae al rename (que sí reemplaza) si el nuevo sigue sin existir.
+        Err(_) if !nuevo.exists() => {
+            std::fs::rename(viejo, nuevo)?;
+            return Ok(Migracion::Renombrado);
+        }
+        Err(e) => return Err(e),
     }
-    let mut bytes = std::fs::read(viejo)?;
+    // Otro migrador acaba de enlazar viejo y nuevo al mismo inodo y está por borrar el viejo.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        if let (Ok(v), Ok(n)) = (std::fs::metadata(viejo), std::fs::metadata(nuevo))
+            && v.ino() == n.ino()
+            && v.dev() == n.dev()
+        {
+            return Ok(Migracion::Nada);
+        }
+    }
+    // Rename primero: solo un migrador gana el viejo (el otro ve ENOENT) y lo que un
+    // hook escriba después recrea el viejo en vez de caer en un `.migrado` que nadie lee.
+    let base = format!("{}.migrado-{ts}", viejo.display());
+    let mut destino = PathBuf::from(&base);
+    for n in 1.. {
+        if !destino.exists() {
+            break;
+        }
+        destino = PathBuf::from(format!("{base}-{n}"));
+    }
+    match std::fs::rename(viejo, &destino) {
+        Ok(()) => {}
+        Err(e) if e.kind() == NotFound => return Ok(Migracion::Nada),
+        Err(e) => return Err(e),
+    }
+    let mut bytes = std::fs::read(&destino)?;
     if !bytes.is_empty() && bytes.last() != Some(&b'\n') {
         bytes.push(b'\n');
     }
@@ -121,15 +177,6 @@ fn migra_io(viejo: &Path, nuevo: &Path, ts: &str) -> std::io::Result<Migracion> 
         .append(true)
         .open(nuevo)?
         .write_all(&bytes)?;
-    let base = format!("{}.migrado-{ts}", viejo.display());
-    let mut destino = PathBuf::from(&base);
-    for n in 1.. {
-        if !destino.exists() {
-            break;
-        }
-        destino = PathBuf::from(format!("{base}-{n}"));
-    }
-    std::fs::rename(viejo, &destino)?;
     Ok(Migracion::Fusionado { viejo_a: destino })
 }
 
