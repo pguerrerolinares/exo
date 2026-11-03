@@ -111,6 +111,8 @@ pub struct Entorno {
     /// `CLAUDE_CODE_GIT_BASH_PATH`: la variable con la que Claude Code elige
     /// el shell de los hooks en Windows. Si está, manda sobre el PATH.
     pub git_bash_path: Option<String>,
+    /// Rutas de estado de exo (`~/.exo/state/...`), para el residuo en `~/.claude/`.
+    pub rutas: crate::state::Rutas,
 }
 
 impl Entorno {
@@ -129,6 +131,7 @@ impl Entorno {
         let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
         let cache_hf = crate::cache_hf_del_entorno();
         Self {
+            rutas: crate::state::Rutas::desde_env(),
             config: crate::config::ruta_config()
                 .unwrap_or_else(|_| home.join(".exo").join("config.toml")),
             home,
@@ -182,6 +185,7 @@ pub fn analiza(entorno: &Entorno) -> InformeDoctor {
         check_plugin_compat(entorno),
         check_superpowers(entorno),
         check_dispositivo(entorno, cfg.as_ref()),
+        check_state_residuo(entorno),
     ])
 }
 
@@ -406,6 +410,52 @@ fn check_fallback_del_hook(entorno: &Entorno) -> Check {
             "kb-precommit.sh BLOQUEA el commit si tampoco hay un exo en $PATH \
              (fail-closed, campaña H) — no es silencioso, pero sí evitable. \
              Instala con install.sh/install.ps1 o copia el binario ahí",
+        )
+    }
+}
+
+/// Informativo (`warn` no gatea): lo que `exo hook SessionStart` no llegó a migrar
+/// (p. ej. un `state_dir` no escribible, donde ni el rastro `state-migrate-failed` se escribe).
+fn check_state_residuo(entorno: &Entorno) -> Check {
+    let claude = entorno.home.join(".claude");
+    let r = &entorno.rutas;
+    let pares = [
+        ("reflex-log.jsonl", &r.reflex_log),
+        ("exo-index.log", &r.index_log),
+        ("reflex-inject-canary", &r.canary),
+    ];
+    let artefacto = pares
+        .iter()
+        .map(|(n, _)| claude.join(n).display().to_string())
+        .collect::<Vec<_>>()
+        .join(" · ");
+    let residuos: Vec<String> = pares
+        .iter()
+        .filter_map(|(n, nuevo)| {
+            let viejo = claude.join(n);
+            let crece = viejo != **nuevo && std::fs::metadata(&viejo).is_ok_and(|m| m.len() > 0);
+            crece.then(|| {
+                format!(
+                    "residuo en {v} que crece: cat {v} >> {n} && mv {v} {v}.migrado-$(date +%Y%m%dT%H%M%S)",
+                    v = viejo.display(),
+                    n = nuevo.display()
+                )
+            })
+        })
+        .collect();
+    if residuos.is_empty() {
+        Check::nuevo(
+            "state_residuo",
+            Estado::Ok,
+            artefacto,
+            "sin estado de exo en ~/.claude/",
+        )
+    } else {
+        Check::nuevo(
+            "state_residuo",
+            Estado::Warn,
+            artefacto,
+            residuos.join("; "),
         )
     }
 }

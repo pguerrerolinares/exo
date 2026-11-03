@@ -3,6 +3,7 @@
 //! del proceso; `desde_env` es el único punto que lo lee.
 
 use std::ffi::OsString;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -81,4 +82,65 @@ impl Seams {
     pub fn desde_env() -> Seams {
         Seams::resuelve(|k| std::env::var_os(k))
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Migracion {
+    Renombrado,
+    Fusionado { viejo_a: PathBuf },
+    Nada,
+    Fallo(String),
+}
+
+/// `viejo` → `nuevo` (spec §4.2). Nunca borra el viejo: o se renombra o acaba en `.migrado-<ts>`.
+pub fn migra(viejo: &Path, nuevo: &Path, ts: &str) -> Migracion {
+    if viejo == nuevo || !viejo.exists() {
+        return Migracion::Nada;
+    }
+    match migra_io(viejo, nuevo, ts) {
+        Ok(m) => m,
+        Err(e) => Migracion::Fallo(format!("{}: {e}", viejo.display())),
+    }
+}
+
+fn migra_io(viejo: &Path, nuevo: &Path, ts: &str) -> std::io::Result<Migracion> {
+    if let Some(padre) = nuevo.parent() {
+        std::fs::create_dir_all(padre)?;
+    }
+    if !nuevo.exists() {
+        std::fs::rename(viejo, nuevo)?;
+        return Ok(Migracion::Renombrado);
+    }
+    let mut bytes = std::fs::read(viejo)?;
+    if !bytes.is_empty() && bytes.last() != Some(&b'\n') {
+        bytes.push(b'\n');
+    }
+    // Un solo write() con O_APPEND: no se intercala con los hooks que escriben en el nuevo.
+    std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(nuevo)?
+        .write_all(&bytes)?;
+    let base = format!("{}.migrado-{ts}", viejo.display());
+    let mut destino = PathBuf::from(&base);
+    for n in 1.. {
+        if !destino.exists() {
+            break;
+        }
+        destino = PathBuf::from(format!("{base}-{n}"));
+    }
+    std::fs::rename(viejo, &destino)?;
+    Ok(Migracion::Fusionado { viejo_a: destino })
+}
+
+/// Los tres ficheros de estado que vivían en `~/.claude/`.
+pub fn migra_todo(home: &Path, r: &Rutas, ts: &str) -> Vec<(&'static str, Migracion)> {
+    [
+        ("reflex-log.jsonl", &r.reflex_log),
+        ("exo-index.log", &r.index_log),
+        ("reflex-inject-canary", &r.canary),
+    ]
+    .into_iter()
+    .map(|(nombre, nuevo)| (nombre, migra(&home.join(".claude").join(nombre), nuevo, ts)))
+    .collect()
 }

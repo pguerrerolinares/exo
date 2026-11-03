@@ -1,4 +1,5 @@
-use exo::hook::evento::{Clase, Entorno, Evento, EventoKind, Harness, Tool};
+use exo::hook::claude;
+use exo::hook::evento::{Entorno, Evento};
 use exo::hook::reflex::{lee_cola, payload_truncado, registra};
 use regex::Regex;
 use serde_json::json;
@@ -16,22 +17,12 @@ fn entorno(log: PathBuf) -> Entorno {
 }
 
 fn evento(tool: Option<&str>) -> Evento {
-    Evento {
-        harness: Harness::Claude,
-        kind: EventoKind::PreToolUse,
-        session_id: "s1".into(),
-        cwd: "/x".into(),
-        agent_id: "a1".into(),
-        agent_type: "t1".into(),
-        crudo: String::new(),
-        tool: tool.map(|n| Tool {
-            nombre: n.into(),
-            clase: Clase::Shell,
-            input: json!({}),
-            command: None,
-            paths: vec![],
-        }),
+    let mut v = json!({"session_id": "s1", "cwd": "/x", "agent_id": "a1", "agent_type": "t1"});
+    if let Some(n) = tool {
+        v["tool_name"] = json!(n);
+        v["tool_input"] = json!({});
     }
+    claude::parse("PreToolUse", v.to_string().as_bytes()).unwrap()
 }
 
 #[test]
@@ -51,6 +42,7 @@ fn registra_esquema_identico_al_sh() {
         [
             "agent_id",
             "agent_type",
+            "harness",
             "payload",
             "reflex",
             "session_id",
@@ -196,4 +188,20 @@ fn lee_cola_salta_lineas_ilegibles() {
     let cola = lee_cola(&en, 10);
     let ids: Vec<_> = cola.iter().map(|v| v["reflex"].as_str().unwrap()).collect();
     assert_eq!(ids, ["a", "b"]);
+}
+
+#[test]
+fn lleva_harness() {
+    let d = tempfile::tempdir().unwrap();
+    let en = entorno(d.path().join("log.jsonl"));
+    registra(&en, "r", &evento(None), "");
+    assert_eq!(lee_cola(&en, 1)[0]["harness"], "claude");
+}
+
+#[test]
+fn crea_el_padre_del_log() {
+    let d = tempfile::tempdir().unwrap();
+    let en = entorno(d.path().join("no/existe/log.jsonl"));
+    registra(&en, "r", &evento(None), "");
+    assert_eq!(lee_cola(&en, 5).len(), 1);
 }
