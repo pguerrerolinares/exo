@@ -143,6 +143,31 @@ fn verify_solo_con_codigo_staged() {
 }
 
 #[test]
+fn verify_git_y_commit_en_lineas_distintas_no_dispara() {
+    let rs = repo_con_staged("a.rs");
+    let en = entorno(rs.path());
+    verify(&commit(rs.path(), "git\ncommit -m x"), &en);
+    assert!(lee_cola(&en, 10).is_empty());
+    // Control: en una sola línea sí loguea.
+    verify(&commit(rs.path(), "git commit -m x"), &en);
+    assert_eq!(lee_cola(&en, 10).len(), 1);
+}
+
+#[test]
+fn veredicto_test_partido_en_lineas_no_cuenta() {
+    for roto in ["cargo\ntest", "npm\ntest"] {
+        assert_eq!(
+            veredicto(&[reg("Shell", "Bash", roto, Some(true))]),
+            Veredicto::Warn,
+            "{roto:?}"
+        );
+    }
+    // Control: un test en su propia línea sí cuenta.
+    let ok = reg("Shell", "Bash", "echo a\ncargo test", Some(true));
+    assert_eq!(veredicto(&[ok]), Veredicto::Verde);
+}
+
+#[test]
 fn verify_no_verify_no_dispara() {
     let rs = repo_con_staged("a.rs");
     let en = entorno(rs.path());

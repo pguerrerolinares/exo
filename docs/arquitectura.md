@@ -405,7 +405,7 @@ lo humano y los avisos van a stderr. Los consumidores gatean por exit code
 ## 4. El plugin
 
 `plugins/exo/` es la capa que conecta el engine con el agente. Cuatro piezas:
-hooks de shell, un mod, skills y agentes. Los hooks se cablean en
+hooks (`exo hook` y los `.sh` restantes), un mod, skills y agentes. Los hooks se cablean en
 `plugins/exo/hooks/hooks.json`; el número de comandos cableados lo vigila
 `scripts/test-docs-vivos.sh` contra las tablas de los README, no se repite aquí.
 
@@ -508,7 +508,7 @@ flowchart TD
 
 ### 4.3 Reflejos y guardrails
 
-Los hooks de shell son los «reflejos»: guardrails deterministas que activan el
+Los hooks (`exo hook` y los `.sh` restantes) son los «reflejos»: guardrails deterministas que activan el
 conocimiento en el punto de acción. Invariantes reales de todos ellos:
 **abstención por defecto** (sin `jq`, sin engine o ante un payload ilegible
 callan) y **logging best-effort** a `~/.claude/reflex-log.jsonl` que nunca

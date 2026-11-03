@@ -38,6 +38,14 @@ impl Guard {
         EventoKind::PreToolUse
     }
 
+    /// Tools que el guard necesita ver; `hooks.json` debe cubrirlas.
+    pub fn tools(&self) -> &'static [&'static str] {
+        match self {
+            Guard::GitC | Guard::ZeroResiduo | Guard::Verify => &["Bash", "PowerShell"],
+            Guard::SearchFirst => &["Agent", "Task", "Edit", "Write", "NotebookEdit"],
+        }
+    }
+
     /// Variantes de `Decision` que el guard puede devolver.
     pub fn decisiones(&self) -> &'static [&'static str] {
         match self {

@@ -28,6 +28,8 @@ printf '\n' >> "$JOURNAL"   # cierra la última línea cortada por head
 
 printf '%s' '{"session_id":"bench","cwd":"/tmp","tool_name":"Edit","tool_input":{"file_path":"/tmp/x.rs"},"hook_event_name":"PreToolUse"}' > "$TMP/payload.json"
 
+# Tras el warmup el journal ya tiene el `warn`: se mide el camino «ya avisó». Comparte el
+# coste dominante (leer y parsear 2 MiB); solo difiere el regex sobre los 20k cmds.
 hyperfine -N --warmup 5 --runs "$RUNS" --input "$TMP/payload.json" \
   --export-json "$TMP/res.json" "$EXO_BIN hook claude PreToolUse" >/dev/null 2>"$TMP/err" \
   || { cat "$TMP/err" >&2; exit 1; }

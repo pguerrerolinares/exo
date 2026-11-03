@@ -3,15 +3,6 @@ use exo::hook::evento::{Decision, Evento, EventoKind, Harness};
 use exo::hook::matriz::{GUARDS, Soporte, soporte};
 use serde_json::json;
 
-fn nombre_evento(k: &EventoKind) -> &str {
-    match k {
-        EventoKind::PreToolUse => "PreToolUse",
-        EventoKind::PostToolUse => "PostToolUse",
-        EventoKind::PostToolUseFailure => "PostToolUseFailure",
-        EventoKind::Otro(s) => s,
-    }
-}
-
 fn decision(nombre: &str) -> Decision {
     match nombre {
         "Allow" => Decision::Allow,
@@ -39,11 +30,13 @@ fn evento(kind: EventoKind) -> Evento {
     }
 }
 
-fn fixtures_claude() -> String {
+fn fixtures_claude() -> Vec<serde_json::Value> {
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/hook/claude");
     std::fs::read_dir(dir)
         .unwrap()
-        .map(|e| std::fs::read_to_string(e.unwrap().path()).unwrap())
+        .map(|e| {
+            serde_json::from_str(&std::fs::read_to_string(e.unwrap().path()).unwrap()).unwrap()
+        })
         .collect()
 }
 
@@ -65,9 +58,9 @@ fn matriz_capacidad_claude() {
     );
     for g in declarados {
         let kind = g.evento();
-        let nombre = nombre_evento(&kind);
+        let nombre = kind.nombre();
         assert!(
-            golden.contains(&format!("\"hook_event_name\":\"{nombre}\"")),
+            golden.iter().any(|v| v["hook_event_name"] == nombre),
             "{} declarado Soportado en claude pero el golden de claude no contiene {nombre}: decláralo NoSoportado o cambia el evento",
             g.nombre()
         );

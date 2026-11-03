@@ -1,6 +1,6 @@
 //! Guard verify.
 
-use crate::hook::evento::{Decision, Entorno, Evento};
+use crate::hook::evento::{Clase, Decision, Entorno, Evento};
 use crate::hook::journal::{Registro, lee};
 use crate::hook::reflex::{payload_truncado, registra};
 use regex::Regex;
@@ -14,29 +14,32 @@ pub enum Veredicto {
     Warn,
 }
 
-// Literales de bash-guards.sh (rama 3; retirado en plugin 1.32.0).
+// Literales de bash-guards.sh (rama 3; retirado en plugin 1.32.0). `(?m)` y `[^\S\n]`
+// porque grep -E casaba por línea y `[[:space:]]` en regex Rust cruza `\n`.
 static VBD: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"git[[:space:]]+commit([[:space:]]|$)").unwrap());
+    LazyLock::new(|| Regex::new(r"(?m)git[^\S\n]+commit([^\S\n]|$)").unwrap());
 static CODIGO: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\.(ts|tsx|js|jsx|py|go|rs|rb|java|kt|c|cc|cpp|h|hpp|cs|php|swift|scala|sh|bash)$")
         .unwrap()
 });
 static TR_RE1: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(^|[&|;[:space:]]+)(pytest|jest|vitest|tox|rspec|phpunit)([[:space:]]|$)").unwrap()
+    Regex::new(r"(?m)(^|[&|;\t\x0B\x0C\r ]+)(pytest|jest|vitest|tox|rspec|phpunit)([^\S\n]|$)")
+        .unwrap()
 });
 static TR_RE2: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
-        r"(^|[&|;[:space:]]+)(npm[[:space:]]+(test|run[[:space:]]+test)|yarn[[:space:]]+test|pnpm[[:space:]]+test|bun[[:space:]]+test|cargo[[:space:]]+test|go[[:space:]]+test|make[[:space:]]+test|mvn[[:space:]]+test|gradle[[:space:]]+test|dotnet[[:space:]]+test)([[:space:]]|$)",
+        r"(?m)(^|[&|;\t\x0B\x0C\r ]+)(npm[^\S\n]+(test|run[^\S\n]+test)|yarn[^\S\n]+test|pnpm[^\S\n]+test|bun[^\S\n]+test|cargo[^\S\n]+test|go[^\S\n]+test|make[^\S\n]+test|mvn[^\S\n]+test|gradle[^\S\n]+test|dotnet[^\S\n]+test)([^\S\n]|$)",
     )
     .unwrap()
 });
 
 fn es_test(r: &Registro) -> bool {
-    r.clase == "Shell" && (TR_RE1.is_match(&r.cmd) || TR_RE2.is_match(&r.cmd))
+    r.clase == Clase::Shell.nombre() && (TR_RE1.is_match(&r.cmd) || TR_RE2.is_match(&r.cmd))
 }
 
 fn es_edicion(r: &Registro) -> bool {
-    r.clase == "FileEdit" || matches!(r.tool.as_str(), "Edit" | "Write" | "NotebookEdit")
+    r.clase == Clase::FileEdit.nombre()
+        || matches!(r.tool.as_str(), "Edit" | "Write" | "NotebookEdit")
 }
 
 /// Último test decide (spec §4.2); `ok` desconocido nunca es verde.

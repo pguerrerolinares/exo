@@ -781,7 +781,8 @@ fn es_git_bash(ruta: &std::path::Path) -> bool {
 }
 
 /// Claude Code usa Git Bash como shell de hooks en Windows: sin él los
-/// `.sh` del plugin no corren. Fuera de Windows sale `na` —no desaparece—
+/// `.sh` que quedan en el plugin no corren (`exo hook` no lo necesita: es el
+/// binario). Fuera de Windows sale `na` —no desaparece—
 /// porque una fila ausente no se distingue de un check que nunca existió.
 fn check_git_bash(entorno: &Entorno) -> Check {
     if !cfg!(windows) {
@@ -801,7 +802,7 @@ fn check_git_bash(entorno: &Entorno) -> Check {
                 Estado::Warn,
                 artefacto,
                 "CLAUDE_CODE_GIT_BASH_PATH apunta a un fichero que no existe: \
-                 Claude Code no podrá lanzar los hooks .sh",
+                 Claude Code no podrá lanzar los hooks .sh restantes",
             )
         } else if es_git_bash(&ruta) {
             Check::nuevo(
@@ -816,7 +817,7 @@ fn check_git_bash(entorno: &Entorno) -> Check {
                 Estado::Warn,
                 artefacto,
                 "CLAUDE_CODE_GIT_BASH_PATH apunta a un bash que no es Git Bash \
-                 (probablemente WSL): los hooks .sh de Claude Code esperan Git Bash",
+                 (probablemente WSL): los hooks .sh restantes de Claude Code esperan Git Bash",
             )
         };
     }
@@ -832,14 +833,14 @@ fn check_git_bash(entorno: &Entorno) -> Check {
             Estado::Warn,
             ruta.display().to_string(),
             "PATH resuelve a un bash que no es Git Bash (probablemente WSL): \
-             los hooks .sh de Claude Code esperan Git Bash — instala Git for \
+             los hooks .sh restantes de Claude Code esperan Git Bash — instala Git for \
              Windows y ponlo antes en el PATH, o define CLAUDE_CODE_GIT_BASH_PATH",
         ),
         None => Check::nuevo(
             "git_bash",
             Estado::Fail,
             format!("PATH={}", entorno.path),
-            "sin Git Bash los hooks .sh del plugin no corren",
+            "sin Git Bash los hooks .sh restantes del plugin no corren (`exo hook` sí)",
         ),
     }
 }

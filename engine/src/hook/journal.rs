@@ -81,7 +81,7 @@ fn escribe(
         clase: ev
             .tool
             .as_ref()
-            .map(|t| format!("{:?}", t.clase))
+            .map(|t| t.clase.nombre().to_string())
             .unwrap_or_default(),
         cmd: ev
             .tool

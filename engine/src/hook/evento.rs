@@ -3,7 +3,7 @@
 use serde_json::Value;
 use std::path::PathBuf;
 
-/// Única lectura de `std::env` de todo `hook/`; el resto recibe un `Entorno`.
+/// `desde_env` es la única función de `hook/` que lee el entorno; el resto recibe un `Entorno`.
 #[derive(Debug, Clone)]
 pub struct Entorno {
     pub state_dir: PathBuf,
@@ -54,6 +54,17 @@ pub enum EventoKind {
     Otro(String),
 }
 
+impl EventoKind {
+    pub fn nombre(&self) -> &str {
+        match self {
+            EventoKind::PreToolUse => "PreToolUse",
+            EventoKind::PostToolUse => "PostToolUse",
+            EventoKind::PostToolUseFailure => "PostToolUseFailure",
+            EventoKind::Otro(s) => s,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Clase {
     Shell,
@@ -62,6 +73,20 @@ pub enum Clase {
     Web,
     Mcp,
     Other,
+}
+
+impl Clase {
+    /// Forma serializada en el journal; `verify` la compara por este nombre.
+    pub fn nombre(&self) -> &'static str {
+        match self {
+            Clase::Shell => "Shell",
+            Clase::FileEdit => "FileEdit",
+            Clase::Agent => "Agent",
+            Clase::Web => "Web",
+            Clase::Mcp => "Mcp",
+            Clase::Other => "Other",
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

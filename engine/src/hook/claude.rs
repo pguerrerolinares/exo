@@ -38,17 +38,8 @@ fn kind(evento: &str) -> EventoKind {
     }
 }
 
-fn nombre_evento(k: &EventoKind) -> &str {
-    match k {
-        EventoKind::PreToolUse => "PreToolUse",
-        EventoKind::PostToolUse => "PostToolUse",
-        EventoKind::PostToolUseFailure => "PostToolUseFailure",
-        EventoKind::Otro(s) => s,
-    }
-}
-
 pub fn render(d: &Decision, ev: &Evento) -> String {
-    let nombre = nombre_evento(&ev.kind);
+    let nombre = ev.kind.nombre();
     match d {
         Decision::Allow => String::new(),
         Decision::Deny(r) => json!({"hookSpecificOutput":{

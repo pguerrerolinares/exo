@@ -64,6 +64,7 @@ fn registra_y_lee_en_orden() {
         (r[1].paths.clone(), r[1].ok),
         (vec!["a.rs".to_string()], None)
     );
+    assert_eq!(r[1].clase, "FileEdit");
     assert_eq!((r[2].kind.as_str(), r[2].code.as_str()), ("warn", "W001"));
     assert_eq!(r[0].ts.len(), "2026-01-01T00:00:00Z".len());
     assert!(r[0].ts.ends_with('Z'));
@@ -223,6 +224,7 @@ fn session_id_no_escapa_del_dir() {
     };
     assert_eq!(nombre("a-B_9"), "claude-a-B_9.jsonl");
     assert_eq!(nombre("a.b/c"), "claude-a_b_c.jsonl");
+    assert_eq!(nombre("ñ-1"), "claude-_-1.jsonl");
     registra_tool(&en, &bash("../../x", "", "z"), None).unwrap();
     assert!(p.exists());
 }
