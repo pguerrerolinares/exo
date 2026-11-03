@@ -501,3 +501,32 @@ fn compact_fuera_del_cap() {
     assert!(txt.contains(CABECERA_REAFIRMA) && txt.contains(PIN_GIT));
     assert!(antes.is_some());
 }
+
+/// Hijo de `truncado_no_escribe_stderr`: solo hace algo si lo lanza el padre.
+#[test]
+fn hijo_truncado_stderr() {
+    if std::env::var_os("HOOK_RECALL_HIJO").is_none() {
+        return;
+    }
+    con_montaje("kb-test", &contrato_grande(), |m| {
+        m.en.seams.recall_cap = 600;
+        let (_, razones) = recall_contrato(&evento("s", ""), &m.en);
+        assert_eq!(razones, ["truncated"]);
+    });
+}
+
+#[test]
+fn truncado_no_escribe_stderr() {
+    let out = Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", "hijo_truncado_stderr", "--nocapture"])
+        .env("HOOK_RECALL_HIJO", "1")
+        .output()
+        .unwrap();
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(out.status.success(), "el hijo falló: {err}");
+    assert!(
+        String::from_utf8_lossy(&out.stdout).contains("hijo_truncado_stderr ... ok"),
+        "el hijo no corrió"
+    );
+    assert!(!err.contains("aviso"), "stderr del hook no vacío: {err}");
+}

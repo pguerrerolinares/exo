@@ -1,7 +1,7 @@
 //! Guard Recall: contrato de recall en SessionStart, migrado de exo-recall.sh.
 
 use crate::hook::evento::{Entorno, Evento};
-use crate::recall::recall_arranque_contenido;
+use crate::recall::recall_arranque_bloque;
 use serde_json::Value;
 use std::collections::BTreeSet;
 use std::path::PathBuf;
@@ -47,15 +47,12 @@ pub fn recall_contrato(_ev: &Evento, en: &Entorno) -> (String, Vec<&'static str>
     };
     let kb: Option<PathBuf> = s.exo_kb.clone().or_else(|| crate::kb_desde_config().ok());
     let base = kb.and_then(|kb| {
-        let b =
-            recall_arranque_contenido(&db, &kb, s.recall_limite, s.recall_cap, Some(&nota)).ok()?;
-        // El engine solo avisa por stderr de que cortó; sin cap la salida es el bloque entero.
-        let entero =
-            recall_arranque_contenido(&db, &kb, s.recall_limite, usize::MAX, Some(&nota)).ok();
-        if entero.is_some_and(|e| e.len() > b.len()) {
+        let a =
+            recall_arranque_bloque(&db, &kb, s.recall_limite, s.recall_cap, Some(&nota)).ok()?;
+        if a.truncado {
             razones.push("truncated");
         }
-        Some(b)
+        Some(a.bloque)
     });
     // `$(...)` de la shell descartaba los saltos de línea finales.
     let base = base
