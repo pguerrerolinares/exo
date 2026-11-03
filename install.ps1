@@ -202,6 +202,16 @@ try {
         Write-Host "  $destino init --kb <ruta-de-tu-kb> --name <nombre>"
     }
 
+    # Codex: si esta instalado, registra los roles exo-consultor/exo-executor. Un
+    # fallo avisa y la instalacion sigue; el exit de un proceso nativo no lanza,
+    # asi que se mira $LASTEXITCODE y no se usa try/catch.
+    if (Get-Command codex -ErrorAction SilentlyContinue) {
+        & $destino setup codex
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "install: setup codex fallo (exit $LASTEXITCODE): corre ``exo setup codex``"
+        }
+    }
+
     # doctor cierra la instalacion. Su exit 3 significa "esta maquina tiene
     # deuda", no "la instalacion fallo": se imprime el informe y no se
     # propaga el codigo.

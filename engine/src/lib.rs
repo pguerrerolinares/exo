@@ -26,6 +26,7 @@ pub mod recall;
 pub mod reglas;
 pub mod rotacion;
 pub mod schema;
+pub mod setup_codex;
 pub mod state;
 pub mod trinquete;
 pub mod trozos;

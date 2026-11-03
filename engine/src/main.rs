@@ -115,6 +115,20 @@ enum Comando {
     /// de 0 bloquearía la herramienta. La única excepción es un flag que clap
     /// no conoce (p. ej. `--min` en un binario viejo): sale con 2.
     Hook(ArgsHook),
+    /// Prepara un agente para usar exo.
+    #[command(subcommand)]
+    Setup(ComandoSetup),
+}
+
+#[derive(Subcommand)]
+enum ComandoSetup {
+    /// Registra los roles `exo-consultor` y `exo-executor` en Codex: copia sus
+    /// capas a `~/.exo/codex-agents/` y escribe el bloque `# >>> exo` de
+    /// `$CODEX_HOME/config.toml` (`~/.codex` si no está). Idempotente; respeta
+    /// lo que haya fuera de los marcadores. Si el config no parsea, hay un
+    /// marcador sin pareja o `[agents.exo-*]` fuera del bloque, falla sin
+    /// tocar nada.
+    Codex,
 }
 
 #[derive(Subcommand)]
@@ -560,7 +574,7 @@ fn quiere_json(c: &Comando) -> bool {
         Comando::Rotate(a) => a.json,
         Comando::Doctor(a) => a.json,
         Comando::Stale(a) => a.json,
-        Comando::Hook(_) => false,
+        Comando::Hook(_) | Comando::Setup(_) => false,
         Comando::Write(w) => match w {
             ComandoWrite::New(a) => a.json,
             ComandoWrite::Append(a) => a.json,
@@ -591,6 +605,7 @@ fn ejecuta(comando: Comando) -> Result<()> {
             hook_cmd(args);
             Ok(())
         }
+        Comando::Setup(ComandoSetup::Codex) => setup_codex_cmd(),
         Comando::Write(sub) => match sub {
             ComandoWrite::New(args) => write_new_cmd(args),
             ComandoWrite::Append(args) => write_append_cmd(args),
@@ -1431,6 +1446,20 @@ fn lint_cmd(args: ArgsLint) -> Result<()> {
         }
         .into());
     }
+    Ok(())
+}
+
+fn setup_codex_cmd() -> Result<()> {
+    let rutas = exo::state::Rutas::desde_env();
+    let codex_home = exo::state::Seams::desde_env()
+        .codex_home
+        .unwrap_or_else(|| rutas.home.join(".codex"));
+    exo::setup_codex::ejecuta(&codex_home, &rutas.home.join(".exo"))?;
+    println!(
+        "setup codex: roles en {} y bloque en {}",
+        rutas.home.join(".exo/codex-agents").display(),
+        codex_home.join("config.toml").display()
+    );
     Ok(())
 }
 

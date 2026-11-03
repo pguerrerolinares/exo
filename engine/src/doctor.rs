@@ -113,6 +113,8 @@ pub struct Entorno {
     pub git_bash_path: Option<String>,
     /// Rutas de estado de exo (`~/.exo/state/...`), para el residuo en `~/.claude/`.
     pub rutas: crate::state::Rutas,
+    /// `$CODEX_HOME` o `~/.codex`: donde Codex deja `models_cache.json`.
+    pub codex_home: PathBuf,
 }
 
 impl Entorno {
@@ -131,6 +133,9 @@ impl Entorno {
         let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
         let cache_hf = crate::cache_hf_del_entorno();
         Self {
+            codex_home: crate::state::Seams::desde_env()
+                .codex_home
+                .unwrap_or_else(|| home.join(".codex")),
             rutas: crate::state::Rutas::desde_env(),
             config: crate::config::ruta_config()
                 .unwrap_or_else(|_| home.join(".exo").join("config.toml")),
@@ -186,6 +191,7 @@ pub fn analiza(entorno: &Entorno) -> InformeDoctor {
         check_superpowers(entorno),
         check_dispositivo(entorno, cfg.as_ref()),
         check_state_residuo(entorno),
+        check_codex_rol_modelo(entorno),
     ])
 }
 
@@ -1203,5 +1209,73 @@ fn check_superpowers(entorno: &Entorno) -> Check {
             artefacto,
             "superpowers no está habilitado a la vez que exo",
         ),
+    }
+}
+
+/// El `model` de cada rol instalado por `exo setup codex` contra los slugs de
+/// `models_cache.json`: Codex rota sus modelos y un rol con un slug que ya no
+/// existe falla al despachar, no al instalar. Informativo (`warn`, nunca
+/// `fail`): sin roles o sin caché legible no hay nada que comparar (`na`).
+fn check_codex_rol_modelo(entorno: &Entorno) -> Check {
+    let id = "codex_rol_modelo";
+    let cache = entorno.codex_home.join("models_cache.json");
+    let agentes = entorno.home.join(".exo").join("codex-agents");
+    let artefacto = format!("{} · {}", cache.display(), agentes.display());
+    let na = |detalle: &str| Check::nuevo(id, Estado::Na, artefacto.clone(), detalle);
+
+    let roles: Vec<(String, String)> = ["consultor", "executor"]
+        .into_iter()
+        .filter_map(|r| {
+            let texto = std::fs::read_to_string(agentes.join(format!("{r}.toml"))).ok()?;
+            let modelo = texto
+                .parse::<toml::Table>()
+                .ok()?
+                .get("model")?
+                .as_str()?
+                .to_string();
+            Some((r.to_string(), modelo))
+        })
+        .collect();
+    if roles.is_empty() {
+        return na("sin roles de Codex instalados (`exo setup codex`)");
+    }
+    let slugs: Option<Vec<String>> = std::fs::read_to_string(&cache)
+        .ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .and_then(|v| {
+            Some(
+                v.get("models")?
+                    .as_array()?
+                    .iter()
+                    .filter_map(|m| m.get("slug")?.as_str().map(str::to_string))
+                    .collect(),
+            )
+        });
+    let Some(slugs) = slugs else {
+        return na("sin models_cache.json legible: no hay con qué comparar el modelo de los roles");
+    };
+    let rotados: Vec<String> = roles
+        .iter()
+        .filter(|(_, m)| !slugs.contains(m))
+        .map(|(r, m)| format!("el rol {r} usa `{m}`, que ya no está en la caché de Codex"))
+        .collect();
+    if rotados.is_empty() {
+        Check::nuevo(
+            id,
+            Estado::Ok,
+            artefacto,
+            "el modelo de cada rol está en la caché de Codex",
+        )
+    } else {
+        Check::nuevo(
+            id,
+            Estado::Warn,
+            artefacto,
+            format!(
+                "{}; edita `model` en {}",
+                rotados.join("; "),
+                agentes.display()
+            ),
+        )
     }
 }
