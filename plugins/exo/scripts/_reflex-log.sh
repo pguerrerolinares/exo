@@ -15,6 +15,7 @@
 
 reflex_log() {
   local reflex="$1" input="$2" payload="${3:-}"
+  [ -d "${REFLEX_LOG_FILE%/*}" ] || mkdir -p "${REFLEX_LOG_FILE%/*}" 2>/dev/null
   local ts; ts="$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)" || ts=""
   printf '%s' "$input" | jq -c \
     --arg ts "$ts" --arg reflex "$reflex" --arg payload "${payload:0:2000}" \

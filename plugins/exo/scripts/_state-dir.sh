@@ -6,6 +6,7 @@
 
 export EXO_STATE_DIR="${EXO_STATE_DIR:-$HOME/.exo/state}"
 export REFLEX_LOG_FILE="${REFLEX_LOG_FILE:-$EXO_STATE_DIR/reflex-log.jsonl}"
-export EXO_RULES_DIR="${EXO_RULES_DIR:-$EXO_STATE_DIR/exo-rules}"
+# Sin override propio: Rust y register.ts la derivan siempre de EXO_STATE_DIR.
+export EXO_RULES_DIR="$EXO_STATE_DIR/exo-rules"
 export EXO_INDEX_LOG="${EXO_INDEX_LOG:-$EXO_STATE_DIR/exo-index.log}"
 export REFLEX_CANARY_FILE="${REFLEX_CANARY_FILE:-$EXO_STATE_DIR/reflex-inject-canary}"

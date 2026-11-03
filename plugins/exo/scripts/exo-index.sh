@@ -47,6 +47,7 @@ log_index_fallback() {  # $1=reason $2=payload extra opcional
 # degradación. (Distinto de "hay binario pero no sé lanzarlo detached", que sí
 # se loguea más abajo.)
 [ -x "$EXO_BIN" ] || exit 0
+[ -d "${LOG%/*}" ] || mkdir -p "${LOG%/*}" 2>/dev/null
 
 if command -v "$SETSID_BIN" >/dev/null 2>&1; then
   # setsid -f: el harness mata el process group del hook al terminar, y un

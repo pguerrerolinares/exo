@@ -28,8 +28,16 @@ eq "test-state-dir: propia gana REFLEX_LOG_FILE" "${v[1]}" "$T/r"
 eq "test-state-dir: EXO_STATE_DIR rige el resto"  "${v[3]}" "$T/s/exo-index.log"
 eq "test-state-dir: EXO_STATE_DIR rige rules"     "${v[2]}" "$T/s/exo-rules"
 
+mapfile -t v < <(vars HOME="$h" EXO_STATE_DIR="$T/s" EXO_RULES_DIR="$T/otro")
+eq "test-state-dir: EXO_RULES_DIR no admite override propio" "${v[2]}" "$T/s/exo-rules"
+
 mapfile -t v < <(vars HOME="$h" EXO_STATE_DIR="" REFLEX_LOG_FILE="")
 eq "test-state-dir: vacío = ausente" "${v[1]}" "$h/.exo/state/reflex-log.jsonl"
+
+# HOME limpio sin ~/.exo/state: el writer crea el padre
+limpio="$T/limpio"; mkdir -p "$limpio"
+env -i PATH="$PATH" HOME="$limpio" bash -c '. "$0" && reflex_log x "{}" p' "$DIR/_reflex-log.sh"
+eq "test-state-dir: reflex_log crea ~/.exo/state" "$(wc -l < "$limpio/.exo/state/reflex-log.jsonl" 2>/dev/null | tr -d ' ')" "1"
 
 # reflex_log añade harness
 log="$T/rl.jsonl"
