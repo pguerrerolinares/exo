@@ -41,6 +41,8 @@ fn evento_vacio() -> Evento {
         agent_type: String::new(),
         crudo: String::new(),
         tool: None,
+        source: String::new(),
+        prompt: String::new(),
     }
 }
 
@@ -85,6 +87,11 @@ fn interno(en: &Entorno, harness: &str, evento: &str, stdin: &[u8]) -> String {
             let _ = registra_tool(en, &ev, Some(false));
             String::new()
         }
-        EventoKind::Otro(_) => String::new(),
+        // Hasta que los guards de recall/índice/reglas los atiendan, no emiten nada.
+        EventoKind::SessionStart
+        | EventoKind::Stop
+        | EventoKind::UserPromptSubmit
+        | EventoKind::PostCompact
+        | EventoKind::Otro(_) => String::new(),
     }
 }

@@ -13,6 +13,7 @@ fn decision(nombre: &str) -> Decision {
         },
         "Steer" => Decision::Steer("r".into()),
         "Block" => Decision::Block("r".into()),
+        "Avisa" => Decision::Avisa("r".into()),
         otro => panic!("decisión desconocida en la matriz: {otro}"),
     }
 }
@@ -26,6 +27,8 @@ fn evento(kind: EventoKind) -> Evento {
         agent_id: String::new(),
         agent_type: String::new(),
         crudo: String::new(),
+        source: String::new(),
+        prompt: String::new(),
         tool: None,
     }
 }
@@ -76,5 +79,22 @@ fn matriz_capacidad_claude() {
                 g.nombre()
             );
         }
+    }
+}
+
+#[test]
+fn codex_existentes() {
+    use exo::hook::matriz::Guard;
+    assert!(matches!(
+        soporte(Guard::Verify, Harness::Codex),
+        Soporte::Degradado(_)
+    ));
+    for g in [Guard::GitC, Guard::ZeroResiduo, Guard::SearchFirst] {
+        assert_eq!(
+            soporte(g, Harness::Codex),
+            Soporte::Soportado,
+            "{}",
+            g.nombre()
+        );
     }
 }

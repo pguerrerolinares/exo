@@ -26,6 +26,8 @@ fn evento(agent: &str, nombre: &str, input: serde_json::Value) -> Evento {
         cwd: "/x".into(),
         agent_id: agent.into(),
         agent_type: String::new(),
+        source: String::new(),
+        prompt: String::new(),
         crudo: String::new(),
         tool: Some(Tool {
             nombre: nombre.into(),

@@ -37,12 +37,14 @@ impl Entorno {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Harness {
     Claude,
+    Codex,
 }
 
 impl Harness {
     pub fn nombre(&self) -> &'static str {
         match self {
             Harness::Claude => "claude",
+            Harness::Codex => "codex",
         }
     }
 }
@@ -52,6 +54,10 @@ pub enum EventoKind {
     PreToolUse,
     PostToolUse,
     PostToolUseFailure,
+    SessionStart,
+    Stop,
+    UserPromptSubmit,
+    PostCompact,
     Otro(String),
 }
 
@@ -61,6 +67,10 @@ impl EventoKind {
             EventoKind::PreToolUse => "PreToolUse",
             EventoKind::PostToolUse => "PostToolUse",
             EventoKind::PostToolUseFailure => "PostToolUseFailure",
+            EventoKind::SessionStart => "SessionStart",
+            EventoKind::Stop => "Stop",
+            EventoKind::UserPromptSubmit => "UserPromptSubmit",
+            EventoKind::PostCompact => "PostCompact",
             EventoKind::Otro(s) => s,
         }
     }
@@ -110,15 +120,24 @@ pub struct Evento {
     /// stdin tal cual: el pre-filtro de git lo necesita sin parsear.
     pub crudo: String,
     pub tool: Option<Tool>,
+    /// `source` de SessionStart tal cual; vacío si no viene. Un valor desconocido no es error.
+    pub source: String,
+    /// `prompt` de UserPromptSubmit; vacío si no viene.
+    pub prompt: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Decision {
     Allow,
     Deny(String),
-    Rewrite { input: Value, razon: String },
+    Rewrite {
+        input: Value,
+        razon: String,
+    },
     Steer(String),
     Block(String),
+    /// Aviso al usuario sin tocar el contexto del modelo; solo sale como tal si nada de mayor rango.
+    Avisa(String),
 }
 
 pub fn clasifica(nombre: &str, input: &Value) -> (Clase, Option<String>, Vec<String>) {
@@ -144,18 +163,21 @@ pub fn clasifica(nombre: &str, input: &Value) -> (Clase, Option<String>, Vec<Str
     }
 }
 
-/// Precedencia Block > Deny > Rewrite > Steer > Allow; las razones del mismo
-/// rango se concatenan con línea en blanco.
+/// Precedencia Block > Deny > Rewrite > Steer = Avisa > Allow; las razones del mismo
+/// rango se concatenan con línea en blanco. Steer y Avisa comparten rango: si hay
+/// Steer, los Avisa se le añaden tras un salto de línea (una sola `Decision`).
 pub fn combinar(ds: Vec<Decision>) -> Decision {
     let mut block = vec![];
     let mut deny = vec![];
     let mut steer = vec![];
+    let mut avisa = vec![];
     let mut rewrite = None;
     for d in ds {
         match d {
             Decision::Block(r) => block.push(r),
             Decision::Deny(r) => deny.push(r),
             Decision::Steer(r) => steer.push(r),
+            Decision::Avisa(r) => avisa.push(r),
             Decision::Rewrite { .. } if rewrite.is_none() => rewrite = Some(d),
             Decision::Rewrite { .. } | Decision::Allow => {}
         }
@@ -167,7 +189,14 @@ pub fn combinar(ds: Vec<Decision>) -> Decision {
     } else if let Some(r) = rewrite {
         r
     } else if !steer.is_empty() {
-        Decision::Steer(steer.join("\n\n"))
+        let mut texto = steer.join("\n\n");
+        if !avisa.is_empty() {
+            texto.push('\n');
+            texto.push_str(&avisa.join("\n\n"));
+        }
+        Decision::Steer(texto)
+    } else if !avisa.is_empty() {
+        Decision::Avisa(avisa.join("\n\n"))
     } else {
         Decision::Allow
     }

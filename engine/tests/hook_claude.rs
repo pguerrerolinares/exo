@@ -64,8 +64,8 @@ fn parse_kinds_post() {
         EventoKind::PostToolUseFailure
     );
     assert_eq!(
-        parse("Stop", b"{}").unwrap().kind,
-        EventoKind::Otro("Stop".into())
+        parse("Notification", b"{}").unwrap().kind,
+        EventoKind::Otro("Notification".into())
     );
 }
 
@@ -159,4 +159,55 @@ fn premisa_4_2_false_real_es_post_tool_use_failure_shell() {
     let tool = ev.tool.unwrap();
     assert_eq!(tool.clase, Clase::Shell);
     assert_eq!(tool.command.as_deref(), Some("false"));
+}
+
+#[test]
+fn parse_session_start_source() {
+    let ev = parse(
+        "SessionStart",
+        br#"{"hook_event_name":"SessionStart","session_id":"s","cwd":"/x","source":"compact"}"#,
+    )
+    .unwrap();
+    assert_eq!(ev.kind, EventoKind::SessionStart);
+    assert_eq!(ev.source, "compact");
+    assert_eq!(ev.prompt, "");
+}
+
+#[test]
+fn source_desconocido() {
+    let ev = parse("SessionStart", br#"{"session_id":"s","source":"fork"}"#).unwrap();
+    assert_eq!(ev.kind, EventoKind::SessionStart);
+    assert_eq!(ev.source, "fork");
+}
+
+#[test]
+fn parse_kinds_nuevos_y_prompt() {
+    for (n, k) in [
+        ("Stop", EventoKind::Stop),
+        ("PostCompact", EventoKind::PostCompact),
+        ("UserPromptSubmit", EventoKind::UserPromptSubmit),
+    ] {
+        let ev = parse(n, br#"{"prompt":"hola","session_id":"s"}"#).unwrap();
+        assert_eq!(ev.kind, k);
+        assert_eq!(ev.prompt, "hola");
+        assert_eq!(ev.source, "");
+    }
+}
+
+#[test]
+fn render_avisa() {
+    let ev = parse("SessionStart", br#"{"session_id":"s"}"#).unwrap();
+    assert_eq!(
+        json_de(&render(&Decision::Avisa("⚠ x".into()), &ev)),
+        json!({"systemMessage":"⚠ x"})
+    );
+}
+
+#[test]
+fn kinds_nuevos_no_rompen_pre() {
+    let ev = parse("PreToolUse", PRE_BASH.as_bytes()).unwrap();
+    assert_eq!(ev.kind, EventoKind::PreToolUse);
+    assert_eq!(ev.source, "");
+    assert_eq!(ev.prompt, "");
+    assert!(ev.tool.is_some());
 }

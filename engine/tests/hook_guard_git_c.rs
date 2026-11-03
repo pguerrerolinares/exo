@@ -23,6 +23,8 @@ fn evento_crudo(nombre: &str, cmd: &str, crudo: Option<String>) -> Evento {
         cwd: "/tmp/x".into(),
         agent_id: String::new(),
         agent_type: String::new(),
+        source: String::new(),
+        prompt: String::new(),
         crudo: crudo
             .unwrap_or_else(|| json!({"tool_name": nombre, "tool_input": input}).to_string()),
         tool: Some(Tool {
