@@ -282,3 +282,38 @@ fn conservacion_concurrente() {
         .collect();
     assert_eq!(todas.len(), previo.len() + 4 * por_hilo);
 }
+
+#[test]
+fn migrado_previo_con_contenido_sobrevive_y_lo_nuevo_va_a_menos_1() {
+    let d = tempfile::tempdir().unwrap();
+    let (v, n) = (d.path().join("v"), d.path().join("n"));
+    fs::write(&n, "B\n").unwrap();
+    fs::write(&v, "V1\n").unwrap();
+    fs::write(migrado(&v), "X\n").unwrap();
+    migra(&v, &n, TS);
+    assert_eq!(fs::read_to_string(migrado(&v)).unwrap(), "X\n");
+    let menos1 = format!("{}-1", migrado(&v).display());
+    assert_eq!(fs::read_to_string(menos1).unwrap(), "V1\n");
+}
+
+#[test]
+fn fallo_del_append_devuelve_el_historico_al_viejo() {
+    let d = tempfile::tempdir().unwrap();
+    let (v, n) = (d.path().join("v"), d.path().join("n"));
+    fs::write(&v, "A\n").unwrap();
+    fs::create_dir(&n).unwrap(); // el append no puede abrir un directorio
+    assert!(matches!(migra(&v, &n, TS), Migracion::Fallo(_)));
+    assert_eq!(fs::read_to_string(&v).unwrap(), "A\n");
+    assert!(!migrado(&v).exists());
+}
+
+#[test]
+fn mismo_inodo_tras_caida_entre_link_y_remove_quita_el_viejo() {
+    let d = tempfile::tempdir().unwrap();
+    let (v, n) = (d.path().join("v"), d.path().join("n"));
+    fs::write(&v, "A\n").unwrap();
+    let r = exo::state::migra_con(&v, &n, TS, || fs::hard_link(&v, &n).unwrap());
+    assert_eq!(r, Migracion::Renombrado);
+    assert!(!v.exists());
+    assert_eq!(fs::read_to_string(&n).unwrap(), "A\n");
+}

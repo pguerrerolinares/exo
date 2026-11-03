@@ -141,7 +141,7 @@ fn migra_io(
         }
         Err(e) => return Err(e),
     }
-    // Otro migrador acaba de enlazar viejo y nuevo al mismo inodo y está por borrar el viejo.
+    // Mismo fichero (caída entre link y remove, o migrador concurrente): solo falta quitar el nombre viejo.
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;
@@ -149,35 +149,72 @@ fn migra_io(
             && v.ino() == n.ino()
             && v.dev() == n.dev()
         {
-            return Ok(Migracion::Nada);
+            return match std::fs::remove_file(viejo) {
+                Ok(()) => Ok(Migracion::Renombrado),
+                Err(e) if e.kind() == NotFound => Ok(Migracion::Renombrado),
+                Err(e) => Err(e),
+            };
         }
     }
-    // Rename primero: solo un migrador gana el viejo (el otro ve ENOENT) y lo que un
-    // hook escriba después recrea el viejo en vez de caer en un `.migrado` que nadie lee.
+    // Mover primero: solo un migrador gana el viejo y lo que un hook escriba después
+    // recrea el viejo en vez de caer en un `.migrado` que nadie lee.
     let base = format!("{}.migrado-{ts}", viejo.display());
     let mut destino = PathBuf::from(&base);
     for n in 1.. {
-        if !destino.exists() {
-            break;
+        match mueve_sin_reemplazar(viejo, &destino) {
+            Ok(true) => break,
+            Ok(false) => {
+                // Otro migrador ya se llevó el viejo: nuestro enlace sobra.
+                let _ = std::fs::remove_file(&destino);
+                return Ok(Migracion::Nada);
+            }
+            Err(e) if e.kind() == AlreadyExists => {
+                destino = PathBuf::from(format!("{base}-{n}"));
+            }
+            Err(e) if e.kind() == NotFound => return Ok(Migracion::Nada),
+            Err(e) => return Err(e),
         }
-        destino = PathBuf::from(format!("{base}-{n}"));
     }
-    match std::fs::rename(viejo, &destino) {
-        Ok(()) => {}
-        Err(e) if e.kind() == NotFound => return Ok(Migracion::Nada),
-        Err(e) => return Err(e),
+    let anexa = || -> std::io::Result<()> {
+        let mut bytes = std::fs::read(&destino)?;
+        if !bytes.is_empty() && bytes.last() != Some(&b'\n') {
+            bytes.push(b'\n');
+        }
+        // Un solo write() con O_APPEND: no se intercala con los hooks que escriben en el nuevo.
+        std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(nuevo)?
+            .write_all(&bytes)
+    };
+    if let Err(e) = anexa() {
+        // El histórico no puede quedar varado en `.migrado` (§6.1): se devuelve al viejo.
+        return Err(match mueve_sin_reemplazar(&destino, viejo) {
+            Ok(_) => e,
+            Err(_) => std::io::Error::new(
+                e.kind(),
+                format!("{e}; el contenido quedó en {}", destino.display()),
+            ),
+        });
     }
-    let mut bytes = std::fs::read(&destino)?;
-    if !bytes.is_empty() && bytes.last() != Some(&b'\n') {
-        bytes.push(b'\n');
-    }
-    // Un solo write() con O_APPEND: no se intercala con los hooks que escriben en el nuevo.
-    std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(nuevo)?
-        .write_all(&bytes)?;
     Ok(Migracion::Fusionado { viejo_a: destino })
+}
+
+/// `hard_link` + `remove_file`: mueve sin reemplazar un destino existente (`AlreadyExists`).
+/// `Ok(false)`: el origen ya no estaba al borrarlo (otro lo movió antes). En un FS sin hard
+/// links cae a `rename`, que sí reemplaza: ventana residual aceptada.
+fn mueve_sin_reemplazar(origen: &Path, destino: &Path) -> std::io::Result<bool> {
+    use std::io::ErrorKind::{AlreadyExists, NotFound};
+    match std::fs::hard_link(origen, destino) {
+        Ok(()) => match std::fs::remove_file(origen) {
+            Ok(()) => Ok(true),
+            Err(e) if e.kind() == NotFound => Ok(false),
+            Err(e) => Err(e),
+        },
+        Err(e) if e.kind() == AlreadyExists || e.kind() == NotFound => Err(e),
+        Err(_) if !destino.exists() => std::fs::rename(origen, destino).map(|()| true),
+        Err(e) => Err(e),
+    }
 }
 
 /// Los tres ficheros de estado que vivían en `~/.claude/`.
