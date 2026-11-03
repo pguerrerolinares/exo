@@ -130,19 +130,39 @@ fn migra_io(
     if let Some(padre) = nuevo.parent() {
         std::fs::create_dir_all(padre)?;
     }
-    // Reclamo: `rename` a un nombre único por proceso. No reemplaza nada y solo un migrador
-    // se lleva el viejo (el otro ve ENOENT). A partir de aquí nadie vuelve a tocar `viejo`
-    // por nombre, así que un hook que lo recree no pierde líneas ni las dos migraciones se pisan.
-    let reclamado = PathBuf::from(format!(
-        "{}.migrando-{}-{}",
-        viejo.display(),
-        std::process::id(),
-        RECLAMOS.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
-    ));
+    // Reclamo: reserva con O_EXCL un nombre `.migrando-<pid>-<n>` y `rename` del viejo sobre
+    // esa reserva vacía. El pid se reutiliza y puede haber dos pid namespaces sobre el mismo
+    // home, así que un reclamo sobrante de otro (único copia de su histórico) puede ocupar el
+    // nombre: `rename` reemplaza el destino, la reserva garantiza que solo pisa un fichero
+    // nuestro y vacío. Solo un migrador se lleva el viejo (el otro ve ENOENT). A partir de aquí
+    // nadie vuelve a tocar `viejo` por nombre, así que un hook que lo recree no pierde líneas.
+    let reclamado = loop {
+        let candidato = PathBuf::from(format!(
+            "{}.migrando-{}-{}",
+            viejo.display(),
+            std::process::id(),
+            RECLAMOS.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+        ));
+        match std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&candidato)
+        {
+            Ok(_) => break candidato,
+            Err(e) if e.kind() == AlreadyExists => {}
+            Err(e) => return Err(e),
+        }
+    };
     match std::fs::rename(viejo, &reclamado) {
         Ok(()) => {}
-        Err(e) if e.kind() == NotFound => return Ok(Migracion::Nada),
-        Err(e) => return Err(e),
+        Err(e) => {
+            let _ = std::fs::remove_file(&reclamado);
+            return if e.kind() == NotFound {
+                Ok(Migracion::Nada)
+            } else {
+                Err(e)
+            };
+        }
     }
     antes_del_link();
     // `hard_link` no reemplaza un nuevo creado por un appender concurrente; `rename` sí.
