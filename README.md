@@ -118,7 +118,8 @@ promesa**: nadie ha medido el retrieval de exo en otra lengua.
 `plugins/exo/` reúne ocho skills de proceso (brainstorm · plan · orchestrate ·
 tdd · debug · verify · document · distill), dos agentes (`exo:executor`, que
 implementa tareas acotadas, y `exo:consultor`, de solo lectura, para decisiones
-de diseño) y una capa de reflejos: doce hooks de shell más un mod
+de diseño) y una capa de reflejos: trece hooks (diez scripts de shell y tres
+cableados de `exo hook`, el comando del engine) más un mod
 (`hooks/register.ts`) que entregan en el punto de acción el conocimiento
 procedural y las **reglas duras** (las del dueño, de `core/reglas-duras.md`, y
 las del repo, de su nota de proyecto; `exo rules` las resuelve y su `--check`

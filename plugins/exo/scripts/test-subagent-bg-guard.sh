@@ -99,7 +99,7 @@ case "$R" in *bquoted00*) fail "calla: resultado citado dentro de otro tool_resu
 run "$T" ',"background_tasks":[{"id":"bquoted00","type":"shell","status":"running"}]'
 [ -z "$OUT" ] && pass "calla: citado aunque esté running en background_tasks" || fail "calla: citado running" "out=$OUT"
 
-# Sin jq: PATH mínimo con solo `cat` (patrón de test-search-first.sh).
+# Sin jq: PATH mínimo con solo `cat` (patrón de engine/tests/paridad/test-search-first.sh).
 BASH_ABS="$(command -v bash)"
 mkdir -p "$TMP/shim"
 printf '#!%s\nexec %s "$@"\n' "$BASH_ABS" "$(command -v cat)" > "$TMP/shim/cat"

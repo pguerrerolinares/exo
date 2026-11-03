@@ -1,0 +1,120 @@
+[PASS] cd && git status → rewrite
+[PASS] cd && git log con flags → rewrite
+[PASS] path con ~ y . → rewrite
+[PASS] path relativo simple (sin ..) → rewrite
+[PASS] updatedInput preserva description y timeout
+[PASS] rewrite loguea como git-c-rewrite
+[PASS] git push (mutante, fuera de allowlist) → log-only
+[PASS] git add (mutante) → log-only
+[PASS] git branch (bare puede crear) → log-only
+[PASS] pipe en REST → log-only
+[PASS] chain extra tras git → log-only
+[PASS] redirect en REST → log-only
+[PASS] path con variable → log-only
+[PASS] separador ; → log-only (v1 solo &&)
+[PASS] patrón como dato en echo → log-only (FP conocido, NO rewrite)
+[PASS] glob en REST → log-only
+[PASS] cd - (OLDPWD) → log-only
+[PASS] componente .. relativo → log-only
+[PASS] componente .. embebido → log-only
+[PASS] subcomando fuera del allowlist read-only → log-only
+[PASS] CDPATH + path relativo → log-only, sin rewrite
+[PASS] git -C ya correcto → silencio
+[PASS] cd && make && git → silencio (regex no cruza separadores)
+[PASS] sin git → silencio
+[PASS] multiline → sin rewrite
+[PASS] command vacío → exit 0, sin output
+[PASS] git add -A (cwd /tmp) → nudge
+[PASS] git add --all → nudge
+[PASS] git add . → nudge
+[PASS] git -C /tmp/x add -A → nudge (fix)
+[PASS] git add foo.txt bar.py → no nudge
+[PASS] git commit -m x (repo vacío, aislado) → no nudge de zero-residuo
+[PASS] heredoc 650 chars + git add -A → el payload conserva el match
+[PASS] heredoc ~4.5KB/42 líneas + git add -A → payload (N bytes) conserva el match
+[PASS] match sin techo (path 3000 chars) → payload (N bytes) conserva "add -A"
+[PASS] comando corto → payload = comando entero, sin marcador
+[PASS] dos ocurrencias distintas (prosa + real al final) → el payload conserva "add -A"
+[PASS] ocurrencias idénticas repetidas → dedup (aparece una sola vez)
+[PASS] caso1: .py staged + test verde reciente → silencio
+[PASS] caso2: .py staged + test rojo reciente → nudge
+[PASS] caso3: .py staged + sin test-runner → nudge
+[PASS] caso4: .py staged + transcript ausente → nudge
+[PASS] caso5: solo docs staged → silencio (filtro código-vs-docs)
+[PASS] caso6: --no-verify → silencio (escape hatch)
+[PASS] caso7: nada staged → silencio
+[PASS] caso8: heredoc 650 chars + git commit → el payload conserva el match
+[PASS] caso8b: heredoc ~4.5KB/42 líneas + git commit → payload (N bytes) conserva el match
+[PASS] caso8c: match sin techo → payload (N bytes) conserva "commit"
+[PASS] caso9: comando corto → payload = comando entero, sin marcador
+[PASS] caso10: dos ocurrencias distintas → el payload conserva la real
+[PASS] caso11: ocurrencias idénticas repetidas → dedup
+[PASS] stale1: verde → Edit → commit → dispara
+[PASS] stale1b: payload marcado stale
+[PASS] stale: verde → Write → commit → dispara
+[PASS] stale: verde → NotebookEdit → commit → dispara
+[PASS] stale2: Edit → verde → commit → silencio
+[PASS] stale3: verde → commit sin edicion → silencio
+[PASS] verify: verde y luego rojo antes del commit avisa
+[PASS] sin "git" en el JSON crudo → pre-filtro único ahorra el jq compartido (marca ausente)
+[PASS] "GIT STATUS" mayúsculas → pre-filtro también ahorra jq, sin regresión
+[PASS] "git" en session_id (no en command) → pre-filtro NO descarta, sigue a jq
+[PASS] "digitize" (subcadena "git") → pre-filtro NO descarta, cae a jq
+[PASS] "digitize" → silencio real (sin falso disparo)
+[PASS] "git status" → exactamente 1 invocación de jq (la extracción compartida), no 3-4
+[PASS] E1: cd+add-A+commit (3 ramas) → stdout vacío, log con las tres en orden (git-c,zero-residuo,verify-before-done,)
+[PASS] E2: add-A+commit sin cd (2 ramas) → stdout vacío, log con las dos en orden (zero-residuo,verify-before-done,)
+[PASS] E3: rewrite aislado → un solo JSON válido en stdout, log solo con git-c-rewrite (sin zero-residuo/verify-before-done)
+[PASS] F1 git add -A → deny
+[PASS] F1 git add --all → deny
+[PASS] F1 git add . → deny
+[PASS] F1 git -C $R add -A && commit → deny
+[PASS] F1 add -A tras heredoc → deny
+[PASS] F1 add -A con flag y redirección → deny
+[PASS] F2 add -A web android tests → log
+[PASS] F2 add -A -- . ':!.claude' → log
+[PASS] F2 add -A . → log
+[PASS] F2 add . src → log
+[PASS] F3 cwd /tmp/x → log
+[PASS] F3 cwd scratchpad de Claude → log
+[PASS] F3 git -C /tmp/repo add -A → log
+[PASS] F3 cd /tmp/dbg && git add . → log
+[PASS] F3 cd /tmp && cd dbg (relativo) && git add . → log
+[PASS] F3 S=/tmp/x; cd $S/g && git add -A → log
+[PASS] F3 /tmpfoo no es /tmp → deny
+[PASS] F4 rutas explícitas + prosa en heredoc → log, sin deny
+[PASS] F4 echo 'git add -A' → sin deny
+[PASS] F4 comentario # git add -A → log, sin deny
+[PASS] F4 grep 'git add .' → log, sin deny
+[PASS] F5 add -A && commit → un solo JSON, deny
+[PASS] F6 back-off: 3 denies seguidos del mismo agente → 4º a log; otro agente sigue en deny
+[PASS] F7 un add con pathspec entre medias rompe la racha → vuelve a deny
+[PASS] G1 PowerShell cd C:/... && git → sin rewrite (warn)
+[PASS] G2 PowerShell cd /ruta && git log → rewrite
+[PASS] G3 PowerShell Set-Location /ruta && git status → rewrite
+[PASS] G4 PowerShell cd ~/ruta → NO rewrite (PS 5.1 no expande ~), warn
+[PASS] G5 Bash sigue reescribiendo cd ~/ruta
+[PASS] G6 PowerShell warn git-c: Set-Location C:\repo; git push
+[PASS] G6 PowerShell warn git-c: sl C:\repo && git commit -m x
+[PASS] G6 PowerShell warn git-c: Push-Location C:\repo; git pull
+[PASS] G6 PowerShell warn git-c: pushd C:\repo && git fetch
+[PASS] G6 PowerShell warn git-c: SET-LOCATION C:\repo; git status
+[PASS] G7 Bash + Set-Location → silencio (sin ramificación PS)
+[PASS] G8 PowerShell git add -A → deny
+[PASS] G9 test verde por PowerShell + commit → silencio
+[PASS] caso1: tool_use Bash con exo search --type hybrid -> search-first-ok, stdout vacío
+[PASS] caso2 (trampa): pie del recall como texto, sin tool_use -> aviso
+[PASS] caso3: cd x && exo targets (encadenado) -> ok
+[PASS] caso4: echo exo search (falso negativo aceptado) -> ok
+[PASS] caso5: subagente (agent_id con valor) -> stdout vacío, sin log, sin sentinel
+[PASS] caso6: segunda llamada con sentinel -> silencio, jq no se invoca
+[PASS] caso7a: sin transcript_path -> aviso, search-first con payload motivo=sin-transcript_path
+[PASS] caso7b: transcript_path a fichero inexistente -> aviso, search-first con payload motivo=transcript-ilegible
+[PASS] caso8: sin jq en el PATH -> exit 0, search-first-skip, payload motivo=sin-jq
+[PASS] caso9: salida del caso negativo es JSON válido con additionalContext no vacío
+[PASS] caso10: exo search en mensaje de usuario (no tool_use) -> aviso
+[PASS] caso11: exo invocado por ruta relativa (./engine/.../exo.exe search) -> ok
+[PASS] caso12: exo invocado por ruta con ~ (~/.local/bin/exo search) -> ok
+[PASS] caso13: notexo search (no debe casar) -> aviso
+[PASS] caso14: JSON con espacios en ":" y agent_id vacío -> tratado como padre (sentinel creado, evalúa)
+[PASS] caso15: línea JSON truncada + tool_use Bash positivo -> search-first-ok

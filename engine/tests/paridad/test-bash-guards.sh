@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Suite de paridad de `exo hook claude` (HOOK = hook-wrapper-claude.sh). Portada de
+# bash-guards.sh, retirado en plugin 1.32.0; el texto de abajo conserva su procedencia.
 # Test standalone para bash-guards.sh (Task 5, campaña I: fusión de los
 # tres guards de PreToolUse:Bash en un solo script).
 #
@@ -17,7 +19,7 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-HOOK="${SCRIPT_DIR}/bash-guards.sh"
+HOOK="${HOOK:-${SCRIPT_DIR}/../../scripts/hook-wrapper-claude.sh}"
 
 REFLEX_LOG_FILE="$(mktemp)"
 export REFLEX_LOG_FILE
@@ -664,6 +666,15 @@ done
   { transcript_tool_use "t1" "pytest"; transcript_tool_result "t1" "false"; } > "$T"
   run_stale_case s3
   assert_vbd_silent "stale3: verde → commit sin edicion → silencio" "$BEFORE" "$AFTER" "$OUTPUT"
+}
+
+# verde -> rojo -> commit: manda el ULTIMO test (ids distintos), no el primero
+{
+  T="${TMPDIR_BASE}/vr1.jsonl"
+  { transcript_tool_use "t1" "pytest"; transcript_tool_result "t1" "false"
+    transcript_tool_use "t2" "pytest"; transcript_tool_result "t2" "true"; } > "$T"
+  run_stale_case vr1
+  assert_vbd_logged "verify: verde y luego rojo antes del commit avisa" "$BEFORE" "$AFTER" "$OUTPUT"
 }
 
 rm -rf "$TMPDIR_BASE" 2>/dev/null || true

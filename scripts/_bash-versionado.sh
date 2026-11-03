@@ -3,7 +3,7 @@
 # ejecutables sin extensión con shebang sh/bash; excluye evals/ y docs/).
 # Lo usan test-shellcheck.sh y test-rutas-personales.sh, que llevaban este
 # bucle copiado línea a línea — si divergen, los dos gates dejan de mirar
-# lo mismo sin avisar. Mismo patrón que plugins/exo/scripts/_truncate-payload.sh.
+# lo mismo sin avisar. Mismo patrón que el helper del plugin (retirado en 1.32.0).
 #
 # Uso:  . "$(dirname "$0")/_bash-versionado.sh" && bash_versionado [--con-nuevos]
 # --con-nuevos suma los no trackeados y no ignorados (`git ls-files --others

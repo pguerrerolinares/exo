@@ -107,6 +107,12 @@ enum Comando {
     /// grado en el grafo de relaciones y tier, combinados en una
     /// puntuación. Solo lectura.
     Stale(ArgsStale),
+    /// Procesa un evento de herramienta de un agente (lee su JSON por stdin y
+    /// escribe la respuesta por stdout). Se invoca desde la config de hooks del
+    /// agente: `exo hook claude PreToolUse`. Siempre sale con 0, también ante
+    /// un harness, un evento o una entrada que no entiende: un exit distinto
+    /// de 0 bloquearía la herramienta.
+    Hook(ArgsHook),
 }
 
 #[derive(Subcommand)]
@@ -420,6 +426,16 @@ struct ArgsDoctor {
 }
 
 #[derive(clap::Args)]
+struct ArgsHook {
+    /// Agente que invoca el hook (`claude`). Cualquier otro valor se ignora.
+    #[arg(default_value = "")]
+    harness: String,
+    /// Evento del agente (`PreToolUse`, `PostToolUse`, `PostToolUseFailure`).
+    #[arg(default_value = "")]
+    evento: String,
+}
+
+#[derive(clap::Args)]
 struct ArgsStale {
     /// Fichero SQLite del índice. Precedencia: flag > $EXO_DB > config.
     #[arg(long)]
@@ -537,6 +553,7 @@ fn quiere_json(c: &Comando) -> bool {
         Comando::Rotate(a) => a.json,
         Comando::Doctor(a) => a.json,
         Comando::Stale(a) => a.json,
+        Comando::Hook(_) => false,
         Comando::Write(w) => match w {
             ComandoWrite::New(a) => a.json,
             ComandoWrite::Append(a) => a.json,
@@ -594,6 +611,10 @@ fn ejecuta(comando: Comando) -> Result<()> {
         Comando::Rotate(args) => rotate_cmd(args),
         Comando::Doctor(args) => doctor_cmd(args),
         Comando::Stale(args) => stale_cmd(args),
+        Comando::Hook(args) => {
+            hook_cmd(args);
+            Ok(())
+        }
         Comando::Write(sub) => match sub {
             ComandoWrite::New(args) => write_new_cmd(args),
             ComandoWrite::Append(args) => write_append_cmd(args),
@@ -1544,6 +1565,19 @@ fn imprime_informe_ratchet(informe: &exo::trinquete::Informe) {
             informativos.len()
         );
     }
+}
+
+/// `exo hook`: nunca falla; ver `hook::runner::ejecutar`.
+fn hook_cmd(args: ArgsHook) {
+    use std::io::{Read, Write};
+    let mut stdin = Vec::new();
+    // Sin stdin legible el hook degrada a una entrada vacía, que cuenta como ilegible.
+    let _ = std::io::stdin().read_to_end(&mut stdin);
+    // Los panics se registran en el reflex-log; stderr queda vacío.
+    std::panic::set_hook(Box::new(|_| {}));
+    let en = exo::hook::evento::Entorno::desde_env();
+    let salida = exo::hook::runner::ejecutar(&en, &args.harness, &args.evento, &stdin);
+    let _ = std::io::stdout().write_all(salida.as_bytes());
 }
 
 /// `exo stale`: urgencia de actualización por nota (`obsolescencia::calcula`).
