@@ -61,7 +61,7 @@ mod unix {
             );
         }
         let script = format!(
-            "#!/bin/sh\nread _ < '{}'\nfor a in \"$@\"; do echo \"$a\"; done\necho fin > '{}'\n",
+            "#!/bin/sh\nread _ < '{}'\necho $$\nps -o pgid= -p $$ | tr -d ' '\nfor a in \"$@\"; do echo \"$a\"; done\necho fin > '{}'\n",
             go.display(),
             done.display()
         );
@@ -89,12 +89,18 @@ mod unix {
         let d = tempfile::tempdir().unwrap();
         let (bin, go, done) = stub(d.path());
         let en = entorno(d.path(), Some(bin), Some(d.path().join("i.db")));
-        // Si el guard esperase al hijo, esta llamada no volvería: el stub sigue
-        // bloqueado en `go` hasta que el test lo suelta.
-        assert!(matches!(
-            exo::hook::guards::index::index(&stop(), &en),
-            Decision::Allow
-        ));
+        // Si el guard esperase al hijo no volvería: el stub sigue bloqueado en
+        // `go` hasta que el test lo suelta. El hilo + recv_timeout convierte el
+        // cuelgue en fallo.
+        let (tx, rx) = std::sync::mpsc::channel();
+        let en2 = en.clone();
+        std::thread::spawn(move || {
+            let _ = tx.send(exo::hook::guards::index::index(&stop(), &en2));
+        });
+        let dec = rx
+            .recv_timeout(std::time::Duration::from_secs(20))
+            .expect("index() esperó al hijo");
+        assert!(matches!(dec, Decision::Allow));
         assert!(
             !en.rutas.index_log.exists()
                 || std::fs::read_to_string(&en.rutas.index_log)
@@ -118,7 +124,27 @@ mod unix {
         exo::hook::guards::index::index(&stop(), &en);
         suelta_y_espera(&go, &done);
         let log = std::fs::read_to_string(&en.rutas.index_log).unwrap();
-        assert_eq!(log, format!("index\n--db\n{}\n--json\n", db.display()));
+        let args: Vec<&str> = log.lines().skip(2).collect();
+        assert_eq!(args, ["index", "--db", db.to_str().unwrap(), "--json"]);
+    }
+
+    #[test]
+    fn grupo_propio() {
+        let d = tempfile::tempdir().unwrap();
+        let (bin, go, done) = stub(d.path());
+        let en = entorno(d.path(), Some(bin), Some(d.path().join("i.db")));
+        exo::hook::guards::index::index(&stop(), &en);
+        suelta_y_espera(&go, &done);
+        let log = std::fs::read_to_string(&en.rutas.index_log).unwrap();
+        let mut l = log.lines();
+        let pid: i32 = l.next().unwrap().trim().parse().unwrap();
+        let pgid: i32 = l.next().unwrap().trim().parse().unwrap();
+        assert_eq!(pgid, pid, "el hijo debe liderar su propio grupo");
+        assert_ne!(
+            pgid,
+            unsafe { libc::getpgid(0) },
+            "no debe heredar el grupo del hook"
+        );
     }
 }
 
