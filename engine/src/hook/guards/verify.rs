@@ -14,8 +14,11 @@ pub enum Veredicto {
     Warn,
 }
 
-// Literales de bash-guards.sh (rama 3; retirado en plugin 1.32.0). `(?m)` y `[^\S\n]`
-// porque grep -E casaba por línea y `[[:space:]]` en regex Rust cruza `\n`.
+// Literales de bash-guards.sh (rama 3; retirado en plugin 1.32.0). `(?m)` y `[^\S\n]`:
+// VBD lo evaluaba grep -E, que casa por línea. TR_RE1/TR_RE2 los evaluaba jq `test()`
+// sobre el comando entero (ahí `[[:space:]]` sí cruzaba `\n`); aquí casan por línea a
+// propósito: divergencia en dirección segura (`cargo\ntest` ya no cuenta como verde),
+// documentada en la spec §6.4.
 static VBD: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?m)git[^\S\n]+commit([^\S\n]|$)").unwrap());
 static CODIGO: LazyLock<Regex> = LazyLock::new(|| {

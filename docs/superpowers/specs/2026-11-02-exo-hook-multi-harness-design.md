@@ -161,6 +161,7 @@ Si un `tool_use` ocurre dentro de un subagente, se reinyecta con su `agent_id`, 
 | **Journal vacío tras actualizar** | En Claude, search-first no ve un `exo search` anterior a la instalación de la versión nueva dentro de la misma sesión | Se documenta. Coste: un aviso de más en la primera sesión |
 | **`cmd` truncado a 200 B** | El journal guarda el comando truncado a 200 bytes; antes el guard leía `input.command` entero del transcript | Se documenta. Coste: un `exo search` que aparece pasado el byte 200 de un comando largo no cuenta, y search-first puede dar un aviso falso (como mucho uno por sesión). En verify solo afecta al log |
 | **Ventana de 2 MiB compartida con subagentes** | La cota de lectura es sobre el fichero de la sesión entero, que también reciben los registros de los subagentes | Se documenta. Coste: en una sesión con muchos subagentes, el `warn` del padre puede salir de la ventana y search-first puede volver a avisar |
+| **Test runner partido en líneas** | verify casa `TR_RE1`/`TR_RE2` por línea; el `.sh` los evaluaba con jq `test()` sobre el comando entero, donde `[[:space:]]` cruzaba `\n` | Se documenta. Coste: `cargo\ntest` (entrada irreal) ya no cuenta como test verde y verify avisa; dirección segura y solo log |
 
 ## 7. Condiciones de invalidación (pre-registradas)
 
