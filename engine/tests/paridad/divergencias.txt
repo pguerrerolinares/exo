@@ -1,0 +1,8 @@
+[PASS] sin "git" en el JSON crudo → pre-filtro único ahorra el jq compartido (marca ausente)	§6.4 fila 3: casos que cuentan o envenenan jq (search-first 6 y 8, bash-guards Sección D); degradaciones propias de bash
+[PASS] "GIT STATUS" mayúsculas → pre-filtro también ahorra jq, sin regresión	§6.4 fila 3: casos que cuentan o envenenan jq (search-first 6 y 8, bash-guards Sección D); degradaciones propias de bash
+[PASS] "git status" → exactamente 1 invocación de jq (la extracción compartida), no 3-4	§6.4 fila 3: casos que cuentan o envenenan jq (search-first 6 y 8, bash-guards Sección D); degradaciones propias de bash
+[PASS] caso6: segunda llamada con sentinel -> silencio, jq no se invoca	§6.4 fila 3: casos que cuentan o envenenan jq (search-first 6 y 8, bash-guards Sección D); degradaciones propias de bash; y fila 4 (sentinel)
+[PASS] caso8: sin jq en el PATH -> exit 0, search-first-skip, payload motivo=sin-jq	§6.4 fila 3: casos que cuentan o envenenan jq (search-first 6 y 8, bash-guards Sección D); degradaciones propias de bash
+[PASS] caso7a: sin transcript_path -> aviso, search-first con payload motivo=sin-transcript_path	§6.4 fila 1: search-first 7a/7b (sin transcript_path / transcript ilegible); el guard ya no lee el transcript
+[PASS] caso7b: transcript_path a fichero inexistente -> aviso, search-first con payload motivo=transcript-ilegible	§6.4 fila 1: search-first 7a/7b (sin transcript_path / transcript ilegible); el guard ya no lee el transcript
+[PASS] caso14: JSON con espacios en ":" y agent_id vacío -> tratado como padre (sentinel creado, evalúa)	§6.4 fila 4: casos con fichero sentinel en SEARCH_FIRST_SENTINEL_DIR; "avisa una vez por sesión" pasa a un registro warn en el journal

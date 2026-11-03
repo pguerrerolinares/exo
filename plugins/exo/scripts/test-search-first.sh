@@ -23,7 +23,7 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-HOOK="${SCRIPT_DIR}/search-first.sh"
+HOOK="${HOOK:-${SCRIPT_DIR}/search-first.sh}"
 
 TMP="$(mktemp -d)"
 mkdir -p "$TMP/sentinels"

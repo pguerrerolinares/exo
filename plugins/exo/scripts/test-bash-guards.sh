@@ -17,7 +17,7 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-HOOK="${SCRIPT_DIR}/bash-guards.sh"
+HOOK="${HOOK:-${SCRIPT_DIR}/bash-guards.sh}"
 
 REFLEX_LOG_FILE="$(mktemp)"
 export REFLEX_LOG_FILE
