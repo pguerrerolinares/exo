@@ -113,6 +113,43 @@ pub fn kb_desde_config() -> Result<std::path::PathBuf> {
     Ok(config::expande_tilde(&cfg.kb.path))
 }
 
+/// Precedencia de la DB del índice: `--db` > `$EXO_DB` > `[index] db`.
+///
+/// `--db` era obligatorio «sin default (D6: un default sería config
+/// encubierta)». Con config propia deja de serlo: un valor declarado en un
+/// fichero del usuario no es config encubierta, es config.
+pub fn resuelve_db(flag: Option<std::path::PathBuf>) -> Result<std::path::PathBuf> {
+    if let Some(p) = flag {
+        return Ok(p);
+    }
+    if let Ok(v) = std::env::var("EXO_DB")
+        && !v.is_empty()
+    {
+        return Ok(config::expande_tilde(std::path::Path::new(&v)));
+    }
+    config_db()
+}
+
+/// `[index] db` de la config, sin mirar `$EXO_DB`: la rama de config de
+/// `resuelve_db`, para el hook, que no lee el entorno.
+pub fn config_db() -> Result<std::path::PathBuf> {
+    let cfg = config::carga()?;
+    Ok(config::expande_tilde(&cfg.index.db))
+}
+
+/// Precedencia de la raíz de la KB: `--kb` > `$EXO_KB` > `[kb] path`.
+pub fn resuelve_kb(flag: Option<std::path::PathBuf>) -> Result<std::path::PathBuf> {
+    if let Some(p) = flag {
+        return Ok(p);
+    }
+    if let Ok(v) = std::env::var("EXO_KB")
+        && !v.is_empty()
+    {
+        return Ok(config::expande_tilde(std::path::Path::new(&v)));
+    }
+    kb_desde_config()
+}
+
 /// Nombre de proyecto de la KB (prefijo de permalink), EXPLÍCITO en config.
 ///
 /// Cierra el disenso del gate M4: `write new` lo derivaba de

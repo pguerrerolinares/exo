@@ -6,6 +6,7 @@ use exo::{
     escritor::{NuevaNota, escribe_append, escribe_nueva},
     indexer::indexa,
     recall::{recall_arranque, recall_consulta, renderiza, resuelve_rutas_absolutas},
+    resuelve_db, resuelve_kb,
 };
 use std::path::{Path, PathBuf};
 
@@ -559,37 +560,6 @@ fn quiere_json(c: &Comando) -> bool {
             ComandoWrite::Append(a) => a.json,
         },
     }
-}
-
-/// Precedencia de la DB del índice: `--db` > `$EXO_DB` > `[index] db`.
-///
-/// `--db` era obligatorio «sin default (D6: un default sería config
-/// encubierta)». Con config propia deja de serlo: un valor declarado en un
-/// fichero del usuario no es config encubierta, es config.
-fn resuelve_db(flag: Option<PathBuf>) -> Result<PathBuf> {
-    if let Some(p) = flag {
-        return Ok(p);
-    }
-    if let Ok(v) = std::env::var("EXO_DB")
-        && !v.is_empty()
-    {
-        return Ok(exo::config::expande_tilde(Path::new(&v)));
-    }
-    let cfg = exo::config::carga()?;
-    Ok(exo::config::expande_tilde(&cfg.index.db))
-}
-
-/// Precedencia de la raíz de la KB: `--kb` > `$EXO_KB` > `[kb] path`.
-fn resuelve_kb(flag: Option<PathBuf>) -> Result<PathBuf> {
-    if let Some(p) = flag {
-        return Ok(p);
-    }
-    if let Ok(v) = std::env::var("EXO_KB")
-        && !v.is_empty()
-    {
-        return Ok(exo::config::expande_tilde(Path::new(&v)));
-    }
-    exo::kb_desde_config()
 }
 
 /// Ejecuta el comando ya parseado. El flag `--json` no se extrae aquí: lo
