@@ -153,7 +153,7 @@ fn nuevo_creado_en_la_ventana_del_link_sobrevive() {
     let d = tempfile::tempdir().unwrap();
     let (v, n) = (d.path().join("v"), d.path().join("n"));
     fs::write(&v, "A\n").unwrap();
-    let r = exo::state::migra_con(&v, &n, TS, || fs::write(&n, "B\n").unwrap());
+    let r = exo::state::migra_con(&v, &n, TS, || fs::write(&n, "B\n").unwrap(), || {});
     assert_eq!(
         r,
         Migracion::Fusionado {
@@ -308,12 +308,65 @@ fn fallo_del_append_devuelve_el_historico_al_viejo() {
 }
 
 #[test]
-fn mismo_inodo_tras_caida_entre_link_y_remove_quita_el_viejo() {
+fn segundo_migrador_tras_el_reclamo_no_anexa() {
     let d = tempfile::tempdir().unwrap();
     let (v, n) = (d.path().join("v"), d.path().join("n"));
     fs::write(&v, "A\n").unwrap();
-    let r = exo::state::migra_con(&v, &n, TS, || fs::hard_link(&v, &n).unwrap());
+    fs::write(&n, "B\n").unwrap();
+    let mut segundo = None;
+    let r = exo::state::migra_con(&v, &n, TS, || segundo = Some(migra(&v, &n, TS)), || {});
+    assert_eq!(segundo, Some(Migracion::Nada));
+    assert!(matches!(r, Migracion::Fusionado { .. }));
+    assert_eq!(fs::read_to_string(&n).unwrap(), "B\nA\n");
+}
+
+#[test]
+fn viejo_recreado_durante_la_migracion_conserva_sus_lineas() {
+    let d = tempfile::tempdir().unwrap();
+    let (v, n) = (d.path().join("v"), d.path().join("n"));
+    fs::write(&v, "A\n").unwrap();
+    fs::write(&n, "B\n").unwrap();
+    let r = exo::state::migra_con(&v, &n, TS, || fs::write(&v, "H\n").unwrap(), || {});
+    assert!(matches!(r, Migracion::Fusionado { .. }));
+    assert_eq!(
+        fs::read_to_string(&v).unwrap(),
+        "H\n",
+        "el recreado queda intacto"
+    );
+    assert_eq!(fs::read_to_string(&n).unwrap(), "B\nA\n");
+}
+
+#[test]
+fn viejo_recreado_en_solo_viejo_conserva_sus_lineas() {
+    let d = tempfile::tempdir().unwrap();
+    let (v, n) = (d.path().join("v"), d.path().join("n"));
+    fs::write(&v, "A\n").unwrap();
+    let r = exo::state::migra_con(&v, &n, TS, || fs::write(&v, "H\n").unwrap(), || {});
     assert_eq!(r, Migracion::Renombrado);
-    assert!(!v.exists());
+    assert_eq!(fs::read_to_string(&v).unwrap(), "H\n");
     assert_eq!(fs::read_to_string(&n).unwrap(), "A\n");
+}
+
+#[test]
+fn fallo_del_append_con_viejo_recreado_no_lo_pisa_y_nombra_el_reclamado() {
+    let d = tempfile::tempdir().unwrap();
+    let (v, n) = (d.path().join("v"), d.path().join("n"));
+    fs::write(&v, "A\n").unwrap();
+    fs::create_dir(&n).unwrap();
+    let r = exo::state::migra_con(&v, &n, TS, || {}, || fs::write(&v, "H\n").unwrap());
+    let Migracion::Fallo(m) = r else {
+        panic!("{r:?}")
+    };
+    assert!(m.contains(".migrando-"), "nombra el reclamado: {m}");
+    assert_eq!(
+        fs::read_to_string(&v).unwrap(),
+        "H\n",
+        "el recreado sigue intacto"
+    );
+    let reclamado = fs::read_dir(d.path())
+        .unwrap()
+        .flatten()
+        .find(|e| e.file_name().to_string_lossy().contains(".migrando-"))
+        .expect("el reclamado sigue en disco");
+    assert_eq!(fs::read_to_string(reclamado.path()).unwrap(), "A\n");
 }

@@ -443,6 +443,25 @@ fn check_state_residuo(entorno: &Entorno) -> Check {
             })
         })
         .collect();
+    // Un reclamo `.migrando-*` sobrante es una migración que se cayó a medias.
+    let sobrantes: Vec<String> = std::fs::read_dir(&claude)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|e| {
+            let nombre = e.file_name().to_string_lossy().into_owned();
+            let (_, nuevo) = pares
+                .iter()
+                .find(|(n, _)| nombre.starts_with(&format!("{n}.migrando-")))?;
+            let p = e.path();
+            Some(format!(
+                "reclamo sobrante {p}: cat {p} >> {n} && mv {p} {p}.migrado-$(date +%Y%m%dT%H%M%S)",
+                p = p.display(),
+                n = nuevo.display()
+            ))
+        })
+        .collect();
+    let residuos: Vec<String> = residuos.into_iter().chain(sobrantes).collect();
     if residuos.is_empty() {
         Check::nuevo(
             "state_residuo",

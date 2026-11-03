@@ -1276,3 +1276,18 @@ fn state_residuo_ausente_o_vacio_es_ok() {
     let informe = analiza(&con_viejo(dir.path(), "exo-index.log", ""));
     assert_eq!(check(&informe, "state_residuo").estado, Estado::Ok);
 }
+
+#[test]
+fn state_residuo_lista_un_migrando_sobrante() {
+    let dir = tempfile::tempdir().unwrap();
+    let env = con_viejo(dir.path(), "exo-index.log.migrando-123-0", "linea\n");
+    let informe = analiza(&env);
+    let c = check(&informe, "state_residuo");
+    assert_eq!(c.estado, Estado::Warn);
+    assert!(
+        c.detalle.contains("exo-index.log.migrando-123-0"),
+        "{}",
+        c.detalle
+    );
+    assert!(c.detalle.contains("reclamo sobrante"), "{}", c.detalle);
+}
