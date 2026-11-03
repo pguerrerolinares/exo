@@ -25,6 +25,8 @@ fn evento(cmd: &str, cwd: &str, agent: &str) -> Evento {
         cwd: cwd.into(),
         agent_id: agent.into(),
         agent_type: String::new(),
+        source: String::new(),
+        prompt: String::new(),
         crudo: json!({"tool_input": {"command": cmd}, "cwd": cwd}).to_string(),
         tool: Some(Tool {
             nombre: "Bash".into(),

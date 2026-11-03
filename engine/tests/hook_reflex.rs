@@ -24,6 +24,8 @@ fn evento(tool: Option<&str>) -> Evento {
         agent_id: "a1".into(),
         agent_type: "t1".into(),
         crudo: String::new(),
+        source: String::new(),
+        prompt: String::new(),
         tool: tool.map(|n| Tool {
             nombre: n.into(),
             clase: Clase::Shell,

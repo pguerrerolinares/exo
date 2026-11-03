@@ -108,6 +108,8 @@ fn evento(cwd: &Path, cmd: &str, clase: Clase, nombre: &str) -> Evento {
         cwd: cwd.to_string_lossy().into(),
         agent_id: String::new(),
         agent_type: String::new(),
+        source: String::new(),
+        prompt: String::new(),
         crudo: String::new(),
         tool: Some(Tool {
             nombre: nombre.into(),

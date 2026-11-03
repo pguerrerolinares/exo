@@ -275,3 +275,17 @@ fn cli_premisa_4_2_false_real_registra_ok_false() {
     assert_eq!(j[0]["cmd"], "false");
     assert_eq!(j[0]["ok"], false);
 }
+
+#[test]
+fn session_start_aun_vacio() {
+    let e = Entorno::nuevo();
+    for ev in ["SessionStart", "Stop", "UserPromptSubmit", "PostCompact"] {
+        let o = e.corre(
+            &["claude", ev],
+            br#"{"session_id":"s","cwd":"/x","source":"startup","prompt":"p"}"#,
+            &[],
+        );
+        assert_eq!(o.status.code(), Some(0), "{ev}");
+        assert!(o.stdout.is_empty(), "{ev}");
+    }
+}

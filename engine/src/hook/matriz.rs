@@ -63,5 +63,9 @@ pub fn soporte(g: Guard, h: Harness) -> Soporte {
         (Guard::ZeroResiduo, Harness::Claude) => Soporte::Soportado,
         (Guard::Verify, Harness::Claude) => Soporte::Soportado,
         (Guard::SearchFirst, Harness::Claude) => Soporte::Soportado,
+        (Guard::GitC, Harness::Codex) => Soporte::Soportado,
+        (Guard::ZeroResiduo, Harness::Codex) => Soporte::Soportado,
+        (Guard::Verify, Harness::Codex) => Soporte::Degradado("ok: null, solo log"),
+        (Guard::SearchFirst, Harness::Codex) => Soporte::Soportado,
     }
 }

@@ -1,4 +1,5 @@
 pub mod claude;
+pub mod codex;
 pub mod evento;
 pub mod guards;
 pub mod journal;
