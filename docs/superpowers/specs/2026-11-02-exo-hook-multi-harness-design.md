@@ -98,7 +98,7 @@ exo no es un producto de seguridad. Sus guards son reflejos de disciplina, y la 
 
 | Error | Respuesta | Rastro |
 |---|---|---|
-| stdin ilegible o payload que no parsea | `Allow` | Un registro `warn` en el journal, una vez por sesión, más una línea en el reflex-log con `code` |
+| stdin ilegible o payload que no parsea | `Allow` | Una línea en el reflex-log con `reflex="hook-error"` y `code=parse`. Sin parse no hay `session_id`, así que no hay journal donde registrar un `warn` (corregido tras la review final) |
 | Panic en un guard | Se descarta ese guard y los demás siguen (`catch_unwind`; el engine no tiene `panic = "abort"`) | `panic::set_hook` escribe en el reflex-log, **no en stderr** |
 | Fallo de I/O del journal | El guard pasa a modo «sin evidencia», igual que hoy con «sin transcript» (#182) | Igual que arriba |
 | Timeout | Lo gestiona el host (`"timeout": 5`). **No hay watchdog interno**: los timeouts son de 600 s por defecto y no bloquean ni en Codex (`discovery.rs:968`) ni en Claude | — |
@@ -159,6 +159,8 @@ Si un `tool_use` ocurre dentro de un subagente, se reinyecta con su `agent_id`, 
 | Ventana `tail -n 400` | Se sustituye por la cota de 2 MiB | Equivalente para fixtures pequeños |
 | **Tools en paralelo** | Codex `exec_command` tiene `supports_parallel_tool_calls = true`, y en Claude los `PostToolUse` corren a la vez en llamadas paralelas: el `PreToolUse` de B puede leer el journal antes de que el `PostToolUse` de A lo escriba | Se documenta. Coste: como mucho un aviso falso por sesión en search-first, o un orden por finalización en verify |
 | **Journal vacío tras actualizar** | En Claude, search-first no ve un `exo search` anterior a la instalación de la versión nueva dentro de la misma sesión | Se documenta. Coste: un aviso de más en la primera sesión |
+| **`cmd` truncado a 200 B** | El journal guarda el comando truncado a 200 bytes; antes el guard leía `input.command` entero del transcript | Se documenta. Coste: un `exo search` que aparece pasado el byte 200 de un comando largo no cuenta, y search-first puede dar un aviso falso (como mucho uno por sesión). En verify solo afecta al log |
+| **Ventana de 2 MiB compartida con subagentes** | La cota de lectura es sobre el fichero de la sesión entero, que también reciben los registros de los subagentes | Se documenta. Coste: en una sesión con muchos subagentes, el `warn` del padre puede salir de la ventana y search-first puede volver a avisar |
 
 ## 7. Condiciones de invalidación (pre-registradas)
 
