@@ -277,7 +277,7 @@ fn cap_y_limite_cero_no_panican() {
         m.en.seams.recall_cap = 0;
         let (txt, razones) = recall_contrato(&evento("s", ""), &m.en);
         assert_eq!(txt, FALLBACK);
-        assert_eq!(razones, ["empty"]);
+        assert_eq!(razones, ["truncated", "empty"]);
         m.en.seams.recall_cap = 6144;
         m.en.seams.recall_limite = 0;
         let (txt, _) = recall_contrato(&evento("s", ""), &m.en);

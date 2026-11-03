@@ -365,6 +365,24 @@ pub struct ArranqueContenido {
     pub total: usize,
 }
 
+/// El cap dejó el bloque sin contenido: el hook lo registra como `truncated` además de `empty`.
+#[derive(Debug)]
+pub struct CapVacio {
+    pub cap_bytes: usize,
+}
+
+impl std::fmt::Display for CapVacio {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "recall de arranque vacío: --cap-bytes={} no deja servir ninguna nota",
+            self.cap_bytes
+        )
+    }
+}
+
+impl std::error::Error for CapVacio {}
+
 /// Igual que `recall_arranque_contenido`, sin imprimir nada.
 pub fn recall_arranque_bloque(
     db_ruta: &Path,
@@ -482,6 +500,9 @@ pub fn recall_arranque_bloque(
         .take(escritas.saturating_sub(lineas_de_cabecera))
         .any(|l| !l.trim().is_empty());
     if !hubo_contenido {
+        if escritas < total {
+            return Err(CapVacio { cap_bytes }.into());
+        }
         anyhow::bail!("recall de arranque vacío: sin notas core ni recientes que servir");
     }
     Ok(ArranqueContenido {

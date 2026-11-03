@@ -58,7 +58,7 @@ fn todo_guard_soportado_tiene_entrada() {
         }
         let kind = g.evento();
         let ev = kind.nombre();
-        for t in g.tools() {
+        for t in g.tools(Harness::Claude) {
             assert!(
                 ents.iter().any(|(e, m, c)| e == ev
                     && cubre(m, t)

@@ -191,6 +191,25 @@ pub fn escribe_testigo(rules_dir: &Path, sid: &str, r: &ResultadoReglas) {
     })();
 }
 
+/// `project-rules-skip` de `exo-recall.sh:335`; no hace nada si el resultado no es `skip`.
+pub fn registra_skip(en: &Entorno, ev: &Evento, r: &ResultadoReglas) {
+    if r.status != "skip" {
+        return;
+    }
+    let repo = r.repo.as_deref().unwrap_or("-");
+    let err = if r.reason == "error_engine" && !r.error.is_empty() {
+        format!(" err={}", r.error)
+    } else {
+        String::new()
+    };
+    registra(
+        en,
+        "project-rules-skip",
+        ev,
+        &format!("reason={} repo={repo}{err}", r.reason),
+    );
+}
+
 /// `ReglasTestigo`: SessionStart que no sea compact. `None` en compact (ni resuelve ni testigo).
 pub fn reglas_testigo(en: &Entorno, kb: &Path, ev: &Evento) -> Option<ResultadoReglas> {
     if ev.source == "compact" {
@@ -202,20 +221,7 @@ pub fn reglas_testigo(en: &Entorno, kb: &Path, ev: &Evento) -> Option<ResultadoR
         ev.cwd.clone().into()
     };
     let r = resuelve_reglas(kb, &cwd);
-    if r.status == "skip" {
-        let repo = r.repo.as_deref().unwrap_or("-");
-        let err = if r.reason == "error_engine" && !r.error.is_empty() {
-            format!(" err={}", r.error)
-        } else {
-            String::new()
-        };
-        registra(
-            en,
-            "project-rules-skip",
-            ev,
-            &format!("reason={} repo={repo}{err}", r.reason),
-        );
-    }
+    registra_skip(en, ev, &r);
     escribe_testigo(&en.rutas.rules_dir, &ev.session_id, &r);
     Some(r)
 }

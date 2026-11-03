@@ -1,3 +1,0 @@
-avisos_dentro_del_cap: el gate pendiente entra tras el contrato	pendiente de T15: el cap contrato+avisos vive en ensambla/runner (Fragmentos), no en el guard
-avisos_recortan_despues: con contrato lleno el cap come el aviso, no el contrato	pendiente de T15: el cap contrato+avisos vive en ensambla/runner (Fragmentos), no en el guard
-gate_compact_no_repite	pendiente de T15: la exclusión en source=compact la decide la matriz/runner, no el guard

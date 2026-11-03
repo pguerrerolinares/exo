@@ -3,7 +3,7 @@
 # cada `pass "…"` de las suites bash de recall (tests/paridad/baseline-recall.txt)
 # debe estar o en un divergencias-recall-*.txt (con motivo) o en un
 # `/// paridad-recall: <texto>` de engine/tests/hook_*.rs, nunca en los dos.
-# Áreas: contrato|compact|avisos|reglas|fontaneria|wiring (wiring: pendiente de T15).
+# Áreas: contrato|compact|avisos|reglas|fontaneria|wiring (wiring: engine-stale vía --min, en hook_cli).
 # Valida también la asignación por área y el tope de 18 divergencias.
 # Sale 0 e imprime "paridad-recall: OK" si y solo si todo cuadra.
 set -uo pipefail

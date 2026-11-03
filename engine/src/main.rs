@@ -112,7 +112,8 @@ enum Comando {
     /// escribe la respuesta por stdout). Se invoca desde la config de hooks del
     /// agente: `exo hook claude PreToolUse`. Siempre sale con 0, también ante
     /// un harness, un evento o una entrada que no entiende: un exit distinto
-    /// de 0 bloquearía la herramienta.
+    /// de 0 bloquearía la herramienta. La única excepción es un flag que clap
+    /// no conoce (p. ej. `--min` en un binario viejo): sale con 2.
     Hook(ArgsHook),
 }
 
@@ -428,12 +429,17 @@ struct ArgsDoctor {
 
 #[derive(clap::Args)]
 struct ArgsHook {
-    /// Agente que invoca el hook (`claude`). Cualquier otro valor se ignora.
+    /// Agente que invoca el hook (`claude`, `codex`). Cualquier otro valor se ignora.
     #[arg(default_value = "")]
     harness: String,
-    /// Evento del agente (`PreToolUse`, `PostToolUse`, `PostToolUseFailure`).
+    /// Evento del agente (`PreToolUse`, `PostToolUse`, `SessionStart`, `Stop`, …).
     #[arg(default_value = "")]
     evento: String,
+    /// Versión mínima de este binario que exige quien lo invoca (`ENGINE_MIN` del
+    /// plugin). Solo la mira `SessionStart`: un binario más viejo avisa y sirve el
+    /// contrato de respaldo.
+    #[arg(long)]
+    min: Option<String>,
 }
 
 #[derive(clap::Args)]
@@ -1565,7 +1571,13 @@ fn hook_cmd(args: ArgsHook) {
     // Los panics se registran en el reflex-log; stderr queda vacío.
     std::panic::set_hook(Box::new(|_| {}));
     let en = exo::hook::evento::Entorno::desde_env();
-    let salida = exo::hook::runner::ejecutar(&en, &args.harness, &args.evento, &stdin);
+    let salida = exo::hook::runner::ejecutar(
+        &en,
+        &args.harness,
+        &args.evento,
+        args.min.as_deref(),
+        &stdin,
+    );
     let _ = std::io::stdout().write_all(salida.as_bytes());
 }
 
