@@ -63,7 +63,7 @@ chmod +x "$PLUG/dump.sh" "$PLUG/alias.sh" "$PLUG/deny.sh"
 dump() { printf '{"type":"command","command":"sh \\"%s/dump.sh\\"","timeout":5}' "$PLUG"; }
 cat > "$PLUG/hooks/codex.json" <<EOF
 {"hooks":{
-  "SessionStart":[{"hooks":[$(dump)]}],
+  "SessionStart":[{"hooks":[$(dump)],"additionalContextLimit":2500}],
   "UserPromptSubmit":[{"hooks":[$(dump)]}],
   "PreToolUse":[
     {"hooks":[$(dump)]},
@@ -73,6 +73,8 @@ cat > "$PLUG/hooks/codex.json" <<EOF
     {"matcher":"spawn_agent","hooks":[{"type":"command","command":"sh \\"$PLUG/alias.sh\\" pre-spawn","timeout":5}]}
   ],
   "PostToolUse":[{"hooks":[$(dump)]}],
+  "PreCompact":[{"hooks":[$(dump)]}],
+  "PostCompact":[{"hooks":[$(dump)]}],
   "Stop":[{"hooks":[$(dump)]}],
   "SubagentStart":[{"hooks":[$(dump)]}],
   "SubagentStop":[{"hooks":[$(dump)]}]
@@ -105,9 +107,14 @@ PROMPT="Ejecuta estos pasos en orden, cada uno con una llamada de shell separada
 6) lanza un subagente que ejecute 'echo hijo' y espera su respuesta. \
 Luego responde 'listo'."
 
+# El límite bajo fuerza una compactación automática en el primer exec; el resume
+# produce el segundo UserPromptSubmit y, con suerte, SessionStart source=compact.
 ( cd "$WORK" && codex exec --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox \
-    --dangerously-bypass-hook-trust "$PROMPT" ) > "$T/exec.log" 2>&1
+    --dangerously-bypass-hook-trust -c model_auto_compact_token_limit=3000 "$PROMPT" ) > "$T/exec.log" 2>&1
 RC=$?
+( cd "$WORK" && codex exec resume --last --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox \
+    --dangerously-bypass-hook-trust "di ok" ) > "$T/resume.log" 2>&1
+RC2=$?
 
 # --- aserciones ----------------------------------------------------------------
 fallos=0
@@ -126,12 +133,17 @@ has() { jq -e -s "$1" "$EV" >/dev/null 2>&1; }
 no_has() { ! has "$1"; }
 
 chk mal "codex exec rc=0" "codex exec rc=$RC (ver $T/exec.log con --keep)" test "$RC" -eq 0
+chk mal "codex exec resume rc=0" "codex exec resume rc=$RC2 (ver $T/resume.log con --keep)" test "$RC2" -eq 0
 sed -i '/^$/d' "$EV"
 n="$(wc -l < "$EV")"
-chk mal "plugin hooks cargados: $n eventos" "cero eventos: Codex no cargó los hooks del plugin" test "$n" -gt 0
+# Codex parsea con deny_unknown_fields: si additionalContextLimit estuviera mal, no cargaría ningún hook.
+chk mal "hooks cargados con additionalContextLimit presente: $n eventos" "cero eventos: Codex no cargó los hooks (¿additionalContextLimit rechazado?)" test "$n" -gt 0
 for ev in SessionStart UserPromptSubmit PreToolUse PostToolUse Stop; do
   chk mal "evento $ev" "falta evento $ev" has "any(.[]; .hook_event_name==\"$ev\")"
 done
+chk mal "evento PostCompact" "falta PostCompact (¿no se compactó?)" has 'any(.[]; .hook_event_name=="PostCompact")'
+chk mal "dos UserPromptSubmit (exec + resume)" "no hay dos UserPromptSubmit" has '[.[]|select(.hook_event_name=="UserPromptSubmit")]|length>=2'
+chk info "SessionStart con source=compact" "ningún SessionStart con source=compact" has 'any(.[]; .hook_event_name=="SessionStart" and .source=="compact")'
 # Condición #1
 chk mal "#1 PostToolUse Bash con exit≠0 (false) trae command" "#1 sin PostToolUse para 'false'" \
   has 'any(.[]; .hook_event_name=="PostToolUse" and .tool_name=="Bash" and (.tool_input.command|test("^false")))'
