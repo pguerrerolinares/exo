@@ -153,6 +153,8 @@ fn la_lista_de_checks_es_contrato_y_no_puede_encoger() {
             // Añadido 2026-10-15: dónde embebió el último index/rebuild
             // (`na` sin la feature `cuda`). Al final: la lista crece.
             "embeddings_device",
+            // Añadido 2026-11-03: residuo de estado en `~/.claude/` (informativo).
+            "state_residuo",
         ]
     );
 }

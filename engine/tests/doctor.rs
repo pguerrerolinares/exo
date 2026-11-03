@@ -12,6 +12,7 @@ use exo::doctor::{Check, Entorno, Estado, InformeDoctor, analiza};
 fn entorno(dir: &Path) -> Entorno {
     let home = dir.join("home");
     Entorno {
+        rutas: exo::state::Rutas::resuelve(&home, |_| None),
         config: home.join(".exo").join("config.toml"),
         cache_hf: home.join(".cache").join("huggingface").join("hub"),
         home,
@@ -130,6 +131,7 @@ fn entorno_con_config(dir: &Path) -> Entorno {
     )
     .unwrap();
     Entorno {
+        rutas: exo::state::Rutas::resuelve(&home, |_| None),
         config: cfg,
         cache_hf: home.join(".cache").join("huggingface").join("hub"),
         home,
@@ -1237,4 +1239,55 @@ fn un_jq_que_emite_crlf_es_ok_y_lo_dice_en_el_detalle() {
         "{}",
         c.detalle
     );
+}
+
+fn con_viejo(dir: &Path, nombre: &str, contenido: &str) -> Entorno {
+    let env = entorno(dir);
+    let viejo = env.home.join(".claude").join(nombre);
+    fs::create_dir_all(viejo.parent().unwrap()).unwrap();
+    fs::write(&viejo, contenido).unwrap();
+    env
+}
+
+#[test]
+fn state_residuo_informativo() {
+    let dir = tempfile::tempdir().unwrap();
+    let env = con_viejo(dir.path(), "reflex-log.jsonl", "{}\n");
+    let informe = analiza(&env);
+    let c = check(&informe, "state_residuo");
+    assert_eq!(c.estado, Estado::Warn, "informa, no gatea");
+    let viejo = env.home.join(".claude/reflex-log.jsonl");
+    let nuevo = &env.rutas.reflex_log;
+    let cmd = format!(
+        "cat {v} >> {n} && mv {v} {v}.migrado-",
+        v = viejo.display(),
+        n = nuevo.display()
+    );
+    assert!(c.detalle.contains(&cmd), "{}", c.detalle);
+}
+
+#[test]
+fn state_residuo_ausente_o_vacio_es_ok() {
+    let dir = tempfile::tempdir().unwrap();
+    let informe = analiza(&entorno(dir.path()));
+    assert_eq!(check(&informe, "state_residuo").estado, Estado::Ok);
+
+    let dir = tempfile::tempdir().unwrap();
+    let informe = analiza(&con_viejo(dir.path(), "exo-index.log", ""));
+    assert_eq!(check(&informe, "state_residuo").estado, Estado::Ok);
+}
+
+#[test]
+fn state_residuo_lista_un_migrando_sobrante() {
+    let dir = tempfile::tempdir().unwrap();
+    let env = con_viejo(dir.path(), "exo-index.log.migrando-123-0", "linea\n");
+    let informe = analiza(&env);
+    let c = check(&informe, "state_residuo");
+    assert_eq!(c.estado, Estado::Warn);
+    assert!(
+        c.detalle.contains("exo-index.log.migrando-123-0"),
+        "{}",
+        c.detalle
+    );
+    assert!(c.detalle.contains("reclamo sobrante"), "{}", c.detalle);
 }

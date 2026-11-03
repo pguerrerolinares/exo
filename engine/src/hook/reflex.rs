@@ -26,12 +26,16 @@ pub fn registra(en: &Entorno, reflex: &str, ev: &Evento, payload: &str) {
         "ts": ts,
         "reflex": reflex,
         "session_id": ev.session_id,
+        "harness": ev.harness.nombre(),
         "agent_id": ev.agent_id,
         "agent_type": ev.agent_type,
         "tool": ev.tool.as_ref().map_or("", |t| t.nombre.as_str()),
         "payload": prefijo(payload, PAYLOAD_MAX),
     });
     let _ = (|| -> std::io::Result<()> {
+        if let Some(p) = en.reflex_log.parent() {
+            std::fs::create_dir_all(p)?;
+        }
         let mut f = std::fs::OpenOptions::new()
             .create(true)
             .append(true)

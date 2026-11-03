@@ -3,6 +3,7 @@
 //! del proceso; `desde_env` es el único punto que lo lee.
 
 use std::ffi::OsString;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -81,4 +82,172 @@ impl Seams {
     pub fn desde_env() -> Seams {
         Seams::resuelve(|k| std::env::var_os(k))
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Migracion {
+    Renombrado,
+    Fusionado { viejo_a: PathBuf },
+    Nada,
+    Fallo(String),
+}
+
+/// `viejo` → `nuevo` (spec §4.2). Nunca borra el viejo: o pasa a ser el nuevo o acaba en `.migrado-<ts>`.
+pub fn migra(viejo: &Path, nuevo: &Path, ts: &str) -> Migracion {
+    migra_con(viejo, nuevo, ts, || {}, || {})
+}
+
+/// `migra` con ganchos para tests deterministas: `antes_del_link` corre tras el reclamo y
+/// antes de crear el nuevo (un appender puede crearlo ahí); `antes_del_append` corre antes
+/// de anexar al nuevo (un hook viejo puede recrear el viejo ahí).
+#[doc(hidden)]
+pub fn migra_con(
+    viejo: &Path,
+    nuevo: &Path,
+    ts: &str,
+    antes_del_link: impl FnOnce(),
+    antes_del_append: impl FnOnce(),
+) -> Migracion {
+    if viejo == nuevo || !viejo.exists() {
+        return Migracion::Nada;
+    }
+    match migra_io(viejo, nuevo, ts, antes_del_link, antes_del_append) {
+        Ok(m) => m,
+        Err(e) => Migracion::Fallo(format!("{}: {e}", viejo.display())),
+    }
+}
+
+static RECLAMOS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+fn migra_io(
+    viejo: &Path,
+    nuevo: &Path,
+    ts: &str,
+    antes_del_link: impl FnOnce(),
+    antes_del_append: impl FnOnce(),
+) -> std::io::Result<Migracion> {
+    use std::io::ErrorKind::{AlreadyExists, NotFound};
+    if let Some(padre) = nuevo.parent() {
+        std::fs::create_dir_all(padre)?;
+    }
+    // Reclamo: reserva con O_EXCL un nombre `.migrando-<pid>-<n>` y `rename` del viejo sobre
+    // esa reserva vacía. El pid se reutiliza y puede haber dos pid namespaces sobre el mismo
+    // home, así que un reclamo sobrante de otro (única copia de su histórico) puede ocupar el
+    // nombre: `rename` reemplaza el destino, la reserva garantiza que solo pisa un fichero
+    // nuestro y vacío. Solo un migrador se lleva el viejo (el otro ve ENOENT). A partir de aquí
+    // nadie vuelve a tocar `viejo` por nombre, así que un hook que lo recree no pierde líneas.
+    let reclamado = loop {
+        let candidato = PathBuf::from(format!(
+            "{}.migrando-{}-{}",
+            viejo.display(),
+            std::process::id(),
+            RECLAMOS.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+        ));
+        match std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&candidato)
+        {
+            Ok(_) => break candidato,
+            Err(e) if e.kind() == AlreadyExists => {}
+            Err(e) => return Err(e),
+        }
+    };
+    match std::fs::rename(viejo, &reclamado) {
+        Ok(()) => {}
+        Err(e) => {
+            let _ = std::fs::remove_file(&reclamado);
+            return if e.kind() == NotFound {
+                Ok(Migracion::Nada)
+            } else {
+                Err(e)
+            };
+        }
+    }
+    antes_del_link();
+    // `hard_link` no reemplaza un nuevo creado por un appender concurrente; `rename` sí.
+    match std::fs::hard_link(&reclamado, nuevo) {
+        Ok(()) => {
+            return match std::fs::remove_file(&reclamado) {
+                Ok(()) => Ok(Migracion::Renombrado),
+                Err(e) => Err(e),
+            };
+        }
+        Err(e) if e.kind() == AlreadyExists => {}
+        // FS sin hard links: rename (que sí reemplaza) si el nuevo sigue sin existir.
+        Err(_) if !nuevo.exists() => match std::fs::rename(&reclamado, nuevo) {
+            Ok(()) => return Ok(Migracion::Renombrado),
+            Err(e) => return Err(devuelve(&reclamado, viejo, e)),
+        },
+        Err(_) => {}
+    }
+    antes_del_append();
+    let anexado = (|| -> std::io::Result<()> {
+        let mut bytes = std::fs::read(&reclamado)?;
+        if !bytes.is_empty() && bytes.last() != Some(&b'\n') {
+            bytes.push(b'\n');
+        }
+        // Un solo write() con O_APPEND: no se intercala con los hooks que escriben en el nuevo.
+        std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(nuevo)?
+            .write_all(&bytes)
+    })();
+    if let Err(e) = anexado {
+        return Err(devuelve(&reclamado, viejo, e));
+    }
+    let base = format!("{}.migrado-{ts}", viejo.display());
+    let mut destino = PathBuf::from(&base);
+    for n in 1.. {
+        match mueve_sin_reemplazar(&reclamado, &destino) {
+            Ok(()) => break,
+            Err(e) if e.kind() == AlreadyExists => {
+                destino = PathBuf::from(format!("{base}-{n}"));
+            }
+            Err(e) => {
+                return Err(std::io::Error::new(
+                    e.kind(),
+                    format!("{e}; ya anexado, el viejo quedó en {}", reclamado.display()),
+                ));
+            }
+        }
+    }
+    Ok(Migracion::Fusionado { viejo_a: destino })
+}
+
+/// Falló antes de terminar con el nuevo: el histórico vuelve al viejo con `hard_link` (nunca
+/// `rename`, que pisaría un viejo recreado) o, si no se puede, el error nombra el reclamado.
+fn devuelve(reclamado: &Path, viejo: &Path, e: std::io::Error) -> std::io::Error {
+    match mueve_sin_reemplazar(reclamado, viejo) {
+        Ok(()) => e,
+        Err(_) => std::io::Error::new(
+            e.kind(),
+            format!("{e}; el contenido quedó en {}", reclamado.display()),
+        ),
+    }
+}
+
+/// `hard_link` + `remove_file`: mueve sin reemplazar un destino existente (`AlreadyExists`).
+/// En un FS sin hard links cae a `rename`, que sí reemplaza: ventana residual aceptada.
+fn mueve_sin_reemplazar(origen: &Path, destino: &Path) -> std::io::Result<()> {
+    use std::io::ErrorKind::AlreadyExists;
+    match std::fs::hard_link(origen, destino) {
+        Ok(()) => std::fs::remove_file(origen),
+        Err(e) if e.kind() == AlreadyExists => Err(e),
+        Err(_) if !destino.exists() => std::fs::rename(origen, destino),
+        Err(e) => Err(e),
+    }
+}
+
+/// Los tres ficheros de estado que vivían en `~/.claude/`.
+pub fn migra_todo(home: &Path, r: &Rutas, ts: &str) -> Vec<(&'static str, Migracion)> {
+    [
+        ("reflex-log.jsonl", &r.reflex_log),
+        ("exo-index.log", &r.index_log),
+        ("reflex-inject-canary", &r.canary),
+    ]
+    .into_iter()
+    .map(|(nombre, nuevo)| (nombre, migra(&home.join(".claude").join(nombre), nuevo, ts)))
+    .collect()
 }
