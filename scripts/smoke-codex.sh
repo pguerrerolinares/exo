@@ -14,13 +14,14 @@
 # ~/.codex/config.toml. Lanza `codex exec --dangerously-bypass-hook-trust`: los
 # hooks que confía son solo los de volcado que genera este script.
 #
-# Uso: scripts/smoke-codex.sh [--keep]   (--keep conserva el directorio temporal)
+# Uso: scripts/smoke-codex.sh [--keep|--raiz]   (--keep conserva el directorio temporal)
 set -uo pipefail
 
 KEEP=0
 [ "${1:-}" = "--keep" ] && KEEP=1
 
 RAIZ="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)" || exit 1
+[ "${1:-}" = "--raiz" ] && { echo "$RAIZ"; exit 0; }
 command -v codex >/dev/null || { echo "smoke-codex: falta codex en PATH" >&2; exit 1; }
 command -v jq >/dev/null || { echo "smoke-codex: falta jq en PATH" >&2; exit 1; }
 AUTH="${CODEX_HOME:-$HOME/.codex}/auth.json"

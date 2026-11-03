@@ -8,7 +8,7 @@
 # `/compact` (PreCompact + SessionStart source=compact). Escribe el golden saneado
 # en engine/tests/fixtures/hook/claude/claude-<versión>-probe.jsonl.
 #
-# Uso: scripts/smoke-claude.sh [--keep]   (--keep conserva el directorio temporal)
+# Uso: scripts/smoke-claude.sh [--keep|--raiz]   (--keep conserva el directorio temporal)
 #      scripts/smoke-claude.sh --sanear <work> <tmp> <jsonl>   (solo saneado a stdout, sin claude)
 set -uo pipefail
 
@@ -26,6 +26,7 @@ KEEP=0
 [ "${1:-}" = "--keep" ] && KEEP=1
 
 RAIZ="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)" || exit 1
+[ "${1:-}" = "--raiz" ] && { echo "$RAIZ"; exit 0; }
 command -v claude >/dev/null || { echo "smoke-claude: falta claude en PATH" >&2; exit 1; }
 command -v jq >/dev/null || { echo "smoke-claude: falta jq en PATH" >&2; exit 1; }
 command -v uuidgen >/dev/null || { echo "smoke-claude: falta uuidgen en PATH" >&2; exit 1; }
