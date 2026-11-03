@@ -3,6 +3,7 @@
 # cada `pass "…"` de las suites bash de recall (tests/paridad/baseline-recall.txt)
 # debe estar o en un divergencias-recall-*.txt (con motivo) o en un
 # `/// paridad-recall: <texto>` de engine/tests/hook_*.rs, nunca en los dos.
+# Áreas: contrato|compact|avisos|reglas|fontaneria|wiring (wiring: pendiente de T15).
 # Valida también la asignación por área y el tope de 18 divergencias.
 # Sale 0 e imprime "paridad-recall: OK" si y solo si todo cuadra.
 set -uo pipefail
@@ -25,7 +26,7 @@ cut -f2- "$PARIDAD/asignacion-recall.txt" | C sort > "$TMP/asignados"
 while IFS= read -r l; do falla "ajena al baseline (asignación): $l"; done < <(C comm -13 "$TMP/baseline" "$TMP/asignados")
 while IFS= read -r l; do falla "sin asignación: $l"; done < <(C comm -23 "$TMP/baseline" "$TMP/asignados")
 while IFS=$'\t' read -r area texto; do
-  case "$area" in contrato|compact|avisos|reglas|fontaneria) ;; *) falla "área inválida '$area': $texto" ;; esac
+  case "$area" in contrato|compact|avisos|reglas|fontaneria|wiring) ;; *) falla "área inválida '$area': $texto" ;; esac
 done < "$PARIDAD/asignacion-recall.txt"
 
 # Divergencias: <texto>\t<motivo> en todos los ficheros divergencias-recall-*.txt.

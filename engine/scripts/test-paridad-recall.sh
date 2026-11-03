@@ -44,7 +44,7 @@ check "baseline ordenado LC_ALL=C y sin duplicados" \
 # --- asignación real ------------------------------------------------------------
 check "asignación real: cada línea del baseline con área válida" \
   "$(cut -f2- "$REAL/asignacion-recall.txt" | LC_ALL=C sort | cmp -s - "$REAL/baseline-recall.txt" \
-     && ! cut -f1 "$REAL/asignacion-recall.txt" | grep -qvxE 'contrato|compact|avisos|reglas|fontaneria' && echo 0 || echo 1)" "asignación desalineada del baseline"
+     && ! cut -f1 "$REAL/asignacion-recall.txt" | grep -qvxE 'contrato|compact|avisos|reglas|fontaneria|wiring' && echo 0 || echo 1)" "asignación desalineada del baseline"
 # toda línea fontaneria real está en las divergencias reales, con motivo
 FONT="$(awk -F'\t' '$1=="fontaneria"{print $2}' "$REAL/asignacion-recall.txt" | LC_ALL=C sort)"
 DIVF="$(cut -f1 "$REAL"/divergencias-recall-fontaneria.txt | LC_ALL=C sort)"
@@ -109,6 +109,13 @@ check "asignación: línea que no está en el baseline ⇒ ≠0" "$(grep -q 'aje
 nuevo 2; cubre_todo 2; sed -i 's/^reglas\tc2$/fontaneria\tc2/' "$D/p/asignacion-recall.txt"
 O="$(corre)"
 check "fontaneria: asignada pero sin divergencia ⇒ ≠0 y nombra c2" "$(grep -q 'fontaneria sin divergencia.*c2' <<<"$O" && ! grep -q 'rc=0' <<<"$O" && echo 0 || echo 1)" "$O"
+
+nuevo 2; tag c1; sed -i 's/^reglas\tc2$/wiring\tc2/' "$D/p/asignacion-recall.txt"
+O="$(corre)"
+check "wiring: área válida, pero sin test ni divergencia ⇒ ≠0 y nombra c2" "$(grep -q 'falta.*c2' <<<"$O" && ! grep -q 'área inválida' <<<"$O" && ! grep -q 'rc=0' <<<"$O" && echo 0 || echo 1)" "$O"
+nuevo 2; tag c1; sed -i 's/^reglas\tc2$/wiring\tc2/' "$D/p/asignacion-recall.txt"; div c2 pendiente w
+O="$(corre)"
+check "wiring: en divergencias ⇒ OK" "$(grep -q '^paridad-recall: OK' <<<"$O" && echo 0 || echo 1)" "$O"
 
 echo
 [ "$FALLOS" -eq 0 ] && echo "OK" || echo "FALLAN $FALLOS"

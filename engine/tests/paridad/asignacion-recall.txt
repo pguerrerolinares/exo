@@ -14,10 +14,10 @@ compact	compact_fuera_del_cap: cap actuó sobre el contrato y la reafirmación s
 reglas	compact_no_resuelve: sin llamada a exo rules ni ss
 fontaneria	contraprueba: @tsv + IFS=tab SÍ desalinea (por eso este hook usa \\x1f, no @tsv)
 fontaneria	engine-stale: --version no responde ⇒ recall-fallback reason=engine-stale engine=desconocida
-fontaneria	engine-stale: version por debajo de ENGINE_MIN ⇒ recall-fallback + aviso en el bloque
-fontaneria	engine_stale_sin_llamar: no se invoca exo rules, systemMessage engine_stale
-fontaneria	error_engine_stderr: el stderr del engine viaja en el payload de project-rules-skip
-fontaneria	error_engine_visible ($modo): systemMessage y ss skip/error_engine, el hook sigue emitiendo
+wiring	engine-stale: version por debajo de ENGINE_MIN ⇒ recall-fallback + aviso en el bloque
+wiring	engine_stale_sin_llamar: no se invoca exo rules, systemMessage engine_stale
+reglas	error_engine_stderr: el stderr del engine viaja en el payload de project-rules-skip
+reglas	error_engine_visible ($modo): systemMessage y ss skip/error_engine, el hook sigue emitiendo
 avisos	false seguido de true en el mismo fichero: avisa con la clave true
 avisos	gate_anterior_a_distill_last_no_avisa
 avisos	gate_autodistill_sin_aterrizar_vuelve_a_avisar
@@ -37,14 +37,14 @@ fontaneria	golden: $nombre capturado en $golden
 compact	golden: $nombre sin cambios
 avisos	kb_sin_git_no_rompe
 avisos	local false pisa a project true: no avisa
-fontaneria	no-config: EXO_BIN sin subcomando config ⇒ recall-fallback reason=no-config
+contrato	no-config: EXO_BIN sin subcomando config ⇒ recall-fallback reason=no-config
 fontaneria	no-engine: EXO_BIN no ejecutable ⇒ recall-fallback reason=no-engine
 contrato	no-index: EXO_INDEX ausente ⇒ recall-fallback reason=no-index
 fontaneria	orden: sin engine, se loguea SOLO no-engine (nunca no-config además)
 reglas	poda_7_dias: ss de 8 días fuera, de 1 día se queda
 avisos	project false pisa a user true: no avisa
 avisos	project scope habilitado: avisa
-fontaneria	recall_cap_al_engine: EXO_RECALL_CAP llega como --cap-bytes
+contrato	recall_cap_al_engine: EXO_RECALL_CAP llega como --cap-bytes
 fontaneria	recorte_con_crlf: jq con CRLF ⇒ el aviso de recorte sale igual
 reglas	reglas_ok_silencioso: ss ok n=3, sin systemMessage, additionalContext intacto, cwd del input
 reglas	session_id con '/': no se escribe ss (ni dentro de subdirectorios)
