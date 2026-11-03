@@ -192,3 +192,46 @@ fn capacidad_codex() {
         }
     }
 }
+
+/// Cada guard Soportado/Degradado, en cada harness, tiene en el golden de ese harness una línea
+/// con su evento y todos los campos de `requiere()`.
+#[test]
+fn capacidad_con_campos() {
+    let codex: Vec<serde_json::Value> =
+        include_str!("fixtures/hook/codex/codex-0.166.0-probe.jsonl")
+            .lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect();
+    let claude: Vec<serde_json::Value> =
+        include_str!("fixtures/hook/claude/claude-2.1.317-probe.jsonl")
+            .lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect();
+    for (h, golden) in [(Harness::Claude, &claude), (Harness::Codex, &codex)] {
+        for g in GUARDS {
+            if matches!(soporte(g, h), Soporte::NoSoportado(_)) {
+                continue;
+            }
+            let kind = g.evento();
+            let ev = kind.nombre();
+            let en_evento: Vec<_> = golden
+                .iter()
+                .filter(|v| v["hook_event_name"] == ev)
+                .collect();
+            for (k, val) in g.requiere() {
+                assert!(
+                    en_evento.iter().any(|v| v[*k] == *val),
+                    "{} declarado Soportado en {} pero ningún {ev} del golden trae {k}={val}: decláralo NoSoportado o recaptura el golden",
+                    g.nombre(),
+                    h.nombre()
+                );
+            }
+            assert!(
+                !en_evento.is_empty(),
+                "{} declarado Soportado en {} pero ningún {ev} del golden trae evento={ev}: decláralo NoSoportado o recaptura el golden",
+                g.nombre(),
+                h.nombre()
+            );
+        }
+    }
+}
