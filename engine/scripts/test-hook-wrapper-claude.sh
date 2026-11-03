@@ -31,7 +31,6 @@ PAYLOAD="$(jq -nc --arg t "$T" '{session_id:"S1",cwd:"/w/dir",agent_id:"sub1",tr
 export FAKE_LOG="$TMP/fake.jsonl" EXO_PARIDAD_BASE="$TMP/base"
 printf '%s' "$PAYLOAD" | EXO_BIN="$TMP/fake-exo" "$WRAPPER"
 q() { jq -c "$1" "$FAKE_LOG" 2>/dev/null | tr '\n' ' '; }
-ok() { jq -e "$1" "$FAKE_LOG" >/dev/null 2>&1 && echo 0 || echo 1; }
 
 check "3 invocaciones: Failure, PostToolUse, PreToolUse" \
   "$(jq -es '[.[].args] == ["hook claude PostToolUseFailure","hook claude PostToolUse","hook claude PreToolUse"]' "$FAKE_LOG" >/dev/null 2>&1 && echo 0 || echo 1)" "$(q .args)"
@@ -54,7 +53,7 @@ check "sin agent_id exterior, los reinyectados no llevan agent_id" \
 if [ -x "$REAL_BIN" ]; then
   export EXO_PARIDAD_BASE="$TMP/base-real"
   printf '%s' "$PAYLOAD" | EXO_BIN="$REAL_BIN" "$WRAPPER" >/dev/null
-  J="$(ls "$EXO_PARIDAD_BASE"/*/sessions/claude-S1.jsonl 2>/dev/null | head -1)"
+  J="$(find "$EXO_PARIDAD_BASE" -path '*/sessions/claude-S1.jsonl' -print -quit 2>/dev/null)"
   check "journal real: claude-S1.jsonl con registros agent_id=sub1 (ok=false y ok=true)" \
     "$([ -n "$J" ] && jq -es '[.[]|select(.kind=="tool" and .agent_id=="sub1")|.ok] == [false,true]' "$J" >/dev/null 2>&1 && echo 0 || echo 1)" "journal=${J:-ausente}"
 fi
