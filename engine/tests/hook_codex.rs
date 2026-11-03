@@ -238,3 +238,36 @@ fn schemas() {
     let s = schema("PreToolUse");
     assert!(!s.is_valid(&json!({"hookSpecificOutput":{"hookEventName":"PreToolUse","extra":1}})));
 }
+
+#[test]
+fn move_to_suma_destino() {
+    let p = "*** Begin Patch\n*** Update File: a.rs\n*** Move to: b.rs\n@@\n-a\n+b\n*** End Patch";
+    assert_eq!(rutas_patch(p), vec!["a.rs", "b.rs"]);
+}
+
+#[test]
+fn block_y_deny_fuera_de_pre_por_evento() {
+    let bloqueo = json!({"decision":"block","reason":"r"});
+    for k in ["PreToolUse", "PostToolUse", "UserPromptSubmit", "Stop"] {
+        assert_eq!(
+            salida(&Decision::Block("r".into()), k),
+            bloqueo,
+            "Block {k}"
+        );
+    }
+    for k in ["PostToolUse", "UserPromptSubmit", "Stop"] {
+        assert_eq!(salida(&Decision::Deny("r".into()), k), bloqueo, "Deny {k}");
+    }
+    for k in ["SessionStart", "PostCompact"] {
+        assert_eq!(
+            salida(&Decision::Block("r".into()), k),
+            json!({}),
+            "Block {k}"
+        );
+        assert_eq!(
+            salida(&Decision::Deny("r".into()), k),
+            json!({}),
+            "Deny {k}"
+        );
+    }
+}

@@ -63,14 +63,19 @@ pub fn clasifica(nombre: &str, input: &Value) -> (Clase, Option<String>, Vec<Str
     }
 }
 
-/// Rutas de las cabeceras `*** Add|Update|Delete File:` de un patch de `apply_patch`.
+/// Rutas de las cabeceras `*** Add|Update|Delete File:` y `*** Move to:` de un patch de `apply_patch`.
 pub fn rutas_patch(patch: &str) -> Vec<String> {
     patch
         .lines()
         .filter_map(|l| {
-            ["*** Add File: ", "*** Update File: ", "*** Delete File: "]
-                .iter()
-                .find_map(|p| l.strip_prefix(p))
+            [
+                "*** Add File: ",
+                "*** Update File: ",
+                "*** Delete File: ",
+                "*** Move to: ",
+            ]
+            .iter()
+            .find_map(|p| l.strip_prefix(p))
         })
         .map(str::to_string)
         .collect()
