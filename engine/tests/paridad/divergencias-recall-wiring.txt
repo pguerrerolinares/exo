@@ -1,0 +1,1 @@
+engine-stale: version por debajo de ENGINE_MIN ⇒ recall-fallback + aviso en el bloque	spec §4.7: en Claude el Avisa de engine stale es systemMessage, no texto del bloque

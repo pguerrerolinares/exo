@@ -1,6 +1,7 @@
 //! Guard search-first: avisa una vez por sesión si el primer trabajo sustantivo
 //! llega sin un `exo search`/`exo targets` previo en el journal.
 use crate::hook::evento::{Decision, Entorno, Evento};
+use crate::hook::matriz::Guard;
 use crate::hook::{journal, reflex};
 use regex::Regex;
 use std::sync::OnceLock;
@@ -17,12 +18,11 @@ fn busqueda() -> &'static Regex {
 
 pub fn search_first(ev: &Evento, en: &Entorno) -> Decision {
     // Por nombre y no por Clase: `Edit` sin ruta se clasifica Other y debe avisar.
-    let aplica = ev.tool.as_ref().is_some_and(|t| {
-        matches!(
-            t.nombre.as_str(),
-            "Agent" | "Task" | "Edit" | "Write" | "NotebookEdit"
-        )
-    });
+    let tools = Guard::SearchFirst.tools(ev.harness);
+    let aplica = ev
+        .tool
+        .as_ref()
+        .is_some_and(|t| tools.contains(&t.nombre.as_str()));
     if !aplica || !ev.agent_id.is_empty() {
         return Decision::Allow;
     }

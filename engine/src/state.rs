@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Rutas {
+    pub home: PathBuf,
     pub state_dir: PathBuf,
     pub reflex_log: PathBuf,
     pub rules_dir: PathBuf,
@@ -23,6 +24,7 @@ impl Rutas {
         let fichero =
             |propia: &str, nombre: &str| var(propia).unwrap_or_else(|| state_dir.join(nombre));
         Rutas {
+            home: home.to_path_buf(),
             reflex_log: fichero("REFLEX_LOG_FILE", "reflex-log.jsonl"),
             index_log: fichero("EXO_INDEX_LOG", "exo-index.log"),
             canary: fichero("REFLEX_CANARY_FILE", "reflex-inject-canary"),

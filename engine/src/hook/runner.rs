@@ -197,11 +197,6 @@ fn cwd_de(ev: &Evento) -> PathBuf {
     }
 }
 
-/// `Entorno` no lleva el home; es el mismo anclaje que `Rutas::desde_env`.
-fn home() -> PathBuf {
-    dirs::home_dir().unwrap_or_else(|| PathBuf::from("."))
-}
-
 /// `a < b` por semver; si alguno no parsea, no se declara obsoleto.
 fn menor(a: &str, b: &str) -> bool {
     match (
@@ -263,7 +258,7 @@ fn migra(en: &Entorno, ev: &Evento) {
         .chars()
         .filter(char::is_ascii_alphanumeric)
         .collect();
-    for (nombre, m) in migra_todo(&home(), &en.rutas, &ts) {
+    for (nombre, m) in migra_todo(&en.rutas.home, &en.rutas, &ts) {
         if let Migracion::Fallo(e) = m {
             registra(en, "state-migrate-failed", ev, &format!("{nombre}: {e}"));
         }
@@ -319,7 +314,7 @@ fn session_start(en: &Entorno, h: Harness, ev: &Evento, min: Option<&str>) -> St
             Guard::RecallSuperpowers.nombre(),
             ev,
             en,
-            || superpowers(&home(), &proyecto),
+            || superpowers(&en.rutas.home, &proyecto),
             None,
         );
         fr.avisos.extend(aviso);

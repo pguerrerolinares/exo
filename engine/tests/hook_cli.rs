@@ -552,7 +552,6 @@ fn flag_desconocida_rc2() {
     assert!(o.stdout.is_empty());
 }
 
-/// paridad-recall: engine-stale: version por debajo de ENGINE_MIN ⇒ recall-fallback + aviso en el bloque
 #[test]
 fn min_desconocido_rc2() {
     let m = Mundo::nuevo();
@@ -1296,4 +1295,114 @@ fn gate_timeout_rastro() {
     assert!(t0.elapsed() < Duration::from_secs(10));
     assert_eq!(ctx(&v), CONTRATO, "sin aviso de gate pero con contrato");
     assert_eq!(payloads(&m.reflex(), "gate-timeout"), ["deadline=1s"]);
+}
+
+// ---------- Codex Pre/PostToolUse (§5.3) y search-first ----------
+
+fn codex_tool(evento: &str, sid: &str, tool: &str, input: Value) -> Vec<u8> {
+    json!({"session_id": sid, "cwd": "/home/u/proj", "hook_event_name": evento,
+           "tool_name": tool, "tool_input": input})
+    .to_string()
+    .into_bytes()
+}
+
+#[test]
+fn codex_pre_deny_y_post_ok_null() {
+    let e = Entorno::nuevo();
+    let pre = codex_tool("PreToolUse", "sx", "Bash", json!({"command": "git add -A"}));
+    let v = salida(&e.corre(&["codex", "PreToolUse"], &pre, &[]));
+    assert_eq!(v["hookSpecificOutput"]["hookEventName"], "PreToolUse");
+    assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "deny");
+    let post = codex_tool("PostToolUse", "sx", "Bash", json!({"command": "ls"}));
+    assert_eq!(
+        salida(&e.corre(&["codex", "PostToolUse"], &post, &[])),
+        json!({})
+    );
+    let j = e.journal();
+    assert_eq!(j.len(), 1, "{j:?}");
+    assert_eq!(j[0]["kind"], "tool");
+    assert!(j[0]["ok"].is_null(), "{j:?}");
+}
+
+#[test]
+fn search_first_dispara_en_codex() {
+    let e = Entorno::nuevo();
+    let patch = "*** Begin Patch\n*** Update File: a.rs\n@@\n-x\n+y\n*** End Patch";
+    let casos = [
+        ("s1", "apply_patch", json!({"command": patch})),
+        ("s2", "collaborationspawn_agent", json!({})),
+        ("s3", "spawn_agent", json!({})),
+    ];
+    for (sid, tool, input) in casos {
+        let v = salida(&e.corre(
+            &["codex", "PreToolUse"],
+            &codex_tool("PreToolUse", sid, tool, input),
+            &[],
+        ));
+        assert!(ctx(&v).contains("Reflejo search-first"), "{tool}: {v}");
+    }
+    assert_eq!(payloads(&e.reflex(), "search-first").len(), 3);
+    // Un `exo search` previo en la sesión lo silencia.
+    let sid = "s4";
+    let b = codex_tool(
+        "PostToolUse",
+        sid,
+        "Bash",
+        json!({"command": "exo search --type hybrid x"}),
+    );
+    e.corre(&["codex", "PostToolUse"], &b, &[]);
+    let v = salida(&e.corre(
+        &["codex", "PreToolUse"],
+        &codex_tool("PreToolUse", sid, "spawn_agent", json!({})),
+        &[],
+    ));
+    assert_eq!(v, json!({}));
+}
+
+/// `Rutas` (incl. `home`) de tempdir: el runner no toca el home real.
+#[test]
+fn runner_usa_el_home_de_rutas() {
+    use exo::hook::evento::Entorno as En;
+    let d = tempfile::tempdir().unwrap();
+    let home = d.path().join("home");
+    std::fs::create_dir_all(home.join(".claude")).unwrap();
+    std::fs::write(
+        home.join(".claude/reflex-log.jsonl"),
+        "{\"reflex\":\"viejo\"}\n",
+    )
+    .unwrap();
+    std::fs::write(
+        home.join(".claude/settings.json"),
+        r#"{"enabledPlugins":{"superpowers@x":true}}"#,
+    )
+    .unwrap();
+    let estado = d.path().join("state");
+    let rutas = exo::state::Rutas::resuelve(&home, |k| {
+        (k == "EXO_STATE_DIR").then(|| estado.clone().into_os_string())
+    });
+    let en = En {
+        state_dir: rutas.state_dir.clone(),
+        reflex_log: rutas.reflex_log.clone(),
+        rutas,
+        seams: exo::state::Seams::resuelve(|k| {
+            (k == "EXO_INDEX").then(|| d.path().join("falta.db").into_os_string())
+        }),
+        cdpath_definido: false,
+        panic_guard: None,
+    };
+    let out = exo::hook::runner::ejecutar(
+        &en,
+        "claude",
+        "SessionStart",
+        None,
+        &inicio("s", d.path(), "startup"),
+    );
+    let v: Value = serde_json::from_str(&out).unwrap();
+    assert!(ctx(&v).contains("superpowers@x sigue habilitado"), "{v}");
+    assert!(!home.join(".claude/reflex-log.jsonl").exists());
+    assert!(
+        std::fs::read_to_string(estado.join("reflex-log.jsonl"))
+            .unwrap()
+            .contains("viejo")
+    );
 }
