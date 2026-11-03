@@ -1,4 +1,4 @@
-//! Guard zero-residuo: port de la rama 2 de `bash-guards.sh` y del awk de
+//! Guard zero-residuo: port de la rama 2 de `bash-guards.sh` (retirado en plugin 1.32.0) y del awk de
 //! `_zero-residuo-clasifica.sh`.
 
 use crate::hook::evento::{Clase, Decision, Entorno, Evento};

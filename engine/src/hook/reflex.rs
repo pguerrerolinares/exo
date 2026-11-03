@@ -1,4 +1,4 @@
-//! Reflex-log: espejo en Rust de `_reflex-log.sh` y `_truncate-payload.sh`.
+//! Reflex-log: espejo en Rust de `_reflex-log.sh` y `_truncate-payload.sh` (este retirado en plugin 1.32.0).
 
 use super::evento::{Entorno, Evento};
 use crate::obsolescencia::formatea_rfc3339_utc;

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Suite de paridad de `exo hook claude` (HOOK = hook-wrapper-claude.sh). Portada de
+# bash-guards.sh, retirado en plugin 1.32.0; el texto de abajo conserva su procedencia.
 # Test standalone para bash-guards.sh (Task 5, campaña I: fusión de los
 # tres guards de PreToolUse:Bash en un solo script).
 #
@@ -17,7 +19,7 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-HOOK="${HOOK:-${SCRIPT_DIR}/bash-guards.sh}"
+HOOK="${HOOK:-${SCRIPT_DIR}/../../scripts/hook-wrapper-claude.sh}"
 
 REFLEX_LOG_FILE="$(mktemp)"
 export REFLEX_LOG_FILE

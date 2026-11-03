@@ -7,9 +7,7 @@
 set -uo pipefail
 
 AQUI="$(cd "$(dirname "$0")" && pwd)"
-RAIZ="$(cd "$AQUI/../.." && pwd)"
 PARIDAD="$AQUI/../tests/paridad"
-SUITES="$RAIZ/plugins/exo/scripts"
 export EXO_BIN="${EXO_BIN:-$AQUI/../target/debug/exo}"
 
 if [ ! -x "$EXO_BIN" ]; then
@@ -29,7 +27,7 @@ bash "$AQUI/test-hook-wrapper-claude.sh" >&2 || { echo "paridad: FALLA — autot
 norm() { sed -E 's/\([0-9]+ bytes\)/(N bytes)/'; }
 
 for suite in test-bash-guards.sh test-search-first.sh; do
-  bash "$SUITES/$suite" 2>/dev/null | grep '^\[PASS\]' | norm >> "$TMP/obtenido.raw" || true
+  bash "$PARIDAD/$suite" 2>/dev/null | grep '^\[PASS\]' | norm >> "$TMP/obtenido.raw" || true
 done
 LC_ALL=C sort "$TMP/obtenido.raw" > "$TMP/obtenido"
 LC_ALL=C sort "$PARIDAD/baseline.txt" > "$TMP/baseline"

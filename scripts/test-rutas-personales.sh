@@ -9,7 +9,7 @@
 # Precedente: affaan-m/ECC (clone 5064474d4d762dc9640234a41617cccb79185cec,
 # scripts/ci/validate-no-personal-paths.js:41-42) cubre /Users/<nombre> y
 # C:\Users\<nombre> pero NO /home/<user> — justo la única ofensora real de
-# este repo (test-git-c-bash.sh). Copiarlo tal cual no bastaba.
+# este repo (test-git-c-bash.sh, retirado en plugin 1.32.0). Copiarlo tal cual no bastaba.
 #
 # Descubrimiento en `_bash-versionado.sh`, compartido con test-shellcheck.sh:
 # índice de git, .sh + shebang sh/bash, excluye evals/ (harness congelado —

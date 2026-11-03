@@ -426,7 +426,7 @@ sección `## Cores` y el resto del mapa del core-index. Existía un hook de
 recall en cada prompt del usuario que se borró: traía la nota fuente de la
 regla en 3/40 tareas y costaba +22 % de tokens de entrada
 (`evals/ablacion-k/verdict-etapa1.md`). La búsqueda queda a demanda
-(`exo search` y el reflejo `search-first.sh`).
+(`exo search` y el guard search-first de `exo hook`).
 
 **Perfiles de `SubagentStart`.** Reciben reglas solo los perfiles `reducido` y
 `ejecucion`. El tope de 3.072 B es único: las reglas se llevan lo que dejan la
@@ -526,13 +526,15 @@ rompe lo que instrumenta, para medir falsos positivos a posteriori. No son
 | Delegar decisión | `Stop` | `delegar-decision.sh` | **Block**: si el último texto del turno es propuesta + «¿te parece?» y no hubo `Agent`/`Task` en el segmento, pide lanzar el consultor o el ejecutor. Si la pregunta es del usuario, el cierre empieza por `[reserva: externo\|irreversible\|re-scope\|hecho-del-usuario\|pedido]` | 1 bloqueo por mensaje humano; sin mensaje humano (`-p`/SDK), el segundo Stop (`stop_hook_active`) pasa |
 | Fondo propio de subagente | `SubagentStop` | `subagent-bg-guard.sh` | **Block**: un subagente no termina con tareas de fondo propias vivas; la lista le pide `TaskStop` o reportar BLOCKED | No si `stop_hook_active` |
 | Orquestador limpio | `PreToolUse` en `WebSearch`, `WebFetch` y la navegación de los MCP de navegador | `clean-orchestrator-research.sh` | **Aviso**: recuerda delegar la investigación web a un subagente. Navegar a localhost/`file:` no cuenta | 1 por sesión; solo el padre |
-| Search-first | `PreToolUse` en `Agent`, `Task`, `Edit`, `Write`, `NotebookEdit` | `search-first.sh` | **Aviso**: recuerda `exo search`/`exo targets` antes del primer trabajo sustantivo si el transcript no muestra una búsqueda. Sin transcript avisa igual | 1 por sesión; solo el padre |
-| Guards de Bash | `PreToolUse` en `Bash` | `bash-guards.sh` | **Rewrite**: `cd X && git <solo-lectura>` pasa a `git -C X …`. **Deny**: `git add -A`/`--all`/`.` sin pathspec, fuera de `/tmp`. **Log** (sin avisar al agente): otros `cd … && git`, y `git commit` de código sin un test verde reciente en el transcript | El deny pasa a log tras 3 seguidos del mismo agente (vuelta atrás) |
+| Guards de `exo hook` | `PreToolUse` en `Bash`, `PowerShell`, `Agent`, `Task`, `Edit`, `Write`, `NotebookEdit` | `exo hook claude PreToolUse` | **Rewrite** (git -C): `cd X && git <solo-lectura>` pasa a `git -C X …`. **Deny** (zero-residuo): `git add -A`/`--all`/`.` sin pathspec, fuera de `/tmp`. **Log** (verify, sin avisar al agente): `git commit` de código sin un test verde reciente. **Aviso** (search-first): recuerda `exo search`/`exo targets` antes del primer trabajo sustantivo si no hay búsqueda previa; sin transcript avisa igual | El deny pasa a log tras 3 seguidos del mismo agente (vuelta atrás); search-first 1 por sesión, solo el padre |
+| Journal de `exo hook` | `PostToolUse` y `PostToolUseFailure` en `Bash`, `PowerShell`, `Edit`, `Write`, `NotebookEdit` | `exo hook claude PostToolUse` / `PostToolUseFailure` | **Efecto lateral**: anota cada tool_use en el journal de sesión que leen verify y search-first | – |
 | Red-gate | `PreToolUse` en `SubagentHandback` | `red-gate.sh` | **Log**: un `exo:executor` que entrega sin ninguna línea `exit=[1-9]` en `.superpowers/sdd/red.log` no corrió su RED con `red-witness`. Promoción a deny pendiente de medir (§7) | – |
 
-`git-c-bash.sh`, `git-add-all-guard.sh` y `verify-before-commit.sh` están
-fuera de `hooks.json`: los fundió `bash-guards.sh` y se conservan como red de
-regresión de sus tests. El digest de falsos positivos de los reflejos lo
+Los guards de Bash y search-first dejaron de ser scripts: son `exo hook claude
+<evento>` (código en `engine/src/hook/`, matriz guard×harness en `matriz.rs`),
+cableados en `hooks.json` con `|| exit 0` y `timeout` 5 para que un `exo`
+ausente no bloquee la herramienta. Sus suites viven en `engine/tests/paridad/`
+y `engine/scripts/paridad-hook.sh` las compara con un baseline. El digest de falsos positivos de los reflejos lo
 produce `plugins/exo/scripts/reflex-fp-review.sh`.
 
 ### 4.4 Skills, agentes y scripts de `orchestrate`
@@ -569,7 +571,7 @@ recoge los `Ruling:` del ledger para el cierre.
 ### 4.5 Compatibilidad binario↔plugin
 
 `plugins/exo/ENGINE_MIN` declara el engine mínimo que el plugin necesita (hoy
-`0.8.0`). Se vigila en dos sitios: `exo-recall.sh` degrada con `engine-stale`
+`0.14.0`). Se vigila en dos sitios: `exo-recall.sh` degrada con `engine-stale`
 y aviso visible en el bloque de arranque, y `exo doctor` lo compara en el check
 `plugin_compat`. Ningún otro hook lo comprueba (sería un spawn de
 `exo --version` por disparo). La regla: se sube en el mismo PR en que un skill
@@ -668,15 +670,16 @@ resultados, no un benchmark reproducible por un tercero tal cual.
 Solo lo abierto; el detalle y el siguiente paso de cada uno viven en
 `docs/backlog.md`.
 
-- **`ENGINE_MIN` va por detrás de lo que el plugin usa.** Vale `0.8.0`, pero el
-  plugin invoca funciones posteriores: `exo rules` con globales y `--check` (engine 0.10),
-  `lint --baseline` (0.11), `repos:` en `rules` (0.12) y `rules --coverage` (0.13). Las rutas que dependen
-  de ellas degradan con aviso en vez de fallar: `cobertura-reglas.sh` (la que
-  usa `/distill`) imprime «el engine no conoce `rules --coverage`» y sigue, y
-  `kb-precommit.sh` avisa si falta `rules --check`. Lo que no ocurre con un
-  engine viejo es el aviso de `plugin_compat`, que solo compara contra
-  `ENGINE_MIN`. Regla: se sube en el mismo PR en que un skill o script pasa a
-  depender de un comportamiento nuevo; ya se olvidó dos veces.
+- **`ENGINE_MIN` solo avisa en `SessionStart`.** Vale `0.14.0`, que cubre todo
+  lo que el plugin invoca (`exo hook` desde 0.14, `rules --coverage` 0.13,
+  `repos:` 0.12, `lint --baseline` 0.11, `rules` global y `--check` 0.10). Pero
+  con un `exo` más viejo en el `PATH`, los guards migrados a `exo hook` quedan
+  sin efecto sin más señal que ese aviso (`|| exit 0` los traga), y las rutas
+  de scripts que dependen de funciones posteriores degradan con aviso
+  (`cobertura-reglas.sh`, `kb-precommit.sh`). Regla: se sube en el mismo PR en
+  que un skill o script pasa a depender de un comportamiento nuevo; ya se
+  olvidó dos veces. La release del engine se publica antes que el plugin que
+  sube `ENGINE_MIN`.
 - **El desfase binario↔plugin solo se vigila en dos sitios** (`exo doctor` y
   `exo-recall.sh`, §4.5).
 - **`red-gate.sh` es solo log.** La promoción a deny (marker por `agent_id`, la

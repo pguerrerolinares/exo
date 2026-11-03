@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Suite de paridad de `exo hook claude` (HOOK = hook-wrapper-claude.sh). Portada de
+# search-first.sh, retirado en plugin 1.32.0; el texto de abajo conserva su procedencia.
 # Test standalone para search-first.sh (reflejo "search-first", PreToolUse
 # matcher ^(Agent|Task|Edit|Write|NotebookEdit)$ -- ver hooks/hooks.json).
 # Warn-only: exit 0 SIEMPRE. Avisa como mucho 1x/sesion, solo en el padre.
@@ -23,7 +25,7 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-HOOK="${HOOK:-${SCRIPT_DIR}/search-first.sh}"
+HOOK="${HOOK:-${SCRIPT_DIR}/../../scripts/hook-wrapper-claude.sh}"
 
 TMP="$(mktemp -d)"
 mkdir -p "$TMP/sentinels"

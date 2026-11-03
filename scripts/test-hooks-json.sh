@@ -42,7 +42,7 @@ if [ "$N_HOOKS" -eq 0 ]; then
 fi
 
 FALLOS=0
-EVENTOS_VALIDOS="PreToolUse SessionStart Stop SubagentStart SubagentStop"
+EVENTOS_VALIDOS="PreToolUse PostToolUse PostToolUseFailure SessionStart Stop SubagentStart SubagentStop"
 
 for evento in $(jq -r '.hooks | keys[]' "$HOOKS" | tr -d '\r'); do
   if ! printf '%s\n' "$EVENTOS_VALIDOS" | tr ' ' '\n' | grep -qx "$evento"; then
@@ -65,7 +65,21 @@ while IFS= read -r tipo; do
   fi
 done < <(jq -r '.hooks[][].hooks[].type' "$HOOKS" | tr -d '\r')
 
-while IFS= read -r cmd; do
+# `exo hook claude <evento> || exit 0` es el cableado del núcleo: el `|| exit 0`
+# es lo que impide que un `exo` ausente o viejo bloquee la herramienta (exit 127),
+# y `timeout` 5 acota el coste de un hook colgado.
+while IFS=$'\t' read -r cmd timeout; do
+  if printf '%s' "$cmd" | grep -qE '^exo hook '; then
+    if ! printf '%s' "$cmd" | grep -qE '^exo hook claude (PreToolUse|PostToolUse|PostToolUseFailure) \|\| exit 0$'; then
+      echo "[FAIL] $HOOKS: command exo hook no casa con 'exo hook claude <evento> || exit 0': $cmd" >&2
+      FALLOS=1
+    fi
+    if [ "$timeout" != "5" ]; then
+      echo "[FAIL] $HOOKS: '$cmd' sin timeout 5 (timeout='$timeout')" >&2
+      FALLOS=1
+    fi
+    continue
+  fi
   script="$(printf '%s' "$cmd" | grep -oE '\$\{CLAUDE_PLUGIN_ROOT\}"?/scripts/[A-Za-z0-9_.-]+' | sed -E 's#.*/scripts/##')"
   if [ -z "$script" ]; then
     echo "[FAIL] $HOOKS: command sin \${CLAUDE_PLUGIN_ROOT}/scripts/<x> reconocible: $cmd" >&2
@@ -83,9 +97,9 @@ while IFS= read -r cmd; do
     echo "[FAIL] $HOOKS: $ruta no está en 100755 en el índice (modo=$modo)" >&2
     FALLOS=1
   fi
-done < <(jq -r '.hooks[][].hooks[].command' "$HOOKS" | tr -d '\r')
+done < <(jq -r '.hooks[][].hooks[] | [.command, (.timeout // "" | tostring)] | @tsv' "$HOOKS" | tr -d '\r')
 
 if [ "$FALLOS" -eq 0 ]; then
-  echo "[OK] test-hooks-json: eventos, sin UserPromptSubmit, type=command y scripts referenciados, todos 100755"
+  echo "[OK] test-hooks-json: eventos, sin UserPromptSubmit, type=command, exo hook con || exit 0 y timeout 5, scripts referenciados 100755"
 fi
 exit "$FALLOS"

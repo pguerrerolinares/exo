@@ -14,11 +14,12 @@
         ]
       },
       {
-        "matcher": "^(Bash|PowerShell)$",
+        "matcher": "^(Bash|PowerShell|Agent|Task|Edit|Write|NotebookEdit)$",
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/bash-guards.sh"
+            "command": "exo hook claude PreToolUse || exit 0",
+            "timeout": 5
           }
         ]
       },
@@ -30,13 +31,28 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/red-gate.sh"
           }
         ]
-      },
+      }
+    ],
+    "PostToolUse": [
       {
-        "matcher": "^(Agent|Task|Edit|Write|NotebookEdit)$",
+        "matcher": "^(Bash|PowerShell|Edit|Write|NotebookEdit)$",
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/search-first.sh"
+            "command": "exo hook claude PostToolUse || exit 0",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "^(Bash|PowerShell|Edit|Write|NotebookEdit)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "exo hook claude PostToolUseFailure || exit 0",
+            "timeout": 5
           }
         ]
       }

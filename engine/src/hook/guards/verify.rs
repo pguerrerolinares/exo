@@ -14,7 +14,7 @@ pub enum Veredicto {
     Warn,
 }
 
-// Literales de bash-guards.sh (rama 3).
+// Literales de bash-guards.sh (rama 3; retirado en plugin 1.32.0).
 static VBD: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"git[[:space:]]+commit([[:space:]]|$)").unwrap());
 static CODIGO: LazyLock<Regex> = LazyLock::new(|| {

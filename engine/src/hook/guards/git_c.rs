@@ -1,4 +1,4 @@
-//! Guard git -C: espejo de la rama 1 (1a rewrite, 1b warn) de `bash-guards.sh`.
+//! Guard git -C: espejo de la rama 1 (1a rewrite, 1b warn) de `bash-guards.sh` (retirado en plugin 1.32.0).
 
 use crate::hook::evento::{Clase, Decision, Entorno, Evento};
 use crate::hook::reflex::registra;

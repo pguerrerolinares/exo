@@ -280,6 +280,13 @@ jobs:
         if: always()
         shell: bash
         run: ./scripts/test-contrato-ci.sh
+      # Las suites test-bash-guards/test-search-first salieron del glob de
+      # plugin-tests al moverse a engine/tests/paridad/: sin este paso sus
+      # 120 casos dejarían de correr en CI. Usa el binario debug que
+      # `test-contrato-ci.sh` acaba de compilar.
+      - name: Paridad de `exo hook claude` con las suites de los guards
+        if: always()
+        run: bash engine/scripts/paridad-hook.sh
       # Subcomandos y flags de `exo` citados en la prosa del plugin contra
       # `--help` del binario debug que `test-contrato-ci.sh` acaba de compilar.
       - name: La prosa del plugin solo cita subcomandos y flags que existen

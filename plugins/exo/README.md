@@ -42,7 +42,7 @@ Solo `document` y `distill` escriben en la KB; el resto no la tocan.
 
 ## Capa de reflejos
 
-Doce comandos cableados en `hooks/hooks.json`, más el mod `hooks/register.ts`
+Trece comandos cableados en `hooks/hooks.json`, más el mod `hooks/register.ts`
 (ver «Canal de reglas duras»). Agrupados por efecto:
 
 - **Solo log**: miden, no tocan al agente.
@@ -57,7 +57,7 @@ Invariantes:
   Un reflejo dispara solo con un trigger de alta confianza (sentinel
   1×/sesión, umbral o match estricto) y sale con `exit 0` y sin salida ante
   cualquier duda (sin `jq`, transcript ilegible, subagente…).
-- **Bloquear solo en los hooks nombrados** (`bash-guards`, `sdd-wake-guard`,
+- **Bloquear solo en los hooks nombrados** (`exo hook` zero-residuo, `sdd-wake-guard`,
   `delegar-decision`, `subagent-bg-guard`), y siempre con tope y escape: un
   bloqueo por mensaje humano o por parada, o backoff tras denies repetidos,
   más un escape declarado (`[reserva: …]`, `--no-verify`, `/tmp`,
@@ -75,20 +75,23 @@ Tabla exacta al cableado vivo (una fila por comando de `hooks.json`):
 |---|---|---|---|---|
 | red-gate | `PreToolUse:SubagentHandback` | `scripts/red-gate.sh` | solo log | Registra si un `exo:executor` entrega sin línea `exit=[1-9]` en `red.log`. Promoción a deny pendiente de medir. |
 | clean-orchestrator | `PreToolUse:WebSearch\|WebFetch\|navegación MCP (chrome, playwright, navegador de la app)` | `scripts/clean-orchestrator-research.sh` | avisa | Recuerda delegar el research a subagentes (parent-only, 1×/sesión, no en apps locales). |
-| search-first | `PreToolUse:Agent\|Task\|Edit\|Write\|NotebookEdit` | `scripts/search-first.sh` | avisa | Avisa si el primer `Agent`/`Task`/`Edit`/`Write` de la sesión no fue precedido de `exo search`/`exo targets` (1×/sesión, no en subagentes). |
 | exo-recall | `SessionStart` | `scripts/exo-recall.sh` | avisa (inyecta) | Inyecta el `core-index` y las notas recientes servidos por el engine; reafirma reflejos tras `compact`; avisa de un gate de `/document` pendiente y de superpowers habilitado; escribe el testigo `ss-<sid>`. Cae a un fallback embebido si el engine es < `ENGINE_MIN`. |
 | estilo-directo | `SessionStart` | `scripts/estilo-directo.sh` | avisa (inyecta) | Inyecta la directiva estática de estilo de `estilo-directo.md`. |
 | document-remind | `Stop` | `scripts/document-remind.sh` | avisa | Recuerda `/document` al cerrar (1×/sesión, con umbral de transcript) y hace de testigo de entrega de reglas (`ss-` vs `hb-`). |
 | subagent-inject | `SubagentStart` | `scripts/subagent-inject.sh` | avisa (inyecta) | Inyecta doctrina por perfil y, según el perfil, las reglas duras (ver abajo). |
 | exo-index | `Stop` | `scripts/exo-index.sh` | mantenimiento | Reindexa la KB al cerrar la sesión; best-effort. |
-| bash-guards | `PreToolUse:Bash\|PowerShell` | `scripts/bash-guards.sh` | reescribe / deniega | Reescribe `cd <path> && git <lectura>` a `git -C` (en PowerShell también `Set-Location`, y no si la ruta lleva `~`); **deniega** `git add -A`/`--all`/`.` sin pathspec; registra `git commit` sin test verde reciente (sin avisar). |
+| exo-hook guards | `PreToolUse:Bash\|PowerShell\|Agent\|Task\|Edit\|Write\|NotebookEdit` | `exo hook claude PreToolUse \|\| exit 0` | reescribe / deniega / avisa | Un solo comando del engine (`engine/src/hook/`) con cuatro guards. **git -C**: reescribe `cd <path> && git <lectura>` a `git -C` (en PowerShell también `Set-Location`, y no si la ruta lleva `~`). **zero-residuo**: deniega `git add -A`/`--all`/`.` sin pathspec. **verify**: registra `git commit` sin test verde reciente (sin avisar). **search-first**: avisa si el primer `Agent`/`Task`/`Edit`/`Write` de la sesión no fue precedido de `exo search`/`exo targets` (1×/sesión, no en subagentes). |
+| exo-hook journal | `PostToolUse:Bash\|PowerShell\|Edit\|Write\|NotebookEdit` | `exo hook claude PostToolUse \|\| exit 0` | solo log | Anota cada tool_use en el journal de sesión que leen verify y search-first. |
+| exo-hook journal (fallo) | `PostToolUseFailure:Bash\|PowerShell\|Edit\|Write\|NotebookEdit` | `exo hook claude PostToolUseFailure \|\| exit 0` | solo log | Igual que el anterior para herramientas que fallan (el test rojo no cuenta como verde). |
 | sdd-wake-guard | `Stop` | `scripts/sdd-wake-guard.sh` | bloquea | Con un ledger SDD activo y tareas de fondo vivas sin cron, pide un `CronCreate` que siga `skills/orchestrate/despertar.md`. |
 | delegar-decision | `Stop` | `scripts/delegar-decision.sh` | bloquea | Bloquea el cierre del padre si cierra con propuesta + petición de visto bueno sin lanzar `Agent`/`Task`. Escape `[reserva: externo\|irreversible\|re-scope\|hecho-del-usuario\|pedido]`; tope de un bloqueo por mensaje humano; requiere `python3`. |
 | subagent-bg-guard | `SubagentStop` | `scripts/subagent-bg-guard.sh` | bloquea | Bloquea una vez el cierre de un subagente con tareas de fondo propias vivas y pide `TaskStop` o esperar sobre el log. |
 
-Hay además scripts huérfanos (`git-c-bash.sh`, `git-add-all-guard.sh`,
-`verify-before-commit.sh`) que ya no están cableados: sobreviven como red de
-regresión de `bash-guards.sh`.
+Los guards de Bash y search-first viven en el engine (`exo hook claude`,
+matriz guard×harness en `engine/src/hook/matriz.rs`). El `|| exit 0` hace que un
+`exo` ausente no bloquee la herramienta; hasta que el engine sea ≥ `ENGINE_MIN`
+(0.14.0) un `exo` viejo en el `PATH` los deja sin efecto. Sus suites de regresión
+viven en `engine/tests/paridad/` y `engine/scripts/paridad-hook.sh`.
 
 ## Canal de reglas duras
 
