@@ -10,8 +10,8 @@ BASH_BIN="$(command -v bash)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 export HOME="$TMP/home"
-mkdir -p "$HOME/.claude"
-export REFLEX_LOG_FILE="$HOME/.claude/reflex-log.jsonl"
+mkdir -p "$HOME/.claude" "$HOME/.exo/state"
+export REFLEX_LOG_FILE="$HOME/.exo/state/reflex-log.jsonl"
 SENT="$HOME/.cache/exo/delegar-decision"
 
 PASS=0
@@ -198,7 +198,7 @@ hook "$DATA/p2.jsonl"
 D1="$(decision)"; RC1=$RC
 hook "$DATA/banda.jsonl"
 if [ "$D1" = "block" ] && [ "$RC1" -eq 0 ] && [ "$RC" -eq 0 ]; then pass "log: REFLEX_LOG_FILE inválido no rompe el hook"; else fail "log: REFLEX_LOG_FILE inválido no rompe el hook" "d1=$D1 rc1=$RC1 rc=$RC"; fi
-export REFLEX_LOG_FILE="$HOME/.claude/reflex-log.jsonl"
+export REFLEX_LOG_FILE="$HOME/.exo/state/reflex-log.jsonl"
 
 # --- R16: cualquier excepción del detector ⇒ abstención ---
 reset

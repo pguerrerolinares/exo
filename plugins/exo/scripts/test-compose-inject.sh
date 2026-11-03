@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Test standalone para compose-inject.sh (componedor A1, spec transporte §5.1).
 # Perfiles por agent_type, tope 3KB, canario por fichero de ventana.
-# Fixtures en mktemp -d; nunca toca la KB real ni ~/.claude/reflex-inject-canary.
+# Fixtures en mktemp -d; nunca toca la KB real ni ~/.exo/state/reflex-inject-canary.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -11,7 +11,7 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 # Aislamiento global (F3.1): el cap final ahora loguea via _reflex-log.sh
-# (default $HOME/.claude/reflex-log.jsonl) cuando de verdad trunca. Ningún
+# (default $HOME/.exo/state/reflex-log.jsonl) cuando de verdad trunca. Ningún
 # caso existente lo dispara hoy, pero fijar esto evita que un fixture futuro
 # ensucie el log real por accidente.
 export REFLEX_LOG_FILE="$TMP/reflex-log.jsonl"

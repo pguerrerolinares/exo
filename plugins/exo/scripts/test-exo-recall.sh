@@ -7,8 +7,9 @@ HOOK="${SCRIPT_DIR}/exo-recall.sh"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 export HOME="$TMP/home"
-mkdir -p "$HOME/.claude"
-export REFLEX_LOG_FILE="$HOME/.claude/reflex-log.jsonl"
+mkdir -p "$HOME/.claude" "$HOME/.exo/state"
+# Fuera de $HOME/.exo/state a propósito: un consumidor que lea la ruta por defecto en vez de REFLEX_LOG_FILE no ve este log.
+export REFLEX_LOG_FILE="$TMP/reflex-log.jsonl"
 
 PASS=0
 FAIL=0
@@ -25,7 +26,7 @@ run_hook() {  # $1 = JSON de entrada; resto = argumentos de env (VAR=valor, -u V
 # ------------------- H5 (T): la reafirmación tras compactar mira solo la cola ---
 # 2.500 líneas: un git-c de sess-x FUERA de la ventana de 2.000 y un
 # verify-before-commit de sess-x DENTRO. Solo el segundo tiene que reforzarse.
-LOGC="$HOME/.claude/reflex-log.jsonl"
+LOGC="$REFLEX_LOG_FILE"
 {
   printf '{"ts":"t","reflex":"git-c","session_id":"sess-x","agent_id":"","agent_type":"","tool":"Bash","payload":"viejo"}\n'
   awk 'BEGIN { for (i = 0; i < 2498; i++) printf "{\"ts\":\"t\",\"reflex\":\"zero-residuo\",\"session_id\":\"otra-%d\",\"agent_id\":\"\",\"agent_type\":\"\",\"tool\":\"Bash\",\"payload\":\"x\"}\n", i }'
@@ -265,7 +266,7 @@ esac
 EOF
 chmod +x "$STUB_REGLAS"
 touch "$TMP/index-reglas.db"
-RULES_DIR="$HOME/.claude/exo-rules"
+RULES_DIR="$HOME/.exo/state/exo-rules"
 reglas_hook() {  # $1=input JSON, $2=RULES_MODE, resto env extra
   local input="$1" mode="$2"; shift 2
   : > "$LOGC"; : > "$RULES_CALLS"

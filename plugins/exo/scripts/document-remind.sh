@@ -20,7 +20,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # Va ANTES del umbral del recordatorio y con sentinel propio: ninguno silencia al otro.
 WITNESS_MSG=""
 WITNESS_LOG=""
-RULES_DIR="$HOME/.claude/exo-rules"
+# shellcheck source=_state-dir.sh
+. "$SCRIPT_DIR/_state-dir.sh"
+RULES_DIR="$EXO_RULES_DIR"
 WSENT="${SENTINEL_DIR}/claude-rules-witness-${SESSION_ID}"
 DEGRADADO_PREFIJO="ℹ"
 DSENT="${SENTINEL_DIR}/claude-rules-degradado-$(date +%Y%m%d)"

@@ -9,8 +9,8 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 export HOME="$TMP/home"
 PROY="$TMP/proy"
-mkdir -p "$HOME/.claude" "$PROY/.claude"
-export REFLEX_LOG_FILE="$HOME/.claude/reflex-log.jsonl"
+mkdir -p "$HOME/.claude" "$HOME/.exo/state" "$PROY/.claude"
+export REFLEX_LOG_FILE="$HOME/.exo/state/reflex-log.jsonl"
 
 PASS=0; FAIL=0
 pass() { printf '[PASS] %s\n' "$1"; PASS=$((PASS+1)); }

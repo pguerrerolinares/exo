@@ -26,7 +26,9 @@ if [ -t 0 ]; then INPUT=""; else INPUT="$(cat)"; fi
 
 EXO_BIN="${EXO_BIN:-$(command -v exo 2>/dev/null || echo "$HOME/.local/bin/exo")}"
 EXO_INDEX="${EXO_INDEX:-$HOME/.exo/index.db}"
-LOG="${EXO_INDEX_LOG:-$HOME/.claude/exo-index.log}"
+# shellcheck source=_state-dir.sh
+. "$SCRIPT_DIR/_state-dir.sh"
+LOG="$EXO_INDEX_LOG"
 
 # Seams de test (mismo patrón que EXO_BIN): permiten forzar cada rama de detach
 # sin cirugía de PATH. Sin seam, la mitad de las ramas serían intesteables en
@@ -45,6 +47,7 @@ log_index_fallback() {  # $1=reason $2=payload extra opcional
 # degradación. (Distinto de "hay binario pero no sé lanzarlo detached", que sí
 # se loguea más abajo.)
 [ -x "$EXO_BIN" ] || exit 0
+[ -d "${LOG%/*}" ] || mkdir -p "${LOG%/*}" 2>/dev/null
 
 if command -v "$SETSID_BIN" >/dev/null 2>&1; then
   # setsid -f: el harness mata el process group del hook al terminar, y un

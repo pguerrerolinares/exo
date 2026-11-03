@@ -3,7 +3,7 @@
 # "orquestador limpio") y para el matcher que lo cablea en hooks/hooks.json.
 # Warn-only: exit 0 SIEMPRE. Avisa 1x/sesión, solo en el padre, y no ante la
 # app local.
-# Fixtures en mktemp -d; nunca toca ~/.claude/reflex-log.jsonl real. Los
+# Fixtures en mktemp -d; nunca toca ~/.exo/state/reflex-log.jsonl real. Los
 # sentinels del script viven en /tmp/claude-clean-orch-<session_id>: cada caso
 # usa un session_id propio y el trap los borra.
 set -uo pipefail

@@ -102,7 +102,7 @@ máximo de 10 entre ambas listas. Llegan al agente por tres vías:
 - **El mod `hooks/register.ts`** (`"modules"` de `hooks.json`): registra
   `session.start`, `prompt.submit`, `turn.complete` y `prompt.compose`, y en
   cada prompt inyecta «Reglas duras del dueño» y «Reglas duras del proyecto»
-  (`exo rules --cwd`). Deja un latido `hb-<sid>` en `~/.claude/exo-rules/`.
+  (`exo rules --cwd`). Deja un latido `hb-<sid>` en `~/.exo/state/exo-rules/`.
 - **`subagent-inject.sh` + `compose-inject.sh`**: componen el bloque por
   `agent_type` según `scripts/inject-profiles.json`. Las reglas duras entran
   en los perfiles `reducido` (`exo:executor`, `exo:consultor`) y `ejecucion`
@@ -160,7 +160,7 @@ scope managed no se mira).
 
 ## Medición de falsos positivos
 
-Cada disparo se loguea (best-effort) a `~/.claude/reflex-log.jsonl` vía
+Cada disparo se loguea (best-effort) a `~/.exo/state/reflex-log.jsonl` vía
 `scripts/_reflex-log.sh`. Para revisar:
 
 ```bash
