@@ -15,6 +15,7 @@ fn entorno(dir: &Path) -> Entorno {
         rutas: exo::state::Rutas::resuelve(&home, |_| None),
         config: home.join(".exo").join("config.toml"),
         cache_hf: home.join(".cache").join("huggingface").join("hub"),
+        codex_home: home.join(".codex"),
         home,
         path: String::new(),
         kb: None,
@@ -134,6 +135,7 @@ fn entorno_con_config(dir: &Path) -> Entorno {
         rutas: exo::state::Rutas::resuelve(&home, |_| None),
         config: cfg,
         cache_hf: home.join(".cache").join("huggingface").join("hub"),
+        codex_home: home.join(".codex"),
         home,
         path: String::new(),
         kb: None,
@@ -1290,4 +1292,71 @@ fn state_residuo_lista_un_migrando_sobrante() {
         c.detalle
     );
     assert!(c.detalle.contains("reclamo sobrante"), "{}", c.detalle);
+}
+
+fn con_roles(env: &Entorno, modelo: &str) {
+    let dir = env.home.join(".exo/codex-agents");
+    fs::create_dir_all(&dir).unwrap();
+    for f in ["consultor.toml", "executor.toml"] {
+        fs::write(dir.join(f), format!("model = \"{modelo}\"\n")).unwrap();
+    }
+}
+
+fn con_cache(env: &Entorno, slugs: &[&str]) {
+    fs::create_dir_all(&env.codex_home).unwrap();
+    let modelos: Vec<_> = slugs
+        .iter()
+        .map(|s| format!("{{\"slug\":\"{s}\"}}"))
+        .collect();
+    fs::write(
+        env.codex_home.join("models_cache.json"),
+        format!("{{\"models\":[{}]}}", modelos.join(",")),
+    )
+    .unwrap();
+}
+
+#[test]
+fn rol_modelo_rotado() {
+    let dir = tempfile::tempdir().unwrap();
+    let env = entorno(dir.path());
+    con_roles(&env, "gpt-6.1-sol");
+    con_cache(&env, &["gpt-6-astra", "gpt-6-luna"]);
+    let c = check(&analiza(&env), "codex_rol_modelo").clone();
+    assert_eq!(c.estado, Estado::Warn, "informa, no gatea: {}", c.detalle);
+    assert!(c.detalle.contains("gpt-6.1-sol"), "{}", c.detalle);
+    assert!(
+        c.detalle.contains("consultor") && c.detalle.contains("executor"),
+        "{}",
+        c.detalle
+    );
+    assert!(c.artefacto.contains("models_cache.json"), "{}", c.artefacto);
+
+    // Caso negativo: la caché lleva el modelo -> sin finding.
+    con_cache(&env, &["gpt-6.1-sol", "gpt-6-luna"]);
+    assert_eq!(check(&analiza(&env), "codex_rol_modelo").estado, Estado::Ok);
+}
+
+#[test]
+fn rol_modelo_sin_caso_que_juzgar_es_na() {
+    let dir = tempfile::tempdir().unwrap();
+    let env = entorno(dir.path());
+    let c = check(&analiza(&env), "codex_rol_modelo").clone();
+    assert_eq!(c.estado, Estado::Na, "sin roles ni caché: {}", c.detalle);
+
+    con_roles(&env, "gpt-6.1-sol");
+    let c = check(&analiza(&env), "codex_rol_modelo").clone();
+    assert_eq!(c.estado, Estado::Na, "sin caché no hay con qué comparar");
+
+    fs::create_dir_all(&env.codex_home).unwrap();
+    fs::write(env.codex_home.join("models_cache.json"), "no es json").unwrap();
+    assert_eq!(check(&analiza(&env), "codex_rol_modelo").estado, Estado::Na);
+
+    let dir = tempfile::tempdir().unwrap();
+    let env = entorno(dir.path());
+    con_cache(&env, &["gpt-6-luna"]);
+    assert_eq!(
+        check(&analiza(&env), "codex_rol_modelo").estado,
+        Estado::Na,
+        "sin roles instalados"
+    );
 }
