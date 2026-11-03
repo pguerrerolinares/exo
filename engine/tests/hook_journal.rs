@@ -1,5 +1,7 @@
 use exo::hook::evento::{Entorno, Evento, EventoKind, Harness, Tool, clasifica};
-use exo::hook::journal::{lee, registra_tool, registra_warn, ruta};
+use exo::hook::journal::{
+    lee, marca_pendiente, registra_evento, registra_marca, registra_tool, registra_warn, ruta,
+};
 use serde_json::json;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
@@ -231,4 +233,73 @@ fn session_id_no_escapa_del_dir() {
     assert_eq!(nombre("ñ-1"), "claude-_-1.jsonl");
     registra_tool(&en, &bash("../../x", "", "z"), None).unwrap();
     assert!(p.exists());
+}
+
+#[test]
+fn marca_y_consumo() {
+    let d = tempfile::tempdir().unwrap();
+    let en = entorno(d.path());
+    let ev = bash("s", "", "x");
+    assert!(!marca_pendiente(&en, &ev));
+    registra_marca(&en, &ev, "post-compact").unwrap();
+    assert!(marca_pendiente(&en, &ev));
+    registra_marca(&en, &ev, "post-compact-consumed").unwrap();
+    assert!(!marca_pendiente(&en, &ev));
+    registra_marca(&en, &ev, "post-compact").unwrap();
+    assert!(marca_pendiente(&en, &ev));
+}
+
+#[test]
+fn marca_de_otra_sesion() {
+    let d = tempfile::tempdir().unwrap();
+    let en = entorno(d.path());
+    registra_marca(&en, &bash("a", "", "x"), "post-compact").unwrap();
+    assert!(marca_pendiente(&en, &bash("a", "", "x")));
+    assert!(!marca_pendiente(&en, &bash("b", "", "x")));
+}
+
+#[test]
+fn marca_y_agent_id() {
+    let d = tempfile::tempdir().unwrap();
+    let en = entorno(d.path());
+    registra_marca(&en, &bash("s", "sub1", "x"), "post-compact").unwrap();
+    assert!(!marca_pendiente(&en, &bash("s", "", "x")));
+    assert!(marca_pendiente(&en, &bash("s", "sub1", "x")));
+}
+
+#[test]
+fn marca_con_linea_corrupta() {
+    let d = tempfile::tempdir().unwrap();
+    let en = entorno(d.path());
+    let ev = bash("s", "", "x");
+    registra_marca(&en, &ev, "post-compact").unwrap();
+    let p = ruta(&en, Harness::Claude, "s");
+    OpenOptions::new()
+        .append(true)
+        .open(&p)
+        .unwrap()
+        .write_all(b"{basura\n")
+        .unwrap();
+    assert!(marca_pendiente(&en, &ev));
+    registra_marca(&en, &ev, "post-compact-consumed").unwrap();
+    OpenOptions::new()
+        .append(true)
+        .open(&p)
+        .unwrap()
+        .write_all(b"{basura\n")
+        .unwrap();
+    assert!(!marca_pendiente(&en, &ev));
+}
+
+#[test]
+fn registra_evento_escribe_kind_event() {
+    let d = tempfile::tempdir().unwrap();
+    let en = entorno(d.path());
+    let mut ev = bash("s", "", "x");
+    ev.kind = EventoKind::UserPromptSubmit;
+    ev.tool = None;
+    registra_evento(&en, &ev).unwrap();
+    let l = lee(&en, Harness::Claude, "s", "").unwrap().unwrap();
+    assert_eq!(l.registros[0].kind, "event");
+    assert_eq!(l.registros[0].code, "UserPromptSubmit");
 }
