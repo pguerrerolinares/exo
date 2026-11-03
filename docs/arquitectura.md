@@ -387,6 +387,7 @@ fuente de verdad de los flags.
 | `exo ratchet` | Gate del trinquete de techos (exit 3) | `--kb`, `--seal`, `--staged`, `--json` |
 | `exo rotate` | Rota una bitácora `tier: log` a frío/caliente. Dry-run sin `--apply` | `--hot-bytes` (40960), `--apply`, `--kb`, `--json` |
 | `exo stale` | Urgencia de actualización por nota. Solo lectura | `--now`, `--db`, `--kb`, `--json` |
+| `exo hook <harness> <evento>` | Procesa un evento de herramienta de un agente: lee su JSON por stdin y escribe la respuesta por stdout. Solo existe el harness `claude` (eventos `PreToolUse`, `PostToolUse`, `PostToolUseFailure`); cualquier otro valor se ignora. **Siempre sale con 0** | – (sin flags; lo invoca la config de hooks del agente) |
 | `exo doctor` | Preflight de **entorno** (la máquina), frente a `lint`, que es de la KB. 14 checks; cada uno reporta el artefacto que miró y los que no aplican salen como `na`. Emite el informe entero y luego gatea (exit 3 si hay algún `fail`; los `warn` no gatean) | `--db`, `--kb`, `--json` |
 
 Idioma de la ayuda: los textos de producto y los errores propios van en
@@ -536,6 +537,46 @@ cableados en `hooks.json` con `|| exit 0` y `timeout` 5 para que un `exo`
 ausente no bloquee la herramienta. Sus suites viven en `engine/tests/paridad/`
 y `engine/scripts/paridad-hook.sh` las compara con un baseline. El digest de falsos positivos de los reflejos lo
 produce `plugins/exo/scripts/reflex-fp-review.sh`.
+
+**`exo hook`, por dentro.** Cada invocación lee el JSON del agente por stdin,
+lo normaliza a un evento neutral (adapter `claude`), anota en el journal si es
+un `PostToolUse`/`PostToolUseFailure`, ejecuta los guards del evento que la
+matriz marca como soportados, combina sus decisiones (deny/bloqueo > rewrite >
+aviso > permitir) y escribe la respuesta por stdout. **Siempre sale con 0**,
+también ante un payload ilegible, un harness o evento desconocido o un panic
+de un guard (se descarta ese guard y se deja rastro en el reflex-log): un
+exit distinto de 0 bloquearía la herramienta, y un reflejo nunca rompe lo que
+instrumenta. No hay watchdog interno; el límite es el `timeout` 5 del
+`hooks.json`.
+
+- **Journal.** Un fichero por sesión, `~/.exo/state/sessions/<harness>-<session_id>.jsonl`;
+  `EXO_STATE_DIR` redirige la raíz (`~/.exo/state`). Solo se añaden líneas, una
+  por evento canónico (`ts`, tool, comando truncado a ~200 B o rutas, `ok`,
+  `agent_id`); `ok` es `false` en un `PostToolUseFailure`, así que un test rojo
+  no cuenta como verde. La lectura está acotada a los últimos 2 MiB y cada guard
+  lee solo los registros de su propio contexto (`agent_id`: el padre no ve el
+  `exo search` de un subagente). Al crear el fichero de una sesión nueva se
+  borran los de más de 14 días. Sustituye a la lectura del transcript que
+  hacían los `.sh`, que era lo que ataba los guards a Claude.
+- **Estado heredado.** El reflex-log sigue en `~/.claude/reflex-log.jsonl` (se
+  puede redirigir con `REFLEX_LOG_FILE`) con el mismo esquema e ids de reflejo,
+  para que `cobertura-reglas.sh` y `reflex-fp-review.sh` sigan valiendo.
+- **Dependencias.** `exo hook` no usa bash ni `jq`. Los hooks que siguen siendo
+  `.sh` (recall, estilo, `delegar-decision`, `sdd-wake-guard`…) sí los
+  necesitan, y en Windows corren bajo Git Bash.
+- **Diferencias frente a los `.sh` retirados** (la lista completa está en la spec,
+  §6.4): el guard no lee el transcript, así que sin journal o con journal
+  ilegible avisa igual; el comando se compara truncado a 200 B (un `exo search`
+  pasado ese byte no cuenta y search-first puede avisar de más, una vez por
+  sesión); con tools en paralelo el journal puede ir un evento por detrás; y
+  tras actualizar a la versión nueva, la primera sesión no ve búsquedas
+  anteriores a la instalación.
+- **Roadmap multi-harness** (`docs/superpowers/specs/2026-11-02-exo-hook-multi-harness-design.md`):
+  A, el núcleo (`exo hook`, journal, matriz, adapter de Claude, migración de
+  bash-guards y search-first), está hecho. B (adapter y plugin de Codex) y C
+  (extensión de pi) siguen pendientes, sin fecha. Hasta B, instalar el plugin
+  en Codex no hace nada, y no avisa. Los demás hooks `.sh` migrarán a `exo
+  hook` en iteraciones posteriores con el mismo patrón.
 
 ### 4.4 Skills, agentes y scripts de `orchestrate`
 

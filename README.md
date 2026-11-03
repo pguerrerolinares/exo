@@ -41,7 +41,9 @@ curl -fsSL https://raw.githubusercontent.com/pguerrerolinares/exo/main/install.s
 
 Requisitos: `git` y `jq`; `curl` y `sha256sum` (o `shasum`) para `install.sh`;
 `python3` para el reflejo `delegar-decision` (sin él se abstiene en silencio).
-Ni Rust ni toolchain C. Detalle y camino desde
+`jq` y bash los siguen necesitando los hooks que quedan como `.sh`; los guards
+que ya viven en `exo hook` no. El plugin 1.32 exige un engine ≥ 0.14.0. Ni
+Rust ni toolchain C. Detalle y camino desde
 fuente: [`docs/instalacion.md`](docs/instalacion.md).
 
 ## Ejemplo de extremo a extremo
@@ -127,6 +129,11 @@ las gatea en el pre-commit de la KB). Los reflejos se abstienen por defecto y
 solo bloquean en cuatro hooks, con tope y escape. La tabla de hooks, el canal
 de reglas y la atribución viven en
 [`plugins/exo/README.md`](plugins/exo/README.md).
+
+Los guards de Bash y search-first son ya código del engine: `exo hook claude
+<evento>` (siempre sale con 0, anota un journal por sesión en
+`~/.exo/state/`). Hoy solo Claude Code está soportado; Codex y pi son
+subproyectos pendientes, sin fecha (ver `docs/arquitectura.md` §4.3).
 
 Este repo es la **fuente de verdad** del plugin (co-evoluciona con el engine y
 con sus evals de paridad en `evals/prep-m3/`) y su propio marketplace:

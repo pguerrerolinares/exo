@@ -11,7 +11,7 @@
 | **Desde release** (recomendado) | `git` y `jq`. **Ni Rust ni toolchain C.** |
 | **Desde fuente** | Rust estable (ver mínimo abajo) + toolchain C. En Windows, MSVC. |
 | **Primera indexación** | Red para descargar el modelo de embeddings (~0,6 GB); en frío tarda unos minutos. |
-| **Capa thin (plugin de Claude Code)** | `git` y `jq` ejecutables desde bash. En Windows, Git Bash (Claude Code lo usa para los hooks; no hacen falta wrappers `.cmd`). |
+| **Capa thin (plugin de Claude Code)** | Engine ≥ 0.14.0 (`plugins/exo/ENGINE_MIN`). `git` y `jq` ejecutables desde bash para los hooks que siguen siendo `.sh`; los guards de `exo hook` no necesitan ni bash ni `jq`. En Windows, Git Bash (Claude Code lo usa para los `.sh`; no hacen falta wrappers `.cmd`). |
 
 - **Toolchain C obligatorio**: `rusqlite` (SQLite bundled) y `sqlite-vec`
   compilan C durante el build. Sin compilador C, `cargo build` falla — está
@@ -253,9 +253,22 @@ claude plugin marketplace add pguerrerolinares/exo
 claude plugin install exo@exo
 ```
 
-Los hooks del plugin necesitan el binario ya instalado (§2 o §3) y `jq`.
-Si el engine no está, el plugin no rompe la sesión: degrada a fallbacks
-embebidos y lo deja anotado en `~/.claude/reflex-log.jsonl`.
+Los hooks del plugin necesitan el binario ya instalado (§2 o §3) y, los que
+siguen siendo `.sh`, `jq`. Si el engine no está, el plugin no rompe la sesión:
+degrada a fallbacks embebidos y lo deja anotado en `~/.claude/reflex-log.jsonl`.
+
+**`exo hook` (plugin ≥ 1.32).** Los guards de Bash (`git -C`, `git add -A`,
+verify) y search-first ya no son scripts: `hooks.json` los cablea como `exo
+hook claude <evento> || exit 0` con `timeout` 5, así que necesitan el binario
+en el `PATH` del harness y un engine ≥ 0.14.0. El comando siempre sale con 0;
+el `|| exit 0` hace que un `exo` ausente no bloquee la herramienta. Con un
+engine más viejo esos guards quedan sin efecto, sin error: la única señal es el
+aviso de `ENGINE_MIN` en `SessionStart` (y `exo doctor`, check `plugin_compat`).
+Anota un journal por sesión en `~/.exo/state/sessions/`; `EXO_STATE_DIR` mueve
+esa raíz (útil en tests o en un disco con poco espacio). Los ficheros de más de
+14 días se borran solos. Solo está soportado Claude Code; Codex y pi son
+trabajo pendiente, sin fecha, y mientras tanto instalar el plugin en Codex no
+hace nada.
 
 **Versiones.** El engine y el plugin versionan por separado: `exo --version`
 es la del binario (= tag de la release); el plugin lleva la suya en
@@ -358,7 +371,7 @@ Encontrados en máquinas reales. El camino guiado está en
 
 | Síntoma | Causa | Remedio |
 |---|---|---|
-| Los hooks no hacen nada, sin error | `jq` es el alias de la Microsoft Store (`WindowsApps\jq.exe`): Git Bash no lo resuelve y sin `jq` los hooks se abstienen | `install.ps1` deja un `jq.exe` real delante en el PATH. Check: `exo doctor` (fila `jq`) |
+| Los hooks `.sh` no hacen nada, sin error | `jq` es el alias de la Microsoft Store (`WindowsApps\jq.exe`): Git Bash no lo resuelve y sin `jq` esos hooks se abstienen (los guards de `exo hook` no usan `jq`) | `install.ps1` deja un `jq.exe` real delante en el PATH. Check: `exo doctor` (fila `jq`) |
 | `exo`/`jq` "command not found" tras instalar | La sesión de Claude Code arrancó antes del cambio de PATH | Cerrar Claude Code del todo y abrir sesión nueva |
 | Hooks `.sh` no arrancan o corren en WSL | El `bash` del PATH es `System32\bash.exe` (WSL), no Git Bash | Git for Windows antes en el PATH, o `CLAUDE_CODE_GIT_BASH_PATH` a `Git\bin\bash.exe`. Check: `exo doctor` (fila `git_bash`) |
 | `exo init` falla al descargar el modelo | `exo` (ureq + rustls) solo ve el proxy por `HTTPS_PROXY`/`ALL_PROXY`, no el de Windows, y confía solo en `webpki-roots`, no en la CA corporativa | `HTTPS_PROXY` definido; o `HF_ENDPOINT` a un espejo interno; o copiar `~/.cache/huggingface/hub/models--jinaai--jina-embeddings-v2-base-es` de otra máquina (respeta `HF_HOME`) |
