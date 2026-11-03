@@ -23,6 +23,9 @@ export EXO_PARIDAD_BASE="$TMP/estado"
 mkdir -p "$EXO_PARIDAD_BASE"
 export HOOK="$AQUI/hook-wrapper-claude.sh"
 
+# El wrapper se autoprueba antes: sus fixtures de suite no cubren agent_id/cwd.
+bash "$AQUI/test-hook-wrapper-claude.sh" >&2 || { echo "paridad: FALLA — autotest del wrapper"; exit 1; }
+
 norm() { sed -E 's/\([0-9]+ bytes\)/(N bytes)/'; }
 
 for suite in test-bash-guards.sh test-search-first.sh; do

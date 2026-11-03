@@ -33,6 +33,7 @@ hyperfine -N --warmup 5 --runs "$RUNS" --input "$TMP/payload.json" \
   || { cat "$TMP/err" >&2; exit 1; }
 
 P99="$(jq -r '.results[0].times | sort | .[((length * 0.99) | ceil) - 1] * 1000 | . * 10 | round / 10' "$TMP/res.json")"
+[ -n "$P99" ] && [ "$P99" != null ] || { echo "bench: no se midió p99" >&2; exit 1; }
 echo "journal_bytes=$(wc -c < "$JOURNAL") runs=$RUNS"
 echo "p99_ms=$P99"
 awk -v p="$P99" -v l="$LIMITE_MS" 'BEGIN { exit !(p < l) }'
