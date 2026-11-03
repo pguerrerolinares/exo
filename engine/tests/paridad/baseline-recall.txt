@@ -1,0 +1,61 @@
+H5: no escanea más allá de la ventana de 2000 líneas
+H5: refuerza lo disparado dentro de la ventana
+ambigua_visible: systemMessage con el copy fijado + reflex-log + ss
+avisos_dentro_del_cap: el gate pendiente entra tras el contrato
+avisos_recortan_despues: con contrato lleno el cap come el aviso, no el contrato
+bloque_cap_1500: contrato de ~2 KB ⇒ bloque <= 1500 B y evento recall-truncated
+bloque_cap_configurable: RECALL_BLOQUE_CAP baja el cap
+bloque_empieza_por_contrato: additionalContext arranca en la sección de contrato
+bloque_sin_encabezado: sin '## Contrato de memoria' el bloque servido va entero
+bloque_solo_contrato: sin doctrina, cores ni actividad reciente
+camino feliz: bloque real inyectado, sin fallback ni log de degradación
+campaña I: código real de exo-recall.sh no desalinea SOURCE/SID con source ausente
+compact_fuera_del_cap: cap actuó sobre el contrato y la reafirmación sigue presente
+compact_no_resuelve: sin llamada a exo rules ni ss
+contraprueba: @tsv + IFS=tab SÍ desalinea (por eso este hook usa \\x1f, no @tsv)
+engine-stale: --version no responde ⇒ recall-fallback reason=engine-stale engine=desconocida
+engine-stale: version por debajo de ENGINE_MIN ⇒ recall-fallback + aviso en el bloque
+engine_stale_sin_llamar: no se invoca exo rules, systemMessage engine_stale
+error_engine_stderr: el stderr del engine viaja en el payload de project-rules-skip
+error_engine_visible ($modo): systemMessage y ss skip/error_engine, el hook sigue emitiendo
+false seguido de true en el mismo fichero: avisa con la clave true
+gate_anterior_a_distill_last_no_avisa
+gate_autodistill_sin_aterrizar_vuelve_a_avisar
+gate_compact_no_repite
+gate_con_atribucion_en_otro_parrafo_avisa
+gate_git_colgado_corta_sin_aviso
+gate_nota_al_85_sigue_avisando
+gate_pendiente_avisa: ruta con espacios, em dash y paréntesis
+gate_posterior_a_autodistill_sigue_avisando
+gate_resuelto_a_mano_no_avisa: nota bajo el 85 % del limit
+gate_resuelto_en_otra_rama_no_avisa: auto-distill en otra rama (--all) resuelve solo su ruta
+gate_resuelto_por_commit_en_main_no_avisa
+gate_resuelto_por_nota_sin_name_only
+gate_sin_duplicados: una línea por ruta aunque haya varios trailers
+gate_sin_tag_ventana_7_dias
+golden: $nombre capturado en $golden
+golden: $nombre sin cambios
+kb_sin_git_no_rompe
+local false pisa a project true: no avisa
+no-config: EXO_BIN sin subcomando config ⇒ recall-fallback reason=no-config
+no-engine: EXO_BIN no ejecutable ⇒ recall-fallback reason=no-engine
+no-index: EXO_INDEX ausente ⇒ recall-fallback reason=no-index
+orden: sin engine, se loguea SOLO no-engine (nunca no-config además)
+poda_7_dias: ss de 8 días fuera, de 1 día se queda
+project false pisa a user true: no avisa
+project scope habilitado: avisa
+recall_cap_al_engine: EXO_RECALL_CAP llega como --cap-bytes
+recorte_con_crlf: jq con CRLF ⇒ el aviso de recorte sale igual
+reglas_ok_silencioso: ss ok n=3, sin systemMessage, additionalContext intacto, cwd del input
+session_id con '/': no se escribe ss (ni dentro de subdirectorios)
+sin session_id: se resuelve pero no se escribe ss-
+sin settings: no avisa
+sin_excede_cap: el engine ya no lo emite; sin aviso propio
+sin_excede_cap: truncated>0 ⇒ aviso de recorte sin atribuirlo al repo
+sin_indice_resuelve_reglas: engine OK e índice ausente ⇒ exo rules llamado y ss escrito
+sin_seccion_solo_log: sin systemMessage, project-rules-skip en reflex-log
+ss_cuenta_global: skip + 2 globales ⇒ n=2 n_global=2
+ss_suma_proyecto_y_global: ok con 3 de proyecto + 2 globales ⇒ n=5
+timeout_rules: exo rules colgado ⇒ corta y grita error_engine
+user scope false: no avisa
+user scope habilitado (JSON multilínea): avisa con el comando

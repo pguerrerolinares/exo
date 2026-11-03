@@ -1,0 +1,2 @@
+engine-stale: version por debajo de ENGINE_MIN ⇒ recall-fallback + aviso en el bloque	pendiente de T15 (--min en el runner)
+engine_stale_sin_llamar: no se invoca exo rules, systemMessage engine_stale	pendiente de T15 (--min en el runner)

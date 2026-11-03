@@ -1,0 +1,8 @@
+campaña I: código real de exo-recall.sh no desalinea SOURCE/SID con source ausente	Extrae con awk la asignación SOURCE/SID del propio exo-recall.sh y la evalúa; en Rust no hay script que extraer y serde parsea los campos por nombre, sin desalineo posible.
+contraprueba: @tsv + IFS=tab SÍ desalinea (por eso este hook usa \\x1f, no @tsv)	Demuestra el desalineo de read con IFS=tab, un defecto de la shell del hook bash; el hook Rust no usa read ni @tsv.
+engine-stale: --version no responde ⇒ recall-fallback reason=engine-stale engine=desconocida	Stubea el binario por EXO_BIN con --version roto; el hook Rust corre dentro del engine y no ejecuta un exo externo cuya versión comprobar.
+golden: $nombre capturado en $golden	Modo RECAPTURA=1 del golden bash (escribe los ficheros testdata/golden-exo-recall); el port Rust compara contra fixtures sin modo de recaptura.
+no-engine: EXO_BIN no ejecutable ⇒ recall-fallback reason=no-engine	Apunta EXO_BIN a un binario inexistente; el hook Rust es el engine, no puede faltar.
+orden: sin engine, se loguea SOLO no-engine (nunca no-config además)	Guarda contra el doble aviso no-config y no-engine por la ausencia del binario (bug histórico de la shell); sin binario externo no existe la ausencia.
+recorte_con_crlf: jq con CRLF ⇒ el aviso de recorte sale igual	Antepone un jq falso con CRLF en PATH (jq nativo de Windows); el hook Rust no usa jq ni read de shell.
+timeout_rules: exo rules colgado ⇒ corta y grita error_engine	Cuelga un exo rules stub con EXO_RULES_TIMEOUT; reglas::resuelve en proceso no tiene subproceso ni timeout que cortar.

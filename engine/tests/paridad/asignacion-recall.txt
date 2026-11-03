@@ -1,0 +1,61 @@
+compact	H5: no escanea más allá de la ventana de 2000 líneas
+compact	H5: refuerza lo disparado dentro de la ventana
+reglas	ambigua_visible: systemMessage con el copy fijado + reflex-log + ss
+avisos	avisos_dentro_del_cap: el gate pendiente entra tras el contrato
+avisos	avisos_recortan_despues: con contrato lleno el cap come el aviso, no el contrato
+contrato	bloque_cap_1500: contrato de ~2 KB ⇒ bloque <= 1500 B y evento recall-truncated
+contrato	bloque_cap_configurable: RECALL_BLOQUE_CAP baja el cap
+contrato	bloque_empieza_por_contrato: additionalContext arranca en la sección de contrato
+contrato	bloque_sin_encabezado: sin '## Contrato de memoria' el bloque servido va entero
+contrato	bloque_solo_contrato: sin doctrina, cores ni actividad reciente
+contrato	camino feliz: bloque real inyectado, sin fallback ni log de degradación
+fontaneria	campaña I: código real de exo-recall.sh no desalinea SOURCE/SID con source ausente
+compact	compact_fuera_del_cap: cap actuó sobre el contrato y la reafirmación sigue presente
+reglas	compact_no_resuelve: sin llamada a exo rules ni ss
+fontaneria	contraprueba: @tsv + IFS=tab SÍ desalinea (por eso este hook usa \\x1f, no @tsv)
+fontaneria	engine-stale: --version no responde ⇒ recall-fallback reason=engine-stale engine=desconocida
+wiring	engine-stale: version por debajo de ENGINE_MIN ⇒ recall-fallback + aviso en el bloque
+wiring	engine_stale_sin_llamar: no se invoca exo rules, systemMessage engine_stale
+reglas	error_engine_stderr: el stderr del engine viaja en el payload de project-rules-skip
+reglas	error_engine_visible ($modo): systemMessage y ss skip/error_engine, el hook sigue emitiendo
+avisos	false seguido de true en el mismo fichero: avisa con la clave true
+avisos	gate_anterior_a_distill_last_no_avisa
+avisos	gate_autodistill_sin_aterrizar_vuelve_a_avisar
+avisos	gate_compact_no_repite
+avisos	gate_con_atribucion_en_otro_parrafo_avisa
+avisos	gate_git_colgado_corta_sin_aviso
+avisos	gate_nota_al_85_sigue_avisando
+avisos	gate_pendiente_avisa: ruta con espacios, em dash y paréntesis
+avisos	gate_posterior_a_autodistill_sigue_avisando
+avisos	gate_resuelto_a_mano_no_avisa: nota bajo el 85 % del limit
+avisos	gate_resuelto_en_otra_rama_no_avisa: auto-distill en otra rama (--all) resuelve solo su ruta
+avisos	gate_resuelto_por_commit_en_main_no_avisa
+avisos	gate_resuelto_por_nota_sin_name_only
+avisos	gate_sin_duplicados: una línea por ruta aunque haya varios trailers
+avisos	gate_sin_tag_ventana_7_dias
+fontaneria	golden: $nombre capturado en $golden
+compact	golden: $nombre sin cambios
+avisos	kb_sin_git_no_rompe
+avisos	local false pisa a project true: no avisa
+contrato	no-config: EXO_BIN sin subcomando config ⇒ recall-fallback reason=no-config
+fontaneria	no-engine: EXO_BIN no ejecutable ⇒ recall-fallback reason=no-engine
+contrato	no-index: EXO_INDEX ausente ⇒ recall-fallback reason=no-index
+fontaneria	orden: sin engine, se loguea SOLO no-engine (nunca no-config además)
+reglas	poda_7_dias: ss de 8 días fuera, de 1 día se queda
+avisos	project false pisa a user true: no avisa
+avisos	project scope habilitado: avisa
+contrato	recall_cap_al_engine: EXO_RECALL_CAP llega como --cap-bytes
+fontaneria	recorte_con_crlf: jq con CRLF ⇒ el aviso de recorte sale igual
+reglas	reglas_ok_silencioso: ss ok n=3, sin systemMessage, additionalContext intacto, cwd del input
+reglas	session_id con '/': no se escribe ss (ni dentro de subdirectorios)
+reglas	sin session_id: se resuelve pero no se escribe ss-
+avisos	sin settings: no avisa
+reglas	sin_excede_cap: el engine ya no lo emite; sin aviso propio
+reglas	sin_excede_cap: truncated>0 ⇒ aviso de recorte sin atribuirlo al repo
+reglas	sin_indice_resuelve_reglas: engine OK e índice ausente ⇒ exo rules llamado y ss escrito
+reglas	sin_seccion_solo_log: sin systemMessage, project-rules-skip en reflex-log
+reglas	ss_cuenta_global: skip + 2 globales ⇒ n=2 n_global=2
+reglas	ss_suma_proyecto_y_global: ok con 3 de proyecto + 2 globales ⇒ n=5
+fontaneria	timeout_rules: exo rules colgado ⇒ corta y grita error_engine
+avisos	user scope false: no avisa
+avisos	user scope habilitado (JSON multilínea): avisa con el comando
