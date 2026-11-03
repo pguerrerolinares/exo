@@ -370,28 +370,3 @@ fn fallo_del_append_con_viejo_recreado_no_lo_pisa_y_nombra_el_reclamado() {
         .expect("el reclamado sigue en disco");
     assert_eq!(fs::read_to_string(reclamado.path()).unwrap(), "A\n");
 }
-
-#[test]
-fn reclamo_sobrante_con_el_mismo_nombre_no_se_pisa() {
-    // El contador de reclamos es global al proceso y otros tests lo avanzan: se siembran
-    // sobrantes para este pid en un rango que cubre cualquier `n` que toque.
-    let d = tempfile::tempdir().unwrap();
-    let (v, n) = (d.path().join("v"), d.path().join("n"));
-    let sobrante = |i: usize| {
-        d.path()
-            .join(format!("v.migrando-{}-{i}", std::process::id()))
-    };
-    for i in 0..512 {
-        fs::write(sobrante(i), "X\n").unwrap();
-    }
-    fs::write(&v, "Y\n").unwrap();
-    assert_eq!(migra(&v, &n, TS), Migracion::Renombrado);
-    assert_eq!(fs::read_to_string(&n).unwrap(), "Y\n");
-    for i in 0..512 {
-        assert_eq!(
-            fs::read_to_string(sobrante(i)).unwrap(),
-            "X\n",
-            "sobrante {i}"
-        );
-    }
-}

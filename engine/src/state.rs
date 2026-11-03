@@ -132,7 +132,7 @@ fn migra_io(
     }
     // Reclamo: reserva con O_EXCL un nombre `.migrando-<pid>-<n>` y `rename` del viejo sobre
     // esa reserva vacía. El pid se reutiliza y puede haber dos pid namespaces sobre el mismo
-    // home, así que un reclamo sobrante de otro (único copia de su histórico) puede ocupar el
+    // home, así que un reclamo sobrante de otro (única copia de su histórico) puede ocupar el
     // nombre: `rename` reemplaza el destino, la reserva garantiza que solo pisa un fichero
     // nuestro y vacío. Solo un migrador se lleva el viejo (el otro ve ENOENT). A partir de aquí
     // nadie vuelve a tocar `viejo` por nombre, así que un hook que lo recree no pierde líneas.
