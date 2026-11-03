@@ -160,7 +160,7 @@ fi
 # --- Caso 6: sin `codex` en el PATH no se invoca `setup codex`.
 rel="$TMP/release-sincodex"; dest="$TMP/bin-sincodex"; marca="$TMP/marca-setup"
 fabrica_release "$rel" "#!/bin/sh
-[ \"\$1\" = setup ] && touch '$marca'
+[ \"\$1\" = setup ] && : > '$marca'
 echo exo-falso"
 sinpath="$TMP/path-vacio"; mkdir -p "$sinpath"
 for t in bash curl uname mktemp mkdir chmod mv rm cat sed grep tr dirname head awk shasum sha256sum cut sort install ln cp tee date; do
