@@ -828,7 +828,25 @@ fn ruta_shell(p: &Path) -> String {
 
 /// `exo config`: la config efectiva, con rutas expandidas.
 fn config_cmd(args: ArgsConfig) -> Result<()> {
-    let cfg = exo::config::carga()?;
+    let r = exo::state::Rutas::desde_env();
+    let state = serde_json::json!({
+        "dir": ruta_shell(&r.state_dir),
+        "reflex_log": ruta_shell(&r.reflex_log),
+        "rules_dir": ruta_shell(&r.rules_dir),
+        "index_log": ruta_shell(&r.index_log),
+        "canary": ruta_shell(&r.canary),
+    });
+    let cfg = match exo::config::carga() {
+        Ok(c) => c,
+        Err(e) => {
+            // Las rutas de estado no dependen de la KB: un consumidor sigue
+            // leyéndolas aunque falte la config. El error sigue yendo a stderr con rc != 0.
+            if args.json {
+                exo::envelope::emite("config", serde_json::json!({ "state": state }));
+            }
+            return Err(e);
+        }
+    };
     let kb = exo::config::expande_tilde(&cfg.kb.path);
     let db = exo::config::expande_tilde(&cfg.index.db);
     let data = serde_json::json!({
@@ -839,6 +857,7 @@ fn config_cmd(args: ArgsConfig) -> Result<()> {
             "dims": cfg.embeddings.dims,
             "min_similarity": cfg.embeddings.min_similarity,
         },
+        "state": state,
     });
     if args.json {
         exo::envelope::emite("config", data);
@@ -1867,4 +1886,18 @@ fn corre(nombre: &str, args: ArgsIndex, borra_antes: bool) -> Result<()> {
         );
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ruta_shell;
+    use std::path::Path;
+
+    #[test]
+    fn ruta_shell_normaliza_separadores_de_windows() {
+        assert_eq!(
+            ruta_shell(Path::new(r"C:\Users\x\.exo\state")),
+            "C:/Users/x/.exo/state"
+        );
+    }
 }

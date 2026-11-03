@@ -1,29 +1,30 @@
 //! Tipos neutrales del hook: evento, herramienta, decisión y entorno.
 
+use crate::state::{Rutas, Seams};
 use serde_json::Value;
 use std::path::PathBuf;
 
 /// `desde_env` es la única función de `hook/` que lee el entorno; el resto recibe un `Entorno`.
+/// `state_dir`/`reflex_log` son alias de `rutas.*` (los guards ya los leen así).
 #[derive(Debug, Clone)]
 pub struct Entorno {
     pub state_dir: PathBuf,
     pub reflex_log: PathBuf,
+    pub rutas: Rutas,
+    pub seams: Seams,
     pub cdpath_definido: bool,
     pub panic_guard: Option<String>,
 }
 
 impl Entorno {
     pub fn desde_env() -> Entorno {
-        let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
-        let var = |k: &str| std::env::var_os(k).filter(|v| !v.is_empty());
+        let rutas = Rutas::desde_env();
         Entorno {
-            state_dir: var("EXO_STATE_DIR")
-                .map(PathBuf::from)
-                .unwrap_or_else(|| home.join(".exo/state")),
-            reflex_log: var("REFLEX_LOG_FILE")
-                .map(PathBuf::from)
-                .unwrap_or_else(|| home.join(".claude/reflex-log.jsonl")),
-            cdpath_definido: var("CDPATH").is_some(),
+            state_dir: rutas.state_dir.clone(),
+            reflex_log: rutas.reflex_log.clone(),
+            rutas,
+            seams: Seams::desde_env(),
+            cdpath_definido: std::env::var_os("CDPATH").is_some_and(|v| !v.is_empty()),
             // Solo en debug: en release un env no puede inyectar panics en los guards.
             #[cfg(debug_assertions)]
             panic_guard: std::env::var("EXO_HOOK_PANIC").ok(),

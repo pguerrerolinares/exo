@@ -1,0 +1,84 @@
+//! Rutas de estado de exo y seams de entorno del hook. `resuelve` y
+//! `Seams::resuelve` son puras (reciben `var`): los tests no tocan el entorno
+//! del proceso; `desde_env` es el único punto que lo lee.
+
+use std::ffi::OsString;
+use std::path::{Path, PathBuf};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Rutas {
+    pub state_dir: PathBuf,
+    pub reflex_log: PathBuf,
+    pub rules_dir: PathBuf,
+    pub index_log: PathBuf,
+    pub canary: PathBuf,
+}
+
+impl Rutas {
+    /// Precedencia por fichero: variable propia > `$EXO_STATE_DIR/<x>` > `<home>/.exo/state/<x>`.
+    pub fn resuelve(home: &Path, var: impl Fn(&str) -> Option<OsString>) -> Rutas {
+        let var = |k: &str| var(k).filter(|v| !v.is_empty()).map(PathBuf::from);
+        let state_dir = var("EXO_STATE_DIR").unwrap_or_else(|| home.join(".exo/state"));
+        let fichero =
+            |propia: &str, nombre: &str| var(propia).unwrap_or_else(|| state_dir.join(nombre));
+        Rutas {
+            reflex_log: fichero("REFLEX_LOG_FILE", "reflex-log.jsonl"),
+            index_log: fichero("EXO_INDEX_LOG", "exo-index.log"),
+            canary: fichero("REFLEX_CANARY_FILE", "reflex-inject-canary"),
+            rules_dir: state_dir.join("exo-rules"),
+            state_dir,
+        }
+    }
+
+    pub fn desde_env() -> Rutas {
+        let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+        Rutas::resuelve(&home, |k| std::env::var_os(k))
+    }
+}
+
+/// Variables de entorno que sobreviven como seams, con los defaults de `exo-recall.sh`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Seams {
+    pub exo_bin: Option<PathBuf>,
+    pub exo_index: Option<PathBuf>,
+    pub exo_kb: Option<PathBuf>,
+    pub exo_kb_name: Option<String>,
+    pub recall_nota: Option<String>,
+    pub recall_cap: usize,
+    pub bloque_cap: usize,
+    pub recall_limite: usize,
+    pub compact_lineas: usize,
+    pub git_timeout_s: u64,
+    pub claude_project_dir: Option<PathBuf>,
+    pub codex_home: Option<PathBuf>,
+}
+
+impl Seams {
+    /// Vacío = ausente; un número que no parsea = default.
+    pub fn resuelve(var: impl Fn(&str) -> Option<OsString>) -> Seams {
+        let var = |k: &str| var(k).filter(|v| !v.is_empty());
+        let ruta = |k: &str| var(k).map(PathBuf::from);
+        let texto = |k: &str| var(k).map(|v| v.to_string_lossy().into_owned());
+        fn num<T: std::str::FromStr>(v: Option<String>, def: T) -> T {
+            v.and_then(|s| s.trim().parse().ok()).unwrap_or(def)
+        }
+        Seams {
+            exo_bin: ruta("EXO_BIN"),
+            exo_index: ruta("EXO_INDEX"),
+            exo_kb: ruta("EXO_KB"),
+            exo_kb_name: texto("EXO_KB_NAME"),
+            recall_nota: texto("EXO_RECALL_NOTA"),
+            recall_cap: num(texto("EXO_RECALL_CAP"), 6144),
+            bloque_cap: num(texto("RECALL_BLOQUE_CAP"), 1500),
+            recall_limite: num(texto("EXO_RECALL_LIMITE"), 10),
+            compact_lineas: num(texto("EXO_RECALL_COMPACT_LINEAS"), 2000),
+            git_timeout_s: num(texto("EXO_GIT_TIMEOUT"), 3),
+            claude_project_dir: ruta("CLAUDE_PROJECT_DIR"),
+            codex_home: ruta("CODEX_HOME"),
+        }
+    }
+
+    pub fn desde_env() -> Seams {
+        Seams::resuelve(|k| std::env::var_os(k))
+    }
+}
