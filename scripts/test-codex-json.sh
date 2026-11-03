@@ -9,7 +9,7 @@ if [ -z "$RAIZ" ]; then
 fi
 cd "$RAIZ" || exit 1
 
-F=plugins/exo/hooks/codex.json
+F="${1:-plugins/exo/hooks/codex.json}"
 command -v jq >/dev/null 2>&1 || { echo "test-codex-json: jq requerido" >&2; exit 1; }
 [ -f "$F" ] || { echo "test-codex-json: no existe $F" >&2; exit 1; }
 jq -e . "$F" >/dev/null 2>&1 || { echo "test-codex-json: $F no es JSON válido" >&2; exit 1; }
@@ -28,6 +28,14 @@ CLAVES="type command timeout additionalContextLimit statusMessage commandWindows
 while IFS= read -r ev; do
   case " $EVENTOS " in *" $ev "*) ;; *) FALLOS+=("evento que no es de Codex: $ev") ;; esac
 done < <(jq -r '.hooks | keys[]' "$F" | tr -d '\r')
+
+while IFS= read -r k; do
+  case "$k" in hooks) ;; *) FALLOS+=("raíz: clave desconocida: $k") ;; esac
+done < <(jq -r 'keys[]' "$F" | tr -d '\r')
+
+while IFS=$'\t' read -r ev k; do
+  case "$k" in matcher | hooks) ;; *) FALLOS+=("$ev: clave desconocida en el grupo: $k") ;; esac
+done < <(jq -r '.hooks | to_entries[] | .key as $e | .value[] | keys[] | [$e, .] | @tsv' "$F" | tr -d '\r')
 
 while IFS=$'\t' read -r ev clave; do
   case " $CLAVES " in *" $clave "*) ;; *) FALLOS+=("$ev: clave desconocida en el handler: $clave") ;; esac
