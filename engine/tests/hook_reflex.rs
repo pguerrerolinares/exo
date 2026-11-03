@@ -8,6 +8,8 @@ fn entorno(log: PathBuf) -> Entorno {
     Entorno {
         state_dir: PathBuf::from("."),
         reflex_log: log,
+        rutas: exo::state::Rutas::resuelve(std::path::Path::new("."), |_| None),
+        seams: exo::state::Seams::resuelve(|_| None),
         cdpath_definido: false,
         panic_guard: None,
     }

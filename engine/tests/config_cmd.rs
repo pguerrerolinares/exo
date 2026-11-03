@@ -76,3 +76,82 @@ min_similarity = 0.35
         "kb.path llegó con separadores mezclados: {kb}"
     );
 }
+
+const CINCO: [(&str, &str); 5] = [
+    ("dir", "state_dir"),
+    ("reflex_log", "reflex_log"),
+    ("rules_dir", "rules_dir"),
+    ("index_log", "index_log"),
+    ("canary", "canary"),
+];
+
+fn esperado(r: &exo::state::Rutas, campo: &str) -> String {
+    let p = match campo {
+        "state_dir" => &r.state_dir,
+        "reflex_log" => &r.reflex_log,
+        "rules_dir" => &r.rules_dir,
+        "index_log" => &r.index_log,
+        _ => &r.canary,
+    };
+    p.display().to_string().replace('\\', "/")
+}
+
+#[test]
+fn json_expone_state() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let estado = dir.path().join("estado");
+    let ruta = dir.path().join("config.toml");
+    std::fs::write(
+        &ruta,
+        "schema_version = 1\n[kb]\npath = \"/kb/demo\"\nname = \"demo\"\n[index]\ndb = \"/i.db\"\n[embeddings]\nmodel = \"m/x\"\ndims = 768\nmin_similarity = 0.35\n",
+    )
+    .expect("escribir");
+    let out = Command::new(bin())
+        .args(["config", "--json"])
+        .env("EXO_CONFIG", &ruta)
+        .env("EXO_STATE_DIR", &estado)
+        .env_remove("REFLEX_LOG_FILE")
+        .env_remove("EXO_INDEX_LOG")
+        .env_remove("REFLEX_CANARY_FILE")
+        .output()
+        .expect("correr");
+    assert!(out.status.success());
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).expect("envelope");
+    let esp = exo::state::Rutas::resuelve(std::path::Path::new("/h"), |k| {
+        (k == "EXO_STATE_DIR").then(|| estado.clone().into_os_string())
+    });
+    for (clave, campo) in CINCO {
+        assert_eq!(v["data"]["state"][clave], esperado(&esp, campo), "{clave}");
+    }
+    assert_eq!(v["data"]["kb"]["name"], "demo");
+    assert!(v["data"]["index"]["db"].is_string());
+    assert_eq!(v["data"]["embeddings"]["dims"], 768);
+}
+
+#[test]
+fn state_sin_kb() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let estado = dir.path().join("estado");
+    let out = Command::new(bin())
+        .args(["config", "--json"])
+        .env("EXO_CONFIG", dir.path().join("no-existe.toml"))
+        .env("EXO_STATE_DIR", &estado)
+        .env_remove("REFLEX_LOG_FILE")
+        .env_remove("EXO_INDEX_LOG")
+        .env_remove("REFLEX_CANARY_FILE")
+        .output()
+        .expect("correr");
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_or_else(|e| {
+        panic!(
+            "stdout sin envelope ({e}): {}",
+            String::from_utf8_lossy(&out.stdout)
+        )
+    });
+    let esp = exo::state::Rutas::resuelve(std::path::Path::new("/h"), |k| {
+        (k == "EXO_STATE_DIR").then(|| estado.clone().into_os_string())
+    });
+    for (clave, campo) in CINCO {
+        assert_eq!(v["data"]["state"][clave], esperado(&esp, campo), "{clave}");
+    }
+    assert!(v["data"]["kb"].is_null());
+}

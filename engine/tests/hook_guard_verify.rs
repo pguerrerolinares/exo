@@ -93,6 +93,8 @@ fn entorno(d: &Path) -> Entorno {
     Entorno {
         state_dir: d.join("state"),
         reflex_log: d.join("reflex.jsonl"),
+        rutas: exo::state::Rutas::resuelve(std::path::Path::new("."), |_| None),
+        seams: exo::state::Seams::resuelve(|_| None),
         cdpath_definido: false,
         panic_guard: None,
     }
