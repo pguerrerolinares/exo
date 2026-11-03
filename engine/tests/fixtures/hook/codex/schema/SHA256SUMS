@@ -1,0 +1,6 @@
+48355bfcb568259cf396beb6ade2ac32827f50bf6a3c20b395c337dce184cbed  post-compact.command.output.schema.json
+a823d0e2c941e98d7d3af825dfdb0b1dfa6a935696ff8b8529e8e83232a1b0c8  post-tool-use.command.output.schema.json
+e684f81c63fbb5972892f6a848b49fec68c8ce137931651093d2dd1da56a1dd6  pre-tool-use.command.output.schema.json
+f375e6de1c59ecbabd8c1aff05a67976d0f3aa2ef061808838de4c7c20be1c71  session-start.command.output.schema.json
+dc2b30e84c97beca5825aa64ca46e1337e402781dc5a9142b67111d10523f15c  stop.command.output.schema.json
+5e290303db710f3ccc12f4a2744e8586e7749b3ca2b6bf9f57781ed75bf17b2b  user-prompt-submit.command.output.schema.json
