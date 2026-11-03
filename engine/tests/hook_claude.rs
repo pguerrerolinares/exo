@@ -139,12 +139,37 @@ fn render_block_es_decision_de_nivel_superior() {
 fn parse_captura_real_acepta_todas_las_lineas() {
     let lineas: Vec<&str> = PROBE.lines().collect();
     assert_eq!(lineas.len(), 10);
+    let sid = json_de(lineas[0])["session_id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    assert!(!sid.is_empty());
+    let mut compact = 0;
     for l in lineas {
         let nombre = json_de(l)["hook_event_name"].as_str().unwrap().to_string();
         let ev = parse(&nombre, l.as_bytes()).unwrap();
-        assert_eq!(ev.session_id, "562b11e3-c60d-4294-a45e-301b855415a9");
-        assert!(ev.tool.is_some(), "{nombre}");
+        assert_eq!(ev.session_id, sid, "{nombre}");
+        let kind_esperado = match nombre.as_str() {
+            "PreToolUse" => EventoKind::PreToolUse,
+            "PostToolUse" => EventoKind::PostToolUse,
+            "PostToolUseFailure" => EventoKind::PostToolUseFailure,
+            "SessionStart" => EventoKind::SessionStart,
+            "Stop" => EventoKind::Stop,
+            "UserPromptSubmit" => EventoKind::UserPromptSubmit,
+            otro => EventoKind::Otro(otro.to_string()),
+        };
+        assert_eq!(ev.kind, kind_esperado, "{nombre}");
+        let es_tool = matches!(
+            nombre.as_str(),
+            "PreToolUse" | "PostToolUse" | "PostToolUseFailure"
+        );
+        assert_eq!(ev.tool.is_some(), es_tool, "{nombre}");
+        if nombre == "SessionStart" && json_de(l)["source"] == "compact" {
+            assert_eq!(ev.source, "compact");
+            compact += 1;
+        }
     }
+    assert_eq!(compact, 1);
 }
 
 // Premisa de spec §4.2: un comando que falla llega como PostToolUseFailure (sin tool_response).
