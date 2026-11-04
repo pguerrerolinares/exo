@@ -3,6 +3,7 @@
 use exo::setup_codex::{ROL_CONSULTOR, ROL_EXECUTOR, aplica, ejecuta};
 use std::fs;
 use std::path::Path;
+#[cfg(unix)]
 use std::process::Command;
 
 fn agentes(dir: &Path) -> std::path::PathBuf {
