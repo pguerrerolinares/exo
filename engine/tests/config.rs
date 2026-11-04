@@ -86,7 +86,7 @@ min_similarity = 0.35
 
 #[test]
 fn expande_tilde_en_rutas() {
-    let home = dirs::home_dir().expect("home");
+    let home = exo::home_dir().expect("home");
     let expandida = exo::config::expande_tilde(std::path::Path::new("~/.exo/index.db"));
     assert_eq!(expandida, home.join(".exo/index.db"));
     // Una ruta que NO empieza por `~` se devuelve intacta, incluida una
@@ -145,5 +145,5 @@ fn ruta_config_respeta_la_variable_de_entorno() {
     unsafe { std::env::set_var("EXO_CONFIG", "") };
     let r_vacia = exo::config::ruta_config().expect("ruta con env vacía");
     unsafe { std::env::remove_var("EXO_CONFIG") };
-    assert_eq!(r_vacia, dirs::home_dir().unwrap().join(".exo/config.toml"));
+    assert_eq!(r_vacia, exo::home_dir().unwrap().join(".exo/config.toml"));
 }

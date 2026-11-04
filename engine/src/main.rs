@@ -656,7 +656,7 @@ fn versiona_kb(kb: &Path) -> bool {
 /// semilla, la versiona con git (best-effort) y la indexa.
 fn init_cmd(args: ArgsInit) -> Result<()> {
     let destino = exo::config::ruta_config()?;
-    let home = dirs::home_dir().context("sin HOME")?;
+    let home = exo::home_dir().context("sin HOME")?;
 
     // Se comprueba ANTES de tocar nada en disco: la guarda de
     // `escribe_config` llega tarde (tras volcar la plantilla y el `git init`

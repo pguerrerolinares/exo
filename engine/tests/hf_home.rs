@@ -65,7 +65,7 @@ fn sin_hf_home_la_cache_cae_bajo_el_home_del_usuario() {
     }
 
     let cache = exo::cache_hf_del_entorno();
-    let esperado: PathBuf = dirs::home_dir()
+    let esperado: PathBuf = exo::home_dir()
         .unwrap()
         .join(".cache")
         .join("huggingface")

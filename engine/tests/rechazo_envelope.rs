@@ -179,7 +179,7 @@ fn write_new_rechazado_con_json_emite_envelope_y_sale_3() {
 #[test]
 #[ignore = "depende de ~/.exo/index.db real; correr a mano con --ignored"]
 fn write_new_rechazado_contra_la_kb_real_emite_envelope_y_sale_3() {
-    let db = dirs::home_dir().expect("home").join(".exo/index.db");
+    let db = exo::home_dir().expect("home").join(".exo/index.db");
     if !db.exists() {
         panic!(
             "no hay índice en {} — este test necesita la KB real, no lo saltes: quítalo de \

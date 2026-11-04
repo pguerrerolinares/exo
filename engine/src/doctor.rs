@@ -130,7 +130,7 @@ impl Entorno {
     /// que quien lo invoque (`doctor_cmd`) los rellena aplicando la misma
     /// precedencia que el resto de verbos.
     pub fn del_proceso() -> Self {
-        let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+        let home = crate::home_dir().unwrap_or_else(|| PathBuf::from("."));
         let cache_hf = crate::cache_hf_del_entorno();
         Self {
             codex_home: crate::state::Seams::desde_env()

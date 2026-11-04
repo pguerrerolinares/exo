@@ -56,6 +56,6 @@ fn el_db_de_la_config_expande_tilde() {
     let db = con_config(CFG, || {
         exo::config::expande_tilde(&exo::config::carga().expect("cfg").index.db)
     });
-    let home = dirs::home_dir().expect("home");
+    let home = exo::home_dir().expect("home");
     assert_eq!(db, home.join(".exo/index.db"));
 }
