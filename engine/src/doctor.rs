@@ -191,8 +191,8 @@ pub fn analiza(entorno: &Entorno) -> InformeDoctor {
         check_superpowers(entorno),
         check_dispositivo(entorno, cfg.as_ref()),
         check_state_residuo(entorno),
-        check_rules_coverage(entorno, cfg.as_ref()),
         check_codex_rol_modelo(entorno),
+        check_rules_coverage(entorno, cfg.as_ref()),
     ])
 }
 
