@@ -19,7 +19,7 @@ const GC_EDAD: Duration = Duration::from_secs(14 * 86_400);
 #[serde(default)]
 pub struct Registro {
     pub ts: String,
-    /// `"tool"` o `"warn"`.
+    /// `"tool"`, `"warn"`, `"event"` o `"mark"`.
     pub kind: String,
     pub tool: String,
     pub clase: String,
@@ -58,6 +58,30 @@ pub fn registra_tool(en: &Entorno, ev: &Evento, ok: Option<bool>) -> std::io::Re
 
 pub fn registra_warn(en: &Entorno, ev: &Evento, code: &str) -> std::io::Result<()> {
     escribe(en, ev, "warn", None, code)
+}
+
+/// Registra un evento sin herramienta (`UserPromptSubmit`, `PostCompact`); `code` lleva el nombre del evento.
+pub fn registra_evento(en: &Entorno, ev: &Evento) -> std::io::Result<()> {
+    escribe(en, ev, "event", None, ev.kind.nombre())
+}
+
+/// Marca de sesión (`post-compact`, `post-compact-consumed`).
+pub fn registra_marca(en: &Entorno, ev: &Evento, code: &str) -> std::io::Result<()> {
+    escribe(en, ev, "mark", None, code)
+}
+
+/// Hay un `post-compact` posterior al último `post-compact-consumed` del mismo `agent_id`.
+pub fn marca_pendiente(en: &Entorno, ev: &Evento) -> bool {
+    let Ok(Some(l)) = lee(en, ev.harness, &ev.session_id, &ev.agent_id) else {
+        return false;
+    };
+    l.registros
+        .iter()
+        .rev()
+        .find(|r| {
+            r.kind == "mark" && (r.code == "post-compact" || r.code == "post-compact-consumed")
+        })
+        .is_some_and(|r| r.code == "post-compact")
 }
 
 fn escribe(

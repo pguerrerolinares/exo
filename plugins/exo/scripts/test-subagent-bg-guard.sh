@@ -9,8 +9,8 @@ HOOK="${SCRIPT_DIR}/subagent-bg-guard.sh"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 export HOME="$TMP/home"
-mkdir -p "$HOME/.claude"
-export REFLEX_LOG_FILE="$HOME/.claude/reflex-log.jsonl"
+mkdir -p "$HOME/.claude" "$HOME/.exo/state"
+export REFLEX_LOG_FILE="$HOME/.exo/state/reflex-log.jsonl"
 
 PASS=0
 FAIL=0

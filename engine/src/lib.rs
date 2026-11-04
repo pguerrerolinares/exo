@@ -26,10 +26,52 @@ pub mod recall;
 pub mod reglas;
 pub mod rotacion;
 pub mod schema;
+pub mod setup_codex;
+pub mod state;
 pub mod trinquete;
 pub mod trozos;
 pub mod vectores;
 pub mod walker;
+
+/// Home del usuario. En Windows `dirs::home_dir()` usa SHGetKnownFolderPath e
+/// ignora el entorno: un proceso con el perfil "aislado" por `USERPROFILE`
+/// escribiría igualmente en el perfil real. Aquí manda `USERPROFILE` (si es
+/// absoluta); `HOME` no, es cosa de Git Bash. En unix `dirs` ya respeta `HOME`.
+pub fn home_dir() -> Option<std::path::PathBuf> {
+    #[cfg(windows)]
+    if let Some(p) = std::env::var_os("USERPROFILE").map(std::path::PathBuf::from)
+        && p.is_absolute()
+    {
+        return Some(p);
+    }
+    dirs::home_dir()
+}
+
+/// Ruta lista para cruzar la frontera hacia shell: barras normales siempre.
+/// `expande_tilde` hace `home.join(resto)` con `home` en formato nativo de
+/// Windows (`\`) y `resto` con el separador literal del TOML (`/`); el
+/// `PathBuf` resultante mezcla los dos y a Rust no le importa (así abre
+/// ficheros en todo el engine), pero un script de shell sí que lo nota si
+/// hace `dirname`, recorta un prefijo o compara contra otra ruta. Se
+/// normaliza aquí, en la salida, no en `expande_tilde`: ese `PathBuf` es de
+/// uso interno del engine, y el problema nace justo al cruzar a shell.
+pub fn ruta_shell(p: &std::path::Path) -> String {
+    p.display().to_string().replace('\\', "/")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ruta_shell;
+    use std::path::Path;
+
+    #[test]
+    fn ruta_shell_normaliza_separadores_de_windows() {
+        assert_eq!(
+            ruta_shell(Path::new(r"C:\Users\x\.exo\state")),
+            "C:/Users/x/.exo/state"
+        );
+    }
+}
 
 static REG: Once = Once::new();
 
@@ -110,6 +152,43 @@ pub fn abre_db(ruta: &Path) -> Result<Connection> {
 pub fn kb_desde_config() -> Result<std::path::PathBuf> {
     let cfg = config::carga()?;
     Ok(config::expande_tilde(&cfg.kb.path))
+}
+
+/// Precedencia de la DB del índice: `--db` > `$EXO_DB` > `[index] db`.
+///
+/// `--db` era obligatorio «sin default (D6: un default sería config
+/// encubierta)». Con config propia deja de serlo: un valor declarado en un
+/// fichero del usuario no es config encubierta, es config.
+pub fn resuelve_db(flag: Option<std::path::PathBuf>) -> Result<std::path::PathBuf> {
+    if let Some(p) = flag {
+        return Ok(p);
+    }
+    if let Ok(v) = std::env::var("EXO_DB")
+        && !v.is_empty()
+    {
+        return Ok(config::expande_tilde(std::path::Path::new(&v)));
+    }
+    config_db()
+}
+
+/// `[index] db` de la config, sin mirar `$EXO_DB`: la rama de config de
+/// `resuelve_db`, para el hook, que no lee el entorno.
+pub fn config_db() -> Result<std::path::PathBuf> {
+    let cfg = config::carga()?;
+    Ok(config::expande_tilde(&cfg.index.db))
+}
+
+/// Precedencia de la raíz de la KB: `--kb` > `$EXO_KB` > `[kb] path`.
+pub fn resuelve_kb(flag: Option<std::path::PathBuf>) -> Result<std::path::PathBuf> {
+    if let Some(p) = flag {
+        return Ok(p);
+    }
+    if let Ok(v) = std::env::var("EXO_KB")
+        && !v.is_empty()
+    {
+        return Ok(config::expande_tilde(std::path::Path::new(&v)));
+    }
+    kb_desde_config()
 }
 
 /// Nombre de proyecto de la KB (prefijo de permalink), EXPLÍCITO en config.

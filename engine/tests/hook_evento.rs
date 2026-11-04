@@ -1,4 +1,4 @@
-use exo::hook::evento::{Clase, Decision, clasifica, combinar};
+use exo::hook::evento::{Clase, Decision, Harness, clasifica, combinar};
 use serde_json::json;
 
 #[test]
@@ -132,4 +132,46 @@ fn combinar_allow_no_tapa_a_steer() {
         combinar(vec![Decision::Allow, Decision::Steer("s".into())]),
         Decision::Steer("s".into())
     );
+}
+
+#[test]
+fn avisa_rango_steer() {
+    assert_eq!(
+        combinar(vec![
+            Decision::Steer("a".into()),
+            Decision::Avisa("b".into())
+        ]),
+        Decision::Steer("a\nb".into())
+    );
+    assert_eq!(
+        combinar(vec![
+            Decision::Avisa("b".into()),
+            Decision::Steer("a".into())
+        ]),
+        Decision::Steer("a\nb".into())
+    );
+    assert_eq!(
+        combinar(vec![
+            Decision::Avisa("b".into()),
+            Decision::Avisa("c".into())
+        ]),
+        Decision::Avisa("b\n\nc".into())
+    );
+    assert_eq!(
+        combinar(vec![
+            Decision::Deny("x".into()),
+            Decision::Avisa("b".into())
+        ]),
+        Decision::Deny("x".into())
+    );
+    let rw = Decision::Rewrite {
+        input: json!({"command":"y"}),
+        razon: "r".into(),
+    };
+    assert_eq!(combinar(vec![Decision::Avisa("b".into()), rw.clone()]), rw);
+}
+
+#[test]
+fn harness_codex_nombre() {
+    assert_eq!(Harness::Codex.nombre(), "codex");
 }

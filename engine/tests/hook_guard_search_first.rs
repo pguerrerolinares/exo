@@ -10,6 +10,8 @@ fn entorno(dir: &std::path::Path) -> Entorno {
     Entorno {
         state_dir: dir.to_path_buf(),
         reflex_log: dir.join("reflex.jsonl"),
+        rutas: exo::state::Rutas::resuelve(std::path::Path::new("."), |_| None),
+        seams: exo::state::Seams::resuelve(|_| None),
         cdpath_definido: false,
         panic_guard: None,
     }
@@ -24,6 +26,8 @@ fn evento(agent: &str, nombre: &str, input: serde_json::Value) -> Evento {
         cwd: "/x".into(),
         agent_id: agent.into(),
         agent_type: String::new(),
+        source: String::new(),
+        prompt: String::new(),
         crudo: String::new(),
         tool: Some(Tool {
             nombre: nombre.into(),

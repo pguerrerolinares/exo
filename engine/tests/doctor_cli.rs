@@ -153,6 +153,14 @@ fn la_lista_de_checks_es_contrato_y_no_puede_encoger() {
             // Añadido 2026-10-15: dónde embebió el último index/rebuild
             // (`na` sin la feature `cuda`). Al final: la lista crece.
             "embeddings_device",
+            // Añadido 2026-11-03: residuo de estado en `~/.claude/` (informativo).
+            "state_residuo",
+            // Añadido 2026-11-04: el `model` de los roles de Codex contra su
+            // `models_cache.json` (informativo).
+            "codex_rol_modelo",
+            // Añadido 2026-11-04 (#255): fichas de `projects/` sin `slug`/`repos:`
+            // o sin `## Reglas duras` (informativo, nunca `fail`).
+            "rules_coverage",
         ]
     );
 }

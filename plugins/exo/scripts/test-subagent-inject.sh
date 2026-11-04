@@ -2,7 +2,7 @@
 # Test standalone para subagent-inject.sh (adaptador SubagentStart, A1 spec §5.2).
 # Never-break: exit 0 SIEMPRE. Politica de profundidad v1: spawnDepth>1 => no inyecta;
 # meta ausente/sin match => inyecta (default never-break).
-# Fixtures en mktemp -d; nunca toca ~/.claude/reflex-log.jsonl ni ~/.claude/projects reales.
+# Fixtures en mktemp -d; nunca toca ~/.exo/state/reflex-log.jsonl ni ~/.claude/projects reales.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

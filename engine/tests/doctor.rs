@@ -12,8 +12,10 @@ use exo::doctor::{Check, Entorno, Estado, InformeDoctor, analiza};
 fn entorno(dir: &Path) -> Entorno {
     let home = dir.join("home");
     Entorno {
+        rutas: exo::state::Rutas::resuelve(&home, |_| None),
         config: home.join(".exo").join("config.toml"),
         cache_hf: home.join(".cache").join("huggingface").join("hub"),
+        codex_home: home.join(".codex"),
         home,
         path: String::new(),
         kb: None,
@@ -130,8 +132,10 @@ fn entorno_con_config(dir: &Path) -> Entorno {
     )
     .unwrap();
     Entorno {
+        rutas: exo::state::Rutas::resuelve(&home, |_| None),
         config: cfg,
         cache_hf: home.join(".cache").join("huggingface").join("hub"),
+        codex_home: home.join(".codex"),
         home,
         path: String::new(),
         kb: None,
@@ -311,7 +315,9 @@ fn sin_jq_es_fail_porque_los_hooks_del_plugin_lo_exigen() {
     let c = check(&informe, "jq");
     assert_eq!(c.estado, Estado::Fail);
     assert!(
-        c.detalle.contains("exo-recall") && !c.detalle.contains("recall-inject"),
+        c.detalle.contains("subagent-inject.sh")
+            && !c.detalle.contains("exo-recall")
+            && !c.detalle.contains("recall-inject"),
         "dice QUÉ se rompe sin jq, sin nombrar scripts borrados: {}",
         c.detalle
     );
@@ -380,17 +386,29 @@ fn git_bash_sale_na_fuera_de_windows_y_no_desaparece_del_informe() {
 }
 
 #[test]
-fn sin_via_de_detach_el_check_nombra_el_evento_que_deja_el_hook() {
+fn detach_describe_el_guard_index_y_sus_reasons_reales() {
     let dir = tempfile::tempdir().unwrap();
     fs::create_dir_all(dir.path().join("kb")).unwrap();
     let informe = analiza(&entorno_con_config(dir.path()));
     let c = check(&informe, "detach");
-    assert_ne!(c.estado, Estado::Ok, "PATH vacío: no hay setsid ni cmd");
-    assert!(
-        c.detalle.contains("no-detach"),
-        "nombra el evento que deja exo-index.sh: {}",
-        c.detalle
+    assert_eq!(
+        c.estado,
+        Estado::Ok,
+        "PATH vacío: el guard no necesita setsid ni cmd"
     );
+    for real in ["guard Index", "no-db", "detach-failed"] {
+        assert!(
+            c.detalle.contains(real) || c.artefacto.contains(real),
+            "falta {real}: {c:?}"
+        );
+    }
+    for muerto in ["exo-index.sh", "no-detach"] {
+        assert!(
+            !c.detalle.contains(muerto),
+            "da por vivo {muerto}: {}",
+            c.detalle
+        );
+    }
 }
 
 #[test]
@@ -1237,4 +1255,158 @@ fn un_jq_que_emite_crlf_es_ok_y_lo_dice_en_el_detalle() {
         "{}",
         c.detalle
     );
+}
+
+fn con_viejo(dir: &Path, nombre: &str, contenido: &str) -> Entorno {
+    let env = entorno(dir);
+    let viejo = env.home.join(".claude").join(nombre);
+    fs::create_dir_all(viejo.parent().unwrap()).unwrap();
+    fs::write(&viejo, contenido).unwrap();
+    env
+}
+
+#[test]
+fn state_residuo_informativo() {
+    let dir = tempfile::tempdir().unwrap();
+    let env = con_viejo(dir.path(), "reflex-log.jsonl", "{}\n");
+    let informe = analiza(&env);
+    let c = check(&informe, "state_residuo");
+    assert_eq!(c.estado, Estado::Warn, "informa, no gatea");
+    let viejo = env.home.join(".claude/reflex-log.jsonl");
+    let nuevo = &env.rutas.reflex_log;
+    let cmd = exo::doctor::comando_migrar(&viejo, nuevo);
+    assert!(c.detalle.contains(&cmd), "{}", c.detalle);
+}
+
+#[test]
+fn state_residuo_ausente_o_vacio_es_ok() {
+    let dir = tempfile::tempdir().unwrap();
+    let informe = analiza(&entorno(dir.path()));
+    assert_eq!(check(&informe, "state_residuo").estado, Estado::Ok);
+
+    let dir = tempfile::tempdir().unwrap();
+    let informe = analiza(&con_viejo(dir.path(), "exo-index.log", ""));
+    assert_eq!(check(&informe, "state_residuo").estado, Estado::Ok);
+}
+
+#[test]
+fn state_residuo_lista_un_migrando_sobrante() {
+    let dir = tempfile::tempdir().unwrap();
+    let env = con_viejo(dir.path(), "exo-index.log.migrando-123-0", "linea\n");
+    let informe = analiza(&env);
+    let c = check(&informe, "state_residuo");
+    assert_eq!(c.estado, Estado::Warn);
+    assert!(
+        c.detalle.contains("exo-index.log.migrando-123-0"),
+        "{}",
+        c.detalle
+    );
+    assert!(c.detalle.contains("reclamo sobrante"), "{}", c.detalle);
+}
+
+fn con_roles(env: &Entorno, modelo: &str) {
+    let dir = env.home.join(".exo/codex-agents");
+    fs::create_dir_all(&dir).unwrap();
+    for f in ["consultor.toml", "executor.toml"] {
+        fs::write(dir.join(f), format!("model = \"{modelo}\"\n")).unwrap();
+    }
+}
+
+fn con_cache(env: &Entorno, slugs: &[&str]) {
+    fs::create_dir_all(&env.codex_home).unwrap();
+    let modelos: Vec<_> = slugs
+        .iter()
+        .map(|s| format!("{{\"slug\":\"{s}\"}}"))
+        .collect();
+    fs::write(
+        env.codex_home.join("models_cache.json"),
+        format!("{{\"models\":[{}]}}", modelos.join(",")),
+    )
+    .unwrap();
+}
+
+#[test]
+fn rol_modelo_rotado() {
+    let dir = tempfile::tempdir().unwrap();
+    let env = entorno(dir.path());
+    con_roles(&env, "gpt-6.1-sol");
+    con_cache(&env, &["gpt-6-astra", "gpt-6-luna"]);
+    let c = check(&analiza(&env), "codex_rol_modelo").clone();
+    assert_eq!(c.estado, Estado::Warn, "informa, no gatea: {}", c.detalle);
+    assert!(c.detalle.contains("gpt-6.1-sol"), "{}", c.detalle);
+    assert!(
+        c.detalle.contains("consultor") && c.detalle.contains("executor"),
+        "{}",
+        c.detalle
+    );
+    assert!(c.artefacto.contains("models_cache.json"), "{}", c.artefacto);
+    // Editar el rol no sirve: `exo setup codex` lo reescribe en cada instalación.
+    assert!(
+        !c.detalle.contains("edita") && c.detalle.contains("actualiza exo"),
+        "{}",
+        c.detalle
+    );
+
+    // Caso negativo: la caché lleva el modelo -> sin finding.
+    con_cache(&env, &["gpt-6.1-sol", "gpt-6-luna"]);
+    assert_eq!(check(&analiza(&env), "codex_rol_modelo").estado, Estado::Ok);
+}
+
+#[test]
+fn rol_modelo_sin_caso_que_juzgar_es_na() {
+    let dir = tempfile::tempdir().unwrap();
+    let env = entorno(dir.path());
+    let c = check(&analiza(&env), "codex_rol_modelo").clone();
+    assert_eq!(c.estado, Estado::Na, "sin roles ni caché: {}", c.detalle);
+
+    con_roles(&env, "gpt-6.1-sol");
+    let c = check(&analiza(&env), "codex_rol_modelo").clone();
+    assert_eq!(c.estado, Estado::Na, "sin caché no hay con qué comparar");
+
+    fs::create_dir_all(&env.codex_home).unwrap();
+    fs::write(env.codex_home.join("models_cache.json"), "no es json").unwrap();
+    assert_eq!(check(&analiza(&env), "codex_rol_modelo").estado, Estado::Na);
+
+    let dir = tempfile::tempdir().unwrap();
+    let env = entorno(dir.path());
+    con_cache(&env, &["gpt-6-luna"]);
+    assert_eq!(
+        check(&analiza(&env), "codex_rol_modelo").estado,
+        Estado::Na,
+        "sin roles instalados"
+    );
+}
+
+fn ficha(kb: &Path, nombre: &str, cuerpo: &str) {
+    let dir = kb.join("projects");
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join(nombre), cuerpo).unwrap();
+}
+
+#[test]
+fn rules_coverage_avisa_de_las_fichas_sin_clave_o_sin_seccion_y_nunca_falla() {
+    let dir = tempfile::tempdir().unwrap();
+    let kb = dir.path().join("kb");
+    ficha(&kb, "_template.md", "---\nsemilla: true\n---\nx\n");
+    ficha(&kb, "buena.md", "---\nrepos: [a]\n---\n## Reglas duras\n");
+    ficha(&kb, "suelta.md", "---\ntags: [x]\n---\n## Reglas duras\n");
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "rules_coverage");
+    assert_eq!(c.estado, Estado::Warn);
+    assert!(c.detalle.starts_with("1 ficha"), "detalle: {}", c.detalle);
+    assert!(c.detalle.contains("projects/suelta.md"), "{}", c.detalle);
+    assert!(!c.detalle.contains("buena"), "{}", c.detalle);
+    assert!(c.detalle.contains("sembrar-kb.md"), "{}", c.detalle);
+}
+
+#[test]
+fn rules_coverage_es_ok_sin_fichas_o_con_todas_completas() {
+    let dir = tempfile::tempdir().unwrap();
+    let kb = dir.path().join("kb");
+    fs::create_dir_all(&kb).unwrap();
+    let informe = analiza(&entorno_con_config(dir.path()));
+    assert_eq!(check(&informe, "rules_coverage").estado, Estado::Ok);
+    ficha(&kb, "buena.md", "---\nslug: b\n---\n## Reglas duras\n");
+    let informe = analiza(&entorno_con_config(dir.path()));
+    assert_eq!(check(&informe, "rules_coverage").estado, Estado::Ok);
 }

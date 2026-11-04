@@ -10,6 +10,8 @@ fn entorno(log: PathBuf) -> Entorno {
     Entorno {
         state_dir: PathBuf::from("."),
         reflex_log: log,
+        rutas: exo::state::Rutas::resuelve(std::path::Path::new("."), |_| None),
+        seams: exo::state::Seams::resuelve(|_| None),
         cdpath_definido: false,
         panic_guard: None,
     }
@@ -23,6 +25,8 @@ fn evento(cmd: &str, cwd: &str, agent: &str) -> Evento {
         cwd: cwd.into(),
         agent_id: agent.into(),
         agent_type: String::new(),
+        source: String::new(),
+        prompt: String::new(),
         crudo: json!({"tool_input": {"command": cmd}, "cwd": cwd}).to_string(),
         tool: Some(Tool {
             nombre: "Bash".into(),

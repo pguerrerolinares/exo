@@ -203,7 +203,7 @@ pub fn ruta_basic_memory() -> Result<PathBuf> {
     {
         return Ok(PathBuf::from(v));
     }
-    Ok(dirs::home_dir()
+    Ok(crate::home_dir()
         .context("sin HOME")?
         .join(".basic-memory/config.json"))
 }

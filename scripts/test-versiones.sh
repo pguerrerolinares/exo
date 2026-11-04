@@ -49,8 +49,8 @@ fi
 
 # ENGINE_MIN (campaña H): el mínimo de engine que el plugin instalado declara
 # necesitar (lo lee `exo doctor` del plugin en caché, y el hook
-# `exo-recall.sh` del propio binario en ejecución). Tiene que ser <= la
-# versión real de engine — un
+# `exo hook <h> SessionStart --min` del propio binario en ejecución). Tiene
+# que ser <= la versión real de engine — un
 # ENGINE_MIN por delante de lo que el propio repo publica marcaría todo
 # binario recién compilado como "viejo".
 engine_min="$(tr -d '[:space:]' < plugins/exo/ENGINE_MIN 2>/dev/null || true)"
@@ -65,15 +65,36 @@ elif [ -n "$engine" ]; then
   fi
 fi
 
-# ENGINE_MIN 0.14.0 (plugin 1.32.0): el cableado de hooks.json pasa a
-# `exo hook claude <evento>` (engine 0.14.0). A diferencia de las reglas (#184,
-# 0.10.0, que los consumidores toleran ausentes), un `exo` más viejo deja los
-# guards migrados sin efecto; ENGINE_MIN lo avisa en SessionStart. Se sube solo
-# con un cambio que lo exija de verdad.
-if [ "$engine_min" != "0.14.0" ]; then
-  echo "[FAIL] ENGINE_MIN es '$engine_min', esperado 0.14.0: subirlo deja en engine-stale a los engines anteriores; si el cambio lo exige de verdad, actualiza esta guardia con el porqué" >&2
+# ENGINE_MIN 0.15.0 (plugin 1.33.0): B mueve el estado al engine, y hooks.json
+# pasa a necesitar `exo hook claude SessionStart --min` y `exo hook claude Stop`
+# (los scripts exo-recall.sh/exo-index.sh se borran; spec exo-hook-codex §5.7).
+# A diferencia de las reglas (#184, 0.10.0, que los consumidores toleran
+# ausentes), un `exo` más viejo deja SessionStart/Stop sin efecto; ENGINE_MIN lo
+# avisa en SessionStart. Se sube solo con un cambio que lo exija de verdad.
+if [ "$engine_min" != "0.15.0" ]; then
+  echo "[FAIL] ENGINE_MIN es '$engine_min', esperado 0.15.0: subirlo deja en engine-stale a los engines anteriores; si el cambio lo exige de verdad, actualiza esta guardia con el porqué" >&2
   fallos=1
 fi
+
+# Tres manifests del plugin con la misma versión (Claude, marketplace, Codex).
+codex_plugin="$(jq -r '.version // empty' plugins/exo/.codex-plugin/plugin.json)"
+if [ -z "$codex_plugin" ] || [ "$codex_plugin" != "$plugin" ]; then
+  echo "[FAIL] .codex-plugin/plugin.json dice '$codex_plugin' y .claude-plugin/plugin.json dice '$plugin'" >&2
+  fallos=1
+fi
+
+# Los --min de los hooks (Claude y Codex) son ENGINE_MIN: si no, el aviso
+# engine-stale y el fichero ENGINE_MIN discrepan.
+for f in plugins/exo/hooks/hooks.json plugins/exo/hooks/codex.json; do
+  mins="$(grep -oE -e '--min [0-9]+\.[0-9]+\.[0-9]+' "$f" | awk '{print $2}' | sort -u)"
+  if [ -z "$mins" ]; then
+    echo "[FAIL] $f no lleva ningún --min" >&2
+    fallos=1
+  elif [ "$mins" != "$engine_min" ]; then
+    echo "[FAIL] $f: --min '$(printf '%s' "$mins" | tr '\n' ' ')' no es ENGINE_MIN ($engine_min)" >&2
+    fallos=1
+  fi
+done
 
 # El CLI de claude que valida el mod está pineado en dos workflows: tienen que
 # coincidir o CI y release validarían contra versiones distintas.

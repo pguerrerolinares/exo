@@ -341,14 +341,62 @@ pub fn recall_arranque_contenido(
     cap_bytes: usize,
     nota: Option<&str>,
 ) -> Result<String> {
+    let a = recall_arranque_bloque(db_ruta, kb, limite, cap_bytes, nota)?;
+    for aviso in &a.avisos {
+        eprintln!("aviso: {aviso}");
+    }
+    if a.truncado {
+        eprintln!(
+            "aviso: bloque de arranque truncado por --cap-bytes={cap_bytes} \
+             ({} líneas descartadas de {})",
+            a.descartadas, a.total
+        );
+    }
+    Ok(a.bloque)
+}
+
+/// Bloque de arranque + lo que `recall_arranque_contenido` imprime por stderr,
+/// como datos: el hook no puede ensuciar su stderr y necesita saber si cortó.
+pub struct ArranqueContenido {
+    pub bloque: String,
+    pub avisos: Vec<String>,
+    pub truncado: bool,
+    pub descartadas: usize,
+    pub total: usize,
+}
+
+/// El cap dejó el bloque sin contenido: el hook lo registra como `truncated` además de `empty`.
+#[derive(Debug)]
+pub struct CapVacio {
+    pub cap_bytes: usize,
+}
+
+impl std::fmt::Display for CapVacio {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "recall de arranque vacío: --cap-bytes={} no deja servir ninguna nota",
+            self.cap_bytes
+        )
+    }
+}
+
+impl std::error::Error for CapVacio {}
+
+/// Igual que `recall_arranque_contenido`, sin imprimir nada.
+pub fn recall_arranque_bloque(
+    db_ruta: &Path,
+    kb: &Path,
+    limite: usize,
+    cap_bytes: usize,
+    nota: Option<&str>,
+) -> Result<ArranqueContenido> {
     let bruto = recall_arranque(db_ruta, kb, limite)?;
     // Este camino (`--content`, el del hook) no pasa por el envelope ni por
     // `aplica_cap`/`Recall.avisos` — devuelve un bloque de texto crudo, no
     // una struct — así que sus avisos (hoy: solo kb_root) van directo a
     // stderr aquí, la única vez que se tienen a mano.
-    for aviso in &bruto.avisos {
-        eprintln!("aviso: {aviso}");
-    }
+    let avisos = bruto.avisos.clone();
 
     // Una nota pedida por permalink se busca en TODO el índice, no solo
     // entre las que `recall_arranque` seleccionó: si no, solo se podrían
@@ -440,14 +488,6 @@ pub fn recall_arranque_contenido(
         bloque.push('\n');
         escritas += 1;
     }
-    if escritas < total {
-        eprintln!(
-            "aviso: bloque de arranque truncado por --cap-bytes={cap_bytes} \
-             ({} líneas descartadas de {total})",
-            total - escritas
-        );
-    }
-
     // "Vacío" es no haber servido NINGUNA línea de contenido, no que el
     // bloque esté en blanco: la cabecera y la línea de la raíz siempre están,
     // así que compararlas contra el texto entero dejaba de detectar el caso en
@@ -460,9 +500,18 @@ pub fn recall_arranque_contenido(
         .take(escritas.saturating_sub(lineas_de_cabecera))
         .any(|l| !l.trim().is_empty());
     if !hubo_contenido {
+        if escritas < total {
+            return Err(CapVacio { cap_bytes }.into());
+        }
         anyhow::bail!("recall de arranque vacío: sin notas core ni recientes que servir");
     }
-    Ok(bloque)
+    Ok(ArranqueContenido {
+        bloque,
+        avisos,
+        truncado: escritas < total,
+        descartadas: total - escritas,
+        total,
+    })
 }
 
 /// Ruta de una nota relativa a la raíz de la KB, con `/` como separador en

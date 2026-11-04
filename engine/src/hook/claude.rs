@@ -26,6 +26,8 @@ pub fn parse(evento: &str, stdin: &[u8]) -> anyhow::Result<Evento> {
         agent_type: campo("agent_type"),
         crudo: String::from_utf8_lossy(stdin).into_owned(),
         tool,
+        source: campo("source"),
+        prompt: campo("prompt"),
     })
 }
 
@@ -34,6 +36,10 @@ fn kind(evento: &str) -> EventoKind {
         "PreToolUse" => EventoKind::PreToolUse,
         "PostToolUse" => EventoKind::PostToolUse,
         "PostToolUseFailure" => EventoKind::PostToolUseFailure,
+        "SessionStart" => EventoKind::SessionStart,
+        "Stop" => EventoKind::Stop,
+        "UserPromptSubmit" => EventoKind::UserPromptSubmit,
+        "PostCompact" => EventoKind::PostCompact,
         otro => EventoKind::Otro(otro.to_string()),
     }
 }
@@ -70,6 +76,7 @@ pub fn render(d: &Decision, ev: &Evento) -> String {
             "additionalContext": m,
         }})
         .to_string(),
+        Decision::Avisa(m) => json!({"systemMessage": m}).to_string(),
         Decision::Block(r) => json!({"decision":"block","reason":r}).to_string(),
     }
 }

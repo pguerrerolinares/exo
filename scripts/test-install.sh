@@ -135,5 +135,54 @@ else
   echo "test-install: OK — doctor con exit 3 avisa con su código y no aborta"
 fi
 
+# --- Caso 5: con `codex` en el PATH, `exo setup codex` que sale 3 -> la
+# instalación sale 0 y el aviso nombra el exit y el comando para reintentar.
+rel="$TMP/release-codex"; dest="$TMP/bin-codex"; fakebin="$TMP/path-codex"
+# shellcheck disable=SC2016 # el binario falso es texto literal del fixture
+fabrica_release "$rel" '#!/bin/sh
+[ "$1" = setup ] && exit 3
+echo exo-falso'
+mkdir -p "$fakebin"
+printf '#!/bin/sh\nexit 0\n' > "$fakebin/codex"
+chmod +x "$fakebin/codex"
+if ! PATH="$fakebin:$PATH" EXO_BASE_URL="$(file_url "$rel")" EXO_DIR="$dest" bash ./install.sh >"$TMP/codex.log" 2>&1; then
+  echo "test-install: FALLO — setup codex con exit 3 tumbó la instalación" >&2
+  cat "$TMP/codex.log" >&2
+  fallos=1
+elif ! grep -qF "setup codex falló (exit 3): corre \`exo setup codex\`" "$TMP/codex.log"; then
+  echo "test-install: FALLO — el aviso no nombra el exit 3 ni el comando" >&2
+  cat "$TMP/codex.log" >&2
+  fallos=1
+else
+  echo "test-install: OK — setup codex con exit 3 avisa y no aborta"
+fi
+
+# --- Caso 6: sin `codex` en el PATH no se invoca `setup codex`.
+rel="$TMP/release-sincodex"; dest="$TMP/bin-sincodex"; marca="$TMP/marca-setup"
+fabrica_release "$rel" "#!/bin/sh
+[ \"\$1\" = setup ] && : > '$marca'
+echo exo-falso"
+sinpath="$TMP/path-vacio"; mkdir -p "$sinpath"
+for t in bash curl uname mktemp mkdir chmod mv rm cat sed grep tr dirname head awk shasum sha256sum cut sort install ln cp tee date; do
+  p="$(command -v "$t" 2>/dev/null)" && [ -n "$p" ] && ln -sf "$p" "$sinpath/$t"
+done
+if PATH="$sinpath" EXO_BASE_URL="$(file_url "$rel")" EXO_DIR="$dest" "$sinpath/bash" ./install.sh >"$TMP/sincodex.log" 2>&1 && [ ! -e "$marca" ]; then
+  echo "test-install: OK — sin codex no se invoca setup codex"
+else
+  echo "test-install: FALLO — sin codex en el PATH se invocó setup codex o falló la instalación" >&2
+  cat "$TMP/sincodex.log" >&2
+  fallos=1
+fi
+
+# --- Caso 7 (estático; install.ps1 no corre fuera de Windows): tras la llamada
+# nativa `setup codex` se mira $LASTEXITCODE, y no hay try/catch que lo esconda.
+# shellcheck disable=SC2016 # `$` literales de PowerShell
+if grep -A1 -F '& $destino setup codex' install.ps1 | tail -1 | grep -qF '$LASTEXITCODE -ne 0'; then
+  echo "test-install: OK — install.ps1 mira \$LASTEXITCODE tras setup codex"
+else
+  echo "test-install: FALLO — install.ps1 no comprueba \$LASTEXITCODE justo tras setup codex" >&2
+  fallos=1
+fi
+
 [ "$fallos" -eq 0 ] || { echo "test-install: hay fallos" >&2; exit 1; }
-echo "test-install: OK — los cuatro casos"
+echo "test-install: OK — los siete casos"

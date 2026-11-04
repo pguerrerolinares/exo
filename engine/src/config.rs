@@ -54,7 +54,7 @@ pub fn ruta_config() -> Result<PathBuf> {
             return Ok(PathBuf::from(v));
         }
     }
-    Ok(dirs::home_dir()
+    Ok(crate::home_dir()
         .context("sin HOME: no se puede localizar ~/.exo/config.toml")?
         .join(".exo/config.toml"))
 }
@@ -64,7 +64,7 @@ pub fn ruta_config() -> Result<PathBuf> {
 pub fn expande_tilde(p: &Path) -> PathBuf {
     let s = p.to_string_lossy();
     if let Some(resto) = s.strip_prefix("~/").or_else(|| s.strip_prefix("~\\"))
-        && let Some(home) = dirs::home_dir()
+        && let Some(home) = crate::home_dir()
     {
         return home.join(resto);
     }

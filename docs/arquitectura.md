@@ -53,7 +53,7 @@ flowchart LR
         SKILLS["Skills /brainstorm … /distill<br/>+ agentes executor y consultor"]
     end
     subgraph thin["plugins/exo (capa thin)"]
-        SH["scripts/*.sh<br/>exo-recall · estilo-directo · subagent-inject<br/>exo-index · document-remind · guards"]
+        SH["scripts/*.sh<br/>estilo-directo · subagent-inject<br/>document-remind · guards"]
         MOD["hooks/register.ts<br/>(mod de reglas duras)"]
     end
     subgraph engine["engine (binario Rust exo)"]
@@ -63,7 +63,7 @@ flowchart LR
     KB[("KB markdown<br/>repo git del usuario")]
     CFG["~/.exo/config.toml"]
     PRE["pre-commit de la KB<br/>kb-precommit.sh"]
-    LOG["~/.claude/reflex-log.jsonl<br/>~/.claude/exo-rules/ss-sid, hb-sid"]
+    LOG["~/.exo/state/reflex-log.jsonl<br/>~/.exo/state/exo-rules/ss-sid, hb-sid"]
 
     EV --> SH
     MODEV --> MOD
@@ -417,7 +417,7 @@ tope en bytes y su fuente.
 
 | Evento | Script / mod | Tope | Fuente y contenido |
 |---|---|---|---|
-| `SessionStart` | `exo-recall.sh` | **1.500 B** (`BLOQUE_CAP`) | Pide al engine el core-index con `--cap-bytes 6144` y se queda **solo con la sección `## Contrato de memoria`**. Le suma los avisos (superpowers habilitado a la vez que exo, gate de `/document` pendiente, reglas ambiguas/vacías/recortadas, engine desactualizado). El corte es por el final: los avisos caen antes que el contrato. La reafirmación de reflejos tras una compactación va fuera de ese tope |
+| `SessionStart` | `exo hook <h> SessionStart` | **1.500 B** (`BLOQUE_CAP`) | Pide al engine el core-index con `--cap-bytes 6144` y se queda **solo con la sección `## Contrato de memoria`**. Le suma los avisos (superpowers habilitado a la vez que exo, gate de `/document` pendiente, reglas ambiguas/vacías/recortadas, engine desactualizado). El corte es por el final: los avisos caen antes que el contrato. La reafirmación de reflejos tras una compactación va fuera de ese tope |
 | `SessionStart` | `estilo-directo.sh` | Sin tope en código; hoy 509 B | Texto estático de `plugins/exo/scripts/estilo-directo.md`. No depende del engine ni de la KB |
 | Cada turno (`prompt.compose`; `prompt.submit` como alternativa) | mod `register.ts` | Máximo 10 reglas por lista (dueño y proyecto), sin tope en bytes | `exo rules --cwd <cwd> --json`: las dos listas, «Reglas duras del dueño» primero. Entran como sección de system prompt de scope `session` (compose) o como contexto del prompt (submit) |
 | `SubagentStart` | `subagent-inject.sh` → `compose-inject.sh` | **3.072 B** para el bloque entero | Un perfil por `agent_type` (`plugins/exo/scripts/inject-profiles.json`), con las reglas duras justo tras la cabecera |
@@ -457,10 +457,10 @@ flowchart TD
     NOTA --> RULES
     GLOB --> RULES
     RULES --> MODR["mod register.ts<br/>prompt.compose en cada turno"]
-    RULES --> SS["exo-recall.sh (SessionStart)<br/>resuelve y deja ss-sid"]
+    RULES --> SS["exo hook (SessionStart)<br/>resuelve y deja ss-sid"]
     RULES --> CI["compose-inject.sh (SubagentStart)<br/>reducido y ejecucion, 3072 B"]
     MODR -->|"sección de system prompt<br/>o fallback prompt.submit"| AG["Agente principal"]
-    MODR -->|"deja hb-sid"| HB["~/.claude/exo-rules/hb-sid"]
+    MODR -->|"deja hb-sid"| HB["~/.exo/state/exo-rules/hb-sid"]
     SS -->|"ss-sid"| WIT
     HB --> WIT["document-remind.sh (Stop)<br/>testigo: compara ss con hb"]
     WIT -->|"aviso si no entregó"| AG
@@ -492,8 +492,8 @@ flowchart TD
   `prompt.compose`: la opción de plugin `composeHook` (default `true`) lo
   desregistra, y el mod también pasa a `submit` solo si no ve vivo el canal
   compose. Nunca lanza: cada fallo se rinde a un latido de error.
-- **El testigo.** Dos ficheros por sesión en `~/.claude/exo-rules/`:
-  `ss-<sid>` (lo que `exo-recall.sh` resolvió al arrancar) y `hb-<sid>` (lo que
+- **El testigo.** Dos ficheros por sesión en `~/.exo/state/exo-rules/`:
+  `ss-<sid>` (lo que `exo hook` resolvió al arrancar) y `hb-<sid>` (lo que
   el mod entregó, con su canal: `compose`, `submit` o `none`). En el `Stop`,
   `document-remind.sh` los compara y avisa con un `systemMessage` si el mod no
   cargó, si ningún canal entregó o si entregó distinto de lo que el engine
@@ -512,16 +512,16 @@ flowchart TD
 Los hooks (`exo hook` y los `.sh` restantes) son los «reflejos»: guardrails deterministas que activan el
 conocimiento en el punto de acción. Invariantes reales de todos ellos:
 **abstención por defecto** (sin `jq`, sin engine o ante un payload ilegible
-callan) y **logging best-effort** a `~/.claude/reflex-log.jsonl` que nunca
+callan) y **logging best-effort** a `~/.exo/state/reflex-log.jsonl` que nunca
 rompe lo que instrumenta, para medir falsos positivos a posteriori. No son
 «never-block»: bloquean o deniegan exactamente los que la tabla marca.
 
 | Reflejo | Evento / matcher | Script | Efecto | Tope |
 |---|---|---|---|---|
-| Recall de arranque | `SessionStart` | `exo-recall.sh` | **Inyecta** el contrato de memoria y avisos (§4.1); `systemMessage` visible si hay anomalía de reglas. Ante engine ausente, índice ausente, engine bajo `ENGINE_MIN` o bloque vacío/sin la frase-guarda `Contrato de memoria`, cae a un texto embebido y deja un evento con la razón (`no-engine`, `no-index`, `engine-stale`, `empty`, `truncated`, `no-contract`) | 1.500 B |
+| Recall de arranque | `SessionStart` | `exo hook <h> SessionStart --min <ENGINE_MIN>` | **Inyecta** el contrato de memoria y avisos (§4.1); `systemMessage` visible si hay anomalía de reglas. Ante índice ausente, engine bajo `--min` o bloque vacío/sin la frase-guarda `Contrato de memoria`, cae a un texto embebido y deja un evento con la razón (`no-index`, `engine-stale`, `empty`, `truncated`, `no-contract`); sin el binario `exo` no hay hook | 1.500 B |
 | Estilo directo | `SessionStart` | `estilo-directo.sh` | **Inyecta** una directiva de estilo fija | – |
 | Inyección a subagentes | `SubagentStart` | `subagent-inject.sh` | **Inyecta** el bloque por perfil (§4.1) | 3.072 B |
-| Reindexado | `Stop` | `exo-index.sh` | **Efecto lateral**: lanza `exo index` desacoplado (`setsid`, o `cmd start` en Git Bash) para sobrevivir al kill del process group; no habla con el agente | – |
+| Reindexado | `Stop` | `exo hook <h> Stop` | **Efecto lateral** (guard `Index`): lanza `exo index` desacoplado (`process_group(0)` en Unix, `DETACHED_PROCESS` en Windows) para sobrevivir al kill del process group; no habla con el agente | – |
 | Testigo y recordatorio | `Stop` | `document-remind.sh` | **Aviso** (`systemMessage`): el testigo de reglas (§4.2) y el recordatorio de `/document` si hubo trabajo real | 1 por sesión cada uno |
 | Despertar de olas SDD | `Stop` | `sdd-wake-guard.sh` | **Block**: con un ledger SDD tocado en las últimas 6 h, tareas de fondo vivas y ningún cron, bloquea el cierre y pide un `CronCreate` one-shot (`skills/orchestrate/despertar.md`). Cubre un hueco del harness: el aviso de fin de una tarea de fondo de un teammate idle no reinvoca a nadie | No en subagentes; no si `stop_hook_active` |
 | Delegar decisión | `Stop` | `delegar-decision.sh` | **Block**: si el último texto del turno es propuesta + «¿te parece?» y no hubo `Agent`/`Task` en el segmento, pide lanzar el consultor o el ejecutor. Si la pregunta es del usuario, el cierre empieza por `[reserva: externo\|irreversible\|re-scope\|hecho-del-usuario\|pedido]` | 1 bloqueo por mensaje humano; sin mensaje humano (`-p`/SDK), el segundo Stop (`stop_hook_active`) pasa |
@@ -558,9 +558,14 @@ instrumenta. No hay watchdog interno; el límite es el `timeout` 5 del
   `exo search` de un subagente). Al crear el fichero de una sesión nueva se
   borran los de más de 14 días. Sustituye a la lectura del transcript que
   hacían los `.sh`, que era lo que ataba los guards a Claude.
-- **Estado heredado.** El reflex-log sigue en `~/.claude/reflex-log.jsonl` (se
-  puede redirigir con `REFLEX_LOG_FILE`) con el mismo esquema e ids de reflejo,
-  para que `cobertura-reglas.sh` y `reflex-fp-review.sh` sigan valiendo.
+- **Estado.** Todo el estado de los hooks vive en `~/.exo/state/`
+  (`reflex-log.jsonl`, `exo-rules/`, `exo-index.log`, `reflex-inject-canary`,
+  `sessions/`), común a Claude y Codex; `EXO_STATE_DIR` mueve la raíz y
+  `REFLEX_LOG_FILE` solo el log. El esquema y los ids de reflejo no cambian,
+  así que `cobertura-reglas.sh` y `reflex-fp-review.sh` siguen valiendo. El
+  primer `SessionStart` migra lo que hubiera en `~/.claude/` (rename, o append
+  más `.migrado-<ts>` si existían los dos) y `exo doctor` marca
+  `state_residuo` si algo sigue creciendo allí, con el comando para fusionarlo.
 - **Dependencias.** `exo hook` no usa bash ni `jq`. Los hooks que siguen siendo
   `.sh` (recall, estilo, `delegar-decision`, `sdd-wake-guard`…) sí los
   necesitan, y en Windows corren bajo Git Bash.
@@ -571,12 +576,56 @@ instrumenta. No hay watchdog interno; el límite es el `timeout` 5 del
   sesión); con tools en paralelo el journal puede ir un evento por detrás; y
   tras actualizar a la versión nueva, la primera sesión no ve búsquedas
   anteriores a la instalación.
-- **Roadmap multi-harness** (`docs/superpowers/specs/2026-11-02-exo-hook-multi-harness-design.md`):
-  A, el núcleo (`exo hook`, journal, matriz, adapter de Claude, migración de
-  bash-guards y search-first), está hecho. B (adapter y plugin de Codex) y C
-  (extensión de pi) siguen pendientes, sin fecha. Hasta B, instalar el plugin
-  en Codex no hace nada, y no avisa. Los demás hooks `.sh` migrarán a `exo
-  hook` en iteraciones posteriores con el mismo patrón.
+- **Roadmap multi-harness.** A, el núcleo (`exo hook`, journal, matriz,
+  adapter de Claude; spec `2026-11-02-exo-hook-multi-harness-design.md`) y B
+  (adapter y plugin de Codex, §4.3.1; spec `2026-11-03-exo-hook-codex-design.md`)
+  están hechos. C (extensión de pi) sigue pendiente, sin fecha. Los demás
+  hooks `.sh` migrarán a `exo hook` en iteraciones posteriores con el mismo
+  patrón.
+
+#### 4.3.1 Codex
+
+El mismo comando sirve a Codex: `plugins/exo/hooks/codex.json` (referenciado
+desde `plugins/exo/.codex-plugin/plugin.json`) cablea `SessionStart`,
+`UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PostCompact` y `Stop` como
+`exo hook codex <evento>`; la entrada de `SessionStart` lleva `--min` y las
+demás `|| exit 0`. Los matchers usan los nombres reales de las tools
+(`Bash`, `apply_patch`, `collaborationspawn_agent`/`spawn_agent`): el alias
+`Agent` no casa el spawn en 0.166.0.
+
+Lo que cambia respecto a Claude, todo medido contra Codex 0.166.0:
+
+- **Nadie más inyecta las reglas duras** (en Claude lo hace el mod). En el
+  `SessionStart` el orden es contrato (1.500 B) → reglas → reafirmación y
+  avisos, con lo prescindible **al final** porque Codex trunca por el medio un
+  `additionalContext` de más de 2.500 tokens (`additionalContextLimit`).
+- **`PostCompact` no puede emitir contexto.** Escribe una marca en el journal y
+  el siguiente `UserPromptSubmit` inyecta reglas + reafirmación una sola vez
+  (o antes, el `SessionStart` con `source=compact`, que Codex 0.166.0 sí emite).
+- **`systemMessage` no se ve en `codex exec`**; por eso un `Avisa` va también
+  como contexto.
+- **Verify degradado:** `PostToolUse` de Bash trae el comando pero no `exit_code`, así que
+  verify queda en solo log (`ok: null`).
+
+Matriz guard × harness (la fuente es `engine/src/hook/matriz.rs`; un test exige
+que cada celda sea una decisión explícita):
+
+| Guard | Claude | Codex |
+|---|---|---|
+| git -C, zero-residuo (`git add -A`), search-first, index, contrato, gate pendiente | Soportado | Soportado |
+| Verify | Soportado | Degradado (solo log) |
+| Recall tras `compact` | Soportado | Soportado |
+| Detección de superpowers, testigo `ss-<sid>` | Soportado | No soportado (leen `~/.claude/`) |
+| Inyección de reglas, marca post-compact | No soportado (lo hace el mod) | Soportado |
+
+**Instalación.** Los pasos de usuario están en `docs/instalacion.md` §5.1:
+`exo setup codex` registra los roles `exo-consultor` y `exo-executor`
+(`~/.exo/codex-agents/`) en un bloque `# >>> exo` / `# <<< exo` de
+`$CODEX_HOME/config.toml`, editado como texto para no reordenar lo del usuario.
+Los hooks corren con el `PATH` de la sesión de Codex: lanzado desde un IDE con
+un `PATH` mínimo no encuentra `exo`, y el `--min` de `SessionStart` lo hace
+notar. `scripts/smoke-codex.sh --real` verifica el plugin instalado de extremo
+a extremo (a mano, con la cuenta del dueño; no es CI).
 
 ### 4.4 Skills, agentes y scripts de `orchestrate`
 
@@ -612,10 +661,14 @@ recoge los `Ruling:` del ledger para el cierre.
 ### 4.5 Compatibilidad binario↔plugin
 
 `plugins/exo/ENGINE_MIN` declara el engine mínimo que el plugin necesita (hoy
-`0.14.0`). Se vigila en dos sitios: `exo-recall.sh` degrada con `engine-stale`
-y aviso visible en el bloque de arranque, y `exo doctor` lo compara en el check
-`plugin_compat`. Ningún otro hook lo comprueba (sería un spawn de
-`exo --version` por disparo). La regla: se sube en el mismo PR en que un skill
+`0.15.0`). Se vigila en dos sitios: la entrada de `SessionStart` de los dos
+harness es `exo hook <h> SessionStart --min <ENGINE_MIN>` (`scripts/test-versiones.sh`
+exige que coincida con `ENGINE_MIN`), y `exo doctor` lo compara en el check
+`plugin_compat`. Un engine que no conoce `--min` falla en clap con rc=2, que
+el harness registra como error una vez por sesión; uno que lo conoce pero es más
+viejo devuelve un aviso y el fallback embebido (en Codex, «sin reglas duras»).
+Ningún otro hook lo comprueba (sería un spawn de `exo --version` por disparo).
+La regla: se sube en el mismo PR en que un skill
 o script pasa a depender de un comportamiento nuevo del engine; ver el límite
 en §7.
 
@@ -670,8 +723,8 @@ repos: [owner/mi-repo]                # solo exo rules: repos a los que aplica (
 
 La semilla cumple el contrato de arranque que los hooks esperan de una KB: su
 `core-index` es `tier: core` (lo que `exo recall` selecciona en modo
-arranque), contiene la sección `## Contrato de memoria` que `exo-recall.sh`
-valida y extrae, y las secciones `## Doctrina compacta` y `## Cores` que lee
+arranque), contiene la sección `## Contrato de memoria` que `exo hook`
+(`SessionStart`) valida y extrae, y las secciones `## Doctrina compacta` y `## Cores` que lee
 `compose-inject.sh`; `AGENTS.md` documenta el tier `core` y las reglas
 globales. Una KB recién creada con `exo init` arranca, por tanto, con su
 propio mapa, no con el fallback embebido. Lo que `exo init` no siembra es el
@@ -711,18 +764,21 @@ resultados, no un benchmark reproducible por un tercero tal cual.
 Solo lo abierto; el detalle y el siguiente paso de cada uno viven en
 `docs/backlog.md`.
 
-- **`ENGINE_MIN` solo avisa en `SessionStart`.** Vale `0.14.0`, que cubre todo
-  lo que el plugin invoca (`exo hook` desde 0.14, `rules --coverage` 0.13,
-  `repos:` 0.12, `lint --baseline` 0.11, `rules` global y `--check` 0.10). Pero
-  con un `exo` más viejo en el `PATH`, los guards migrados a `exo hook` quedan
-  sin efecto sin más señal que ese aviso (`|| exit 0` los traga), y las rutas
+- **`ENGINE_MIN` solo se comprueba en `SessionStart`.** Vale `0.15.0`, que
+  cubre todo lo que el plugin invoca (el adapter de Codex y `--min` desde 0.15,
+  `exo hook` desde 0.14, `rules --coverage` 0.13, `repos:` 0.12,
+  `lint --baseline` 0.11, `rules` global y `--check` 0.10). Un `exo` que no
+  conoce `--min` falla ruidosamente en ese evento (clap, rc=2); uno que lo
+  conoce y es más viejo avisa. Pero los demás eventos llevan `|| exit 0`, así
+  que un binario viejo en el `PATH` deja los guards sin efecto sin más señal
+  que esa del arranque, y las rutas
   de scripts que dependen de funciones posteriores degradan con aviso
   (`cobertura-reglas.sh`, `kb-precommit.sh`). Regla: se sube en el mismo PR en
   que un skill o script pasa a depender de un comportamiento nuevo; ya se
   olvidó dos veces. La release del engine se publica antes que el plugin que
   sube `ENGINE_MIN`.
 - **El desfase binario↔plugin solo se vigila en dos sitios** (`exo doctor` y
-  `exo-recall.sh`, §4.5).
+  `--min` de `SessionStart`, §4.5).
 - **`red-gate.sh` es solo log.** La promoción a deny (marker por `agent_id`, la
   segunda llamada pasa) espera a ≥10 executors con falsos positivos ≤20 %
   medidos en el reflex-log.

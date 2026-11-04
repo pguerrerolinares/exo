@@ -6,6 +6,7 @@ use exo::{
     escritor::{NuevaNota, escribe_append, escribe_nueva},
     indexer::indexa,
     recall::{recall_arranque, recall_consulta, renderiza, resuelve_rutas_absolutas},
+    resuelve_db, resuelve_kb,
 };
 use std::path::{Path, PathBuf};
 
@@ -111,8 +112,23 @@ enum Comando {
     /// escribe la respuesta por stdout). Se invoca desde la config de hooks del
     /// agente: `exo hook claude PreToolUse`. Siempre sale con 0, también ante
     /// un harness, un evento o una entrada que no entiende: un exit distinto
-    /// de 0 bloquearía la herramienta.
+    /// de 0 bloquearía la herramienta. La única excepción es un flag que clap
+    /// no conoce (p. ej. `--min` en un binario viejo): sale con 2.
     Hook(ArgsHook),
+    /// Prepara un agente para usar exo.
+    #[command(subcommand)]
+    Setup(ComandoSetup),
+}
+
+#[derive(Subcommand)]
+enum ComandoSetup {
+    /// Registra los roles `exo-consultor` y `exo-executor` en Codex: copia sus
+    /// capas a `~/.exo/codex-agents/` y escribe el bloque `# >>> exo` de
+    /// `$CODEX_HOME/config.toml` (`~/.codex` si no está). Idempotente; respeta
+    /// lo que haya fuera de los marcadores. Si el config no parsea, hay un
+    /// marcador sin pareja o `[agents.exo-*]` fuera del bloque, falla sin
+    /// tocar nada.
+    Codex,
 }
 
 #[derive(Subcommand)]
@@ -427,12 +443,17 @@ struct ArgsDoctor {
 
 #[derive(clap::Args)]
 struct ArgsHook {
-    /// Agente que invoca el hook (`claude`). Cualquier otro valor se ignora.
+    /// Agente que invoca el hook (`claude`, `codex`). Cualquier otro valor se ignora.
     #[arg(default_value = "")]
     harness: String,
-    /// Evento del agente (`PreToolUse`, `PostToolUse`, `PostToolUseFailure`).
+    /// Evento del agente (`PreToolUse`, `PostToolUse`, `SessionStart`, `Stop`, …).
     #[arg(default_value = "")]
     evento: String,
+    /// Versión mínima de este binario que exige quien lo invoca (`ENGINE_MIN` del
+    /// plugin). Solo la mira `SessionStart`: un binario más viejo avisa y sirve el
+    /// contrato de respaldo.
+    #[arg(long)]
+    min: Option<String>,
 }
 
 #[derive(clap::Args)]
@@ -553,43 +574,12 @@ fn quiere_json(c: &Comando) -> bool {
         Comando::Rotate(a) => a.json,
         Comando::Doctor(a) => a.json,
         Comando::Stale(a) => a.json,
-        Comando::Hook(_) => false,
+        Comando::Hook(_) | Comando::Setup(_) => false,
         Comando::Write(w) => match w {
             ComandoWrite::New(a) => a.json,
             ComandoWrite::Append(a) => a.json,
         },
     }
-}
-
-/// Precedencia de la DB del índice: `--db` > `$EXO_DB` > `[index] db`.
-///
-/// `--db` era obligatorio «sin default (D6: un default sería config
-/// encubierta)». Con config propia deja de serlo: un valor declarado en un
-/// fichero del usuario no es config encubierta, es config.
-fn resuelve_db(flag: Option<PathBuf>) -> Result<PathBuf> {
-    if let Some(p) = flag {
-        return Ok(p);
-    }
-    if let Ok(v) = std::env::var("EXO_DB")
-        && !v.is_empty()
-    {
-        return Ok(exo::config::expande_tilde(Path::new(&v)));
-    }
-    let cfg = exo::config::carga()?;
-    Ok(exo::config::expande_tilde(&cfg.index.db))
-}
-
-/// Precedencia de la raíz de la KB: `--kb` > `$EXO_KB` > `[kb] path`.
-fn resuelve_kb(flag: Option<PathBuf>) -> Result<PathBuf> {
-    if let Some(p) = flag {
-        return Ok(p);
-    }
-    if let Ok(v) = std::env::var("EXO_KB")
-        && !v.is_empty()
-    {
-        return Ok(exo::config::expande_tilde(Path::new(&v)));
-    }
-    exo::kb_desde_config()
 }
 
 /// Ejecuta el comando ya parseado. El flag `--json` no se extrae aquí: lo
@@ -615,6 +605,7 @@ fn ejecuta(comando: Comando) -> Result<()> {
             hook_cmd(args);
             Ok(())
         }
+        Comando::Setup(ComandoSetup::Codex) => setup_codex_cmd(),
         Comando::Write(sub) => match sub {
             ComandoWrite::New(args) => write_new_cmd(args),
             ComandoWrite::Append(args) => write_append_cmd(args),
@@ -665,7 +656,7 @@ fn versiona_kb(kb: &Path) -> bool {
 /// semilla, la versiona con git (best-effort) y la indexa.
 fn init_cmd(args: ArgsInit) -> Result<()> {
     let destino = exo::config::ruta_config()?;
-    let home = dirs::home_dir().context("sin HOME")?;
+    let home = exo::home_dir().context("sin HOME")?;
 
     // Se comprueba ANTES de tocar nada en disco: la guarda de
     // `escribe_config` llega tarde (tras volcar la plantilla y el `git init`
@@ -814,31 +805,38 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
     Ok(())
 }
 
-/// Ruta lista para cruzar la frontera hacia shell: barras normales siempre.
-/// `expande_tilde` hace `home.join(resto)` con `home` en formato nativo de
-/// Windows (`\`) y `resto` con el separador literal del TOML (`/`); el
-/// `PathBuf` resultante mezcla los dos y a Rust no le importa (así abre
-/// ficheros en todo el engine), pero un script de shell sí que lo nota si
-/// hace `dirname`, recorta un prefijo o compara contra otra ruta. Se
-/// normaliza aquí, en la salida, no en `expande_tilde`: ese `PathBuf` es de
-/// uso interno del engine, y el problema nace justo al cruzar a shell.
-fn ruta_shell(p: &Path) -> String {
-    p.display().to_string().replace('\\', "/")
-}
-
 /// `exo config`: la config efectiva, con rutas expandidas.
 fn config_cmd(args: ArgsConfig) -> Result<()> {
-    let cfg = exo::config::carga()?;
+    let r = exo::state::Rutas::desde_env();
+    let state = serde_json::json!({
+        "dir": exo::ruta_shell(&r.state_dir),
+        "reflex_log": exo::ruta_shell(&r.reflex_log),
+        "rules_dir": exo::ruta_shell(&r.rules_dir),
+        "index_log": exo::ruta_shell(&r.index_log),
+        "canary": exo::ruta_shell(&r.canary),
+    });
+    let cfg = match exo::config::carga() {
+        Ok(c) => c,
+        Err(e) => {
+            // Las rutas de estado no dependen de la KB: un consumidor sigue
+            // leyéndolas aunque falte la config. El error sigue yendo a stderr con rc != 0.
+            if args.json {
+                exo::envelope::emite("config", serde_json::json!({ "state": state }));
+            }
+            return Err(e);
+        }
+    };
     let kb = exo::config::expande_tilde(&cfg.kb.path);
     let db = exo::config::expande_tilde(&cfg.index.db);
     let data = serde_json::json!({
-        "kb": { "path": ruta_shell(&kb), "name": cfg.kb.name },
-        "index": { "db": ruta_shell(&db) },
+        "kb": { "path": exo::ruta_shell(&kb), "name": cfg.kb.name },
+        "index": { "db": exo::ruta_shell(&db) },
         "embeddings": {
             "model": cfg.embeddings.model,
             "dims": cfg.embeddings.dims,
             "min_similarity": cfg.embeddings.min_similarity,
         },
+        "state": state,
     });
     if args.json {
         exo::envelope::emite("config", data);
@@ -1439,6 +1437,20 @@ fn lint_cmd(args: ArgsLint) -> Result<()> {
     Ok(())
 }
 
+fn setup_codex_cmd() -> Result<()> {
+    let rutas = exo::state::Rutas::desde_env();
+    let codex_home = exo::state::Seams::desde_env()
+        .codex_home
+        .unwrap_or_else(|| rutas.home.join(".codex"));
+    exo::setup_codex::ejecuta(&codex_home, &rutas.home.join(".exo"))?;
+    println!(
+        "setup codex: roles en {} y bloque en {}",
+        rutas.home.join(".exo/codex-agents").display(),
+        codex_home.join("config.toml").display()
+    );
+    Ok(())
+}
+
 /// `exo doctor`: preflight de la máquina, no de la KB. Emite el informe
 /// entero SIEMPRE y solo después gatea: exit 3 si algún check sale `fail`.
 fn doctor_cmd(args: ArgsDoctor) -> Result<()> {
@@ -1576,7 +1588,13 @@ fn hook_cmd(args: ArgsHook) {
     // Los panics se registran en el reflex-log; stderr queda vacío.
     std::panic::set_hook(Box::new(|_| {}));
     let en = exo::hook::evento::Entorno::desde_env();
-    let salida = exo::hook::runner::ejecutar(&en, &args.harness, &args.evento, &stdin);
+    let salida = exo::hook::runner::ejecutar(
+        &en,
+        &args.harness,
+        &args.evento,
+        args.min.as_deref(),
+        &stdin,
+    );
     let _ = std::io::stdout().write_all(salida.as_bytes());
 }
 

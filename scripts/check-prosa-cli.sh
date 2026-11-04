@@ -27,6 +27,7 @@ EXCLUIDOS=(
   "ratchet|gate de la KB que corre su propio pre-commit, no un skill"
   "rotate|mantenimiento de bitácoras que hoy hace el humano; /distill aún no lo cita"
   "stale|consulta de diagnóstico que ningún skill usa"
+  "setup|lo corren install.sh e install.ps1 (o el humano), no un skill"
 )
 
 # Subcomandos listados bajo "Commands:" de `--help`, sin `help`.

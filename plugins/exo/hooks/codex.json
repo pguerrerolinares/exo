@@ -1,0 +1,10 @@
+{"hooks":{
+  "SessionStart":[{"hooks":[{"type":"command","command":"exo hook codex SessionStart --min 0.15.0","timeout":10,"additionalContextLimit":2500}]}],
+  "UserPromptSubmit":[{"hooks":[{"type":"command","command":"exo hook codex UserPromptSubmit || exit 0","timeout":5,"additionalContextLimit":2500}]}],
+  "PreToolUse":[{"matcher":"^(Bash|apply_patch|collaborationspawn_agent|spawn_agent)$",
+                 "hooks":[{"type":"command","command":"exo hook codex PreToolUse || exit 0","timeout":5}]}],
+  "PostToolUse":[{"matcher":"^(Bash|apply_patch)$",
+                  "hooks":[{"type":"command","command":"exo hook codex PostToolUse || exit 0","timeout":5}]}],
+  "PostCompact":[{"hooks":[{"type":"command","command":"exo hook codex PostCompact || exit 0","timeout":5}]}],
+  "Stop":[{"hooks":[{"type":"command","command":"exo hook codex Stop || exit 0","timeout":5}]}]
+}}

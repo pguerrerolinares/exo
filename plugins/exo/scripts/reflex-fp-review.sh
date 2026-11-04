@@ -5,7 +5,10 @@
 # canonico: reflex-fp-adjudicate.prompt.md (pasaselo a un agente junto con este volcado).
 set -uo pipefail
 
-LOG="${REFLEX_LOG_FILE:-$HOME/.claude/reflex-log.jsonl}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=_state-dir.sh
+. "$SCRIPT_DIR/_state-dir.sh"
+LOG="$REFLEX_LOG_FILE"
 if [ ! -f "$LOG" ]; then
   echo "No hay log de reflejos todavia: $LOG"
   echo "(Se crea solo cuando algun reflejo dispara por primera vez.)"

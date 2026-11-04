@@ -93,6 +93,8 @@ fn entorno(d: &Path) -> Entorno {
     Entorno {
         state_dir: d.join("state"),
         reflex_log: d.join("reflex.jsonl"),
+        rutas: exo::state::Rutas::resuelve(std::path::Path::new("."), |_| None),
+        seams: exo::state::Seams::resuelve(|_| None),
         cdpath_definido: false,
         panic_guard: None,
     }
@@ -106,6 +108,8 @@ fn evento(cwd: &Path, cmd: &str, clase: Clase, nombre: &str) -> Evento {
         cwd: cwd.to_string_lossy().into(),
         agent_id: String::new(),
         agent_type: String::new(),
+        source: String::new(),
+        prompt: String::new(),
         crudo: String::new(),
         tool: Some(Tool {
             nombre: nombre.into(),

@@ -108,6 +108,16 @@ else
   echo "  $EXO_DIR/$bin init --kb <ruta-de-tu-kb> --name <nombre>"
 fi
 
+# Codex: si está instalado, registra los roles exo-consultor/exo-executor. Mismo
+# patrón que doctor: un fallo avisa y la instalación sigue (spec exo-hook-codex §4.9).
+if command -v codex >/dev/null 2>&1; then
+  ec=0
+  "$EXO_DIR/$bin" setup codex || ec=$?
+  if [ "$ec" -ne 0 ]; then
+    echo "install: setup codex falló (exit $ec): corre \`exo setup codex\`" >&2
+  fi
+fi
+
 # doctor cierra la instalación diciendo qué falta en ESTA máquina. No hace
 # fallar al instalador: su exit 3 significa "la máquina tiene deuda", no "la
 # instalación falló". El informe se imprime entero, que es el punto.

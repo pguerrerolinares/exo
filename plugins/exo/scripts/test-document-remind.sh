@@ -8,9 +8,9 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 export HOME="$TMP/home"
 export REMIND_SENTINEL_DIR="$TMP/sentinels"
-mkdir -p "$HOME/.claude/exo-rules" "$REMIND_SENTINEL_DIR"
-export REFLEX_LOG_FILE="$HOME/.claude/reflex-log.jsonl"
-RULES="$HOME/.claude/exo-rules"
+mkdir -p "$HOME/.exo/state/exo-rules" "$REMIND_SENTINEL_DIR"
+export REFLEX_LOG_FILE="$HOME/.exo/state/reflex-log.jsonl"
+RULES="$HOME/.exo/state/exo-rules"
 
 PASS=0
 FAIL=0

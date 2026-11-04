@@ -49,8 +49,8 @@ evaluar() {
   local nombre="$1" out="$2" con="$3" viaesp="$4" res hb ss via hbok viaok=0 ssok=1
   SID="$(printf '%s' "$out" | jq -r '.session_id // empty')"
   res="$(printf '%s' "$out" | jq -r '.result // empty')"
-  hb="$(cat "$HOME/.claude/exo-rules/hb-$SID" 2>/dev/null || echo SIN-LATIDO)"
-  ss="$(cat "$HOME/.claude/exo-rules/ss-$SID" 2>/dev/null || echo SIN-SS)"
+  hb="$(cat "${EXO_STATE_DIR:-$HOME/.exo/state}/exo-rules/hb-$SID" 2>/dev/null || echo SIN-LATIDO)"
+  ss="$(cat "${EXO_STATE_DIR:-$HOME/.exo/state}/exo-rules/ss-$SID" 2>/dev/null || echo SIN-SS)"
   via="$(jq -r '.via // "?"' <<<"$hb" 2>/dev/null || echo "?")"
   echo "[$nombre] session_id=$SID"
   echo "[$nombre] latido=$hb"
@@ -119,7 +119,7 @@ title: fixrepo
 ## Reglas duras
 - El codeword es %s.
 ' "$CW" > "$KBDIR/projects/fixrepo.md"
-  rm -f "$HOME/.claude/exo-rules/hb-$SID"
+  rm -f "${EXO_STATE_DIR:-$HOME/.exo/state}/exo-rules/hb-$SID"
   FORZAR_ENV=1
   if out="$(claude_p resume "$KBDIR" --resume "$SID")"; then evaluar resume "$out" 1 submit
   else echo "[FAIL] resume: claude salió con error"; cat "$TMP/err-resume"; fallos=1; fi

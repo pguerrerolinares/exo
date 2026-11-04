@@ -7,7 +7,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TYPE=""; KB=""; CWD=""
 PROFILES="${REFLEX_INJECT_PROFILES:-$SCRIPT_DIR/inject-profiles.json}"
 EXECUTOR_MD="${REFLEX_EXECUTOR_MD:-$SCRIPT_DIR/../agents/executor.md}"
-CANARY_FILE="${REFLEX_CANARY_FILE:-$HOME/.claude/reflex-inject-canary}"
+# shellcheck source=_state-dir.sh
+. "$SCRIPT_DIR/_state-dir.sh"
+CANARY_FILE="$REFLEX_CANARY_FILE"
 while [ $# -gt 0 ]; do case "$1" in
   --type) [ $# -ge 2 ] || exit 1; TYPE="$2"; shift 2 ;;
   --kb)   [ $# -ge 2 ] || exit 1; KB="$2";   shift 2 ;;

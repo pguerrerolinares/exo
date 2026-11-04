@@ -111,6 +111,10 @@ pub struct Entorno {
     /// `CLAUDE_CODE_GIT_BASH_PATH`: la variable con la que Claude Code elige
     /// el shell de los hooks en Windows. Si está, manda sobre el PATH.
     pub git_bash_path: Option<String>,
+    /// Rutas de estado de exo (`~/.exo/state/...`), para el residuo en `~/.claude/`.
+    pub rutas: crate::state::Rutas,
+    /// `$CODEX_HOME` o `~/.codex`: donde Codex deja `models_cache.json`.
+    pub codex_home: PathBuf,
 }
 
 impl Entorno {
@@ -126,9 +130,13 @@ impl Entorno {
     /// que quien lo invoque (`doctor_cmd`) los rellena aplicando la misma
     /// precedencia que el resto de verbos.
     pub fn del_proceso() -> Self {
-        let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+        let home = crate::home_dir().unwrap_or_else(|| PathBuf::from("."));
         let cache_hf = crate::cache_hf_del_entorno();
         Self {
+            codex_home: crate::state::Seams::desde_env()
+                .codex_home
+                .unwrap_or_else(|| home.join(".codex")),
+            rutas: crate::state::Rutas::desde_env(),
             config: crate::config::ruta_config()
                 .unwrap_or_else(|_| home.join(".exo").join("config.toml")),
             home,
@@ -182,6 +190,9 @@ pub fn analiza(entorno: &Entorno) -> InformeDoctor {
         check_plugin_compat(entorno),
         check_superpowers(entorno),
         check_dispositivo(entorno, cfg.as_ref()),
+        check_state_residuo(entorno),
+        check_codex_rol_modelo(entorno),
+        check_rules_coverage(entorno, cfg.as_ref()),
     ])
 }
 
@@ -410,6 +421,78 @@ fn check_fallback_del_hook(entorno: &Entorno) -> Check {
     }
 }
 
+/// Comando bash copiable: rutas con `/` y entre comillas simples (en Windows bash
+/// se come las `\`, y un perfil con espacios rompería el comando).
+pub fn comando_migrar(viejo: &Path, nuevo: &Path) -> String {
+    let (v, n) = (crate::ruta_shell(viejo), crate::ruta_shell(nuevo));
+    format!("cat '{v}' >> '{n}' && mv '{v}' '{v}.migrado-'$(date +%Y%m%dT%H%M%S)")
+}
+
+/// Informativo (`warn` no gatea): lo que `exo hook SessionStart` no llegó a migrar
+/// (p. ej. un `state_dir` no escribible, donde ni el rastro `state-migrate-failed` se escribe).
+fn check_state_residuo(entorno: &Entorno) -> Check {
+    let claude = entorno.home.join(".claude");
+    let r = &entorno.rutas;
+    let pares = [
+        ("reflex-log.jsonl", &r.reflex_log),
+        ("exo-index.log", &r.index_log),
+        ("reflex-inject-canary", &r.canary),
+    ];
+    let artefacto = pares
+        .iter()
+        .map(|(n, _)| claude.join(n).display().to_string())
+        .collect::<Vec<_>>()
+        .join(" · ");
+    let residuos: Vec<String> = pares
+        .iter()
+        .filter_map(|(n, nuevo)| {
+            let viejo = claude.join(n);
+            let crece = viejo != **nuevo && std::fs::metadata(&viejo).is_ok_and(|m| m.len() > 0);
+            crece.then(|| {
+                format!(
+                    "residuo en {} que crece: {}",
+                    viejo.display(),
+                    comando_migrar(&viejo, nuevo)
+                )
+            })
+        })
+        .collect();
+    // Un reclamo `.migrando-*` sobrante es una migración que se cayó a medias.
+    let sobrantes: Vec<String> = std::fs::read_dir(&claude)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|e| {
+            let nombre = e.file_name().to_string_lossy().into_owned();
+            let (_, nuevo) = pares
+                .iter()
+                .find(|(n, _)| nombre.starts_with(&format!("{n}.migrando-")))?;
+            let p = e.path();
+            Some(format!(
+                "reclamo sobrante {}: {}",
+                p.display(),
+                comando_migrar(&p, nuevo)
+            ))
+        })
+        .collect();
+    let residuos: Vec<String> = residuos.into_iter().chain(sobrantes).collect();
+    if residuos.is_empty() {
+        Check::nuevo(
+            "state_residuo",
+            Estado::Ok,
+            artefacto,
+            "sin estado de exo en ~/.claude/",
+        )
+    } else {
+        Check::nuevo(
+            "state_residuo",
+            Estado::Warn,
+            artefacto,
+            residuos.join("; "),
+        )
+    }
+}
+
 fn check_kb(entorno: &Entorno, cfg: Option<&crate::config::Config>) -> Check {
     let Some(kb) = kb_efectiva(entorno, cfg) else {
         return Check::nuevo(
@@ -436,6 +519,48 @@ fn check_kb(entorno: &Entorno, cfg: Option<&crate::config::Config>) -> Check {
             format!("{} nota(s) .md bajo la raíz", notas.len()),
         ),
         Err(e) => Check::nuevo("kb_readable", Estado::Fail, artefacto, format!("{e:#}")),
+    }
+}
+
+/// Informativo: una ficha sin clave de casado o sin `## Reglas duras` no rompe
+/// nada, solo no inyecta reglas. Nunca `fail`.
+fn check_rules_coverage(entorno: &Entorno, cfg: Option<&crate::config::Config>) -> Check {
+    let Some(kb) = kb_efectiva(entorno, cfg) else {
+        return Check::nuevo(
+            "rules_coverage",
+            Estado::Na,
+            "(sin config)",
+            "sin KB que mirar",
+        );
+    };
+    let artefacto = kb.join("projects").display().to_string();
+    match crate::reglas::fichas_sin_reglas(&kb) {
+        Ok(sin) if sin.is_empty() => Check::nuevo(
+            "rules_coverage",
+            Estado::Ok,
+            artefacto,
+            "toda ficha de projects/ casa con un repo y trae `## Reglas duras`",
+        ),
+        Ok(sin) => {
+            let nombres: Vec<&str> = sin.iter().take(3).map(String::as_str).collect();
+            let resto = sin.len() - nombres.len();
+            let mas = if resto > 0 {
+                format!(" y {resto} más")
+            } else {
+                String::new()
+            };
+            Check::nuevo(
+                "rules_coverage",
+                Estado::Warn,
+                artefacto,
+                format!(
+                    "{} ficha(s) sin `slug`/`repos:` o sin `## Reglas duras`, así que no inyectan reglas: {}{mas}. Ver docs/sembrar-kb.md §3 y `exo rules --coverage`",
+                    sin.len(),
+                    nombres.join(", ")
+                ),
+            )
+        }
+        Err(e) => Check::nuevo("rules_coverage", Estado::Na, artefacto, format!("{e:#}")),
     }
 }
 
@@ -671,8 +796,8 @@ fn check_dispositivo(entorno: &Entorno, cfg: Option<&crate::config::Config>) -> 
 
 /// `jq` es requisito declarado del camino «desde release». Los hooks del
 /// plugin lo usan para componer y leer el envelope
-/// (`plugins/exo/scripts/subagent-inject.sh`, `exo-recall.sh`), así que sin él
-/// el bloque de recall no se inyecta: `fail`, no `warn`.
+/// (`plugins/exo/scripts/subagent-inject.sh`, `compose-inject.sh`,
+/// `document-remind.sh`), así que sin él el bloque de recall no se inyecta: `fail`, no `warn`.
 ///
 /// Dos trampas medidas, ambas del runbook de W11: el `jq` de la Store es un
 /// **alias de ejecución** bajo `WindowsApps` que no es un jq, y el `jq`
@@ -686,7 +811,7 @@ fn check_jq(entorno: &Entorno) -> Check {
             "jq",
             Estado::Fail,
             format!("PATH={}", entorno.path),
-            "sin jq: exo-recall.sh y subagent-inject.sh no pueden leer el envelope",
+            "sin jq: subagent-inject.sh, compose-inject.sh y document-remind.sh no pueden leer el envelope",
         );
     };
     let artefacto = ruta.display().to_string();
@@ -845,36 +970,19 @@ fn check_git_bash(entorno: &Entorno) -> Check {
     }
 }
 
-/// La vía de detach del reindexado (`plugins/exo/scripts/exo-index.sh`):
-/// `setsid` donde lo haya, y en msys `cmd //c start //b`. Sin ninguna de las
-/// dos el hook deja evento `index-fallback / reason=no-detach` — que es
-/// justamente lo que se añadió después de meses de sesiones en Windows sin
-/// refrescar el índice y sin un solo rastro.
-fn check_detach(entorno: &Entorno) -> Check {
-    if let Some(ruta) = busca_en_path(&entorno.path, "setsid") {
-        return Check::nuevo(
-            "detach",
-            Estado::Ok,
-            ruta.display().to_string(),
-            "exo-index.sh reindexa en segundo plano vía setsid",
-        );
-    }
-    if cfg!(windows)
-        && let Some(ruta) = busca_en_path(&entorno.path, "cmd")
-    {
-        return Check::nuevo(
-            "detach",
-            Estado::Ok,
-            ruta.display().to_string(),
-            "sin setsid, exo-index.sh detacha vía `cmd //c start //b`",
-        );
-    }
+/// El reindexado al cerrar (guard Index de `exo hook <h> Stop`) se lanza
+/// desacoplado por el propio binario (grupo de procesos en Unix,
+/// `DETACHED_PROCESS` en Windows): ya no depende de `setsid` ni de `cmd` del
+/// PATH, así que no hay nada externo que comprobar. El check se queda (el id
+/// es contractual) y describe el mecanismo y los rastros reales.
+fn check_detach(_entorno: &Entorno) -> Check {
     Check::nuevo(
         "detach",
-        Estado::Warn,
-        format!("PATH={}", entorno.path),
-        "ni setsid ni cmd: exo-index.sh dejará evento \
-         index-fallback / reason=no-detach y el índice no se refrescará solo",
+        Estado::Ok,
+        "exo hook <h> Stop (guard Index)".to_string(),
+        "el reindexado lo desacopla el propio binario (sin setsid ni cmd); si falla deja \
+             `index-fallback reason=no-db|detach-failed` en el reflex-log"
+            .to_string(),
     )
 }
 
@@ -1134,5 +1242,73 @@ fn check_superpowers(entorno: &Entorno) -> Check {
             artefacto,
             "superpowers no está habilitado a la vez que exo",
         ),
+    }
+}
+
+/// El `model` de cada rol instalado por `exo setup codex` contra los slugs de
+/// `models_cache.json`: Codex rota sus modelos y un rol con un slug que ya no
+/// existe falla al despachar, no al instalar. Informativo (`warn`, nunca
+/// `fail`): sin roles o sin caché legible no hay nada que comparar (`na`).
+fn check_codex_rol_modelo(entorno: &Entorno) -> Check {
+    let id = "codex_rol_modelo";
+    let cache = entorno.codex_home.join("models_cache.json");
+    let agentes = entorno.home.join(".exo").join("codex-agents");
+    let artefacto = format!("{} · {}", cache.display(), agentes.display());
+    let na = |detalle: &str| Check::nuevo(id, Estado::Na, artefacto.clone(), detalle);
+
+    let roles: Vec<(String, String)> = ["consultor", "executor"]
+        .into_iter()
+        .filter_map(|r| {
+            let texto = std::fs::read_to_string(agentes.join(format!("{r}.toml"))).ok()?;
+            let modelo = texto
+                .parse::<toml::Table>()
+                .ok()?
+                .get("model")?
+                .as_str()?
+                .to_string();
+            Some((r.to_string(), modelo))
+        })
+        .collect();
+    if roles.is_empty() {
+        return na("sin roles de Codex instalados (`exo setup codex`)");
+    }
+    let slugs: Option<Vec<String>> = std::fs::read_to_string(&cache)
+        .ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .and_then(|v| {
+            Some(
+                v.get("models")?
+                    .as_array()?
+                    .iter()
+                    .filter_map(|m| m.get("slug")?.as_str().map(str::to_string))
+                    .collect(),
+            )
+        });
+    let Some(slugs) = slugs else {
+        return na("sin models_cache.json legible: no hay con qué comparar el modelo de los roles");
+    };
+    let rotados: Vec<String> = roles
+        .iter()
+        .filter(|(_, m)| !slugs.contains(m))
+        .map(|(r, m)| format!("el rol {r} usa `{m}`, que ya no está en la caché de Codex"))
+        .collect();
+    if rotados.is_empty() {
+        Check::nuevo(
+            id,
+            Estado::Ok,
+            artefacto,
+            "el modelo de cada rol está en la caché de Codex",
+        )
+    } else {
+        Check::nuevo(
+            id,
+            Estado::Warn,
+            artefacto,
+            format!(
+                "{}; `exo setup codex` reescribe {} con el modelo embebido en el binario: actualiza exo y reinstala",
+                rotados.join("; "),
+                agentes.display()
+            ),
+        )
     }
 }
