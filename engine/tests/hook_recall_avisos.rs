@@ -1,11 +1,8 @@
-use exo::hook::guards::recall_avisos::{
-    GateTimeout, corre_con_deadline, gate_pendiente, superpowers,
-};
+use exo::hook::guards::recall_avisos::{gate_pendiente, superpowers};
 use std::ffi::OsStr;
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tempfile::TempDir;
 
 const NOTA: &str = "projects/a — b (c).md";
@@ -366,71 +363,78 @@ fn kb_sin_git() {
 }
 
 // ---------- deadline ----------
+// Stubs `#!/bin/sh` y `sh -c`: el mecanismo es intrínsecamente unix.
+#[cfg(unix)]
+mod deadline {
+    use super::*;
+    use exo::hook::guards::recall_avisos::{GateTimeout, corre_con_deadline};
+    use std::os::unix::fs::PermissionsExt;
+    use std::time::Instant;
+    fn stub(d: &Path, cuerpo: &str) -> PathBuf {
+        let p = d.join("git");
+        std::fs::write(&p, format!("#!/bin/sh\n{cuerpo}\n")).unwrap();
+        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
+        p
+    }
 
-fn stub(d: &Path, cuerpo: &str) -> PathBuf {
-    let p = d.join("git");
-    std::fs::write(&p, format!("#!/bin/sh\n{cuerpo}\n")).unwrap();
-    std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
-    p
-}
+    fn kb_con_git_dir() -> (TempDir, PathBuf) {
+        let d = tempfile::tempdir().unwrap();
+        let kb = d.path().join("kb");
+        std::fs::create_dir_all(kb.join(".git")).unwrap();
+        (d, kb)
+    }
 
-fn kb_con_git_dir() -> (TempDir, PathBuf) {
-    let d = tempfile::tempdir().unwrap();
-    let kb = d.path().join("kb");
-    std::fs::create_dir_all(kb.join(".git")).unwrap();
-    (d, kb)
-}
+    /// paridad-recall: gate_git_colgado_corta_sin_aviso
+    #[test]
+    fn gate_deadline() {
+        let (d, kb) = kb_con_git_dir();
+        let g = stub(d.path(), "exec sleep 10");
+        let t = Instant::now();
+        let r = gate_pendiente(&kb, Duration::from_millis(200), g.as_os_str());
+        assert_eq!(r, Err(GateTimeout));
+        assert!(t.elapsed() < Duration::from_secs(2), "{:?}", t.elapsed());
+    }
 
-/// paridad-recall: gate_git_colgado_corta_sin_aviso
-#[test]
-fn gate_deadline() {
-    let (d, kb) = kb_con_git_dir();
-    let g = stub(d.path(), "exec sleep 10");
-    let t = Instant::now();
-    let r = gate_pendiente(&kb, Duration::from_millis(200), g.as_os_str());
-    assert_eq!(r, Err(GateTimeout));
-    assert!(t.elapsed() < Duration::from_secs(2), "{:?}", t.elapsed());
-}
+    /// 3 git de 150 ms con deadline 300 ms: por comando pasarían los tres; global vence.
+    #[test]
+    fn gate_deadline_es_global() {
+        let (d, kb) = kb_con_git_dir();
+        // rev-parse: éxito (hay tag); log: salida no vacía para que corran los 3.
+        let g = stub(
+            d.path(),
+            "sleep 0.15\ncase \"$*\" in *rev-parse*) ;; *) echo '@@1';; esac",
+        );
+        let t = Instant::now();
+        let r = gate_pendiente(&kb, Duration::from_millis(300), g.as_os_str());
+        assert_eq!(r, Err(GateTimeout));
+        assert!(t.elapsed() < Duration::from_secs(5), "{:?}", t.elapsed());
+        // Control: con holgura, los 3 git corren y terminan sin aviso.
+        let r = gate_pendiente(&kb, Duration::from_secs(5), g.as_os_str());
+        assert_eq!(r, Ok(vec![]));
+    }
 
-/// 3 git de 150 ms con deadline 300 ms: por comando pasarían los tres; global vence.
-#[test]
-fn gate_deadline_es_global() {
-    let (d, kb) = kb_con_git_dir();
-    // rev-parse: éxito (hay tag); log: salida no vacía para que corran los 3.
-    let g = stub(
-        d.path(),
-        "sleep 0.15\ncase \"$*\" in *rev-parse*) ;; *) echo '@@1';; esac",
-    );
-    let t = Instant::now();
-    let r = gate_pendiente(&kb, Duration::from_millis(300), g.as_os_str());
-    assert_eq!(r, Err(GateTimeout));
-    assert!(t.elapsed() < Duration::from_secs(5), "{:?}", t.elapsed());
-    // Control: con holgura, los 3 git corren y terminan sin aviso.
-    let r = gate_pendiente(&kb, Duration::from_secs(5), g.as_os_str());
-    assert_eq!(r, Ok(vec![]));
-}
+    #[test]
+    fn corre_con_deadline_mata_y_recoge() {
+        let t = Instant::now();
+        let mut c = Command::new("sh");
+        c.args(["-c", "exec sleep 10"]);
+        assert!(corre_con_deadline(c, Instant::now() + Duration::from_millis(100)).is_none());
+        assert!(t.elapsed() < Duration::from_secs(2));
 
-#[test]
-fn corre_con_deadline_mata_y_recoge() {
-    let t = Instant::now();
-    let mut c = Command::new("sh");
-    c.args(["-c", "exec sleep 10"]);
-    assert!(corre_con_deadline(c, Instant::now() + Duration::from_millis(100)).is_none());
-    assert!(t.elapsed() < Duration::from_secs(2));
+        let mut c = Command::new("sh");
+        c.args(["-c", "echo hola"]);
+        let o = corre_con_deadline(c, Instant::now() + Duration::from_secs(5)).unwrap();
+        assert!(o.status.success());
+        assert_eq!(o.stdout, b"hola\n");
+    }
 
-    let mut c = Command::new("sh");
-    c.args(["-c", "echo hola"]);
-    let o = corre_con_deadline(c, Instant::now() + Duration::from_secs(5)).unwrap();
-    assert!(o.status.success());
-    assert_eq!(o.stdout, b"hola\n");
-}
-
-/// Un nieto sujeta el pipe tras salir el hijo: el deadline también corta la espera del stdout.
-#[test]
-fn corre_con_deadline_acota_el_join_del_lector() {
-    let mut c = Command::new("sh");
-    c.args(["-c", "sleep 10 & echo hola"]);
-    let t = Instant::now();
-    assert!(corre_con_deadline(c, Instant::now() + Duration::from_millis(300)).is_none());
-    assert!(t.elapsed() < Duration::from_secs(5), "{:?}", t.elapsed());
+    /// Un nieto sujeta el pipe tras salir el hijo: el deadline también corta la espera del stdout.
+    #[test]
+    fn corre_con_deadline_acota_el_join_del_lector() {
+        let mut c = Command::new("sh");
+        c.args(["-c", "sleep 10 & echo hola"]);
+        let t = Instant::now();
+        assert!(corre_con_deadline(c, Instant::now() + Duration::from_millis(300)).is_none());
+        assert!(t.elapsed() < Duration::from_secs(5), "{:?}", t.elapsed());
+    }
 }

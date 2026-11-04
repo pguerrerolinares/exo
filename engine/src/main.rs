@@ -805,27 +805,15 @@ fn init_cmd(args: ArgsInit) -> Result<()> {
     Ok(())
 }
 
-/// Ruta lista para cruzar la frontera hacia shell: barras normales siempre.
-/// `expande_tilde` hace `home.join(resto)` con `home` en formato nativo de
-/// Windows (`\`) y `resto` con el separador literal del TOML (`/`); el
-/// `PathBuf` resultante mezcla los dos y a Rust no le importa (así abre
-/// ficheros en todo el engine), pero un script de shell sí que lo nota si
-/// hace `dirname`, recorta un prefijo o compara contra otra ruta. Se
-/// normaliza aquí, en la salida, no en `expande_tilde`: ese `PathBuf` es de
-/// uso interno del engine, y el problema nace justo al cruzar a shell.
-fn ruta_shell(p: &Path) -> String {
-    p.display().to_string().replace('\\', "/")
-}
-
 /// `exo config`: la config efectiva, con rutas expandidas.
 fn config_cmd(args: ArgsConfig) -> Result<()> {
     let r = exo::state::Rutas::desde_env();
     let state = serde_json::json!({
-        "dir": ruta_shell(&r.state_dir),
-        "reflex_log": ruta_shell(&r.reflex_log),
-        "rules_dir": ruta_shell(&r.rules_dir),
-        "index_log": ruta_shell(&r.index_log),
-        "canary": ruta_shell(&r.canary),
+        "dir": exo::ruta_shell(&r.state_dir),
+        "reflex_log": exo::ruta_shell(&r.reflex_log),
+        "rules_dir": exo::ruta_shell(&r.rules_dir),
+        "index_log": exo::ruta_shell(&r.index_log),
+        "canary": exo::ruta_shell(&r.canary),
     });
     let cfg = match exo::config::carga() {
         Ok(c) => c,
@@ -841,8 +829,8 @@ fn config_cmd(args: ArgsConfig) -> Result<()> {
     let kb = exo::config::expande_tilde(&cfg.kb.path);
     let db = exo::config::expande_tilde(&cfg.index.db);
     let data = serde_json::json!({
-        "kb": { "path": ruta_shell(&kb), "name": cfg.kb.name },
-        "index": { "db": ruta_shell(&db) },
+        "kb": { "path": exo::ruta_shell(&kb), "name": cfg.kb.name },
+        "index": { "db": exo::ruta_shell(&db) },
         "embeddings": {
             "model": cfg.embeddings.model,
             "dims": cfg.embeddings.dims,
@@ -1897,18 +1885,4 @@ fn corre(nombre: &str, args: ArgsIndex, borra_antes: bool) -> Result<()> {
         );
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::ruta_shell;
-    use std::path::Path;
-
-    #[test]
-    fn ruta_shell_normaliza_separadores_de_windows() {
-        assert_eq!(
-            ruta_shell(Path::new(r"C:\Users\x\.exo\state")),
-            "C:/Users/x/.exo/state"
-        );
-    }
 }

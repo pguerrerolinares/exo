@@ -421,6 +421,13 @@ fn check_fallback_del_hook(entorno: &Entorno) -> Check {
     }
 }
 
+/// Comando bash copiable: rutas con `/` y entre comillas simples (en Windows bash
+/// se come las `\`, y un perfil con espacios rompería el comando).
+pub fn comando_migrar(viejo: &Path, nuevo: &Path) -> String {
+    let (v, n) = (crate::ruta_shell(viejo), crate::ruta_shell(nuevo));
+    format!("cat '{v}' >> '{n}' && mv '{v}' '{v}.migrado-'$(date +%Y%m%dT%H%M%S)")
+}
+
 /// Informativo (`warn` no gatea): lo que `exo hook SessionStart` no llegó a migrar
 /// (p. ej. un `state_dir` no escribible, donde ni el rastro `state-migrate-failed` se escribe).
 fn check_state_residuo(entorno: &Entorno) -> Check {
@@ -443,9 +450,9 @@ fn check_state_residuo(entorno: &Entorno) -> Check {
             let crece = viejo != **nuevo && std::fs::metadata(&viejo).is_ok_and(|m| m.len() > 0);
             crece.then(|| {
                 format!(
-                    "residuo en {v} que crece: cat {v} >> {n} && mv {v} {v}.migrado-$(date +%Y%m%dT%H%M%S)",
-                    v = viejo.display(),
-                    n = nuevo.display()
+                    "residuo en {} que crece: {}",
+                    viejo.display(),
+                    comando_migrar(&viejo, nuevo)
                 )
             })
         })
@@ -462,9 +469,9 @@ fn check_state_residuo(entorno: &Entorno) -> Check {
                 .find(|(n, _)| nombre.starts_with(&format!("{n}.migrando-")))?;
             let p = e.path();
             Some(format!(
-                "reclamo sobrante {p}: cat {p} >> {n} && mv {p} {p}.migrado-$(date +%Y%m%dT%H%M%S)",
-                p = p.display(),
-                n = nuevo.display()
+                "reclamo sobrante {}: {}",
+                p.display(),
+                comando_migrar(&p, nuevo)
             ))
         })
         .collect();
