@@ -34,7 +34,7 @@ impl Rutas {
     }
 
     pub fn desde_env() -> Rutas {
-        let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+        let home = crate::home_dir().unwrap_or_else(|| PathBuf::from("."));
         Rutas::resuelve(&home, |k| std::env::var_os(k))
     }
 }

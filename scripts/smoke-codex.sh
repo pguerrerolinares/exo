@@ -42,6 +42,10 @@ for a in "$@"; do
   esac
 done
 
+# Git Bash / MSYS: `pwsh` lanza los hooks y no ejecuta ficheros sin extensión.
+WIN=0
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) WIN=1 ;; esac
+
 RAIZ="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)" || exit 1
 [ "${1:-}" = "--raiz" ] && { echo "$RAIZ"; exit 0; }
 [ "$SECO" -eq 1 ] && [ "$REAL" -eq 0 ] && { echo "smoke-codex: --seco solo con --real" >&2; exit 1; }
@@ -55,7 +59,9 @@ T="$(mktemp -d)"
 if [ "$KEEP" -eq 0 ]; then trap 'rm -rf "$T"' EXIT; else echo "smoke-codex: dir temporal $T"; fi
 
 if [ "$REAL" -eq 1 ]; then
-  command -v exo >/dev/null || { echo "smoke-codex: falta exo en PATH" >&2; exit 1; }
+  # EXO_REAL_BIN fija el binario que usa el shim (p. ej. engine/target/release/exo).
+  REAL_EXO="${EXO_REAL_BIN:-$(command -v exo)}"
+  [ -n "$REAL_EXO" ] && [ -x "$REAL_EXO" ] || { echo "smoke-codex: falta exo en PATH (o EXO_REAL_BIN inválido)" >&2; exit 1; }
   REAL_HOME="$HOME"
   # KB e índice del dueño por env (el HOME aislado no los trae); el estado, los
   # roles y la config de Codex van al directorio temporal.
@@ -70,6 +76,8 @@ if [ "$REAL" -eq 1 ]; then
   cp "$SRC_CONFIG" "$T/config.toml"; cp "$SRC_INDEX" "$T/index.db"
   export EXO_CONFIG="$T/config.toml" EXO_INDEX="$T/index.db" EXO_DB="$T/index.db"
   export HOME="$T/h" CODEX_HOME="$T/home" EXO_STATE_DIR="$T/state"
+  # dirs::home_dir() en Windows mira USERPROFILE, no HOME.
+  if [ "$WIN" -eq 1 ]; then USERPROFILE="$(cygpath -w "$HOME")"; export USERPROFILE; fi
   # El guard zero-residuo exime todo cwd bajo /tmp: el repo de trabajo va fuera
   # (.superpowers/ está en .gitignore).
   WORK="$RAIZ/.superpowers/smoke-codex-$$"
@@ -78,8 +86,9 @@ if [ "$REAL" -eq 1 ]; then
   mkdir -p "$HOME" "$CODEX_HOME" "$EXO_STATE_DIR" "$WORK" "$T/bin"
   # Wrapper de `exo hook codex …`: vuelca la stdout del hook (lo que Codex recibe)
   # a $T/hook-<evento>.out, una fuente que no depende de lo que Codex persista.
-  REAL_EXO="$(command -v exo)"
-  cat > "$T/bin/exo" <<EOF
+  SHIM="$T/bin/exo"
+  [ "$WIN" -eq 1 ] && SHIM="$T/bin/exo-shim.sh"
+  cat > "$SHIM" <<EOF
 #!/bin/sh
 if [ "\$1 \$2" = "hook codex" ]; then
   out=\$("$REAL_EXO" "\$@"); rc=\$?
@@ -88,7 +97,12 @@ if [ "\$1 \$2" = "hook codex" ]; then
 fi
 exec "$REAL_EXO" "\$@"
 EOF
-  chmod +x "$T/bin/exo"
+  chmod +x "$SHIM"
+  if [ "$WIN" -eq 1 ]; then
+    BASH_WIN="$(cygpath -w "$(command -v bash)")"
+    # El .cmd delega en el sh: stdin y rc pasan intactos (bash hereda ambos).
+    printf '@echo off\r\n"%s" "%s" %%*\r\n' "$BASH_WIN" "$(cygpath -w "$SHIM")" > "$T/bin/exo.cmd"
+  fi
   export PATH="$T/bin:$PATH"
   # El `exo` instalado es un shim que busca su binario bajo $HOME/.local.
   [ -d "$REAL_HOME/.local" ] && ln -s "$REAL_HOME/.local" "$HOME/.local"
@@ -115,7 +129,7 @@ EOF
 
   # Espera a que acabe el `exo index` desacoplado del Stop (el log deja de crecer).
   prev=-1; for _ in $(seq 30); do
-    cur="$(wc -c < "$EXO_STATE_DIR/exo-index.log" 2>/dev/null || echo 0)"
+    cur="$(wc -c < "$EXO_STATE_DIR/exo-index.log" 2>/dev/null | tr -d ' ')"; cur="${cur:-0}"
     [ "$cur" = "$prev" ] && break; prev="$cur"; sleep 1
   done
 
@@ -132,7 +146,7 @@ EOF
   # shellcheck disable=SC2329 # invocada vía chk
   sin_system_message() { ! grep -qi systemMessage "$T/exec.log" "$T/resume.log"; }
   # shellcheck disable=SC2329 # invocada vía chk
-  reglas_re_emitidas() { [ "$(grep -c project-rules-emitted "$EXO_STATE_DIR/reflex-log.jsonl" 2>/dev/null)" -ge 2 ]; }
+  reglas_re_emitidas() { [ "$(grep -c project-rules-emitted "$EXO_STATE_DIR/reflex-log.jsonl" 2>/dev/null || true)" -ge 2 ] 2>/dev/null; }
   # shellcheck disable=SC2329 # invocada vía chk
   marca_consumida() { grep -rqF post-compact-consumed "$EXO_STATE_DIR/sessions" 2>/dev/null; }
   # shellcheck disable=SC2329 # invocada vía chk

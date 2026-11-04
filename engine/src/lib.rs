@@ -33,6 +33,20 @@ pub mod trozos;
 pub mod vectores;
 pub mod walker;
 
+/// Home del usuario. En Windows `dirs::home_dir()` usa SHGetKnownFolderPath e
+/// ignora el entorno: un proceso con el perfil "aislado" por `USERPROFILE`
+/// escribiría igualmente en el perfil real. Aquí manda `USERPROFILE` (si es
+/// absoluta); `HOME` no, es cosa de Git Bash. En unix `dirs` ya respeta `HOME`.
+pub fn home_dir() -> Option<std::path::PathBuf> {
+    #[cfg(windows)]
+    if let Some(p) = std::env::var_os("USERPROFILE").map(std::path::PathBuf::from)
+        && p.is_absolute()
+    {
+        return Some(p);
+    }
+    dirs::home_dir()
+}
+
 static REG: Once = Once::new();
 
 /// Registra sqlite-vec como auto-extension exactamente una vez por proceso
