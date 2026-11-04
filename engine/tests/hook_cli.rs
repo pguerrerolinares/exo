@@ -1101,6 +1101,39 @@ fn spill_canario() {
     assert!(payloads(&m2.reflex(), "context-spill-risk").is_empty());
 }
 
+/// UPS tras PostCompact: la marca ya está consumida, así que un panic en la
+/// reafirmación no puede llevarse las reglas ni el canario de tamaño.
+#[test]
+fn ups_post_compact_aisla_reafirmacion_y_mide_spill() {
+    let m = Mundo::nuevo();
+    let repo = m.repo("foo");
+    m.nota("projects/foo.md", &reglas_md(10, 1100));
+    m.siembra_reflex("sx", &["git-c"]);
+    m.corre(
+        &["codex", "PostCompact"],
+        &evt("PostCompact", "sx", &repo, json!({})),
+        &[],
+    );
+    let ups = evt("UserPromptSubmit", "sx", &repo, json!({"prompt": "hola"}));
+    let v = salida(&m.corre(
+        &["codex", "UserPromptSubmit"],
+        &ups,
+        &[("EXO_HOOK_PANIC", "recall-compact")],
+    ));
+    let c = ctx(&v);
+    assert!(
+        c.contains("- regla 10"),
+        "las reglas sobreviven al panic: {v}"
+    );
+    assert!(!c.contains("Reglas reforzadas"), "{c}");
+    let rs = m.reflex();
+    assert_eq!(payloads(&rs, "hook-panic"), ["recall-compact"]);
+    assert_eq!(
+        payloads(&rs, "context-spill-risk"),
+        [format!("bytes={}", c.len())]
+    );
+}
+
 #[test]
 fn migra_en_arranque() {
     let m = Mundo::nuevo();
@@ -1297,6 +1330,81 @@ fn gate_timeout_rastro() {
     assert_eq!(payloads(&m.reflex(), "gate-timeout"), ["deadline=1s"]);
 }
 
+/// `git` de PATH que se cuelga solo en `rev-parse --git-common-dir` (la clave del repo de las reglas).
+#[cfg(unix)]
+fn path_con_git_colgado(m: &Mundo) -> String {
+    let real = String::from_utf8(
+        Command::new("sh")
+            .args(["-c", "command -v git"])
+            .output()
+            .unwrap()
+            .stdout,
+    )
+    .unwrap();
+    let dir = m.dir.path().join("bin-reglas");
+    std::fs::create_dir_all(&dir).unwrap();
+    ejecutable(
+        &dir.join("git"),
+        &format!(
+            "#!/bin/sh\ncase \"$*\" in *git-common-dir*) exec sleep 30 ;; esac\nexec {} \"$@\"\n",
+            real.trim()
+        ),
+    );
+    format!("{}:{}", dir.display(), std::env::var("PATH").unwrap())
+}
+
+/// paridad-recall: timeout_rules: exo rules colgado ⇒ corta y grita error_engine
+#[cfg(unix)]
+#[test]
+fn git_de_reglas_colgado_degrada_a_error_engine() {
+    let m = Mundo::nuevo();
+    let repo = m.repo("foo");
+    m.reglas("foo", 2);
+    let path = path_con_git_colgado(&m);
+    for harness in ["claude", "codex"] {
+        let t0 = Instant::now();
+        let v = salida(&m.corre(
+            &[harness, "SessionStart"],
+            &inicio("sr", &repo, "startup"),
+            &[("PATH", &path), ("EXO_GIT_TIMEOUT", "1")],
+        ));
+        assert!(t0.elapsed() < Duration::from_secs(10), "{harness}");
+        assert_eq!(
+            v["systemMessage"], "⚠ sin reglas de proyecto para foo (error_engine)",
+            "{harness}: {v}"
+        );
+        assert!(
+            ctx(&v).starts_with(CONTRATO),
+            "{harness}: sigue el contrato"
+        );
+    }
+    assert!(
+        m.reflex()
+            .iter()
+            .any(|r| r["reflex"] == "project-rules-skip"
+                && r["payload"]
+                    .as_str()
+                    .unwrap()
+                    .starts_with("reason=error_engine")),
+        "{:?}",
+        m.reflex()
+    );
+    assert!(m.ss("sr").unwrap().contains("error_engine"));
+}
+
+/// `--min` que no parsea no declara obsoleto, pero deja rastro (spec §6.1).
+#[test]
+fn min_ilegible_deja_rastro() {
+    let m = Mundo::nuevo();
+    let v = salida(&m.corre(
+        &["claude", "SessionStart", "--min", "0.15"],
+        &inicio("sm", &m.kb, "startup"),
+        &[],
+    ));
+    assert!(ctx(&v).starts_with(CONTRATO), "no cae al fallback: {v}");
+    assert_eq!(payloads(&m.reflex(), "hook-error"), ["code=min"]);
+}
+
 // ---------- Codex Pre/PostToolUse (§5.3) y search-first ----------
 
 fn codex_tool(evento: &str, sid: &str, tool: &str, input: Value) -> Vec<u8> {
@@ -1366,6 +1474,7 @@ fn runner_usa_el_home_de_rutas() {
     let d = tempfile::tempdir().unwrap();
     let home = d.path().join("home");
     std::fs::create_dir_all(home.join(".claude")).unwrap();
+    std::fs::create_dir_all(d.path().join("kb")).unwrap();
     std::fs::write(
         home.join(".claude/reflex-log.jsonl"),
         "{\"reflex\":\"viejo\"}\n",
@@ -1384,8 +1493,10 @@ fn runner_usa_el_home_de_rutas() {
         state_dir: rutas.state_dir.clone(),
         reflex_log: rutas.reflex_log.clone(),
         rutas,
-        seams: exo::state::Seams::resuelve(|k| {
-            (k == "EXO_INDEX").then(|| d.path().join("falta.db").into_os_string())
+        seams: exo::state::Seams::resuelve(|k| match k {
+            "EXO_INDEX" => Some(d.path().join("falta.db").into_os_string()),
+            "EXO_KB" => Some(d.path().join("kb").into_os_string()),
+            _ => None,
         }),
         cdpath_definido: false,
         panic_guard: None,

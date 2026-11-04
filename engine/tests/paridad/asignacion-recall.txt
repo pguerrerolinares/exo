@@ -56,6 +56,6 @@ reglas	sin_indice_resuelve_reglas: engine OK e índice ausente ⇒ exo rules lla
 reglas	sin_seccion_solo_log: sin systemMessage, project-rules-skip en reflex-log
 reglas	ss_cuenta_global: skip + 2 globales ⇒ n=2 n_global=2
 reglas	ss_suma_proyecto_y_global: ok con 3 de proyecto + 2 globales ⇒ n=5
-fontaneria	timeout_rules: exo rules colgado ⇒ corta y grita error_engine
+reglas	timeout_rules: exo rules colgado ⇒ corta y grita error_engine
 avisos	user scope false: no avisa
 avisos	user scope habilitado (JSON multilínea): avisa con el comando

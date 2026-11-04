@@ -129,8 +129,8 @@ fn escribe_log(en: &Entorno, lineas: &[(&str, &str)]) {
             "{{\"ts\":\"t\",\"reflex\":\"{reflex}\",\"session_id\":\"{sid}\",\"agent_id\":\"\",\"agent_type\":\"\",\"tool\":\"Bash\",\"payload\":\"x\"}}\n"
         ));
     }
-    std::fs::create_dir_all(en.rutas.reflex_log.parent().unwrap()).unwrap();
-    std::fs::write(&en.rutas.reflex_log, s).unwrap();
+    std::fs::create_dir_all(en.reflex_log.parent().unwrap()).unwrap();
+    std::fs::write(&en.reflex_log, s).unwrap();
 }
 
 fn entorno_vacio() -> (tempfile::TempDir, Entorno) {
@@ -357,7 +357,6 @@ fn reafirma_respeta_reflex_log_file() {
     let (d, mut en) = entorno_vacio();
     // `REFLEX_LOG_FILE` fuera de `state_dir`: el bug de exo-recall.sh:161 leía siempre ~/.claude.
     let aparte: PathBuf = d.path().join("otro-sitio/log.jsonl");
-    en.rutas.reflex_log = aparte.clone();
     en.reflex_log = aparte;
     escribe_log(&en, &[("git-c", "s1")]);
     assert!(!en.rutas.state_dir.join("reflex-log.jsonl").exists());

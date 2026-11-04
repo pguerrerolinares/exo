@@ -59,15 +59,19 @@ pub fn corre_con_deadline(mut cmd: Command, hasta: Instant) -> Option<Output> {
         .spawn()
         .ok()?;
     let mut salida = hijo.stdout.take()?;
-    let lector = std::thread::spawn(move || {
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
         let mut buf = Vec::new();
         let _ = salida.read_to_end(&mut buf);
-        buf
+        let _ = tx.send(buf);
     });
     loop {
         match hijo.try_wait() {
             Ok(Some(status)) => {
-                let stdout = lector.join().unwrap_or_default();
+                // Un nieto puede sujetar el pipe tras salir el hijo: la espera
+                // por el stdout también respeta el deadline.
+                let stdout = rx.recv_timeout(hasta.saturating_duration_since(Instant::now()));
+                let stdout = stdout.ok()?;
                 return Some(Output {
                     status,
                     stdout,

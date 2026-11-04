@@ -145,6 +145,9 @@ pub fn aplica(config: &str, agentes_dir: &Path) -> Result<String> {
 /// tmp + rename en el mismo directorio: Codex también reescribe `config.toml`
 /// de forma atómica y no debe ver un fichero a medias.
 fn escribe_atomico(destino: &Path, contenido: &str) -> Result<()> {
+    // Un `config.toml` symlink (dotfiles con stow) se escribe a través del enlace:
+    // el rename sobre el enlace lo sustituiría por un fichero regular.
+    let destino = &std::fs::canonicalize(destino).unwrap_or_else(|_| destino.to_path_buf());
     let padre = destino.parent().context("ruta sin directorio padre")?;
     std::fs::create_dir_all(padre).with_context(|| format!("creando {}", padre.display()))?;
     let nombre = destino

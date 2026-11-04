@@ -1255,7 +1255,7 @@ fn check_codex_rol_modelo(entorno: &Entorno) -> Check {
             Estado::Warn,
             artefacto,
             format!(
-                "{}; edita `model` en {}",
+                "{}; `exo setup codex` reescribe {} con el modelo embebido en el binario: actualiza exo y reinstala",
                 rotados.join("; "),
                 agentes.display()
             ),

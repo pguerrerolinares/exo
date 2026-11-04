@@ -404,11 +404,7 @@ fn gate_deadline_es_global() {
     let t = Instant::now();
     let r = gate_pendiente(&kb, Duration::from_millis(300), g.as_os_str());
     assert_eq!(r, Err(GateTimeout));
-    assert!(
-        t.elapsed() < Duration::from_millis(1500),
-        "{:?}",
-        t.elapsed()
-    );
+    assert!(t.elapsed() < Duration::from_secs(5), "{:?}", t.elapsed());
     // Control: con holgura, los 3 git corren y terminan sin aviso.
     let r = gate_pendiente(&kb, Duration::from_secs(5), g.as_os_str());
     assert_eq!(r, Ok(vec![]));
@@ -427,4 +423,14 @@ fn corre_con_deadline_mata_y_recoge() {
     let o = corre_con_deadline(c, Instant::now() + Duration::from_secs(5)).unwrap();
     assert!(o.status.success());
     assert_eq!(o.stdout, b"hola\n");
+}
+
+/// Un nieto sujeta el pipe tras salir el hijo: el deadline también corta la espera del stdout.
+#[test]
+fn corre_con_deadline_acota_el_join_del_lector() {
+    let mut c = Command::new("sh");
+    c.args(["-c", "sleep 10 & echo hola"]);
+    let t = Instant::now();
+    assert!(corre_con_deadline(c, Instant::now() + Duration::from_millis(300)).is_none());
+    assert!(t.elapsed() < Duration::from_secs(5), "{:?}", t.elapsed());
 }

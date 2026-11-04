@@ -7,7 +7,7 @@ use super::guards::{
     index::index,
     recall::{FALLBACK, Fragmentos, compone_claude, reafirmacion, recall_contrato},
     recall_avisos::{gate_pendiente, superpowers},
-    reglas::{engine_stale, registra_skip, reglas_testigo, resuelve_reglas},
+    reglas::{engine_stale, plazo_git, registra_skip, reglas_testigo, resuelve_reglas},
     search_first::search_first,
     verify::verify,
     zero_residuo::zero_residuo,
@@ -189,7 +189,7 @@ fn kb_de(en: &Entorno) -> Option<PathBuf> {
         .or_else(|| crate::kb_desde_config().ok())
 }
 
-fn cwd_de(ev: &Evento) -> PathBuf {
+pub(crate) fn cwd_de(ev: &Evento) -> PathBuf {
     if ev.cwd.is_empty() {
         std::env::current_dir().unwrap_or_default()
     } else {
@@ -266,10 +266,12 @@ fn migra(en: &Entorno, ev: &Evento) {
 }
 
 fn session_start(en: &Entorno, h: Harness, ev: &Evento, min: Option<&str>) -> String {
-    if let Some(min) = min
-        && menor(VERSION, min)
-    {
-        return engine_obsoleto(en, h, ev, min);
+    if let Some(min) = min {
+        if crate::doctor::parse_semver(min).is_none() {
+            registra(en, "hook-error", ev, "code=min");
+        } else if menor(VERSION, min) {
+            return engine_obsoleto(en, h, ev, min);
+        }
     }
     guarda("migracion", ev, en, || migra(en, ev), ());
 
@@ -403,7 +405,7 @@ fn reglas_inyecta(en: &Entorno, ev: &Evento, kb: Option<&Path>) -> (String, Vec<
     let Some(kb) = kb else {
         return (String::new(), vec![]);
     };
-    let r = resuelve_reglas(kb, &cwd_de(ev));
+    let r = resuelve_reglas(kb, &cwd_de(ev), plazo_git(en));
     registra_skip(en, ev, &r);
     if !r.bloque.is_empty() {
         registra(
@@ -465,13 +467,27 @@ fn user_prompt_submit(en: &Entorno, h: Harness, ev: &Evento) -> String {
     );
     let fr = Fragmentos {
         reglas: bloque,
-        reafirmacion: reafirmacion(&ev.session_id, en),
+        reafirmacion: guarda(
+            Guard::RecallCompact.nombre(),
+            ev,
+            en,
+            || reafirmacion(&ev.session_id, en),
+            String::new(),
+        ),
         avisos: avisos.clone(),
         ..Fragmentos::default()
     };
     let (texto, _) = ensambla(h, &fr, en.seams.bloque_cap);
     if texto.is_empty() {
         return vacio;
+    }
+    if h == Harness::Codex && texto.len() > SPILL_BYTES {
+        registra(
+            en,
+            "context-spill-risk",
+            ev,
+            &format!("bytes={}", texto.len()),
+        );
     }
     salida_contexto(h, ev, &texto, &avisos)
 }

@@ -5,4 +5,3 @@ golden: $nombre capturado en $golden	Modo RECAPTURA=1 del golden bash (escribe l
 no-engine: EXO_BIN no ejecutable ⇒ recall-fallback reason=no-engine	Apunta EXO_BIN a un binario inexistente; el hook Rust es el engine, no puede faltar.
 orden: sin engine, se loguea SOLO no-engine (nunca no-config además)	Guarda contra el doble aviso no-config y no-engine por la ausencia del binario (bug histórico de la shell); sin binario externo no existe la ausencia.
 recorte_con_crlf: jq con CRLF ⇒ el aviso de recorte sale igual	Antepone un jq falso con CRLF en PATH (jq nativo de Windows); el hook Rust no usa jq ni read de shell.
-timeout_rules: exo rules colgado ⇒ corta y grita error_engine	Cuelga un exo rules stub con EXO_RULES_TIMEOUT; reglas::resuelve en proceso no tiene subproceso ni timeout que cortar.

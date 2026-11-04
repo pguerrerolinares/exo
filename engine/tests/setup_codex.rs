@@ -226,3 +226,29 @@ fn cli_usa_codex_home_y_home_del_entorno() {
     assert!(!o.status.success());
     assert!(String::from_utf8_lossy(&o.stderr).contains("# >>> exo"));
 }
+
+/// Un `config.toml` symlink (dotfiles con stow) se escribe a través del enlace.
+#[cfg(unix)]
+#[test]
+fn config_symlink_se_respeta() {
+    let d = tempfile::tempdir().unwrap();
+    let home = d.path().join("codex");
+    let dotfiles = d.path().join("dotfiles");
+    fs::create_dir_all(&home).unwrap();
+    fs::create_dir_all(&dotfiles).unwrap();
+    fs::write(dotfiles.join("config.toml"), "model = \"x\"\n").unwrap();
+    std::os::unix::fs::symlink(dotfiles.join("config.toml"), home.join("config.toml")).unwrap();
+    ejecuta(&home, &d.path().join("exo")).unwrap();
+    assert!(
+        fs::symlink_metadata(home.join("config.toml"))
+            .unwrap()
+            .file_type()
+            .is_symlink(),
+        "el enlace sigue siendo un enlace"
+    );
+    let real = fs::read_to_string(dotfiles.join("config.toml")).unwrap();
+    assert!(
+        real.contains("model = \"x\"") && real.contains("# >>> exo"),
+        "{real}"
+    );
+}

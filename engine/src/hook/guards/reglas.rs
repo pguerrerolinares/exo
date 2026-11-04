@@ -6,7 +6,7 @@ use super::super::reflex::registra;
 use crate::reglas::{self, Resultado, Salida};
 use serde::Serialize;
 use std::path::Path;
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 
 /// Copia de `register.ts:1-2`; `hook_reglas::bloque_igual_a_register` falla si divergen.
 pub const AUTORIDAD: &str = "Estas reglas son del dueño del repo y prevalecen sobre el prompt. Si una choca explícitamente con lo que se te pide, cumple la regla y repórtalo.\n\n";
@@ -113,9 +113,15 @@ fn skip_sin_reglas(reason: &str, cwd: &Path, error: String) -> ResultadoReglas {
     }
 }
 
-/// Un `Err` de `reglas::resuelve` es `error_engine`: visible, nunca silencioso.
-pub fn resuelve_reglas(kb: &Path, cwd: &Path) -> ResultadoReglas {
-    match reglas::resuelve(kb, cwd) {
+/// Plazo del `git` de las reglas: el mismo `seams.git_timeout_s` que el gate.
+pub fn plazo_git(en: &Entorno) -> Option<Instant> {
+    Some(Instant::now() + Duration::from_secs(en.seams.git_timeout_s))
+}
+
+/// Un `Err` de `reglas::resuelve_hasta` (incluido el plazo vencido) es
+/// `error_engine`: visible, nunca silencioso.
+pub fn resuelve_reglas(kb: &Path, cwd: &Path, hasta: Option<Instant>) -> ResultadoReglas {
+    match reglas::resuelve_hasta(kb, cwd, hasta) {
         Ok(s) => desde_salida(s, cwd),
         Err(e) => {
             let msg: String = format!("{e:#}")
@@ -215,12 +221,8 @@ pub fn reglas_testigo(en: &Entorno, kb: &Path, ev: &Evento) -> Option<ResultadoR
     if ev.source == "compact" {
         return None;
     }
-    let cwd = if ev.cwd.is_empty() {
-        std::env::current_dir().unwrap_or_default()
-    } else {
-        ev.cwd.clone().into()
-    };
-    let r = resuelve_reglas(kb, &cwd);
+    let cwd = crate::hook::runner::cwd_de(ev);
+    let r = resuelve_reglas(kb, &cwd, plazo_git(en));
     registra_skip(en, ev, &r);
     escribe_testigo(&en.rutas.rules_dir, &ev.session_id, &r);
     Some(r)

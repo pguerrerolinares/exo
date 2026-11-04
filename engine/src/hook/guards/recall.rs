@@ -109,13 +109,13 @@ fn pin(id: &str) -> Option<&'static str> {
 }
 
 /// Reafirmación de los reflejos que dispararon en `sid`, en las últimas
-/// `seams.compact_lineas` líneas de `rutas.reflex_log`. Vacía si no hay pins;
+/// `seams.compact_lineas` líneas de `en.reflex_log`. Vacía si no hay pins;
 /// si no, empieza por `\n\n` para concatenarse al bloque.
 pub fn reafirmacion(sid: &str, en: &Entorno) -> String {
     if sid.is_empty() {
         return String::new();
     }
-    let Ok(txt) = std::fs::read_to_string(&en.rutas.reflex_log) else {
+    let Ok(txt) = std::fs::read_to_string(&en.reflex_log) else {
         return String::new();
     };
     let disparados: BTreeSet<String> = txt

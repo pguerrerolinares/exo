@@ -46,8 +46,7 @@ fn db_indice(en: &Entorno) -> Option<PathBuf> {
     if let Some(db) = &en.seams.exo_index {
         return Some(db.clone());
     }
-    let cfg = crate::config::carga().ok()?;
-    Some(crate::config::expande_tilde(&cfg.index.db))
+    crate::config_db().ok()
 }
 
 /// Siempre `Allow`: nunca bloquea el cierre. Los fallos dejan `index-fallback`.

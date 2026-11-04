@@ -2,10 +2,12 @@
 //! el repo git del cwd. Solo lectura. Un skip no es un fallo: el consumidor
 //! decide si lo muestra; solo un fallo del propio engine sale con exit ≠ 0.
 
+use crate::hook::guards::recall_avisos::corre_con_deadline;
 use anyhow::{Context, Result};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::Instant;
 
 const ENCABEZADO: &str = "## Reglas duras";
 pub const CAP: usize = 10;
@@ -78,13 +80,18 @@ fn hay_entrada_git(cwd: &Path) -> bool {
 /// (cwd fuera de un repo); con `.git` es un repo roto y `Err` (error del
 /// engine, visible). `Err` también si git no se puede lanzar.
 /// No se parsea stderr: con `--path-format=absolute` basta el código de salida.
-fn clave_repo(cwd: &Path) -> Result<Option<String>> {
-    let salida = Command::new("git")
-        .arg("-C")
+fn clave_repo(cwd: &Path, hasta: Option<Instant>) -> Result<Option<String>> {
+    let mut cmd = Command::new("git");
+    cmd.arg("-C")
         .arg(cwd)
-        .args(["rev-parse", "--path-format=absolute", "--git-common-dir"])
-        .output()
-        .with_context(|| format!("invocar git en {}", cwd.display()))?;
+        .args(["rev-parse", "--path-format=absolute", "--git-common-dir"]);
+    let salida = match hasta {
+        None => cmd
+            .output()
+            .with_context(|| format!("invocar git en {}", cwd.display()))?,
+        Some(hasta) => corre_con_deadline(cmd, hasta)
+            .with_context(|| format!("git no respondió a tiempo en {}", cwd.display()))?,
+    };
     if !salida.status.success() {
         if hay_entrada_git(cwd) {
             anyhow::bail!("git falla en {} pese a haber un .git", cwd.display());
@@ -255,8 +262,13 @@ fn lee_global(kb: &Path) -> Result<(Vec<String>, usize)> {
 }
 
 pub fn resuelve(kb: &Path, cwd: &Path) -> Result<Salida> {
+    resuelve_hasta(kb, cwd, None)
+}
+
+/// Como `resuelve`, pero `git` muere al llegar a `hasta` (⇒ `Err`). La CLI no lo usa.
+pub fn resuelve_hasta(kb: &Path, cwd: &Path, hasta: Option<Instant>) -> Result<Salida> {
     let (global, cortadas_global) = lee_global(kb)?;
-    let (resultado, cortadas) = resuelve_proyecto(kb, cwd)?;
+    let (resultado, cortadas) = resuelve_proyecto(kb, cwd, hasta)?;
     Ok(Salida {
         resultado,
         global,
@@ -264,8 +276,8 @@ pub fn resuelve(kb: &Path, cwd: &Path) -> Result<Salida> {
     })
 }
 
-fn resuelve_proyecto(kb: &Path, cwd: &Path) -> Result<(Resultado, usize)> {
-    let Some(repo) = clave_repo(cwd)? else {
+fn resuelve_proyecto(kb: &Path, cwd: &Path, hasta: Option<Instant>) -> Result<(Resultado, usize)> {
+    let Some(repo) = clave_repo(cwd, hasta)? else {
         return Ok((skip(None, Razon::SinGit, vec![]), 0));
     };
     let cands = candidatas(kb, &repo)?;

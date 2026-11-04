@@ -199,7 +199,7 @@ fn recorte_avisa() {
     let m = Mundo::nuevo();
     let r = m.repo("foo");
     m.nota("projects/foo.md", &reglas_md(12));
-    let res = resuelve_reglas(&m.kb(), &r);
+    let res = resuelve_reglas(&m.kb(), &r, None);
     assert_eq!(res.n, 10);
     assert_eq!(
         res.bloque
@@ -396,7 +396,7 @@ fn ss_cuenta_global() {
 fn skip_n_cero() {
     let m = Mundo::nuevo();
     let r = m.repo("foo");
-    let res = resuelve_reglas(&m.kb(), &r);
+    let res = resuelve_reglas(&m.kb(), &r, None);
     assert_eq!((res.status.as_str(), res.n, res.n_global), ("skip", 0, 0));
     assert_eq!(res.bloque, "");
 }

@@ -1344,6 +1344,12 @@ fn rol_modelo_rotado() {
         c.detalle
     );
     assert!(c.artefacto.contains("models_cache.json"), "{}", c.artefacto);
+    // Editar el rol no sirve: `exo setup codex` lo reescribe en cada instalación.
+    assert!(
+        !c.detalle.contains("edita") && c.detalle.contains("actualiza exo"),
+        "{}",
+        c.detalle
+    );
 
     // Caso negativo: la caché lleva el modelo -> sin finding.
     con_cache(&env, &["gpt-6.1-sol", "gpt-6-luna"]);
