@@ -6,7 +6,7 @@
 #
 # Por qué existe: un envelope que deriva (p. ej. `ruta` vs `path`) deja la
 # prosa mintiendo en silencio, sin error de jq. Los scripts vivos del plugin
-# (exo-recall.sh, subagent-inject.sh) leen `exo recall` como texto, no su
+# (subagent-inject.sh) leen `exo recall` como texto, no su
 # envelope JSON, así que el contrato `recall --json` ya no se asevera aquí.
 #
 # ABSTENCIÓN, no PASS falso: si falta el binario, el índice o la KB de esta

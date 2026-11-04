@@ -62,7 +62,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/exo-recall.sh"
+            "command": "exo hook claude SessionStart --min 0.15.0",
+            "timeout": 10
           }
         ]
       },
@@ -88,7 +89,8 @@
           },
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/exo-index.sh"
+            "command": "exo hook claude Stop || exit 0",
+            "timeout": 5
           },
           {
             "type": "command",

@@ -67,10 +67,23 @@ done < <(jq -r '.hooks[][].hooks[].type' "$HOOKS" | tr -d '\r')
 
 # `exo hook claude <evento> || exit 0` es el cableado del núcleo: el `|| exit 0`
 # es lo que impide que un `exo` ausente o viejo bloquee la herramienta (exit 127),
-# y `timeout` 5 acota el coste de un hook colgado.
+# y `timeout` 5 acota el coste de un hook colgado. SessionStart es la excepción:
+# lleva `--min <ENGINE_MIN>` y NO `|| exit 0` (el propio `exo` avisa del engine
+# viejo; con un `exo` ausente el hook falla visible), con timeout 10.
 while IFS=$'\t' read -r cmd timeout; do
   if printf '%s' "$cmd" | grep -qE '^exo hook '; then
-    if ! printf '%s' "$cmd" | grep -qE '^exo hook claude (PreToolUse|PostToolUse|PostToolUseFailure) \|\| exit 0$'; then
+    if printf '%s' "$cmd" | grep -qE '^exo hook claude SessionStart'; then
+      if ! printf '%s' "$cmd" | grep -qE '^exo hook claude SessionStart --min [0-9]+\.[0-9]+\.[0-9]+$'; then
+        echo "[FAIL] $HOOKS: SessionStart debe ser 'exo hook claude SessionStart --min X.Y.Z' sin '|| exit 0': $cmd" >&2
+        FALLOS=1
+      fi
+      if [ "$timeout" != "10" ]; then
+        echo "[FAIL] $HOOKS: '$cmd' sin timeout 10 (timeout='$timeout')" >&2
+        FALLOS=1
+      fi
+      continue
+    fi
+    if ! printf '%s' "$cmd" | grep -qE '^exo hook claude (PreToolUse|PostToolUse|PostToolUseFailure|Stop) \|\| exit 0$'; then
       echo "[FAIL] $HOOKS: command exo hook no casa con 'exo hook claude <evento> || exit 0': $cmd" >&2
       FALLOS=1
     fi
@@ -99,7 +112,17 @@ while IFS=$'\t' read -r cmd timeout; do
   fi
 done < <(jq -r '.hooks[][].hooks[] | [.command, (.timeout // "" | tostring)] | @tsv' "$HOOKS" | tr -d '\r')
 
+# Cutover de recall/index: SessionStart y Stop tienen que estar cableados al
+# núcleo, no a los scripts borrados.
+for ev in SessionStart Stop; do
+  n="$(jq -r --arg e "$ev" '[.hooks[$e][]?.hooks[]? | select(.command | startswith("exo hook claude " + $e))] | length' "$HOOKS" | tr -d '\r')"
+  if [ "$n" != "1" ]; then
+    echo "[FAIL] $HOOKS: $ev debe llevar exactamente un 'exo hook claude $ev' (hay $n)" >&2
+    FALLOS=1
+  fi
+done
+
 if [ "$FALLOS" -eq 0 ]; then
-  echo "[OK] test-hooks-json: eventos, sin UserPromptSubmit, type=command, exo hook con || exit 0 y timeout 5, scripts referenciados 100755"
+  echo "[OK] test-hooks-json: eventos, sin UserPromptSubmit, type=command, exo hook (SessionStart --min sin || exit 0 y timeout 10; resto || exit 0 y timeout 5), scripts referenciados 100755"
 fi
 exit "$FALLOS"

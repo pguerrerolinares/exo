@@ -8,7 +8,11 @@ repo=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 [ -n "$repo" ] || { echo "test-state-acuerdo: sin raíz del repo" >&2; exit 1; }
 estado_sh="$repo/plugins/exo/scripts/_state-dir.sh"
 register_ts="${REGISTER_TS:-$repo/plugins/exo/hooks/register.ts}"
-exo="${EXO_BIN:-$repo/engine/target/debug/exo}"
+case "$(uname -s)" in
+  MINGW* | MSYS*) exe=.exe ;;
+  *) exe= ;;
+esac
+exo="${EXO_BIN:-$repo/engine/target/debug/exo$exe}"
 
 [ -x "$exo" ] || { echo "test-state-acuerdo: no hay binario $exo (cargo build --manifest-path engine/Cargo.toml)" >&2; exit 1; }
 esperada=$(sed -n 's/^version = "\(.*\)"$/\1/p' "$repo/engine/Cargo.toml" | head -n1)
