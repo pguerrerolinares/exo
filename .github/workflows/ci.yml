@@ -380,18 +380,14 @@ jobs:
         env:
           EXO_HERMETICO_LOG: ${{ github.workspace }}/hermetico.log
         run: ./engine/scripts/test-hermetico.sh
-      # Codex pasa la línea de codex.json a `cmd /C` tal cual (spec §7.8):
-      # `|| exit 0` tiene que dar 0 con un `exo` ausente y con uno presente.
-      # El gate hermético acaba de compilar el binario debug.
-      - name: cmd /C "|| exit 0" devuelve 0 (comando ausente y exo hook codex)
+      # Codex pasa la línea de codex.json a `cmd /C` tal cual (spec §7.8). Se
+      # ejecuta con cmd.exe real (pwsh, no bash/MSYS). Primero exige que `exo`
+      # responda (si no, `|| exit 0` daría 0 sin probar nada); luego pipea un
+      # PreToolUse de Bash `ls` y exige rc 0 y stdout exactamente `{}`.
+      - name: cmd.exe /C "exo hook codex PreToolUse || exit 0" → rc 0 y {}
         if: always()
-        shell: bash
-        env:
-          MSYS_NO_PATHCONV: '1'
-        run: |
-          cmd /C "nope || exit 0"
-          PATH="$PWD/engine/target/debug:$PATH"
-          cmd /C "exo hook codex PreToolUse || exit 0"
+        shell: pwsh
+        run: ./scripts/test-windows-cmd-hook.ps1
       - name: Acuerdo de rutas de estado Rust/bash/TS (Git Bash)
         if: always()
         shell: bash

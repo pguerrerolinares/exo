@@ -315,7 +315,9 @@ fn sin_jq_es_fail_porque_los_hooks_del_plugin_lo_exigen() {
     let c = check(&informe, "jq");
     assert_eq!(c.estado, Estado::Fail);
     assert!(
-        c.detalle.contains("exo-recall") && !c.detalle.contains("recall-inject"),
+        c.detalle.contains("subagent-inject.sh")
+            && !c.detalle.contains("exo-recall")
+            && !c.detalle.contains("recall-inject"),
         "dice QUÉ se rompe sin jq, sin nombrar scripts borrados: {}",
         c.detalle
     );
@@ -384,17 +386,29 @@ fn git_bash_sale_na_fuera_de_windows_y_no_desaparece_del_informe() {
 }
 
 #[test]
-fn sin_via_de_detach_el_check_nombra_el_evento_que_deja_el_hook() {
+fn detach_describe_el_guard_index_y_sus_reasons_reales() {
     let dir = tempfile::tempdir().unwrap();
     fs::create_dir_all(dir.path().join("kb")).unwrap();
     let informe = analiza(&entorno_con_config(dir.path()));
     let c = check(&informe, "detach");
-    assert_ne!(c.estado, Estado::Ok, "PATH vacío: no hay setsid ni cmd");
-    assert!(
-        c.detalle.contains("no-detach"),
-        "nombra el evento que deja exo-index.sh: {}",
-        c.detalle
+    assert_eq!(
+        c.estado,
+        Estado::Ok,
+        "PATH vacío: el guard no necesita setsid ni cmd"
     );
+    for real in ["guard Index", "no-db", "detach-failed"] {
+        assert!(
+            c.detalle.contains(real) || c.artefacto.contains(real),
+            "falta {real}: {c:?}"
+        );
+    }
+    for muerto in ["exo-index.sh", "no-detach"] {
+        assert!(
+            !c.detalle.contains(muerto),
+            "da por vivo {muerto}: {}",
+            c.detalle
+        );
+    }
 }
 
 #[test]

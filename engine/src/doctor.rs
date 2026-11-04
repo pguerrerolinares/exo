@@ -746,8 +746,8 @@ fn check_dispositivo(entorno: &Entorno, cfg: Option<&crate::config::Config>) -> 
 
 /// `jq` es requisito declarado del camino «desde release». Los hooks del
 /// plugin lo usan para componer y leer el envelope
-/// (`plugins/exo/scripts/subagent-inject.sh`, `exo-recall.sh`), así que sin él
-/// el bloque de recall no se inyecta: `fail`, no `warn`.
+/// (`plugins/exo/scripts/subagent-inject.sh`, `compose-inject.sh`,
+/// `document-remind.sh`), así que sin él el bloque de recall no se inyecta: `fail`, no `warn`.
 ///
 /// Dos trampas medidas, ambas del runbook de W11: el `jq` de la Store es un
 /// **alias de ejecución** bajo `WindowsApps` que no es un jq, y el `jq`
@@ -761,7 +761,7 @@ fn check_jq(entorno: &Entorno) -> Check {
             "jq",
             Estado::Fail,
             format!("PATH={}", entorno.path),
-            "sin jq: exo-recall.sh y subagent-inject.sh no pueden leer el envelope",
+            "sin jq: subagent-inject.sh, compose-inject.sh y document-remind.sh no pueden leer el envelope",
         );
     };
     let artefacto = ruta.display().to_string();
@@ -920,36 +920,19 @@ fn check_git_bash(entorno: &Entorno) -> Check {
     }
 }
 
-/// La vía de detach del reindexado (`plugins/exo/scripts/exo-index.sh`):
-/// `setsid` donde lo haya, y en msys `cmd //c start //b`. Sin ninguna de las
-/// dos el hook deja evento `index-fallback / reason=no-detach` — que es
-/// justamente lo que se añadió después de meses de sesiones en Windows sin
-/// refrescar el índice y sin un solo rastro.
-fn check_detach(entorno: &Entorno) -> Check {
-    if let Some(ruta) = busca_en_path(&entorno.path, "setsid") {
-        return Check::nuevo(
-            "detach",
-            Estado::Ok,
-            ruta.display().to_string(),
-            "exo-index.sh reindexa en segundo plano vía setsid",
-        );
-    }
-    if cfg!(windows)
-        && let Some(ruta) = busca_en_path(&entorno.path, "cmd")
-    {
-        return Check::nuevo(
-            "detach",
-            Estado::Ok,
-            ruta.display().to_string(),
-            "sin setsid, exo-index.sh detacha vía `cmd //c start //b`",
-        );
-    }
+/// El reindexado al cerrar (guard Index de `exo hook <h> Stop`) se lanza
+/// desacoplado por el propio binario (grupo de procesos en Unix,
+/// `DETACHED_PROCESS` en Windows): ya no depende de `setsid` ni de `cmd` del
+/// PATH, así que no hay nada externo que comprobar. El check se queda (el id
+/// es contractual) y describe el mecanismo y los rastros reales.
+fn check_detach(_entorno: &Entorno) -> Check {
     Check::nuevo(
         "detach",
-        Estado::Warn,
-        format!("PATH={}", entorno.path),
-        "ni setsid ni cmd: exo-index.sh dejará evento \
-         index-fallback / reason=no-detach y el índice no se refrescará solo",
+        Estado::Ok,
+        "exo hook <h> Stop (guard Index)".to_string(),
+        "el reindexado lo desacopla el propio binario (sin setsid ni cmd); si falla deja \
+             `index-fallback reason=no-db|detach-failed` en el reflex-log"
+            .to_string(),
     )
 }
 
