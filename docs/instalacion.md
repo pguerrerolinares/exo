@@ -11,7 +11,7 @@
 | **Desde release** (recomendado) | `git` y `jq`. **Ni Rust ni toolchain C.** |
 | **Desde fuente** | Rust estable (ver mínimo abajo) + toolchain C. En Windows, MSVC. |
 | **Primera indexación** | Red para descargar el modelo de embeddings (~0,6 GB); en frío tarda unos minutos. |
-| **Capa thin (plugin de Claude Code)** | Engine ≥ 0.14.0 (`plugins/exo/ENGINE_MIN`). `git` y `jq` ejecutables desde bash para los hooks que siguen siendo `.sh`; los guards de `exo hook` no necesitan ni bash ni `jq`. En Windows, Git Bash (Claude Code lo usa para los `.sh`; no hacen falta wrappers `.cmd`). |
+| **Capa thin (plugin de Claude Code)** | Engine ≥ 0.15.0 (`plugins/exo/ENGINE_MIN`). `git` y `jq` ejecutables desde bash para los hooks que siguen siendo `.sh`; los guards de `exo hook` no necesitan ni bash ni `jq`. En Windows, Git Bash (Claude Code lo usa para los `.sh`; no hacen falta wrappers `.cmd`). |
 
 - **Toolchain C obligatorio**: `rusqlite` (SQLite bundled) y `sqlite-vec`
   compilan C durante el build. Sin compilador C, `cargo build` falla — está
@@ -205,7 +205,7 @@ Una config sirve a una KB; para varias, una config (con su propio
 `EXO_DB` en el `init` que la crea) por KB.
 
 **Los hooks del plugin no siguen a la segunda KB por sí solos.** El hook de
-arranque (`exo-recall.sh`) y el de indexado (`exo-index.sh`) leen el índice
+arranque y el de indexado (`exo hook <h> SessionStart` y `Stop`) leen el índice
 de `$EXO_INDEX`, que por defecto es `~/.exo/index.db` (una ruta fija, no la
 de la config), y el nombre de la KB de `exo config`, que solo cambia si
 `EXO_CONFIG` está definida. Con la receta de arriba y nada más, la sesión
@@ -255,20 +255,25 @@ claude plugin install exo@exo
 
 Los hooks del plugin necesitan el binario ya instalado (§2 o §3) y, los que
 siguen siendo `.sh`, `jq`. Si el engine no está, el plugin no rompe la sesión:
-degrada a fallbacks embebidos y lo deja anotado en `~/.claude/reflex-log.jsonl`.
+degrada a fallbacks embebidos y lo deja anotado en `~/.exo/state/reflex-log.jsonl`.
 
 **`exo hook` (plugin ≥ 1.32).** Los guards de Bash (`git -C`, `git add -A`,
 verify) y search-first ya no son scripts: `hooks.json` los cablea como `exo
 hook claude <evento> || exit 0` con `timeout` 5, así que necesitan el binario
-en el `PATH` del harness y un engine ≥ 0.14.0. El comando siempre sale con 0;
-el `|| exit 0` hace que un `exo` ausente no bloquee la herramienta. Con un
-engine más viejo esos guards quedan sin efecto, sin error: la única señal es el
-aviso de `ENGINE_MIN` en `SessionStart` (y `exo doctor`, check `plugin_compat`).
-Anota un journal por sesión en `~/.exo/state/sessions/`; `EXO_STATE_DIR` mueve
+en el `PATH` del harness y un engine ≥ 0.15.0. El comando siempre sale con 0;
+el `|| exit 0` hace que un `exo` ausente no bloquee la herramienta. La entrada
+de `SessionStart` es `exo hook claude SessionStart --min 0.15.0` y no lleva
+`|| exit 0`: un engine que no conoce `--min` falla en clap (rc=2), que Claude
+Code registra como error una vez por sesión, y uno que lo conoce pero es más
+viejo avisa y cae al fallback embebido (también lo marca `exo doctor`, check
+`plugin_compat`). Los demás eventos sí callan ante un binario viejo.
+Todo el estado de los hooks (journal por sesión en `sessions/`, `reflex-log.jsonl`,
+`exo-rules/`, `exo-index.log`) está en `~/.exo/state/`; `EXO_STATE_DIR` mueve
 esa raíz (útil en tests o en un disco con poco espacio). Los ficheros de más de
-14 días se borran solos. Solo está soportado Claude Code; Codex y pi son
-trabajo pendiente, sin fecha, y mientras tanto instalar el plugin en Codex no
-hace nada.
+14 días se borran solos. Si venías de una versión anterior, el primer
+`SessionStart` mueve lo que hubiera en `~/.claude/` (`exo doctor` marca
+`state_residuo` si algo sigue creciendo allí). Codex se instala aparte (§5.1);
+pi es trabajo pendiente, sin fecha.
 
 **Versiones.** El engine y el plugin versionan por separado: `exo --version`
 es la del binario (= tag de la release); el plugin lleva la suya en
@@ -278,7 +283,43 @@ ficheros se contradigan. No avanzan juntos: `marketplace add` sigue `main`
 y, con `autoUpdate`, el plugin se actualiza solo, mientras que el binario
 queda en la release que instalaste hasta que lo actualices a mano. El
 desfase (un binario más viejo que `ENGINE_MIN`) lo avisan `exo doctor`
-(check `plugin_compat`) y el hook de arranque `exo-recall.sh`.
+(check `plugin_compat`) y el `--min` del hook de arranque.
+
+### 5.1 Instalar el plugin en Codex
+
+Mismo repo, mismo plugin (`exo@exo`); Codex lee `.claude-plugin/marketplace.json`
+y carga los hooks de `plugins/exo/hooks/codex.json`. Pasos:
+
+1. **Engine y roles.** `install.sh` (o `install.ps1`) instala el engine y, si
+   hay `codex` en el `PATH`, corre `exo setup codex`. A mano:
+   `exo setup codex` deja los roles `exo-consultor` y `exo-executor` en
+   `~/.exo/codex-agents/` y los registra en un bloque entre `# >>> exo` y
+   `# <<< exo` de `$CODEX_HOME/config.toml` (por defecto `~/.codex/`). Es
+   idempotente, no toca nada fuera de los marcadores y, si el `config.toml` no
+   parsea o hay un marcador huérfano, sale con error sin escribir.
+2. **Marketplace.**
+   ```bash
+   codex plugin marketplace add pguerrerolinares/exo --sparse plugins/exo --sparse .claude-plugin
+   ```
+3. **Plugin.** `codex plugin add exo@exo`.
+4. **Confianza.** Acepta la confianza de los hooks en el primer uso.
+
+Los hooks corren con el `$SHELL` y el `PATH` de la sesión de Codex: lanzado desde
+un IDE con un `PATH` mínimo no encuentra `exo`. El `--min` de `SessionStart`
+hace que se note (error en el arranque en vez de silencio).
+
+Lo que cubre en Codex, resumido de la matriz guard × harness
+(`docs/arquitectura.md` §4.3.1): inyección del contrato de memoria y de las
+reglas duras en `SessionStart` (y de nuevo tras compactar, vía la marca
+`post-compact` y el siguiente `UserPromptSubmit`), `git add -A` denegado,
+`cd X && git …` reescrito, search-first y reindexado en `Stop`. Verify queda en
+solo log. No hay en Codex detección de superpowers ni testigo `ss-<sid>`.
+
+Verificación de extremo a extremo (a mano, gasta la cuenta de Codex; no es CI):
+`scripts/smoke-codex.sh --real` instala el plugin de este checkout en un
+`CODEX_HOME` y un `HOME` temporales y comprueba contrato, reglas, el deny de
+`git add -A`, que `systemMessage` no sale en `exec.log` y la reinyección tras
+una compactación forzada. `--real --seco` solo prepara y no lanza `codex`.
 
 ### Pasos que completan la instalación
 
