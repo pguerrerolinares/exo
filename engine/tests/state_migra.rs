@@ -164,6 +164,25 @@ fn nuevo_creado_en_la_ventana_del_link_sobrevive() {
 }
 
 #[test]
+fn migrar_no_deja_ficheros_de_exclusion() {
+    let d = tempfile::tempdir().unwrap();
+    let (v, n) = (d.path().join("v"), d.path().join("n"));
+    fs::write(&v, "A\n").unwrap();
+    fs::write(&n, "B\n").unwrap();
+    migra(&v, &n, TS);
+    let mut nombres: Vec<_> = fs::read_dir(d.path())
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    nombres.sort();
+    assert_eq!(
+        nombres,
+        ["n", "v.migrado-20261103T100000"][..],
+        "{nombres:?}"
+    );
+}
+
+#[test]
 fn dos_migradores_no_duplican() {
     for _ in 0..2000 {
         let d = tempfile::tempdir().unwrap();

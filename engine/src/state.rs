@@ -132,6 +132,13 @@ fn migra_io(
     if let Some(padre) = nuevo.parent() {
         std::fs::create_dir_all(padre)?;
     }
+    // Se suelta al salir de `migra_io`.
+    #[cfg(windows)]
+    let _exclusion = exclusion_windows(viejo)?;
+    #[cfg(windows)]
+    if !viejo.exists() {
+        return Ok(Migracion::Nada);
+    }
     // Reclamo: reserva con O_EXCL un nombre `.migrando-<pid>-<n>` y `rename` del viejo sobre
     // esa reserva vacía. El pid se reutiliza y puede haber dos pid namespaces sobre el mismo
     // home, así que un reclamo sobrante de otro (única copia de su histórico) puede ocupar el
@@ -216,6 +223,42 @@ fn migra_io(
         }
     }
     Ok(Migracion::Fusionado { viejo_a: destino })
+}
+
+/// Exclusión entre migradores en Windows. Ahí `rename(viejo, X)` no es un reclamo exclusivo:
+/// abre `viejo` por ruta y renombra por handle, así que dos migradores que lo abren a la vez
+/// lo renombran los dos con éxito (medido: ~95% de las carreras de dos hilos), cada uno a su
+/// `.migrando-*`, y el fichero acaba bajo un solo nombre. Si ambos leen el histórico antes de
+/// ese segundo rename, lo anexan dos veces. Un lock con `share_mode(0)` lo serializa: lo suelta
+/// el SO si el proceso muere (sin locks huérfanos) y `DELETE_ON_CLOSE` no deja fichero.
+#[cfg(windows)]
+fn exclusion_windows(viejo: &Path) -> std::io::Result<std::fs::File> {
+    use std::os::windows::fs::OpenOptionsExt;
+    const GENERIC_WRITE_Y_DELETE: u32 = 0x4000_0000 | 0x0001_0000;
+    const FILE_FLAG_DELETE_ON_CLOSE: u32 = 0x0400_0000;
+    // ERROR_ACCESS_DENIED: el lock ajeno está en delete-pending; ERROR_SHARING_VIOLATION: lo tiene abierto.
+    const OCUPADO: [i32; 3] = [5, 32, 33];
+    let ruta = format!("{}.migrando.lock", viejo.display());
+    let limite = std::time::Instant::now() + std::time::Duration::from_secs(3);
+    loop {
+        match std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .access_mode(GENERIC_WRITE_Y_DELETE)
+            .share_mode(0)
+            .custom_flags(FILE_FLAG_DELETE_ON_CLOSE)
+            .open(&ruta)
+        {
+            Ok(f) => return Ok(f),
+            Err(e)
+                if e.raw_os_error().is_some_and(|c| OCUPADO.contains(&c))
+                    && std::time::Instant::now() < limite =>
+            {
+                std::thread::sleep(std::time::Duration::from_millis(1));
+            }
+            Err(e) => return Err(e),
+        }
+    }
 }
 
 /// Falló antes de terminar con el nuevo: el histórico vuelve al viejo con `hard_link` (nunca
