@@ -382,6 +382,33 @@ pub fn cobertura(kb: &Path) -> Result<Vec<Cobertura>> {
     Ok(filas)
 }
 
+/// Fichas de `projects/` que no inyectarían reglas porque no casan con ningún
+/// repo (ni `slug` ni `repos:`) o no tienen `## Reglas duras`. Se saltan las
+/// notas de la semilla (`semilla: true`, entre ellas `_template.md`). Ordenadas
+/// por ruta. Una KB sin `projects/` da vacío. No toca git.
+pub fn fichas_sin_reglas(kb: &Path) -> Result<Vec<String>> {
+    if !kb.join("projects").is_dir() {
+        return Ok(vec![]);
+    }
+    let mut sin = Vec::new();
+    for (nota, ruta) in notas_de_proyecto(kb)? {
+        let bytes = std::fs::read(&ruta).with_context(|| format!("leer {}", ruta.display()))?;
+        let texto = String::from_utf8_lossy(&bytes);
+        if crate::frontmatter::valor(&texto, "semilla").is_some_and(|v| sin_comillas(&v) == "true")
+        {
+            continue;
+        }
+        let con_clave = crate::frontmatter::valor(&texto, "slug")
+            .is_some_and(|v| !sin_comillas(&v).is_empty())
+            || !crate::frontmatter::lista(&texto, "repos").is_empty();
+        if !con_clave || lee_seccion(&texto).is_none() {
+            sin.push(nota);
+        }
+    }
+    sin.sort();
+    Ok(sin)
+}
+
 /// Notas de `cobertura` con más de `CAP` reglas. Sin sección o vacía no es
 /// exceso; una KB sin `projects/` ni global tampoco. No toca git.
 pub fn check(kb: &Path) -> Result<Vec<Exceso>> {
@@ -398,6 +425,83 @@ pub fn check(kb: &Path) -> Result<Vec<Exceso>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn kb_con(fichas: &[(&str, &str)]) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("projects")).unwrap();
+        for (nombre, cuerpo) in fichas {
+            std::fs::write(dir.path().join("projects").join(nombre), cuerpo).unwrap();
+        }
+        dir
+    }
+
+    #[test]
+    fn fichas_sin_reglas_pide_clave_y_seccion_y_salta_la_semilla() {
+        let kb = kb_con(&[
+            (
+                "_template.md",
+                "---
+semilla: true
+---
+x
+",
+            ),
+            (
+                "completa.md",
+                "---
+repos: [a]
+---
+## Reglas duras
+",
+            ),
+            (
+                "con-slug.md",
+                "---
+slug: b
+---
+## Reglas duras
+",
+            ),
+            (
+                "sin-clave.md",
+                "---
+tags: [x]
+---
+## Reglas duras
+",
+            ),
+            (
+                "sin-seccion.md",
+                "---
+slug: c
+---
+hola
+",
+            ),
+            (
+                "repos-vacio.md",
+                "---
+repos: []
+---
+## Reglas duras
+",
+            ),
+        ]);
+        assert_eq!(
+            fichas_sin_reglas(kb.path()).unwrap(),
+            [
+                "projects/repos-vacio.md",
+                "projects/sin-clave.md",
+                "projects/sin-seccion.md"
+            ]
+        );
+    }
+
+    #[test]
+    fn fichas_sin_reglas_de_una_kb_sin_projects_es_vacio() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(fichas_sin_reglas(dir.path()).unwrap().is_empty());
+    }
 
     #[test]
     fn une_con_barra_nunca_usa_el_separador_del_sistema() {

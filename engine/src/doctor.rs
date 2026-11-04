@@ -192,6 +192,7 @@ pub fn analiza(entorno: &Entorno) -> InformeDoctor {
         check_dispositivo(entorno, cfg.as_ref()),
         check_state_residuo(entorno),
         check_codex_rol_modelo(entorno),
+        check_rules_coverage(entorno, cfg.as_ref()),
     ])
 }
 
@@ -511,6 +512,48 @@ fn check_kb(entorno: &Entorno, cfg: Option<&crate::config::Config>) -> Check {
             format!("{} nota(s) .md bajo la raíz", notas.len()),
         ),
         Err(e) => Check::nuevo("kb_readable", Estado::Fail, artefacto, format!("{e:#}")),
+    }
+}
+
+/// Informativo: una ficha sin clave de casado o sin `## Reglas duras` no rompe
+/// nada, solo no inyecta reglas. Nunca `fail`.
+fn check_rules_coverage(entorno: &Entorno, cfg: Option<&crate::config::Config>) -> Check {
+    let Some(kb) = kb_efectiva(entorno, cfg) else {
+        return Check::nuevo(
+            "rules_coverage",
+            Estado::Na,
+            "(sin config)",
+            "sin KB que mirar",
+        );
+    };
+    let artefacto = kb.join("projects").display().to_string();
+    match crate::reglas::fichas_sin_reglas(&kb) {
+        Ok(sin) if sin.is_empty() => Check::nuevo(
+            "rules_coverage",
+            Estado::Ok,
+            artefacto,
+            "toda ficha de projects/ casa con un repo y trae `## Reglas duras`",
+        ),
+        Ok(sin) => {
+            let nombres: Vec<&str> = sin.iter().take(3).map(String::as_str).collect();
+            let resto = sin.len() - nombres.len();
+            let mas = if resto > 0 {
+                format!(" y {resto} más")
+            } else {
+                String::new()
+            };
+            Check::nuevo(
+                "rules_coverage",
+                Estado::Warn,
+                artefacto,
+                format!(
+                    "{} ficha(s) sin `slug`/`repos:` o sin `## Reglas duras`, así que no inyectan reglas: {}{mas}. Ver docs/sembrar-kb.md §3 y `exo rules --coverage`",
+                    sin.len(),
+                    nombres.join(", ")
+                ),
+            )
+        }
+        Err(e) => Check::nuevo("rules_coverage", Estado::Na, artefacto, format!("{e:#}")),
     }
 }
 

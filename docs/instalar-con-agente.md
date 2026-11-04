@@ -221,6 +221,9 @@ Sin filas `fail`. Tienen que salir `ok`: `config`, `binary_on_path`,
 `kb_readable`, `index_db`, `embeddings_model`, `jq`, `kb_precommit_hook`,
 `plugin_compat` y `superpowers_disabled`; más `git_bash` en Windows (en
 Linux sale `na`, es lo esperado).
+`rules_coverage` es solo informativo: puede salir `warn` mientras haya fichas de
+`projects/` sin `repos:` o sin `## Reglas duras` (se arregla en
+[`sembrar-kb.md`](sembrar-kb.md) §3), y una KB sin proyectos sale `ok`.
 
 `kb_precommit_hook ok` no prueba que el hook sea ejecutable: confirma con
 `test -x "<ruta-kb>/.git/hooks/pre-commit"`.

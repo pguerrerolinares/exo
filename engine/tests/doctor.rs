@@ -1380,3 +1380,37 @@ fn rol_modelo_sin_caso_que_juzgar_es_na() {
         "sin roles instalados"
     );
 }
+
+fn ficha(kb: &Path, nombre: &str, cuerpo: &str) {
+    let dir = kb.join("projects");
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join(nombre), cuerpo).unwrap();
+}
+
+#[test]
+fn rules_coverage_avisa_de_las_fichas_sin_clave_o_sin_seccion_y_nunca_falla() {
+    let dir = tempfile::tempdir().unwrap();
+    let kb = dir.path().join("kb");
+    ficha(&kb, "_template.md", "---\nsemilla: true\n---\nx\n");
+    ficha(&kb, "buena.md", "---\nrepos: [a]\n---\n## Reglas duras\n");
+    ficha(&kb, "suelta.md", "---\ntags: [x]\n---\n## Reglas duras\n");
+    let informe = analiza(&entorno_con_config(dir.path()));
+    let c = check(&informe, "rules_coverage");
+    assert_eq!(c.estado, Estado::Warn);
+    assert!(c.detalle.starts_with("1 ficha"), "detalle: {}", c.detalle);
+    assert!(c.detalle.contains("projects/suelta.md"), "{}", c.detalle);
+    assert!(!c.detalle.contains("buena"), "{}", c.detalle);
+    assert!(c.detalle.contains("sembrar-kb.md"), "{}", c.detalle);
+}
+
+#[test]
+fn rules_coverage_es_ok_sin_fichas_o_con_todas_completas() {
+    let dir = tempfile::tempdir().unwrap();
+    let kb = dir.path().join("kb");
+    fs::create_dir_all(&kb).unwrap();
+    let informe = analiza(&entorno_con_config(dir.path()));
+    assert_eq!(check(&informe, "rules_coverage").estado, Estado::Ok);
+    ficha(&kb, "buena.md", "---\nslug: b\n---\n## Reglas duras\n");
+    let informe = analiza(&entorno_con_config(dir.path()));
+    assert_eq!(check(&informe, "rules_coverage").estado, Estado::Ok);
+}
