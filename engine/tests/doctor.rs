@@ -1274,11 +1274,7 @@ fn state_residuo_informativo() {
     assert_eq!(c.estado, Estado::Warn, "informa, no gatea");
     let viejo = env.home.join(".claude/reflex-log.jsonl");
     let nuevo = &env.rutas.reflex_log;
-    let cmd = format!(
-        "cat {v} >> {n} && mv {v} {v}.migrado-",
-        v = viejo.display(),
-        n = nuevo.display()
-    );
+    let cmd = exo::doctor::comando_migrar(&viejo, nuevo);
     assert!(c.detalle.contains(&cmd), "{}", c.detalle);
 }
 
