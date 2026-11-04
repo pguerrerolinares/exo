@@ -122,7 +122,7 @@ díselo al usuario: no busques otra vía.
 **Binario y plugin no avanzan juntos.** El binario está fijado al último tag
 del clon; el plugin sigue `main` y, con el `autoUpdate` de abajo, avanza solo.
 Si un día el plugin exige un binario más nuevo (`ENGINE_MIN`), lo avisan
-`exo doctor` (`plugin_compat`) y el hook de arranque; se resuelve con
+`exo doctor` (`plugin_compat`) y el `--min` del hook de arranque; se resuelve con
 «Actualizar», abajo.
 
 **Actualizaciones automáticas.** Un marketplace añadido así no tiene
@@ -181,11 +181,11 @@ roto antes de reiniciar):
 
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
-echo '{"session_id":"t","source":"startup"}' | bash "$(ls -d ~/.claude/plugins/cache/exo/exo/*/ | sort -V | tail -1)scripts/exo-recall.sh" | jq -r '.hookSpecificOutput.additionalContext' | grep -c 'Contrato de memoria'
+echo '{"session_id":"t","source":"startup","cwd":"'"$PWD"'"}' | exo hook claude SessionStart --min 0.15.0 | jq -r '.hookSpecificOutput.additionalContext' | grep -c 'Contrato de memoria'
 ```
 
 `1` = el arranque sirve la KB real. `0` = mira la última línea de
-`~/.claude/reflex-log.jsonl` con `recall-fallback` y su `reason`:
+`~/.exo/state/reflex-log.jsonl` con `recall-fallback` y su `reason`:
 
 | `reason` | Qué pasó |
 |---|---|

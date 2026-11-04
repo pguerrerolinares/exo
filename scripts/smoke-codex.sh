@@ -14,22 +14,108 @@
 # ~/.codex/config.toml. Lanza `codex exec --dangerously-bypass-hook-trust`: los
 # hooks que confía son solo los de volcado que genera este script.
 #
-# Uso: scripts/smoke-codex.sh [--keep|--raiz]   (--keep conserva el directorio temporal)
+# Modo --real (spec exo-hook-codex §7.10): instala el plugin DEL REPO (marketplace
+# local apuntando a este checkout) en un CODEX_HOME y un HOME aislados con
+# `exo setup codex`, y comprueba el producto real, no los hooks de volcado:
+#   - el contexto de SessionStart trae `## Contrato de memoria` y las reglas;
+#   - `git add -A` se deniega;
+#   - el systemMessage NO aparece en exec.log (aserción, no invalidación);
+#   - compactación forzada + `resume --last`: el UPS posterior consume la marca
+#     post-compact y vuelve a emitir las reglas.
+# Gasta la cuenta de Codex del dueño, depende de que el modelo obedezca y no es
+# red de regresión: lo corre el dueño a mano tras cada cambio del plugin y de Codex.
+# Necesita `exo` (≥ el ENGINE_MIN del repo) en el PATH y una KB configurada.
+#
+# Uso: scripts/smoke-codex.sh [--keep|--raiz]         (volcado; regenera el golden)
+#      scripts/smoke-codex.sh --real [--keep|--seco]  (--seco: prepara y no lanza codex)
+#      --keep conserva el directorio temporal
 set -uo pipefail
 
 KEEP=0
-[ "${1:-}" = "--keep" ] && KEEP=1
+REAL=0
+SECO=0
+for a in "$@"; do
+  case "$a" in
+    --keep) KEEP=1 ;;
+    --real) REAL=1 ;;
+    --seco) SECO=1 ;;
+  esac
+done
 
 RAIZ="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)" || exit 1
 [ "${1:-}" = "--raiz" ] && { echo "$RAIZ"; exit 0; }
-command -v codex >/dev/null || { echo "smoke-codex: falta codex en PATH" >&2; exit 1; }
+[ "$SECO" -eq 1 ] && [ "$REAL" -eq 0 ] && { echo "smoke-codex: --seco solo con --real" >&2; exit 1; }
+[ "$SECO" -eq 1 ] || command -v codex >/dev/null || { echo "smoke-codex: falta codex en PATH" >&2; exit 1; }
 command -v jq >/dev/null || { echo "smoke-codex: falta jq en PATH" >&2; exit 1; }
 AUTH="${CODEX_HOME:-$HOME/.codex}/auth.json"
-[ -f "$AUTH" ] || { echo "smoke-codex: no hay $AUTH (haz codex login)" >&2; exit 1; }
+[ "$SECO" -eq 1 ] || [ -f "$AUTH" ] || { echo "smoke-codex: no hay $AUTH (haz codex login)" >&2; exit 1; }
 
-VER="$(codex --version | awk '{print $NF}')"
+VER="$(codex --version 2>/dev/null | awk '{print $NF}')"
 T="$(mktemp -d)"
 if [ "$KEEP" -eq 0 ]; then trap 'rm -rf "$T"' EXIT; else echo "smoke-codex: dir temporal $T"; fi
+
+if [ "$REAL" -eq 1 ]; then
+  command -v exo >/dev/null || { echo "smoke-codex: falta exo en PATH" >&2; exit 1; }
+  REAL_HOME="$HOME"
+  # KB e índice del dueño por env (el HOME aislado no los trae); el estado, los
+  # roles y la config de Codex van al directorio temporal.
+  export EXO_CONFIG="${EXO_CONFIG:-$REAL_HOME/.exo/config.toml}"
+  export EXO_INDEX="${EXO_INDEX:-$REAL_HOME/.exo/index.db}"
+  [ -f "$EXO_CONFIG" ] || { echo "smoke-codex: no hay $EXO_CONFIG (exo init)" >&2; exit 1; }
+  export HOME="$T/h" CODEX_HOME="$T/home" EXO_STATE_DIR="$T/state"
+  WORK="$T/work"
+  mkdir -p "$HOME" "$CODEX_HOME" "$EXO_STATE_DIR" "$WORK"
+  # El `exo` instalado es un shim que busca su binario bajo $HOME/.local.
+  [ -d "$REAL_HOME/.local" ] && ln -s "$REAL_HOME/.local" "$HOME/.local"
+  [ "$SECO" -eq 1 ] || ln -s "$AUTH" "$CODEX_HOME/auth.json"
+  printf '[projects."%s"]\ntrust_level = "trusted"\n' "$WORK" > "$CODEX_HOME/config.toml"
+  git -C "$WORK" init -q && : > "$WORK/residuo.txt"
+  exo setup codex || { echo "smoke-codex: falló exo setup codex" >&2; exit 1; }
+  grep -q '^# >>> exo' "$CODEX_HOME/config.toml" || { echo "smoke-codex: setup codex no dejó el bloque" >&2; exit 1; }
+  if [ "$SECO" -eq 1 ]; then
+    jq -e . "$RAIZ/plugins/exo/hooks/codex.json" >/dev/null || { echo "smoke-codex: codex.json no es JSON" >&2; exit 1; }
+    echo "smoke-codex --real --seco: preparación OK (sin lanzar codex)"; exit 0
+  fi
+  codex plugin marketplace add "$RAIZ" --sparse plugins/exo --sparse .claude-plugin \
+    || { echo "smoke-codex: falló marketplace add" >&2; exit 1; }
+  codex plugin add exo@exo || { echo "smoke-codex: falló plugin add" >&2; exit 1; }
+
+  PROMPT="Ejecuta en una llamada de shell: git add -A  (si se deniega, no lo reintentes de otra forma). Luego responde 'listo'."
+  FLAGS=(--skip-git-repo-check --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust)
+  ( cd "$WORK" && codex exec "${FLAGS[@]}" -c model_auto_compact_token_limit=3000 "$PROMPT" ) > "$T/exec.log" 2>&1
+  RC=$?
+  ( cd "$WORK" && codex exec resume --last "${FLAGS[@]}" "di ok" ) > "$T/resume.log" 2>&1
+  RC2=$?
+
+  fallos=0
+  ok()  { echo "OK    $1"; }
+  mal() { echo "FALLO $1"; fallos=$((fallos+1)); }
+  # chk <texto-ok> <texto-falla> <cmd...>
+  chk() { local si="$1" no="$2"; shift 2; if "$@"; then ok "$si"; else mal "$no"; fi; }
+  # Los rollouts de Codex guardan lo que los hooks inyectan en la conversación.
+  # shellcheck disable=SC2329 # invocada vía chk
+  en_rollouts() { grep -rqF -- "$1" "$CODEX_HOME/sessions" 2>/dev/null; }
+  # shellcheck disable=SC2329 # invocada vía chk
+  staged_vacio() { [ -z "$(git -C "$WORK" diff --cached --name-only)" ]; }
+  # shellcheck disable=SC2329 # invocada vía chk
+  sin_system_message() { ! grep -qi systemMessage "$T/exec.log" "$T/resume.log"; }
+  # shellcheck disable=SC2329 # invocada vía chk
+  reglas_re_emitidas() { [ "$(grep -c project-rules-emitted "$EXO_STATE_DIR/reflex-log.jsonl" 2>/dev/null)" -ge 2 ]; }
+  # shellcheck disable=SC2329 # invocada vía chk
+  marca_consumida() { grep -rqF post-compact-consumed "$EXO_STATE_DIR/sessions" 2>/dev/null; }
+
+  chk "codex exec rc=0" "codex exec rc=$RC (ver $T/exec.log con --keep)" test "$RC" -eq 0
+  chk "codex exec resume rc=0" "codex exec resume rc=$RC2 (ver $T/resume.log con --keep)" test "$RC2" -eq 0
+  chk "SessionStart trae el contrato de memoria" "el contexto no trae '## Contrato de memoria'" en_rollouts "## Contrato de memoria"
+  chk "SessionStart trae las reglas (project-rules-emitted en el reflex-log)" "ninguna regla emitida"     grep -q project-rules-emitted "$EXO_STATE_DIR/reflex-log.jsonl"
+  chk "git add -A denegado (nada en el índice)" "git add -A NO se denegó: hay ficheros en el índice" staged_vacio
+  chk "systemMessage ausente de exec.log y resume.log" "systemMessage aparece en el log de codex exec" sin_system_message
+  chk "tras compactar, el UPS consume la marca post-compact" "ninguna marca post-compact-consumed (¿no se compactó?)" marca_consumida
+  chk "tras compactar, las reglas se emiten otra vez (>= 2 emisiones)" "las reglas no se re-emitieron tras compactar" reglas_re_emitidas
+
+  if [ "$fallos" -eq 0 ]; then echo "smoke-codex --real $VER: verde"; exit 0; fi
+  echo "smoke-codex --real $VER: $fallos fallos"; exit 1
+fi
 
 export CODEX_HOME="$T/home"
 MKT="$T/mkt"

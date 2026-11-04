@@ -132,8 +132,24 @@ de reglas y la atribución viven en
 
 Los guards de Bash y search-first son ya código del engine: `exo hook claude
 <evento>` (siempre sale con 0, anota un journal por sesión en
-`~/.exo/state/`). Hoy solo Claude Code está soportado; Codex y pi son
-subproyectos pendientes, sin fecha (ver `docs/arquitectura.md` §4.3).
+`~/.exo/state/`). Claude Code y Codex están soportados con el mismo comando
+(`exo hook codex <evento>`); pi es un subproyecto pendiente, sin fecha (ver
+`docs/arquitectura.md` §4.3).
+
+### Codex
+
+```bash
+exo setup codex   # lo corre install.sh si hay codex en el PATH: roles y bloque en config.toml
+codex plugin marketplace add pguerrerolinares/exo --sparse plugins/exo --sparse .claude-plugin
+codex plugin add exo@exo
+```
+
+Después, acepta la confianza de los hooks en el primer uso. Los hooks heredan
+el `PATH` de la sesión de Codex: si lo lanzas desde un IDE, `exo` tiene que
+estar en él. Qué guards cubre en Codex (matriz resumida en
+`docs/arquitectura.md` §4.3.1) y el detalle de la instalación, en
+`docs/instalacion.md` §5.1. Verify queda en solo log; no hay detección de
+superpowers ni testigo `ss-<sid>`.
 
 Este repo es la **fuente de verdad** del plugin (co-evoluciona con el engine y
 con sus evals de paridad en `evals/prep-m3/`) y su propio marketplace:
