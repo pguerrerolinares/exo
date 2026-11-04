@@ -287,6 +287,11 @@ jobs:
       - name: Paridad de `exo hook claude` con las suites de los guards
         if: always()
         run: bash engine/scripts/paridad-hook.sh
+      # Rust, bash y TS resuelven las mismas rutas de estado (spec §8.1); usa el
+      # binario debug que `test-contrato-ci.sh` acaba de compilar.
+      - name: Acuerdo de rutas de estado Rust/bash/TS
+        if: always()
+        run: bash scripts/test-state-acuerdo.sh
       # Subcomandos y flags de `exo` citados en la prosa del plugin contra
       # `--help` del binario debug que `test-contrato-ci.sh` acaba de compilar.
       - name: La prosa del plugin solo cita subcomandos y flags que existen
@@ -375,6 +380,18 @@ jobs:
         env:
           EXO_HERMETICO_LOG: ${{ github.workspace }}/hermetico.log
         run: ./engine/scripts/test-hermetico.sh
+      # Codex pasa la línea de codex.json a `cmd /C` tal cual (spec §7.8). Se
+      # ejecuta con cmd.exe real (pwsh, no bash/MSYS). Primero exige que `exo`
+      # responda (si no, `|| exit 0` daría 0 sin probar nada); luego pipea un
+      # PreToolUse de Bash `ls` y exige rc 0 y stdout exactamente `{}`.
+      - name: cmd.exe /C "exo hook codex PreToolUse || exit 0" → rc 0 y {}
+        if: always()
+        shell: pwsh
+        run: ./scripts/test-windows-cmd-hook.ps1
+      - name: Acuerdo de rutas de estado Rust/bash/TS (Git Bash)
+        if: always()
+        shell: bash
+        run: bash scripts/test-state-acuerdo.sh
       - name: Subir el log completo del gate hermético
         if: always() && steps.gate.outcome == 'failure'
         uses: actions/upload-artifact@v4
@@ -412,6 +429,15 @@ jobs:
         env:
           EXO_REQUIRE_CLAUDE: '1'
         run: ./scripts/test-plugin.sh
+      # Sin ONNX ni toolchain de Rust: paridad-recall solo hace grep sobre los
+      # tests del engine (no los ejecuta). test-state-acuerdo necesita el
+      # binario `exo`, así que corre en el job `test` (abajo).
+      - name: Paridad del recall (baseline = divergencias + tests etiquetados)
+        shell: bash
+        run: bash engine/scripts/paridad-recall.sh
+      - name: codex.json — claves, eventos y matchers válidos para Codex
+        shell: bash
+        run: bash scripts/test-codex-json.sh
 
   install-gate:
     name: install gate (${{ matrix.os }})

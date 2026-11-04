@@ -66,7 +66,7 @@ cd "$DIR/../../.." || exit 1
 mapfile -t ficheros < <(printf '%s\n' \
   plugins/exo/scripts/_state-dir.sh plugins/exo/scripts/_reflex-log.sh plugins/exo/scripts/cobertura-reglas.sh \
   plugins/exo/scripts/reflex-fp-review.sh plugins/exo/scripts/document-remind.sh plugins/exo/scripts/subagent-inject.sh \
-  plugins/exo/scripts/compose-inject.sh plugins/exo/scripts/exo-recall.sh plugins/exo/scripts/exo-index.sh \
+  plugins/exo/scripts/compose-inject.sh \
   plugins/exo/scripts/reflex-fp-adjudicate.prompt.md plugins/exo/hooks/register.ts scripts/e2e-reglas-proyecto.sh)
 viejas="$(grep -n '\.claude/\(reflex-log\|exo-rules\|exo-index\|reflex-inject-canary\)' "${ficheros[@]}" 2>&1)"
 if [ -z "$viejas" ]; then ok "test-state-dir: sin rutas .claude"; else fail "test-state-dir: sin rutas .claude" "$viejas"; fi
