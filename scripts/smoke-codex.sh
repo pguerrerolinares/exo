@@ -59,12 +59,37 @@ if [ "$REAL" -eq 1 ]; then
   REAL_HOME="$HOME"
   # KB e índice del dueño por env (el HOME aislado no los trae); el estado, los
   # roles y la config de Codex van al directorio temporal.
-  export EXO_CONFIG="${EXO_CONFIG:-$REAL_HOME/.exo/config.toml}"
-  export EXO_INDEX="${EXO_INDEX:-$REAL_HOME/.exo/index.db}"
-  [ -f "$EXO_CONFIG" ] || { echo "smoke-codex: no hay $EXO_CONFIG (exo init)" >&2; exit 1; }
+  # La config y el índice se COPIAN: el guard Index (Stop) lanza `exo index`
+  # desacoplado y no debe tocar el índice real. El caché del modelo (HF_HOME) se
+  # usa del real y sin red.
+  SRC_CONFIG="${EXO_CONFIG:-$REAL_HOME/.exo/config.toml}"
+  SRC_INDEX="${EXO_INDEX:-$REAL_HOME/.exo/index.db}"
+  [ -f "$SRC_CONFIG" ] || { echo "smoke-codex: no hay $SRC_CONFIG (exo init)" >&2; exit 1; }
+  [ -f "$SRC_INDEX" ] || { echo "smoke-codex: no hay $SRC_INDEX (exo index)" >&2; exit 1; }
+  export HF_HOME="${HF_HOME:-$REAL_HOME/.cache/huggingface}" HF_HUB_OFFLINE=1
+  cp "$SRC_CONFIG" "$T/config.toml"; cp "$SRC_INDEX" "$T/index.db"
+  export EXO_CONFIG="$T/config.toml" EXO_INDEX="$T/index.db" EXO_DB="$T/index.db"
   export HOME="$T/h" CODEX_HOME="$T/home" EXO_STATE_DIR="$T/state"
-  WORK="$T/work"
-  mkdir -p "$HOME" "$CODEX_HOME" "$EXO_STATE_DIR" "$WORK"
+  # El guard zero-residuo exime todo cwd bajo /tmp: el repo de trabajo va fuera
+  # (.superpowers/ está en .gitignore).
+  WORK="$RAIZ/.superpowers/smoke-codex-$$"
+  case "$WORK" in /tmp|/tmp/*) echo "smoke-codex: el repo está bajo /tmp; el deny de git add -A no se ejercitaría" >&2; exit 1 ;; esac
+  if [ "$KEEP" -eq 0 ]; then trap 'rm -rf "$T" "$WORK"' EXIT; fi
+  mkdir -p "$HOME" "$CODEX_HOME" "$EXO_STATE_DIR" "$WORK" "$T/bin"
+  # Wrapper de `exo hook codex …`: vuelca la stdout del hook (lo que Codex recibe)
+  # a $T/hook-<evento>.out, una fuente que no depende de lo que Codex persista.
+  REAL_EXO="$(command -v exo)"
+  cat > "$T/bin/exo" <<EOF
+#!/bin/sh
+if [ "\$1 \$2" = "hook codex" ]; then
+  out=\$("$REAL_EXO" "\$@"); rc=\$?
+  printf '%s\n' "\$out" >> "$T/hook-\$3.out"
+  printf '%s\n' "\$out"; exit \$rc
+fi
+exec "$REAL_EXO" "\$@"
+EOF
+  chmod +x "$T/bin/exo"
+  export PATH="$T/bin:$PATH"
   # El `exo` instalado es un shim que busca su binario bajo $HOME/.local.
   [ -d "$REAL_HOME/.local" ] && ln -s "$REAL_HOME/.local" "$HOME/.local"
   [ "$SECO" -eq 1 ] || ln -s "$AUTH" "$CODEX_HOME/auth.json"
@@ -76,7 +101,8 @@ if [ "$REAL" -eq 1 ]; then
     jq -e . "$RAIZ/plugins/exo/hooks/codex.json" >/dev/null || { echo "smoke-codex: codex.json no es JSON" >&2; exit 1; }
     echo "smoke-codex --real --seco: preparación OK (sin lanzar codex)"; exit 0
   fi
-  codex plugin marketplace add "$RAIZ" --sparse plugins/exo --sparse .claude-plugin \
+  # Sin --sparse: Codex solo lo admite para marketplaces git, no para rutas locales.
+  codex plugin marketplace add "$RAIZ" \
     || { echo "smoke-codex: falló marketplace add" >&2; exit 1; }
   codex plugin add exo@exo || { echo "smoke-codex: falló plugin add" >&2; exit 1; }
 
@@ -86,6 +112,12 @@ if [ "$REAL" -eq 1 ]; then
   RC=$?
   ( cd "$WORK" && codex exec resume --last "${FLAGS[@]}" "di ok" ) > "$T/resume.log" 2>&1
   RC2=$?
+
+  # Espera a que acabe el `exo index` desacoplado del Stop (el log deja de crecer).
+  prev=-1; for _ in $(seq 30); do
+    cur="$(wc -c < "$EXO_STATE_DIR/exo-index.log" 2>/dev/null || echo 0)"
+    [ "$cur" = "$prev" ] && break; prev="$cur"; sleep 1
+  done
 
   fallos=0
   ok()  { echo "OK    $1"; }
@@ -103,14 +135,31 @@ if [ "$REAL" -eq 1 ]; then
   reglas_re_emitidas() { [ "$(grep -c project-rules-emitted "$EXO_STATE_DIR/reflex-log.jsonl" 2>/dev/null)" -ge 2 ]; }
   # shellcheck disable=SC2329 # invocada vía chk
   marca_consumida() { grep -rqF post-compact-consumed "$EXO_STATE_DIR/sessions" 2>/dev/null; }
+  # shellcheck disable=SC2329 # invocada vía chk
+  contrato_emitido() {
+    grep -qF "Contrato de memoria" "$T/hook-SessionStart.out" 2>/dev/null || en_rollouts "## Contrato de memoria"
+  }
+  # shellcheck disable=SC2329 # invocada vía chk
+  deny_en_log() { grep -q '"reflex":"zero-residuo-deny"' "$EXO_STATE_DIR/reflex-log.jsonl" 2>/dev/null; }
+  # El UPS solo emite contexto si había marca pendiente: contexto no vacío en su stdout.
+  # shellcheck disable=SC2329 # invocada vía chk
+  ups_con_contexto() {
+    jq -e -s 'any(.[]; (.hookSpecificOutput.additionalContext // "") != "")' "$T/hook-UserPromptSubmit.out" >/dev/null 2>&1
+  }
 
   chk "codex exec rc=0" "codex exec rc=$RC (ver $T/exec.log con --keep)" test "$RC" -eq 0
   chk "codex exec resume rc=0" "codex exec resume rc=$RC2 (ver $T/resume.log con --keep)" test "$RC2" -eq 0
-  chk "SessionStart trae el contrato de memoria" "el contexto no trae '## Contrato de memoria'" en_rollouts "## Contrato de memoria"
+  chk "SessionStart trae el contrato de memoria (stdout del hook o rollout)" "el contexto no trae 'Contrato de memoria'" contrato_emitido
   chk "SessionStart trae las reglas (project-rules-emitted en el reflex-log)" "ninguna regla emitida"     grep -q project-rules-emitted "$EXO_STATE_DIR/reflex-log.jsonl"
   chk "git add -A denegado (nada en el índice)" "git add -A NO se denegó: hay ficheros en el índice" staged_vacio
+  chk "el guard registró zero-residuo-deny (el modelo sí lo intentó)" "sin zero-residuo-deny en el reflex-log: el deny no se ejercitó" deny_en_log
   chk "systemMessage ausente de exec.log y resume.log" "systemMessage aparece en el log de codex exec" sin_system_message
-  chk "tras compactar, el UPS consume la marca post-compact" "ninguna marca post-compact-consumed (¿no se compactó?)" marca_consumida
+  chk "tras compactar se consumió la marca post-compact" "ninguna marca post-compact-consumed (¿no se compactó?)" marca_consumida
+  if grep -q '"reflex":"compact"' "$EXO_STATE_DIR/reflex-log.jsonl" 2>/dev/null; then
+    echo "INFO  hubo SessionStart(source=compact): pudo consumir la marca él; la ruta UPS no queda probada"
+  else
+    chk "ruta UPS: el UserPromptSubmit post-compact emitió contexto" "el UPS posterior no emitió contexto" ups_con_contexto
+  fi
   chk "tras compactar, las reglas se emiten otra vez (>= 2 emisiones)" "las reglas no se re-emitieron tras compactar" reglas_re_emitidas
 
   if [ "$fallos" -eq 0 ]; then echo "smoke-codex --real $VER: verde"; exit 0; fi
