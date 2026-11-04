@@ -77,7 +77,7 @@ if [ "$REAL" -eq 1 ]; then
   export EXO_CONFIG="$T/config.toml" EXO_INDEX="$T/index.db" EXO_DB="$T/index.db"
   export HOME="$T/h" CODEX_HOME="$T/home" EXO_STATE_DIR="$T/state"
   # dirs::home_dir() en Windows mira USERPROFILE, no HOME.
-  [ "$WIN" -eq 1 ] && export USERPROFILE="$(cygpath -w "$HOME")"
+  if [ "$WIN" -eq 1 ]; then USERPROFILE="$(cygpath -w "$HOME")"; export USERPROFILE; fi
   # El guard zero-residuo exime todo cwd bajo /tmp: el repo de trabajo va fuera
   # (.superpowers/ está en .gitignore).
   WORK="$RAIZ/.superpowers/smoke-codex-$$"
