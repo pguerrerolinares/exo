@@ -29,7 +29,9 @@
 # Falla si `timeout` no existe o resuelve bajo System32 (TIMEOUT.EXE).
 _timeout_gnu() {
   local t
-  t="$(command -v timeout 2>/dev/null)" || return 1
+  # hash + BASH_CMDS = `command -v timeout` sin subshell
+  hash timeout 2>/dev/null || return 1
+  t=${BASH_CMDS[timeout]}
   case "$t" in
     */[Ss][Yy][Ss][Tt][Ee][Mm]32/*) return 1 ;;
   esac
