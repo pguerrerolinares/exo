@@ -32,7 +32,7 @@ Un contrato cuyo cumplimiento depende de que un modelo "haga lo correcto" no es 
 - **La misma regla literal rinde distinto según cómo llega.** Inyectada como contexto adicional, el agente la trata como una sugerencia. En el system prompt, con framing de autoridad, la cumple más y la cita como obligación. Orden de autoridad: system prompt > contexto adicional > prosa en un fichero.
 - **Las reglas mecánicas se cumplen por cualquier canal; las de principio o proceso mejoran con autoridad y aun así fallan más.** Por eso las segundas necesitan además medición.
 - **Transporte mecánico.** Doctrina y memoria que deben llegar a un subagente las inyecta un hook (`SubagentStart`), no el modelo que escribe el brief. En los briefs, los punteros van como rutas de fichero.
-- **Canal push de las reglas globales.** Viven en `core/reglas-duras.md`, en la sección `## Reglas duras`: como mucho 10 y solo mecánicas.
+- **Canal push de las reglas globales.** Viven en `core/reglas-duras.md`, en la sección `## Reglas duras`: como mucho 10 y solo mecánicas. El fichero es opcional: en una KB sembrada antes de que existiera, `exo rules` funciona sin él.
 - **Contract-first**: el agente ejecuta el contrato escrito, no el que pretendías. Ver [[El LLM es el operador de último recurso, y lo que no mide se aparca|learnings/construir-con-llms-y-descartar]].
 - **Hipótesis preliminar: las reglas blandas decaen tras compactar el contexto y fijarlas (pinning) sería barato.** Un estudio apunta a que las reglas que viven en el historial se pierden más que las duras; reinyectarlas es poco costoso. No aplica a las del system prompt. Sin validar en este entorno: evalúa un hook `PreCompact` antes de construir nada.
 

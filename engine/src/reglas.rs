@@ -325,6 +325,9 @@ pub enum Estado {
     Excede,
     SinSeccion,
     SeccionVacia,
+    /// Nota con `anexo: true`: no es la ficha de un repo, así que no se le
+    /// exige sección. Prima sobre los demás estados.
+    Anexo,
 }
 
 impl Estado {
@@ -335,8 +338,13 @@ impl Estado {
             Estado::Excede => "excede",
             Estado::SinSeccion => "sin_seccion",
             Estado::SeccionVacia => "seccion_vacia",
+            Estado::Anexo => "anexo",
         }
     }
+}
+
+fn es_verdadero(texto: &str, clave: &str) -> bool {
+    crate::frontmatter::valor(texto, clave).is_some_and(|v| sin_comillas(&v) == "true")
 }
 
 /// Cobertura de una nota: cuántas reglas duras declara y su estado.
@@ -364,8 +372,10 @@ pub fn cobertura(kb: &Path) -> Result<Vec<Cobertura>> {
     let mut filas = Vec::new();
     for (nota, ruta) in notas {
         let bytes = std::fs::read(&ruta).with_context(|| format!("leer {}", ruta.display()))?;
-        let reglas = lee_seccion(&String::from_utf8_lossy(&bytes)).map(|(r, _)| r.len());
+        let texto = String::from_utf8_lossy(&bytes);
+        let reglas = lee_seccion(&texto).map(|(r, _)| r.len());
         let estado = match reglas {
+            _ if es_verdadero(&texto, "anexo") => Estado::Anexo,
             None => Estado::SinSeccion,
             Some(0) => Estado::SeccionVacia,
             Some(n) if n > CAP => Estado::Excede,
@@ -384,8 +394,8 @@ pub fn cobertura(kb: &Path) -> Result<Vec<Cobertura>> {
 
 /// Fichas de `projects/` que no inyectarían reglas porque no casan con ningún
 /// repo (ni `slug` ni `repos:`) o no tienen `## Reglas duras`. Se saltan las
-/// notas de la semilla (`semilla: true`, entre ellas `_template.md`). Ordenadas
-/// por ruta. Una KB sin `projects/` da vacío. No toca git.
+/// notas de la semilla (`semilla: true`, entre ellas `_template.md`) y los
+/// anexos sin repo (`anexo: true`). Ordenadas por ruta. Una KB sin `projects/` da vacío. No toca git.
 pub fn fichas_sin_reglas(kb: &Path) -> Result<Vec<String>> {
     if !kb.join("projects").is_dir() {
         return Ok(vec![]);
@@ -394,8 +404,7 @@ pub fn fichas_sin_reglas(kb: &Path) -> Result<Vec<String>> {
     for (nota, ruta) in notas_de_proyecto(kb)? {
         let bytes = std::fs::read(&ruta).with_context(|| format!("leer {}", ruta.display()))?;
         let texto = String::from_utf8_lossy(&bytes);
-        if crate::frontmatter::valor(&texto, "semilla").is_some_and(|v| sin_comillas(&v) == "true")
-        {
+        if es_verdadero(&texto, "semilla") || es_verdadero(&texto, "anexo") {
             continue;
         }
         let con_clave = crate::frontmatter::valor(&texto, "slug")

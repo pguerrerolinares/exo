@@ -1,8 +1,8 @@
 use tempfile::TempDir;
 
 #[test]
-fn son_dieciocho_ficheros() {
-    assert_eq!(exo::plantilla::FICHEROS.len(), 18);
+fn son_diecinueve_ficheros() {
+    assert_eq!(exo::plantilla::FICHEROS.len(), 19);
 }
 
 #[test]
@@ -13,10 +13,10 @@ fn render_sustituye_el_placeholder() {
 }
 
 #[test]
-fn vuelca_escribe_los_dieciocho_y_no_deja_placeholders() {
+fn vuelca_escribe_los_diecinueve_y_no_deja_placeholders() {
     let dir = TempDir::new().unwrap();
     let escritos = exo::plantilla::vuelca(dir.path(), "mi-kb").expect("volcar");
-    assert_eq!(escritos.len(), 18);
+    assert_eq!(escritos.len(), 19);
     for f in &escritos {
         assert!(f.exists(), "no existe {}", f.display());
         if f.extension().is_some_and(|e| e == "md") {

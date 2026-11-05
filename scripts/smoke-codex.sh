@@ -24,7 +24,10 @@
 #     post-compact y vuelve a emitir las reglas.
 # Gasta la cuenta de Codex del dueño, depende de que el modelo obedezca y no es
 # red de regresión: lo corre el dueño a mano tras cada cambio del plugin y de Codex.
-# Necesita `exo` (≥ el ENGINE_MIN del repo) en el PATH y una KB configurada.
+# Trae su propia KB (temporal, con una ficha del repo del smoke y una regla
+# global): las aserciones de reglas no dependen de la KB real del dueño, que
+# nunca tiene una ficha para `smoke-codex-<pid>`.
+# Necesita `exo` (≥ el ENGINE_MIN del repo) en el PATH y una config de exo.
 #
 # Uso: scripts/smoke-codex.sh [--keep|--raiz]         (volcado; regenera el golden)
 #      scripts/smoke-codex.sh --real [--keep|--seco]  (--seco: prepara y no lanza codex)
@@ -63,17 +66,18 @@ if [ "$REAL" -eq 1 ]; then
   REAL_EXO="${EXO_REAL_BIN:-$(command -v exo)}"
   [ -n "$REAL_EXO" ] && [ -x "$REAL_EXO" ] || { echo "smoke-codex: falta exo en PATH (o EXO_REAL_BIN inválido)" >&2; exit 1; }
   REAL_HOME="$HOME"
-  # KB e índice del dueño por env (el HOME aislado no los trae); el estado, los
-  # roles y la config de Codex van al directorio temporal.
-  # La config y el índice se COPIAN: el guard Index (Stop) lanza `exo index`
-  # desacoplado y no debe tocar el índice real. El caché del modelo (HF_HOME) se
-  # usa del real y sin red.
-  SRC_CONFIG="${EXO_CONFIG:-$REAL_HOME/.exo/config.toml}"
-  SRC_INDEX="${EXO_INDEX:-$REAL_HOME/.exo/index.db}"
-  [ -f "$SRC_CONFIG" ] || { echo "smoke-codex: no hay $SRC_CONFIG (exo init)" >&2; exit 1; }
-  [ -f "$SRC_INDEX" ] || { echo "smoke-codex: no hay $SRC_INDEX (exo index)" >&2; exit 1; }
+  # Todo el estado va al directorio temporal: config, índice y KB propios (se
+  # siembran más abajo con `exo init`), así que ni la KB ni el ~/.exo del dueño
+  # se leen o se tocan. El caché del modelo (HF_HOME) sí es el real, sin red.
   export HF_HOME="${HF_HOME:-$REAL_HOME/.cache/huggingface}" HF_HUB_OFFLINE=1
-  cp "$SRC_CONFIG" "$T/config.toml"; cp "$SRC_INDEX" "$T/index.db"
+  KB="$T/kb"
+  REPO_NOMBRE="smoke-codex-$$"
+  REGLA_PROYECTO="smoke-regla-proyecto-$$ no toques residuo.txt"
+  REGLA_GLOBAL="smoke-regla-global-$$ no uses sudo"
+  KB_CFG="$KB"; [ "$WIN" -eq 1 ] && KB_CFG="$(cygpath -m "$KB")"
+  # EXO_KB (flag > $EXO_KB > config) lo fija también por env, por si el hijo del
+  # hook no hereda la config.
+  export EXO_KB="$KB_CFG"
   export EXO_CONFIG="$T/config.toml" EXO_INDEX="$T/index.db" EXO_DB="$T/index.db"
   export HOME="$T/h" CODEX_HOME="$T/home" EXO_STATE_DIR="$T/state"
   # dirs::home_dir() en Windows mira USERPROFILE, no HOME.
@@ -84,6 +88,17 @@ if [ "$REAL" -eq 1 ]; then
   case "$WORK" in /tmp|/tmp/*) echo "smoke-codex: el repo está bajo /tmp; el deny de git add -A no se ejercitaría" >&2; exit 1 ;; esac
   if [ "$KEEP" -eq 0 ]; then trap 'rm -rf "$T" "$WORK"' EXIT; fi
   mkdir -p "$HOME" "$CODEX_HOME" "$EXO_STATE_DIR" "$WORK" "$T/bin"
+  [ "$(basename "$WORK")" = "$REPO_NOMBRE" ] || { echo "smoke-codex: el repo no se llama $REPO_NOMBRE" >&2; exit 1; }
+  # KB semilla del motor (trae core/core-index con el contrato de memoria, y su
+  # nombre queda en la config) más la ficha del repo del smoke y una regla
+  # global; luego se indexa en el índice temporal.
+  "$REAL_EXO" init --kb "$KB_CFG" --name smoke >"$T/init.log" 2>&1 \
+    || { echo "smoke-codex: falló exo init (ver $T/init.log con --keep)" >&2; cat "$T/init.log" >&2; exit 1; }
+  printf -- '---\npermalink: "smoke/projects/%s"\ntitle: Smoke Codex\ntags: [smoke]\ntier: stable\nrepos: [%s]\n---\n\n# Smoke Codex\n\n## Reglas duras\n\n- %s\n' \
+    "$REPO_NOMBRE" "$REPO_NOMBRE" "$REGLA_PROYECTO" > "$KB/projects/smoke-codex.md"
+  printf -- '\n- %s\n' "$REGLA_GLOBAL" >> "$KB/core/reglas-duras.md"
+  "$REAL_EXO" index >"$T/index.log" 2>&1 \
+    || { echo "smoke-codex: falló exo index (ver $T/index.log con --keep)" >&2; cat "$T/index.log" >&2; exit 1; }
   # Wrapper de `exo hook codex …`: vuelca la stdout del hook (lo que Codex recibe)
   # a $T/hook-<evento>.out, una fuente que no depende de lo que Codex persista.
   SHIM="$T/bin/exo"
@@ -113,7 +128,13 @@ EOF
   grep -q '^# >>> exo' "$CODEX_HOME/config.toml" || { echo "smoke-codex: setup codex no dejó el bloque" >&2; exit 1; }
   if [ "$SECO" -eq 1 ]; then
     jq -e . "$RAIZ/plugins/exo/hooks/codex.json" >/dev/null || { echo "smoke-codex: codex.json no es JSON" >&2; exit 1; }
-    echo "smoke-codex --real --seco: preparación OK (sin lanzar codex)"; exit 0
+    # El SessionStart real contra la KB temporal, sin Codex.
+    WORK_CFG="$WORK"; [ "$WIN" -eq 1 ] && WORK_CFG="$(cygpath -m "$WORK")"
+    SS="$(printf '{"hook_event_name":"SessionStart","session_id":"seco","source":"startup","cwd":"%s"}' "$WORK_CFG" | "$REAL_EXO" hook codex SessionStart)"
+    for esperado in "## Contrato de memoria" "$REGLA_PROYECTO" "$REGLA_GLOBAL"; do
+      case "$SS" in *"$esperado"*) ;; *) echo "smoke-codex: el SessionStart no trae '$esperado'" >&2; exit 1 ;; esac
+    done
+    echo "smoke-codex --real --seco: preparación OK; SessionStart trae contrato y reglas (sin lanzar codex)"; exit 0
   fi
   # Sin --sparse: Codex solo lo admite para marketplaces git, no para rutas locales.
   codex plugin marketplace add "$RAIZ" \
@@ -154,6 +175,10 @@ EOF
     grep -qF "Contrato de memoria" "$T/hook-SessionStart.out" 2>/dev/null || en_rollouts "## Contrato de memoria"
   }
   # shellcheck disable=SC2329 # invocada vía chk
+  regla_inyectada() {
+    grep -qF -- "$1" "$T/hook-SessionStart.out" 2>/dev/null || en_rollouts "$1"
+  }
+  # shellcheck disable=SC2329 # invocada vía chk
   deny_en_log() { grep -q '"reflex":"zero-residuo-deny"' "$EXO_STATE_DIR/reflex-log.jsonl" 2>/dev/null; }
   # El UPS solo emite contexto si había marca pendiente: contexto no vacío en su stdout.
   # shellcheck disable=SC2329 # invocada vía chk
@@ -165,6 +190,8 @@ EOF
   chk "codex exec resume rc=0" "codex exec resume rc=$RC2 (ver $T/resume.log con --keep)" test "$RC2" -eq 0
   chk "SessionStart trae el contrato de memoria (stdout del hook o rollout)" "el contexto no trae 'Contrato de memoria'" contrato_emitido
   chk "SessionStart trae las reglas (project-rules-emitted en el reflex-log)" "ninguna regla emitida"     grep -q project-rules-emitted "$EXO_STATE_DIR/reflex-log.jsonl"
+  chk "SessionStart inyecta la regla de la ficha temporal del repo" "la regla del proyecto no llegó al contexto (¿la KB temporal no se resolvió?)" regla_inyectada "$REGLA_PROYECTO"
+  chk "SessionStart inyecta la regla global de la KB temporal" "la regla global no llegó al contexto" regla_inyectada "$REGLA_GLOBAL"
   chk "git add -A denegado (nada en el índice)" "git add -A NO se denegó: hay ficheros en el índice" staged_vacio
   chk "el guard registró zero-residuo-deny (el modelo sí lo intentó)" "sin zero-residuo-deny en el reflex-log: el deny no se ejercitó" deny_en_log
   chk "systemMessage ausente de exec.log y resume.log" "systemMessage aparece en el log de codex exec" sin_system_message

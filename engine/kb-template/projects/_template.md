@@ -52,3 +52,7 @@ Una regla por línea, con guion, máximo 10, y solo reglas mecánicas: algo que
 un agente pueda cumplir o comprobar sin criterio (un comando que no se
 ejecuta, un fichero que no se toca). Con la sección vacía no se inyecta nada.
 Comprueba la cobertura con `exo rules --coverage`.
+
+Una nota de `projects/` que no es la ficha de ningún repo (un anexo de hechos
+técnicos, por ejemplo) lleva `anexo: true` en el frontmatter: `exo doctor` no
+le exige `repos:` ni esta sección y `exo rules --coverage` la marca `anexo`.

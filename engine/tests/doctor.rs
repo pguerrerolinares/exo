@@ -1388,6 +1388,7 @@ fn rules_coverage_avisa_de_las_fichas_sin_clave_o_sin_seccion_y_nunca_falla() {
     let dir = tempfile::tempdir().unwrap();
     let kb = dir.path().join("kb");
     ficha(&kb, "_template.md", "---\nsemilla: true\n---\nx\n");
+    ficha(&kb, "hechos.md", "---\nanexo: true\n---\nx\n");
     ficha(&kb, "buena.md", "---\nrepos: [a]\n---\n## Reglas duras\n");
     ficha(&kb, "suelta.md", "---\ntags: [x]\n---\n## Reglas duras\n");
     let informe = analiza(&entorno_con_config(dir.path()));
@@ -1396,6 +1397,7 @@ fn rules_coverage_avisa_de_las_fichas_sin_clave_o_sin_seccion_y_nunca_falla() {
     assert!(c.detalle.starts_with("1 ficha"), "detalle: {}", c.detalle);
     assert!(c.detalle.contains("projects/suelta.md"), "{}", c.detalle);
     assert!(!c.detalle.contains("buena"), "{}", c.detalle);
+    assert!(!c.detalle.contains("hechos"), "{}", c.detalle);
     assert!(c.detalle.contains("sembrar-kb.md"), "{}", c.detalle);
 }
 

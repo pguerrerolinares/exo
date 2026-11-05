@@ -370,8 +370,8 @@ struct ArgsRules {
     check: bool,
     /// Informe de cobertura: por nota de proyecto (y la global), cuántas
     /// reglas duras declara y su estado (`ok`, `al_cap`, `excede`,
-    /// `sin_seccion`, `seccion_vacia`). Solo informa: sale 0 aunque haya
-    /// excesos (el gate es `--check`). Ignora `--cwd` y no invoca git.
+    /// `sin_seccion`, `seccion_vacia`; `anexo` si la nota lleva `anexo: true`).
+    /// Solo informa: sale 0 aunque haya excesos (el gate es `--check`). Ignora `--cwd` y no invoca git.
     #[arg(long)]
     coverage: bool,
 }

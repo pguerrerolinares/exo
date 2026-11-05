@@ -722,6 +722,49 @@ fn coverage_texto_una_linea_por_nota() {
 }
 
 #[test]
+fn coverage_marca_anexo_con_estado_propio_sin_tocar_el_resto() {
+    let m = Mundo::nuevo();
+    m.nota("projects/ok.md", &con_reglas("r", 3));
+    m.nota(
+        "projects/hechos.md",
+        "---\nanexo: true\n---\n# hechos sin repo\n",
+    );
+    m.nota("projects/sin.md", "# sin sección\n");
+    let o = coverage(&m, true);
+    assert_eq!(o.status.code(), Some(0));
+    let v: Value = serde_json::from_slice(&o.stdout).unwrap();
+    assert_eq!(
+        data(&v)["notas"],
+        serde_json::json!([
+            {"nota": "projects/hechos.md", "reglas": 0, "estado": "anexo"},
+            {"nota": "projects/ok.md", "reglas": 3, "estado": "ok"},
+            {"nota": "projects/sin.md", "reglas": 0, "estado": "sin_seccion"},
+        ])
+    );
+}
+
+/// La nota global que siembra `exo init` (sección vacía) no inyecta ni falla.
+#[test]
+fn global_sembrada_vacia_es_lista_vacia() {
+    let m = Mundo::nuevo();
+    let semilla = exo::plantilla::FICHEROS
+        .iter()
+        .find(|(r, _)| *r == "core/reglas-duras.md")
+        .unwrap()
+        .1;
+    m.nota(
+        "core/reglas-duras.md",
+        &exo::plantilla::render(semilla, "kb"),
+    );
+    m.nota("projects/foo.md", "## Reglas duras\n- a\n");
+    let r = m.repo("foo");
+    let v = m.rules(&r);
+    assert_eq!(data(&v)["status"], "ok");
+    assert_eq!(data(&v)["global"], serde_json::json!([]));
+    assert_eq!(data(&v)["truncated"], 0);
+}
+
+#[test]
 fn coverage_y_check_son_excluyentes() {
     let m = Mundo::nuevo();
     let o = Command::new(bin())

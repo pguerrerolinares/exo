@@ -34,9 +34,11 @@ más fácil se hace mal si se improvisa.
 
 ## Reglas globales
 
-Si existe `core/reglas-duras.md`, sus reglas globales viven en la sección
-`## Reglas duras`: como mucho 10 y solo mecánicas (verificables por un hook o
-un gate). El fichero es opcional: sin él, `exo rules` no da reglas globales.
+Las reglas globales viven en la sección `## Reglas duras` de
+`core/reglas-duras.md`, que `exo init` siembra vacía: como mucho 10 y solo
+mecánicas (verificables por un hook o un gate). El fichero es opcional: una
+KB sembrada antes de que existiera funciona igual, y sin él `exo rules` no da
+reglas globales.
 
 ## `tier`: qué significa y qué valores tiene
 

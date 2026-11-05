@@ -97,6 +97,15 @@ qué es, estado actual, decisiones vivas, frentes abiertos y enlaces, más
 proyecto no inyecta reglas hasta que alguien las escriba; no inventes
 ninguna.
 
+Una nota de `projects/` que no corresponde a ningún repo (un anexo, p. ej.
+«hechos técnicos») se marca con `anexo: true` en el frontmatter: `exo doctor`
+(`rules_coverage`) deja de avisar de ella y `exo rules --coverage` la lista con
+el estado `anexo`.
+
+Las reglas globales viven en `core/reglas-duras.md`, que `exo init` siembra con
+la sección vacía. Es opcional: en una KB sembrada antes de que existiera, créala
+a mano con ese formato o ignórala; `exo rules` funciona igual sin ella.
+
 Reglas:
 
 - Cada dato lleva su fuente (`fichero:línea`). Lo que no tiene fuente se omite.
