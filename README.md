@@ -42,7 +42,7 @@ curl -fsSL https://raw.githubusercontent.com/pguerrerolinares/exo/main/install.s
 Requisitos: `git` y `jq`; `curl` y `sha256sum` (o `shasum`) para `install.sh`;
 `python3` para el reflejo `delegar-decision` (sin él se abstiene en silencio).
 `jq` y bash los siguen necesitando los hooks que quedan como `.sh`; los guards
-que ya viven en `exo hook` no. El plugin 1.32 exige un engine ≥ 0.14.0. Ni
+que ya viven en `exo hook` no. El plugin 1.34 exige un engine ≥ 0.15.0. Ni
 Rust ni toolchain C. Detalle y camino desde
 fuente: [`docs/instalacion.md`](docs/instalacion.md).
 
@@ -120,7 +120,7 @@ promesa**: nadie ha medido el retrieval de exo en otra lengua.
 `plugins/exo/` reúne ocho skills de proceso (brainstorm · plan · orchestrate ·
 tdd · debug · verify · document · distill), dos agentes (`exo:executor`, que
 implementa tareas acotadas, y `exo:consultor`, de solo lectura, para decisiones
-de diseño) y una capa de reflejos: trece hooks (diez scripts de shell y tres
+de diseño) y una capa de reflejos: trece hooks (ocho scripts de shell y cinco
 cableados de `exo hook`, el comando del engine) más un mod
 (`hooks/register.ts`) que entregan en el punto de acción el conocimiento
 procedural y las **reglas duras** (las del dueño, de `core/reglas-duras.md`, y
@@ -130,9 +130,9 @@ solo bloquean en cuatro hooks, con tope y escape. La tabla de hooks, el canal
 de reglas y la atribución viven en
 [`plugins/exo/README.md`](plugins/exo/README.md).
 
-Los guards de Bash y search-first son ya código del engine: `exo hook claude
-<evento>` (siempre sale con 0, anota un journal por sesión en
-`~/.exo/state/`). Claude Code y Codex están soportados con el mismo comando
+Los guards de Bash y search-first, el recall de arranque (`SessionStart`) y el
+reindexado (`Stop`) son ya código del engine: `exo hook claude <evento>`
+(siempre sale con 0, anota un journal por sesión en `~/.exo/state/`). Claude Code y Codex están soportados con el mismo comando
 (`exo hook codex <evento>`); pi es un subproyecto pendiente, sin fecha (ver
 `docs/arquitectura.md` §4.3).
 

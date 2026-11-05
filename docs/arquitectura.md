@@ -387,8 +387,8 @@ fuente de verdad de los flags.
 | `exo ratchet` | Gate del trinquete de techos (exit 3) | `--kb`, `--seal`, `--staged`, `--json` |
 | `exo rotate` | Rota una bitácora `tier: log` a frío/caliente. Dry-run sin `--apply` | `--hot-bytes` (40960), `--apply`, `--kb`, `--json` |
 | `exo stale` | Urgencia de actualización por nota. Solo lectura | `--now`, `--db`, `--kb`, `--json` |
-| `exo hook <harness> <evento>` | Procesa un evento de herramienta de un agente: lee su JSON por stdin y escribe la respuesta por stdout. Solo existe el harness `claude` (eventos `PreToolUse`, `PostToolUse`, `PostToolUseFailure`); cualquier otro valor se ignora. **Siempre sale con 0** | – (sin flags; lo invoca la config de hooks del agente) |
-| `exo doctor` | Preflight de **entorno** (la máquina), frente a `lint`, que es de la KB. 14 checks; cada uno reporta el artefacto que miró y los que no aplican salen como `na`. Emite el informe entero y luego gatea (exit 3 si hay algún `fail`; los `warn` no gatean) | `--db`, `--kb`, `--json` |
+| `exo hook <harness> <evento>` | Procesa un evento de herramienta de un agente: lee su JSON por stdin y escribe la respuesta por stdout. Harnesses `claude` y `codex` (eventos como `SessionStart`, `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `Stop`; los de Codex en §4.3.1); cualquier otro valor se ignora. **Siempre sale con 0** | – (sin flags; lo invoca la config de hooks del agente) |
+| `exo doctor` | Preflight de **entorno** (la máquina), frente a `lint`, que es de la KB. 17 checks, el último `rules_coverage` (§4.2); cada uno reporta el artefacto que miró y los que no aplican salen como `na`. Emite el informe entero y luego gatea (exit 3 si hay algún `fail`; los `warn` no gatean) | `--db`, `--kb`, `--json` |
 
 Idioma de la ayuda: los textos de producto y los errores propios van en
 español; el cromo que pinta clap (`Usage:`, `Options:`, `Commands:`…) y los
@@ -478,7 +478,7 @@ flowchart TD
   `sin_seccion`, `seccion_vacia`) no es un error: sale con 0.
 - **Las globales** viven en `core/reglas-duras.md`, misma sección. Se devuelven
   siempre en `data.global`, aunque el proyecto sea un skip. El fichero es
-  opcional.
+  opcional: `exo init` lo siembra vacío.
 - **El máximo.** Cada lista se recorta a 10 (`CAP` en `engine/src/reglas.rs`);
   `truncated` cuenta lo recortado. El 10 sale de los evals de dilución
   (`evals/techo-reglas-3/verdict.md`): con 20 reglas en el system prompt, una
@@ -504,7 +504,7 @@ flowchart TD
   `cwd` del payload y las entrega según el perfil (§4.1).
 - **Vigilancia.** `plugins/exo/scripts/cobertura-reglas.sh` cruza lo declarado
   (`exo rules --coverage`: `ok`, `al_cap`, `excede`, `sin_seccion`,
-  `seccion_vacia`) con los repos donde hubo sesiones y `exo rules` no entregó
+  `seccion_vacia`, y `anexo` para las notas con `anexo: true`) con los repos donde hubo sesiones y `exo rules` no entregó
   (eventos `project-rules-skip` del reflex-log). Lo corre `/distill`.
 
 ### 4.3 Reflejos y guardrails
@@ -625,7 +625,17 @@ que cada celda sea una decisión explícita):
 Los hooks corren con el `PATH` de la sesión de Codex: lanzado desde un IDE con
 un `PATH` mínimo no encuentra `exo`, y el `--min` de `SessionStart` lo hace
 notar. `scripts/smoke-codex.sh --real` verifica el plugin instalado de extremo
-a extremo (a mano, con la cuenta del dueño; no es CI).
+a extremo (a mano, con la cuenta del dueño; no es CI). Trae su propia KB
+temporal (sembrada con `exo init` e indexada, con una ficha del repo del smoke
+y una regla global), así que no depende de la KB del dueño; con `--seco`
+prepara todo y comprueba solo que `SessionStart` trae contrato y reglas, sin
+lanzar `codex`. Corre también en Windows (shim `.cmd`, `USERPROFILE`;
+`EXO_REAL_BIN` fija el binario). `scripts/smoke-claude.sh` es otra cosa: solo
+recaptura el golden de payloads de hooks de Claude Code con hooks de volcado;
+no ejercita `exo` y no tiene modo `--real`. Necesita `uuidgen` (Git Bash en
+Windows no lo trae) y, bajo `claude -p`, el paso `/compact` puede no
+ejecutarse y dejar el golden sin `PreCompact` ni `SessionStart` con
+`source=compact`.
 
 ### 4.4 Skills, agentes y scripts de `orchestrate`
 
@@ -726,7 +736,8 @@ La semilla cumple el contrato de arranque que los hooks esperan de una KB: su
 arranque), contiene la sección `## Contrato de memoria` que `exo hook`
 (`SessionStart`) valida y extrae, y las secciones `## Doctrina compacta` y `## Cores` que lee
 `compose-inject.sh`; `AGENTS.md` documenta el tier `core` y las reglas
-globales. Una KB recién creada con `exo init` arranca, por tanto, con su
+globales. Siembra también `core/reglas-duras.md` vacío (opcional) y
+`projects/_template.md` con `repos:` y `## Reglas duras`. Una KB recién creada con `exo init` arranca, por tanto, con su
 propio mapa, no con el fallback embebido. Lo que `exo init` no siembra es el
 pre-commit: se instala aparte (§3.8).
 
@@ -785,8 +796,11 @@ Solo lo abierto; el detalle y el siguiente paso de cada uno viven en
 - **El doble bloqueo de `delegar-decision.sh` y `sdd-wake-guard.sh` en
   interactivo** solo está verificado de extremo a extremo en `claude -p`.
 - **Cobertura de reglas por repo.** Un repo sin nota, o con nota sin sección
-  `## Reglas duras`, vuelve al default sin que nadie lo vea en la sesión; solo
-  lo detecta `cobertura-reglas.sh` en `/distill`.
+  `## Reglas duras`, vuelve al default sin que nadie lo vea en la sesión. Lo
+  detectan `exo doctor` (check `rules_coverage`: `warn` informativo, nunca
+  `fail`, para fichas sin `slug`/`repos:` o sin la sección) y
+  `cobertura-reglas.sh` en `/distill`. Una nota que no es ficha de un repo se
+  marca `anexo: true` y queda fuera. Un repo sin ninguna ficha sigue sin verse.
 - **Dilución de reglas de proceso.** Una regla que pide un cambio de conducta
   caro (p. ej. «lanza un agente») se pierde cuando hay otras reglas en el
   system prompt; las reglas mecánicas no (`evals/techo-reglas-3b/verdict.md`).

@@ -87,7 +87,7 @@ los hooks del plugin, con precedencia sobre el PATH.
 exo doctor
 ```
 
-Catorce checks de entorno; cada uno dice **el artefacto que miró**. `warn`
+Diecisiete checks de entorno; cada uno dice **el artefacto que miró**. `warn`
 informa, `fail` sale con código 3. Con `--json` emite el envelope v2.
 
 ## 3. Compilar el engine
@@ -257,8 +257,8 @@ Los hooks del plugin necesitan el binario ya instalado (§2 o §3) y, los que
 siguen siendo `.sh`, `jq`. Si el engine no está, el plugin no rompe la sesión:
 degrada a fallbacks embebidos y lo deja anotado en `~/.exo/state/reflex-log.jsonl`.
 
-**`exo hook` (plugin ≥ 1.32).** Los guards de Bash (`git -C`, `git add -A`,
-verify) y search-first ya no son scripts: `hooks.json` los cablea como `exo
+**`exo hook` (plugin ≥ 1.33).** Los guards de Bash (`git -C`, `git add -A`,
+verify), search-first, el recall de arranque y el reindexado ya no son scripts: `hooks.json` los cablea como `exo
 hook claude <evento> || exit 0` con `timeout` 5, así que necesitan el binario
 en el `PATH` del harness y un engine ≥ 0.15.0. El comando siempre sale con 0;
 el `|| exit 0` hace que un `exo` ausente no bloquee la herramienta. La entrada
@@ -317,9 +317,15 @@ solo log. No hay en Codex detección de superpowers ni testigo `ss-<sid>`.
 
 Verificación de extremo a extremo (a mano, gasta la cuenta de Codex; no es CI):
 `scripts/smoke-codex.sh --real` instala el plugin de este checkout en un
-`CODEX_HOME` y un `HOME` temporales y comprueba contrato, reglas, el deny de
+`CODEX_HOME` y un `HOME` temporales, con su propia KB temporal (sembrada con
+`exo init` e indexada), y comprueba contrato, reglas, el deny de
 `git add -A`, que `systemMessage` no sale en `exec.log` y la reinyección tras
-una compactación forzada. `--real --seco` solo prepara y no lanza `codex`.
+una compactación forzada. `--real --seco` prepara todo y comprueba solo que
+`SessionStart` trae contrato y reglas, sin lanzar `codex`. En Windows corre
+con el shim `.cmd` y `USERPROFILE`; `EXO_REAL_BIN` fija el binario a usar.
+Para Claude Code no hay equivalente: `scripts/smoke-claude.sh` solo recaptura
+el golden de payloads de hooks (necesita `uuidgen`, que Git Bash no trae; bajo
+`claude -p` el paso `/compact` puede no ejecutarse).
 
 ### Pasos que completan la instalación
 
