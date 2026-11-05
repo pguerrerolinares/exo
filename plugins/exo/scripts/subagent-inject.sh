@@ -8,16 +8,28 @@ set -uo pipefail
 # defensivo que basic-memory-recall.sh). Never-break: sin input no hay nada que hacer.
 [ -t 0 ] && exit 0
 INPUT="$(cat)"
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+_d=${0%/*}; [ "$_d" = "$0" ] && _d=.
+SCRIPT_DIR="$(cd "$_d" && pwd)"
 PROJECTS_DIR="${REFLEX_PROJECTS_DIR:-$HOME/.claude/projects}"
-TYPE="$(printf '%s' "$INPUT" | jq -r '.agent_type // empty' 2>/dev/null | tr -d '\r')" || TYPE=""
+# Cada proceso cuesta ~50 ms bajo Git Bash: un solo jq extrae los campos del
+# payload y el perfil (NUL como separador), y el resto es builtin. Medido:
+# ~2,1 s -> ~0,7 s por disparo. jq.exe emite CRLF: se quita con ${v%$'\r'}.
+PROFILES_JSON="$SCRIPT_DIR/inject-profiles.json"
+PROF_ARGS=(--argjson prof '[{}]')
+[ -r "$PROFILES_JSON" ] && PROF_ARGS=(--slurpfile prof "$PROFILES_JSON")
+TYPE=""; PERFIL=""; SID=""; AID=""; CWD=""
+{
+  IFS= read -r -d '' TYPE; IFS= read -r -d '' PERFIL; IFS= read -r -d '' SID
+  IFS= read -r -d '' AID;  IFS= read -r -d '' CWD
+} < <(jq -j "${PROF_ARGS[@]}" '
+  (.agent_type // "" | tostring) as $t
+  | $t, ($prof[0][$t] // $prof[0]._default // ""), .session_id, .agent_id, .cwd
+  | (. // "" | tostring) + "\u0000"' <<<"$INPUT" 2>/dev/null)
+TYPE=${TYPE%$'\r'}; PERFIL=${PERFIL%$'\r'}; SID=${SID%$'\r'}; AID=${AID%$'\r'}; CWD=${CWD%$'\r'}
 if [ -z "$TYPE" ]; then
   . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && reflex_log "inject-abstained" "$INPUT" "sin agent_type" || true
   exit 0
 fi
-PERFIL="$(jq -r --arg t "$TYPE" '.[$t] // ._default' "$SCRIPT_DIR/inject-profiles.json" 2>/dev/null | tr -d '\r')" || PERFIL=""
-SID="$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null | tr -d '\r')" || SID=""
-AID="$(printf '%s' "$INPUT" | jq -r '.agent_id // empty' 2>/dev/null | tr -d '\r')" || AID=""
 if [ -n "$SID" ] && [ -n "$AID" ]; then
   # shellcheck disable=SC2140 # glob `*` entre tramos entrecomillados: intencionado
   for m in "$PROJECTS_DIR"/*/"$SID"/subagents/"agent-${AID}.meta.json"; do
@@ -33,7 +45,6 @@ fi
 KB_ARGS=()
 [ -n "${REFLEX_INJECT_KB:-}" ] && KB_ARGS=(--kb "$REFLEX_INJECT_KB")
 # #116: el cwd del payload resuelve el repo cuyas reglas duras se inyectan.
-CWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null | tr -d '\r')" || CWD=""
 KB_ARGS+=(--cwd "${CWD:-$PWD}")
 JSON=""
 # Si mktemp falla (disco lleno, /tmp no escribible, etc.) el hook sigue
@@ -46,10 +57,13 @@ COMPOSE_ERR="$(mktemp)" || COMPOSE_ERR=""
 # no definida y aborta la sustitución ⇒ el hook logueaba inject-failed siempre
 # que REFLEX_INJECT_KB no estaba fijada, que es el caso normal en producción.
 if BLOQUE="$(REFLEX_INJECT_PAYLOAD="$INPUT" "$SCRIPT_DIR/compose-inject.sh" --type "$TYPE" ${KB_ARGS[@]+"${KB_ARGS[@]}"} 2>"${COMPOSE_ERR:-/dev/null}")" && [ -n "$BLOQUE" ]; then
-  JSON="$(printf '%s' "$BLOQUE" | jq -Rs '{hookSpecificOutput:{hookEventName:"SubagentStart", additionalContext:.}}' 2>/dev/null)" || JSON=""
+  # El here-string añade un único "\n" tras BLOQUE (que $(...) dejó sin saltos
+  # finales): rtrimstr lo quita, el additionalContext queda igual que antes.
+  JSON="$(jq -Rs '{hookSpecificOutput:{hookEventName:"SubagentStart", additionalContext:rtrimstr("\n")}}' <<<"$BLOQUE" 2>/dev/null)" || JSON=""
 fi
 if [ -n "$JSON" ]; then
-  bytes="$(printf '%s' "$BLOQUE" | wc -c)"
+  bytes_de() { local LC_ALL=C; bytes=${#1}; }  # BYTES, no caracteres (UTF-8 seguro)
+  bytes_de "$BLOQUE"
   . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && reflex_log "inject-emitted" "$INPUT" "type=$TYPE perfil=$PERFIL bytes=$bytes" || true
   # F3.2: compose-inject.sh avisa "sin-contenido" por stderr cuando el
   # bloque no supera el tamaño de su propia cabecera — el caso medido de
@@ -57,7 +71,7 @@ if [ -n "$JSON" ]; then
   # contrato "el hook siempre entrega algo" no cambia); esto es aditivo.
   # Sin COMPOSE_ERR (mktemp falló arriba) no hay dónde haber capturado el
   # aviso: se omite el chequeo, no se inventa un inject-empty sin evidencia.
-  if [ -n "$COMPOSE_ERR" ] && grep -q 'sin-contenido' "$COMPOSE_ERR" 2>/dev/null; then
+  if [ -n "$COMPOSE_ERR" ] && [[ "$(<"$COMPOSE_ERR")" == *sin-contenido* ]]; then
     . "$SCRIPT_DIR/_reflex-log.sh" 2>/dev/null && reflex_log "inject-empty" "$INPUT" "type=$TYPE perfil=$PERFIL bytes=$bytes" || true
   fi
   printf '%s' "$JSON"
