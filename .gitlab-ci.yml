@@ -14,7 +14,8 @@ espejo-github:
     GIT_STRATEGY: none
     GITHUB_REPO: https://github.com/pguerrerolinares/exo.git
   script:
-    - test -n "$MIRROR_PUSH_TOKEN" || { echo "ERROR: falta la variable MIRROR_PUSH_TOKEN"; exit 1; }
+    # Comillas simples YAML: el ": " del mensaje convertiria la linea en un mapa.
+    - 'test -n "$MIRROR_PUSH_TOKEN" || { echo "ERROR: falta la variable MIRROR_PUSH_TOKEN"; exit 1; }'
     - git init -q --bare espejo && cd espejo
     # CA interna del GitLab (la inyecta el runner), solo para el push.
     - if [ -n "$CI_SERVER_TLS_CA_FILE" ]; then git config "http.${CI_SERVER_URL}/.sslCAInfo" "$CI_SERVER_TLS_CA_FILE"; fi
