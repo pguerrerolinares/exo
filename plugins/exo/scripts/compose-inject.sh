@@ -168,9 +168,9 @@ cargar_reglas() {  # rellena G_ARR/P_ARR (una regla por elemento, aplanada) y TG
       G*) G_ARR[TG]=${l#G}; TG=$((TG + 1)) ;;
       P*) P_ARR[TP]=${l#P}; TP=$((TP + 1)) ;;
     esac
-  done < <(jq -r '
-    (.data.global[]? | "G- " + (tostring | gsub("\n"; " "))),
-    (select(.data.status == "ok") | .data.rules[]? | "P- " + (tostring | gsub("\n"; " ")))' <<<"$out" 2>/dev/null)
+  done < <(jq -j '
+    (.data.global[]? | "G- " + (tostring | gsub("\n"; " ")) + "\n"),
+    (select(.data.status == "ok") | .data.rules[]? | "P- " + (tostring | gsub("\n"; " ")) + "\n")' <<<"$out" 2>/dev/null)
 }
 render_reglas() {  # render_reglas <g> <p> <cortadas> -> $R: primeras g globales y p de proyecto
   local i msg
