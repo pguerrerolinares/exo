@@ -1,6 +1,6 @@
 //! La plantilla de la KB semilla, embebida en el binario. `include_str!`
-//! explícito dieciocho veces en vez de un macro-crate de embedding: D4 exige un
-//! binario autosuficiente, y dieciocho líneas legibles valen más que una dependencia
+//! explícito diecinueve veces en vez de un macro-crate de embedding: D4 exige un
+//! binario autosuficiente, y diecinueve líneas legibles valen más que una dependencia
 //! que hay que auditar para publicar.
 
 use anyhow::{Context, Result};
@@ -17,6 +17,10 @@ pub const FICHEROS: &[(&str, &str)] = &[
     (
         "core/doctrina.md",
         include_str!("../kb-template/core/doctrina.md"),
+    ),
+    (
+        "core/reglas-duras.md",
+        include_str!("../kb-template/core/reglas-duras.md"),
     ),
     (
         "learnings/_template.md",

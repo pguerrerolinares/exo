@@ -464,11 +464,11 @@ fn init_en_modo_creacion_deja_un_commit_en_la_kb() {
 }
 
 /// C2 (review de rama): `init_cmd` capturaba el `Resumen` de `indexa` y lo
-/// tiraba — `data.files` (18, ficheros ESCRITOS) era lo único que decía el
+/// tiraba — `data.files` (19, ficheros ESCRITOS) era lo único que decía el
 /// envelope, nunca cuántas notas quedaron INDEXADAS. Una semilla que vuelca
-/// 18 ficheros e indexa cero notas salía exit 0 con mensaje de éxito. Ahora
+/// 19 ficheros e indexa cero notas salía exit 0 con mensaje de éxito. Ahora
 /// `data.index` lleva el resumen completo y, en creación, cuadra con las
-/// notas `.md` de la plantilla: 17 (los 18 ficheros de la semilla menos
+/// notas `.md` de la plantilla: 18 (los 19 ficheros de la semilla menos
 /// `archive/log/.gitkeep`, que `walk_kb` filtra por extensión y ni ve).
 #[test]
 #[ignore = "lento: `exo init` carga el modelo; cargo test -- --include-ignored"]
@@ -492,9 +492,9 @@ fn init_en_modo_creacion_publica_el_resumen_de_indexado_en_el_envelope() {
         String::from_utf8_lossy(&salida.stderr)
     );
     let env: serde_json::Value = serde_json::from_slice(&salida.stdout).expect("json");
-    assert_eq!(env["data"]["files"], 18, "ficheros escritos: {env}");
+    assert_eq!(env["data"]["files"], 19, "ficheros escritos: {env}");
     assert_eq!(
-        env["data"]["index"]["indexed"], 17,
+        env["data"]["index"]["indexed"], 18,
         "el envelope no publica cuántas notas quedaron indexadas: {env}"
     );
     assert_eq!(env["data"]["index"]["skipped"], 0);
@@ -581,7 +581,7 @@ fn dos_kbs_con_la_misma_plantilla_sobre_la_misma_db_la_segunda_falla_sin_residuo
             |r| r.get(0),
         )
         .unwrap();
-    assert_eq!(n, 17, "el índice de la primera KB sigue entero");
+    assert_eq!(n, 18, "el índice de la primera KB sigue entero");
 }
 
 /// Bug real (2026-09-13): `init_cmd` calcula `db_objetivo` con la precedencia
