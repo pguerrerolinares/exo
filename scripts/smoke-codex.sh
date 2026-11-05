@@ -66,34 +66,17 @@ if [ "$REAL" -eq 1 ]; then
   REAL_EXO="${EXO_REAL_BIN:-$(command -v exo)}"
   [ -n "$REAL_EXO" ] && [ -x "$REAL_EXO" ] || { echo "smoke-codex: falta exo en PATH (o EXO_REAL_BIN inválido)" >&2; exit 1; }
   REAL_HOME="$HOME"
-  # El índice del dueño se copia (el HOME aislado no lo trae); el estado, los
-  # roles y la config de Codex van al directorio temporal. La KB es una
-  # temporal propia (abajo): la del dueño no se lee ni se toca.
-  # La config y el índice se COPIAN: el guard Index (Stop) lanza `exo index`
-  # desacoplado y no debe tocar el índice real. El caché del modelo (HF_HOME) se
-  # usa del real y sin red.
-  SRC_CONFIG="${EXO_CONFIG:-$REAL_HOME/.exo/config.toml}"
-  SRC_INDEX="${EXO_INDEX:-$REAL_HOME/.exo/index.db}"
-  [ -f "$SRC_CONFIG" ] || { echo "smoke-codex: no hay $SRC_CONFIG (exo init)" >&2; exit 1; }
-  [ -f "$SRC_INDEX" ] || { echo "smoke-codex: no hay $SRC_INDEX (exo index)" >&2; exit 1; }
+  # Todo el estado va al directorio temporal: config, índice y KB propios (se
+  # siembran más abajo con `exo init`), así que ni la KB ni el ~/.exo del dueño
+  # se leen o se tocan. El caché del modelo (HF_HOME) sí es el real, sin red.
   export HF_HOME="${HF_HOME:-$REAL_HOME/.cache/huggingface}" HF_HUB_OFFLINE=1
-  cp "$SRC_INDEX" "$T/index.db"
-  # KB temporal con la ficha del repo del smoke y una regla global. La config
-  # copiada apunta su [kb] path a ella y EXO_KB (flag > $EXO_KB > config) la
-  # fija también por env, por si el hijo del hook no hereda la config.
   KB="$T/kb"
   REPO_NOMBRE="smoke-codex-$$"
   REGLA_PROYECTO="smoke-regla-proyecto-$$ no toques residuo.txt"
   REGLA_GLOBAL="smoke-regla-global-$$ no uses sudo"
-  mkdir -p "$KB/projects" "$KB/core"
-  printf -- '---\npermalink: "smoke/projects/%s"\ntitle: Smoke Codex\ntags: [smoke]\ntier: stable\nrepos: [%s]\n---\n\n# Smoke Codex\n\n## Reglas duras\n\n- %s\n' \
-    "$REPO_NOMBRE" "$REPO_NOMBRE" "$REGLA_PROYECTO" > "$KB/projects/smoke-codex.md"
-  printf -- '---\npermalink: "smoke/core/reglas-duras"\ntitle: Reglas duras globales\ntags: [smoke]\ntier: stable\n---\n\n# Reglas duras globales\n\n## Reglas duras\n\n- %s\n' \
-    "$REGLA_GLOBAL" > "$KB/core/reglas-duras.md"
   KB_CFG="$KB"; [ "$WIN" -eq 1 ] && KB_CFG="$(cygpath -m "$KB")"
-  awk -v p="$KB_CFG" '/^\[/ { s = ($0 == "[kb]") } s && /^path[ \t]*=/ { print "path = \"" p "\""; next } { print }' \
-    "$SRC_CONFIG" > "$T/config.toml"
-  grep -qF "path = \"$KB_CFG\"" "$T/config.toml" || { echo "smoke-codex: la config no trae [kb] path que reescribir" >&2; exit 1; }
+  # EXO_KB (flag > $EXO_KB > config) lo fija también por env, por si el hijo del
+  # hook no hereda la config.
   export EXO_KB="$KB_CFG"
   export EXO_CONFIG="$T/config.toml" EXO_INDEX="$T/index.db" EXO_DB="$T/index.db"
   export HOME="$T/h" CODEX_HOME="$T/home" EXO_STATE_DIR="$T/state"
@@ -106,6 +89,16 @@ if [ "$REAL" -eq 1 ]; then
   if [ "$KEEP" -eq 0 ]; then trap 'rm -rf "$T" "$WORK"' EXIT; fi
   mkdir -p "$HOME" "$CODEX_HOME" "$EXO_STATE_DIR" "$WORK" "$T/bin"
   [ "$(basename "$WORK")" = "$REPO_NOMBRE" ] || { echo "smoke-codex: el repo no se llama $REPO_NOMBRE" >&2; exit 1; }
+  # KB semilla del motor (trae core/core-index con el contrato de memoria, y su
+  # nombre queda en la config) más la ficha del repo del smoke y una regla
+  # global; luego se indexa en el índice temporal.
+  "$REAL_EXO" init --kb "$KB_CFG" --name smoke >"$T/init.log" 2>&1 \
+    || { echo "smoke-codex: falló exo init (ver $T/init.log con --keep)" >&2; cat "$T/init.log" >&2; exit 1; }
+  printf -- '---\npermalink: "smoke/projects/%s"\ntitle: Smoke Codex\ntags: [smoke]\ntier: stable\nrepos: [%s]\n---\n\n# Smoke Codex\n\n## Reglas duras\n\n- %s\n' \
+    "$REPO_NOMBRE" "$REPO_NOMBRE" "$REGLA_PROYECTO" > "$KB/projects/smoke-codex.md"
+  printf -- '\n- %s\n' "$REGLA_GLOBAL" >> "$KB/core/reglas-duras.md"
+  "$REAL_EXO" index >"$T/index.log" 2>&1 \
+    || { echo "smoke-codex: falló exo index (ver $T/index.log con --keep)" >&2; cat "$T/index.log" >&2; exit 1; }
   # Wrapper de `exo hook codex …`: vuelca la stdout del hook (lo que Codex recibe)
   # a $T/hook-<evento>.out, una fuente que no depende de lo que Codex persista.
   SHIM="$T/bin/exo"
@@ -135,7 +128,13 @@ EOF
   grep -q '^# >>> exo' "$CODEX_HOME/config.toml" || { echo "smoke-codex: setup codex no dejó el bloque" >&2; exit 1; }
   if [ "$SECO" -eq 1 ]; then
     jq -e . "$RAIZ/plugins/exo/hooks/codex.json" >/dev/null || { echo "smoke-codex: codex.json no es JSON" >&2; exit 1; }
-    echo "smoke-codex --real --seco: preparación OK (sin lanzar codex)"; exit 0
+    # El SessionStart real contra la KB temporal, sin Codex.
+    WORK_CFG="$WORK"; [ "$WIN" -eq 1 ] && WORK_CFG="$(cygpath -m "$WORK")"
+    SS="$(printf '{"hook_event_name":"SessionStart","session_id":"seco","source":"startup","cwd":"%s"}' "$WORK_CFG" | "$REAL_EXO" hook codex SessionStart)"
+    for esperado in "## Contrato de memoria" "$REGLA_PROYECTO" "$REGLA_GLOBAL"; do
+      case "$SS" in *"$esperado"*) ;; *) echo "smoke-codex: el SessionStart no trae '$esperado'" >&2; exit 1 ;; esac
+    done
+    echo "smoke-codex --real --seco: preparación OK; SessionStart trae contrato y reglas (sin lanzar codex)"; exit 0
   fi
   # Sin --sparse: Codex solo lo admite para marketplaces git, no para rutas locales.
   codex plugin marketplace add "$RAIZ" \
