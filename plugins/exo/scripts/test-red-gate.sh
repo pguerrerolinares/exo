@@ -21,69 +21,40 @@ REPO="$TMP/repo"
 mkdir -p "$REPO"
 git -C "$REPO" init -q
 LOG="$REPO/.superpowers/sdd/red.log"
-export EXO_STATE_DIR="$HOME/.exo/state"
-JOURNAL="$EXO_STATE_DIR/sessions/claude-s_1.jsonl"   # session_id «s/1» saneado, como el engine
-mkdir -p "$(dirname "$JOURNAL")"
 
-marca() {  # $1 = agent_id, $2 = code
-  printf '{"ts":"t","kind":"mark","tool":"Bash","clase":"Shell","cmd":"","paths":[],"ok":null,"agent_id":"%s","code":"%s"}\n' "$1" "$2" >> "$JOURNAL"
-}
-
-run() {  # $1 = agent_type, $2 = message, $3 = agent_id (default a1)
+run() {  # $1 = agent_type, $2 = message
   : > "$REFLEX_LOG_FILE"
-  jq -n --arg t "$1" --arg m "$2" --arg c "$REPO" --arg a "${3-a1}" \
-    '{session_id:"s/1", agent_id:$a, agent_type:$t, cwd:$c, tool_name:"SubagentHandback", tool_input:{message:$m}}' \
+  jq -n --arg t "$1" --arg m "$2" --arg c "$REPO" \
+    '{session_id:"s", agent_id:"a1", agent_type:$t, cwd:$c, tool_name:"SubagentHandback", tool_input:{message:$m}}' \
     | "$HOOK" >/dev/null 2>&1
   NLOG="$(grep -c '"reflex":"red-gate"' "$REFLEX_LOG_FILE" 2>/dev/null || true)"
-  NOK="$(grep -c '"reflex":"red-gate-ok"' "$REFLEX_LOG_FILE" 2>/dev/null || true)"
-  PAYLOAD="$(jq -r 'select(.reflex=="red-gate") | .payload' "$REFLEX_LOG_FILE" 2>/dev/null)"
 }
 
 run "exo:executor" "Status: DONE. RED: red.log"
-[ "$NLOG" = 1 ] && [[ "$PAYLOAD" == *sin-testigo* ]] && pass "loguea red-gate: sin journal" || fail "loguea red-gate: sin journal" "n=$NLOG p=$PAYLOAD"
+[ "$NLOG" = 1 ] && pass "loguea red-gate: sin red.log" || fail "loguea red-gate: sin red.log" "n=$NLOG"
 
-marca a1 "red exit=0"
-run "exo:executor" "Status: DONE. RED: red.log"
-[ "$NLOG" = 1 ] && [[ "$PAYLOAD" == *solo-exit-0* ]] && pass "loguea red-gate: solo testigos con exit=0" || fail "loguea red-gate: solo exit=0" "n=$NLOG p=$PAYLOAD"
-
-marca a1 "red exit=1"
-run "exo:executor" "Status: DONE. RED: red.log"
-[ "$NLOG" = 0 ] && [ "$NOK" = 1 ] && pass "pasa (red-gate-ok): testigo exit=1 del propio agente" || fail "pasa con testigo propio" "n=$NLOG ok=$NOK"
-
-# El bug de #271: un RED viejo de otro agente o un red.log del repo no cuentan.
 mkdir -p "$(dirname "$LOG")"
-printf 'RED: t exit=1\nfail\n' > "$LOG"
-run "exo:executor" "Status: DONE. RED: red.log" a2
-[ "$NLOG" = 1 ] && [[ "$PAYLOAD" == *sin-testigo* ]] && pass "no cuenta: RED de otro agente ni red.log del repo" || fail "no cuenta RED ajeno" "n=$NLOG p=$PAYLOAD"
+printf 'RED: t exit=0\nok\n' > "$LOG"
+run "exo:executor" "Status: DONE. RED: red.log"
+[ "$NLOG" = 1 ] && pass "loguea red-gate: red.log solo con exit=0" || fail "loguea red-gate: red.log solo con exit=0" "n=$NLOG"
 
-marca a22 "red exit=1"
-run "exo:executor" "Status: DONE. RED: red.log" a2
-[ "$NLOG" = 1 ] && pass "no cuenta: agent_id que solo comparte prefijo" || fail "prefijo de agent_id" "n=$NLOG"
+printf 'RED: t exit=1\nfail\n' >> "$LOG"
+run "exo:executor" "Status: DONE. RED: red.log"
+[ "$NLOG" = 0 ] && pass "calla: red.log con exit=1" || fail "calla: red.log con exit=1" "n=$NLOG"
 
-printf '{"kind":"tool","agent_id":"a3","cmd":"echo \\"code\\":\\"red exit=1\\"","code":""}\n' >> "$JOURNAL"
-run "exo:executor" "Status: DONE. RED: red.log" a3
-[ "$NLOG" = 1 ] && pass "no cuenta: «red exit=1» dentro de un registro tool" || fail "registro tool con texto testigo" "n=$NLOG"
-
-FAKE="$TMP/fakebin"; mkdir -p "$FAKE"
-printf '#!/bin/sh\necho "exo 0.16.0"\n' > "$FAKE/exo"; chmod +x "$FAKE/exo"
-PATH="$FAKE:$PATH" run "exo:executor" "Status: DONE. RED: red.log" a8
-[ "$NLOG" = 1 ] && [[ "$PAYLOAD" == "engine-stale engine=0.16.0 "* ]] && pass "engine < 0.17 sin testigo: engine-stale, no sin-testigo" || fail "engine-stale" "n=$NLOG p=$PAYLOAD"
-
+rm -f "$LOG"
 for M in "Status: BLOCKED. sin entorno" "Status: NEEDS_CONTEXT" "Status: DONE. RED: n/a"; do
-  run "exo:executor" "$M" a9
-  [ "$NLOG" = 0 ] && [ "$NOK" = 0 ] && pass "se abstiene: $M" || fail "se abstiene: $M" "n=$NLOG"
+  run "exo:executor" "$M"
+  [ "$NLOG" = 0 ] && pass "se abstiene: $M" || fail "se abstiene: $M" "n=$NLOG"
 done
 
-run "exo:reviewer" "Status: DONE. RED: red.log" a9
+run "exo:reviewer" "Status: DONE. RED: red.log"
 [ "$NLOG" = 0 ] && pass "se abstiene: agent_type distinto" || fail "se abstiene: agent_type distinto" "n=$NLOG"
 
-run "" "Status: DONE. RED: red.log" ""
+run "" "Status: DONE. RED: red.log"
 [ "$NLOG" = 0 ] && pass "se abstiene: sin agent_type (padre)" || fail "se abstiene: sin agent_type (padre)" "n=$NLOG"
 
-run "exo:executor" "Status: DONE. RED: red.log" ""
-[ "$NLOG" = 0 ] && [ "$NOK" = 0 ] && pass "se abstiene: executor sin agent_id" || fail "se abstiene: sin agent_id" "n=$NLOG"
-
-OUT="$(printf '{"agent_type":"exo:executor","agent_id":"a1","session_id":"s/1","cwd":"%s","tool_input":{"message":"DONE"}}' "$REPO" | "$HOOK" 2>/dev/null)"
+OUT="$(printf '{"agent_type":"exo:executor","cwd":"%s","tool_input":{"message":"DONE"}}' "$REPO" | "$HOOK" 2>/dev/null)"
 [ -z "$OUT" ] && pass "log-only: no emite decisión" || fail "log-only: no emite decisión" "out=$OUT"
 
 # --- red-witness ---
@@ -101,22 +72,10 @@ grep -q '^RED: bash -c .* exit=3$' "$LOG" && grep -q '^dos$' "$LOG" \
 [ "$(grep -c '^[0-9][0-9]*$' "$LOG")" = 20 ] && grep -q '^50$' "$LOG" && ! grep -q '^30$' "$LOG" \
   && pass "red-witness: cola de 20 líneas" || fail "red-witness: cola de 20 líneas" "$(tail -3 "$LOG")"
 
-ERR="$( cd "$REPO" && "$WITNESS" bash -c 'echo fuera; exit 4' 2>&1 >/dev/null )"
-[ "$(printf '%s\n' "$ERR" | tail -n 1)" = "exo-red-witness exit=4" ] \
-  && pass "red-witness: línea testigo como última línea de stderr" || fail "red-witness: línea testigo" "err=$ERR"
-
-# Integración: el testigo que imprime el witness, pasado por el engine, silencia el gate.
-if command -v exo >/dev/null 2>&1 && exo hook --help >/dev/null 2>&1; then
-  : > "$JOURNAL"
-  SAL="$( cd "$REPO" && "$WITNESS" false 2>&1 )"
-  jq -n --arg e "Exit code 1
-$SAL" '{session_id:"s/1", agent_id:"a7", cwd:"/x", hook_event_name:"PostToolUseFailure", tool_name:"Bash", tool_input:{command:"red-witness false"}, error:$e}' \
-    | exo hook claude PostToolUseFailure >/dev/null 2>&1
-  run "exo:executor" "Status: DONE. RED: red.log" a7
-  [ "$NLOG" = 0 ] && [ "$NOK" = 1 ] && pass "integración: witness → exo hook → gate" || fail "integración witness+engine+gate" "n=$NLOG ok=$NOK p=$PAYLOAD (¿exo en PATH < 0.17?)"
-else
-  printf '[SKIP] integración witness+engine+gate: sin exo en PATH\n'
-fi
+# El gate lee lo que escribe el witness
+( cd "$REPO" && "$WITNESS" false >/dev/null 2>&1 )
+run "exo:executor" "Status: DONE. RED: red.log"
+[ "$NLOG" = 0 ] && pass "integración: witness con exit≠0 silencia el gate" || fail "integración witness+gate" "n=$NLOG"
 
 printf '\n%d pass, %d fail\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

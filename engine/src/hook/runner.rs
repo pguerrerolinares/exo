@@ -12,9 +12,7 @@ use super::guards::{
     verify::verify,
     zero_residuo::zero_residuo,
 };
-use super::journal::{
-    marca_pendiente, registra_evento, registra_marca, registra_tool, testigo_red,
-};
+use super::journal::{marca_pendiente, registra_evento, registra_marca, registra_tool};
 use super::matriz::{GUARDS, Guard, Soporte, soporte};
 use super::reflex::registra;
 use super::{claude, codex};
@@ -144,12 +142,10 @@ fn interno(en: &Entorno, harness: &str, evento: &str, min: Option<&str>, stdin: 
             // Codex no informa del resultado: `ok: null`.
             let ok = (h == Harness::Claude).then_some(true);
             let _ = registra_tool(en, &ev, ok);
-            anota_red(en, h, &ev);
             vacio()
         }
         EventoKind::PostToolUseFailure => {
             let _ = registra_tool(en, &ev, Some(false));
-            anota_red(en, h, &ev);
             vacio()
         }
         EventoKind::SessionStart => session_start(en, h, &ev, min),
@@ -494,16 +490,4 @@ fn user_prompt_submit(en: &Entorno, h: Harness, ev: &Evento) -> String {
         );
     }
     salida_contexto(h, ev, &texto, &avisos)
-}
-
-/// Marca `red exit=N` con el `agent_id` cuando la salida trae la línea testigo de
-/// `red-witness`: es lo que `red-gate.sh` busca por agente (#271). Solo Claude: el
-/// Post de Codex no trae la salida.
-fn anota_red(en: &Entorno, h: Harness, ev: &Evento) {
-    if h != Harness::Claude {
-        return;
-    }
-    if let Some(n) = testigo_red(&ev.crudo) {
-        let _ = registra_marca(en, ev, &format!("red exit={n}"));
-    }
 }

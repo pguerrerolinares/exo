@@ -36,10 +36,8 @@ Subagent (exo:executor):
        de los tests y del código, con las firmas y aserciones del brief.
     2. Escribe primero los tests del brief y velos fallar (`exo:tdd`); solo te
        los saltas si el brief dice `Tests: n/a`. Corre el RED con
-       `red-witness <cmd>` (`[SCRIPTS]/red-witness`; sin pipe y sin tirar su
-       stderr: su última línea, `exo-red-witness exit=N`, es el testigo que
-       el hook anota con tu agent_id; sale con el exit real y deja copia en
-       `.superpowers/sdd/red.log`).
+       `red-witness <cmd>` (`[SCRIPTS]/red-witness`; sin pipe: deja el
+       resultado en `.superpowers/sdd/red.log` y sale con el exit real).
        RED válido = el test falla en su aserción, y citas el mensaje. Un fallo de import, compilación de
        dependencias o entorno (worktree sin instalar) no es RED: arregla el
        entorno con el Setup del plan y vuelve a correr; si no puedes,
