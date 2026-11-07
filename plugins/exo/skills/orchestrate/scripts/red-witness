@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
-# Corre un comando y deja constancia de su RED en <toplevel>/.superpowers/sdd/red.log:
-# `RED: <cmd> exit=N` + las últimas 20 líneas de salida. Sale con el exit real del
-# comando, así que se usa en el sitio del runner sin cambiar el flujo TDD.
+# Corre un comando, imprime su salida y termina con la línea testigo
+# `exo-red-witness exit=N` en stderr. Sale con el exit real del comando, así que
+# se usa en el sitio del runner sin cambiar el flujo TDD.
 #
 # Por qué: «RED: citado en el report» es prosa que el modelo puede recitar sin
-# haber corrido nada (#136). El log lo escribe el wrapper, no el executor, y
-# `red-gate.sh` lo contrasta al entregar. Sin pipe a propósito: `cmd | tail`
+# haber corrido nada (#136). El testigo lo imprime el wrapper, no el executor:
+# `exo hook claude PostToolUse[Failure]` lo ve en la salida y lo anota en el
+# journal de sesión con el agent_id, y `red-gate.sh` busca el del propio agente
+# al entregar (#271). Que sea la última línea importa: `| head` lo cortaría.
+#
+# Además deja `RED: <cmd> exit=N` + las últimas 20 líneas en
+# <toplevel>/.superpowers/sdd/red.log, como evidencia legible para el reviewer.
+# El gate ya no lo lee: solo crece y es del repo, no del agente. Sin pipe a propósito: `cmd | tail`
 # esconde el exit de `cmd` (sin pipefail devuelve el de tail).
 #
 # Usage: red-witness <cmd…>
@@ -30,5 +36,7 @@ mkdir -p "$(dirname "$LOG")" 2>/dev/null || true
   printf 'RED: %s exit=%d\n' "$*" "$RC"
   tail -n 20 "$OUT"
 } >>"$LOG" 2>/dev/null || true
+
+printf 'exo-red-witness exit=%d\n' "$RC" >&2
 
 exit "$RC"

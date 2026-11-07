@@ -73,7 +73,7 @@ Tabla exacta al cableado vivo (una fila por comando de `hooks.json`):
 
 | Reflejo | Evento | Fichero | Efecto | Qué hace |
 |---|---|---|---|---|
-| red-gate | `PreToolUse:SubagentHandback` | `scripts/red-gate.sh` | solo log | Registra si un `exo:executor` entrega sin línea `exit=[1-9]` en `red.log`. Promoción a deny pendiente de medir. |
+| red-gate | `PreToolUse:SubagentHandback` | `scripts/red-gate.sh` | solo log | Registra si un `exo:executor` entrega sin un testigo `red exit=[1-9]` propio (la línea testigo de `red-witness`, que `exo hook` anota en el journal con su `agent_id`; engine ≥ 0.17). Promoción a deny pendiente de medir. |
 | clean-orchestrator | `PreToolUse:WebSearch\|WebFetch\|navegación MCP (chrome, playwright, navegador de la app)` | `scripts/clean-orchestrator-research.sh` | avisa | Recuerda delegar el research a subagentes (parent-only, 1×/sesión, no en apps locales). |
 | exo-recall | `SessionStart` | `exo hook claude SessionStart --min 0.15.0` | avisa (inyecta) | Inyecta la sección `## Contrato de memoria` del `core-index` servido por el engine (tope 1.500 B; sin actividad reciente ni `## Cores`); reafirma reflejos tras `compact`; avisa de un gate de `/document` pendiente y de superpowers habilitado; escribe el testigo `ss-<sid>`. Cae a un fallback embebido si el engine es < `ENGINE_MIN`. |
 | estilo-directo | `SessionStart` | `scripts/estilo-directo.sh` | avisa (inyecta) | Inyecta la directiva estática de estilo de `estilo-directo.md`. |

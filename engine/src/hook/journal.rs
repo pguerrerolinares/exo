@@ -194,3 +194,24 @@ pub fn lee(
         truncado,
     }))
 }
+
+/// Prefijo de la línea testigo que imprime `red-witness` al final de su salida.
+const TESTIGO_RED: &str = "exo-red-witness exit=";
+
+/// Exit del último `red-witness` que aparece en la salida de la herramienta
+/// (`tool_response.stdout`/`stderr` en `PostToolUse`, `error` en `PostToolUseFailure`).
+/// Solo cuenta una línea entera `exo-red-witness exit=N`; el texto del comando no se mira,
+/// así que escribir la línea en el comando no la falsifica.
+pub fn testigo_red(crudo: &str) -> Option<i32> {
+    let v: serde_json::Value = serde_json::from_str(crudo).ok()?;
+    let txt = |p: &str| v.pointer(p).and_then(|x| x.as_str()).unwrap_or("");
+    [
+        txt("/tool_response/stdout"),
+        txt("/tool_response/stderr"),
+        txt("/error"),
+    ]
+    .iter()
+    .flat_map(|s| s.lines())
+    .filter_map(|l| l.trim().strip_prefix(TESTIGO_RED)?.parse::<i32>().ok())
+    .next_back()
+}
