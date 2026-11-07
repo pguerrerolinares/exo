@@ -528,8 +528,8 @@ rompe lo que instrumenta, para medir falsos positivos a posteriori. No son
 | Fondo propio de subagente | `SubagentStop` | `subagent-bg-guard.sh` | **Block**: un subagente no termina con tareas de fondo propias vivas; la lista le pide `TaskStop` o reportar BLOCKED | No si `stop_hook_active` |
 | Orquestador limpio | `PreToolUse` en `WebSearch`, `WebFetch` y la navegación de los MCP de navegador | `clean-orchestrator-research.sh` | **Aviso**: recuerda delegar la investigación web a un subagente. Navegar a localhost/`file:` no cuenta | 1 por sesión; solo el padre |
 | Guards de `exo hook` | `PreToolUse` en `Bash`, `PowerShell`, `Agent`, `Task`, `Edit`, `Write`, `NotebookEdit` | `exo hook claude PreToolUse` | **Rewrite** (git -C): `cd X && git <solo-lectura>` pasa a `git -C X …`. **Deny** (zero-residuo): `git add -A`/`--all`/`.` sin pathspec, fuera de `/tmp`. **Log** (verify, sin avisar al agente): `git commit` de código sin un test verde reciente. **Aviso** (search-first): recuerda `exo search`/`exo targets` antes del primer trabajo sustantivo si no hay búsqueda previa; sin transcript avisa igual | El deny pasa a log tras 3 seguidos del mismo agente (vuelta atrás); search-first 1 por sesión, solo el padre |
-| Journal de `exo hook` | `PostToolUse` y `PostToolUseFailure` en `Bash`, `PowerShell`, `Edit`, `Write`, `NotebookEdit` | `exo hook claude PostToolUse` / `PostToolUseFailure` | **Efecto lateral**: anota cada tool_use en el journal de sesión que leen verify y search-first | – |
-| Red-gate | `PreToolUse` en `SubagentHandback` | `red-gate.sh` | **Log**: un `exo:executor` que entrega sin ninguna línea `exit=[1-9]` en `.superpowers/sdd/red.log` no corrió su RED con `red-witness`. Promoción a deny pendiente de medir (§7) | – |
+| Journal de `exo hook` | `PostToolUse` y `PostToolUseFailure` en `Bash`, `PowerShell`, `Edit`, `Write`, `NotebookEdit` | `exo hook claude PostToolUse` / `PostToolUseFailure` | **Efecto lateral**: anota cada tool_use en el journal de sesión que leen verify y search-first; si la salida (`tool_response` o `error`) acaba en la línea `exo-red-witness exit=N`, anota además la marca `red exit=N` con el `agent_id` que lee `red-gate.sh` (solo Claude, engine ≥ 0.17) | – |
+| Red-gate | `PreToolUse` en `SubagentHandback` | `red-gate.sh` | **Log**: un `exo:executor` que entrega sin ningún testigo `red exit=[1-9]` **de su propio `agent_id`** en el journal de sesión no corrió su RED con `red-witness` (`red-gate`, con `sin-testigo`, `solo-exit-0` o `engine-stale`); si lo hay, `red-gate-ok`. Promoción a deny pendiente de medir (§7) | – |
 
 Los guards de Bash y search-first dejaron de ser scripts: son `exo hook claude
 <evento>` (código en `engine/src/hook/`, matriz guard×harness en `matriz.rs`),
@@ -663,8 +663,11 @@ es la de `ls plugins/exo/skills`.
 disjuntos y sin dependencia transitiva comparten ola); `task-brief` extrae el
 texto de una tarea a un fichero que el ejecutor lee de una vez;
 `review-package` genera el paquete de review (commits, stat y diff neto desde
-el BASE registrado de la tarea); `red-witness` corre un comando y deja
-constancia de su RED en `.superpowers/sdd/red.log` (lo contrasta `red-gate.sh`);
+el BASE registrado de la tarea); `red-witness` corre un comando, imprime la línea testigo
+`exo-red-witness exit=N` al final de stderr (el journal de `exo hook` la anota
+con el `agent_id` y `red-gate.sh` la busca por agente) y deja además su RED
+en `.superpowers/sdd/red.log` como evidencia legible, que el gate ya no lee
+(#271: solo crecía y era del repo, no del agente);
 `sdd-workspace` resuelve el directorio de trabajo de un plan; `rulings-collect`
 recoge los `Ruling:` del ledger para el cierre.
 
@@ -792,7 +795,9 @@ Solo lo abierto; el detalle y el siguiente paso de cada uno viven en
   `--min` de `SessionStart`, §4.5).
 - **`red-gate.sh` es solo log.** La promoción a deny (marker por `agent_id`, la
   segunda llamada pasa) espera a ≥10 executors con falsos positivos ≤20 %
-  medidos en el reflex-log.
+  medidos en el reflex-log. Hasta 1.35.0 la medida no valía: el gate leía un
+  `red.log` del repo que solo crecía, y un RED viejo aprobaba a todos los
+  executors (#271). Cuentan los `red-gate`/`red-gate-ok` desde el engine 0.17.0.
 - **El doble bloqueo de `delegar-decision.sh` y `sdd-wake-guard.sh` en
   interactivo** solo está verificado de extremo a extremo en `claude -p`.
 - **Cobertura de reglas por repo.** Un repo sin nota, o con nota sin sección
