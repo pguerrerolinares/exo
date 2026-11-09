@@ -62,9 +62,19 @@ fi
 # La palabra sigue siendo el literal inglés "Task" aunque el plan esté en otro
 # idioma. Un plan sin ningún encabezado Task suele haberla traducido
 # ("## Tarea 1"): lista los encabezados con forma de tarea antes del error.
+#
+# Una valla sin cerrar esconde todos los encabezados Task posteriores. Si
+# esconde uno mientras se captura la tarea pedida, su final no se encuentra y
+# el brief correría hasta el EOF por todas las tareas siguientes: se niega
+# (exit 4) en vez de entregar varias tareas como requisitos. Si esconde el
+# encabezado pedido, lo dice antes del error de no encontrada. Una valla suelta
+# que no esconde ningún Task (los planes reales acaban con un ``` solo) deja el
+# brief completo: se emite con aviso. La ruta del plan va por ENVIRON, no -v,
+# que destrozaría las barras de una ruta Windows.
 rc=0
-awk -v n="$n" '
-  /^```/ { infence = !infence }
+TASK_BRIEF_PLAN="$plan" awk -v n="$n" '
+  /^```/ { infence = !infence; if (infence) { fence_line = NR; hidden = 0 } }
+  infence && /^#+[ \t]+Task[ \t]/ { hidden = 1 }
   !infence && /^#+[ \t]+Task[ \t]/ {
     id = $0
     sub(/^#+[ \t]+Task[ \t]+/, "", id)
@@ -83,7 +93,16 @@ awk -v n="$n" '
   !infence && /^#+[ \t]+[^ \t]+[ \t]+[A-Za-z0-9.]*[0-9]/ && shaped < 5 { shaped_heading[++shaped] = $0 }
   intask { print; found = 1 }
   END {
-    if (!tasks && shaped) {
+    where = "the code fence opened at line " fence_line " of " ENVIRON["TASK_BRIEF_PLAN"] " never closes"
+    if (infence && hidden && (intask || !found)) {
+      print "task-brief: " where ", so no Task heading after it can be seen; close that fence in the plan and rerun" | "cat >&2"
+      if (intask) exit 4
+    } else if (infence && intask) {
+      print "task-brief: warning: " where "; it hides no Task heading, so this brief is complete" | "cat >&2"
+    }
+    # Una valla abierta que escondió encabezados ya explica por qué no se vio
+    # ninguno; la pista de la palabra inglesa la contradiría.
+    if (!tasks && shaped && !(infence && hidden)) {
       print "task-brief: no task headings found. Task headings must use the English word \"Task\" (\"### Task 1: ...\"), even when the rest of the plan is in another language. Headings shaped like tasks:" | "cat >&2"
       for (i = 1; i <= shaped; i++) print "  " shaped_heading[i] | "cat >&2"
     }
