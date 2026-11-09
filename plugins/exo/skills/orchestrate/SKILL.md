@@ -14,7 +14,7 @@ con el ledger vivo, una línea. Una notificación que no cambia el estado
 el resto.
 
 Rule and continue destilado de `subagent-driven-development/SKILL.md`
-(superpowers 7.0.0, MIT © 2025 Jesse Vincent).
+(superpowers 7.0.2, MIT © 2025 Jesse Vincent).
 
 ## PARIDAD CRÍTICA — no negociable
 
@@ -54,7 +54,9 @@ adivinar.
 Una tarea por dispatch: encaje + brief (fuente de verdad) + interfaces
 previas + tu resolución de ambigüedad. Handoffs como FICHEROS
 (`implementer-prompt.md`, `scripts/{task-brief,review-package,
-sdd-workspace,task-dag}`), nunca pegados. Contexto de KB: lo inyecta el hook SubagentStart
+sdd-workspace,task-dag}`), nunca pegados. Los scripts se invocan por su
+ruta absoluta, desde el working tree en el que ejecutas (workspace y commits
+son de ese repo). Contexto de KB: lo inyecta el hook SubagentStart
 (`scripts/subagent-inject.sh`); en el brief, punteros solo como rutas de
 fichero; sin KB ⇒ aviso visible, nunca bloquear. Brief completeness:
 delta de tácitos + blindspot pass barato si no es trivial. Delegate by
