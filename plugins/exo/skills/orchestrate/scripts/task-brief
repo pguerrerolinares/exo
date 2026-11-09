@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Derived from superpowers 6.4.2 (MIT © 2025 Jesse Vincent)
+# Derived from superpowers 7.0.2 (MIT © 2025 Jesse Vincent)
 #
 # Extract one task's full text from an implementation plan into a file the
 # implementer reads in one call, so the task text never has to be pasted
@@ -50,13 +50,49 @@ else
   out="$dir/task-${n}-brief.md"
 fi
 
+# Un encabezado de tarea es `Task` + un ID: letras y dígitos, opcionalmente
+# separados por puntos, con al menos un dígito (3, 6b, A1, 2.1); el dígito evita
+# que "## Task Overview" o "#### Task notes" cuenten como frontera. El ID se
+# compara con TASK_NUMBER como cadena entera (Task 6 no casa Task 6b ni Task 1
+# casa Task 1.1) y TASK_NUMBER nunca llega a awk como regex. Un encabezado Task
+# más profundo cuyo ID extiende el pedido con letra o punto es una subtarea y
+# se queda en su brief (### Task 7 conserva #### Task 7a). La profundidad sola
+# no basta: los planes derivan de "## Task 1" a "### Task 2".
+#
+# La palabra sigue siendo el literal inglés "Task" aunque el plan esté en otro
+# idioma. Un plan sin ningún encabezado Task suele haberla traducido
+# ("## Tarea 1"): lista los encabezados con forma de tarea antes del error.
+rc=0
 awk -v n="$n" '
   /^```/ { infence = !infence }
-  !infence && /^#+[ \t]+Task[ \t]+[0-9]+/ {
-    intask = ($0 ~ ("^#+[ \t]+Task[ \t]+" n "([^0-9]|$)"))
+  !infence && /^#+[ \t]+Task[ \t]/ {
+    id = $0
+    sub(/^#+[ \t]+Task[ \t]+/, "", id)
+    if (match(id, /^[A-Za-z0-9]+(\.[A-Za-z0-9]+)*/) && substr(id, 1, RLENGTH) ~ /[0-9]/) {
+      tasks++
+      id = substr(id, 1, RLENGTH)
+      match($0, /^#+/)
+      subtask = intask && RLENGTH > level && substr(id, 1, length(n)) == n \
+        && substr(id, length(n) + 1, 1) ~ /[A-Za-z.]/
+      if (!subtask) {
+        intask = (id == n)
+        level = RLENGTH
+      }
+    }
   }
-  intask { print }
-' "$plan" > "$out"
+  !infence && /^#+[ \t]+[^ \t]+[ \t]+[A-Za-z0-9.]*[0-9]/ && shaped < 5 { shaped_heading[++shaped] = $0 }
+  intask { print; found = 1 }
+  END {
+    if (!tasks && shaped) {
+      print "task-brief: no task headings found. Task headings must use the English word \"Task\" (\"### Task 1: ...\"), even when the rest of the plan is in another language. Headings shaped like tasks:" | "cat >&2"
+      for (i = 1; i <= shaped; i++) print "  " shaped_heading[i] | "cat >&2"
+    }
+  }
+' "$plan" > "$out" || rc=$?
+if [ "$rc" -ne 0 ]; then
+  if [ -f "$out" ]; then rm -f "$out"; fi
+  exit "$rc"
+fi
 
 if [ ! -s "$out" ]; then
   echo "task ${n} not found in ${plan} (no heading matching 'Task ${n}')" >&2
