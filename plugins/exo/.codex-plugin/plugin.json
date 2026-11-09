@@ -1,6 +1,6 @@
 {
   "name": "exo",
-  "version": "1.35.0",
+  "version": "1.35.1",
   "description": "Framework de trabajo agéntico con memoria persistente: ocho skills de proceso, los agentes executor y consultor y la capa de reflejos con reglas duras.",
   "hooks": "./hooks/codex.json"
 }
