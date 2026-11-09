@@ -9,7 +9,7 @@ Explora intención, requisitos y diseño en diálogo colaborativo antes de
 implementar. Termina invocando `exo:plan` — nunca código.
 
 Entendimiento compartido y gate por etapa destilados de `brainstorming/SKILL.md`
-(superpowers 7.0.1, MIT © 2025 Jesse Vincent).
+(superpowers 7.0.2, MIT © 2025 Jesse Vincent).
 
 ## Entendimiento compartido
 
@@ -39,19 +39,24 @@ repreguntar. Cada tramo es breve; importa que sea exacta y corregible.
   contexto (spec, plan, handoff, ficheros, conversación previa), lee lo que
   citó y el código o material que toca, hasta poder explicar cómo funcionan
   hoy las partes relevantes y qué tocaría el cambio. Nunca preguntes lo que
-  el proyecto o su contexto ya responde.
+  el proyecto o su contexto ya responde, ni reabras lo que ya decidió.
 - Si ya dijo lo que quiere (spec, plan, petición detallada), el primer
   mensaje (~200 palabras) devuelve su petición con tus palabras (qué, para
   quién y por qué, hasta donde lo dijo) y añade lo que hallaste: cómo
   funciona hoy y qué tocaría el cambio; si algo que quizá no vio cambia lo
   pedido (restricción, conflicto, camino más barato), dilo claro. Cierra con
   una línea que invita a corregir y UNA pregunta: lo que su petición deja
-  abierto y más cambiaría lo construido. Una spec suele estar incompleta:
+  abierto y más cambiaría lo construido; si sus opciones se pueden nombrar,
+  esboza cada una con lo que sacrifica y cuál elegirías. Una spec suele estar incompleta:
   confírmala antes de construir sobre ella.
 - Antes de refinar detalles, evalúa el scope: si la petición describe varios
   subsistemas independientes, decompón en sub-proyectos, cada uno con su
   propio ciclo spec→plan→implementación. No gastes preguntas en detalles de
   un proyecto que necesita descomponerse primero.
+- Pregunta solo si la respuesta cambiaría lo construido y ni la petición ni el
+  proyecto la responden; si no, di tu decisión y su razón como propuesta que
+  pueda corregir, y avanza. Los pasos de proceso (escribir, dónde van los
+  ficheros, mirar más, cómo mostrar algo) son decisión tuya: hazlos y dilo.
 - Preguntas de una en una; si un tema pide más, pártelo en varias preguntas.
   Objetivo: purpose, constraints, success criteria. Prefiere multiple choice
   cuando sea posible. Cada pregunta, específica del proyecto y de lo que dijo,
@@ -59,13 +64,14 @@ repreguntar. Cada tramo es breve; importa que sea exacta y corregible.
   una consecuencia o un caso que quizá no vio; si la razón no es obvia, di qué
   esperas aprender o qué cambiaría la respuesta. Una propuesta corregible con
   su porqué suele valer más que una pregunta.
-- Con algo de base, ofrece ir a mirar más a fondo (su codebase o proyecto, sus
-  ficheros y datos, la web): di qué buscarías; decide él si vas.
+- Con algo de base, ve a mirar más a fondo (su codebase o proyecto, sus
+  ficheros y datos, la web): di qué buscaste y qué hallaste.
 - Cómo se hace: todo proyecto descansa en elecciones de medio, herramientas y
   recursos (plataforma, lenguaje y librerías de una app). Averigua pronto
-  cuáles quiere tomar el usuario, cuáles te delega y con qué cuenta ya. Quien
-  tiene criterio quiere hablarlo; quien cuenta contigo necesita defaults
-  sensatos, dichos en voz alta (un default que no oyó no pudo rechazarlo).
+  cuáles quiere tomar el usuario, cuáles te delega y con qué cuenta ya; léelo
+  en cómo habla. Quien pregunta por el cómo o por trade-offs quiere las
+  opciones con tu elección; quien habla de resultados te delega el cómo:
+  decídelo y di cada decisión en una línea (un default que no oyó no pudo rechazarlo).
   Con trabajo existente, construye sobre lo que ya usa. Toda elección tuya va
   en el diseño como decisión tuya, nunca como algo acordado.
 - Enfoques: cuando entiendas lo que quiere y antes de escribir nada, idea
@@ -85,6 +91,8 @@ repreguntar. Cada tramo es breve; importa que sea exacta y corregible.
   validación empieza por `[reserva: pedido]`: lo pide este skill, no el
   hilo). Cubre: arquitectura,
   componentes, data flow, error handling, testing.
+- Cuando ver ayude más que leer (pantalla, página, disposición), esboza en
+  texto unas líneas de lo que vería junto a la descripción.
 - Diseña para aislamiento: unidades con un propósito claro, interfaces bien
   definidas, comprensibles y testeables por separado.
 - En codebases existentes: sigue los patrones actuales; mejoras targeted solo
@@ -120,7 +128,8 @@ exploración de solo lectura del proyecto sigue permitida.
 
 - Escribe la spec validada a
   `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md` (la preferencia del
-  usuario sobre ubicación gana) y commitéala.
+  usuario sobre ubicación gana; sin ella, elige un sitio sensato y di dónde) y
+  commitéala.
 - Builder check en lugar de self-review: despacha un subagente fresco que lea
   la spec como un builder competente del dominio que no puede hablar con el
   usuario y devuelva solo las preguntas que aún necesitaría para planificar

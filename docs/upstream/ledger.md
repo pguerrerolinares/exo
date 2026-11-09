@@ -2,7 +2,7 @@
 
 Estado versionado del bot que porta a exo lo que cambia en obra/superpowers. Diseño: `docs/superpowers/specs/2026-09-29-upstream-sync-design.md`. Prompt del bot: `docs/upstream/sync-prompt.md`.
 
-upstream_tag: v7.0.1
+upstream_tag: v7.0.2
 
 verdad_sello: —
 
@@ -43,6 +43,7 @@ Rutas relativas a `skills/` de superpowers y a `plugins/exo/skills/` de exo. Las
 | subagent-driven-development/references/handling-reports.md | orchestrate/SKILL.md | propuesto por el bot (duda #2565, pendiente de confirmar): destilado |
 | subagent-driven-development/references/preflight.md | orchestrate/olas.md | propuesto por el bot (duda #2565, pendiente de confirmar): destilado; también orchestrate/SKILL.md |
 | subagent-driven-development/references/resuming.md | orchestrate/SKILL.md | propuesto por el bot (duda #2565, pendiente de confirmar): destilado |
+| subagent-driven-development/scripts/sdd-repo | orchestrate/scripts/sdd-repo | propuesto por el bot (duda #2606, pendiente de confirmar): fichero nuevo, no portado todavía |
 
 ## Excluidos
 
@@ -168,3 +169,13 @@ Decisiones del mantenedor (2026-09-30), distintas de las Divergencias: no son "n
 | #2571 | brainstorm | ya cubierto | — | respondida por el mantenedor: ya cubierto | — |
 | #2565 | orchestrate | ya cubierto | — | respondida por el mantenedor: ya cubierto | — |
 | #2563 | orchestrate | no aplica | — | sin equivalente: executing-plans/SKILL.md (D8): solo elimina el Example Workflow del modo inline | — |
+| #2602 | orchestrate | aplica | propuesto | — | 83f9749 |
+| #2604 | orchestrate | aplica | propuesto | — | 4418506 |
+| #2605 | orchestrate | aplica | propuesto | — | 6bcf812 |
+| #2607 | orchestrate | parcial | propuesto | — | 6c6fa70 |
+| #2644 | brainstorm | parcial | propuesto | — | ddbe0be |
+| #2644 | brainstorm | duda | pendiente | ¿Se permite el atajo de primer mensaje (diseño corto + aprobación única de enfoque y diseño cuando solo hay una vía sensata)? Choca con el gate de exo (enfoques en su propio mensaje y consultor SIEMPRE antes de escribir spec). Yo diría que no: el consultor sigue siendo obligatorio | — |
+| #2606 | orchestrate | duda | pendiente | mapeo: subagent-driven-development/scripts/sdd-repo (nuevo; -C DIR y repo del cwd en sdd-workspace/task-brief/review-package). ¿Mapear a orchestrate/scripts/sdd-repo y portar el -C? Yo diría que sí (sin bash delante por D7) | — |
+| #2606 | orchestrate | no aplica | — | sin equivalente: executing-plans/scripts/task-start y task-done (D8) | — |
+| #2608 | brainstorm | no aplica | — | sin equivalente: brainstorming/scripts/start-server.sh | — |
+| #2654 | debug | no aplica | — | sin equivalente: systematic-debugging/test-academic.md (solo se mueve a tests/) / el resto de ficheros movidos están en Excluidos | — |
